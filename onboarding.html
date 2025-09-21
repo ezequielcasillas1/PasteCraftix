@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to PasteCraft</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="styles/onboarding.css" rel="stylesheet">
+</head>
+<body>
+    <div class="onboarding-container">
+        <!-- Screen 1: Welcome -->
+        <div class="screen active" id="welcome-screen">
+            <div class="hero-section">
+                <div class="logo-large">
+                    <svg width="80" height="80" viewBox="0 0 80 80">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#3b82f6"/>
+                                <stop offset="100%" style="stop-color:#1d4ed8"/>
+                            </linearGradient>
+                        </defs>
+                        <rect width="80" height="80" rx="16" fill="url(#logoGrad)"/>
+                        <text x="40" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="32" font-weight="bold" fill="white">PC</text>
+                    </svg>
+                </div>
+                <h1 class="hero-title">Craft Your Perfect Paste.</h1>
+                <p class="hero-subtitle">Organize, format, and paste copied content effortlessly.</p>
+                
+                <div class="cta-buttons">
+                    <button class="btn-primary" onclick="nextScreen()">Get Started</button>
+                    <a href="#" class="btn-secondary">Learn more →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 2: Extension Setup -->
+        <div class="screen" id="setup-screen">
+            <div class="setup-section">
+                <h2>Quick Setup</h2>
+                <p class="setup-subtitle">Press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> to capture any selected text</p>
+                
+                <div class="animation-demo">
+                    <div class="demo-step">
+                        <div class="demo-icon">📝</div>
+                        <span>Select text</span>
+                    </div>
+                    <div class="demo-arrow">→</div>
+                    <div class="demo-step">
+                        <div class="demo-icon">⚡</div>
+                        <span>Press shortcut</span>
+                    </div>
+                    <div class="demo-arrow">→</div>
+                    <div class="demo-step">
+                        <div class="demo-icon">💎</div>
+                        <span>Get chips</span>
+                    </div>
+                    <div class="demo-arrow">→</div>
+                    <div class="demo-step">
+                        <div class="demo-icon">📋</div>
+                        <span>Perfect paste</span>
+                    </div>
+                </div>
+
+                <div class="context-menu-demo">
+                    <h3>Or right-click for instant access</h3>
+                    <div class="context-preview">
+                        <div class="context-item">Save to PasteCraft</div>
+                        <div class="context-separator"></div>
+                        <div class="context-item">PasteCraft Clips ▶</div>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" onclick="nextScreen()">Continue</button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Preferences -->
+        <div class="screen" id="preferences-screen">
+            <div class="preferences-section">
+                <h2>Your Preferences</h2>
+                <p class="preferences-subtitle">Customize your default formatting options</p>
+                
+                <div class="preference-group">
+                    <label class="preference-label">Default Delimiter</label>
+                    <div class="delimiter-options">
+                        <input type="radio" id="comma" name="delimiter" value="comma" checked>
+                        <label for="comma" class="delimiter-btn">Comma</label>
+                        
+                        <input type="radio" id="newline" name="delimiter" value="newline">
+                        <label for="newline" class="delimiter-btn">Newline</label>
+                        
+                        <input type="radio" id="space" name="delimiter" value="space">
+                        <label for="space" class="delimiter-btn">Space</label>
+                        
+                        <input type="radio" id="custom" name="delimiter" value="custom">
+                        <label for="custom" class="delimiter-btn">Custom</label>
+                    </div>
+                </div>
+
+                <div class="preference-group">
+                    <label class="preference-label">Default Options</label>
+                    <div class="toggle-options">
+                        <label class="toggle-option">
+                            <input type="checkbox" id="auto-dedupe">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Remove duplicates by default</span>
+                        </label>
+                        
+                        <label class="toggle-option">
+                            <input type="checkbox" id="auto-sort">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Sort alphabetically by default</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="preference-group">
+                    <label class="preference-label">History Size</label>
+                    <div class="slider-container">
+                        <input type="range" id="history-size" min="50" max="1000" value="500" class="history-slider">
+                        <div class="slider-labels">
+                            <span>50</span>
+                            <span id="current-size">500</span>
+                            <span>1000</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" onclick="finishSetup()">Finish Setup</button>
+            </div>
+        </div>
+
+        <!-- Screen 4: Success -->
+        <div class="screen" id="success-screen">
+            <div class="success-section">
+                <div class="success-icon">🎉</div>
+                <h2>You're All Set!</h2>
+                <p class="success-subtitle">PasteCraft is ready to supercharge your productivity</p>
+                
+                <div class="quick-tips">
+                    <div class="tip">
+                        <div class="tip-icon">⌨️</div>
+                        <div class="tip-content">
+                            <strong>Alt+Shift+C</strong>
+                            <span>Capture selected text</span>
+                        </div>
+                    </div>
+                    <div class="tip">
+                        <div class="tip-icon">🖱️</div>
+                        <div class="tip-content">
+                            <strong>Right-click menu</strong>
+                            <span>Save & paste anywhere</span>
+                        </div>
+                    </div>
+                    <div class="tip">
+                        <div class="tip-icon">✨</div>
+                        <div class="tip-content">
+                            <strong>Magic wand</strong>
+                            <span>Auto-format everything</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" onclick="closeOnboarding()">Start Crafting</button>
+            </div>
+        </div>
+
+        <!-- Progress indicator -->
+        <div class="progress-indicator">
+            <div class="progress-dot active" data-screen="0"></div>
+            <div class="progress-dot" data-screen="1"></div>
+            <div class="progress-dot" data-screen="2"></div>
+            <div class="progress-dot" data-screen="3"></div>
+        </div>
+    </div>
+
+    <script src="scripts/onboarding.js"></script>
+</body>
+</html>

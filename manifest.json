@@ -10,7 +10,8 @@
     "storage",
     "activeTab",
     "scripting",
-    "notifications"
+    "notifications",
+    "contextMenus"
   ],
   "host_permissions": [
     "*://localhost/*",
@@ -44,7 +45,7 @@
     "128": "icons/icon128.svg"
   },
   "web_accessible_resources": [{
-    "resources": ["icons/*"],
+    "resources": ["icons/*", "onboarding.html", "styles/*", "scripts/*"],
     "matches": ["<all_urls>"]
   }],
   "minimum_chrome_version": "88",

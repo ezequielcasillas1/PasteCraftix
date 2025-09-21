@@ -21,6 +21,149 @@ async function showNotification(title, message) {
     });
 }
 
+// Create context menu on extension install
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create({
+        id: 'pastecraft-save',
+        title: 'Save to PasteCraft',
+        contexts: ['selection']
+    });
+    
+    chrome.contextMenus.create({
+        id: 'pastecraft-paste-menu',
+        title: 'PasteCraft Clips',
+        contexts: ['editable']
+    });
+    
+    chrome.contextMenus.create({
+        id: 'pastecraft-separator',
+        type: 'separator',
+        contexts: ['editable']
+    });
+});
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId === 'pastecraft-save' && info.selectionText) {
+        await saveTextCapture(info.selectionText, tab);
+    } else if (info.menuItemId.startsWith('paste-')) {
+        const captureIndex = parseInt(info.menuItemId.replace('paste-', ''));
+        await pasteCapture(captureIndex, tab);
+    }
+});
+
+// Update context menu with recent captures
+async function updateContextMenu() {
+    const { captures = [] } = await chrome.storage.local.get(['captures']);
+    
+    // Remove old paste items
+    chrome.contextMenus.removeAll(() => {
+        // Recreate base menu
+        chrome.contextMenus.create({
+            id: 'pastecraft-save',
+            title: 'Save to PasteCraft',
+            contexts: ['selection']
+        });
+        
+        chrome.contextMenus.create({
+            id: 'pastecraft-paste-menu',
+            title: 'PasteCraft Clips',
+            contexts: ['editable']
+        });
+        
+        chrome.contextMenus.create({
+            id: 'pastecraft-separator',
+            type: 'separator',
+            contexts: ['editable']
+        });
+        
+        // Add recent captures (max 5)
+        captures.slice(0, 5).forEach((capture, index) => {
+            const preview = capture.text.substring(0, 30) + (capture.text.length > 30 ? '...' : '');
+            chrome.contextMenus.create({
+                id: `paste-${index}`,
+                title: preview,
+                contexts: ['editable'],
+                parentId: 'pastecraft-paste-menu'
+            });
+        });
+        
+        if (captures.length === 0) {
+            chrome.contextMenus.create({
+                id: 'no-clips',
+                title: 'No clips saved yet',
+                contexts: ['editable'],
+                enabled: false,
+                parentId: 'pastecraft-paste-menu'
+            });
+        }
+    });
+}
+
+async function saveTextCapture(text, tab) {
+    const timestamp = new Date().toISOString();
+    const capture = {
+        text: text.trim(),
+        timestamp,
+        url: tab.url,
+        title: tab.title
+    };
+
+    const { captures = [], preferences = {} } = await chrome.storage.local.get(['captures', 'preferences']);
+    captures.unshift(capture);
+    
+    const maxHistory = preferences.historySize || 500;
+    if (captures.length > maxHistory) {
+        captures.length = maxHistory;
+    }
+    
+        await chrome.storage.local.set({ captures });
+        await updateContextMenu();
+        
+        // Show onboarding on first capture if not completed
+        const { preferences = {} } = await chrome.storage.local.get(['preferences']);
+        if (!preferences.onboardingComplete && captures.length === 1) {
+            chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+        }
+    
+    await showNotification(
+        'Text Saved!', 
+        `Saved "${text.substring(0, 50)}..." to PasteCraft`
+    );
+}
+
+async function pasteCapture(index, tab) {
+    const { captures = [] } = await chrome.storage.local.get(['captures']);
+    const capture = captures[index];
+    
+    if (!capture) return;
+    
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            function: (text) => {
+                const activeElement = document.activeElement;
+                if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) {
+                    if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') {
+                        const start = activeElement.selectionStart;
+                        const end = activeElement.selectionEnd;
+                        activeElement.value = activeElement.value.substring(0, start) + text + activeElement.value.substring(end);
+                        activeElement.selectionStart = activeElement.selectionEnd = start + text.length;
+                    } else {
+                        document.execCommand('insertText', false, text);
+                    }
+                    activeElement.focus();
+                }
+            },
+            args: [capture.text]
+        });
+        
+        await showNotification('Pasted!', `Inserted "${capture.text.substring(0, 30)}..."`);
+    } catch (error) {
+        console.error('Paste failed:', error);
+    }
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === 'capture-selection') {
         try {
@@ -63,6 +206,14 @@ chrome.commands.onCommand.addListener(async (command) => {
             }
             
             await chrome.storage.local.set({ captures });
+            await updateContextMenu();
+            
+            // Show onboarding on first capture if not completed
+            const { preferences: prefs = {} } = await chrome.storage.local.get(['preferences']);
+            if (!prefs.onboardingComplete && captures.length === 1) {
+                chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
+                return; // Don't show notification during onboarding
+            }
             
             // Notify user
             await showNotification(
