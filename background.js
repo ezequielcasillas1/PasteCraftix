@@ -21,26 +21,57 @@ async function showNotification(title, message) {
     });
 }
 
+// Force create context menus on startup
+async function createContextMenus() {
+    console.log('🔧 PasteCraft: Force creating context menus');
+    
+    // Clear existing menus first
+    chrome.contextMenus.removeAll(() => {
+        console.log('🧹 Cleared existing context menus');
+        
+        // Create save menu
+        chrome.contextMenus.create({
+            id: 'pastecraft-save',
+            title: '💎 Save to PasteCraft',
+            contexts: ['selection']
+        }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('❌ Save menu failed:', chrome.runtime.lastError);
+            } else {
+                console.log('✅ Save menu created');
+            }
+        });
+        
+        // Create paste menu
+        chrome.contextMenus.create({
+            id: 'pastecraft-paste-menu',
+            title: '📋 PasteCraft Clips',
+            contexts: ['editable']
+        }, () => {
+            if (chrome.runtime.lastError) {
+                console.error('❌ Paste menu failed:', chrome.runtime.lastError);
+            } else {
+                console.log('✅ Paste menu created');
+            }
+        });
+    });
+}
+
 // Create context menu on extension install
 chrome.runtime.onInstalled.addListener(() => {
-    chrome.contextMenus.create({
-        id: 'pastecraft-save',
-        title: 'Save to PasteCraft',
-        contexts: ['selection']
-    });
-    
-    chrome.contextMenus.create({
-        id: 'pastecraft-paste-menu',
-        title: 'PasteCraft Clips',
-        contexts: ['editable']
-    });
-    
-    chrome.contextMenus.create({
-        id: 'pastecraft-separator',
-        type: 'separator',
-        contexts: ['editable']
-    });
+    console.log('🚀 PasteCraft: onInstalled triggered');
+    createContextMenus();
 });
+
+// Also create on startup
+chrome.runtime.onStartup.addListener(() => {
+    console.log('🚀 PasteCraft: onStartup triggered');
+    createContextMenus();
+});
+
+// Force create immediately when script loads
+console.log('🚀 PasteCraft: Background script loaded');
+createContextMenus();
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
