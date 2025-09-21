@@ -1,0 +1,10 @@
+{
+"SpaProxyServer": {
+"ServerUrl": "https://localhost:51150",
+"RedirectUrl": "",
+"LaunchCommand": "npm run dev",
+"WorkingDirectory": "C:\\Users\\ezequiel-casillas\\OneDrive\\Documents\\PasteCraft\\PasteCraft.Server\\..\\pastecraft.client",
+"MaxTimeoutInSeconds": "120",
+"KeepRunning": "false"
+}
+}

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft</title>
+    <link href="styles/popup.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-container">
+                <img src="icons/icon32.png" alt="PasteCraft" class="logo">
+                <span class="last-capture">No recent captures</span>
+            </div>
+            <button class="settings-btn" title="Settings" aria-label="Settings">??</button>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Chip Area -->
+            <div id="chipArea" class="chip-area">
+                <div class="empty-state">
+                    <p>No captures yet. Select text and press Alt+Shift+C</p>
+                </div>
+            </div>
+
+            <!-- Format Controls -->
+            <div class="format-controls">
+                <div class="delimiter-controls">
+                    <button class="format-btn active">Comma</button>
+                    <button class="format-btn">Newline</button>
+                    <button class="format-btn">Space</button>
+                    <button class="format-btn">Custom</button>
+                </div>
+                
+                <div class="transform-controls">
+                    <label class="toggle">
+                        <input type="checkbox" id="deduplicate">
+                        <span>?? Deduplicate</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="sort">
+                        <span>?? Sort A?Z</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="case">
+                        <span>Aa Case</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Preview Area -->
+            <div class="preview-container">
+                <textarea id="preview" readonly placeholder="Formatted output will appear here..."></textarea>
+                <button id="copyButton" class="copy-btn">Copy Crafted Output</button>
+            </div>
+        </main>
+
+        <!-- Magic Wand Button -->
+        <button class="magic-wand-btn" title="Auto-format (dedupe, sort, trim)" aria-label="Auto-format">
+            ?
+        </button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="scripts/popup.js"></script>
+</body>
+</html>

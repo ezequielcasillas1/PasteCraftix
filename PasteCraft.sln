@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36212.18 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "pastecraft.client", "pastecraft.client\pastecraft.client.esproj", "{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PasteCraft.Server", "PasteCraft.Server\PasteCraft.Server.csproj", "{9D9010B3-1C3A-48AE-9765-EC58E297931A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A49C2B7-9129-FE4E-64D6-4C7D3ED7EBF5}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{9D9010B3-1C3A-48AE-9765-EC58E297931A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9D9010B3-1C3A-48AE-9765-EC58E297931A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9D9010B3-1C3A-48AE-9765-EC58E297931A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9D9010B3-1C3A-48AE-9765-EC58E297931A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5C17F5B0-03A3-41E8-89D1-F64EC638B0EF}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,174 @@
+:root {
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --background: #ffffff;
+    --text: #1f2937;
+    --border: #e5e7eb;
+    --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #1f2937;
+        --text: #f3f4f6;
+        --border: #374151;
+    }
+}
+
+body {
+    width: 400px;
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--background);
+    color: var(--text);
+}
+
+.container {
+    padding: 16px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.logo {
+    width: 24px;
+    height: 24px;
+}
+
+.last-capture {
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0.8;
+}
+
+.settings-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 8px;
+    border-radius: var(--radius);
+}
+
+.chip-area {
+    min-height: 100px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.format-controls {
+    margin-bottom: 16px;
+}
+
+.delimiter-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.format-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.format-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.transform-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.preview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#preview {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    color: var(--text);
+    resize: vertical;
+}
+
+.copy-btn {
+    padding: 12px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+    background: var(--primary-hover);
+}
+
+.empty-state,
+.error-state {
+    text-align: center;
+    padding: 24px;
+    color: var(--text);
+    opacity: 0.7;
+}
+
+.error-state {
+    color: #ef4444;
+}
+
+.copy-btn.success {
+    background: #22c55e;
+    animation: popIn 0.3s ease-out;
+}
+
+.copy-btn.error {
+    background: #ef4444;
+    animation: shake 0.5s ease-in-out;
+}
+
+/* Animations */
+@keyframes popIn {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
