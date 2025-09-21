@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PasteCraft Icon Generator</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; padding: 20px; background: #f8fafc; }
+        .icon-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .icon { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
+               border-radius: 8px; display: flex; align-items: center; justify-content: center;
+               color: white; font-weight: bold; position: relative; }
+        .icon16 { width: 16px; height: 16px; font-size: 8px; }
+        .icon32 { width: 32px; height: 32px; font-size: 16px; }
+        .icon48 { width: 48px; height: 48px; font-size: 24px; }
+        .icon128 { width: 128px; height: 128px; font-size: 64px; }
+        canvas { border: 1px solid #ddd; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>PasteCraft Icon Generator</h1>
+    <div class="icon-container">
+        <canvas id="icon16" width="16" height="16"></canvas>
+        <canvas id="icon32" width="32" height="32"></canvas>
+        <canvas id="icon48" width="48" height="48"></canvas>
+        <canvas id="icon128" width="128" height="128"></canvas>
+    </div>
+    <button onclick="downloadIcons()">Download Icons</button>
+    
+    <script>
+        function createIcon(size) {
+            const canvas = document.getElementById(`icon${size}`);
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#3b82f6');
+            gradient.addColorStop(1, '#1d4ed8');
+            
+            // Fill background
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add "PC" text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.4}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PC', size/2, size/2);
+        }
+        
+        // Generate all icons
+        [16, 32, 48, 128].forEach(createIcon);
+        
+        function downloadIcons() {
+            [16, 32, 48, 128].forEach(size => {
+                const canvas = document.getElementById(`icon${size}`);
+                const link = document.createElement('a');
+                link.download = `icon${size}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+    </script>
+</body>
+</html>
