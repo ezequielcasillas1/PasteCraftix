@@ -735,24 +735,32 @@ class QuickPasteInterface {
     toast.style.cssText = `
       position: fixed;
       top: 20px;
-      right: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
       color: white;
-      padding: 12px 20px;
+      padding: 12px 24px;
       border-radius: 8px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       font-weight: 500;
-      z-index: 1000000;
+      z-index: 1000003;
       animation: pastecraft-toast-in 0.3s ease;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      max-width: 90vw;
     `;
     
     toast.textContent = message;
     document.body.appendChild(toast);
     
     setTimeout(() => {
-      toast.remove();
+      toast.style.animation = 'pastecraft-toast-out 0.3s ease forwards';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
     }, 2000);
   }
   
@@ -1019,8 +1027,13 @@ if (document.readyState === 'loading') {
 const toastStyles = document.createElement('style');
 toastStyles.textContent = `
   @keyframes pastecraft-toast-in {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+  }
+  
+  @keyframes pastecraft-toast-out {
+    from { transform: translateX(-50%) translateY(0); opacity: 1; }
+    to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
   }
 `;
 document.head.appendChild(toastStyles);
