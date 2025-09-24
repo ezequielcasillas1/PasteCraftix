@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft</title>
+    <style>
+        /* Inline Critical CSS to fix blue box issue */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            width: 380px;
+            background: white;
+            color: #1f2937;
+        }
+        
+        .popup-container {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        
+        .header-info h1 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .last-capture {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .settings-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        
+        .chip-area {
+            padding: 20px;
+            min-height: 120px;
+            background: #f8fafc;
+        }
+        
+        .chip-container {
+            max-height: 320px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        /* Custom scrollbar for chip container */
+        .chip-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chip-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .chip-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+            transition: background 0.2s ease;
+        }
+        
+        .chip-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 12px;
+            margin: 10px;
+            border: 2px dashed #cbd5e1;
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.8;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+        
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #1f2937;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .demo-hint {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .demo-step {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            margin: 6px;
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .chip:hover::before {
+            left: 100%;
+        }
+        
+        .chip:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        .chip.selected {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-color: #1d4ed8;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .chip-text {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        
+        .chip-remove {
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        
+        .chip-remove:hover {
+            background: rgba(239, 68, 68, 0.8);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .chip.selected .chip-remove {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .chip.selected .chip-remove:hover {
+            background: rgba(239, 68, 68, 0.9);
+        }
+        
+        .format-controls {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1f2937;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .segmented-control {
+            display: flex;
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 4px;
+            gap: 2px;
+        }
+        
+        .segment-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .segment-btn.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .preview-area {
+            padding: 20px;
+            background: white;
+        }
+        
+        .preview-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f8fafc;
+            resize: vertical;
+            outline: none;
+        }
+        
+        .copy-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        
+        .copy-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .copy-btn.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .magic-wand {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        .magic-wand:hover {
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+        }
+        
+        .magic-wand:active {
+            transform: scale(1.05) rotate(360deg);
+        }
+        
+        .wand-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+            animation: float 2s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-3px); }
+        }
+        
+        .wand-text {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Toggle Switches Enhanced */
+        .toggles {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1f2937;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle:hover {
+            background: #f1f5f9;
+        }
+        
+        .toggle-switch {
+            width: 44px;
+            height: 24px;
+            background: #d1d5db;
+            border-radius: 12px;
+            position: relative;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .toggle input {
+            display: none;
+        }
+        
+        .toggle input:checked + .toggle-switch {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+        
+        .toggle input:checked + .toggle-switch::after {
+            transform: translateX(20px);
+        }
+        
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+            gap: 4px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .tab-btn:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Search Tab Styles */
+        .search-header {
+            margin-bottom: 20px;
+        }
+        
+        .search-bar {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        
+        .search-bar input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.2s ease;
+        }
+        
+        .search-bar input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .clear-search {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .clear-search:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .category-filter,
+        .date-filter {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .category-filter:focus,
+        .date-filter:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .empty-search {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-search-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .empty-search h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #374151;
+        }
+        
+        .empty-search p {
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        /* Categories Tab Styles */
+        .categories-header {
+            margin-bottom: 20px;
+        }
+        
+        .create-category-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .create-category-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .plus-icon {
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .categories-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .empty-categories {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        
+        .empty-categories-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .empty-categories h3 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #374151;
+        }
+        
+        .empty-categories p {
+            margin: 0;
+            font-size: 14px;
+        }
+        
+        .category-item {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            cursor: pointer;
+        }
+        
+        .category-header:hover {
+            background: #f8fafc;
+        }
+        
+        .category-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .category-item.expanded {
+            border-color: #3b82f6;
+        }
+        
+        .category-dropdown {
+            display: none;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .category-dropdown.expanded {
+            display: block;
+        }
+        
+        .category-clip {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .category-clip:last-child {
+            border-bottom: none;
+        }
+        
+        .category-clip:hover {
+            background: #e2e8f0;
+        }
+        
+        .category-clip.selected {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .category-clip-text {
+            flex: 1;
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.4;
+            margin-right: 8px;
+        }
+        
+        .category-clip.selected .category-clip-text {
+            color: white;
+        }
+        
+        .category-clip-time {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        
+        .category-clip.selected .category-clip-time {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .category-expand-icon {
+            margin-left: 8px;
+            transition: transform 0.2s ease;
+            color: #6b7280;
+        }
+        
+        .category-item.expanded .category-expand-icon {
+            transform: rotate(90deg);
+        }
+        
+        .category-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .category-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .category-details h4 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .category-details p {
+            margin: 0;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .category-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .category-btn {
+            padding: 6px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .edit-category {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .edit-category:hover {
+            background: #e5e7eb;
+        }
+        
+        .delete-category {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .delete-category:hover {
+            background: #fecaca;
+        }
+        
+        .search-result-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-result-item:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .search-result-content {
+            flex: 1;
+        }
+        
+        .search-result-text {
+            font-size: 14px;
+            color: #1f2937;
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+        
+        .search-result-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .search-result-category {
+            background: #f3f4f6;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+        }
+        
+        /* Category Selection Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px 16px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .modal-close {
+            background: #f3f4f6;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            color: #6b7280;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .modal-body {
+            padding: 20px 24px 24px;
+        }
+        
+        .modal-text {
+            margin: 0 0 20px 0;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .category-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        
+        .category-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .category-option:hover {
+            background: #f1f5f9;
+            border-color: #3b82f6;
+            transform: translateX(4px);
+        }
+        
+        .category-option.selected {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-color: #1d4ed8;
+        }
+        
+        .category-option-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .category-option.selected .category-option-icon {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .category-option.category-full {
+            opacity: 0.6;
+            background: #fef2f2;
+            border-color: #fca5a5;
+            cursor: not-allowed;
+        }
+        
+        .category-option.category-full:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            transform: none;
+        }
+        
+        .full-indicator {
+            font-size: 10px;
+            background: #ef4444;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: auto;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .btn-secondary,
+        .btn-primary {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        /* Chip Category Assignment */
+        .chip-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .chip-category-btn {
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            color: inherit;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .chip-category-btn:hover {
+            background: rgba(59, 130, 246, 0.8);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        /* Search Result Actions */
+        .search-result-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .btn-copy {
+            background: #f3f4f6;
+            border: none;
+            color: #6b7280;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-copy:hover {
+            background: #10b981;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        /* Settings Modal Styles */
+        .settings-section {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .settings-section:last-of-type {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .settings-section h4 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .settings-description {
+            margin: 0 0 16px 0;
+            font-size: 14px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        
+        .settings-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .settings-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .settings-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.4;
+        }
+        
+        .note-icon {
+            color: #3b82f6;
+            font-size: 14px;
+            margin-top: 1px;
+        }
+        
+        .storage-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .storage-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+        
+        .storage-label {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .storage-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-section">
+                <div class="logo">PC</div>
+                <div class="header-info">
+                    <h1>PasteCraft</h1>
+                    <div class="last-capture" id="lastCapture">No recent captures</div>
+                </div>
+            </div>
+            <button class="settings-btn" id="settingsBtn" title="Settings">
+                ⚙️
+            </button>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="clips">📋 Clips</button>
+            <button class="tab-btn" data-tab="search">🔍 Search</button>
+            <button class="tab-btn" data-tab="categories">📁 Categories</button>
+        </nav>
+
+        <!-- Clips Tab -->
+        <section class="tab-content active" id="clipsTab">
+            <div class="chip-area">
+                <div class="chip-container" id="chipContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <h3>No clips yet</h3>
+                        <p>Right-click selected text to save it here</p>
+                        <div class="demo-hint">
+                            <span class="demo-step">1️⃣ Select text</span>
+                            <span class="demo-step">2️⃣ Right-click</span>
+                            <span class="demo-step">3️⃣ Save to PasteCraft</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Search Tab -->
+        <section class="tab-content" id="searchTab">
+            <div class="search-header">
+                <div class="search-bar">
+                    <input type="text" id="searchInput" placeholder="🔍 Search your clips..." />
+                    <button class="clear-search" id="clearSearch">✕</button>
+                </div>
+                <div class="filter-controls">
+                    <select id="categoryFilter" class="category-filter">
+                        <option value="">All Categories</option>
+                    </select>
+                    <select id="dateFilter" class="date-filter">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+                </div>
+            </div>
+            <div class="search-results" id="searchResults">
+                <div class="empty-search">
+                    <div class="empty-search-icon">🔍</div>
+                    <h3>Start searching</h3>
+                    <p>Type in the search bar to find your clips</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Categories Tab -->
+        <section class="tab-content" id="categoriesTab">
+            <div class="categories-header">
+                <button class="create-category-btn" id="createCategoryBtn">
+                    <span class="plus-icon">+</span>
+                    Create Category
+                </button>
+            </div>
+            <div class="categories-list" id="categoriesList">
+                <div class="empty-categories">
+                    <div class="empty-categories-icon">📁</div>
+                    <h3>No categories yet</h3>
+                    <p>Create your first category to organize clips</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Modal -->
+        <div class="modal-overlay" id="settingsModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⚙️ Settings</h3>
+                    <button class="modal-close" id="closeSettingsModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h4>🗑️ Auto-Delete Uncategorized Clips</h4>
+                        <p class="settings-description">Automatically remove clips that haven't been assigned to a category after:</p>
+                        <select id="autoDeletePeriod" class="settings-select">
+                            <option value="never">Never delete</option>
+                            <option value="1day">1 Day</option>
+                            <option value="1week">1 Week</option>
+                            <option value="1month">1 Month</option>
+                            <option value="3months">3 Months</option>
+                            <option value="6months">6 Months</option>
+                            <option value="1year">1 Year</option>
+                        </select>
+                        <div class="settings-note">
+                            <span class="note-icon">ℹ️</span>
+                            <span>Only affects clips in "Uncategorized". Categorized clips are never auto-deleted.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>📊 Storage Information</h4>
+                        <div class="storage-info">
+                            <div class="storage-item">
+                                <span class="storage-label">Total Clips:</span>
+                                <span class="storage-value" id="totalClipsCount">0</span>
+                            </div>
+                            <div class="storage-item">
+                                <span class="storage-label">Categorized:</span>
+                                <span class="storage-value" id="categorizedClipsCount">0</span>
+                            </div>
+                            <div class="storage-item">
+                                <span class="storage-label">Uncategorized:</span>
+                                <span class="storage-value" id="uncategorizedClipsCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="cancelSettings">Cancel</button>
+                        <button class="btn-primary" id="saveSettings">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Selection Modal -->
+        <div class="modal-overlay" id="categoryModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📁 Choose Category</h3>
+                    <button class="modal-close" id="closeCategoryModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-text">Where would you like to save this clip?</p>
+                    <div class="category-options" id="categoryOptions">
+                        <div class="category-option" data-category="Uncategorized">
+                            <div class="category-option-icon">📄</div>
+                            <span>Uncategorized</span>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="cancelCategorization">Cancel</button>
+                        <button class="btn-primary" id="createNewCategory">+ New Category</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Format Controls (only show for clips and search tabs) -->
+        <section class="format-controls" id="formatSection">
+            <div class="control-group">
+                <label class="control-label">Delimiter</label>
+                <div class="segmented-control" id="delimiterControl">
+                    <button class="segment-btn active" data-delimiter="comma">Comma</button>
+                    <button class="segment-btn" data-delimiter="newline">Newline</button>
+                    <button class="segment-btn" data-delimiter="space">Space</button>
+                    <button class="segment-btn" data-delimiter="custom">Custom</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label">Options</label>
+                <div class="toggles">
+                    <label class="toggle">
+                        <input type="checkbox" id="deduplicateToggle">
+                        <div class="toggle-switch"></div>
+                        <span>🔄 Deduplicate</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="sortToggle">
+                        <div class="toggle-switch"></div>
+                        <span>⬆️ Sort A→Z</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" id="uppercaseToggle">
+                        <div class="toggle-switch"></div>
+                        <span>Aa UPPERCASE</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preview Area (only show for clips and search tabs) -->
+        <section class="preview-area" id="previewSection">
+            <textarea class="preview-textarea" id="previewArea" placeholder="Select clips above to see formatted output..." readonly></textarea>
+            <button class="copy-btn" id="copyBtn">Copy Crafted Output</button>
+        </section>
+
+        <!-- Magic Wand (only show for clips and search tabs) -->
+        <button class="magic-wand" id="magicWand" title="✨ Magic Format: Select all clips + dedupe + sort + format">
+            <span class="wand-icon">🪄</span>
+            <span class="wand-text">Magic</span>
+        </button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

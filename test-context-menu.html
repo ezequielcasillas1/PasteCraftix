@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PasteCraft Context Menu Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 40px; 
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .selectable-text {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            user-select: text;
+        }
+        .editable-field {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 PasteCraft Context Menu Test Page</h1>
+    
+    <div class="instructions">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li><strong>Save Test:</strong> Select text below → Right-click → Look for "💾 Save to PasteCraft"</li>
+            <li><strong>Paste Test:</strong> Right-click in input field → Look for "📋 PasteCraft Clips"</li>
+            <li><strong>Check Console:</strong> Open F12 → Console → Look for diagnostic messages</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Text Selection Test</h3>
+        <div class="selectable-text">
+            This is sample text for testing the Save to PasteCraft context menu. Select any part of this text and right-click to test the context menu functionality.
+        </div>
+        <div class="selectable-text">
+            Another piece of test content: "Hello World from PasteCraft Testing"
+        </div>
+        <div class="selectable-text">
+            Short text for testing purposes.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 Paste Test Fields</h3>
+        <input type="text" class="editable-field" placeholder="Right-click here to test paste menu...">
+        <textarea class="editable-field" rows="4" placeholder="Right-click in this textarea to test paste functionality..."></textarea>
+        <div contenteditable="true" class="editable-field" style="min-height: 60px;">Right-click in this contenteditable div to test paste...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Expected Behavior</h3>
+        <ul>
+            <li><strong>On Text Selection + Right-click:</strong> Should see "💾 Save to PasteCraft"</li>
+            <li><strong>On Input Field + Right-click:</strong> Should see "📋 PasteCraft Clips" with submenu</li>
+            <li><strong>Console Messages:</strong> Should see diagnostic logs with ✅ success indicators</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('🧪 Test page loaded - Ready for context menu testing');
+        
+        // Monitor for context menu events
+        document.addEventListener('contextmenu', (e) => {
+            console.log('🖱️ Right-click detected on:', e.target.tagName, e.target.className);
+            
+            const selection = window.getSelection().toString();
+            if (selection) {
+                console.log('📝 Text selected:', selection.substring(0, 50) + '...');
+            }
+            
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                console.log('📋 Right-click on editable element - should show paste menu');
+            }
+        });
+    </script>
+</body>
+</html>
+
