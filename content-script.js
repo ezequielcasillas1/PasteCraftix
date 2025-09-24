@@ -67,7 +67,7 @@ class QuickPasteInterface {
           ${this.renderClips()}
         </div>
         <div class="pastecraft-footer">
-          <button class="pastecraft-btn pastecraft-refresh" title="Refresh clips">🔄</button>
+          <button class="pastecraft-btn pastecraft-refresh" title="Clear all clips">🗑️</button>
           <span class="pastecraft-count">${this.clips.length} clips</span>
         </div>
       </div>
@@ -395,6 +395,34 @@ class QuickPasteInterface {
         background: #2563eb;
       }
       
+      .pastecraft-btn-danger {
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .pastecraft-btn-danger:hover {
+        background: #dc2626;
+      }
+      
+      /* Confirmation modal uses same styles as settings modal */
+      .pastecraft-confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000002;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
       /* Dark theme support */
       .pastecraft-interface.dark {
         background: #1f2937;
@@ -469,14 +497,10 @@ class QuickPasteInterface {
       this.hideInterface();
     });
     
-    // Refresh button
+    // Refresh button (now clear all clips)
     this.container.querySelector('.pastecraft-refresh').addEventListener('click', async () => {
-      console.log('🔄 Refresh button clicked - loading clips...');
-      const oldCount = this.clips.length;
-      await this.loadClips();
-      console.log(`📊 Clips before: ${oldCount}, after: ${this.clips.length}`);
-      this.updateInterface();
-      console.log('✅ Interface updated after refresh');
+      console.log('🗑️ Clear all clips button clicked');
+      this.showClearAllConfirmation();
     });
     
     // Settings button
@@ -598,6 +622,11 @@ class QuickPasteInterface {
         this.applySettings();
         this.updateInterface();
         console.log('⚙️ Settings updated from popup:', this.settings);
+      } else if (message.action === 'clipsCleared') {
+        // Another tab cleared all clips - refresh our interface
+        console.log('🗑️ Received clipsCleared message - refreshing interface');
+        await this.loadClips();
+        this.updateInterface();
       }
       
       sendResponse(true);
@@ -895,6 +924,85 @@ class QuickPasteInterface {
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
     this.container.style.zIndex = '1000000';
+  }
+  
+  showClearAllConfirmation() {
+    // Create confirmation modal
+    const confirmModal = document.createElement('div');
+    confirmModal.className = 'pastecraft-confirm-modal';
+    confirmModal.innerHTML = `
+      <div class="pastecraft-modal-backdrop"></div>
+      <div class="pastecraft-modal-content">
+        <div class="pastecraft-modal-header">
+          <h3>🗑️ Clear All Clips</h3>
+        </div>
+        <div class="pastecraft-modal-body">
+          <p>Are you sure you want to delete all ${this.clips.length} clips?</p>
+          <p><strong>This action cannot be undone.</strong></p>
+        </div>
+        <div class="pastecraft-modal-actions">
+          <button class="pastecraft-btn-secondary" id="cancelClearAll">Cancel</button>
+          <button class="pastecraft-btn-danger" id="confirmClearAll">Delete All Clips</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(confirmModal);
+    
+    // Setup event listeners
+    confirmModal.querySelector('#cancelClearAll').addEventListener('click', () => {
+      confirmModal.remove();
+    });
+    
+    confirmModal.querySelector('#confirmClearAll').addEventListener('click', async () => {
+      await this.clearAllClips();
+      confirmModal.remove();
+    });
+    
+    // Close on backdrop click
+    confirmModal.querySelector('.pastecraft-modal-backdrop').addEventListener('click', () => {
+      confirmModal.remove();
+    });
+  }
+  
+  async clearAllClips() {
+    try {
+      console.log('🗑️ Clearing all clips...');
+      
+      // Clear from storage
+      await chrome.storage.local.set({ 
+        clips: [],
+        searchOnlyClips: [] // Also clear archived clips
+      });
+      
+      // Update local state
+      this.clips = [];
+      
+      // Update interface
+      this.updateInterface();
+      
+      // Show success message
+      this.showToast('All clips deleted!', 'success');
+      
+      console.log('✅ All clips cleared successfully');
+      
+      // Notify other tabs about the clear
+      try {
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'clipsCleared'
+            }).catch(() => {}); // Ignore errors for tabs without content script
+          });
+        });
+      } catch (error) {
+        console.log('Could not notify other tabs about clear:', error);
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to clear clips:', error);
+      this.showToast('Failed to clear clips', 'error');
+    }
   }
 }
 
