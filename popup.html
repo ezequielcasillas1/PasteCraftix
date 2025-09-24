@@ -1165,6 +1165,63 @@
             font-weight: 600;
             color: #1f2937;
         }
+        
+        /* Quick Settings Styles */
+        .quick-settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .quick-setting {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .quick-setting label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .settings-select-small {
+            padding: 6px 8px;
+            font-size: 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        .settings-number {
+            padding: 6px 8px;
+            font-size: 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            width: 100%;
+        }
+        
+        .quick-settings-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #374151;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -1276,6 +1333,43 @@
                         <div class="settings-note">
                             <span class="note-icon">ℹ️</span>
                             <span>Only affects clips in "Uncategorized". Categorized clips are never auto-deleted.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>⚡ Quick Paste Interface</h4>
+                        <p class="settings-description">Configure the on-page quick paste interface:</p>
+                        <div class="quick-settings-grid">
+                            <div class="quick-setting">
+                                <label>Theme:</label>
+                                <select id="quickPasteThemePopup" class="settings-select-small">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                </select>
+                            </div>
+                            <div class="quick-setting">
+                                <label>Position:</label>
+                                <select id="quickPastePositionPopup" class="settings-select-small">
+                                    <option value="top-right">Top Right</option>
+                                    <option value="top-left">Top Left</option>
+                                    <option value="bottom-right">Bottom Right</option>
+                                    <option value="bottom-left">Bottom Left</option>
+                                    <option value="center">Center</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="quick-settings-checkboxes">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="quickPasteAutoHidePopup">
+                                Auto-hide after paste
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="quickPasteShowTimestampsPopup">
+                                Show timestamps
+                            </label>
+                        </div>
+                        <div class="quick-setting">
+                            <label>Max clips to display:</label>
+                            <input type="number" id="quickPasteMaxClipsPopup" class="settings-number" min="5" max="50">
                         </div>
                     </div>
                     <div class="settings-section">

@@ -4,13 +4,22 @@ class QuickPasteInterface {
     this.isVisible = false;
     this.clips = [];
     this.container = null;
+    this.settingsModal = null;
     this.position = { x: 20, y: 20 }; // Default position
+    this.settings = {
+      theme: 'light',
+      position: 'top-right',
+      autoHide: true,
+      showTimestamps: true,
+      maxClipsDisplay: 20
+    };
     
     this.init();
   }
   
   async init() {
     await this.loadClips();
+    await this.loadSettings();
     this.createInterface();
     this.setupEventListeners();
     this.setupMessageListener();
@@ -64,6 +73,7 @@ class QuickPasteInterface {
     // Initially hidden
     this.container.style.display = 'none';
     document.body.appendChild(this.container);
+    this.applySettings();
   }
   
   renderClips() {
@@ -77,11 +87,11 @@ class QuickPasteInterface {
       `;
     }
     
-    return this.clips.slice(0, 20).map((clip, index) => {
+    return this.clips.slice(0, this.settings.maxClipsDisplay).map((clip, index) => {
       const text = clip.text || clip;
       const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
       const category = clip.category || 'Uncategorized';
-      const timeAgo = this.getTimeAgo(clip.timestamp);
+      const timeAgo = this.settings.showTimestamps ? this.getTimeAgo(clip.timestamp) : '';
       
       return `
         <div class="pastecraft-clip" data-index="${index}" title="${text}">
@@ -89,7 +99,7 @@ class QuickPasteInterface {
             <div class="pastecraft-clip-text">${this.escapeHtml(displayText)}</div>
             <div class="pastecraft-clip-meta">
               <span class="pastecraft-category">${category}</span>
-              <span class="pastecraft-time">${timeAgo}</span>
+              ${timeAgo ? `<span class="pastecraft-time">${timeAgo}</span>` : ''}
             </div>
           </div>
           <div class="pastecraft-clip-actions">
@@ -246,6 +256,168 @@ class QuickPasteInterface {
         margin-bottom: 8px;
       }
       
+      /* Settings Modal Styles */
+      .pastecraft-settings-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .pastecraft-modal-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+      }
+      
+      .pastecraft-modal-content {
+        position: relative;
+        background: white;
+        border-radius: 12px;
+        width: 400px;
+        max-width: 90vw;
+        max-height: 80vh;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .pastecraft-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      
+      .pastecraft-modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+      
+      .pastecraft-modal-close {
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 4px;
+        border-radius: 4px;
+      }
+      
+      .pastecraft-modal-close:hover {
+        background: #f3f4f6;
+        color: #374151;
+      }
+      
+      .pastecraft-modal-body {
+        padding: 24px;
+        max-height: 60vh;
+        overflow-y: auto;
+      }
+      
+      .pastecraft-setting {
+        margin-bottom: 20px;
+      }
+      
+      .pastecraft-setting label {
+        display: block;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 8px;
+      }
+      
+      .pastecraft-setting select,
+      .pastecraft-setting input[type="number"] {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        background: white;
+      }
+      
+      .pastecraft-setting input[type="checkbox"] {
+        margin-right: 8px;
+      }
+      
+      .pastecraft-modal-actions {
+        display: flex;
+        gap: 12px;
+        padding: 20px 24px;
+        border-top: 1px solid #e5e7eb;
+        justify-content: flex-end;
+      }
+      
+      .pastecraft-btn-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .pastecraft-btn-secondary:hover {
+        background: #e5e7eb;
+      }
+      
+      .pastecraft-btn-primary {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      .pastecraft-btn-primary:hover {
+        background: #2563eb;
+      }
+      
+      /* Dark theme support */
+      .pastecraft-interface.dark {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f9fafb;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-header {
+        background: #111827;
+        border-color: #374151;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-clip {
+        background: #374151;
+        border-color: #4b5563;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-clip:hover {
+        background: #4b5563;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-clip-text {
+        color: #f9fafb;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-clip-meta {
+        color: #9ca3af;
+      }
+      
       .pastecraft-footer {
         display: flex;
         justify-content: space-between;
@@ -299,7 +471,7 @@ class QuickPasteInterface {
     
     // Settings button
     this.container.querySelector('.pastecraft-settings').addEventListener('click', () => {
-      chrome.runtime.sendMessage({ action: 'openPopup' });
+      this.showSettingsModal();
     });
     
     // Clip click handlers
@@ -341,11 +513,17 @@ class QuickPasteInterface {
             this.showInterface();
           }
         });
-      } else if (message.action === 'showQuickPaste') {
+        } else if (message.action === 'showQuickPaste') {
         // Load latest clips before showing
         await this.loadClips();
         this.updateInterface();
         this.showInterface(message.x, message.y);
+      } else if (message.action === 'settingsUpdated') {
+        // Update settings from popup
+        this.settings = { ...this.settings, ...message.settings };
+        this.applySettings();
+        this.updateInterface();
+        console.log('⚙️ Settings updated from popup:', this.settings);
       }
       
       sendResponse(true);
@@ -489,6 +667,188 @@ class QuickPasteInterface {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+  
+  // Settings Management
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.local.get(['quickPasteSettings']);
+      if (result.quickPasteSettings) {
+        this.settings = { ...this.settings, ...result.quickPasteSettings };
+      }
+      console.log('⚙️ Loaded settings:', this.settings);
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  }
+  
+  async saveSettings() {
+    try {
+      await chrome.storage.local.set({ quickPasteSettings: this.settings });
+      console.log('💾 Settings saved:', this.settings);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  }
+  
+  showSettingsModal() {
+    if (this.settingsModal) {
+      this.settingsModal.remove();
+    }
+    
+    this.settingsModal = document.createElement('div');
+    this.settingsModal.className = 'pastecraft-settings-modal';
+    this.settingsModal.innerHTML = `
+      <div class="pastecraft-modal-backdrop"></div>
+      <div class="pastecraft-modal-content">
+        <div class="pastecraft-modal-header">
+          <h3>⚙️ Quick Paste Settings</h3>
+          <button class="pastecraft-modal-close">×</button>
+        </div>
+        <div class="pastecraft-modal-body">
+          <div class="pastecraft-setting">
+            <label>Theme</label>
+            <select id="quickPasteTheme">
+              <option value="light" ${this.settings.theme === 'light' ? 'selected' : ''}>Light</option>
+              <option value="dark" ${this.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
+            </select>
+          </div>
+          <div class="pastecraft-setting">
+            <label>Position</label>
+            <select id="quickPastePosition">
+              <option value="top-right" ${this.settings.position === 'top-right' ? 'selected' : ''}>Top Right</option>
+              <option value="top-left" ${this.settings.position === 'top-left' ? 'selected' : ''}>Top Left</option>
+              <option value="bottom-right" ${this.settings.position === 'bottom-right' ? 'selected' : ''}>Bottom Right</option>
+              <option value="bottom-left" ${this.settings.position === 'bottom-left' ? 'selected' : ''}>Bottom Left</option>
+              <option value="center" ${this.settings.position === 'center' ? 'selected' : ''}>Center</option>
+            </select>
+          </div>
+          <div class="pastecraft-setting">
+            <label>
+              <input type="checkbox" id="quickPasteAutoHide" ${this.settings.autoHide ? 'checked' : ''}>
+              Auto-hide after paste
+            </label>
+          </div>
+          <div class="pastecraft-setting">
+            <label>
+              <input type="checkbox" id="quickPasteShowTimestamps" ${this.settings.showTimestamps ? 'checked' : ''}>
+              Show timestamps
+            </label>
+          </div>
+          <div class="pastecraft-setting">
+            <label>Max clips to display</label>
+            <input type="number" id="quickPasteMaxClips" value="${this.settings.maxClipsDisplay}" min="5" max="50">
+          </div>
+        </div>
+        <div class="pastecraft-modal-actions">
+          <button class="pastecraft-btn-secondary" id="cancelQuickSettings">Cancel</button>
+          <button class="pastecraft-btn-primary" id="saveQuickSettings">Save</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(this.settingsModal);
+    this.setupSettingsModalEvents();
+  }
+  
+  setupSettingsModalEvents() {
+    if (!this.settingsModal) return;
+    
+    // Close button
+    this.settingsModal.querySelector('.pastecraft-modal-close').addEventListener('click', () => {
+      this.hideSettingsModal();
+    });
+    
+    // Backdrop click
+    this.settingsModal.querySelector('.pastecraft-modal-backdrop').addEventListener('click', () => {
+      this.hideSettingsModal();
+    });
+    
+    // Cancel button
+    this.settingsModal.querySelector('#cancelQuickSettings').addEventListener('click', () => {
+      this.hideSettingsModal();
+    });
+    
+    // Save button
+    this.settingsModal.querySelector('#saveQuickSettings').addEventListener('click', () => {
+      this.saveSettingsFromModal();
+    });
+  }
+  
+  async saveSettingsFromModal() {
+    if (!this.settingsModal) return;
+    
+    this.settings.theme = this.settingsModal.querySelector('#quickPasteTheme').value;
+    this.settings.position = this.settingsModal.querySelector('#quickPastePosition').value;
+    this.settings.autoHide = this.settingsModal.querySelector('#quickPasteAutoHide').checked;
+    this.settings.showTimestamps = this.settingsModal.querySelector('#quickPasteShowTimestamps').checked;
+    this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector('#quickPasteMaxClips').value);
+    
+    await this.saveSettings();
+    this.applySettings();
+    this.updateInterface();
+    this.hideSettingsModal();
+    
+    // Show success feedback
+    this.showToast('Settings saved!', 'success');
+  }
+  
+  hideSettingsModal() {
+    if (this.settingsModal) {
+      this.settingsModal.remove();
+      this.settingsModal = null;
+    }
+  }
+  
+  applySettings() {
+    if (!this.container) return;
+    
+    // Apply theme
+    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    
+    // Apply position when not showing at cursor
+    if (!this.isVisible) {
+      this.container.style.position = 'fixed';
+      this.container.style.zIndex = '1000000';
+      
+      switch (this.settings.position) {
+        case 'top-left':
+          this.container.style.top = '20px';
+          this.container.style.left = '20px';
+          this.container.style.right = 'auto';
+          this.container.style.bottom = 'auto';
+          this.container.style.transform = 'none';
+          break;
+        case 'top-right':
+          this.container.style.top = '20px';
+          this.container.style.right = '20px';
+          this.container.style.left = 'auto';
+          this.container.style.bottom = 'auto';
+          this.container.style.transform = 'none';
+          break;
+        case 'bottom-left':
+          this.container.style.bottom = '20px';
+          this.container.style.left = '20px';
+          this.container.style.right = 'auto';
+          this.container.style.top = 'auto';
+          this.container.style.transform = 'none';
+          break;
+        case 'bottom-right':
+          this.container.style.bottom = '20px';
+          this.container.style.right = '20px';
+          this.container.style.left = 'auto';
+          this.container.style.top = 'auto';
+          this.container.style.transform = 'none';
+          break;
+        case 'center':
+          this.container.style.top = '50%';
+          this.container.style.left = '50%';
+          this.container.style.transform = 'translate(-50%, -50%)';
+          this.container.style.right = 'auto';
+          this.container.style.bottom = 'auto';
+          break;
+      }
+    }
   }
 }
 

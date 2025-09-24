@@ -959,15 +959,34 @@ class PasteCraftPopup {
 
   // Settings Management Functions
   async loadSettings() {
-    const { autoDeletePeriod = 'never' } = await chrome.storage.local.get(['autoDeletePeriod']);
+    const { autoDeletePeriod = 'never', quickPasteSettings = {} } = await chrome.storage.local.get(['autoDeletePeriod', 'quickPasteSettings']);
     this.autoDeletePeriod = autoDeletePeriod;
+    this.quickPasteSettings = {
+      theme: 'light',
+      position: 'top-right',
+      autoHide: true,
+      showTimestamps: true,
+      maxClipsDisplay: 20,
+      ...quickPasteSettings
+    };
   }
 
   async saveSettings() {
     const newAutoDeletePeriod = document.getElementById('autoDeletePeriod').value;
     this.autoDeletePeriod = newAutoDeletePeriod;
     
-    await chrome.storage.local.set({ autoDeletePeriod: newAutoDeletePeriod });
+    // Update quick paste settings
+    this.quickPasteSettings.theme = document.getElementById('quickPasteThemePopup').value;
+    this.quickPasteSettings.position = document.getElementById('quickPastePositionPopup').value;
+    this.quickPasteSettings.autoHide = document.getElementById('quickPasteAutoHidePopup').checked;
+    this.quickPasteSettings.showTimestamps = document.getElementById('quickPasteShowTimestampsPopup').checked;
+    this.quickPasteSettings.maxClipsDisplay = parseInt(document.getElementById('quickPasteMaxClipsPopup').value);
+    
+    await chrome.storage.local.set({ 
+      autoDeletePeriod: newAutoDeletePeriod,
+      quickPasteSettings: this.quickPasteSettings
+    });
+    
     this.showToast('Settings saved!');
     this.hideSettingsModal();
     
@@ -975,6 +994,20 @@ class PasteCraftPopup {
     await this.cleanupOldClips();
     this.renderChips();
     this.updateCategoryFilter();
+    
+    // Notify content scripts about settings change
+    try {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'settingsUpdated',
+            settings: this.quickPasteSettings
+          }).catch(() => {}); // Ignore errors for tabs without content script
+        });
+      });
+    } catch (error) {
+      console.log('Could not notify content scripts about settings:', error);
+    }
   }
 
   showSettingsModal() {
@@ -983,6 +1016,13 @@ class PasteCraftPopup {
     
     // Set current auto-delete period
     document.getElementById('autoDeletePeriod').value = this.autoDeletePeriod;
+    
+    // Set current quick paste settings
+    document.getElementById('quickPasteThemePopup').value = this.quickPasteSettings.theme;
+    document.getElementById('quickPastePositionPopup').value = this.quickPasteSettings.position;
+    document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings.autoHide;
+    document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings.showTimestamps;
+    document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings.maxClipsDisplay;
     
     document.getElementById('settingsModal').style.display = 'flex';
   }
