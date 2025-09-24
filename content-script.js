@@ -470,15 +470,22 @@ class QuickPasteInterface {
     });
     
     // Settings button
-    this.container.querySelector('.pastecraft-settings').addEventListener('click', () => {
-      console.log('🔧 Settings button clicked');
-      try {
-        this.showSettingsModal();
-        console.log('✅ Settings modal should be visible');
-      } catch (error) {
-        console.error('❌ Error showing settings modal:', error);
-      }
-    });
+    const settingsBtn = this.container.querySelector('.pastecraft-settings');
+    console.log('🔍 Settings button found:', settingsBtn);
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        console.log('🔧 Settings button clicked');
+        try {
+          this.showSettingsModal();
+          console.log('✅ Settings modal should be visible');
+        } catch (error) {
+          console.error('❌ Error showing settings modal:', error);
+        }
+      });
+      console.log('✅ Settings button event listener added');
+    } else {
+      console.error('❌ Settings button not found!');
+    }
     
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
