@@ -8,11 +8,12 @@ class QuickPasteInterface {
     this.position = { x: 20, y: 20 }; // Default position
     this.settings = {
       theme: 'light',
-      position: 'top-right',
       autoHide: true,
       showTimestamps: true,
       maxClipsDisplay: 20
     };
+    this.isDragging = false;
+    this.dragOffset = { x: 0, y: 0 };
     
     this.init();
   }
@@ -487,6 +488,55 @@ class QuickPasteInterface {
       console.error('❌ Settings button not found!');
     }
     
+    // Dragging functionality
+    const header = this.container.querySelector('.pastecraft-header');
+    header.style.cursor = 'move';
+    
+    header.addEventListener('mousedown', (e) => {
+      this.isDragging = true;
+      const rect = this.container.getBoundingClientRect();
+      this.dragOffset.x = e.clientX - rect.left;
+      this.dragOffset.y = e.clientY - rect.top;
+      
+      // Prevent text selection while dragging
+      e.preventDefault();
+      document.body.style.userSelect = 'none';
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return;
+      
+      const newX = e.clientX - this.dragOffset.x;
+      const newY = e.clientY - this.dragOffset.y;
+      
+      // Keep interface within screen bounds
+      const maxX = window.innerWidth - this.container.offsetWidth;
+      const maxY = window.innerHeight - this.container.offsetHeight;
+      
+      const clampedX = Math.max(0, Math.min(newX, maxX));
+      const clampedY = Math.max(0, Math.min(newY, maxY));
+      
+      this.container.style.left = clampedX + 'px';
+      this.container.style.top = clampedY + 'px';
+      this.container.style.right = 'auto';
+      this.container.style.bottom = 'auto';
+      this.container.style.transform = 'none';
+      
+      // Save position
+      this.position.x = clampedX;
+      this.position.y = clampedY;
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        document.body.style.userSelect = '';
+        
+        // Save position to storage
+        this.savePosition();
+      }
+    });
+
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
       const clipElement = e.target.closest('.pastecraft-clip');
@@ -548,19 +598,24 @@ class QuickPasteInterface {
     
     if (x && y) {
       // Position near cursor, but ensure it stays on screen
-      const rect = this.container.getBoundingClientRect();
       const maxX = window.innerWidth - 340; // 320px width + 20px margin
       const maxY = window.innerHeight - 520; // 500px max height + 20px margin
       
-      this.container.style.left = Math.min(x, maxX) + 'px';
-      this.container.style.top = Math.min(y, maxY) + 'px';
-      this.container.style.right = 'auto';
+      this.position.x = Math.min(x, maxX);
+      this.position.y = Math.min(y, maxY);
     }
+    
+    // Apply saved/calculated position
+    this.container.style.left = this.position.x + 'px';
+    this.container.style.top = this.position.y + 'px';
+    this.container.style.right = 'auto';
+    this.container.style.bottom = 'auto';
+    this.container.style.transform = 'none';
     
     this.container.style.display = 'block';
     this.isVisible = true;
     
-    console.log('👁️ Quick Paste interface shown');
+    console.log('👁️ Quick Paste interface shown at position:', this.position);
   }
   
   hideInterface() {
@@ -685,13 +740,26 @@ class QuickPasteInterface {
   // Settings Management
   async loadSettings() {
     try {
-      const result = await chrome.storage.local.get(['quickPasteSettings']);
+      const result = await chrome.storage.local.get(['quickPasteSettings', 'quickPastePosition']);
       if (result.quickPasteSettings) {
         this.settings = { ...this.settings, ...result.quickPasteSettings };
       }
+      if (result.quickPastePosition) {
+        this.position = { ...this.position, ...result.quickPastePosition };
+      }
       console.log('⚙️ Loaded settings:', this.settings);
+      console.log('📍 Loaded position:', this.position);
     } catch (error) {
       console.error('Failed to load settings:', error);
+    }
+  }
+  
+  async savePosition() {
+    try {
+      await chrome.storage.local.set({ quickPastePosition: this.position });
+      console.log('📍 Position saved:', this.position);
+    } catch (error) {
+      console.error('Failed to save position:', error);
     }
   }
   
@@ -727,16 +795,6 @@ class QuickPasteInterface {
             <select id="quickPasteTheme">
               <option value="light" ${this.settings.theme === 'light' ? 'selected' : ''}>Light</option>
               <option value="dark" ${this.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
-            </select>
-          </div>
-          <div class="pastecraft-setting">
-            <label>Position</label>
-            <select id="quickPastePosition">
-              <option value="top-right" ${this.settings.position === 'top-right' ? 'selected' : ''}>Top Right</option>
-              <option value="top-left" ${this.settings.position === 'top-left' ? 'selected' : ''}>Top Left</option>
-              <option value="bottom-right" ${this.settings.position === 'bottom-right' ? 'selected' : ''}>Bottom Right</option>
-              <option value="bottom-left" ${this.settings.position === 'bottom-left' ? 'selected' : ''}>Bottom Left</option>
-              <option value="center" ${this.settings.position === 'center' ? 'selected' : ''}>Center</option>
             </select>
           </div>
           <div class="pastecraft-setting">
@@ -797,7 +855,6 @@ class QuickPasteInterface {
     if (!this.settingsModal) return;
     
     this.settings.theme = this.settingsModal.querySelector('#quickPasteTheme').value;
-    this.settings.position = this.settingsModal.querySelector('#quickPastePosition').value;
     this.settings.autoHide = this.settingsModal.querySelector('#quickPasteAutoHide').checked;
     this.settings.showTimestamps = this.settingsModal.querySelector('#quickPasteShowTimestamps').checked;
     this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector('#quickPasteMaxClips').value);
@@ -824,49 +881,9 @@ class QuickPasteInterface {
     // Apply theme
     this.container.className = `pastecraft-interface ${this.settings.theme}`;
     
-    // Apply position when not showing at cursor
-    if (!this.isVisible) {
-      this.container.style.position = 'fixed';
-      this.container.style.zIndex = '1000000';
-      
-      switch (this.settings.position) {
-        case 'top-left':
-          this.container.style.top = '20px';
-          this.container.style.left = '20px';
-          this.container.style.right = 'auto';
-          this.container.style.bottom = 'auto';
-          this.container.style.transform = 'none';
-          break;
-        case 'top-right':
-          this.container.style.top = '20px';
-          this.container.style.right = '20px';
-          this.container.style.left = 'auto';
-          this.container.style.bottom = 'auto';
-          this.container.style.transform = 'none';
-          break;
-        case 'bottom-left':
-          this.container.style.bottom = '20px';
-          this.container.style.left = '20px';
-          this.container.style.right = 'auto';
-          this.container.style.top = 'auto';
-          this.container.style.transform = 'none';
-          break;
-        case 'bottom-right':
-          this.container.style.bottom = '20px';
-          this.container.style.right = '20px';
-          this.container.style.left = 'auto';
-          this.container.style.top = 'auto';
-          this.container.style.transform = 'none';
-          break;
-        case 'center':
-          this.container.style.top = '50%';
-          this.container.style.left = '50%';
-          this.container.style.transform = 'translate(-50%, -50%)';
-          this.container.style.right = 'auto';
-          this.container.style.bottom = 'auto';
-          break;
-      }
-    }
+    // Ensure container is positioned properly for dragging
+    this.container.style.position = 'fixed';
+    this.container.style.zIndex = '1000000';
   }
 }
 

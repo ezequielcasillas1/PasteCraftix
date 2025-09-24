@@ -963,7 +963,6 @@ class PasteCraftPopup {
     this.autoDeletePeriod = autoDeletePeriod;
     this.quickPasteSettings = {
       theme: 'light',
-      position: 'top-right',
       autoHide: true,
       showTimestamps: true,
       maxClipsDisplay: 20,
@@ -977,7 +976,6 @@ class PasteCraftPopup {
     
     // Update quick paste settings
     this.quickPasteSettings.theme = document.getElementById('quickPasteThemePopup').value;
-    this.quickPasteSettings.position = document.getElementById('quickPastePositionPopup').value;
     this.quickPasteSettings.autoHide = document.getElementById('quickPasteAutoHidePopup').checked;
     this.quickPasteSettings.showTimestamps = document.getElementById('quickPasteShowTimestampsPopup').checked;
     this.quickPasteSettings.maxClipsDisplay = parseInt(document.getElementById('quickPasteMaxClipsPopup').value);
@@ -1019,7 +1017,6 @@ class PasteCraftPopup {
     
     // Set current quick paste settings
     document.getElementById('quickPasteThemePopup').value = this.quickPasteSettings.theme;
-    document.getElementById('quickPastePositionPopup').value = this.quickPasteSettings.position;
     document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings.autoHide;
     document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings.showTimestamps;
     document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings.maxClipsDisplay;
