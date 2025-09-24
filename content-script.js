@@ -471,7 +471,13 @@ class QuickPasteInterface {
     
     // Settings button
     this.container.querySelector('.pastecraft-settings').addEventListener('click', () => {
-      this.showSettingsModal();
+      console.log('🔧 Settings button clicked');
+      try {
+        this.showSettingsModal();
+        console.log('✅ Settings modal should be visible');
+      } catch (error) {
+        console.error('❌ Error showing settings modal:', error);
+      }
     });
     
     // Clip click handlers
@@ -692,10 +698,13 @@ class QuickPasteInterface {
   }
   
   showSettingsModal() {
+    console.log('🔧 showSettingsModal called');
     if (this.settingsModal) {
+      console.log('🗑️ Removing existing settings modal');
       this.settingsModal.remove();
     }
     
+    console.log('📝 Creating new settings modal');
     this.settingsModal = document.createElement('div');
     this.settingsModal.className = 'pastecraft-settings-modal';
     this.settingsModal.innerHTML = `
@@ -748,7 +757,9 @@ class QuickPasteInterface {
     `;
     
     document.body.appendChild(this.settingsModal);
+    console.log('✅ Settings modal added to DOM');
     this.setupSettingsModalEvents();
+    console.log('✅ Settings modal events setup complete');
   }
   
   setupSettingsModalEvents() {
