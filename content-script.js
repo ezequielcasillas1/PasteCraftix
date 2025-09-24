@@ -35,6 +35,11 @@ class QuickPasteInterface {
       const result = await chrome.storage.local.get(['clips']);
       this.clips = result.clips || [];
       console.log('📋 Loaded clips for Quick Paste:', this.clips.length);
+      console.log('📋 Clips data:', this.clips.slice(0, 3).map(clip => ({
+        text: (clip.text || clip).substring(0, 30) + '...',
+        category: clip.category || 'Uncategorized',
+        timestamp: clip.timestamp
+      })));
     } catch (error) {
       console.error('Failed to load clips:', error);
       this.clips = [];
@@ -466,8 +471,12 @@ class QuickPasteInterface {
     
     // Refresh button
     this.container.querySelector('.pastecraft-refresh').addEventListener('click', async () => {
+      console.log('🔄 Refresh button clicked - loading clips...');
+      const oldCount = this.clips.length;
       await this.loadClips();
+      console.log(`📊 Clips before: ${oldCount}, after: ${this.clips.length}`);
       this.updateInterface();
+      console.log('✅ Interface updated after refresh');
     });
     
     // Settings button
@@ -570,7 +579,9 @@ class QuickPasteInterface {
   setupMessageListener() {
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       if (message.action === 'clipSaved') {
+        console.log('📨 Received clipSaved message:', message.clip);
         this.loadClips().then(() => {
+          console.log('🔄 Auto-refreshed clips after new clip saved');
           this.updateInterface();
           if (!this.isVisible && this.clips.length > 0) {
             this.showInterface();
