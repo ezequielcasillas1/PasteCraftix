@@ -503,47 +503,56 @@ class QuickPasteInterface {
         transform: scale(1.1);
       }
       
-      /* Multi-select functionality - MAXIMUM SPECIFICITY */
-      .pastecraft-interface .pastecraft-clip.selected {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+      /* Multi-select functionality - NUCLEAR SPECIFICITY */
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected {
+        background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%) !important;
         color: white !important;
-        border: 3px solid #1d4ed8 !important;
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.8) !important;
-        transform: scale(1.05) !important;
-        z-index: 5 !important;
+        border: 4px solid #ff6b35 !important;
+        box-shadow: 0 8px 25px rgba(255, 107, 53, 0.9) !important;
+        transform: scale(1.08) !important;
+        z-index: 50 !important;
         position: relative !important;
+        outline: 3px solid rgba(255, 107, 53, 0.5) !important;
+        outline-offset: 2px !important;
       }
       
-      .pastecraft-interface .pastecraft-clip.selected * {
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected * {
         color: white !important;
       }
       
-      .pastecraft-interface .pastecraft-clip.selected .pastecraft-clip-text {
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected .pastecraft-clip-text {
         color: white !important;
+        font-weight: 900 !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+        font-size: 1.1em !important;
+      }
+      
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected .pastecraft-clip-meta {
+        color: rgba(255, 255, 255, 1) !important;
+      }
+      
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected .pastecraft-category {
+        background: rgba(255, 255, 255, 0.6) !important;
+        color: #ff6b35 !important;
+        border: 2px solid white !important;
         font-weight: 700 !important;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
       }
       
-      .pastecraft-interface .pastecraft-clip.selected .pastecraft-clip-meta {
-        color: rgba(255, 255, 255, 0.95) !important;
-      }
-      
-      .pastecraft-interface .pastecraft-clip.selected .pastecraft-category {
-        background: rgba(255, 255, 255, 0.4) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.7) !important;
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected .pastecraft-time {
+        color: rgba(255, 255, 255, 1) !important;
         font-weight: 600 !important;
       }
       
-      .pastecraft-interface .pastecraft-clip.selected .pastecraft-time {
-        color: rgba(255, 255, 255, 0.9) !important;
-        font-weight: 500 !important;
+      .pastecraft-interface.pastecraft-interface .pastecraft-clip.selected.selected .pastecraft-btn {
+        background: rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+        border: 2px solid rgba(255, 255, 255, 0.8) !important;
       }
       
-      .pastecraft-interface .pastecraft-clip.selected .pastecraft-btn {
-        background: rgba(255, 255, 255, 0.2) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+      /* Dark theme override for selection */
+      .pastecraft-interface.dark.pastecraft-interface .pastecraft-clip.selected.selected {
+        background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%) !important;
+        border-color: #ff6b35 !important;
       }
       
       /* Copy Multiple button styling */
@@ -806,6 +815,22 @@ class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
+    
+    // Clear any inline selection styles
+    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
+    selectedElements.forEach(el => {
+      el.classList.remove('selected');
+      el.style.background = '';
+      el.style.color = '';
+      el.style.border = '';
+      el.style.transform = '';
+      el.style.boxShadow = '';
+      el.style.outline = '';
+      el.style.outlineOffset = '';
+      el.style.zIndex = '';
+      el.style.position = '';
+    });
+    
     this.updateCopyMultipleButton();
   }
   
@@ -1155,15 +1180,34 @@ class QuickPasteInterface {
     });
     
     if (this.selectedClips.has(index)) {
-      // Deselect
+      // Deselect - remove inline styles
       this.selectedClips.delete(index);
       clipElement.classList.remove('selected');
-      console.log(`❌ DESELECTED clip ${index}`);
+      clipElement.style.background = '';
+      clipElement.style.color = '';
+      clipElement.style.border = '';
+      clipElement.style.transform = '';
+      clipElement.style.boxShadow = '';
+      clipElement.style.outline = '';
+      clipElement.style.outlineOffset = '';
+      clipElement.style.zIndex = '';
+      clipElement.style.position = '';
+      console.log(`❌ DESELECTED clip ${index} - REMOVED INLINE STYLES`);
     } else {
-      // Select
+      // Select - add class twice for nuclear specificity
       this.selectedClips.add(index);
       clipElement.classList.add('selected');
-      console.log(`✅ SELECTED clip ${index}`);
+      // Force immediate style application
+      clipElement.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
+      clipElement.style.color = 'white';
+      clipElement.style.border = '4px solid #ff6b35';
+      clipElement.style.transform = 'scale(1.08)';
+      clipElement.style.boxShadow = '0 8px 25px rgba(255, 107, 53, 0.9)';
+      clipElement.style.outline = '3px solid rgba(255, 107, 53, 0.5)';
+      clipElement.style.outlineOffset = '2px';
+      clipElement.style.zIndex = '50';
+      clipElement.style.position = 'relative';
+      console.log(`✅ SELECTED clip ${index} with INLINE STYLES`);
     }
     
     console.log('🎨 FINAL CLASSES:', clipElement.className);
