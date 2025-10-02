@@ -586,7 +586,7 @@ class QuickPasteInterface {
         bottom: 0 !important;
         z-index: 1000 !important;
         display: flex !important;
-        justify-content: space-between !important;
+        justify-content: flex-start !important;
         align-items: center !important;
         padding: 12px 16px !important;
         background: rgba(248, 250, 252, 0.98) !important;
@@ -596,7 +596,7 @@ class QuickPasteInterface {
         color: #6b7280 !important;
         box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.15) !important;
         flex-wrap: wrap !important;
-        gap: 8px !important;
+        gap: 12px !important;
         margin: 0 !important;
         flex-shrink: 0 !important;
         width: 100% !important;
@@ -698,14 +698,17 @@ class QuickPasteInterface {
         background: #8b5cf6 !important;
         color: white !important;
         font-weight: 600 !important;
-        padding: 8px 16px !important;
-        border-radius: 8px !important;
-        font-size: 13px !important;
-        border: 2px solid #7c3aed !important;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
-        flex: 1 !important;
-        min-width: 120px !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        border: 1px solid #7c3aed !important;
+        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3) !important;
+        flex: none !important;
+        min-width: auto !important;
+        max-width: 140px !important;
         text-align: center !important;
+        white-space: nowrap !important;
+        margin-left: auto !important;
       }
       
       .pastecraft-copy-multiple:hover:not(:disabled) {
@@ -1195,6 +1198,11 @@ class QuickPasteInterface {
       width: 100% !important;
       left: 0 !important;
       right: 0 !important;
+      display: flex !important;
+      justify-content: flex-start !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 12px 16px !important;
     `;
     
     if (content) {
