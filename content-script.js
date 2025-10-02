@@ -195,10 +195,15 @@ class QuickPasteInterface {
       .pastecraft-content {
         max-height: 400px;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        position: relative;
       }
       
       .pastecraft-clips-container {
         padding: 8px;
+        flex: 1;
+        overflow-y: auto;
       }
       
       .pastecraft-clip {
@@ -576,14 +581,26 @@ class QuickPasteInterface {
       }
       
       .pastecraft-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 16px;
-        background: #f8fafc;
-        border-top: 1px solid #e2e8f0;
-        font-size: 12px;
-        color: #6b7280;
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 1000 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 12px 16px !important;
+        background: rgba(248, 250, 252, 0.98) !important;
+        backdrop-filter: blur(12px) !important;
+        border-top: 2px solid #e2e8f0 !important;
+        font-size: 12px !important;
+        color: #6b7280 !important;
+        box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.15) !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        left: 0 !important;
+        right: 0 !important;
       }
       
       .pastecraft-count {
@@ -705,26 +722,8 @@ class QuickPasteInterface {
         border-color: #d1d5db !important;
       }
       
-      /* Sticky footer - ENHANCED */
-      .pastecraft-footer {
-        position: sticky !important;
-        bottom: 0 !important;
-        z-index: 100 !important;
-        background: rgba(255, 255, 255, 0.95) !important;
-        backdrop-filter: blur(10px) !important;
-        border-top: 1px solid #e5e7eb !important;
-        padding: 12px !important;
-        margin: 0 -16px -16px -16px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        flex-wrap: wrap !important;
-        gap: 8px !important;
-        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1) !important;
-      }
-      
       .pastecraft-interface.dark .pastecraft-footer {
-        background: rgba(31, 41, 55, 0.95) !important;
+        background: rgba(31, 41, 55, 0.98) !important;
         border-top-color: #374151 !important;
       }
     `;
