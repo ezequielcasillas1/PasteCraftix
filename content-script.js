@@ -1576,8 +1576,268 @@ class QuickPasteInterface {
     
     document.body.appendChild(this.settingsModal);
     console.log('✅ Settings modal added to DOM');
+    
+    // 🎨 FORCE BEAUTIFUL STYLES WITH INLINE CSS
+    console.log('🎨 Applying beautiful inline styles...');
+    this.applyBeautifulSettingsStyles();
+    
     this.setupSettingsModalEvents();
     console.log('✅ Settings modal events setup complete');
+  }
+  
+  applyBeautifulSettingsStyles() {
+    if (!this.settingsModal) return;
+    
+    console.log('🎨 Forcing beautiful settings modal styles...');
+    
+    // Modal content
+    const modalContent = this.settingsModal.querySelector('.pastecraft-modal-content');
+    if (modalContent) {
+      modalContent.style.cssText = `
+        background: white !important;
+        border-radius: 12px !important;
+        width: 450px !important;
+        max-width: 90vw !important;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        overflow: hidden !important;
+      `;
+    }
+    
+    // Modal body
+    const modalBody = this.settingsModal.querySelector('.pastecraft-modal-body');
+    if (modalBody) {
+      modalBody.style.cssText = `
+        padding: 0 !important;
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+      `;
+    }
+    
+    // Settings
+    const settings = this.settingsModal.querySelectorAll('.pastecraft-setting');
+    settings.forEach(setting => {
+      setting.style.cssText = `
+        padding: 20px 24px !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        min-height: 60px !important;
+        margin: 0 !important;
+      `;
+      
+      const label = setting.querySelector('label');
+      if (label) {
+        label.style.cssText = `
+          font-weight: 500 !important;
+          color: #374151 !important;
+          font-size: 14px !important;
+          margin: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 8px !important;
+        `;
+      }
+      
+      const select = setting.querySelector('select');
+      if (select) {
+        select.style.cssText = `
+          padding: 8px 12px !important;
+          border: 1.5px solid #d1d5db !important;
+          border-radius: 8px !important;
+          font-size: 14px !important;
+          background: white !important;
+          color: #374151 !important;
+          min-width: 120px !important;
+        `;
+      }
+      
+      const numberInput = setting.querySelector('input[type="number"]');
+      if (numberInput) {
+        numberInput.style.cssText = `
+          padding: 8px 12px !important;
+          border: 1.5px solid #d1d5db !important;
+          border-radius: 8px !important;
+          font-size: 14px !important;
+          background: white !important;
+          color: #374151 !important;
+          min-width: 120px !important;
+        `;
+      }
+      
+      const checkbox = setting.querySelector('input[type="checkbox"]');
+      if (checkbox) {
+        checkbox.style.cssText = `
+          width: 18px !important;
+          height: 18px !important;
+          accent-color: #3b82f6 !important;
+          cursor: pointer !important;
+        `;
+      }
+    });
+    
+    // Setting groups
+    const settingGroups = this.settingsModal.querySelectorAll('.pastecraft-setting-group');
+    settingGroups.forEach(group => {
+      group.style.cssText = `
+        margin: 0 !important;
+        padding: 24px !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+        background: white !important;
+      `;
+      
+      const label = group.querySelector('.pastecraft-setting-label');
+      if (label) {
+        label.style.cssText = `
+          display: block !important;
+          font-weight: 600 !important;
+          margin-bottom: 16px !important;
+          color: #1f2937 !important;
+          font-size: 15px !important;
+          letter-spacing: -0.025em !important;
+        `;
+      }
+      
+      // Segmented control
+      const segmentedControl = group.querySelector('.pastecraft-segmented-control');
+      if (segmentedControl) {
+        segmentedControl.style.cssText = `
+          display: flex !important;
+          background: #f3f4f6 !important;
+          border-radius: 10px !important;
+          padding: 4px !important;
+          gap: 2px !important;
+        `;
+        
+        const buttons = segmentedControl.querySelectorAll('.pastecraft-segment-btn');
+        buttons.forEach(btn => {
+          btn.style.cssText = `
+            flex: 1 !important;
+            padding: 10px 16px !important;
+            border: none !important;
+            background: transparent !important;
+            color: #6b7280 !important;
+            cursor: pointer !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            border-radius: 6px !important;
+            transition: all 0.2s ease !important;
+          `;
+          
+          if (btn.classList.contains('active')) {
+            btn.style.cssText += `
+              background: white !important;
+              color: #1f2937 !important;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+            `;
+          }
+        });
+      }
+      
+      // Toggles
+      const toggles = group.querySelectorAll('.pastecraft-toggle');
+      toggles.forEach(toggle => {
+        toggle.style.cssText = `
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          cursor: pointer !important;
+          padding: 12px 16px !important;
+          background: #f8fafc !important;
+          border-radius: 10px !important;
+          border: 1px solid #e2e8f0 !important;
+          margin-bottom: 16px !important;
+        `;
+        
+        const toggleSwitch = toggle.querySelector('.pastecraft-toggle-switch');
+        if (toggleSwitch) {
+          toggleSwitch.style.cssText = `
+            width: 44px !important;
+            height: 24px !important;
+            background: #cbd5e1 !important;
+            border-radius: 12px !important;
+            position: relative !important;
+            transition: all 0.3s ease !important;
+            flex-shrink: 0 !important;
+          `;
+          
+          const checkbox = toggle.querySelector('input[type="checkbox"]');
+          if (checkbox && checkbox.checked) {
+            toggleSwitch.style.background = '#3b82f6 !important';
+          }
+        }
+        
+        const span = toggle.querySelector('span');
+        if (span) {
+          span.style.cssText = `
+            font-weight: 500 !important;
+            color: #374151 !important;
+            font-size: 14px !important;
+          `;
+        }
+      });
+    });
+    
+    // Modal actions
+    const modalActions = this.settingsModal.querySelector('.pastecraft-modal-actions');
+    if (modalActions) {
+      modalActions.style.cssText = `
+        display: flex !important;
+        gap: 12px !important;
+        padding: 24px !important;
+        background: #f8fafc !important;
+        border-top: 1px solid #f1f5f9 !important;
+        justify-content: flex-end !important;
+      `;
+      
+      const secondaryBtn = modalActions.querySelector('.pastecraft-btn-secondary');
+      if (secondaryBtn) {
+        secondaryBtn.style.cssText = `
+          background: white !important;
+          color: #6b7280 !important;
+          border: 1.5px solid #d1d5db !important;
+          border-radius: 8px !important;
+          padding: 12px 20px !important;
+          cursor: pointer !important;
+          font-size: 14px !important;
+          font-weight: 500 !important;
+        `;
+      }
+      
+      const primaryBtn = modalActions.querySelector('.pastecraft-btn-primary');
+      if (primaryBtn) {
+        primaryBtn.style.cssText = `
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+          color: white !important;
+          border: none !important;
+          border-radius: 8px !important;
+          padding: 12px 24px !important;
+          cursor: pointer !important;
+          font-size: 14px !important;
+          font-weight: 600 !important;
+          box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
+        `;
+      }
+    }
+    
+    // Custom delimiter input
+    const customDelimiter = this.settingsModal.querySelector('#quickPasteCustomDelimiter');
+    if (customDelimiter) {
+      customDelimiter.style.cssText = `
+        margin-top: 12px !important;
+        padding: 10px 14px !important;
+        border: 1.5px solid #d1d5db !important;
+        border-radius: 8px !important;
+        font-size: 14px !important;
+        background: white !important;
+        color: #374151 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      `;
+    }
+    
+    console.log('✅ Beautiful styles applied with inline CSS!');
   }
   
   setupSettingsModalEvents() {
