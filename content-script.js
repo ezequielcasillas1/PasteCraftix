@@ -10,7 +10,14 @@ class QuickPasteInterface {
       theme: 'light',
       autoHide: true,
       showTimestamps: true,
-      maxClipsDisplay: 20
+      maxClipsDisplay: 20,
+      delimiter: 'comma',
+      customDelimiter: ', ',
+      options: {
+        deduplicate: false,
+        sort: false,
+        uppercase: false
+      }
     };
     this.isDragging = false;
     this.dragOffset = { x: 0, y: 0 };
@@ -411,6 +418,119 @@ class QuickPasteInterface {
       
       .pastecraft-btn-danger:hover {
         background: #dc2626;
+      }
+      
+      /* Settings Modal - Delimiter and Options Styles */
+      .pastecraft-setting-group {
+        margin: 16px 0;
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f9fafb;
+      }
+      
+      .pastecraft-setting-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #374151;
+      }
+      
+      .pastecraft-segmented-control {
+        display: flex;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      
+      .pastecraft-segment-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        background: white;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 13px;
+        border-right: 1px solid #d1d5db;
+        transition: all 0.2s ease;
+      }
+      
+      .pastecraft-segment-btn:last-child {
+        border-right: none;
+      }
+      
+      .pastecraft-segment-btn.active {
+        background: #3b82f6;
+        color: white;
+      }
+      
+      .pastecraft-segment-btn:hover:not(.active) {
+        background: #f3f4f6;
+      }
+      
+      .pastecraft-toggles {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .pastecraft-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      
+      .pastecraft-toggle input[type="checkbox"] {
+        display: none;
+      }
+      
+      .pastecraft-toggle-switch {
+        width: 40px;
+        height: 20px;
+        background: #d1d5db;
+        border-radius: 10px;
+        position: relative;
+        transition: background 0.2s ease;
+      }
+      
+      .pastecraft-toggle-switch::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.2s ease;
+      }
+      
+      .pastecraft-toggle input:checked + .pastecraft-toggle-switch {
+        background: #3b82f6;
+      }
+      
+      .pastecraft-toggle input:checked + .pastecraft-toggle-switch::after {
+        transform: translateX(20px);
+      }
+      
+      .pastecraft-interface.dark .pastecraft-setting-group {
+        background: #374151;
+        border-color: #4b5563;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-setting-label {
+        color: #f9fafb;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-segment-btn {
+        background: #4b5563;
+        color: #d1d5db;
+        border-color: #6b7280;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-segment-btn:hover:not(.active) {
+        background: #6b7280;
       }
       
       /* Confirmation modal uses same styles as settings modal */
@@ -1018,6 +1138,42 @@ class QuickPasteInterface {
             <label>Max clips to display</label>
             <input type="number" id="quickPasteMaxClips" value="${this.settings.maxClipsDisplay}" min="5" max="50">
           </div>
+          
+          <!-- Delimiter Settings -->
+          <div class="pastecraft-setting-group">
+            <label class="pastecraft-setting-label">Delimiter</label>
+            <div class="pastecraft-segmented-control" id="quickPasteDelimiterControl">
+              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'comma' ? 'active' : ''}" data-delimiter="comma">Comma</button>
+              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'newline' ? 'active' : ''}" data-delimiter="newline">Newline</button>
+              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'space' ? 'active' : ''}" data-delimiter="space">Space</button>
+              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'custom' ? 'active' : ''}" data-delimiter="custom">Custom</button>
+            </div>
+            <input type="text" id="quickPasteCustomDelimiter" value="${this.settings.customDelimiter}" 
+                   style="display: ${this.settings.delimiter === 'custom' ? 'block' : 'none'}; margin-top: 8px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" 
+                   placeholder="Enter custom delimiter">
+          </div>
+          
+          <!-- Options Settings -->
+          <div class="pastecraft-setting-group">
+            <label class="pastecraft-setting-label">Options</label>
+            <div class="pastecraft-toggles">
+              <label class="pastecraft-toggle">
+                <input type="checkbox" id="quickPasteDeduplicate" ${this.settings.options.deduplicate ? 'checked' : ''}>
+                <div class="pastecraft-toggle-switch"></div>
+                <span>🔄 Deduplicate</span>
+              </label>
+              <label class="pastecraft-toggle">
+                <input type="checkbox" id="quickPasteSort" ${this.settings.options.sort ? 'checked' : ''}>
+                <div class="pastecraft-toggle-switch"></div>
+                <span>⬆️ Sort A→Z</span>
+              </label>
+              <label class="pastecraft-toggle">
+                <input type="checkbox" id="quickPasteUppercase" ${this.settings.options.uppercase ? 'checked' : ''}>
+                <div class="pastecraft-toggle-switch"></div>
+                <span>Aa UPPERCASE</span>
+              </label>
+            </div>
+          </div>
         </div>
         <div class="pastecraft-modal-actions">
           <button class="pastecraft-btn-secondary" id="cancelQuickSettings">Cancel</button>
@@ -1054,6 +1210,35 @@ class QuickPasteInterface {
     this.settingsModal.querySelector('#saveQuickSettings').addEventListener('click', () => {
       this.saveSettingsFromModal();
     });
+    
+    // Delimiter control
+    this.settingsModal.querySelector('#quickPasteDelimiterControl').addEventListener('click', (e) => {
+      if (e.target.classList.contains('pastecraft-segment-btn')) {
+        // Remove active class from all buttons
+        this.settingsModal.querySelectorAll('.pastecraft-segment-btn').forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        e.target.classList.add('active');
+        
+        // Show/hide custom delimiter input
+        const customInput = this.settingsModal.querySelector('#quickPasteCustomDelimiter');
+        if (e.target.dataset.delimiter === 'custom') {
+          customInput.style.display = 'block';
+          customInput.focus();
+        } else {
+          customInput.style.display = 'none';
+        }
+      }
+    });
+    
+    // Options toggles
+    this.settingsModal.querySelectorAll('.pastecraft-toggle').forEach(toggle => {
+      toggle.addEventListener('click', (e) => {
+        const checkbox = toggle.querySelector('input[type="checkbox"]');
+        if (e.target !== checkbox) {
+          checkbox.checked = !checkbox.checked;
+        }
+      });
+    });
   }
   
   async saveSettingsFromModal() {
@@ -1063,6 +1248,18 @@ class QuickPasteInterface {
     this.settings.autoHide = this.settingsModal.querySelector('#quickPasteAutoHide').checked;
     this.settings.showTimestamps = this.settingsModal.querySelector('#quickPasteShowTimestamps').checked;
     this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector('#quickPasteMaxClips').value);
+    
+    // Save delimiter settings
+    const activeDelimiterBtn = this.settingsModal.querySelector('.pastecraft-segment-btn.active');
+    if (activeDelimiterBtn) {
+      this.settings.delimiter = activeDelimiterBtn.dataset.delimiter;
+    }
+    this.settings.customDelimiter = this.settingsModal.querySelector('#quickPasteCustomDelimiter').value;
+    
+    // Save options settings
+    this.settings.options.deduplicate = this.settingsModal.querySelector('#quickPasteDeduplicate').checked;
+    this.settings.options.sort = this.settingsModal.querySelector('#quickPasteSort').checked;
+    this.settings.options.uppercase = this.settingsModal.querySelector('#quickPasteUppercase').checked;
     
     await this.saveSettings();
     this.applySettings();
@@ -1242,15 +1439,47 @@ class QuickPasteInterface {
   async copyMultipleClips() {
     if (this.selectedClips.size < 2) return;
     
-    const selectedClipsData = Array.from(this.selectedClips)
+    // Get selected clips text
+    let selectedClipsData = Array.from(this.selectedClips)
       .sort((a, b) => a - b) // Sort by index
       .map(index => this.clips[index])
       .filter(clip => clip) // Remove any undefined clips
-      .map(clip => clip.text)
-      .join('\n\n'); // Join with double newlines
+      .map(clip => clip.text);
+    
+    // Apply formatting options
+    if (this.settings.options.deduplicate) {
+      selectedClipsData = [...new Set(selectedClipsData)]; // Remove duplicates
+    }
+    
+    if (this.settings.options.sort) {
+      selectedClipsData.sort(); // Sort alphabetically
+    }
+    
+    if (this.settings.options.uppercase) {
+      selectedClipsData = selectedClipsData.map(text => text.toUpperCase());
+    }
+    
+    // Apply delimiter
+    let delimiter = '\n\n'; // Default
+    switch (this.settings.delimiter) {
+      case 'comma':
+        delimiter = ', ';
+        break;
+      case 'newline':
+        delimiter = '\n';
+        break;
+      case 'space':
+        delimiter = ' ';
+        break;
+      case 'custom':
+        delimiter = this.settings.customDelimiter || ', ';
+        break;
+    }
+    
+    const formattedText = selectedClipsData.join(delimiter);
     
     try {
-      await navigator.clipboard.writeText(selectedClipsData);
+      await navigator.clipboard.writeText(formattedText);
       
       // Show success toast
       this.showToast(`📋 Copied ${this.selectedClips.size} clips!`, 'success');
