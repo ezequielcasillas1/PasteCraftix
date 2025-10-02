@@ -503,32 +503,47 @@ class QuickPasteInterface {
         transform: scale(1.1);
       }
       
-      /* Multi-select functionality */
-      .pastecraft-clip.selected {
+      /* Multi-select functionality - MAXIMUM SPECIFICITY */
+      .pastecraft-interface .pastecraft-clip.selected {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
         color: white !important;
-        border: 2px solid #1d4ed8 !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6) !important;
-        transform: scale(1.02) !important;
+        border: 3px solid #1d4ed8 !important;
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.8) !important;
+        transform: scale(1.05) !important;
+        z-index: 5 !important;
+        position: relative !important;
       }
       
-      .pastecraft-clip.selected .pastecraft-clip-text {
+      .pastecraft-interface .pastecraft-clip.selected * {
         color: white !important;
+      }
+      
+      .pastecraft-interface .pastecraft-clip.selected .pastecraft-clip-text {
+        color: white !important;
+        font-weight: 700 !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+      }
+      
+      .pastecraft-interface .pastecraft-clip.selected .pastecraft-clip-meta {
+        color: rgba(255, 255, 255, 0.95) !important;
+      }
+      
+      .pastecraft-interface .pastecraft-clip.selected .pastecraft-category {
+        background: rgba(255, 255, 255, 0.4) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.7) !important;
         font-weight: 600 !important;
       }
       
-      .pastecraft-clip.selected .pastecraft-clip-meta {
+      .pastecraft-interface .pastecraft-clip.selected .pastecraft-time {
         color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500 !important;
       }
       
-      .pastecraft-clip.selected .pastecraft-category {
-        background: rgba(255, 255, 255, 0.3) !important;
+      .pastecraft-interface .pastecraft-clip.selected .pastecraft-btn {
+        background: rgba(255, 255, 255, 0.2) !important;
         color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.5) !important;
-      }
-      
-      .pastecraft-clip.selected .pastecraft-time {
-        color: rgba(255, 255, 255, 0.8) !important;
       }
       
       /* Copy Multiple button styling */
@@ -561,13 +576,27 @@ class QuickPasteInterface {
         border-color: #d1d5db !important;
       }
       
-      /* Sticky footer */
+      /* Sticky footer - ENHANCED */
       .pastecraft-footer {
         position: sticky !important;
         bottom: 0 !important;
-        z-index: 10 !important;
+        z-index: 100 !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(10px) !important;
+        border-top: 1px solid #e5e7eb !important;
+        padding: 12px !important;
+        margin: 0 -16px -16px -16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
         flex-wrap: wrap !important;
         gap: 8px !important;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1) !important;
+      }
+      
+      .pastecraft-interface.dark .pastecraft-footer {
+        background: rgba(31, 41, 55, 0.95) !important;
+        border-top-color: #374151 !important;
       }
     `;
     
@@ -1118,19 +1147,31 @@ class QuickPasteInterface {
   
   // NEW: Multi-select functionality methods
   toggleClipSelection(index, clipElement) {
+    console.log('🎯 TOGGLE SELECTION START:', {
+      index,
+      element: clipElement,
+      currentClasses: clipElement.className,
+      isSelected: this.selectedClips.has(index)
+    });
+    
     if (this.selectedClips.has(index)) {
       // Deselect
       this.selectedClips.delete(index);
       clipElement.classList.remove('selected');
-      console.log(`❌ Deselected clip ${index}`, clipElement, clipElement.className);
+      console.log(`❌ DESELECTED clip ${index}`);
     } else {
       // Select
       this.selectedClips.add(index);
       clipElement.classList.add('selected');
-      console.log(`✅ Selected clip ${index}`, clipElement, clipElement.className);
+      console.log(`✅ SELECTED clip ${index}`);
     }
     
-    console.log('🎨 Clip classes after select:', clipElement.className);
+    console.log('🎨 FINAL CLASSES:', clipElement.className);
+    console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
+    
+    // Force a style recalculation
+    clipElement.offsetHeight;
+    
     this.updateCopyMultipleButton();
   }
   
