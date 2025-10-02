@@ -343,72 +343,105 @@ class QuickPasteInterface {
       }
       
       .pastecraft-modal-body {
-        padding: 24px;
+        padding: 0;
         max-height: 60vh;
         overflow-y: auto;
       }
       
       .pastecraft-setting {
-        margin-bottom: 20px;
+        padding: 20px 24px;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 60px;
+      }
+      
+      .pastecraft-setting:last-child {
+        border-bottom: none;
       }
       
       .pastecraft-setting label {
-        display: block;
         font-weight: 500;
         color: #374151;
-        margin-bottom: 8px;
+        font-size: 14px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
       
       .pastecraft-setting select,
       .pastecraft-setting input[type="number"] {
-        width: 100%;
         padding: 8px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
+        border: 1.5px solid #d1d5db;
+        border-radius: 8px;
         font-size: 14px;
         background: white;
+        color: #374151;
+        transition: all 0.2s ease;
+        min-width: 120px;
+      }
+      
+      .pastecraft-setting select:focus,
+      .pastecraft-setting input[type="number"]:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
       
       .pastecraft-setting input[type="checkbox"] {
-        margin-right: 8px;
+        width: 18px;
+        height: 18px;
+        accent-color: #3b82f6;
+        cursor: pointer;
       }
+      
       
       .pastecraft-modal-actions {
         display: flex;
         gap: 12px;
-        padding: 20px 24px;
-        border-top: 1px solid #e5e7eb;
+        padding: 24px;
+        background: #f8fafc;
+        border-top: 1px solid #f1f5f9;
         justify-content: flex-end;
       }
       
       .pastecraft-btn-secondary {
-        background: #f3f4f6;
-        color: #374151;
-        border: none;
-        border-radius: 6px;
-        padding: 10px 16px;
+        background: white;
+        color: #6b7280;
+        border: 1.5px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px 20px;
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
+        transition: all 0.2s ease;
       }
       
       .pastecraft-btn-secondary:hover {
-        background: #e5e7eb;
+        background: #f9fafb;
+        border-color: #9ca3af;
+        color: #374151;
       }
       
       .pastecraft-btn-primary {
-        background: #3b82f6;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         color: white;
         border: none;
-        border-radius: 6px;
-        padding: 10px 16px;
+        border-radius: 8px;
+        padding: 12px 24px;
         cursor: pointer;
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
       }
       
       .pastecraft-btn-primary:hover {
-        background: #2563eb;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
       }
       
       .pastecraft-btn-danger {
@@ -428,63 +461,78 @@ class QuickPasteInterface {
       
       /* Settings Modal - Delimiter and Options Styles */
       .pastecraft-setting-group {
-        margin: 16px 0;
-        padding: 12px;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        background: #f9fafb;
+        margin: 0;
+        padding: 24px;
+        border-bottom: 1px solid #f3f4f6;
+        background: white;
+      }
+      
+      .pastecraft-setting-group:last-child {
+        border-bottom: none;
       }
       
       .pastecraft-setting-label {
         display: block;
         font-weight: 600;
-        margin-bottom: 8px;
-        color: #374151;
+        margin-bottom: 16px;
+        color: #1f2937;
+        font-size: 15px;
+        letter-spacing: -0.025em;
       }
       
       .pastecraft-segmented-control {
         display: flex;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        overflow: hidden;
+        background: #f3f4f6;
+        border-radius: 10px;
+        padding: 4px;
+        gap: 2px;
       }
       
       .pastecraft-segment-btn {
         flex: 1;
-        padding: 8px 12px;
+        padding: 10px 16px;
         border: none;
-        background: white;
+        background: transparent;
         color: #6b7280;
         cursor: pointer;
         font-size: 13px;
-        border-right: 1px solid #d1d5db;
+        font-weight: 500;
+        border-radius: 6px;
         transition: all 0.2s ease;
       }
       
-      .pastecraft-segment-btn:last-child {
-        border-right: none;
-      }
-      
       .pastecraft-segment-btn.active {
-        background: #3b82f6;
-        color: white;
+        background: white;
+        color: #1f2937;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
       
       .pastecraft-segment-btn:hover:not(.active) {
-        background: #f3f4f6;
+        background: rgba(255, 255, 255, 0.5);
+        color: #374151;
       }
       
       .pastecraft-toggles {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 16px;
       }
       
       .pastecraft-toggle {
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: space-between;
         cursor: pointer;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+      }
+      
+      .pastecraft-toggle:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
       }
       
       .pastecraft-toggle input[type="checkbox"] {
@@ -492,12 +540,13 @@ class QuickPasteInterface {
       }
       
       .pastecraft-toggle-switch {
-        width: 40px;
-        height: 20px;
-        background: #d1d5db;
-        border-radius: 10px;
+        width: 44px;
+        height: 24px;
+        background: #cbd5e1;
+        border-radius: 12px;
         position: relative;
-        transition: background 0.2s ease;
+        transition: all 0.3s ease;
+        flex-shrink: 0;
       }
       
       .pastecraft-toggle-switch::after {
@@ -505,11 +554,12 @@ class QuickPasteInterface {
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
         background: white;
         border-radius: 50%;
-        transition: transform 0.2s ease;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
       
       .pastecraft-toggle input:checked + .pastecraft-toggle-switch {
@@ -518,6 +568,37 @@ class QuickPasteInterface {
       
       .pastecraft-toggle input:checked + .pastecraft-toggle-switch::after {
         transform: translateX(20px);
+      }
+      
+      .pastecraft-toggle span {
+        font-weight: 500;
+        color: #374151;
+        font-size: 14px;
+      }
+      
+      /* Custom delimiter input styling */
+      #quickPasteCustomDelimiter {
+        margin-top: 12px !important;
+        padding: 10px 14px !important;
+        border: 1.5px solid #d1d5db !important;
+        border-radius: 8px !important;
+        font-size: 14px !important;
+        background: white !important;
+        color: #374151 !important;
+        transition: all 0.2s ease !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      
+      #quickPasteCustomDelimiter:focus {
+        outline: none !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+      }
+      
+      #quickPasteCustomDelimiter::placeholder {
+        color: #9ca3af !important;
+        font-style: italic !important;
       }
       
       .pastecraft-interface.dark .pastecraft-setting-group {
