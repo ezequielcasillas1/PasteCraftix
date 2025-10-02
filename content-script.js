@@ -14,6 +14,7 @@ class QuickPasteInterface {
     };
     this.isDragging = false;
     this.dragOffset = { x: 0, y: 0 };
+    this.selectedClips = new Set(); // Track selected clips for multi-select
     
     this.init();
   }
@@ -69,6 +70,7 @@ class QuickPasteInterface {
         <div class="pastecraft-footer">
           <button class="pastecraft-btn pastecraft-refresh" title="Clear all clips">🗑️</button>
           <span class="pastecraft-count">${this.clips.length} clips</span>
+          <button class="pastecraft-btn pastecraft-copy-multiple" id="pastecraft-copy-multiple" disabled title="Copy multiple selected clips">Copy Multiple Clips</button>
         </div>
       </div>
     `;
@@ -110,6 +112,7 @@ class QuickPasteInterface {
           </div>
           <div class="pastecraft-clip-actions">
             <button class="pastecraft-btn pastecraft-paste" data-index="${index}" title="Paste">📋</button>
+            <button class="pastecraft-btn pastecraft-delete" data-index="${index}" title="Delete">×</button>
           </div>
         </div>
       `;
@@ -484,6 +487,88 @@ class QuickPasteInterface {
       .pastecraft-content::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+      
+      /* Delete button styling */
+      .pastecraft-delete {
+        background: #ef4444 !important;
+        color: white !important;
+        font-size: 16px !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        margin-left: 4px !important;
+      }
+      
+      .pastecraft-delete:hover {
+        background: #dc2626 !important;
+        transform: scale(1.1);
+      }
+      
+      /* Multi-select functionality */
+      .pastecraft-clip.selected {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        border: 2px solid #1d4ed8 !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6) !important;
+        transform: scale(1.02) !important;
+      }
+      
+      .pastecraft-clip.selected .pastecraft-clip-text {
+        color: white !important;
+        font-weight: 600 !important;
+      }
+      
+      .pastecraft-clip.selected .pastecraft-clip-meta {
+        color: rgba(255, 255, 255, 0.9) !important;
+      }
+      
+      .pastecraft-clip.selected .pastecraft-category {
+        background: rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+      }
+      
+      .pastecraft-clip.selected .pastecraft-time {
+        color: rgba(255, 255, 255, 0.8) !important;
+      }
+      
+      /* Copy Multiple button styling */
+      .pastecraft-copy-multiple {
+        background: #8b5cf6 !important;
+        color: white !important;
+        font-weight: 600 !important;
+        padding: 8px 16px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        border: 2px solid #7c3aed !important;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
+        flex: 1 !important;
+        min-width: 120px !important;
+        text-align: center !important;
+      }
+      
+      .pastecraft-copy-multiple:hover:not(:disabled) {
+        background: #7c3aed !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5) !important;
+      }
+      
+      .pastecraft-copy-multiple:disabled {
+        background: #d1d5db !important;
+        color: #9ca3af !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+        box-shadow: none !important;
+        border-color: #d1d5db !important;
+      }
+      
+      /* Sticky footer */
+      .pastecraft-footer {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 10 !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+      }
     `;
     
     document.head.appendChild(styles);
@@ -574,14 +659,28 @@ class QuickPasteInterface {
     this.container.addEventListener('click', (e) => {
       const clipElement = e.target.closest('.pastecraft-clip');
       const pasteBtn = e.target.closest('.pastecraft-paste');
+      const deleteBtn = e.target.closest('.pastecraft-delete');
+      const copyMultipleBtn = e.target.closest('.pastecraft-copy-multiple');
       
-      if (pasteBtn) {
+      if (deleteBtn) {
+        // Delete individual clip
+        e.stopPropagation();
+        const index = parseInt(deleteBtn.dataset.index);
+        this.deleteClip(index);
+      } else if (pasteBtn) {
+        // Paste individual clip
         e.stopPropagation();
         const index = parseInt(pasteBtn.dataset.index);
         this.pasteClip(index);
+      } else if (copyMultipleBtn) {
+        // Copy multiple selected clips
+        e.stopPropagation();
+        this.copyMultipleClips();
       } else if (clipElement) {
+        // Toggle selection (NEW: multi-select functionality)
+        e.stopPropagation();
         const index = parseInt(clipElement.dataset.index);
-        this.pasteClip(index);
+        this.toggleClipSelection(index, clipElement);
       }
     });
     
@@ -675,6 +774,10 @@ class QuickPasteInterface {
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
+    
+    // Reset selections and update button state
+    this.selectedClips.clear();
+    this.updateCopyMultipleButton();
   }
   
   async pasteClip(index) {
@@ -1010,6 +1113,103 @@ class QuickPasteInterface {
     } catch (error) {
       console.error('❌ Failed to clear clips:', error);
       this.showToast('Failed to clear clips', 'error');
+    }
+  }
+  
+  // NEW: Multi-select functionality methods
+  toggleClipSelection(index, clipElement) {
+    if (this.selectedClips.has(index)) {
+      // Deselect
+      this.selectedClips.delete(index);
+      clipElement.classList.remove('selected');
+      console.log(`❌ Deselected clip ${index}`, clipElement, clipElement.className);
+    } else {
+      // Select
+      this.selectedClips.add(index);
+      clipElement.classList.add('selected');
+      console.log(`✅ Selected clip ${index}`, clipElement, clipElement.className);
+    }
+    
+    console.log('🎨 Clip classes after select:', clipElement.className);
+    this.updateCopyMultipleButton();
+  }
+  
+  updateCopyMultipleButton() {
+    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!button) return;
+    
+    const selectedCount = this.selectedClips.size;
+    console.log(`🔘 Updating Copy Multiple Button - Selected: ${selectedCount}`);
+    
+    if (selectedCount >= 2) {
+      button.disabled = false;
+      button.textContent = `Copy ${selectedCount} Clips`;
+      button.style.background = '#8b5cf6';
+      console.log('✅ Copy Multiple Button ENABLED');
+    } else {
+      button.disabled = true;
+      button.textContent = 'Copy Multiple Clips';
+      button.style.background = '#d1d5db';
+      console.log('❌ Copy Multiple Button DISABLED');
+    }
+  }
+  
+  async copyMultipleClips() {
+    if (this.selectedClips.size < 2) return;
+    
+    const selectedClipsData = Array.from(this.selectedClips)
+      .sort((a, b) => a - b) // Sort by index
+      .map(index => this.clips[index])
+      .filter(clip => clip) // Remove any undefined clips
+      .map(clip => clip.text)
+      .join('\n\n'); // Join with double newlines
+    
+    try {
+      await navigator.clipboard.writeText(selectedClipsData);
+      
+      // Show success toast
+      this.showToast(`📋 Copied ${this.selectedClips.size} clips!`, 'success');
+      
+      // Clear selections
+      this.selectedClips.clear();
+      
+      // Update UI
+      const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
+      selectedElements.forEach(el => el.classList.remove('selected'));
+      this.updateCopyMultipleButton();
+      
+      console.log(`✅ Successfully copied ${this.selectedClips.size} clips`);
+    } catch (error) {
+      console.error('❌ Failed to copy multiple clips:', error);
+      this.showToast('❌ Failed to copy clips', 'error');
+    }
+  }
+  
+  // NEW: Delete individual clip functionality
+  async deleteClip(index) {
+    const clip = this.clips[index];
+    if (!clip) return;
+    
+    try {
+      // Remove from clips array
+      this.clips.splice(index, 1);
+      
+      // Save to storage
+      await chrome.storage.local.set({ clips: this.clips });
+      
+      // Update interface
+      this.updateInterface();
+      
+      // Show success toast
+      this.showToast(`🗑️ Deleted clip: "${clip.text.substring(0, 30)}..."`, 'success');
+      
+      console.log(`✅ Deleted clip at index ${index}`);
+      
+      // Notify other tabs about the change
+      chrome.runtime.sendMessage({ action: 'clipsUpdated' });
+    } catch (error) {
+      console.error('❌ Failed to delete clip:', error);
+      this.showToast('❌ Failed to delete clip', 'error');
     }
   }
 }
