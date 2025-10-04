@@ -408,6 +408,7 @@ class QuickPasteInterface {
       
       .help-content {
         padding: 20px !important;
+        color: #374151 !important;
       }
       
       .help-section {
@@ -415,7 +416,7 @@ class QuickPasteInterface {
       }
       
       .help-section h4 {
-        color: #1f2937;
+        color: #1f2937 !important;
         margin-bottom: 12px;
         font-size: 16px;
         font-weight: 600;
@@ -430,18 +431,22 @@ class QuickPasteInterface {
         border-radius: 8px;
         border-left: 4px solid #3b82f6;
         line-height: 1.5;
+        color: #374151 !important;
       }
       
       .help-item strong {
-        color: #1f2937;
+        color: #1f2937 !important;
+        font-weight: 600 !important;
       }
       
       .help-item ul {
         margin: 8px 0 0 20px;
+        color: #374151 !important;
       }
       
       .help-item li {
         margin-bottom: 4px;
+        color: #374151 !important;
       }
       
       .pastecraft-modal-body {
