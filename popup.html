@@ -1223,62 +1223,72 @@
             margin: 0;
         }
         
-        /* Info Icon Styles */
-        .info-icon {
-            display: inline-block;
-            margin-left: 6px;
-            cursor: help;
+        /* Help Modal Styles */
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .help-btn, .back-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
             font-size: 14px;
-            opacity: 0.7;
-            transition: opacity 0.2s ease;
-            position: relative;
-            color: #6b7280;
-            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
         }
         
-        .info-icon:hover {
-            opacity: 1;
-            color: #3b82f6;
+        .help-btn:hover, .back-btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
         }
         
-            /* Tooltip container - ROBUST VERSION */
-            .pastecraft-tooltip {
-                position: fixed !important;
-                background: #1f2937 !important;
-                color: white !important;
-                padding: 12px 16px !important;
-                border-radius: 8px !important;
-                font-size: 13px !important;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-                white-space: normal !important;
-                opacity: 0 !important;
-                visibility: hidden !important;
-                transition: opacity 0.3s ease, visibility 0.3s ease !important;
-                z-index: 999999 !important;
-                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
-                max-width: 280px !important;
-                text-align: center !important;
-                line-height: 1.5 !important;
-                pointer-events: none !important;
-                transform: translateX(-50%) !important;
-                border: 2px solid #374151 !important;
-                backdrop-filter: blur(10px) !important;
-            }
-        
-        .pastecraft-tooltip.show {
-            opacity: 1;
-            visibility: visible;
+        .help-content {
+            padding: 20px !important;
         }
         
-        .pastecraft-tooltip::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 5px solid transparent;
-            border-top-color: #1f2937;
+        .help-section {
+            margin-bottom: 24px;
         }
+        
+        .help-section h4 {
+            color: #1f2937;
+            margin-bottom: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        
+        .help-item {
+            margin-bottom: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            line-height: 1.5;
+        }
+        
+        .help-item strong {
+            color: #1f2937;
+        }
+        
+        .help-item ul {
+            margin: 8px 0 0 20px;
+        }
+        
+        .help-item li {
+            margin-bottom: 4px;
+        }
+        
     </style>
 </head>
 <body>
@@ -1372,11 +1382,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h3>⚙️ Settings</h3>
-                    <button class="modal-close" id="closeSettingsModal">✕</button>
+                    <div class="modal-actions">
+                        <button class="help-btn" id="helpBtn" title="Help & Information">❓</button>
+                        <button class="modal-close" id="closeSettingsModal">✕</button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <div class="settings-section">
-                        <h4>🗑️ Auto-Delete Uncategorized Clips <span class="info-icon" data-tooltip="Automatically removes uncategorized clips after a specified time to keep your clipboard organized">ℹ️</span></h4>
+                        <h4>🗑️ Auto-Delete Uncategorized Clips</h4>
                         <p class="settings-description">Automatically remove clips that haven't been assigned to a category after:</p>
                         <select id="autoDeletePeriod" class="settings-select">
                             <option value="never">Never delete</option>
@@ -1393,10 +1406,10 @@
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>⚡ Quick Paste Interface <span class="info-icon" data-tooltip="Configure the floating Quick Paste interface that appears on web pages for instant clipboard access">ℹ️</span></h4>
+                        <h4>⚡ Quick Paste Interface</h4>
                         <p class="settings-description">Configure the on-page quick paste interface. Drag the interface header to move it anywhere on screen:</p>
                         <div class="quick-setting">
-                            <label>Theme: <span class="info-icon" data-tooltip="Choose between light and dark appearance for the Quick Paste interface">ℹ️</span></label>
+                            <label>Theme:</label>
                             <select id="quickPasteThemePopup" class="settings-select-small">
                                 <option value="light">Light</option>
                                 <option value="dark">Dark</option>
@@ -1405,20 +1418,20 @@
                         <div class="quick-settings-checkboxes">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="quickPasteAutoHidePopup">
-                                Auto-hide after paste <span class="info-icon" data-tooltip="Automatically close the Quick Paste interface after pasting a clip">ℹ️</span>
+                                Auto-hide after paste
                             </label>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="quickPasteShowTimestampsPopup">
-                                Show timestamps <span class="info-icon" data-tooltip="Display how long ago each clip was saved (e.g., '2m ago', '1h ago')">ℹ️</span>
+                                Show timestamps
                             </label>
                         </div>
                         <div class="quick-setting">
-                            <label>Max clips to display: <span class="info-icon" data-tooltip="Maximum number of clips to show in the Quick Paste interface (5-50)">ℹ️</span></label>
+                            <label>Max clips to display:</label>
                             <input type="number" id="quickPasteMaxClipsPopup" class="settings-number" min="5" max="50">
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>📊 Storage Information <span class="info-icon" data-tooltip="View statistics about your saved clips and storage usage">ℹ️</span></h4>
+                        <h4>📊 Storage Information</h4>
                         <div class="storage-info">
                             <div class="storage-item">
                                 <span class="storage-label">Total Clips:</span>
@@ -1510,6 +1523,83 @@
             <span class="wand-icon">🪄</span>
             <span class="wand-text">Magic</span>
         </button>
+
+        <!-- Help Modal -->
+        <div class="modal-overlay" id="helpModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>❓ PasteCraft Help & Information</h3>
+                    <div class="modal-actions">
+                        <button class="back-btn" id="backBtn" title="Back to Settings">←</button>
+                        <button class="modal-close" id="closeHelpModal">✕</button>
+                    </div>
+                </div>
+                <div class="modal-body help-content">
+                    <div class="help-section">
+                        <h4>🗑️ Auto-Delete Uncategorized Clips</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> Automatically removes clips that haven't been assigned to a category after a specified time to keep your clipboard organized and prevent clutter.
+                        </div>
+                        <div class="help-item">
+                            <strong>How it works:</strong> Only affects clips in "Uncategorized". Categorized clips are never auto-deleted, ensuring your important organized clips are always preserved.
+                        </div>
+                        <div class="help-item">
+                            <strong>Time options:</strong>
+                            <ul>
+                                <li><strong>Never delete:</strong> Keep all clips indefinitely</li>
+                                <li><strong>1 Day:</strong> Remove uncategorized clips after 24 hours</li>
+                                <li><strong>1 Week:</strong> Remove uncategorized clips after 7 days</li>
+                                <li><strong>1 Month:</strong> Remove uncategorized clips after 30 days</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>⚡ Quick Paste Interface</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> A floating interface that appears on web pages for instant clipboard access without switching tabs.
+                        </div>
+                        <div class="help-item">
+                            <strong>Theme:</strong> Choose between light and dark appearance to match your preference and reduce eye strain.
+                        </div>
+                        <div class="help-item">
+                            <strong>Auto-hide after paste:</strong> Automatically closes the Quick Paste interface after pasting a clip, keeping your screen clean and workflow uninterrupted.
+                        </div>
+                        <div class="help-item">
+                            <strong>Show timestamps:</strong> Displays how long ago each clip was saved (e.g., '2m ago', '1h ago') for better organization and context.
+                        </div>
+                        <div class="help-item">
+                            <strong>Max clips to display:</strong> Controls how many clips appear in the interface (5-50). Fewer clips = faster loading and less visual clutter.
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>💡 Pro Tips</h4>
+                        <div class="help-item">
+                            • Drag the Quick Paste interface header to move it anywhere on the page
+                        </div>
+                        <div class="help-item">
+                            • Use keyboard shortcuts for faster access (configure in main settings)
+                        </div>
+                        <div class="help-item">
+                            • Organize clips into categories for better management
+                        </div>
+                        <div class="help-item">
+                            • Enable auto-hide to keep your workflow uninterrupted
+                        </div>
+                        <div class="help-item">
+                            • Use the search function to quickly find specific clips
+                        </div>
+                        <div class="help-item">
+                            • Right-click on clips for additional options like edit, delete, or categorize
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="backToSettingsFromHelp">← Back to Settings</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="popup.js"></script>
