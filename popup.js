@@ -203,6 +203,13 @@ class PasteCraftPopup {
       this.hideHelpModal();
     });
 
+    // Help modal overlay click to close
+    document.getElementById('helpModal').addEventListener('click', (e) => {
+      if (e.target.id === 'helpModal') {
+        this.hideHelpModal();
+      }
+    });
+
     document.getElementById('settingsModal').addEventListener('click', (e) => {
       if (e.target.id === 'settingsModal') {
         this.hideSettingsModal();

@@ -1231,10 +1231,13 @@
             width: 100% !important;
             height: 100% !important;
             z-index: 10000 !important;
-            display: flex !important;
             justify-content: center !important;
             align-items: center !important;
             background: rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        #helpModal[style*="display: flex"] {
+            display: flex !important;
         }
         
         #helpModal .modal-content {
@@ -1281,6 +1284,8 @@
         .help-content {
             padding: 20px !important;
             color: #374151 !important;
+            max-height: 60vh !important;
+            overflow-y: auto !important;
         }
         
         .help-section {
