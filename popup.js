@@ -1022,10 +1022,127 @@ class PasteCraftPopup {
     document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings.maxClipsDisplay;
     
     document.getElementById('settingsModal').style.display = 'flex';
+    
+    // Setup tooltips for info icons with a small delay to ensure DOM is ready
+    setTimeout(() => {
+      this.setupPopupTooltips();
+    }, 100);
   }
 
   hideSettingsModal() {
     document.getElementById('settingsModal').style.display = 'none';
+    
+    // Clean up any existing tooltips
+    const existingTooltips = document.querySelectorAll('.pastecraft-tooltip');
+    existingTooltips.forEach(tooltip => {
+      if (tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+    });
+  }
+  
+  setupPopupTooltips() {
+    const settingsModal = document.getElementById('settingsModal');
+    if (!settingsModal) return;
+    
+    // Clean up any existing tooltips first
+    const existingTooltips = document.querySelectorAll('.pastecraft-tooltip');
+    existingTooltips.forEach(tooltip => {
+      if (tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+    });
+    
+    const infoIcons = settingsModal.querySelectorAll('.info-icon');
+    console.log(`🔍 Found ${infoIcons.length} info icons in main popup settings`);
+    
+    infoIcons.forEach((icon, index) => {
+      const tooltipText = icon.getAttribute('data-tooltip');
+      console.log(`🔍 Popup Icon ${index + 1}: tooltip text = "${tooltipText}"`);
+      
+      if (!tooltipText) return;
+      
+      // Create tooltip element with robust styling
+      const tooltip = document.createElement('div');
+      tooltip.className = 'pastecraft-tooltip';
+      tooltip.textContent = tooltipText;
+      tooltip.id = `popup-tooltip-${Date.now()}-${index}`;
+      
+      // Force inline styles for maximum compatibility (without opacity/visibility)
+      tooltip.style.cssText = `
+        position: fixed !important;
+        background: #1f2937 !important;
+        color: white !important;
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        white-space: normal !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
+        z-index: 999999 !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        max-width: 280px !important;
+        text-align: center !important;
+        line-height: 1.5 !important;
+        pointer-events: none !important;
+        border: 2px solid #374151 !important;
+        backdrop-filter: blur(10px) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+      `;
+      
+      document.body.appendChild(tooltip);
+      console.log(`✅ Popup tooltip element created and added to DOM: ${tooltip.id}`);
+      
+      // Show tooltip on hover
+      icon.addEventListener('mouseenter', (e) => {
+        console.log(`🖱️ Mouse enter on popup icon ${index + 1}`);
+        const rect = icon.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const topY = rect.top - 10;
+        
+        // Force positioning and visibility with inline styles
+        tooltip.style.left = centerX + 'px';
+        tooltip.style.top = topY + 'px';
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        tooltip.style.setProperty('opacity', '1', 'important');
+        tooltip.style.setProperty('visibility', 'visible', 'important');
+        
+        console.log(`✅ Popup tooltip shown for icon ${index + 1} at position: ${centerX}, ${topY}`);
+        console.log(`🔍 Popup tooltip opacity: ${tooltip.style.opacity}, visibility: ${tooltip.style.visibility}`);
+      });
+      
+      // Hide tooltip on mouse leave
+      icon.addEventListener('mouseleave', () => {
+        console.log(`🖱️ Mouse leave on popup icon ${index + 1}`);
+        tooltip.style.setProperty('opacity', '0', 'important');
+        tooltip.style.setProperty('visibility', 'hidden', 'important');
+      });
+      
+      // Also add click handler for debugging
+      icon.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🖱️ Click on popup icon ${index + 1}`);
+        const rect = icon.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const topY = rect.top - 10;
+        
+        // Force positioning with inline styles
+        tooltip.style.left = centerX + 'px';
+        tooltip.style.top = topY + 'px';
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        
+        // Toggle visibility using setProperty for !important
+        const isVisible = tooltip.style.opacity === '1';
+        tooltip.style.setProperty('opacity', isVisible ? '0' : '1', 'important');
+        tooltip.style.setProperty('visibility', isVisible ? 'hidden' : 'visible', 'important');
+        
+        console.log(`🔄 Popup tooltip toggled for icon ${index + 1} at position: ${centerX}, ${topY} (visible: ${!isVisible})`);
+      });
+    });
+    
+    console.log(`🔧 Setup ${infoIcons.length} tooltips for main popup settings`);
   }
 
   updateStorageStats() {

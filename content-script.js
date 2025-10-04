@@ -601,6 +601,63 @@ class QuickPasteInterface {
         font-style: italic !important;
       }
       
+      /* Info Icon Styles */
+      .info-icon {
+        display: inline-block;
+        margin-left: 6px;
+        cursor: help;
+        font-size: 14px;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+        position: relative;
+        color: #6b7280;
+        font-weight: bold;
+      }
+      
+      .info-icon:hover {
+        opacity: 1;
+        color: #3b82f6;
+      }
+      
+      /* Tooltip container - ROBUST VERSION */
+      .pastecraft-tooltip {
+        position: fixed !important;
+        background: #1f2937 !important;
+        color: white !important;
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        white-space: normal !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
+        z-index: 999999 !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        max-width: 280px !important;
+        text-align: center !important;
+        line-height: 1.5 !important;
+        pointer-events: none !important;
+        transform: translateX(-50%) !important;
+        border: 2px solid #374151 !important;
+        backdrop-filter: blur(10px) !important;
+      }
+      
+      .pastecraft-tooltip.show {
+        opacity: 1;
+        visibility: visible;
+      }
+      
+      .pastecraft-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #1f2937;
+      }
+      
       .pastecraft-interface.dark .pastecraft-setting-group {
         background: #374151;
         border-color: #4b5563;
@@ -1508,7 +1565,7 @@ class QuickPasteInterface {
         </div>
         <div class="pastecraft-modal-body">
           <div class="pastecraft-setting">
-            <label>Theme</label>
+            <label>Theme <span class="info-icon" data-tooltip="Choose between light and dark appearance for the Quick Paste interface">ℹ️</span></label>
             <select id="quickPasteTheme">
               <option value="light" ${this.settings.theme === 'light' ? 'selected' : ''}>Light</option>
               <option value="dark" ${this.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
@@ -1517,23 +1574,23 @@ class QuickPasteInterface {
           <div class="pastecraft-setting">
             <label>
               <input type="checkbox" id="quickPasteAutoHide" ${this.settings.autoHide ? 'checked' : ''}>
-              Auto-hide after paste
+              Auto-hide after paste <span class="info-icon" data-tooltip="Automatically close the Quick Paste interface after pasting a clip">ℹ️</span>
             </label>
           </div>
           <div class="pastecraft-setting">
             <label>
               <input type="checkbox" id="quickPasteShowTimestamps" ${this.settings.showTimestamps ? 'checked' : ''}>
-              Show timestamps
+              Show timestamps <span class="info-icon" data-tooltip="Display how long ago each clip was saved (e.g., '2m ago', '1h ago')">ℹ️</span>
             </label>
           </div>
           <div class="pastecraft-setting">
-            <label>Max clips to display</label>
+            <label>Max clips to display <span class="info-icon" data-tooltip="Maximum number of clips to show in the Quick Paste interface (5-50)">ℹ️</span></label>
             <input type="number" id="quickPasteMaxClips" value="${this.settings.maxClipsDisplay}" min="5" max="50">
           </div>
           
           <!-- Delimiter Settings -->
           <div class="pastecraft-setting-group">
-            <label class="pastecraft-setting-label">Delimiter</label>
+            <label class="pastecraft-setting-label">Delimiter <span class="info-icon" data-tooltip="Choose how to separate multiple clips when copying them together">ℹ️</span></label>
             <div class="pastecraft-segmented-control" id="quickPasteDelimiterControl">
               <button class="pastecraft-segment-btn ${this.settings.delimiter === 'comma' ? 'active' : ''}" data-delimiter="comma">Comma</button>
               <button class="pastecraft-segment-btn ${this.settings.delimiter === 'newline' ? 'active' : ''}" data-delimiter="newline">Newline</button>
@@ -1547,22 +1604,22 @@ class QuickPasteInterface {
           
           <!-- Options Settings -->
           <div class="pastecraft-setting-group">
-            <label class="pastecraft-setting-label">Options</label>
+            <label class="pastecraft-setting-label">Options <span class="info-icon" data-tooltip="Text processing options applied when copying multiple clips">ℹ️</span></label>
             <div class="pastecraft-toggles">
               <label class="pastecraft-toggle">
                 <input type="checkbox" id="quickPasteDeduplicate" ${this.settings.options.deduplicate ? 'checked' : ''}>
                 <div class="pastecraft-toggle-switch"></div>
-                <span>🔄 Deduplicate</span>
+                <span>🔄 Deduplicate <span class="info-icon" data-tooltip="Remove duplicate clips when copying multiple selections">ℹ️</span></span>
               </label>
               <label class="pastecraft-toggle">
                 <input type="checkbox" id="quickPasteSort" ${this.settings.options.sort ? 'checked' : ''}>
                 <div class="pastecraft-toggle-switch"></div>
-                <span>⬆️ Sort A→Z</span>
+                <span>⬆️ Sort A→Z <span class="info-icon" data-tooltip="Sort clips alphabetically when copying multiple selections">ℹ️</span></span>
               </label>
               <label class="pastecraft-toggle">
                 <input type="checkbox" id="quickPasteUppercase" ${this.settings.options.uppercase ? 'checked' : ''}>
                 <div class="pastecraft-toggle-switch"></div>
-                <span>Aa UPPERCASE</span>
+                <span>Aa UPPERCASE <span class="info-icon" data-tooltip="Convert all text to uppercase when copying multiple selections">ℹ️</span></span>
               </label>
             </div>
           </div>
@@ -1885,12 +1942,138 @@ class QuickPasteInterface {
     // Options toggles
     this.settingsModal.querySelectorAll('.pastecraft-toggle').forEach(toggle => {
       toggle.addEventListener('click', (e) => {
+        // Don't trigger if clicking on info icon
+        if (e.target.classList.contains('info-icon')) {
+          return;
+        }
+        
         const checkbox = toggle.querySelector('input[type="checkbox"]');
         if (e.target !== checkbox) {
           checkbox.checked = !checkbox.checked;
+          
+          // Trigger change event to update visual state
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+          
+          console.log(`🔄 Toggle clicked: ${checkbox.id} = ${checkbox.checked}`);
         }
       });
+      
+      // Also handle direct checkbox clicks
+      const checkbox = toggle.querySelector('input[type="checkbox"]');
+      if (checkbox) {
+        checkbox.addEventListener('change', (e) => {
+          console.log(`✅ Checkbox changed: ${e.target.id} = ${e.target.checked}`);
+        });
+      }
     });
+    
+    // Setup tooltips for info icons with a small delay to ensure DOM is ready
+    setTimeout(() => {
+      this.setupTooltips();
+    }, 100);
+  }
+  
+  setupTooltips() {
+    if (!this.settingsModal) return;
+    
+    // Clean up any existing tooltips first
+    const existingTooltips = document.querySelectorAll('.pastecraft-tooltip');
+    existingTooltips.forEach(tooltip => {
+      if (tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+    });
+    
+    const infoIcons = this.settingsModal.querySelectorAll('.info-icon');
+    console.log(`🔍 Found ${infoIcons.length} info icons in Quick Paste settings`);
+    
+    infoIcons.forEach((icon, index) => {
+      const tooltipText = icon.getAttribute('data-tooltip');
+      console.log(`🔍 Icon ${index + 1}: tooltip text = "${tooltipText}"`);
+      
+      if (!tooltipText) return;
+      
+      // Create tooltip element with robust styling
+      const tooltip = document.createElement('div');
+      tooltip.className = 'pastecraft-tooltip';
+      tooltip.textContent = tooltipText;
+      tooltip.id = `tooltip-${Date.now()}-${index}`;
+      
+      // Force inline styles for maximum compatibility (without opacity/visibility)
+      tooltip.style.cssText = `
+        position: fixed !important;
+        background: #1f2937 !important;
+        color: white !important;
+        padding: 12px 16px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        white-space: normal !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
+        z-index: 999999 !important;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        max-width: 280px !important;
+        text-align: center !important;
+        line-height: 1.5 !important;
+        pointer-events: none !important;
+        border: 2px solid #374151 !important;
+        backdrop-filter: blur(10px) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+      `;
+      
+      document.body.appendChild(tooltip);
+      console.log(`✅ Tooltip element created and added to DOM: ${tooltip.id}`);
+      
+      // Show tooltip on hover
+      icon.addEventListener('mouseenter', (e) => {
+        console.log(`🖱️ Mouse enter on icon ${index + 1}`);
+        const rect = icon.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const topY = rect.top - 10;
+        
+        // Force positioning and visibility with inline styles
+        tooltip.style.left = centerX + 'px';
+        tooltip.style.top = topY + 'px';
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        tooltip.style.setProperty('opacity', '1', 'important');
+        tooltip.style.setProperty('visibility', 'visible', 'important');
+        
+        console.log(`✅ Tooltip shown for icon ${index + 1} at position: ${centerX}, ${topY}`);
+        console.log(`🔍 Tooltip opacity: ${tooltip.style.opacity}, visibility: ${tooltip.style.visibility}`);
+      });
+      
+      // Hide tooltip on mouse leave
+      icon.addEventListener('mouseleave', () => {
+        console.log(`🖱️ Mouse leave on icon ${index + 1}`);
+        tooltip.style.setProperty('opacity', '0', 'important');
+        tooltip.style.setProperty('visibility', 'hidden', 'important');
+      });
+      
+      // Also add click handler for debugging
+      icon.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🖱️ Click on icon ${index + 1}`);
+        const rect = icon.getBoundingClientRect();
+        const centerX = rect.left + (rect.width / 2);
+        const topY = rect.top - 10;
+        
+        // Force positioning with inline styles
+        tooltip.style.left = centerX + 'px';
+        tooltip.style.top = topY + 'px';
+        tooltip.style.transform = 'translateX(-50%) translateY(-100%)';
+        
+        // Toggle visibility using setProperty for !important
+        const isVisible = tooltip.style.opacity === '1';
+        tooltip.style.setProperty('opacity', isVisible ? '0' : '1', 'important');
+        tooltip.style.setProperty('visibility', isVisible ? 'hidden' : 'visible', 'important');
+        
+        console.log(`🔄 Tooltip toggled for icon ${index + 1} at position: ${centerX}, ${topY} (visible: ${!isVisible})`);
+      });
+    });
+    
+    console.log(`🔧 Setup ${infoIcons.length} tooltips for Quick Paste settings`);
   }
   
   async saveSettingsFromModal() {
