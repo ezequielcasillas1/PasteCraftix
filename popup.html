@@ -863,6 +863,8 @@
             max-width: 400px;
             max-height: 80vh;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
             animation: modalSlideIn 0.3s ease-out;
         }
         
@@ -883,6 +885,7 @@
             justify-content: space-between;
             padding: 20px 24px 16px;
             border-bottom: 2px solid #f1f5f9;
+            flex-shrink: 0;
         }
         
         .modal-header h3 {
@@ -914,6 +917,9 @@
         
         .modal-body {
             padding: 20px 24px 24px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
         }
         
         .modal-text {
