@@ -342,9 +342,41 @@ class QuickPasteInterface {
         color: #374151;
       }
       
-      /* Help Modal Styles */
+      /* Help Modal Styles - Force proper centering */
       .pastecraft-help-modal {
         display: none;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        z-index: 10000 !important;
+        justify-content: center !important;
+        align-items: center !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+      }
+      
+      .pastecraft-help-modal .pastecraft-modal-backdrop {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+      }
+      
+      .pastecraft-help-modal .pastecraft-modal-content {
+        position: relative !important;
+        background: white !important;
+        border-radius: 12px !important;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3) !important;
+        max-width: 600px !important;
+        max-height: 80vh !important;
+        width: 90% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin: auto !important;
       }
       
       .pastecraft-modal-actions {
