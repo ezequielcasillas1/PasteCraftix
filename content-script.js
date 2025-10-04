@@ -147,6 +147,7 @@ class QuickPasteInterface {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         z-index: 999999;
         overflow: hidden;
+        overflow-x: hidden;
         backdrop-filter: blur(10px);
         animation: pastecraft-slide-in 0.3s ease;
       }
@@ -775,7 +776,7 @@ class QuickPasteInterface {
         bottom: 0 !important;
         z-index: 1000 !important;
         display: flex !important;
-        justify-content: flex-start !important;
+        justify-content: space-between !important;
         align-items: center !important;
         padding: 12px 16px !important;
         background: rgba(248, 250, 252, 0.98) !important;
@@ -784,13 +785,17 @@ class QuickPasteInterface {
         font-size: 12px !important;
         color: #6b7280 !important;
         box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.15) !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 12px !important;
         margin: 0 !important;
         flex-shrink: 0 !important;
         width: 100% !important;
+        max-width: 100% !important;
         left: 0 !important;
+        overflow: hidden !important;
+        min-width: 0 !important;
         right: 0 !important;
+        box-sizing: border-box !important;
       }
       
       .pastecraft-count {
@@ -897,7 +902,9 @@ class QuickPasteInterface {
         max-width: 140px !important;
         text-align: center !important;
         white-space: nowrap !important;
-        margin-left: auto !important;
+        margin-left: 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
       }
       
       .pastecraft-copy-multiple:hover:not(:disabled) {
