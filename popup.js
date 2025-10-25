@@ -33,10 +33,55 @@ class PasteCraftPopup {
     this.updatePreview();
     this.renderCategories();
     this.updateCategoryFilter();
+    
+    // Reload data whenever popup becomes visible
+    this.setupVisibilityListener();
+  }
+  
+  setupVisibilityListener() {
+    // Reload data when popup is shown
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔄 Popup became visible - reloading data...');
+        await this.loadData();
+        this.renderChips();
+        this.updateLastCapture();
+        this.updatePreview();
+        this.renderCategories();
+        this.updateCategoryFilter();
+        console.log('✅ Data reloaded successfully');
+      }
+    });
+    
+    // Also listen for storage changes in real-time
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && (changes.clips || changes.categories || changes.searchOnlyClips)) {
+        console.log('🔄 Storage changed - reloading data...');
+        this.loadData().then(() => {
+          this.renderChips();
+          this.updateLastCapture();
+          this.updatePreview();
+          this.renderCategories();
+          this.updateCategoryFilter();
+          console.log('✅ Data reloaded after storage change');
+        });
+      }
+    });
   }
   
   async loadData() {
-    const { clips = [], categories = [], searchOnlyClips = [] } = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+    console.log('🚀 DIAGNOSTIC: loadData() called at', new Date().toISOString());
+    
+    const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+    console.log('🔍 RAW STORAGE DATA:', {
+      clipsCount: result.clips?.length || 0,
+      categoriesCount: result.categories?.length || 0,
+      searchOnlyClipsCount: result.searchOnlyClips?.length || 0,
+      firstClip: result.clips?.[0] || 'NONE',
+      firstClipText: result.clips?.[0]?.text?.substring(0, 30) || 'N/A'
+    });
+    
+    const { clips = [], categories = [], searchOnlyClips = [] } = result;
     
     // Load active clips (max 20, shown in clips tab and quick paste)
     this.clips = clips.map(clip => {
@@ -80,9 +125,10 @@ class PasteCraftPopup {
     this.categories = categories;
     
     // Debug logging
-    console.log('🔍 Loaded active clips:', this.clips.length);
-    console.log('🔍 Loaded archived clips:', this.searchOnlyClips.length);
-    console.log('🔍 Categories:', this.categories.length);
+    console.log('✅ DIAGNOSTIC: Loaded active clips:', this.clips.length);
+    console.log('✅ DIAGNOSTIC: Loaded archived clips:', this.searchOnlyClips.length);
+    console.log('✅ DIAGNOSTIC: Categories:', this.categories.length);
+    console.log('✅ DIAGNOSTIC: First clip after processing:', this.clips[0] || 'NONE');
   }
   
   setupEventListeners() {

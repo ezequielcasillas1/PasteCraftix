@@ -40,16 +40,27 @@ class QuickPasteInterface {
   
   async loadClips() {
     try {
+      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
       const result = await chrome.storage.local.get(['clips']);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!result.clips);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', result.clips?.length || 0);
+      
       this.clips = result.clips || [];
-      console.log('📋 Loaded clips for Quick Paste:', this.clips.length);
-      console.log('📋 Clips data:', this.clips.slice(0, 3).map(clip => ({
-        text: (clip.text || clip).substring(0, 30) + '...',
-        category: clip.category || 'Uncategorized',
-        timestamp: clip.timestamp
-      })));
+      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
+      
+      if (this.clips.length > 0) {
+        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
+          text: (clip.text || clip).substring(0, 30) + '...',
+          category: clip.category || 'Uncategorized',
+          timestamp: clip.timestamp,
+          fullClip: clip
+        })));
+      } else {
+        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
+      }
     } catch (error) {
-      console.error('Failed to load clips:', error);
+      console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
       this.clips = [];
     }
   }

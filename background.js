@@ -202,16 +202,22 @@ async function pasteClip(index, tab) {
 // Removed old saveText function - using saveTextDirectly instead
 
 async function saveTextDirectly(text, category = 'Uncategorized') {
-  const { clips = [], searchOnlyClips = [] } = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+  console.log('🚀 DIAGNOSTIC: saveTextDirectly() called');
+  console.log('📝 Text to save:', text.substring(0, 50) + '...');
+  console.log('📁 Category:', category);
   
-  // Check category limit (10 clips max per category)
-  const allClips = [...clips, ...searchOnlyClips];
-  const clipsInCategory = allClips.filter(clip => clip.category === category);
+  const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+  console.log('🔍 Storage BEFORE save:', {
+    clipsCount: result.clips?.length || 0,
+    searchOnlyCount: result.searchOnlyClips?.length || 0
+  });
+  console.log('🔍 RAW clips array from storage:', result.clips);
+  console.log('🔍 Type of clips from storage:', typeof result.clips, Array.isArray(result.clips));
   
-  if (clipsInCategory.length >= 10) {
-    console.log(`⚠️ Category "${category}" is full (10 clips max). Clip not saved.`);
-    return;
-  }
+  const { clips = [], searchOnlyClips = [] } = result;
+  
+  console.log('🔍 After destructuring - clips length:', clips.length);
+  console.log('🔍 After destructuring - clips array:', clips);
   
   const newClip = {
     id: Date.now() + Math.random(),
@@ -220,7 +226,29 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
     timestamp: Date.now()
   };
   
+  console.log('📦 New clip object:', newClip);
+  
+  // Check category limit (10 clips max per category in ACTIVE storage)
+  const activeClipsInCategory = clips.filter(clip => clip.category === category);
+  
+  if (activeClipsInCategory.length >= 10) {
+    console.log(`⚠️ Category "${category}" is at limit (10 clips). Moving oldest to archive...`);
+    
+    // Find oldest clip in this category and move to search-only storage
+    const oldestClipIndex = clips.findIndex(clip => clip.category === category);
+    if (oldestClipIndex !== -1) {
+      const oldestClip = clips.splice(oldestClipIndex, 1)[0];
+      searchOnlyClips.unshift(oldestClip);
+      console.log('📦 Moved oldest clip to archive:', oldestClip.text.substring(0, 30) + '...');
+    }
+  }
+  
+  console.log('🔄 BEFORE unshift - clips array:', clips);
   clips.unshift(newClip);
+  console.log('📊 AFTER unshift - clips length:', clips.length);
+  console.log('📊 AFTER unshift - clips array:', clips);
+  console.log('📊 First clip:', clips[0]?.text?.substring(0, 30));
+  console.log('📊 Second clip:', clips[1]?.text?.substring(0, 30) || 'NONE');
   
   // Move clips beyond 20th to search-only storage
   if (clips.length > 20) {
@@ -232,14 +260,30 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
       searchOnlyClips.splice(1000);
     }
     
-    await chrome.storage.local.set({ searchOnlyClips });
+    console.log('📦 Moved overflow to searchOnlyClips:', overflowClips.length);
   }
   
-  await chrome.storage.local.set({ clips });
+  console.log('💾 ABOUT TO SAVE TO STORAGE - clips array length:', clips.length);
+  console.log('💾 ABOUT TO SAVE TO STORAGE - full clips array:', clips);
+  console.log('💾 ABOUT TO SAVE TO STORAGE - searchOnly array length:', searchOnlyClips.length);
+  
+  await chrome.storage.local.set({ clips, searchOnlyClips });
+  
+  console.log('✅ SAVE COMPLETE - verifying...');
+  
+  // Verify save worked
+  const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+  console.log('🔍 VERIFICATION - Storage now has:');
+  console.log('   - Active clips:', verification.clips?.length || 0);
+  console.log('   - Archived clips:', verification.searchOnlyClips?.length || 0);
+  console.log('🔍 FULL clips array in storage:', verification.clips);
+  console.log('🔍 First clip:', verification.clips?.[0]?.text?.substring(0, 30) || 'NONE');
+  console.log('🔍 Second clip:', verification.clips?.[1]?.text?.substring(0, 30) || 'NONE');
   
   // Notify content scripts about new clip
   try {
     chrome.tabs.query({}, (tabs) => {
+      console.log('📢 Notifying', tabs.length, 'tabs about new clip');
       tabs.forEach(tab => {
         chrome.tabs.sendMessage(tab.id, {
           action: 'clipSaved',
@@ -251,5 +295,5 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
     console.log('Could not notify content scripts:', error);
   }
   
-  console.log('💾 Saved text to', category + ':', text.substring(0, 30) + '...');
+  console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text.substring(0, 30) + '...');
 }
