@@ -85,7 +85,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     });
     
   } else if (info.menuItemId === 'copy-to-quick-save') {
-    if (info.selectionText) {
+    console.log('🖱️ Copy to Quick Save clicked - selectionText:', info.selectionText);
+    
+    if (info.selectionText && info.selectionText.trim().length > 0) {
       // Save directly to Quick Save (Uncategorized) and show Quick Paste interface
       await saveTextDirectly(info.selectionText, 'Uncategorized');
       
@@ -99,8 +101,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     } else {
       // No text selected - show feedback message
-      console.log('⚠️ Copy to Quick Save clicked but no text selected');
-      // Could optionally show a notification or just show the interface
+      console.log('⚠️ Copy to Quick Save clicked but no text selected or empty');
+      // Just show the interface
       chrome.tabs.sendMessage(tab.id, {
         action: 'showQuickPaste',
         x: info.pageX || 100,
@@ -203,8 +205,14 @@ async function pasteClip(index, tab) {
 
 async function saveTextDirectly(text, category = 'Uncategorized') {
   console.log('🚀 DIAGNOSTIC: saveTextDirectly() called');
-  console.log('📝 Text to save:', text.substring(0, 50) + '...');
+  console.log('📝 Text to save:', text ? (text.substring(0, 50) + '...') : 'UNDEFINED/EMPTY');
   console.log('📁 Category:', category);
+  
+  // Safety check: Don't save empty/undefined text
+  if (!text || text.trim().length === 0) {
+    console.log('⚠️ Attempted to save empty/undefined text - ABORTED');
+    return;
+  }
   
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
   console.log('🔍 Storage BEFORE save:', {
@@ -239,7 +247,7 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
     if (oldestClipIndex !== -1) {
       const oldestClip = clips.splice(oldestClipIndex, 1)[0];
       searchOnlyClips.unshift(oldestClip);
-      console.log('📦 Moved oldest clip to archive:', oldestClip.text.substring(0, 30) + '...');
+      console.log('📦 Moved oldest clip to archive:', oldestClip.text ? (oldestClip.text.substring(0, 30) + '...') : 'NO TEXT');
     }
   }
   
@@ -295,5 +303,5 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
     console.log('Could not notify content scripts:', error);
   }
   
-  console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text.substring(0, 30) + '...');
+  console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text ? (text.substring(0, 30) + '...') : 'NO TEXT');
 }
