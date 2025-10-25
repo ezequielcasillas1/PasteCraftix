@@ -242,12 +242,23 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
   if (activeClipsInCategory.length >= 10) {
     console.log(`⚠️ Category "${category}" is at limit (10 clips). Moving oldest to archive...`);
     
-    // Find oldest clip in this category and move to search-only storage
-    const oldestClipIndex = clips.findIndex(clip => clip.category === category);
+    // Find ACTUAL oldest clip in this category by timestamp and move to search-only storage
+    let oldestClip = null;
+    let oldestClipIndex = -1;
+    let oldestTimestamp = Infinity;
+    
+    clips.forEach((clip, index) => {
+      if (clip.category === category && clip.timestamp < oldestTimestamp) {
+        oldestTimestamp = clip.timestamp;
+        oldestClip = clip;
+        oldestClipIndex = index;
+      }
+    });
+    
     if (oldestClipIndex !== -1) {
-      const oldestClip = clips.splice(oldestClipIndex, 1)[0];
+      clips.splice(oldestClipIndex, 1);
       searchOnlyClips.unshift(oldestClip);
-      console.log('📦 Moved oldest clip to archive:', oldestClip.text ? (oldestClip.text.substring(0, 30) + '...') : 'NO TEXT');
+      console.log('📦 Moved ACTUAL oldest clip to archive (timestamp:', oldestClip.timestamp + '):', oldestClip.text ? (oldestClip.text.substring(0, 30) + '...') : 'NO TEXT');
     }
   }
   
