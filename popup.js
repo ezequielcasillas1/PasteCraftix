@@ -1,6 +1,9 @@
 // PasteCraft Advanced Popup Script
+console.log('🟢 popup.js LOADED at', new Date().toISOString());
+
 class PasteCraftPopup {
   constructor() {
+    console.log('🟢 PasteCraftPopup constructor called');
     this.clips = [];
     this.categories = [];
     this.selectedChips = new Set();
@@ -19,6 +22,7 @@ class PasteCraftPopup {
       sort: false,
       uppercase: false
     };
+    this.userProfile = null;
     
     this.init();
   }
@@ -26,6 +30,7 @@ class PasteCraftPopup {
   async init() {
     await this.loadData();
     await this.loadSettings();
+    await this.loadUserProfile();
     await this.cleanupOldClips();
     this.setupEventListeners();
     this.renderChips();
@@ -212,6 +217,15 @@ class PasteCraftPopup {
       if (e.target.id === 'categoryModal') {
         this.hideCategoryModal();
       }
+    });
+
+    // Profile modal events
+    document.getElementById('profileBtn').addEventListener('click', () => {
+      this.showProfileModal();
+    });
+
+    document.getElementById('closeProfileModal').addEventListener('click', () => {
+      this.hideProfileModal();
     });
 
     // Settings modal events
@@ -1325,6 +1339,423 @@ class PasteCraftPopup {
     this.searchOnlyClips = searchOnlyClips;
     await chrome.storage.local.set({ searchOnlyClips });
     console.log(`📦 Moved ${overflowClips.length} clips to search-only storage`);
+  }
+
+  // Profile Management Functions
+  async loadUserProfile() {
+    try {
+      const { userProfile = null } = await chrome.storage.local.get(['userProfile']);
+      this.userProfile = userProfile;
+      console.log('✅ Loaded user profile:', this.userProfile);
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+    }
+  }
+
+  async saveUserProfile() {
+    try {
+      await chrome.storage.local.set({ userProfile: this.userProfile });
+      console.log('💾 User profile saved:', this.userProfile);
+    } catch (error) {
+      console.error('Failed to save user profile:', error);
+    }
+  }
+
+  showProfileModal() {
+    document.getElementById('profileModal').style.display = 'flex';
+    
+    // Load existing profile data
+    if (this.userProfile) {
+      if (this.userProfile.userName) {
+        document.getElementById('userName').value = this.userProfile.userName;
+      }
+      if (this.userProfile.aiName) {
+        document.getElementById('aiNameValue').textContent = this.userProfile.aiName;
+        document.getElementById('aiNameDisplay').style.display = 'flex';
+      }
+      if (this.userProfile.profileImageUrl) {
+        document.getElementById('profileImage').src = this.userProfile.profileImageUrl;
+        document.getElementById('profileImage').style.display = 'block';
+        document.getElementById('profileImagePlaceholder').style.display = 'none';
+      }
+    }
+
+    // Update AI Generate button state based on uploaded photo
+    this.updateAIGenerateButtonState();
+
+    // Setup profile modal event listeners
+    this.setupProfileModalEvents();
+  }
+  
+  updateAIGenerateButtonState() {
+    const generateAnimalBtn = document.getElementById('generateAnimalBtn');
+    const generateCartoonBtn = document.getElementById('generateCartoonBtn');
+    
+    // Enable Animal Avatar if AI name is generated
+    if (this.userProfile && this.userProfile.aiGeneratedName) {
+      const match = this.userProfile.aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther)$/i);
+      if (match) {
+        generateAnimalBtn.disabled = false;
+        generateAnimalBtn.classList.remove('btn-disabled');
+        generateAnimalBtn.title = `Generate ${match[1]} avatar`;
+      }
+    } else {
+      generateAnimalBtn.disabled = true;
+      generateAnimalBtn.classList.add('btn-disabled');
+      generateAnimalBtn.title = 'Generate AI name first';
+    }
+    
+    // Enable My Cartoon if photo is uploaded
+    if (this.userProfile && this.userProfile.profileImageBase64) {
+      generateCartoonBtn.disabled = false;
+      generateCartoonBtn.classList.remove('btn-disabled');
+      generateCartoonBtn.title = 'Generate cartoon from your photo';
+    } else {
+      generateCartoonBtn.disabled = true;
+      generateCartoonBtn.classList.add('btn-disabled');
+      generateCartoonBtn.title = 'Upload a photo first';
+    }
+  }
+
+  hideProfileModal() {
+    document.getElementById('profileModal').style.display = 'none';
+  }
+
+  setupProfileModalEvents() {
+    // Prevent multiple event listener attachments
+    const profileModal = document.getElementById('profileModal');
+    const uploadImageBtn = document.getElementById('uploadImageBtn');
+    const generateImageBtn = document.getElementById('generateImageBtn');
+    const generateNameBtn = document.getElementById('generateNameBtn');
+    const unsubscribeBtn = document.getElementById('unsubscribeBtn');
+    const profileImageUpload = document.getElementById('profileImageUpload');
+    const nameToggleBtn = document.getElementById('nameToggleBtn');
+    const photoToggleBtn = document.getElementById('photoToggleBtn');
+    const nameRegHeader = document.getElementById('nameRegHeader');
+    const photoCreationHeader = document.getElementById('photoCreationHeader');
+
+    // Get new buttons
+    const generateAnimalBtn = document.getElementById('generateAnimalBtn');
+    const generateCartoonBtn = document.getElementById('generateCartoonBtn');
+    
+    // Remove old listeners by cloning and replacing nodes
+    const newUploadBtn = uploadImageBtn.cloneNode(true);
+    uploadImageBtn.replaceWith(newUploadBtn);
+    
+    const newGenerateAnimalBtn = generateAnimalBtn.cloneNode(true);
+    generateAnimalBtn.replaceWith(newGenerateAnimalBtn);
+    
+    const newGenerateCartoonBtn = generateCartoonBtn.cloneNode(true);
+    generateCartoonBtn.replaceWith(newGenerateCartoonBtn);
+    
+    const newGenerateNameBtn = generateNameBtn.cloneNode(true);
+    generateNameBtn.replaceWith(newGenerateNameBtn);
+    
+    const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
+    unsubscribeBtn.replaceWith(newUnsubscribeBtn);
+
+    // Collapse/Expand handlers for Name Registration
+    nameRegHeader.addEventListener('click', () => {
+      this.toggleSection('nameRegContent', 'nameToggleBtn');
+    });
+
+    // Collapse/Expand handlers for Photo Creation
+    photoCreationHeader.addEventListener('click', () => {
+      this.toggleSection('photoCreationContent', 'photoToggleBtn');
+    });
+
+    // Upload image button - attach to NEW cloned button
+    newUploadBtn.addEventListener('click', () => {
+      profileImageUpload.click();
+    });
+
+    // Profile image upload
+    profileImageUpload.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await this.handleProfileImageUpload(file);
+      }
+    });
+
+    // Generate Animal Avatar - attach to NEW cloned button
+    console.log('🔘 Attaching Generate Animal listener');
+    newGenerateAnimalBtn.addEventListener('click', async () => {
+      console.log('🖱️ Generate Animal Avatar button CLICKED!');
+      await this.generateAnimalAvatar();
+    });
+    console.log('✅ Generate Animal event listener attached');
+    
+    // Generate Cartoon from Photo - attach to NEW cloned button
+    console.log('🔘 Attaching Generate Cartoon listener');
+    newGenerateCartoonBtn.addEventListener('click', async () => {
+      console.log('🖱️ Generate My Cartoon button CLICKED!');
+      await this.generateMyCartoon();
+    });
+    console.log('✅ Generate Cartoon event listener attached');
+
+    // Generate AI name - attach to NEW cloned button
+    newGenerateNameBtn.addEventListener('click', async () => {
+      console.log('🖱️ Generate Name button CLICKED!');
+      await this.generateAIName();
+    });
+
+    // Unsubscribe - attach to NEW cloned button
+    newUnsubscribeBtn.addEventListener('click', () => {
+      console.log('🖱️ Unsubscribe button CLICKED!');
+      this.showUnsubscribeConfirmation();
+    });
+
+    // Modal overlay click to close
+    profileModal.addEventListener('click', (e) => {
+      if (e.target.id === 'profileModal') {
+        this.hideProfileModal();
+      }
+    });
+  }
+  
+  toggleSection(contentId, toggleBtnId) {
+    const content = document.getElementById(contentId);
+    const toggleBtn = document.getElementById(toggleBtnId);
+    
+    if (content.classList.contains('collapsed')) {
+      // Expand
+      content.classList.remove('collapsed');
+      toggleBtn.classList.remove('collapsed');
+      toggleBtn.textContent = '▼';
+    } else {
+      // Collapse
+      content.classList.add('collapsed');
+      toggleBtn.classList.add('collapsed');
+      toggleBtn.textContent = '▶';
+    }
+  }
+
+  async handleProfileImageUpload(file) {
+    try {
+      this.showToast('📤 Uploading image...', 'info');
+      
+      // Convert to base64 for preview
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageUrl = e.target.result;
+        
+        // Display image
+        document.getElementById('profileImage').src = imageUrl;
+        document.getElementById('profileImage').style.display = 'block';
+        document.getElementById('profileImagePlaceholder').style.display = 'none';
+        
+        // Save to profile
+        if (!this.userProfile) {
+          this.userProfile = {};
+        }
+        this.userProfile.profileImageUrl = imageUrl;
+        this.userProfile.profileImageBase64 = imageUrl;
+        
+        await this.saveUserProfile();
+        
+        // Update AI Generate button state (enable it now)
+        this.updateAIGenerateButtonState();
+        
+        this.showToast('✅ Profile image uploaded! Now you can generate AI avatar!', 'success');
+      };
+      reader.readAsDataURL(file);
+      
+    } catch (error) {
+      console.error('Failed to upload profile image:', error);
+      this.showToast('❌ Failed to upload image', 'error');
+    }
+  }
+
+  async generateAnimalAvatar() {
+    console.log('🐾 generateAnimalAvatar() CALLED!');
+    try {
+      const userName = document.getElementById('userName').value.trim();
+      const aiGeneratedName = this.userProfile?.aiGeneratedName;
+      
+      if (!userName || !aiGeneratedName) {
+        this.showToast('⚠️ Please generate an AI name first', 'error');
+        return;
+      }
+      
+      // Extract animal type
+      const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther)$/i);
+      if (!match) {
+        this.showToast('⚠️ No animal found in your AI name', 'error');
+        return;
+      }
+      
+      const animalType = match[1];
+      this.showToast(`🐾 Creating your funky ${animalType}...`, 'info');
+      document.getElementById('generateAnimalBtn').disabled = true;
+      document.getElementById('generateAnimalBtn').textContent = `⏳ Creating...`;
+
+      const description = `${userName} - ${animalType} avatar`;
+      const imageUrl = await pasteCraftSupabase.generateProfileImage(description, 'animal', aiGeneratedName);
+
+      if (imageUrl) {
+        // Display generated image
+        document.getElementById('profileImage').src = imageUrl;
+        document.getElementById('profileImage').style.display = 'block';
+        document.getElementById('profileImagePlaceholder').style.display = 'none';
+        
+        // Save to profile
+        this.userProfile.generatedImageUrl = imageUrl;
+        await this.saveUserProfile();
+        
+        this.showToast(`✅ ${animalType} avatar created!`, 'success');
+      }
+      
+    } catch (error) {
+      console.error('Failed to generate animal avatar:', error);
+      this.showToast('❌ Failed to generate animal avatar', 'error');
+    } finally {
+      document.getElementById('generateAnimalBtn').disabled = false;
+      document.getElementById('generateAnimalBtn').textContent = '🐾 Animal Avatar';
+    }
+  }
+  
+  async generateMyCartoon() {
+    console.log('🎨 generateMyCartoon() CALLED!');
+    try {
+      const userName = document.getElementById('userName').value.trim();
+      const userImageBase64 = this.userProfile?.profileImageBase64;
+      
+      if (!userName) {
+        this.showToast('⚠️ Please enter your name first', 'error');
+        return;
+      }
+      
+      if (!userImageBase64) {
+        this.showToast('⚠️ Please upload a photo first', 'error');
+        return;
+      }
+
+      this.showToast('🎨 Creating your cartoon avatar...', 'info');
+      document.getElementById('generateCartoonBtn').disabled = true;
+      document.getElementById('generateCartoonBtn').textContent = '⏳ Creating...';
+
+      const description = `${userName} - cartoon avatar`;
+      const imageUrl = await pasteCraftSupabase.generateProfileImage(description, userImageBase64, null);
+
+      if (imageUrl) {
+        // Display generated image
+        document.getElementById('profileImage').src = imageUrl;
+        document.getElementById('profileImage').style.display = 'block';
+        document.getElementById('profileImagePlaceholder').style.display = 'none';
+
+        // Save to profile
+        if (!this.userProfile) {
+          this.userProfile = {};
+        }
+        this.userProfile.profileImageUrl = imageUrl;
+        this.userProfile.aiGeneratedImage = true;
+        
+        await this.saveUserProfile();
+        
+        if (userImageBase64) {
+          this.showToast('✅ Your funky cartoon remix is ready!', 'success');
+        } else {
+          this.showToast('✅ AI image generated!', 'success');
+        }
+      } else {
+        this.showToast('❌ Failed to generate AI image', 'error');
+      }
+
+    } catch (error) {
+      console.error('Failed to generate AI profile image:', error);
+      
+      // Show more helpful error message
+      const errorMessage = error.message || 'Unknown error';
+      if (errorMessage.includes('quota') || errorMessage.includes('billing')) {
+        this.showToast('❌ OpenAI API quota exceeded. Check your billing.', 'error');
+      } else if (errorMessage.includes('invalid')) {
+        this.showToast('❌ Invalid API key. Check config.js', 'error');
+      } else {
+        this.showToast(`❌ Error: ${errorMessage}`, 'error');
+      }
+    } finally {
+      document.getElementById('generateCartoonBtn').disabled = false;
+      document.getElementById('generateCartoonBtn').textContent = '🎨 My Cartoon';
+    }
+  }
+
+  async generateAIName() {
+    try {
+      const userName = document.getElementById('userName').value.trim();
+      
+      if (!userName) {
+        this.showToast('⚠️ Please enter your name first', 'error');
+        return;
+      }
+
+      this.showToast('🎭 Generating funky AI name...', 'info');
+      document.getElementById('generateNameBtn').disabled = true;
+      document.getElementById('generateNameBtn').textContent = '⏳ Generating...';
+
+      const aiName = await pasteCraftSupabase.generateAIName(userName);
+
+      if (aiName) {
+        // Display AI name
+        document.getElementById('aiNameValue').textContent = aiName;
+        document.getElementById('aiNameDisplay').style.display = 'flex';
+
+        // Save to profile
+        if (!this.userProfile) {
+          this.userProfile = {};
+        }
+        this.userProfile.userName = userName;
+        this.userProfile.aiName = aiName;
+        
+        await this.saveUserProfile();
+        this.showToast('✅ Funky name generated!', 'success');
+      } else {
+        this.showToast('❌ Failed to generate AI name', 'error');
+      }
+
+    } catch (error) {
+      console.error('Failed to generate AI name:', error);
+      this.showToast('❌ Failed to generate AI name', 'error');
+    } finally {
+      document.getElementById('generateNameBtn').disabled = false;
+      document.getElementById('generateNameBtn').textContent = 'Generate AI Name';
+    }
+  }
+
+  showUnsubscribeConfirmation() {
+    if (confirm('⚠️ Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n• Delete all your clips\n• Remove all categories\n• Clear your profile data\n• This action cannot be undone!')) {
+      if (confirm('🚨 FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
+        this.handleUnsubscribe();
+      }
+    }
+  }
+
+  async handleUnsubscribe() {
+    try {
+      this.showToast('🗑️ Deleting all data...', 'info');
+
+      // Clear all storage
+      await chrome.storage.local.clear();
+
+      // Clear in-memory data
+      this.clips = [];
+      this.searchOnlyClips = [];
+      this.categories = [];
+      this.userProfile = null;
+
+      // Update UI
+      this.renderChips();
+      this.renderCategories();
+      this.updateCategoryFilter();
+      this.hideProfileModal();
+
+      this.showToast('✅ All data deleted. You have been unsubscribed.', 'success');
+
+      console.log('🗑️ User unsubscribed - all data cleared');
+
+    } catch (error) {
+      console.error('Failed to unsubscribe:', error);
+      this.showToast('❌ Failed to unsubscribe', 'error');
+    }
   }
 
   // Global message handler for background script

@@ -1327,9 +1327,289 @@
             color: #374151 !important;
         }
         
-        .help-item li {
+            .help-item li {
             margin-bottom: 4px;
             color: #374151 !important;
+        }
+        
+        /* Profile Modal Styles */
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .profile-section {
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .profile-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .profile-section h4 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .profile-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            transition: all 0.2s ease;
+        }
+        
+        .profile-section-header:hover {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            transform: translateX(2px);
+        }
+        
+        .section-toggle {
+            background: rgba(59, 130, 246, 0.1);
+            border: none;
+            color: #3b82f6;
+            font-size: 14px;
+            font-weight: 700;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .section-toggle:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .section-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .profile-section-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            max-height: 1000px;
+            opacity: 1;
+        }
+        
+        .profile-section-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+        }
+        
+        .workflow-instruction {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 2px dashed #3b82f6;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .workflow-step {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1e40af;
+            padding: 6px 12px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+        
+        .workflow-arrow {
+            font-size: 20px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+        
+        .workflow-note {
+            font-size: 13px;
+            color: #6b7280;
+            text-align: center;
+            margin: 16px 0 0 0;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            line-height: 1.5;
+        }
+        
+        .note-icon {
+            font-size: 16px;
+        }
+        
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+            background: #d1d5db !important;
+            pointer-events: none;
+        }
+        
+        .btn-disabled:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .profile-image-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .profile-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        .profile-image-placeholder {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 4px solid #e5e7eb;
+        }
+        
+        .profile-placeholder-icon {
+            font-size: 48px;
+            color: #6b7280;
+        }
+        
+        .profile-image-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        
+        .profile-image-generation {
+            text-align: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .generation-label {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        
+        .profile-image-generation button {
+            margin: 0 6px;
+        }
+        
+        .ai-name-container {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .profile-input {
+            flex: 1;
+            padding: 10px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .profile-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .ai-name-display {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .ai-name-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .ai-name-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .profile-setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .profile-setting-label {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .profile-setting-status {
+            font-size: 12px;
+            font-weight: 600;
+            color: #f59e0b;
+            background: #fef3c7;
+            padding: 4px 12px;
+            border-radius: 12px;
+        }
+        
+        .btn-block {
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        
+        .profile-note {
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+            margin: 0;
+            line-height: 1.5;
         }
         
     </style>
@@ -1345,9 +1625,14 @@
                     <div class="last-capture" id="lastCapture">No recent captures</div>
                 </div>
             </div>
-            <button class="settings-btn" id="settingsBtn" title="Settings">
-                ⚙️
-            </button>
+            <div class="header-actions">
+                <button class="settings-btn" id="profileBtn" title="Profile">
+                    👤
+                </button>
+                <button class="settings-btn" id="settingsBtn" title="Settings">
+                    ⚙️
+                </button>
+            </div>
         </header>
 
         <!-- Navigation Tabs -->
@@ -1688,8 +1973,99 @@
                 </div>
             </div>
         </div>
+
+        <!-- Profile Modal -->
+        <div class="modal-overlay" id="profileModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>👤 My Profile</h3>
+                    <button class="modal-close" id="closeProfileModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <!-- AI Name Section (Collapsible) -->
+                    <div class="profile-section">
+                        <div class="profile-section-header" id="nameRegHeader">
+                            <h4>🎭 Your Funky Name</h4>
+                            <button class="section-toggle" id="nameToggleBtn">▼</button>
+                        </div>
+                        <div class="profile-section-content" id="nameRegContent">
+                            <div class="ai-name-container">
+                                <input type="text" id="userName" class="profile-input" placeholder="Enter your name">
+                                <button class="btn-primary" id="generateNameBtn">Generate AI Name</button>
+                            </div>
+                            <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
+                                <span class="ai-name-label">Your AI Name:</span>
+                                <span class="ai-name-value" id="aiNameValue">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Image Section (Collapsible) -->
+                    <div class="profile-section">
+                        <div class="profile-section-header" id="photoCreationHeader">
+                            <h4>📸 Profile Picture</h4>
+                            <button class="section-toggle" id="photoToggleBtn">▼</button>
+                        </div>
+                        <div class="profile-section-content" id="photoCreationContent">
+                            <div class="workflow-instruction">
+                                <span class="workflow-step">Step 1: Upload Photo</span>
+                                <span class="workflow-arrow">→</span>
+                                <span class="workflow-step">Step 2: AI Remix</span>
+                            </div>
+                            <div class="profile-image-container">
+                                <img id="profileImage" src="" alt="Profile" class="profile-image" style="display: none;">
+                                <div id="profileImagePlaceholder" class="profile-image-placeholder">
+                                    <span class="profile-placeholder-icon">👤</span>
+                                </div>
+                            </div>
+                            <div class="profile-image-actions">
+                                <input type="file" id="profileImageUpload" accept="image/*" style="display: none;">
+                                <button class="btn-secondary" id="uploadImageBtn">📸 Upload Photo</button>
+                            </div>
+                            <div class="profile-image-generation">
+                                <p class="generation-label">Choose your avatar style:</p>
+                                <button class="btn-primary btn-disabled" id="generateAnimalBtn" disabled title="Generate AI name first">
+                                    🐾 Animal Avatar
+                                </button>
+                                <button class="btn-primary btn-disabled" id="generateCartoonBtn" disabled title="Upload a photo first">
+                                    🎨 My Cartoon
+                                </button>
+                            </div>
+                            <p class="workflow-note">
+                                <span class="note-icon">💡</span>
+                                Upload your photo first, then AI will remix it into a funky cartoon avatar!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Settings Section -->
+                    <div class="profile-section">
+                        <h4>⚙️ Preferences</h4>
+                        <div class="profile-setting-item">
+                            <span class="profile-setting-label">🌙 Dark Mode</span>
+                            <span class="profile-setting-status">Coming Soon</span>
+                        </div>
+                    </div>
+
+                    <!-- Account Actions -->
+                    <div class="profile-section">
+                        <h4>🔒 Account</h4>
+                        <button class="btn-danger btn-block" id="unsubscribeBtn">
+                            🚫 Unsubscribe from Platform
+                        </button>
+                        <p class="profile-note">This will delete all your data and remove you from the platform.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Supabase Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Config and Supabase Client -->
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
+    <!-- Main Popup Script -->
     <script src="popup.js"></script>
 </body>
 </html>
