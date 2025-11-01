@@ -509,6 +509,586 @@ class PasteCraftSupabase {
       throw error;
     }
   }
+
+  // =====================================================
+  // REAL-TIME DATA SYNC METHODS
+  // =====================================================
+
+  /**
+   * Get Chrome user ID for syncing
+   */
+  async getChromeUserId() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(['chromeUserId'], (result) => {
+        if (result.chromeUserId) {
+          resolve(result.chromeUserId);
+        } else {
+          // Generate new user ID
+          const newUserId = `chrome_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          chrome.storage.local.set({ chromeUserId: newUserId }, () => {
+            resolve(newUserId);
+          });
+        }
+      });
+    });
+  }
+
+  /**
+   * Set RLS context for user
+   */
+  async setUserContext(userId) {
+    if (!this.client) return;
+    
+    try {
+      await this.client.rpc('set_config', {
+        setting: 'app.current_user_id',
+        value: userId
+      });
+      console.log('✅ User context set:', userId);
+    } catch (error) {
+      console.warn('⚠️ Could not set user context (RLS may not be configured):', error.message);
+    }
+  }
+
+  // =====================================================
+  // CLIPS SYNC METHODS
+  // =====================================================
+
+  /**
+   * Sync local clips to Supabase
+   */
+  async syncClipsToSupabase(localClips) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping clip sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log(`📤 Syncing ${localClips.length} clips to Supabase...`);
+
+      // Transform local clips to DB format
+      const dbClips = localClips.map(clip => ({
+        user_id: userId,
+        clip_id: clip.id,
+        text: clip.text,
+        category: clip.category || 'Uncategorized',
+        timestamp: clip.timestamp
+      }));
+
+      // Upsert clips (insert or update on conflict)
+      const { data, error } = await this.client
+        .from('clips')
+        .upsert(dbClips, {
+          onConflict: 'user_id,clip_id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Synced ${data.length} clips to Supabase`);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync clips to Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync clips from Supabase to local storage
+   */
+  async syncClipsFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping clip sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📥 Fetching clips from Supabase...');
+
+      const { data, error } = await this.client
+        .from('clips')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform DB format to local format
+      const localClips = data.map(clip => ({
+        id: clip.clip_id,
+        text: clip.text,
+        category: clip.category,
+        timestamp: clip.timestamp
+      }));
+
+      console.log(`✅ Fetched ${localClips.length} clips from Supabase`);
+      return localClips;
+    } catch (error) {
+      console.error('❌ Failed to fetch clips from Supabase:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Merge local and remote clips (newest wins)
+   */
+  async mergeClips(localClips, remoteClips) {
+    const merged = new Map();
+
+    // Add all local clips
+    localClips.forEach(clip => {
+      merged.set(clip.id, clip);
+    });
+
+    // Add/update with remote clips (newer timestamp wins)
+    remoteClips.forEach(remoteClip => {
+      const localClip = merged.get(remoteClip.id);
+      if (!localClip || remoteClip.timestamp > localClip.timestamp) {
+        merged.set(remoteClip.id, remoteClip);
+      }
+    });
+
+    return Array.from(merged.values()).sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  // =====================================================
+  // CATEGORIES SYNC METHODS
+  // =====================================================
+
+  /**
+   * Sync categories to Supabase
+   */
+  async syncCategoriesToSupabase(localCategories) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping category sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log(`📤 Syncing ${localCategories.length} categories to Supabase...`);
+
+      const dbCategories = localCategories.map(cat => ({
+        user_id: userId,
+        category_id: cat.id,
+        name: cat.name,
+        icon: cat.icon || '📁'
+      }));
+
+      const { data, error } = await this.client
+        .from('categories')
+        .upsert(dbCategories, {
+          onConflict: 'user_id,category_id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Synced ${data.length} categories to Supabase`);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync categories to Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync categories from Supabase
+   */
+  async syncCategoriesFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping category sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📥 Fetching categories from Supabase...');
+
+      const { data, error } = await this.client
+        .from('categories')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const localCategories = data.map(cat => ({
+        id: cat.category_id,
+        name: cat.name,
+        icon: cat.icon
+      }));
+
+      console.log(`✅ Fetched ${localCategories.length} categories from Supabase`);
+      return localCategories;
+    } catch (error) {
+      console.error('❌ Failed to fetch categories from Supabase:', error);
+      return null;
+    }
+  }
+
+  // =====================================================
+  // SETTINGS SYNC METHODS
+  // =====================================================
+
+  /**
+   * Sync settings to Supabase
+   */
+  async syncSettingsToSupabase(localSettings) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping settings sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📤 Syncing settings to Supabase...');
+
+      const dbSettings = {
+        user_id: userId,
+        auto_delete_period: localSettings.autoDeletePeriod || 'never',
+        theme: localSettings.theme || 'light',
+        auto_hide: localSettings.autoHide !== false,
+        show_timestamps: localSettings.showTimestamps !== false,
+        max_clips_display: localSettings.maxClipsDisplay || 20,
+        delimiter: localSettings.delimiter || 'comma',
+        custom_delimiter: localSettings.customDelimiter || ', ',
+        deduplicate: localSettings.deduplicate || false,
+        sort: localSettings.sort || false,
+        uppercase: localSettings.uppercase || false
+      };
+
+      const { data, error } = await this.client
+        .from('settings')
+        .upsert(dbSettings, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) throw error;
+
+      console.log('✅ Settings synced to Supabase');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync settings to Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync settings from Supabase
+   */
+  async syncSettingsFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping settings sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📥 Fetching settings from Supabase...');
+
+      const { data, error } = await this.client
+        .from('settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('ℹ️ No settings found in Supabase (first sync)');
+          return null;
+        }
+        throw error;
+      }
+
+      const localSettings = {
+        autoDeletePeriod: data.auto_delete_period,
+        theme: data.theme,
+        autoHide: data.auto_hide,
+        showTimestamps: data.show_timestamps,
+        maxClipsDisplay: data.max_clips_display,
+        delimiter: data.delimiter,
+        customDelimiter: data.custom_delimiter,
+        deduplicate: data.deduplicate,
+        sort: data.sort,
+        uppercase: data.uppercase
+      };
+
+      console.log('✅ Fetched settings from Supabase');
+      return localSettings;
+    } catch (error) {
+      console.error('❌ Failed to fetch settings from Supabase:', error);
+      return null;
+    }
+  }
+
+  // =====================================================
+  // USER PROFILE SYNC METHODS
+  // =====================================================
+
+  /**
+   * Sync user profile to Supabase
+   */
+  async syncUserProfileToSupabase(localProfile) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping profile sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📤 Syncing user profile to Supabase...');
+
+      const dbProfile = {
+        user_id: userId,
+        user_name: localProfile.userName || null,
+        ai_generated_name: localProfile.aiGeneratedName || null,
+        profile_image_url: localProfile.profileImageUrl || null,
+        profile_image_base64: localProfile.profileImageBase64 || null,
+        generated_image_url: localProfile.generatedImageUrl || null,
+        ai_generated_image: localProfile.aiGeneratedImage || false
+      };
+
+      const { data, error } = await this.client
+        .from('user_profiles')
+        .upsert(dbProfile, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) throw error;
+
+      console.log('✅ User profile synced to Supabase');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync user profile to Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync user profile from Supabase
+   */
+  async syncUserProfileFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping profile sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📥 Fetching user profile from Supabase...');
+
+      const { data, error } = await this.client
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('ℹ️ No profile found in Supabase (first sync)');
+          return null;
+        }
+        throw error;
+      }
+
+      const localProfile = {
+        userName: data.user_name,
+        aiGeneratedName: data.ai_generated_name,
+        profileImageUrl: data.profile_image_url,
+        profileImageBase64: data.profile_image_base64,
+        generatedImageUrl: data.generated_image_url,
+        aiGeneratedImage: data.ai_generated_image
+      };
+
+      console.log('✅ Fetched user profile from Supabase');
+      return localProfile;
+    } catch (error) {
+      console.error('❌ Failed to fetch user profile from Supabase:', error);
+      return null;
+    }
+  }
+
+  // =====================================================
+  // REALTIME SUBSCRIPTIONS
+  // =====================================================
+
+  /**
+   * Subscribe to real-time clip changes
+   */
+  subscribeToClipChanges(callback) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - cannot subscribe to realtime');
+      return null;
+    }
+
+    const channel = this.client
+      .channel('clips-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'clips' }, 
+        (payload) => {
+          console.log('🔔 Realtime clip change:', payload);
+          callback(payload);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+
+    return channel;
+  }
+
+  /**
+   * Subscribe to real-time category changes
+   */
+  subscribeToCategoryChanges(callback) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - cannot subscribe to realtime');
+      return null;
+    }
+
+    const channel = this.client
+      .channel('categories-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'categories' }, 
+        (payload) => {
+          console.log('🔔 Realtime category change:', payload);
+          callback(payload);
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+
+    return channel;
+  }
+
+  /**
+   * Unsubscribe from channel
+   */
+  unsubscribe(channel) {
+    if (channel) {
+      this.client.removeChannel(channel);
+      console.log('🔇 Unsubscribed from realtime channel');
+    }
+  }
+
+  // =====================================================
+  // FULL SYNC METHOD (Call on startup)
+  // =====================================================
+
+  /**
+   * Perform full bidirectional sync on extension startup
+   */
+  async performFullSync() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping full sync');
+      return {
+        success: false,
+        message: 'Supabase not configured'
+      };
+    }
+
+    try {
+      console.log('🔄 Starting full bidirectional sync...');
+
+      // Get local data from Chrome storage
+      const localData = await new Promise((resolve) => {
+        chrome.storage.local.get(['clips', 'categories', 'settings', 'userProfile'], resolve);
+      });
+
+      const localClips = localData.clips || [];
+      const localCategories = localData.categories || [];
+      const localSettings = localData.settings || {};
+      const localProfile = localData.userProfile || {};
+
+      // Sync clips
+      await this.syncClipsToSupabase(localClips);
+      const remoteClips = await this.syncClipsFromSupabase();
+      if (remoteClips) {
+        const mergedClips = await this.mergeClips(localClips, remoteClips);
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ clips: mergedClips }, resolve);
+        });
+        console.log(`✅ Clips merged: ${mergedClips.length} total`);
+      }
+
+      // Sync categories
+      await this.syncCategoriesToSupabase(localCategories);
+      const remoteCategories = await this.syncCategoriesFromSupabase();
+      if (remoteCategories && remoteCategories.length > 0) {
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ categories: remoteCategories }, resolve);
+        });
+        console.log(`✅ Categories updated: ${remoteCategories.length} total`);
+      }
+
+      // Sync settings
+      await this.syncSettingsToSupabase(localSettings);
+      const remoteSettings = await this.syncSettingsFromSupabase();
+      if (remoteSettings) {
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ settings: remoteSettings }, resolve);
+        });
+        console.log('✅ Settings updated');
+      }
+
+      // Sync user profile
+      await this.syncUserProfileToSupabase(localProfile);
+      const remoteProfile = await this.syncUserProfileFromSupabase();
+      if (remoteProfile) {
+        // Merge profiles (remote takes precedence for images, local for text)
+        const mergedProfile = {
+          ...localProfile,
+          ...remoteProfile
+        };
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
+        });
+        console.log('✅ User profile updated');
+      }
+
+      console.log('✅ Full sync complete!');
+      return {
+        success: true,
+        message: 'All data synced successfully',
+        stats: {
+          clips: remoteClips?.length || 0,
+          categories: remoteCategories?.length || 0
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Full sync failed:', error);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+  }
 }
 
 // Initialize global instance

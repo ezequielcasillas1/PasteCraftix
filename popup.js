@@ -31,6 +31,12 @@ class PasteCraftPopup {
     await this.loadData();
     await this.loadSettings();
     await this.loadUserProfile();
+    
+    // ✅ DISPLAY SAVED PROFILE IMAGE
+    if (this.userProfile?.profileImageUrl) {
+      this.displayImageTopLeft(this.userProfile.profileImageUrl);
+    }
+    
     await this.cleanupOldClips();
     this.setupEventListeners();
     this.renderChips();
@@ -1385,6 +1391,28 @@ class PasteCraftPopup {
 
     // Setup profile modal event listeners
     this.setupProfileModalEvents();
+    
+    // Add scroll listener for sticky profile image effect
+    const modalBody = document.querySelector('#profileModal .modal-body');
+    const imageContainer = document.querySelector('.profile-image-container');
+    
+    if (modalBody && imageContainer) {
+      // Remove old listener if exists
+      modalBody.removeEventListener('scroll', this.profileScrollHandler);
+      
+      // Create new handler
+      this.profileScrollHandler = () => {
+        if (modalBody.scrollTop > 50) {
+          imageContainer.classList.add('scrolled');
+        } else {
+          imageContainer.classList.remove('scrolled');
+        }
+      };
+      
+      // Add listener
+      modalBody.addEventListener('scroll', this.profileScrollHandler);
+      console.log('✅ Profile image sticky scroll behavior enabled');
+    }
   }
   
   updateAIGenerateButtonState() {
@@ -1476,6 +1504,25 @@ class PasteCraftPopup {
     photoCreationHeader.addEventListener('click', () => {
       this.toggleSection('photoCreationContent', 'photoToggleBtn');
     });
+
+    // Loading exit button - allows user to skip waiting
+    const loadingExitBtn = document.getElementById('loadingExitBtn');
+    if (loadingExitBtn) {
+      loadingExitBtn.addEventListener('click', () => {
+        console.log('⏭️ User clicked exit button - hiding loading overlay');
+        document.getElementById('profileImageLoading').style.display = 'none';
+        // Show placeholder or existing image
+        const profileImage = document.getElementById('profileImage');
+        const placeholder = document.getElementById('profileImagePlaceholder');
+        if (profileImage && profileImage.src) {
+          profileImage.style.display = 'block';
+        } else if (placeholder) {
+          placeholder.style.display = 'flex';
+        }
+        // Generation continues in background
+        console.log('✅ Loading screen closed - generation continues in background');
+      });
+    }
 
     // Upload image button - attach to NEW cloned button
     newUploadBtn.addEventListener('click', () => {
@@ -1619,12 +1666,23 @@ class PasteCraftPopup {
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
         
-        // Save to profile
+        // ✅ AUTO-SAVE TO STORAGE
+        if (!this.userProfile) {
+          this.userProfile = {};
+        }
         this.userProfile.generatedImageUrl = imageUrl;
+        this.userProfile.profileImageUrl = imageUrl; // Set as active profile image
         await this.saveUserProfile();
+        console.log('✅ Animal avatar auto-saved to storage');
+        
+        // ✅ DISPLAY TOP-LEFT
+        this.displayImageTopLeft(imageUrl);
+        
+        // ✅ AUTO-COLLAPSE SECTION
+        setTimeout(() => this.autoCollapsePhotoSection(), 2000);
         
         const animalType = match[1];
-        this.showToast(`✅ ${animalType} avatar created!`, 'success');
+        this.showToast(`✅ ${animalType} avatar created and saved!`, 'success');
       }
       
     } catch (error) {
@@ -1674,19 +1732,25 @@ class PasteCraftPopup {
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
 
-        // Save to profile
+        // ✅ AUTO-SAVE TO STORAGE
         if (!this.userProfile) {
           this.userProfile = {};
         }
         this.userProfile.profileImageUrl = imageUrl;
         this.userProfile.aiGeneratedImage = true;
-        
         await this.saveUserProfile();
+        console.log('✅ Cartoon image auto-saved to storage');
+        
+        // ✅ DISPLAY TOP-LEFT
+        this.displayImageTopLeft(imageUrl);
+        
+        // ✅ AUTO-COLLAPSE SECTION
+        setTimeout(() => this.autoCollapsePhotoSection(), 2000);
         
         if (userImageBase64) {
-          this.showToast('✅ Your funky cartoon remix is ready!', 'success');
+          this.showToast('✅ Your funky cartoon remix is ready and saved!', 'success');
         } else {
-          this.showToast('✅ AI image generated!', 'success');
+          this.showToast('✅ AI image generated and saved!', 'success');
         }
       } else {
         document.getElementById('profileImageLoading').style.display = 'none';
@@ -1796,6 +1860,39 @@ class PasteCraftPopup {
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
       this.showToast('❌ Failed to unsubscribe', 'error');
+    }
+  }
+
+  // Display image in top-left corner
+  displayImageTopLeft(imageUrl) {
+    const topLeftContainer = document.getElementById('topLeftProfileImage');
+    const topLeftImg = document.getElementById('topLeftProfileImg');
+    
+    if (topLeftContainer && topLeftImg) {
+      topLeftImg.src = imageUrl;
+      topLeftContainer.style.display = 'block';
+      
+      // Add click handler to open profile modal
+      topLeftContainer.onclick = () => {
+        this.showProfileModal();
+      };
+      
+      console.log('✅ Profile image displayed in top-left corner');
+    }
+  }
+
+  // Auto-collapse profile photo section after generation
+  autoCollapsePhotoSection() {
+    const content = document.getElementById('photoCreationContent');
+    const toggleBtn = document.getElementById('photoToggleBtn');
+    
+    if (content && toggleBtn && !content.classList.contains('collapsed')) {
+      // Collapse the section
+      content.classList.add('collapsed');
+      toggleBtn.classList.add('collapsed');
+      toggleBtn.textContent = '▶';
+      
+      console.log('✅ Photo section auto-collapsed');
     }
   }
 
