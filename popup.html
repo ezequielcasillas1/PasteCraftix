@@ -1502,6 +1502,43 @@
             color: #6b7280;
         }
         
+        .profile-image-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+            text-align: center;
+        }
+        
         .profile-image-actions {
             display: flex;
             gap: 12px;
@@ -2016,6 +2053,10 @@
                                 <img id="profileImage" src="" alt="Profile" class="profile-image" style="display: none;">
                                 <div id="profileImagePlaceholder" class="profile-image-placeholder">
                                     <span class="profile-placeholder-icon">👤</span>
+                                </div>
+                                <div id="profileImageLoading" class="profile-image-loading" style="display: none;">
+                                    <div class="loading-spinner"></div>
+                                    <p class="loading-text">Creating your avatar...</p>
                                 </div>
                             </div>
                             <div class="profile-image-actions">

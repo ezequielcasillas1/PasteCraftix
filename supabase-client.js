@@ -341,7 +341,24 @@ class PasteCraftSupabase {
           const animalType = animalMatch[1];
           console.log(`🐾 Creating ${animalType} avatar from AI name...`);
           
-          const prompt = `Create a single funky cartoon ${animalType} character avatar. Style: vibrant neon colors, bold black outlines, modern animated style, playful and energetic. The ${animalType} should be anthropomorphic (standing upright, expressive face), cool and confident pose, portrait orientation. Make it colorful, fun, and full of personality. Show ONLY ONE ${animalType} character, centered.`;
+          // Enhanced prompt with personality and style
+          const animalTraits = {
+            Rabbit: 'quick, energetic, playful with big expressive eyes',
+            Tiger: 'fierce, confident, bold with striking stripes',
+            Dragon: 'mystical, powerful, majestic with vibrant scales',
+            Fox: 'clever, sly, charming with a mischievous grin',
+            Wolf: 'loyal, strong, noble with piercing eyes',
+            Bear: 'friendly, strong, cuddly with a warm smile',
+            Panda: 'chill, cute, peaceful with bamboo vibes',
+            Lion: 'regal, courageous, majestic with flowing mane',
+            Eagle: 'sharp, focused, soaring with spread wings',
+            Phoenix: 'fiery, reborn, radiant with flame feathers',
+            Unicorn: 'magical, sparkly, whimsical with rainbow mane',
+            Owl: 'wise, mysterious, intelligent with big round eyes'
+          };
+          
+          const trait = animalTraits[animalType] || 'cool, funky, energetic';
+          const prompt = `Create a single ultra-funky cartoon ${animalType} character avatar. The ${animalType} is ${trait}. Style: vibrant neon colors (pink, cyan, yellow, purple), bold thick black outlines, modern animated/anime style, playful and full of energy. The ${animalType} is anthropomorphic - standing upright on two legs, wearing cool streetwear or accessories, expressive face with personality. Background: simple gradient or solid color. Composition: portrait style, centered, showing character from chest up. Make it colorful, fun, and bursting with character! Show ONLY ONE ${animalType}, no other animals or people.`;
           
           const response = await fetch('https://api.openai.com/v1/images/generations', {
             method: 'POST',

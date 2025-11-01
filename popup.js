@@ -1391,18 +1391,31 @@ class PasteCraftPopup {
     const generateAnimalBtn = document.getElementById('generateAnimalBtn');
     const generateCartoonBtn = document.getElementById('generateCartoonBtn');
     
+    console.log('🔄 Updating button states...');
+    console.log('AI Generated Name:', this.userProfile?.aiGeneratedName);
+    console.log('Photo uploaded:', !!this.userProfile?.profileImageBase64);
+    
     // Enable Animal Avatar if AI name is generated
     if (this.userProfile && this.userProfile.aiGeneratedName) {
       const match = this.userProfile.aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther)$/i);
+      console.log('Animal match found:', match ? match[1] : 'none');
       if (match) {
         generateAnimalBtn.disabled = false;
         generateAnimalBtn.classList.remove('btn-disabled');
-        generateAnimalBtn.title = `Generate ${match[1]} avatar`;
+        generateAnimalBtn.textContent = `🐾 ${match[1]} Avatar`;
+        generateAnimalBtn.title = `Generate funky ${match[1]} avatar`;
+        console.log(`✅ Animal Avatar button enabled for ${match[1]}`);
+      } else {
+        generateAnimalBtn.disabled = true;
+        generateAnimalBtn.classList.add('btn-disabled');
+        generateAnimalBtn.title = 'No animal detected in AI name';
+        console.log('⚠️ AI name has no animal type');
       }
     } else {
       generateAnimalBtn.disabled = true;
       generateAnimalBtn.classList.add('btn-disabled');
       generateAnimalBtn.title = 'Generate AI name first';
+      console.log('⚠️ No AI name generated yet');
     }
     
     // Enable My Cartoon if photo is uploaded
@@ -1585,6 +1598,13 @@ class PasteCraftPopup {
       }
       
       const animalType = match[1];
+      
+      // Show loading animation
+      document.getElementById('profileImageLoading').style.display = 'flex';
+      document.querySelector('.loading-text').textContent = `Creating your ${animalType}...`;
+      document.getElementById('profileImage').style.display = 'none';
+      document.getElementById('profileImagePlaceholder').style.display = 'none';
+      
       this.showToast(`🐾 Creating your funky ${animalType}...`, 'info');
       document.getElementById('generateAnimalBtn').disabled = true;
       document.getElementById('generateAnimalBtn').textContent = `⏳ Creating...`;
@@ -1593,7 +1613,8 @@ class PasteCraftPopup {
       const imageUrl = await pasteCraftSupabase.generateProfileImage(description, 'animal', aiGeneratedName);
 
       if (imageUrl) {
-        // Display generated image
+        // Hide loading, display generated image
+        document.getElementById('profileImageLoading').style.display = 'none';
         document.getElementById('profileImage').src = imageUrl;
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
@@ -1602,11 +1623,14 @@ class PasteCraftPopup {
         this.userProfile.generatedImageUrl = imageUrl;
         await this.saveUserProfile();
         
+        const animalType = match[1];
         this.showToast(`✅ ${animalType} avatar created!`, 'success');
       }
       
     } catch (error) {
       console.error('Failed to generate animal avatar:', error);
+      document.getElementById('profileImageLoading').style.display = 'none';
+      document.getElementById('profileImagePlaceholder').style.display = 'flex';
       this.showToast('❌ Failed to generate animal avatar', 'error');
     } finally {
       document.getElementById('generateAnimalBtn').disabled = false;
@@ -1630,6 +1654,12 @@ class PasteCraftPopup {
         return;
       }
 
+      // Show loading animation
+      document.getElementById('profileImageLoading').style.display = 'flex';
+      document.querySelector('.loading-text').textContent = 'Creating your cartoon...';
+      document.getElementById('profileImage').style.display = 'none';
+      document.getElementById('profileImagePlaceholder').style.display = 'none';
+      
       this.showToast('🎨 Creating your cartoon avatar...', 'info');
       document.getElementById('generateCartoonBtn').disabled = true;
       document.getElementById('generateCartoonBtn').textContent = '⏳ Creating...';
@@ -1638,7 +1668,8 @@ class PasteCraftPopup {
       const imageUrl = await pasteCraftSupabase.generateProfileImage(description, userImageBase64, null);
 
       if (imageUrl) {
-        // Display generated image
+        // Hide loading, display generated image
+        document.getElementById('profileImageLoading').style.display = 'none';
         document.getElementById('profileImage').src = imageUrl;
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
@@ -1658,11 +1689,17 @@ class PasteCraftPopup {
           this.showToast('✅ AI image generated!', 'success');
         }
       } else {
+        document.getElementById('profileImageLoading').style.display = 'none';
+        document.getElementById('profileImagePlaceholder').style.display = 'flex';
         this.showToast('❌ Failed to generate AI image', 'error');
       }
 
     } catch (error) {
       console.error('Failed to generate AI profile image:', error);
+      
+      // Hide loading on error
+      document.getElementById('profileImageLoading').style.display = 'none';
+      document.getElementById('profileImagePlaceholder').style.display = 'flex';
       
       // Show more helpful error message
       const errorMessage = error.message || 'Unknown error';
@@ -1704,9 +1741,13 @@ class PasteCraftPopup {
           this.userProfile = {};
         }
         this.userProfile.userName = userName;
-        this.userProfile.aiName = aiName;
+        this.userProfile.aiGeneratedName = aiName; // Fixed: was aiName, now aiGeneratedName
         
         await this.saveUserProfile();
+        
+        // Update button states to enable Animal Avatar
+        this.updateAIGenerateButtonState();
+        
         this.showToast('✅ Funky name generated!', 'success');
       } else {
         this.showToast('❌ Failed to generate AI name', 'error');
