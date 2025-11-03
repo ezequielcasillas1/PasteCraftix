@@ -37,8 +37,8 @@ if (hash) {
   // Check if this is a password recovery callback
   if (type === 'recovery') {
     console.log('🔑 Password recovery callback detected');
-    title.textContent = '🔑 Password Reset';
-    message.textContent = 'Redirecting to set your new password...';
+    title.textContent = '🔑 Password Reset Ready!';
+    message.textContent = 'Click the PasteCraft extension icon to set your new password.';
     
     // Store recovery tokens and flag
     chrome.storage.local.set({
@@ -49,16 +49,18 @@ if (hash) {
         timestamp: Date.now()
       }
     }, () => {
-      console.log('✅ Recovery tokens stored, opening popup...');
+      console.log('✅ Recovery tokens stored');
+      console.log('💡 User should now click the extension icon to continue');
       
-      // Open the extension popup with reset flag
-      const popupUrl = chrome.runtime.getURL('popup.html?reset=true');
-      chrome.tabs.create({ url: popupUrl }, () => {
-        // Close callback window after popup opens
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      });
+      // Update UI to show success
+      title.textContent = '✅ Password Reset Verified!';
+      message.textContent = 'Now click the PasteCraft extension icon 📋 in your toolbar to set your new password.';
+      
+      // Auto-close after 10 seconds (giving user time to read)
+      setTimeout(() => {
+        console.log('🔒 Closing callback window');
+        window.close();
+      }, 10000);
     });
     return;
   }
