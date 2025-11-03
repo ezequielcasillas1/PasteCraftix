@@ -440,12 +440,28 @@ class PasteCraftPopup {
 
   async checkPasswordResetCallback() {
     try {
+      console.log('=================================');
+      console.log('🔍 CHECKING PASSWORD RESET CALLBACK');
+      console.log('=================================');
+      console.log('📦 Reading from chrome.storage.local...');
+      
       const result = await chrome.storage.local.get('password_reset_callback');
+      console.log('📥 Storage result:', result);
+      
       if (result.password_reset_callback) {
-        const { access_token, refresh_token, type } = result.password_reset_callback;
-        console.log('🔑 Found password reset callback tokens');
+        const { access_token, refresh_token, type, timestamp } = result.password_reset_callback;
+        console.log('✅ Password reset callback data found!');
+        console.log('📦 Data details:', {
+          access_token_length: access_token?.length,
+          refresh_token_length: refresh_token?.length,
+          type: type,
+          timestamp: new Date(timestamp).toISOString(),
+          age_seconds: (Date.now() - timestamp) / 1000
+        });
         
         if (type === 'recovery') {
+          console.log('🔑 Type is "recovery" - setting Supabase session...');
+          
           // Set session with recovery tokens
           const { error } = await pasteCraftSupabase.client.auth.setSession({
             access_token,
@@ -453,18 +469,31 @@ class PasteCraftPopup {
           });
           
           if (!error) {
-            console.log('✅ Password reset session established!');
+            console.log('✅ Password reset session established successfully!');
+            
+            // Verify session
+            const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
+            console.log('👤 Current user after session:', user?.email);
             
             // Clear the temporary tokens
+            console.log('🧹 Clearing temporary tokens from storage...');
             await chrome.storage.local.remove('password_reset_callback');
+            console.log('✅ Tokens cleared');
+            
             return true;
           } else {
             console.error('❌ Failed to set password reset session:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
           }
+        } else {
+          console.warn('⚠️ Type is not "recovery":', type);
         }
+      } else {
+        console.log('ℹ️ No password reset callback data in storage');
       }
     } catch (error) {
       console.error('❌ Error checking password reset callback:', error);
+      console.error('Error stack:', error.stack);
     }
     return false;
   }
