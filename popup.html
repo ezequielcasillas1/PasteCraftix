@@ -1740,12 +1740,15 @@
         /* Modal Container */
         .auth-modal-new {
             max-width: 480px;
+            max-height: 90vh;
             width: 95%;
             background: linear-gradient(135deg, #E8F4FF 0%, #F0F9FF 50%, #FEFCE8 100%);
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
             animation: modalFadeIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
         }
 
         @keyframes modalFadeIn {
@@ -1764,6 +1767,27 @@
             background: white;
             margin: 3px;
             border-radius: 22px;
+            overflow-y: auto;
+            max-height: calc(90vh - 6px);
+        }
+
+        /* Scrollbar styling */
+        .auth-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .auth-container::-webkit-scrollbar-track {
+            background: #F1F5F9;
+            border-radius: 10px;
+        }
+
+        .auth-container::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 10px;
+        }
+
+        .auth-container::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
         }
 
         /* Brand Section */
@@ -2214,6 +2238,55 @@
             background: linear-gradient(90deg, #EF4444, #F59E0B, #10B981);
             transition: width 0.3s ease;
             border-radius: 2px;
+        }
+
+        /* Password Requirements */
+        .password-requirements {
+            margin-top: 12px;
+            padding: 12px;
+            background: #FEF2F2;
+            border: 2px solid #FCA5A5;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .password-requirements-title {
+            font-weight: 700;
+            color: #DC2626;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #991B1B;
+            margin: 6px 0;
+            font-weight: 500;
+        }
+
+        .requirement-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            background: #FCA5A5;
+            color: white;
+            font-weight: bold;
+        }
+
+        .requirement-item.valid .requirement-icon {
+            background: #10B981;
+        }
+
+        .requirement-item.valid {
+            color: #059669;
         }
 
         /* Admin Link */
@@ -2840,10 +2913,27 @@
                             type="password" 
                             id="signupPassword" 
                             class="auth-input-new" 
-                            placeholder="Minimum 8 characters"
+                            placeholder="Create a strong password"
                             required>
                         <div class="password-strength" id="passwordStrength">
                             <div class="strength-bar"></div>
+                        </div>
+                        <div class="password-requirements" id="passwordRequirements">
+                            <div class="password-requirements-title">
+                                ⚠️ Password Requirements:
+                            </div>
+                            <div class="requirement-item" id="req-length">
+                                <span class="requirement-icon">✗</span>
+                                <span>At least 8 characters long</span>
+                            </div>
+                            <div class="requirement-item" id="req-number">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains at least one number (0-9)</span>
+                            </div>
+                            <div class="requirement-item" id="req-special">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains at least one special character (!@#$%^&*)</span>
+                            </div>
                         </div>
                     </div>
 

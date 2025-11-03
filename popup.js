@@ -474,8 +474,9 @@ class PasteCraftPopup {
         return;
       }
       
-      if (password.length < 8) {
-        this.showToast('⚠️ Password must be at least 8 characters', 'error');
+      // Validate password requirements
+      if (!this.validatePassword(password)) {
+        this.showToast('⚠️ Password does not meet requirements. Check the red requirements below.', 'error');
         return;
       }
       
@@ -2179,21 +2180,31 @@ class PasteCraftPopup {
     }
   }
 
-  // Password strength indicator
+  // Password strength indicator and validation
   updatePasswordStrength(password) {
     const strengthBar = document.querySelector('.strength-bar');
     if (!strengthBar) return;
 
     let strength = 0;
     
-    // Length check
+    // Check requirements
+    const hasLength = password.length >= 8;
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    // Update requirement indicators
+    this.updateRequirement('req-length', hasLength);
+    this.updateRequirement('req-number', hasNumber);
+    this.updateRequirement('req-special', hasSpecial);
+    
+    // Calculate strength
     if (password.length >= 8) strength += 25;
     if (password.length >= 12) strength += 25;
     
     // Complexity checks
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
-    if (/[0-9]/.test(password)) strength += 12.5;
-    if (/[^a-zA-Z0-9]/.test(password)) strength += 12.5;
+    if (hasNumber) strength += 12.5;
+    if (hasSpecial) strength += 12.5;
     
     strengthBar.style.width = `${strength}%`;
     
@@ -2205,6 +2216,30 @@ class PasteCraftPopup {
     } else {
       strengthBar.style.background = '#10B981'; // Green
     }
+  }
+
+  // Update password requirement indicator
+  updateRequirement(elementId, isValid) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const icon = element.querySelector('.requirement-icon');
+    if (isValid) {
+      element.classList.add('valid');
+      if (icon) icon.textContent = '✓';
+    } else {
+      element.classList.remove('valid');
+      if (icon) icon.textContent = '✗';
+    }
+  }
+
+  // Validate password meets all requirements
+  validatePassword(password) {
+    const hasLength = password.length >= 8;
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    return hasLength && hasNumber && hasSpecial;
   }
 
   // Global message handler for background script
