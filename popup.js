@@ -33,7 +33,16 @@ class PasteCraftPopup {
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
     
-    // Check if this is a password reset callback
+    // Check if this is a password reset callback from storage
+    const resetCallback = await this.checkPasswordResetCallback();
+    if (resetCallback) {
+      console.log('🔑 Password reset callback detected from storage');
+      // Show new password modal
+      document.getElementById('newPasswordModal').style.display = 'flex';
+      return;
+    }
+    
+    // Check if this is a password reset callback from URL
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
@@ -45,7 +54,16 @@ class PasteCraftPopup {
     });
     
     if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery') {
-      console.log('🔑 Password reset callback detected');
+      console.log('🔑 Password reset callback detected from URL');
+      
+      // If tokens are in URL hash, set the session
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
+      if (accessToken) {
+        await this.setPasswordResetSession(accessToken, refreshToken);
+      }
+      
       // Show new password modal
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
@@ -417,6 +435,56 @@ class PasteCraftPopup {
       }
     } catch (error) {
       console.error('❌ Error checking OAuth callback:', error);
+    }
+  }
+
+  async checkPasswordResetCallback() {
+    try {
+      const result = await chrome.storage.local.get('password_reset_callback');
+      if (result.password_reset_callback) {
+        const { access_token, refresh_token, type } = result.password_reset_callback;
+        console.log('🔑 Found password reset callback tokens');
+        
+        if (type === 'recovery') {
+          // Set session with recovery tokens
+          const { error } = await pasteCraftSupabase.client.auth.setSession({
+            access_token,
+            refresh_token
+          });
+          
+          if (!error) {
+            console.log('✅ Password reset session established!');
+            
+            // Clear the temporary tokens
+            await chrome.storage.local.remove('password_reset_callback');
+            return true;
+          } else {
+            console.error('❌ Failed to set password reset session:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking password reset callback:', error);
+    }
+    return false;
+  }
+
+  async setPasswordResetSession(accessToken, refreshToken) {
+    try {
+      console.log('🔑 Setting password reset session from URL tokens');
+      
+      const { error } = await pasteCraftSupabase.client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      
+      if (!error) {
+        console.log('✅ Password reset session established from URL!');
+      } else {
+        console.error('❌ Failed to set password reset session:', error);
+      }
+    } catch (error) {
+      console.error('❌ Error setting password reset session:', error);
     }
   }
   

@@ -1074,17 +1074,18 @@ class PasteCraftSupabase {
     try {
       console.log('🔑 Requesting password reset for:', email);
       
-      // Get the extension URL for redirect
-      const extensionUrl = chrome.runtime.getURL('popup.html');
-      console.log('🔗 Reset redirect URL:', extensionUrl);
+      // Use callback.html as the redirect URL (Supabase will add tokens to hash)
+      const callbackUrl = chrome.runtime.getURL('callback.html');
+      console.log('🔗 Reset redirect URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
-        redirectTo: extensionUrl
+        redirectTo: callbackUrl
       });
 
       if (error) throw error;
 
       console.log('✅ Password reset email sent');
+      console.log('💡 User will receive email with link to:', callbackUrl);
       return { success: true };
     } catch (error) {
       console.error('❌ Password reset failed:', error);
