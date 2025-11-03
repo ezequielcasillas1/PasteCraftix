@@ -28,13 +28,45 @@ class PasteCraftPopup {
   }
   
   async init() {
+    console.log('🚀 Initializing PasteCraft popup...');
+    
+    // Setup auth modal events FIRST (before checking auth)
+    this.setupAuthModalEvents();
+    
+    // Check for OAuth callback tokens
+    await this.checkOAuthCallback();
+    
+    // Check if user is authenticated
+    const currentUser = await pasteCraftSupabase.getCurrentUser();
+    
+    if (!currentUser) {
+      // Show auth modal
+      this.showAuthModal();
+      return;
+    }
+    
+    // User is authenticated, proceed with normal init
+    console.log('✅ User authenticated:', currentUser.email);
+    this.currentUser = currentUser;
+    
+    // Load subscription info
+    this.userSubscription = await pasteCraftSupabase.getUserSubscription(currentUser.id);
+    console.log('💎 Subscription tier:', this.userSubscription?.subscription_tier);
+    
+    // Show sign out button
+    document.getElementById('signOutContainer').style.display = 'block';
+    
     await this.loadData();
     await this.loadSettings();
     await this.loadUserProfile();
     
     // ✅ DISPLAY SAVED PROFILE IMAGE
+    console.log('🔍 Checking for saved profile image...');
     if (this.userProfile?.profileImageUrl) {
+      console.log('✅ Saved profile image found, displaying in top-left...');
       this.displayImageTopLeft(this.userProfile.profileImageUrl);
+    } else {
+      console.log('ℹ️ No saved profile image found');
     }
     
     await this.cleanupOldClips();
@@ -47,6 +79,7 @@ class PasteCraftPopup {
     
     // Reload data whenever popup becomes visible
     this.setupVisibilityListener();
+    console.log('✅ PasteCraft popup initialized successfully');
   }
   
   setupVisibilityListener() {
@@ -329,6 +362,226 @@ class PasteCraftPopup {
     // Magic wand
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
+    });
+  }
+  
+  // =====================================================
+  // AUTHENTICATION METHODS
+  // =====================================================
+  
+  async checkOAuthCallback() {
+    try {
+      const result = await chrome.storage.local.get('oauth_callback');
+      if (result.oauth_callback) {
+        const { access_token, refresh_token } = result.oauth_callback;
+        console.log('🔐 Found OAuth callback tokens, completing sign in...');
+        
+        // Set session with tokens
+        const { error } = await pasteCraftSupabase.client.auth.setSession({
+          access_token,
+          refresh_token
+        });
+        
+        if (!error) {
+          console.log('✅ OAuth sign in completed!');
+          const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
+          
+          // Create subscription for new user
+          if (user) {
+            await pasteCraftSupabase.createUserSubscription(user.id, user.email);
+          }
+          
+          // Clear the temporary tokens
+          await chrome.storage.local.remove('oauth_callback');
+        } else {
+          console.error('❌ Failed to set session:', error);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking OAuth callback:', error);
+    }
+  }
+  
+  showAuthModal() {
+    console.log('🔐 Showing auth modal...');
+    document.getElementById('authModal').style.display = 'flex';
+  }
+  
+  hideAuthModal() {
+    document.getElementById('authModal').style.display = 'none';
+  }
+  
+  setupAuthModalEvents() {
+    console.log('🔧 Setting up auth modal event listeners...');
+    // Tab switching - support both old and new tab classes
+    document.querySelectorAll('.auth-tab, .auth-tab-new').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        document.querySelectorAll('.auth-tab, .auth-tab-new').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        const targetTab = e.target.dataset.authTab;
+        document.getElementById('signinForm').style.display = targetTab === 'signin' ? 'flex' : 'none';
+        document.getElementById('signupForm').style.display = targetTab === 'signup' ? 'flex' : 'none';
+      });
+    });
+
+    // Password strength indicator
+    const signupPassword = document.getElementById('signupPassword');
+    if (signupPassword) {
+      signupPassword.addEventListener('input', (e) => {
+        this.updatePasswordStrength(e.target.value);
+      });
+    }
+
+    // Sign In
+    document.getElementById('signinBtn').addEventListener('click', async () => {
+      console.log('🔐 Sign In button clicked');
+      const email = document.getElementById('signinEmail').value;
+      const password = document.getElementById('signinPassword').value;
+      
+      if (!email || !password) {
+        this.showToast('⚠️ Please fill in all fields', 'error');
+        return;
+      }
+      
+      const result = await pasteCraftSupabase.signInWithEmail(email, password);
+      
+      if (result.success) {
+        this.showToast('✅ Welcome back!', 'success');
+        this.hideAuthModal();
+        // Reload page to initialize with authenticated user
+        window.location.reload();
+      } else {
+        this.showToast(`❌ ${result.error}`, 'error');
+      }
+    });
+
+    // Sign Up
+    document.getElementById('signupBtn').addEventListener('click', async () => {
+      console.log('📝 Sign Up button clicked');
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupPasswordConfirm').value;
+      const agreeTerms = document.getElementById('agreeTerms').checked;
+      
+      if (!email || !password || !confirmPassword) {
+        this.showToast('⚠️ Please fill in all fields', 'error');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        this.showToast('⚠️ Passwords do not match', 'error');
+        return;
+      }
+      
+      if (password.length < 8) {
+        this.showToast('⚠️ Password must be at least 8 characters', 'error');
+        return;
+      }
+      
+      if (!agreeTerms) {
+        this.showToast('⚠️ Please agree to terms and conditions', 'error');
+        return;
+      }
+      
+      const result = await pasteCraftSupabase.signUpWithEmail(email, password);
+      
+      if (result.success) {
+        this.showToast('✅ Account created! Please check your email to verify.', 'success');
+        // Switch to sign in tab
+        document.querySelector('[data-auth-tab="signin"]').click();
+      } else {
+        this.showToast(`❌ ${result.error}`, 'error');
+      }
+    });
+
+    // Google Sign In
+    document.getElementById('googleSigninBtn').addEventListener('click', async () => {
+      console.log('🔵 Google Sign In button clicked');
+      this.showToast('🔵 Opening Google sign in...', 'info');
+      
+      const result = await pasteCraftSupabase.signInWithGoogle();
+      
+      if (result.success) {
+        this.showToast('✅ Complete sign in in the new window!', 'success');
+        // Don't reload - user will close and reopen popup after OAuth
+      } else {
+        this.showToast(`❌ ${result.error}`, 'error');
+      }
+    });
+
+    // Google Sign Up
+    document.getElementById('googleSignupBtn').addEventListener('click', async () => {
+      console.log('🔵 Google Sign Up button clicked');
+      this.showToast('🔵 Opening Google sign up...', 'info');
+      
+      const result = await pasteCraftSupabase.signInWithGoogle();
+      
+      if (result.success) {
+        this.showToast('✅ Complete sign up in the new window!', 'success');
+        // Don't reload - user will close and reopen popup after OAuth
+      } else {
+        this.showToast(`❌ ${result.error}`, 'error');
+      }
+    });
+
+    // Admin Sign In Link
+    document.getElementById('adminSignInLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('authModal').style.display = 'none';
+      document.getElementById('adminAuthModal').style.display = 'flex';
+    });
+
+    // Close Admin Modal
+    document.getElementById('closeAdminAuthModal').addEventListener('click', () => {
+      document.getElementById('adminAuthModal').style.display = 'none';
+      document.getElementById('authModal').style.display = 'flex';
+    });
+
+    // Back to User Auth
+    document.getElementById('backToUserAuth').addEventListener('click', () => {
+      document.getElementById('adminAuthModal').style.display = 'none';
+      document.getElementById('authModal').style.display = 'flex';
+    });
+
+    // Admin Sign In
+    document.getElementById('adminSigninBtn').addEventListener('click', async () => {
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      
+      if (!email || !password) {
+        this.showToast('⚠️ Please fill in all fields', 'error');
+        return;
+      }
+      
+      const result = await pasteCraftSupabase.signInAsAdmin(email, password);
+      
+      if (result.success && result.isAdmin) {
+        this.showToast('✅ Admin access granted!', 'success');
+        document.getElementById('adminAuthModal').style.display = 'none';
+        // Reload page to initialize with authenticated admin user
+        window.location.reload();
+      } else {
+        this.showToast(`❌ ${result.error || 'Admin access denied'}`, 'error');
+      }
+    });
+
+    // Sign Out
+    document.getElementById('signOutBtn').addEventListener('click', async () => {
+      if (confirm('Are you sure you want to sign out?')) {
+        const result = await pasteCraftSupabase.signOut();
+        
+        if (result.success) {
+          this.showToast('👋 Signed out successfully', 'success');
+          // Clear local state
+          this.currentUser = null;
+          this.userSubscription = null;
+          // Reload page to show auth modal
+          window.location.reload();
+        } else {
+          this.showToast(`❌ ${result.error}`, 'error');
+        }
+      }
     });
   }
   
@@ -1350,20 +1603,37 @@ class PasteCraftPopup {
   // Profile Management Functions
   async loadUserProfile() {
     try {
+      console.log('🔄 Loading user profile from chrome.storage.local...');
       const { userProfile = null } = await chrome.storage.local.get(['userProfile']);
       this.userProfile = userProfile;
       console.log('✅ Loaded user profile:', this.userProfile);
+      
+      if (this.userProfile?.profileImageUrl) {
+        console.log('✅ Profile image URL found:', this.userProfile.profileImageUrl);
+      } else {
+        console.log('ℹ️ No profile image URL in saved profile');
+      }
     } catch (error) {
-      console.error('Failed to load user profile:', error);
+      console.error('❌ CRITICAL: Failed to load user profile:', error);
     }
   }
 
   async saveUserProfile() {
     try {
+      console.log('💾 Attempting to save user profile:', this.userProfile);
       await chrome.storage.local.set({ userProfile: this.userProfile });
-      console.log('💾 User profile saved:', this.userProfile);
+      console.log('✅ User profile saved successfully to chrome.storage.local');
+      
+      // Verify the save worked
+      const verification = await chrome.storage.local.get(['userProfile']);
+      console.log('🔍 Verification - Profile in storage:', verification.userProfile);
+      
+      if (!verification.userProfile || !verification.userProfile.profileImageUrl) {
+        console.error('⚠️ WARNING: Profile saved but verification failed!');
+      }
     } catch (error) {
-      console.error('Failed to save user profile:', error);
+      console.error('❌ CRITICAL: Failed to save user profile:', error);
+      this.showToast('❌ Failed to save profile image', 'error');
     }
   }
 
@@ -1865,8 +2135,19 @@ class PasteCraftPopup {
 
   // Display image in top-left corner
   displayImageTopLeft(imageUrl) {
+    console.log('🖼️ displayImageTopLeft() called with URL:', imageUrl);
     const topLeftContainer = document.getElementById('topLeftProfileImage');
     const topLeftImg = document.getElementById('topLeftProfileImg');
+    
+    if (!topLeftContainer) {
+      console.error('❌ CRITICAL: #topLeftProfileImage container not found in DOM!');
+      return;
+    }
+    
+    if (!topLeftImg) {
+      console.error('❌ CRITICAL: #topLeftProfileImg element not found in DOM!');
+      return;
+    }
     
     if (topLeftContainer && topLeftImg) {
       topLeftImg.src = imageUrl;
@@ -1877,7 +2158,9 @@ class PasteCraftPopup {
         this.showProfileModal();
       };
       
-      console.log('✅ Profile image displayed in top-left corner');
+      console.log('✅ Profile image displayed successfully in top-left corner');
+      console.log('✅ Container visibility:', topLeftContainer.style.display);
+      console.log('✅ Image source set to:', topLeftImg.src);
     }
   }
 
@@ -1893,6 +2176,34 @@ class PasteCraftPopup {
       toggleBtn.textContent = '▶';
       
       console.log('✅ Photo section auto-collapsed');
+    }
+  }
+
+  // Password strength indicator
+  updatePasswordStrength(password) {
+    const strengthBar = document.querySelector('.strength-bar');
+    if (!strengthBar) return;
+
+    let strength = 0;
+    
+    // Length check
+    if (password.length >= 8) strength += 25;
+    if (password.length >= 12) strength += 25;
+    
+    // Complexity checks
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
+    if (/[0-9]/.test(password)) strength += 12.5;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 12.5;
+    
+    strengthBar.style.width = `${strength}%`;
+    
+    // Color based on strength
+    if (strength < 40) {
+      strengthBar.style.background = '#EF4444'; // Red
+    } else if (strength < 70) {
+      strengthBar.style.background = '#F59E0B'; // Orange
+    } else {
+      strengthBar.style.background = '#10B981'; // Green
     }
   }
 
