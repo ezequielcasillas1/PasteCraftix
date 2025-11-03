@@ -36,6 +36,14 @@ class PasteCraftPopup {
     // Check if this is a password reset callback
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    console.log('🔍 URL check:', {
+      search: window.location.search,
+      hash: window.location.hash,
+      type: hashParams.get('type'),
+      accessToken: hashParams.get('access_token') ? 'present' : 'missing'
+    });
+    
     if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery') {
       console.log('🔑 Password reset callback detected');
       // Show new password modal

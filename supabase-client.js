@@ -1074,8 +1074,12 @@ class PasteCraftSupabase {
     try {
       console.log('🔑 Requesting password reset for:', email);
       
+      // Get the extension URL for redirect
+      const extensionUrl = chrome.runtime.getURL('popup.html');
+      console.log('🔗 Reset redirect URL:', extensionUrl);
+      
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
-        redirectTo: chrome.runtime.getURL('popup.html') + '?reset=true'
+        redirectTo: extensionUrl
       });
 
       if (error) throw error;
