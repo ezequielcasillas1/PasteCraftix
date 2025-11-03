@@ -433,6 +433,28 @@ class PasteCraftPopup {
       });
     }
 
+    // Resend Verification Email
+    document.getElementById('resendVerificationLink').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('signinEmail').value;
+      
+      if (!email) {
+        alert('📧 Please enter your email address in the Sign In form first!');
+        return;
+      }
+      
+      this.showToast('📧 Sending verification email...', 'info');
+      
+      const result = await pasteCraftSupabase.resendVerificationEmail(email);
+      
+      if (result.success) {
+        alert(`✅ Verification Email Sent!\n\nCheck your inbox at: ${email}\n\nThe verification link has been sent. Click it to activate your account.\n\n⚠️ Check your spam folder if you don't see it within a few minutes.`);
+        this.showToast('✅ Verification email sent! Check your inbox.', 'success');
+      } else {
+        this.showToast(`❌ Failed to resend: ${result.error}`, 'error');
+      }
+    });
+
     // Sign In
     document.getElementById('signinBtn').addEventListener('click', async () => {
       console.log('🔐 Sign In button clicked');
@@ -452,7 +474,19 @@ class PasteCraftPopup {
         // Reload page to initialize with authenticated user
         window.location.reload();
       } else {
-        this.showToast(`❌ ${result.error}`, 'error');
+        // Provide helpful error messages
+        let errorMessage = result.error;
+        
+        if (result.error.toLowerCase().includes('email not confirmed') || 
+            result.error.toLowerCase().includes('email_not_confirmed')) {
+          errorMessage = '📧 Email Not Verified!\n\nYou must verify your email before signing in.\n\nCheck your inbox for the verification email from Supabase and click the link.\n\nCheck spam if needed.';
+          alert(errorMessage);
+        } else if (result.error.toLowerCase().includes('invalid') || 
+                   result.error.toLowerCase().includes('credentials')) {
+          errorMessage = '❌ Invalid email or password.\n\nPlease check your credentials and try again.\n\nIf you just signed up, make sure you verified your email first!';
+        }
+        
+        this.showToast(`❌ ${errorMessage}`, 'error');
       }
     });
 
@@ -488,7 +522,9 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signUpWithEmail(email, password);
       
       if (result.success) {
-        this.showToast('✅ Account created! Please check your email to verify.', 'success');
+        // Show detailed verification instructions
+        alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email from Supabase\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
+        this.showToast('✅ Check your email to verify your account!', 'success');
         // Switch to sign in tab
         document.querySelector('[data-auth-tab="signin"]').click();
       } else {

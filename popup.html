@@ -2250,6 +2250,58 @@
             font-size: 12px;
         }
 
+        /* Verification Notice */
+        .verification-notice {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+            border: 2px solid #3B82F6;
+            border-radius: 12px;
+            margin: 8px 0 12px 0;
+            animation: gentlePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes gentlePulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2); }
+        }
+
+        .notice-icon {
+            font-size: 20px;
+        }
+
+        .notice-text {
+            font-size: 13px;
+            color: #1E40AF;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        /* Verification Help */
+        .verification-help {
+            text-align: center;
+            margin: 12px 0;
+        }
+
+        .verification-help-text {
+            font-size: 12px;
+            color: #64748B;
+            margin: 0;
+        }
+
+        .verification-help-text a {
+            color: #3B82F6;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .verification-help-text a:hover {
+            text-decoration: underline;
+        }
+
         .password-requirements-title {
             font-weight: 700;
             color: #DC2626;
@@ -2860,6 +2912,13 @@
                         <span class="btn-text">Sign In</span>
                         <span class="btn-icon">→</span>
                     </button>
+
+                    <div class="verification-help">
+                        <p class="verification-help-text">
+                            📧 Didn't receive verification email?
+                            <a href="#" id="resendVerificationLink">Resend it</a>
+                        </p>
+                    </div>
                     
                     <div class="auth-divider-new">
                         <span>or continue with</span>
@@ -2958,6 +3017,11 @@
                         </span>
                     </label>
                     
+                    <div class="verification-notice">
+                        <span class="notice-icon">📧</span>
+                        <span class="notice-text">You'll need to verify your email after sign-up!</span>
+                    </div>
+
                     <button class="btn-primary-new auth-submit-new" id="signupBtn">
                         <span class="btn-text">Create Account</span>
                         <span class="btn-icon">→</span>

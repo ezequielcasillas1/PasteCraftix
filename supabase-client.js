@@ -997,6 +997,269 @@ class PasteCraftSupabase {
   }
 
   // =====================================================
+  // AUTHENTICATION METHODS
+  // =====================================================
+
+  /**
+   * Sign up with email and password
+   */
+  async signUpWithEmail(email, password) {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('📝 Signing up user:', email);
+      
+      const { data, error } = await this.client.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: chrome.runtime.getURL('popup.html')
+        }
+      });
+
+      if (error) throw error;
+
+      // Create user subscription record (default free tier)
+      if (data.user) {
+        await this.createUserSubscription(data.user.id, email, 'free');
+      }
+
+      console.log('✅ User signed up successfully');
+      return { success: true, user: data.user };
+    } catch (error) {
+      console.error('❌ Sign up failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Resend verification email
+   */
+  async resendVerificationEmail(email) {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('📧 Resending verification email to:', email);
+      
+      const { data, error } = await this.client.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: chrome.runtime.getURL('popup.html')
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Verification email resent');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Resend failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Sign in with email and password
+   */
+  async signInWithEmail(email, password) {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('🔐 Signing in user:', email);
+      
+      const { data, error } = await this.client.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      if (error) throw error;
+
+      console.log('✅ User signed in successfully');
+      return { success: true, user: data.user, session: data.session };
+    } catch (error) {
+      console.error('❌ Sign in failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Sign in with Google OAuth
+   */
+  async signInWithGoogle() {
+    if (!this.client) {
+      return { success: false, error: 'Supabase not initialized' };
+    }
+
+    try {
+      console.log('🔐 Initiating Google sign in...');
+      
+      // For extensions, redirect to callback page
+      const callbackUrl = chrome.runtime.getURL('callback.html');
+      console.log('🔗 Callback URL:', callbackUrl);
+      
+      const { data, error } = await this.client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl,
+          skipBrowserRedirect: false,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ Google OAuth error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data?.url) {
+        console.log('✅ Opening Google OAuth...');
+        // Open in new window - user completes auth there
+        window.open(data.url, '_blank', 'width=500,height=600');
+        return { 
+          success: true, 
+          message: 'Complete sign in in the new window, then close this popup and reopen' 
+        };
+      }
+
+      return { success: false, error: 'No OAuth URL generated' };
+    } catch (error) {
+      console.error('❌ Google sign in failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Sign out current user
+   */
+  async signOut() {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('👋 Signing out user...');
+      
+      const { error } = await this.client.auth.signOut();
+
+      if (error) throw error;
+
+      console.log('✅ User signed out successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Sign out failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get current user session
+   */
+  async getCurrentUser() {
+    if (!this.client) {
+      return null;
+    }
+
+    try {
+      const { data: { session }, error } = await this.client.auth.getSession();
+
+      if (error) throw error;
+
+      return session?.user || null;
+    } catch (error) {
+      console.error('❌ Get current user failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create user subscription record
+   */
+  async createUserSubscription(userId, email, tier = 'free') {
+    if (!this.client) return false;
+
+    try {
+      const { error } = await this.client
+        .from('user_subscriptions')
+        .insert([{
+          user_id: userId,
+          email: email,
+          subscription_tier: tier,
+          subscription_status: 'active'
+        }]);
+
+      if (error) throw error;
+
+      console.log('✅ User subscription created');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to create subscription:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get user subscription info
+   */
+  async getUserSubscription(userId) {
+    if (!this.client) return null;
+
+    try {
+      const { data, error } = await this.client
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to get subscription:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if user has premium access
+   */
+  async isPremiumUser(userId) {
+    const subscription = await this.getUserSubscription(userId);
+    return subscription && 
+           (subscription.subscription_tier === 'premium' || subscription.subscription_tier === 'admin') &&
+           subscription.subscription_status === 'active';
+  }
+
+  /**
+   * Admin sign in (checks for admin tier)
+   */
+  async signInAsAdmin(email, password) {
+    const result = await this.signInWithEmail(email, password);
+    
+    if (result.success) {
+      const subscription = await this.getUserSubscription(result.user.id);
+      
+      if (subscription && subscription.subscription_tier === 'admin') {
+        return { success: true, user: result.user, isAdmin: true };
+      } else {
+        await this.signOut();
+        return { success: false, error: 'Unauthorized: Admin access required' };
+      }
+    }
+    
+    return result;
+  }
+
+  // =====================================================
   // FULL SYNC METHOD (Call on startup)
   // =====================================================
 
