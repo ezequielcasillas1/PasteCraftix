@@ -33,6 +33,16 @@ class PasteCraftPopup {
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
     
+    // Check if this is a password reset callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery') {
+      console.log('🔑 Password reset callback detected');
+      // Show new password modal
+      document.getElementById('newPasswordModal').style.display = 'flex';
+      return;
+    }
+    
     // Check for OAuth callback tokens
     await this.checkOAuthCallback();
     
@@ -559,6 +569,121 @@ class PasteCraftPopup {
         // Don't reload - user will close and reopen popup after OAuth
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
+      }
+    });
+
+    // =====================================================
+    // FORGOT PASSWORD FLOW
+    // =====================================================
+
+    // Forgot Password Link Click
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    if (forgotPasswordLink) {
+      forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('🔑 Forgot password link clicked');
+        // Hide main auth modal, show reset modal
+        document.getElementById('authModal').style.display = 'none';
+        document.getElementById('passwordResetModal').style.display = 'flex';
+        
+        // Pre-fill email if user already entered it
+        const signinEmail = document.getElementById('signinEmail').value;
+        if (signinEmail) {
+          document.getElementById('resetEmail').value = signinEmail;
+        }
+      });
+    }
+
+    // Cancel Reset - Back to Sign In
+    document.getElementById('cancelResetBtn').addEventListener('click', () => {
+      console.log('🔙 Cancel reset, back to sign in');
+      document.getElementById('passwordResetModal').style.display = 'none';
+      document.getElementById('authModal').style.display = 'flex';
+    });
+
+    // Submit Reset Request
+    document.getElementById('resetRequestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('resetEmail').value;
+      
+      if (!email) {
+        this.showToast('⚠️ Please enter your email', 'error');
+        return;
+      }
+      
+      console.log('📧 Requesting password reset for:', email);
+      this.showToast('📧 Sending reset link...', 'info');
+      
+      const result = await pasteCraftSupabase.resetPassword(email);
+      
+      if (result.success) {
+        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ You'll be redirected back here\n3️⃣ Set your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
+        this.showToast('✅ Reset email sent! Check your inbox.', 'success');
+        
+        // Hide reset modal, show sign in
+        document.getElementById('passwordResetModal').style.display = 'none';
+        document.getElementById('authModal').style.display = 'flex';
+      } else {
+        this.showToast(`❌ Failed: ${result.error}`, 'error');
+      }
+    });
+
+    // =====================================================
+    // NEW PASSWORD FLOW (after clicking email link)
+    // =====================================================
+
+    // Password strength for new password
+    const newPasswordInput = document.getElementById('newPassword');
+    if (newPasswordInput) {
+      newPasswordInput.addEventListener('input', (e) => {
+        this.updateNewPasswordStrength(e.target.value);
+        this.checkPasswordMatch();
+      });
+    }
+
+    // Check password match on confirm password input
+    const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
+    if (confirmNewPasswordInput) {
+      confirmNewPasswordInput.addEventListener('input', () => {
+        this.checkPasswordMatch();
+      });
+    }
+
+    // Submit New Password
+    document.getElementById('newPasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmNewPassword').value;
+      
+      // Validate password requirements
+      if (!this.validatePassword(newPassword)) {
+        this.showToast('⚠️ Password does not meet requirements', 'error');
+        return;
+      }
+      
+      // Check if passwords match
+      if (newPassword !== confirmPassword) {
+        this.showToast('⚠️ Passwords do not match', 'error');
+        return;
+      }
+      
+      console.log('🔐 Updating password...');
+      this.showToast('🔄 Updating password...', 'info');
+      
+      const result = await pasteCraftSupabase.updatePassword(newPassword);
+      
+      if (result.success) {
+        alert('✅ Password Updated Successfully!\n\nYou can now sign in with your new password.');
+        this.showToast('✅ Password updated!', 'success');
+        
+        // Hide new password modal, show sign in
+        document.getElementById('newPasswordModal').style.display = 'none';
+        document.getElementById('authModal').style.display = 'flex';
+        
+        // Clear the hash from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        this.showToast(`❌ Failed: ${result.error}`, 'error');
       }
     });
 
@@ -2276,6 +2401,64 @@ class PasteCraftPopup {
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
     
     return hasLength && hasNumber && hasSpecial;
+  }
+
+  // Update password strength for new password form
+  updateNewPasswordStrength(password) {
+    const strengthBar = document.querySelector('#newPasswordStrength .strength-bar');
+    if (!strengthBar) return;
+
+    let strength = 0;
+    
+    // Check requirements
+    const hasLength = password.length >= 8;
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    // Update requirement indicators
+    this.updateRequirement('new-req-length', hasLength);
+    this.updateRequirement('new-req-number', hasNumber);
+    this.updateRequirement('new-req-special', hasSpecial);
+    
+    // Calculate strength
+    if (password.length >= 8) strength += 25;
+    if (password.length >= 12) strength += 25;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
+    if (hasNumber) strength += 12.5;
+    if (hasSpecial) strength += 12.5;
+    
+    strengthBar.style.width = `${strength}%`;
+    
+    if (strength < 40) {
+      strengthBar.style.background = '#EF4444';
+    } else if (strength < 70) {
+      strengthBar.style.background = '#F59E0B';
+    } else {
+      strengthBar.style.background = '#10B981';
+    }
+  }
+
+  // Check if passwords match
+  checkPasswordMatch() {
+    const newPassword = document.getElementById('newPassword')?.value || '';
+    const confirmPassword = document.getElementById('confirmNewPassword')?.value || '';
+    const matchHint = document.getElementById('passwordMatchHint');
+    
+    if (!matchHint) return;
+    
+    if (confirmPassword.length > 0) {
+      if (newPassword === confirmPassword) {
+        matchHint.textContent = '✅ Passwords match';
+        matchHint.style.color = '#10B981';
+        matchHint.style.display = 'block';
+      } else {
+        matchHint.textContent = '❌ Passwords do not match';
+        matchHint.style.color = '#DC2626';
+        matchHint.style.display = 'block';
+      }
+    } else {
+      matchHint.style.display = 'none';
+    }
   }
 
   // Global message handler for background script

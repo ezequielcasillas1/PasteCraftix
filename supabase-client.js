@@ -1064,6 +1064,56 @@ class PasteCraftSupabase {
   }
 
   /**
+   * Request password reset email
+   */
+  async resetPassword(email) {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('🔑 Requesting password reset for:', email);
+      
+      const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
+        redirectTo: chrome.runtime.getURL('popup.html') + '?reset=true'
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Password reset email sent');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Password reset failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Update user password (after reset)
+   */
+  async updatePassword(newPassword) {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    try {
+      console.log('🔑 Updating user password...');
+      
+      const { data, error } = await this.client.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Password updated successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Password update failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Sign in with email and password
    */
   async signInWithEmail(email, password) {
