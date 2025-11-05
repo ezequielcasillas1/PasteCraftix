@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft - Authentication</title>
+    <meta name="description" content="PasteCraft password reset and authentication callback">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 650px;
+            width: 100%;
+            padding: 60px 50px;
+            text-align: center;
+            animation: slideUp 0.4s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        h1 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #718096;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            font-size: 17px;
+            color: #4a5568;
+            margin: 25px 0;
+            line-height: 1.7;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #667eea;
+            width: 60px;
+            height: 60px;
+            animation: spin 0.8s linear infinite;
+            margin: 30px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            padding: 25px;
+            border-radius: 16px;
+            margin: 25px 0;
+            font-weight: 600;
+            font-size: 18px;
+            border: 2px solid #b1dfbb;
+        }
+        
+        .error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            padding: 25px;
+            border-radius: 16px;
+            margin: 25px 0;
+            font-weight: 600;
+            font-size: 18px;
+            border: 2px solid #f1b0b7;
+        }
+        
+        .instructions {
+            background: #edf2f7;
+            border-left: 5px solid #667eea;
+            padding: 25px 30px;
+            margin: 30px 0;
+            text-align: left;
+            border-radius: 12px;
+        }
+        
+        .instructions strong {
+            color: #667eea;
+            font-size: 18px;
+            display: block;
+            margin-bottom: 15px;
+        }
+        
+        .instructions ol {
+            margin-left: 25px;
+            margin-top: 15px;
+            line-height: 2.2;
+            color: #2d3748;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: 600;
+            margin: 12px 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .warning-box {
+            background: #fef5e7;
+            border: 2px solid #f39c12;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            color: #7d6608;
+            font-size: 15px;
+            text-align: left;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            color: #0d47a1;
+            font-size: 15px;
+        }
+        
+        .extension-badge {
+            display: inline-block;
+            background: #f7fafc;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #667eea;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+        }
+        
+        footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📋</div>
+        <h1 id="title">PasteCraft Authentication</h1>
+        <p class="subtitle" id="subtitle">Securely connecting to your extension...</p>
+        <div class="spinner" id="spinner"></div>
+        <div class="status" id="status"></div>
+        <div id="content"></div>
+        
+        <footer>
+            <p>Powered by <strong>PasteCraft</strong></p>
+            <p style="margin-top: 8px; font-size: 13px;">
+                Need help? Check your extension or <a href="mailto:support@pastecraft.com">contact support</a>
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        const EXTENSION_ID = 'nkmpfhkinojohffdichlonlipfhgbobh';
+        
+        // Get hash parameters from URL
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.substring(1));
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        const type = params.get('type');
+        const error_description = params.get('error_description');
+        
+        const spinner = document.getElementById('spinner');
+        const status = document.getElementById('status');
+        const content = document.getElementById('content');
+        const title = document.getElementById('title');
+        const subtitle = document.getElementById('subtitle');
+        
+        console.log('🔐 PasteCraft Callback Page Loaded');
+        console.log('📦 Parameters:', { type, has_token: !!access_token, error: error_description });
+        
+        if (error_description) {
+            // Error in callback
+            handleError(error_description);
+        } else if (type === 'recovery' && access_token) {
+            // Password reset flow
+            handlePasswordReset(access_token, refresh_token);
+        } else if (access_token) {
+            // OAuth sign-in flow
+            handleOAuthSignIn(access_token, refresh_token);
+        } else {
+            // No valid parameters
+            handleInvalidLink();
+        }
+        
+        function handleError(error) {
+            spinner.style.display = 'none';
+            title.textContent = '❌ Authentication Error';
+            subtitle.textContent = 'Something went wrong';
+            content.innerHTML = `
+                <div class="error">${error}</div>
+                <p class="status">Please try again or contact support if the issue persists.</p>
+            `;
+        }
+        
+        function handlePasswordReset(accessToken, refreshToken) {
+            spinner.style.display = 'none';
+            title.textContent = '🔐 Password Reset Ready';
+            subtitle.textContent = 'Your reset link has been verified successfully';
+            
+            content.innerHTML = `
+                <div class="success">✅ Authentication verified!</div>
+                
+                <div class="instructions">
+                    <strong>📋 Complete Your Password Reset:</strong>
+                    <ol>
+                        <li>Click the <strong>PasteCraft extension icon</strong> <span class="extension-badge">📋</span> in your browser toolbar</li>
+                        <li>The password reset form will appear automatically</li>
+                        <li>Enter your new password (must be strong & secure)</li>
+                        <li>Click "Update Password" to complete</li>
+                    </ol>
+                </div>
+                
+                <div class="warning-box">
+                    <strong>⏰ Important:</strong> This reset link expires in <strong>1 hour</strong>. 
+                    Complete your password reset soon. Keep this tab open until you're done.
+                </div>
+                
+                <button class="btn" onclick="openExtension()">
+                    🚀 Open PasteCraft Extension
+                </button>
+                
+                <div class="info-box" style="margin-top: 30px;">
+                    <strong>💡 Tip:</strong> If the extension doesn't open automatically, 
+                    look for the PasteCraft icon <span class="extension-badge">📋</span> in your browser's 
+                    extension toolbar (usually top-right corner).
+                </div>
+            `;
+            
+            // Store tokens in localStorage as backup
+            try {
+                localStorage.setItem('pastecraft_reset_token', accessToken);
+                localStorage.setItem('pastecraft_reset_refresh', refreshToken);
+                localStorage.setItem('pastecraft_reset_time', Date.now().toString());
+                console.log('✅ Tokens stored in localStorage');
+            } catch (e) {
+                console.warn('❌ Could not store in localStorage:', e);
+            }
+            
+            // Try to communicate with extension
+            tryExtensionMessage({ type: 'password_reset', access_token: accessToken, refresh_token: refreshToken });
+        }
+        
+        function handleOAuthSignIn(accessToken, refreshToken) {
+            spinner.style.display = 'none';
+            title.textContent = '✅ Sign In Successful';
+            subtitle.textContent = 'Welcome to PasteCraft!';
+            
+            content.innerHTML = `
+                <div class="success">You've been signed in successfully!</div>
+                
+                <div class="instructions">
+                    <strong>📋 Next Steps:</strong>
+                    <ol>
+                        <li>Click the PasteCraft extension icon in your browser</li>
+                        <li>Start using PasteCraft features</li>
+                        <li>You can close this tab</li>
+                    </ol>
+                </div>
+                
+                <button class="btn" onclick="openExtension()">
+                    🚀 Open PasteCraft
+                </button>
+            `;
+            
+            // Try to communicate with extension
+            tryExtensionMessage({ type: 'oauth_signin', access_token: accessToken, refresh_token: refreshToken });
+            
+            // Auto-close after delay
+            setTimeout(() => {
+                content.innerHTML += '<p style="margin-top: 20px; color: #718096;">This tab will close automatically in 5 seconds...</p>';
+                setTimeout(() => window.close(), 5000);
+            }, 3000);
+        }
+        
+        function handleInvalidLink() {
+            spinner.style.display = 'none';
+            title.textContent = '❌ Invalid Link';
+            subtitle.textContent = 'This authentication link is not valid';
+            
+            content.innerHTML = `
+                <div class="error">This link has expired or is invalid.</div>
+                
+                <div class="instructions">
+                    <strong>🔄 What to do:</strong>
+                    <ol>
+                        <li>Open the PasteCraft extension</li>
+                        <li>Request a new password reset link</li>
+                        <li>Check your email for the new link</li>
+                    </ol>
+                </div>
+                
+                <button class="btn" onclick="openExtension()">
+                    🚀 Open PasteCraft
+                </button>
+            `;
+        }
+        
+        function openExtension() {
+            // Instead of navigating to extension URL (which gets blocked),
+            // just show instructions to user
+            alert('📋 To complete your password reset:\n\n1. Click the PasteCraft icon 📋 in your browser toolbar\n2. The password reset form will appear automatically\n3. Enter your new password and save\n\n✨ The extension is ready and waiting for you!');
+        }
+        
+        function tryExtensionMessage(data) {
+            // Try to send message to extension if possible
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                try {
+                    chrome.runtime.sendMessage(EXTENSION_ID, data, (response) => {
+                        console.log('Extension response:', response);
+                    });
+                } catch (e) {
+                    console.log('Could not communicate with extension:', e);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+

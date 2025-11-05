@@ -1074,8 +1074,8 @@ class PasteCraftSupabase {
     try {
       console.log('🔑 Requesting password reset for:', email);
       
-      // Use callback.html as the redirect URL (Supabase will add tokens to hash)
-      const callbackUrl = chrome.runtime.getURL('callback.html');
+      // Use auth.pastecraft.com - the hosted callback page
+      const callbackUrl = 'https://auth.pastecraft.com';
       console.log('🔗 Reset redirect URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
