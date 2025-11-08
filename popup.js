@@ -89,8 +89,8 @@ class PasteCraftPopup {
     this.userSubscription = await pasteCraftSupabase.getUserSubscription(currentUser.id);
     console.log('💎 Subscription tier:', this.userSubscription?.subscription_tier);
     
-    // Show sign out button
-    document.getElementById('signOutContainer').style.display = 'block';
+    // Show top bar (with sign out button)
+    document.getElementById('topBar').style.display = 'flex';
     
     await this.loadData();
     await this.loadSettings();
@@ -113,9 +113,40 @@ class PasteCraftPopup {
     this.renderCategories();
     this.updateCategoryFilter();
     
+    // 🔄 SYNC WITH SUPABASE IN BACKGROUND
+    this.performBackgroundSync();
+    
     // Reload data whenever popup becomes visible
     this.setupVisibilityListener();
     console.log('✅ PasteCraft popup initialized successfully');
+  }
+  
+  async performBackgroundSync() {
+    try {
+      console.log('🔄 Starting background sync with Supabase...');
+      const syncResult = await pasteCraftSupabase.performFullSync();
+      
+      if (syncResult.success) {
+        console.log('✅ Background sync complete:', syncResult.stats);
+        // Reload data after sync
+        await this.loadData();
+        this.renderChips();
+        this.renderCategories();
+        this.updateCategoryFilter();
+        
+        // 🔄 RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
+        await this.loadUserProfile();
+        if (this.userProfile?.profileImageUrl) {
+          console.log('✅ Profile image restored from Supabase after sync');
+          this.displayImageTopLeft(this.userProfile.profileImageUrl);
+        }
+      } else {
+        console.warn('⚠️ Background sync failed:', syncResult.message);
+      }
+    } catch (error) {
+      console.error('❌ Background sync error:', error);
+      // Don't block app - local data still works
+    }
   }
   
   setupVisibilityListener() {
@@ -124,11 +155,17 @@ class PasteCraftPopup {
       if (document.visibilityState === 'visible') {
         console.log('🔄 Popup became visible - reloading data...');
         await this.loadData();
+        await this.loadUserProfile(); // Reload profile too
         this.renderChips();
         this.updateLastCapture();
         this.updatePreview();
         this.renderCategories();
         this.updateCategoryFilter();
+        
+        // Update profile image if available
+        if (this.userProfile?.profileImageUrl) {
+          this.displayImageTopLeft(this.userProfile.profileImageUrl);
+        }
         console.log('✅ Data reloaded successfully');
       }
     });
@@ -144,6 +181,17 @@ class PasteCraftPopup {
           this.renderCategories();
           this.updateCategoryFilter();
           console.log('✅ Data reloaded after storage change');
+        });
+      }
+      
+      // Listen for profile changes (e.g., from background sync)
+      if (areaName === 'local' && changes.userProfile) {
+        console.log('🔄 Profile changed in storage - updating UI...');
+        this.loadUserProfile().then(() => {
+          if (this.userProfile?.profileImageUrl) {
+            this.displayImageTopLeft(this.userProfile.profileImageUrl);
+            console.log('✅ Profile image updated from storage change');
+          }
         });
       }
     });
@@ -399,6 +447,9 @@ class PasteCraftPopup {
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
     });
+    
+    // Setup image viewer for expanded view
+    this.setupImageViewer();
   }
   
   // =====================================================
@@ -570,9 +621,9 @@ class PasteCraftPopup {
       }
     });
 
-    // Sign In
-    document.getElementById('signinBtn').addEventListener('click', async () => {
-      console.log('🔐 Sign In button clicked');
+    // Sign In Handler Function
+    const handleSignIn = async () => {
+      console.log('🔐 Sign In triggered');
       const email = document.getElementById('signinEmail').value;
       const password = document.getElementById('signinPassword').value;
       
@@ -603,11 +654,29 @@ class PasteCraftPopup {
         
         this.showToast(`❌ ${errorMessage}`, 'error');
       }
+    };
+    
+    // Sign In Button Click
+    document.getElementById('signinBtn').addEventListener('click', handleSignIn);
+    
+    // Sign In with Enter Key
+    document.getElementById('signinEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSignIn();
+      }
+    });
+    
+    document.getElementById('signinPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSignIn();
+      }
     });
 
-    // Sign Up
-    document.getElementById('signupBtn').addEventListener('click', async () => {
-      console.log('📝 Sign Up button clicked');
+    // Sign Up Handler Function
+    const handleSignUp = async () => {
+      console.log('📝 Sign Up triggered');
       const email = document.getElementById('signupEmail').value;
       const password = document.getElementById('signupPassword').value;
       const confirmPassword = document.getElementById('signupPasswordConfirm').value;
@@ -644,6 +713,31 @@ class PasteCraftPopup {
         document.querySelector('[data-auth-tab="signin"]').click();
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
+      }
+    };
+    
+    // Sign Up Button Click
+    document.getElementById('signupBtn').addEventListener('click', handleSignUp);
+    
+    // Sign Up with Enter Key
+    document.getElementById('signupEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSignUp();
+      }
+    });
+    
+    document.getElementById('signupPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSignUp();
+      }
+    });
+    
+    document.getElementById('signupPasswordConfirm').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSignUp();
       }
     });
 
@@ -706,9 +800,8 @@ class PasteCraftPopup {
       document.getElementById('authModal').style.display = 'flex';
     });
 
-    // Submit Reset Request
-    document.getElementById('resetRequestForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // Password Reset Handler Function
+    const handlePasswordReset = async () => {
       const email = document.getElementById('resetEmail').value;
       
       if (!email) {
@@ -722,7 +815,7 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.resetPassword(email);
       
       if (result.success) {
-        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ You'll be redirected back here\n3️⃣ Set your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
+        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ Follow instructions on pastecraft.com\n3️⃣ Return here to set your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
         this.showToast('✅ Reset email sent! Check your inbox.', 'success');
         
         // Hide reset modal, show sign in
@@ -730,6 +823,20 @@ class PasteCraftPopup {
         document.getElementById('authModal').style.display = 'flex';
       } else {
         this.showToast(`❌ Failed: ${result.error}`, 'error');
+      }
+    };
+    
+    // Submit Reset Request
+    document.getElementById('resetRequestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await handlePasswordReset();
+    });
+    
+    // Password Reset with Enter Key
+    document.getElementById('resetEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handlePasswordReset();
       }
     });
 
@@ -754,9 +861,8 @@ class PasteCraftPopup {
       });
     }
 
-    // Submit New Password
-    document.getElementById('newPasswordForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    // New Password Handler Function
+    const handleNewPassword = async () => {
       const newPassword = document.getElementById('newPassword').value;
       const confirmPassword = document.getElementById('confirmNewPassword').value;
       
@@ -790,6 +896,27 @@ class PasteCraftPopup {
       } else {
         this.showToast(`❌ Failed: ${result.error}`, 'error');
       }
+    };
+    
+    // Submit New Password
+    document.getElementById('newPasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await handleNewPassword();
+    });
+    
+    // New Password with Enter Key
+    document.getElementById('newPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleNewPassword();
+      }
+    });
+    
+    document.getElementById('confirmNewPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleNewPassword();
+      }
     });
 
     // Admin Sign In Link
@@ -811,8 +938,8 @@ class PasteCraftPopup {
       document.getElementById('authModal').style.display = 'flex';
     });
 
-    // Admin Sign In
-    document.getElementById('adminSigninBtn').addEventListener('click', async () => {
+    // Admin Sign In Handler Function
+    const handleAdminSignIn = async () => {
       const email = document.getElementById('adminEmail').value;
       const password = document.getElementById('adminPassword').value;
       
@@ -830,6 +957,24 @@ class PasteCraftPopup {
         window.location.reload();
       } else {
         this.showToast(`❌ ${result.error || 'Admin access denied'}`, 'error');
+      }
+    };
+    
+    // Admin Sign In Button Click
+    document.getElementById('adminSigninBtn').addEventListener('click', handleAdminSignIn);
+    
+    // Admin Sign In with Enter Key
+    document.getElementById('adminEmail').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAdminSignIn();
+      }
+    });
+    
+    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAdminSignIn();
       }
     });
 
@@ -941,6 +1086,15 @@ class PasteCraftPopup {
     this.clips.splice(index, 1);
     await chrome.storage.local.set({ clips: this.clips });
     this.selectedChips.clear();
+    
+    // 🔄 AUTO-SYNC TO SUPABASE
+    try {
+      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+      console.log('✅ Clip deletion synced to Supabase');
+    } catch (error) {
+      console.error('⚠️ Failed to sync deletion to Supabase:', error);
+    }
+    
     this.renderChips();
     this.updatePreview();
   }
@@ -1505,6 +1659,15 @@ class PasteCraftPopup {
       
       this.clips[this.pendingClipIndex].category = this.selectedCategoryForSave;
       await chrome.storage.local.set({ clips: this.clips });
+      
+      // 🔄 AUTO-SYNC TO SUPABASE
+      try {
+        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        console.log('✅ Clip category update synced to Supabase');
+      } catch (error) {
+        console.error('⚠️ Failed to sync category update to Supabase:', error);
+      }
+      
       this.renderChips();
       this.renderSearchResults();
       this.updateCategoryFilter();
@@ -1535,6 +1698,15 @@ class PasteCraftPopup {
       }
 
       await chrome.storage.local.set({ clips: this.clips });
+      
+      // 🔄 AUTO-SYNC TO SUPABASE
+      try {
+        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        console.log('✅ New clip synced to Supabase');
+      } catch (error) {
+        console.error('⚠️ Failed to sync new clip to Supabase:', error);
+        // Don't block user - local save already succeeded
+      }
       
       // Notify content scripts about new clip
       try {
@@ -1596,7 +1768,21 @@ class PasteCraftPopup {
       quickPasteSettings: this.quickPasteSettings
     });
     
-    this.showToast('Settings saved!');
+    // 🔄 AUTO-SYNC TO SUPABASE
+    try {
+      const settingsData = {
+        autoDeletePeriod: newAutoDeletePeriod,
+        quickPasteSettings: this.quickPasteSettings
+      };
+      
+      await pasteCraftSupabase.syncSettingsToSupabase(settingsData);
+      console.log('✅ Settings synced to Supabase');
+      this.showToast('✅ Settings saved and synced!');
+    } catch (error) {
+      console.error('⚠️ Failed to sync settings to Supabase:', error);
+      this.showToast('✅ Settings saved locally');
+    }
+    
     this.hideSettingsModal();
     
     // Run cleanup after changing settings
@@ -1898,6 +2084,15 @@ class PasteCraftPopup {
       if (!verification.userProfile || !verification.userProfile.profileImageUrl) {
         console.error('⚠️ WARNING: Profile saved but verification failed!');
       }
+      
+      // 🔄 AUTO-SYNC TO SUPABASE
+      try {
+        await pasteCraftSupabase.syncUserProfileToSupabase(this.userProfile);
+        console.log('✅ User profile synced to Supabase');
+      } catch (syncError) {
+        console.error('⚠️ Failed to sync profile to Supabase:', syncError);
+        // Don't fail the whole save if sync fails
+      }
     } catch (error) {
       console.error('❌ CRITICAL: Failed to save user profile:', error);
       this.showToast('❌ Failed to save profile image', 'error');
@@ -2016,7 +2211,7 @@ class PasteCraftPopup {
     const generateAnimalBtn = document.getElementById('generateAnimalBtn');
     const generateCartoonBtn = document.getElementById('generateCartoonBtn');
     
-    // Remove old listeners by cloning and replacing nodes
+    // Remove old listeners by cloning and replacing nodes (for buttons)
     const newUploadBtn = uploadImageBtn.cloneNode(true);
     uploadImageBtn.replaceWith(newUploadBtn);
     
@@ -2032,13 +2227,20 @@ class PasteCraftPopup {
     const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
     unsubscribeBtn.replaceWith(newUnsubscribeBtn);
 
-    // Collapse/Expand handlers for Name Registration
-    nameRegHeader.addEventListener('click', () => {
+    // ✅ FIX: Clone and replace headers to remove stacked event listeners
+    const newNameRegHeader = nameRegHeader.cloneNode(true);
+    nameRegHeader.replaceWith(newNameRegHeader);
+    
+    const newPhotoCreationHeader = photoCreationHeader.cloneNode(true);
+    photoCreationHeader.replaceWith(newPhotoCreationHeader);
+
+    // Collapse/Expand handlers for Name Registration (using new cloned element)
+    newNameRegHeader.addEventListener('click', () => {
       this.toggleSection('nameRegContent', 'nameToggleBtn');
     });
 
-    // Collapse/Expand handlers for Photo Creation
-    photoCreationHeader.addEventListener('click', () => {
+    // Collapse/Expand handlers for Photo Creation (using new cloned element)
+    newPhotoCreationHeader.addEventListener('click', () => {
       this.toggleSection('photoCreationContent', 'photoToggleBtn');
     });
 
@@ -2349,6 +2551,9 @@ class PasteCraftPopup {
         // Update button states to enable Animal Avatar
         this.updateAIGenerateButtonState();
         
+        // ✅ AUTO-COLLAPSE SECTION
+        setTimeout(() => this.autoCollapseNameSection(), 2000);
+        
         this.showToast('✅ Funky name generated!', 'success');
       } else {
         this.showToast('❌ Failed to generate AI name', 'error');
@@ -2400,11 +2605,17 @@ class PasteCraftPopup {
     }
   }
 
-  // Display image in top-left corner
+  // Display image in top bar
   displayImageTopLeft(imageUrl) {
     console.log('🖼️ displayImageTopLeft() called with URL:', imageUrl);
+    const topBar = document.getElementById('topBar');
     const topLeftContainer = document.getElementById('topLeftProfileImage');
     const topLeftImg = document.getElementById('topLeftProfileImg');
+    
+    if (!topBar) {
+      console.error('❌ CRITICAL: #topBar container not found in DOM!');
+      return;
+    }
     
     if (!topLeftContainer) {
       console.error('❌ CRITICAL: #topLeftProfileImage container not found in DOM!');
@@ -2418,16 +2629,27 @@ class PasteCraftPopup {
     
     if (topLeftContainer && topLeftImg) {
       topLeftImg.src = imageUrl;
-      topLeftContainer.style.display = 'block';
+      topBar.style.display = 'flex';
+      topLeftContainer.style.display = 'flex';
       
-      // Add click handler to open profile modal
-      topLeftContainer.onclick = () => {
-        this.showProfileModal();
-      };
-      
-      console.log('✅ Profile image displayed successfully in top-left corner');
-      console.log('✅ Container visibility:', topLeftContainer.style.display);
+      console.log('✅ Profile image displayed successfully in top bar');
+      console.log('✅ Top bar visibility:', topBar.style.display);
       console.log('✅ Image source set to:', topLeftImg.src);
+    }
+  }
+
+  // Auto-collapse profile name section after generation
+  autoCollapseNameSection() {
+    const content = document.getElementById('nameRegContent');
+    const toggleBtn = document.getElementById('nameToggleBtn');
+    
+    if (content && toggleBtn && !content.classList.contains('collapsed')) {
+      // Collapse the section
+      content.classList.add('collapsed');
+      toggleBtn.classList.add('collapsed');
+      toggleBtn.textContent = '▶';
+      
+      console.log('✅ Name section auto-collapsed');
     }
   }
 
@@ -2444,6 +2666,68 @@ class PasteCraftPopup {
       
       console.log('✅ Photo section auto-collapsed');
     }
+  }
+
+  // Setup Image Viewer for expanded view
+  setupImageViewer() {
+    const modal = document.getElementById('imageViewerModal');
+    const modalImg = document.getElementById('imageViewerImg');
+    const closeBtn = document.getElementById('imageViewerClose');
+    const profileImage = document.getElementById('profileImage');
+    const topLeftImg = document.getElementById('topLeftProfileImg');
+    
+    // Function to show expanded image
+    const showExpandedImage = (imgSrc) => {
+      if (!imgSrc || imgSrc === '') return;
+      modalImg.src = imgSrc;
+      modal.style.display = 'flex';
+    };
+    
+    // Click on profile image in modal
+    if (profileImage) {
+      profileImage.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent event bubbling
+        if (profileImage.style.display !== 'none') {
+          showExpandedImage(profileImage.src);
+        }
+      });
+    }
+    
+    // Click on top-left profile image
+    if (topLeftImg) {
+      // Remove the old onclick that opens profile modal
+      const topLeftContainer = document.getElementById('topLeftProfileImage');
+      if (topLeftContainer) {
+        topLeftContainer.onclick = null; // Remove old handler
+        topLeftImg.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showExpandedImage(topLeftImg.src);
+        });
+      }
+    }
+    
+    // Close button
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+    }
+    
+    // Click outside image to close
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+    }
+    
+    // ESC key to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.style.display === 'flex') {
+        modal.style.display = 'none';
+      }
+    });
   }
 
   // Password strength indicator and validation

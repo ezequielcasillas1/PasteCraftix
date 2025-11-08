@@ -1,5 +1,78 @@
-{ 
+{
+**BUG REPORT: Generated Image Not Persisting After Page Reload** 🔴 CRITICAL
 
+**Problem:** Generated AI images disappear when user returns to PasteCraft application
+
+**User Report:** "When I came back to PasteCraft application, the AI-generated image did not save to the image placeholder in the top-left screen"
+
+**Root Cause Identified:** 
+- ✅ Image URL IS being saved to `chrome.storage.local` correctly
+- ❌ BUT the URL is a TEMPORARY OpenAI/DALL-E URL that expires after 1-2 hours
+- ❌ Images are NOT being uploaded to permanent storage (Supabase Storage)
+
+**Current Flow (Broken):**
+```
+DALL-E generates image → Returns temporary URL (expires in 1-2 hours) 
+→ Temporary URL saved to chrome.storage.local 
+→ User returns later → URL expired → Image gone! 💥
+```
+
+**Required Fix (Production-Ready):**
+```
+DALL-E generates image → Download image blob 
+→ Upload to Supabase Storage bucket 
+→ Save permanent Supabase URL 
+→ Image persists forever ✅
+```
+
+**Impact:** Users lose their generated avatars after a few hours, causing frustration and requiring regeneration
+
+**Files Affected:** 
+- `supabase-client.js` - Add `downloadAndUploadImage()` method
+- `supabase-client.js` - Modify `generateProfileImage()` to upload images
+- `popup.js` - Already has save logic, just needs permanent URLs
+
+**Production Implementation:** See `request.md` for full Supabase Storage integration (Tasks #6-#10)
+
+**Temporary Diagnostic Fix Applied:** Enhanced logging to track save/load lifecycle for debugging
+}
+
+---
+
+{
+**BUG REPORT: Generate AI Name Button Chopped Off** ⚠️ UX ISSUE
+
+**Problem:** The "Generate AI Name" button text is cut off and not fully visible in the profile modal
+
+**User Report:** Looking at the screenshot, the button appears truncated with text not displaying properly
+
+**Visual Issue:**
+- Button text "Generate AI Name" is not fully visible
+- Poor UX - users may not understand what the button does
+- Button width or text overflow needs adjustment
+
+**Expected Behavior:**
+- Button should fully display "Generate AI Name" text
+- Text should be readable and properly sized
+- Button should fit within container without overflow
+
+**Impact:** 
+- Confusing user interface
+- Users might not click the button if they can't read what it does
+- Unprofessional appearance
+
+**Files Affected:**
+- `popup.html` - Button element styling
+- Inline CSS or `styles.css` - Button width, padding, font-size
+
+**Possible Fixes:**
+1. Increase button width to accommodate full text
+2. Reduce font size slightly
+3. Adjust padding/margin
+4. Use text wrapping or shorter button text
+5. Make button responsive to text length
+
+**Priority:** Medium (UX polish, not blocking functionality)
 }
 
 ---
@@ -85,3 +158,4 @@ Your approach must be systematic, evidence-based, and relentlessly focused on id
         -   `"Self-Audit Complete. Root cause has been addressed, and system state is verified. No regressions identified. Mission accomplished."`
         -   `"Self-Audit Complete. CRITICAL ISSUE FOUND during audit. Halting work. [Describe issue and recommend immediate diagnostic steps]."`
 -   **Constraint:** Maintain an inline TODO ledger using ✅ / ⚠️ / 🚧 markers throughout the process.
+
