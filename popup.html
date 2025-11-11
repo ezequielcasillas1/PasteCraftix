@@ -978,6 +978,7 @@
             gap: 8px;
             max-height: 200px;
             overflow-y: auto;
+            overflow-x: hidden;
             margin-bottom: 20px;
         }
         
@@ -1018,6 +1019,28 @@
         
         .category-option.selected .category-option-icon {
             background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .category-delete-btn {
+            width: 32px;
+            height: 32px;
+            background: #fee;
+            border: none;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: auto;
+            color: #ef4444;
+        }
+        
+        .category-delete-btn:hover {
+            background: #ef4444;
+            color: white;
+            transform: scale(1.1);
         }
         
         .category-option.category-full {
@@ -1078,6 +1101,19 @@
         .btn-primary:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            background: #d1d5db;
+            color: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-primary:disabled:hover {
+            transform: none;
+            box-shadow: none;
         }
         
         /* Chip Category Assignment */
@@ -2524,6 +2560,550 @@
             }
         }
         
+        /* ============================================
+           TOP BAR FUNKY NAME STYLES
+           ============================================ */
+        .top-bar-name-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 12px;
+        }
+        
+        .top-bar-funky-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #3b82f6;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* ============================================
+           AI LAB STYLES
+           ============================================ */
+        .ai-lab-container {
+            padding: 20px;
+            background: white;
+            min-height: 400px;
+        }
+        
+        .ai-lab-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f1f5f9;
+        }
+        
+        .ai-lab-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .ai-lab-icon {
+            font-size: 32px;
+        }
+        
+        .ai-lab-title h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0;
+        }
+        
+        .ai-lab-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        /* AI Lab Internal Tabs */
+        .ai-lab-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 24px;
+            background: #f8fafc;
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        
+        .ai-lab-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .ai-lab-tab {
+            flex: 1;
+            min-width: fit-content;
+            padding: 8px 10px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(11px, 2.5vw, 13px);
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        
+        .ai-lab-tab:hover {
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .ai-lab-tab.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Hide text on smaller screens, show only emojis */
+        @media (max-width: 380px) {
+            .ai-lab-tab .tab-text {
+                display: none;
+            }
+            
+            .ai-lab-tab {
+                font-size: 20px;
+                padding: 8px 10px;
+            }
+        }
+
+        /* AI Breakdown Standalone Feature */
+        .ai-breakdown-feature {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-breakdown-feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .ai-breakdown-feature:hover::before {
+            left: 100%;
+        }
+
+        .ai-breakdown-feature:hover {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #3b82f6;
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .ai-breakdown-feature:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .ai-breakdown-feature:hover .breakdown-icon {
+            transform: scale(1.15) rotate(5deg);
+        }
+
+        .ai-breakdown-feature:hover .breakdown-text strong,
+        .ai-breakdown-feature:hover .breakdown-text small {
+            color: white;
+        }
+
+        .ai-breakdown-feature:hover .breakdown-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: white;
+        }
+
+        .breakdown-icon {
+            font-size: 36px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+
+        .breakdown-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+
+        .breakdown-text strong {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            transition: color 0.3s ease;
+            letter-spacing: -0.02em;
+        }
+
+        .breakdown-text small {
+            font-size: 13px;
+            color: #64748b;
+            transition: color 0.3s ease;
+            line-height: 1.4;
+        }
+
+        .breakdown-arrow {
+            font-size: 24px;
+            color: #94a3b8;
+            opacity: 0.6;
+            transform: translateX(-8px);
+            transition: all 0.3s ease;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 380px) {
+            .ai-breakdown-feature {
+                padding: 14px 16px;
+                gap: 12px;
+            }
+
+            .breakdown-icon {
+                font-size: 32px;
+            }
+
+            .breakdown-text strong {
+                font-size: 15px;
+            }
+
+            .breakdown-text small {
+                font-size: 12px;
+            }
+        }
+
+        /* AI Lab Sections */
+        .ai-lab-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .ai-lab-section.active {
+            display: block;
+        }
+        
+        /* AI Generation Section */
+        .ai-generation-section {
+            margin-bottom: 32px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: 12px;
+            border: 2px solid #3b82f6;
+        }
+        
+        .ai-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0 0 16px 0;
+        }
+        
+        .ai-gen-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .ai-gen-btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .ai-gen-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+        }
+        
+        .ai-gen-btn:active {
+            transform: translateY(0);
+        }
+        
+        .ai-gen-icon {
+            font-size: 18px;
+        }
+        
+        /* AI Generation Timer */
+        .ai-generation-timer {
+            margin-top: 16px;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease;
+        }
+        
+        .timer-icon {
+            font-size: 24px;
+        }
+        
+        .timer-text {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 600;
+            color: #78350f;
+        }
+        
+        .timer-countdown {
+            font-size: 20px;
+            font-weight: 700;
+            color: #d97706;
+            min-width: 28px;
+            text-align: center;
+            display: inline-block;
+        }
+        
+        .timer-dismiss {
+            background: rgba(120, 53, 15, 0.1);
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            color: #78350f;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .timer-dismiss:hover {
+            background: rgba(120, 53, 15, 0.2);
+            transform: scale(1.1);
+        }
+        
+        /* AI Gallery Section */
+        .ai-gallery-section {
+            margin-bottom: 20px;
+        }
+        
+        .ai-gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .ai-gallery-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7280;
+            background: #f8fafc;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+        
+        .ai-gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        
+        .ai-gallery-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .ai-gallery-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .ai-gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .ai-gallery-item-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .ai-gallery-item:hover .ai-gallery-item-actions {
+            opacity: 1;
+        }
+        
+        .ai-gallery-action-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .ai-gallery-action-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .ai-gallery-action-btn.delete:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .ai-gallery-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        
+        .ai-empty-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .ai-gallery-empty h4 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 8px 0;
+        }
+        
+        .ai-gallery-empty p {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0;
+        }
+
+        /* AI Lab Coming Soon Placeholder */
+        .ai-coming-soon {
+            text-align: center;
+            padding: 80px 20px;
+            color: #6b7280;
+        }
+        
+        .coming-soon-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+        
+        .ai-coming-soon h4 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 8px 0;
+        }
+        
+        .ai-coming-soon p {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 0;
+        }
+        
+        /* Profile Modal Countdown Timers */
+        .profile-countdown-timer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 16px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+            }
+        }
+        
+        .profile-countdown-timer .countdown-icon {
+            font-size: 20px;
+        }
+        
+        .profile-countdown-timer .countdown-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #78350f;
+        }
+        
+        .profile-countdown-timer .countdown-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #d97706;
+            min-width: 32px;
+            text-align: center;
+            display: inline-block;
+            animation: countPulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes countPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+        }
+        
     </style>
 </head>
 <body>
@@ -2532,6 +3112,9 @@
         <div id="topBar" class="top-bar" style="display: none;">
             <div id="topLeftProfileImage" class="top-bar-profile">
                 <img id="topLeftProfileImg" src="" alt="Profile" />
+                <div class="top-bar-name-section">
+                    <span id="topBarFunkyName" class="top-bar-funky-name">FunkyName</span>
+                </div>
             </div>
             <div id="signOutContainer" class="top-bar-signout">
                 <button class="btn-signout" id="signOutBtn">
@@ -2550,6 +3133,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="settings-btn" id="aiBtn" title="AI Lab">
+                    🤖
+                </button>
                 <button class="settings-btn" id="profileBtn" title="Profile">
                     👤
                 </button>
@@ -2564,6 +3150,7 @@
             <button class="tab-btn active" data-tab="clips">📋 Clips</button>
             <button class="tab-btn" data-tab="search">🔍 Search</button>
             <button class="tab-btn" data-tab="categories">📁 Categories</button>
+            <button class="tab-btn" data-tab="ai">🤖 AI Lab</button>
         </nav>
 
         <!-- Clips Tab -->
@@ -2625,6 +3212,107 @@
                     <div class="empty-categories-icon">📁</div>
                     <h3>No categories yet</h3>
                     <p>Create your first category to organize clips</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Lab Tab -->
+        <section class="tab-content" id="aiTab">
+            <div class="ai-lab-container">
+                <!-- AI Lab Header -->
+                <div class="ai-lab-header">
+                    <div class="ai-lab-title">
+                        <span class="ai-lab-icon">🤖</span>
+                        <h2>AI Lab</h2>
+                    </div>
+                    <p class="ai-lab-subtitle">Experimental AI features and tools</p>
+                </div>
+
+                <!-- AI Lab Internal Tabs -->
+                <nav class="ai-lab-tabs">
+                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji">🎨</span><span class="tab-text"> Generator</span></button>
+                    <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji">🖼️</span><span class="tab-text"> Gallery</span></button>
+                    <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji">📝</span><span class="tab-text"> Summary</span></button>
+                </nav>
+
+                <!-- AI Breakdown Standalone Feature -->
+                <button class="ai-breakdown-feature" data-ai-tab="breakdown">
+                    <span class="breakdown-icon">📊</span>
+                    <div class="breakdown-text">
+                        <strong>AI Breakdown</strong>
+                        <small>Analyze and understand your content</small>
+                    </div>
+                    <span class="breakdown-arrow">→</span>
+                </button>
+
+                <!-- Generator Section -->
+                <div class="ai-lab-section active" id="aiGeneratorSection">
+                    <div class="ai-generation-section">
+                        <h3 class="ai-section-title">🎨 Generate New Image</h3>
+                        <div class="ai-gen-controls">
+                            <button class="ai-gen-btn" id="aiGenerateFromProfileBtn">
+                                <span class="ai-gen-icon">✨</span>
+                                <span>Generate from Profile</span>
+                            </button>
+                            <button class="ai-gen-btn" id="aiGenerateRandomBtn">
+                                <span class="ai-gen-icon">🎲</span>
+                                <span>Random Avatar</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Generation Timer (shown after generation) -->
+                        <div id="aiGenerationTimer" class="ai-generation-timer" style="display: none;">
+                            <div class="timer-icon">⏱️</div>
+                            <div class="timer-text">
+                                <span>Image saved! Gallery updating in </span>
+                                <span id="aiTimerCountdown" class="timer-countdown">10</span>
+                                <span>s</span>
+                            </div>
+                            <button id="aiTimerDismiss" class="timer-dismiss">✕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gallery Section -->
+                <div class="ai-lab-section" id="aiGallerySection">
+                    <div class="ai-gallery-section">
+                        <div class="ai-gallery-header">
+                            <h3 class="ai-section-title">🖼️ Your Gallery</h3>
+                            <span class="ai-gallery-count" id="aiGalleryCount">0 images</span>
+                        </div>
+                        
+                        <div class="ai-gallery-grid" id="aiGalleryGrid">
+                            <div class="ai-gallery-empty">
+                                <div class="ai-empty-icon">🎨</div>
+                                <h4>No images yet</h4>
+                                <p>Generate your first AI image to start your gallery</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Summary Section -->
+                <div class="ai-lab-section" id="aiSummarySection">
+                    <div class="ai-summary-container">
+                        <h3 class="ai-section-title">📝 AI Summary</h3>
+                        <div class="ai-coming-soon">
+                            <div class="coming-soon-icon">🚧</div>
+                            <h4>Coming Soon</h4>
+                            <p>AI-powered summary features will be added here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Breakdown Section -->
+                <div class="ai-lab-section" id="aiBreakdownSection">
+                    <div class="ai-breakdown-container">
+                        <h3 class="ai-section-title">📊 AI Breakdown</h3>
+                        <div class="ai-coming-soon">
+                            <div class="coming-soon-icon">🚧</div>
+                            <h4>Coming Soon</h4>
+                            <p>AI-powered breakdown features will be added here</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -2724,6 +3412,7 @@
                     </div>
                     <div class="modal-actions">
                         <button class="btn-secondary" id="cancelCategorization">Cancel</button>
+                        <button class="btn-primary" id="addToCategory" disabled>Add</button>
                         <button class="btn-primary" id="createNewCategory">+ New Category</button>
                     </div>
                 </div>
@@ -2921,6 +3610,13 @@
                                 <span class="ai-name-label">Your AI Name:</span>
                                 <span class="ai-name-value" id="aiNameValue">-</span>
                             </div>
+                            <!-- Countdown Timer for Name Section -->
+                            <div class="profile-countdown-timer" id="nameCountdownTimer" style="display: none;">
+                                <span class="countdown-icon">⏱️</span>
+                                <span class="countdown-text">Minimizing in </span>
+                                <span class="countdown-number" id="nameCountdownValue">10</span>
+                                <span class="countdown-text">s</span>
+                            </div>
                         </div>
                     </div>
 
@@ -2947,6 +3643,13 @@
                                     <p class="loading-text">Creating your avatar...</p>
                                     <p class="loading-hint">Want to skip the waiting window? Click 'X' above</p>
                                 </div>
+                            </div>
+                            <!-- Countdown Timer for Photo Section -->
+                            <div class="profile-countdown-timer" id="photoCountdownTimer" style="display: none;">
+                                <span class="countdown-icon">⏱️</span>
+                                <span class="countdown-text">Minimizing in </span>
+                                <span class="countdown-number" id="photoCountdownValue">10</span>
+                                <span class="countdown-text">s</span>
                             </div>
                             <div class="profile-image-actions">
                                 <input type="file" id="profileImageUpload" accept="image/*" style="display: none;">

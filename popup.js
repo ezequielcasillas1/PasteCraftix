@@ -24,6 +24,11 @@ class PasteCraftPopup {
     };
     this.userProfile = null;
     
+    // Countdown timers
+    this.aiGenerationTimerInterval = null;
+    this.profileCollapseInterval = null;
+    this.nameCollapseInterval = null;
+    
     this.init();
   }
   
@@ -274,6 +279,9 @@ class PasteCraftPopup {
         
         if (this.currentTab === 'search') {
           this.renderSearchResults();
+        } else if (this.currentTab === 'ai') {
+          this.loadAIGallery();
+          this.migrateProfileImageToGallery();
         }
       }
     });
@@ -319,20 +327,30 @@ class PasteCraftPopup {
     });
 
     document.getElementById('categoryOptions').addEventListener('click', (e) => {
+      // Check if delete button was clicked
+      const deleteBtn = e.target.closest('.category-delete-btn');
+      if (deleteBtn) {
+        e.stopPropagation();
+        this.handleClipDelete();
+        return;
+      }
+      
       const option = e.target.closest('.category-option');
       if (option && !option.classList.contains('category-full')) {
         document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
         option.classList.add('selected');
         this.selectedCategoryForSave = option.dataset.category;
         
-        // Auto-save after selection
-        setTimeout(() => {
-          this.saveTextWithCategory();
-        }, 300);
+        // Enable the Add button
+        document.getElementById('addToCategory').disabled = false;
       } else if (option && option.classList.contains('category-full')) {
         // Show feedback for full categories
-        this.showToast('This category is full (10 clips max). Remove some clips first.');
+        this.showToast('This category is full (25 clips max). Remove some clips first.');
       }
+    });
+
+    document.getElementById('addToCategory').addEventListener('click', () => {
+      this.saveTextWithCategory();
     });
 
     // Modal overlay click to close
@@ -447,6 +465,91 @@ class PasteCraftPopup {
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
     });
+    
+    // AI button and tab handlers
+    const aiBtn = document.getElementById('aiBtn');
+    if (aiBtn) {
+      aiBtn.addEventListener('click', () => {
+        // Switch to AI tab
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        const aiTabBtn = document.querySelector('.tab-btn[data-tab="ai"]');
+        if (aiTabBtn) {
+          aiTabBtn.classList.add('active');
+        }
+        
+        this.currentTab = 'ai';
+        document.getElementById('aiTab').classList.add('active');
+        
+        // Load gallery and migrate existing profile image
+        this.loadAIGallery();
+        this.migrateProfileImageToGallery();
+      });
+    }
+
+    // AI Lab internal tab navigation
+    const aiLabTabsContainer = document.querySelector('.ai-lab-tabs');
+    if (aiLabTabsContainer) {
+      aiLabTabsContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('ai-lab-tab')) {
+          // Remove active class from all AI Lab tabs
+          document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
+          document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
+          
+          // Add active class to clicked tab
+          e.target.classList.add('active');
+          
+          // Show corresponding section
+          const tabName = e.target.dataset.aiTab;
+          if (tabName === 'generator') {
+            document.getElementById('aiGeneratorSection').classList.add('active');
+          } else if (tabName === 'gallery') {
+            document.getElementById('aiGallerySection').classList.add('active');
+            this.loadAIGallery();
+            this.migrateProfileImageToGallery();
+          } else if (tabName === 'summary') {
+            document.getElementById('aiSummarySection').classList.add('active');
+          }
+        }
+      });
+    }
+
+    // AI Breakdown standalone button
+    const breakdownButton = document.querySelector('.ai-breakdown-feature');
+    if (breakdownButton) {
+      breakdownButton.addEventListener('click', () => {
+        // Remove active class from all tabs and sections
+        document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
+        
+        // Show breakdown section
+        document.getElementById('aiBreakdownSection').classList.add('active');
+      });
+    }
+    
+    // AI generation buttons
+    const aiGenerateFromProfileBtn = document.getElementById('aiGenerateFromProfileBtn');
+    const aiGenerateRandomBtn = document.getElementById('aiGenerateRandomBtn');
+    const aiTimerDismiss = document.getElementById('aiTimerDismiss');
+    
+    if (aiGenerateFromProfileBtn) {
+      aiGenerateFromProfileBtn.addEventListener('click', () => {
+        this.generateAIImageFromProfile();
+      });
+    }
+    
+    if (aiGenerateRandomBtn) {
+      aiGenerateRandomBtn.addEventListener('click', () => {
+        this.generateRandomAIImage();
+      });
+    }
+    
+    if (aiTimerDismiss) {
+      aiTimerDismiss.addEventListener('click', () => {
+        this.hideAIGenerationTimer();
+      });
+    }
     
     // Setup image viewer for expanded view
     this.setupImageViewer();
@@ -1401,7 +1504,7 @@ class PasteCraftPopup {
           <div class="category-icon">${category.icon}</div>
           <div class="category-details">
             <h4>${this.escapeHtml(category.name)}</h4>
-            <p>${clipCount} clips</p>
+            <p>${clipCount}/25 clips</p>
           </div>
         </div>
         <div class="category-header-actions">
@@ -1457,6 +1560,14 @@ class PasteCraftPopup {
     this.categories.push(category);
     await chrome.storage.local.set({ categories: this.categories });
     
+    // 🔄 AUTO-SYNC TO SUPABASE
+    try {
+      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+      console.log('✅ Category creation synced to Supabase');
+    } catch (error) {
+      console.error('⚠️ Failed to sync category creation to Supabase:', error);
+    }
+    
     this.renderCategories();
     this.updateCategoryFilter();
   }
@@ -1482,6 +1593,15 @@ class PasteCraftPopup {
         clips: this.clips 
       });
       
+      // 🔄 AUTO-SYNC TO SUPABASE
+      try {
+        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        console.log('✅ Category edit synced to Supabase');
+      } catch (error) {
+        console.error('⚠️ Failed to sync category edit to Supabase:', error);
+      }
+      
       this.renderCategories();
       this.updateCategoryFilter();
       this.renderChips();
@@ -1504,6 +1624,15 @@ class PasteCraftPopup {
         categories: this.categories,
         clips: this.clips 
       });
+      
+      // 🔄 AUTO-SYNC TO SUPABASE
+      try {
+        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        console.log('✅ Category deletion synced to Supabase');
+      } catch (error) {
+        console.error('⚠️ Failed to sync category deletion to Supabase:', error);
+      }
       
       this.renderCategories();
       this.updateCategoryFilter();
@@ -1590,6 +1719,9 @@ class PasteCraftPopup {
     this.populateCategoryOptions();
     document.getElementById('categoryModal').style.display = 'flex';
     
+    // Reset Add button to disabled state
+    document.getElementById('addToCategory').disabled = true;
+    
     // Update modal text for reassignment vs new save
     const modalText = document.querySelector('.modal-text');
     if (isReassignment) {
@@ -1604,6 +1736,12 @@ class PasteCraftPopup {
     this.pendingText = null;
     this.pendingClipIndex = null;
     this.selectedCategoryForSave = 'Uncategorized';
+    
+    // Reset Add button to disabled state
+    document.getElementById('addToCategory').disabled = true;
+    
+    // Clear selected state from options
+    document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
   }
 
   populateCategoryOptions() {
@@ -1612,30 +1750,58 @@ class PasteCraftPopup {
     
     // Count clips in Uncategorized
     const uncategorizedCount = allClips.filter(clip => clip.category === 'Uncategorized').length;
-    const uncategorizedFull = uncategorizedCount >= 10;
+    const uncategorizedFull = uncategorizedCount >= 25;
     
     container.innerHTML = `
       <div class="category-option ${uncategorizedFull ? 'category-full' : ''}" data-category="Uncategorized">
         <div class="category-option-icon">📄</div>
-        <span>Uncategorized (${uncategorizedCount}/10)</span>
+        <span>Uncategorized (${uncategorizedCount}/25)</span>
         ${uncategorizedFull ? '<span class="full-indicator">FULL</span>' : ''}
+        <button class="category-delete-btn" title="Delete this clip">🗑️</button>
       </div>
     `;
 
     this.categories.forEach(category => {
       const clipsInCategory = allClips.filter(clip => clip.category === category.name).length;
-      const isFull = clipsInCategory >= 10;
+      const isFull = clipsInCategory >= 25;
       
       const option = document.createElement('div');
       option.className = `category-option ${isFull ? 'category-full' : ''}`;
       option.dataset.category = category.name;
       option.innerHTML = `
         <div class="category-option-icon">${category.icon}</div>
-        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/10)</span>
+        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/25)</span>
         ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
+        <button class="category-delete-btn" title="Delete this clip">🗑️</button>
       `;
       container.appendChild(option);
     });
+  }
+
+  async handleClipDelete() {
+    if (this.pendingClipIndex === null) return;
+    
+    const clipToDelete = this.clips[this.pendingClipIndex];
+    if (!clipToDelete) return;
+    
+    if (confirm('Delete this clip permanently?')) {
+      // Remove the clip
+      this.clips.splice(this.pendingClipIndex, 1);
+      await chrome.storage.local.set({ clips: this.clips });
+      
+      // Sync to Supabase
+      try {
+        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        console.log('✅ Clip deletion synced to Supabase');
+      } catch (error) {
+        console.error('⚠️ Failed to sync clip deletion to Supabase:', error);
+      }
+      
+      // Close modal and refresh UI
+      this.hideCategoryModal();
+      this.renderClips();
+      this.showToast('Clip deleted successfully');
+    }
   }
 
   async saveTextWithCategory() {
@@ -1651,8 +1817,8 @@ class PasteCraftPopup {
           clip.category === this.selectedCategoryForSave && clip.id !== currentClip.id
         );
         
-        if (clipsInTargetCategory.length >= 10) {
-          this.showToast(`Category "${this.selectedCategoryForSave}" is full (10 clips max). Remove some clips first.`);
+        if (clipsInTargetCategory.length >= 25) {
+          this.showToast(`Category "${this.selectedCategoryForSave}" is full (25 clips max). Remove some clips first.`);
           return;
         }
       }
@@ -1677,8 +1843,8 @@ class PasteCraftPopup {
       const allClips = [...this.clips, ...this.searchOnlyClips];
       const clipsInCategory = allClips.filter(clip => clip.category === this.selectedCategoryForSave);
       
-      if (clipsInCategory.length >= 10) {
-        this.showToast(`Category "${this.selectedCategoryForSave}" is full (10 clips max). Remove some clips first.`);
+      if (clipsInCategory.length >= 25) {
+        this.showToast(`Category "${this.selectedCategoryForSave}" is full (25 clips max). Remove some clips first.`);
         return;
       }
 
@@ -2051,6 +2217,14 @@ class PasteCraftPopup {
     this.searchOnlyClips = searchOnlyClips;
     await chrome.storage.local.set({ searchOnlyClips });
     console.log(`📦 Moved ${overflowClips.length} clips to search-only storage`);
+    
+    // 🔄 AUTO-SYNC TO SUPABASE
+    try {
+      await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
+      console.log('✅ Archived clips synced to Supabase');
+    } catch (error) {
+      console.error('⚠️ Failed to sync archived clips to Supabase:', error);
+    }
   }
 
   // Profile Management Functions
@@ -2414,11 +2588,15 @@ class PasteCraftPopup {
         await this.saveUserProfile();
         console.log('✅ Animal avatar auto-saved to storage');
         
+        // ✅ ADD TO AI GALLERY
+        await this.addToGallery(imageUrl, 'profile');
+        console.log('✅ Animal avatar added to AI Gallery');
+        
         // ✅ DISPLAY TOP-LEFT
         this.displayImageTopLeft(imageUrl);
         
-        // ✅ AUTO-COLLAPSE SECTION
-        setTimeout(() => this.autoCollapsePhotoSection(), 2000);
+        // ✅ AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
+        this.startProfileImageCollapse();
         
         const animalType = match[1];
         this.showToast(`✅ ${animalType} avatar created and saved!`, 'success');
@@ -2480,11 +2658,15 @@ class PasteCraftPopup {
         await this.saveUserProfile();
         console.log('✅ Cartoon image auto-saved to storage');
         
+        // ✅ ADD TO AI GALLERY
+        await this.addToGallery(imageUrl, 'profile');
+        console.log('✅ Cartoon image added to AI Gallery');
+        
         // ✅ DISPLAY TOP-LEFT
         this.displayImageTopLeft(imageUrl);
         
-        // ✅ AUTO-COLLAPSE SECTION
-        setTimeout(() => this.autoCollapsePhotoSection(), 2000);
+        // ✅ AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
+        this.startProfileImageCollapse();
         
         if (userImageBase64) {
           this.showToast('✅ Your funky cartoon remix is ready and saved!', 'success');
@@ -2551,8 +2733,8 @@ class PasteCraftPopup {
         // Update button states to enable Animal Avatar
         this.updateAIGenerateButtonState();
         
-        // ✅ AUTO-COLLAPSE SECTION
-        setTimeout(() => this.autoCollapseNameSection(), 2000);
+        // ✅ SHOW COUNTDOWN TIMER AND AUTO-COLLAPSE SECTION
+        this.startNameSectionCollapse();
         
         this.showToast('✅ Funky name generated!', 'success');
       } else {
@@ -2605,12 +2787,13 @@ class PasteCraftPopup {
     }
   }
 
-  // Display image in top bar
+  // Display image and funky name in top bar
   displayImageTopLeft(imageUrl) {
     console.log('🖼️ displayImageTopLeft() called with URL:', imageUrl);
     const topBar = document.getElementById('topBar');
     const topLeftContainer = document.getElementById('topLeftProfileImage');
     const topLeftImg = document.getElementById('topLeftProfileImg');
+    const topBarFunkyName = document.getElementById('topBarFunkyName');
     
     if (!topBar) {
       console.error('❌ CRITICAL: #topBar container not found in DOM!');
@@ -2632,9 +2815,20 @@ class PasteCraftPopup {
       topBar.style.display = 'flex';
       topLeftContainer.style.display = 'flex';
       
+      // Display funky name if available
+      if (this.userProfile?.aiGeneratedName && topBarFunkyName) {
+        topBarFunkyName.textContent = this.userProfile.aiGeneratedName;
+        topBarFunkyName.style.display = 'inline';
+      } else if (topBarFunkyName) {
+        topBarFunkyName.style.display = 'none';
+      }
+      
       console.log('✅ Profile image displayed successfully in top bar');
       console.log('✅ Top bar visibility:', topBar.style.display);
       console.log('✅ Image source set to:', topLeftImg.src);
+      if (this.userProfile?.aiGeneratedName) {
+        console.log('✅ Funky name displayed:', this.userProfile.aiGeneratedName);
+      }
     }
   }
 
@@ -2642,8 +2836,14 @@ class PasteCraftPopup {
   autoCollapseNameSection() {
     const content = document.getElementById('nameRegContent');
     const toggleBtn = document.getElementById('nameToggleBtn');
+    const timer = document.getElementById('nameCountdownTimer');
     
     if (content && toggleBtn && !content.classList.contains('collapsed')) {
+      // Hide countdown timer
+      if (timer) {
+        timer.style.display = 'none';
+      }
+      
       // Collapse the section
       content.classList.add('collapsed');
       toggleBtn.classList.add('collapsed');
@@ -2653,12 +2853,49 @@ class PasteCraftPopup {
     }
   }
 
+  // Start 10-second countdown with visible timer before collapsing name section
+  startNameSectionCollapse() {
+    const timer = document.getElementById('nameCountdownTimer');
+    const countdownValue = document.getElementById('nameCountdownValue');
+    
+    if (!timer || !countdownValue) return;
+    
+    let timeLeft = 10;
+    timer.style.display = 'flex';
+    countdownValue.textContent = timeLeft;
+    
+    console.log(`⏱️ Starting 10-second visible countdown for name section`);
+    
+    // Clear any existing countdown
+    if (this.nameCollapseInterval) {
+      clearInterval(this.nameCollapseInterval);
+    }
+    
+    this.nameCollapseInterval = setInterval(() => {
+      timeLeft--;
+      countdownValue.textContent = timeLeft;
+      console.log(`⏱️ Name section collapse in ${timeLeft}s...`);
+      
+      if (timeLeft <= 0) {
+        clearInterval(this.nameCollapseInterval);
+        this.nameCollapseInterval = null;
+        this.autoCollapseNameSection();
+      }
+    }, 1000);
+  }
+
   // Auto-collapse profile photo section after generation
   autoCollapsePhotoSection() {
     const content = document.getElementById('photoCreationContent');
     const toggleBtn = document.getElementById('photoToggleBtn');
+    const timer = document.getElementById('photoCountdownTimer');
     
     if (content && toggleBtn && !content.classList.contains('collapsed')) {
+      // Hide countdown timer
+      if (timer) {
+        timer.style.display = 'none';
+      }
+      
       // Collapse the section
       content.classList.add('collapsed');
       toggleBtn.classList.add('collapsed');
@@ -2666,6 +2903,37 @@ class PasteCraftPopup {
       
       console.log('✅ Photo section auto-collapsed');
     }
+  }
+
+  // Start 10-second countdown with visible timer before collapsing profile image section
+  startProfileImageCollapse() {
+    const timer = document.getElementById('photoCountdownTimer');
+    const countdownValue = document.getElementById('photoCountdownValue');
+    
+    if (!timer || !countdownValue) return;
+    
+    let timeLeft = 10;
+    timer.style.display = 'flex';
+    countdownValue.textContent = timeLeft;
+    
+    console.log(`⏱️ Starting 10-second visible countdown for photo section`);
+    
+    // Clear any existing countdown
+    if (this.profileCollapseInterval) {
+      clearInterval(this.profileCollapseInterval);
+    }
+    
+    this.profileCollapseInterval = setInterval(() => {
+      timeLeft--;
+      countdownValue.textContent = timeLeft;
+      console.log(`⏱️ Photo section collapse in ${timeLeft}s...`);
+      
+      if (timeLeft <= 0) {
+        clearInterval(this.profileCollapseInterval);
+        this.profileCollapseInterval = null;
+        this.autoCollapsePhotoSection();
+      }
+    }, 1000);
   }
 
   // Setup Image Viewer for expanded view
@@ -2859,6 +3127,214 @@ class PasteCraftPopup {
         popup.pendingText = message.text;
         popup.showCategoryModal(false);
       }
+    }
+  }
+
+  // =====================================================
+  // AI GALLERY & GENERATION METHODS
+  // =====================================================
+
+  async loadAIGallery() {
+    try {
+      // Get gallery from storage
+      const result = await chrome.storage.local.get('aiGallery');
+      const gallery = result.aiGallery || [];
+      
+      this.renderAIGallery(gallery);
+    } catch (error) {
+      console.error('Failed to load AI gallery:', error);
+    }
+  }
+
+  renderAIGallery(gallery) {
+    const galleryGrid = document.getElementById('aiGalleryGrid');
+    const galleryCount = document.getElementById('aiGalleryCount');
+    
+    if (!galleryGrid || !galleryCount) return;
+    
+    galleryCount.textContent = `${gallery.length} image${gallery.length !== 1 ? 's' : ''}`;
+    
+    if (gallery.length === 0) {
+      galleryGrid.innerHTML = `
+        <div class="ai-gallery-empty">
+          <div class="ai-empty-icon">🎨</div>
+          <h4>No images yet</h4>
+          <p>Generate your first AI image to start your gallery</p>
+        </div>
+      `;
+      return;
+    }
+    
+    galleryGrid.innerHTML = gallery.map((item, index) => `
+      <div class="ai-gallery-item" data-index="${index}">
+        <img src="${item.url}" alt="AI Generated ${index + 1}" />
+        <div class="ai-gallery-item-actions">
+          <button class="ai-gallery-action-btn delete" onclick="pasteCraftPopup.deleteFromGallery(${index})" title="Delete">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async deleteFromGallery(index) {
+    try {
+      const result = await chrome.storage.local.get('aiGallery');
+      const gallery = result.aiGallery || [];
+      
+      if (index >= 0 && index < gallery.length) {
+        gallery.splice(index, 1);
+        await chrome.storage.local.set({ aiGallery: gallery });
+        
+        this.renderAIGallery(gallery);
+        this.showToast('🗑️ Image removed from gallery', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to delete from gallery:', error);
+      this.showToast('❌ Failed to delete image', 'error');
+    }
+  }
+
+  async generateAIImageFromProfile() {
+    try {
+      if (!this.userProfile?.aiGeneratedName) {
+        this.showToast('⚠️ Generate your funky name first in Profile!', 'error');
+        return;
+      }
+      
+      this.showToast('🎨 Generating AI image...', 'info');
+      document.getElementById('aiGenerateFromProfileBtn').disabled = true;
+      document.getElementById('aiGenerateFromProfileBtn').textContent = '⏳ Generating...';
+      
+      const imageUrl = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
+      
+      if (imageUrl) {
+        // Add to gallery
+        await this.addToGallery(imageUrl, 'profile');
+        
+        this.showToast('✅ AI image generated!', 'success');
+        this.showAIGenerationTimer();
+        this.loadAIGallery();
+      } else {
+        this.showToast('❌ Failed to generate AI image', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to generate AI image:', error);
+      this.showToast('❌ Failed to generate AI image', 'error');
+    } finally {
+      document.getElementById('aiGenerateFromProfileBtn').disabled = false;
+      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">✨</span><span>Generate from Profile</span>';
+    }
+  }
+
+  async generateRandomAIImage() {
+    try {
+      this.showToast('🎲 Generating random avatar...', 'info');
+      document.getElementById('aiGenerateRandomBtn').disabled = true;
+      document.getElementById('aiGenerateRandomBtn').textContent = '⏳ Generating...';
+      
+      // Generate a random animal name
+      const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
+      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+      const randomName = `Random${randomAnimal}`;
+      
+      const imageUrl = await pasteCraftSupabase.generateProfileImage(null, null, randomName);
+      
+      if (imageUrl) {
+        // Add to gallery
+        await this.addToGallery(imageUrl, 'random');
+        
+        this.showToast('✅ Random avatar generated!', 'success');
+        this.showAIGenerationTimer();
+        this.loadAIGallery();
+      } else {
+        this.showToast('❌ Failed to generate random avatar', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to generate random avatar:', error);
+      this.showToast('❌ Failed to generate random avatar', 'error');
+    } finally {
+      document.getElementById('aiGenerateRandomBtn').disabled = false;
+      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">🎲</span><span>Random Avatar</span>';
+    }
+  }
+
+  async addToGallery(imageUrl, type) {
+    try {
+      const result = await chrome.storage.local.get('aiGallery');
+      const gallery = result.aiGallery || [];
+      
+      gallery.push({
+        url: imageUrl,
+        type: type,
+        timestamp: Date.now()
+      });
+      
+      await chrome.storage.local.set({ aiGallery: gallery });
+    } catch (error) {
+      console.error('Failed to add to gallery:', error);
+    }
+  }
+
+  async migrateProfileImageToGallery() {
+    try {
+      if (!this.userProfile?.profileImageUrl) {
+        return;
+      }
+
+      const result = await chrome.storage.local.get('aiGallery');
+      const gallery = result.aiGallery || [];
+      
+      const imageExists = gallery.some(item => item.url === this.userProfile.profileImageUrl);
+      
+      if (!imageExists) {
+        console.log('📸 Migrating existing profile image to gallery...');
+        await this.addToGallery(this.userProfile.profileImageUrl, 'profile');
+        this.loadAIGallery();
+        console.log('✅ Profile image migrated to gallery');
+      }
+    } catch (error) {
+      console.error('Failed to migrate profile image:', error);
+    }
+  }
+
+  showAIGenerationTimer() {
+    const timer = document.getElementById('aiGenerationTimer');
+    const countdown = document.getElementById('aiTimerCountdown');
+    
+    if (!timer || !countdown) return;
+    
+    timer.style.display = 'flex';
+    
+    let timeLeft = 10;
+    countdown.textContent = timeLeft;
+    
+    // Clear any existing timer
+    if (this.aiGenerationTimerInterval) {
+      clearInterval(this.aiGenerationTimerInterval);
+    }
+    
+    this.aiGenerationTimerInterval = setInterval(() => {
+      timeLeft--;
+      countdown.textContent = timeLeft;
+      
+      if (timeLeft <= 0) {
+        clearInterval(this.aiGenerationTimerInterval);
+        this.aiGenerationTimerInterval = null;
+        this.hideAIGenerationTimer();
+      }
+    }, 1000);
+  }
+
+  hideAIGenerationTimer() {
+    const timer = document.getElementById('aiGenerationTimer');
+    if (timer) {
+      timer.style.display = 'none';
+    }
+    
+    if (this.aiGenerationTimerInterval) {
+      clearInterval(this.aiGenerationTimerInterval);
+      this.aiGenerationTimerInterval = null;
     }
   }
 }
