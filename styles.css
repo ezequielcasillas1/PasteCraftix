@@ -42,6 +42,55 @@ body {
   overflow: hidden;
 }
 
+/* Top Bar for Profile & Sign Out */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.top-bar-profile {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.top-bar-profile img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.top-bar-profile:hover img {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-signout {
+  padding: 6px 14px;
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-signout:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  transform: translateY(-1px);
+}
+
 /* Header */
 .header {
   display: flex;
@@ -59,15 +108,10 @@ body {
 }
 
 .logo {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 12px;
+  width: 42px;
+  height: 42px;
+  display: block;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
 }
 
 .header-info h1 {
@@ -1211,11 +1255,4 @@ body {
   z-index: 10001;
 }
 
-/* Sign Out Button */
-#signOutContainer {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 10001;
-}
 

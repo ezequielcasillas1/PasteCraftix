@@ -225,7 +225,7 @@ RETURNS TABLE (
     clip_id TEXT,
     text TEXT,
     category TEXT,
-    timestamp BIGINT,
+    "timestamp" BIGINT,
     is_archived BOOLEAN
 ) AS $$
 BEGIN
@@ -391,4 +391,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
 -- 2. Update supabase-client.js to include sync methods
 -- 3. Implement real-time listeners in popup.js
 -- =====================================================
+
+
 

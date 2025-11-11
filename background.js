@@ -316,3 +316,32 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
   
   console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text ? (text.substring(0, 30) + '...') : 'NO TEXT');
 }
+
+// =====================================================
+// EXTERNAL MESSAGE LISTENER (Password Reset from Web)
+// =====================================================
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  console.log('📨 External message received:', message);
+  console.log('📨 From:', sender);
+  
+  if (message.type === 'password_reset' && message.access_token) {
+    console.log('🔑 Password reset token received from web');
+    
+    // Store the reset tokens
+    chrome.storage.local.set({
+      password_reset_callback: {
+        access_token: message.access_token,
+        refresh_token: message.refresh_token,
+        type: 'recovery',
+        timestamp: Date.now()
+      }
+    }, () => {
+      console.log('✅ Password reset tokens stored successfully');
+      sendResponse({ success: true });
+    });
+    
+    return true; // Keep message channel open for async response
+  }
+  
+  sendResponse({ success: false, error: 'Unknown message type' });
+});

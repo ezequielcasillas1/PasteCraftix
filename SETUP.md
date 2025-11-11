@@ -1,135 +1,289 @@
-# PasteCraft Setup Guide
+# 🔐 PasteCraft Chrome Extension - Complete Setup Guide
 
-## 🚀 Quick Setup
+## ⚡ Authentication System Now Included!
 
-### 1. Configure API Keys
+**Version 3.0** includes full authentication with email/password and Google OAuth.
 
-PasteCraft now connects to Supabase and uses OpenAI for AI features. Follow these steps to set up your API keys:
+---
 
-#### Step 1: Get Your API Keys
+## 🚀 Quick Start
 
-**Supabase:**
-1. Go to your Supabase project: https://blpngeeqcegquiydreyu.supabase.co
-2. Navigate to Project Settings → API
-3. Copy your `anon/public` key
+### New Users - Start Here!
+```
+📄 Open: START_HERE.md
+```
+This is your main entry point with links to all setup guides.
 
-**OpenAI:**
-1. Go to https://platform.openai.com/api-keys
-2. Create a new API key
-3. Copy the key (you won't be able to see it again!)
+### Returning Users - Quick Reference
+```
+📄 Open: QUICK_START_AUTH.md
+```
+5-minute setup for experienced developers.
 
-#### Step 2: Update config.js
+---
 
-Open `config.js` in your PasteCraft folder and replace the placeholder values:
+## 📚 Complete Documentation Index
 
-```javascript
-const PASTECRAFT_CONFIG = {
-  supabase: {
-    url: 'https://blpngeeqcegquiydreyu.supabase.co',
-    anonKey: 'YOUR_SUPABASE_ANON_KEY_HERE' // ← Replace this
-  },
-  openai: {
-    apiKey: 'YOUR_OPENAI_API_KEY_HERE' // ← Replace this
-  }
-};
+### Setup Guides
+1. **START_HERE.md** - Main entry point (start here!)
+2. **docs/SETUP_CHECKLIST.md** - Detailed step-by-step checklist
+3. **docs/QUICK_START_AUTH.md** - Fast 5-minute setup
+4. **docs/AUTHENTICATION_SETUP.md** - Comprehensive setup guide
+5. **docs/DEPLOYMENT.md** - Chrome Web Store deployment guide
+
+### Reference Documentation
+6. **docs/README_AUTHENTICATION.md** - Complete system overview
+7. **docs/TASK_12_SUMMARY.md** - Implementation details
+8. **supabase-auth-schema.sql** - Database schema
+
+### Testing Tools
+9. **test-supabase-connection.html** - Test your configuration
+10. **config.js** - Your configuration file (update this!)
+
+---
+
+## 🎯 What's Included
+
+### ✅ Authentication System
+- Email/password sign up and sign in
+- Google OAuth integration
+- Admin portal with restricted access
+- User subscription tiers (free/premium/admin)
+- Automatic free tier assignment
+- Sign out functionality
+- Row Level Security (RLS)
+
+### ✅ Clipboard Management
+- Right-click to save text
+- 20 active clips + unlimited archive
+- Categories and organization
+- Search functionality
+- Format controls (delimiters, sort, dedupe)
+- Magic wand quick format
+
+### ✅ Profile Features
+- AI-generated names
+- Profile images with AI generation
+- Custom avatar creation
+- Settings management
+
+---
+
+## 🔧 Setup Requirements
+
+### You Need Accounts At:
+1. **Supabase** (https://supabase.com) - Free tier works
+2. **Google Cloud Console** (https://console.cloud.google.com) - Free
+
+### Optional (for AI features):
+3. **OpenAI** (https://platform.openai.com) - For AI names/images
+4. **Replicate** (https://replicate.com) - For image generation
+
+---
+
+## 📋 Setup Steps Overview
+
+```
+Step 1: Supabase Setup (10 min)
+├── Create project
+├── Run schema (supabase-auth-schema.sql)
+└── Copy credentials
+
+Step 2: Google OAuth (10 min)
+├── Create OAuth credentials
+├── Enable in Supabase
+└── Copy Client ID
+
+Step 3: Configuration (5 min)
+├── Update config.js
+└── Update manifest.json
+
+Step 4: Test (5 min)
+├── Load extension in Chrome
+├── Test authentication
+└── Verify everything works
 ```
 
-**⚠️ Security Note:** Never commit `config.js` with real API keys to version control. The file is already added to `.gitignore`.
+**Total Time: ~30 minutes**
 
-### 2. Load Extension in Chrome
+---
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select the PasteCraft folder
-5. The extension should now be loaded!
+## 🎨 Features by Tier
 
-## ✨ New Features
+### Free Tier (Default)
+- ✅ Basic clipboard management
+- ✅ 20 active clips
+- ✅ Categories and search
+- ✅ Local storage
+- ❌ AI features locked
+- ❌ Cloud sync disabled
 
-### Profile Section
+### Premium Tier
+- ✅ All free features
+- ✅ AI name generation
+- ✅ AI image generation
+- ✅ Unlimited clip history
+- ✅ Cloud sync across devices
+- ✅ Priority support
 
-Click the 👤 icon in the top right of the extension popup to access your profile.
+### Admin Tier
+- ✅ All premium features
+- ✅ User management
+- ✅ Analytics dashboard
+- ✅ System administration
 
-#### AI-Generated Funky Name
-1. Enter your name in the profile
-2. Click "Generate AI Name"
-3. Get a unique, funky username!
+---
 
-#### AI Profile Image
-Two options:
-- **Upload Photo**: Upload your own image
-- **AI Generate**: Let AI create a funky cartoon avatar for you
-  - If you've uploaded a photo, AI will use it as reference
-  - Otherwise, AI creates a unique avatar based on your name
+## 🧪 Testing Your Setup
 
-#### Dark Mode (Coming Soon)
-The UI text is there, but functionality will be added in a future update.
+Before loading the extension:
+1. Open `test-supabase-connection.html` in your browser
+2. Test Supabase connection
+3. Try sign up/sign in
+4. Verify subscription tier creation
 
-#### Unsubscribe
-Permanently delete all your data from PasteCraft (with double confirmation for safety).
+---
 
-## 🗄️ Database Setup (Optional)
+## 🆘 Troubleshooting
 
-If you want to store data in Supabase, create these tables:
+### Common Issues & Solutions
 
-### user_profiles table
-
-```sql
-create table user_profiles (
-  id uuid default uuid_generate_v4() primary key,
-  user_name text,
-  ai_name text,
-  profile_image_url text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Enable RLS
-alter table user_profiles enable row level security;
-
--- Create policy to allow all operations (adjust based on your auth needs)
-create policy "Allow all operations" on user_profiles
-  for all using (true);
+**Issue**: "Supabase not initialized"
+```
+→ Update config.js with your Supabase URL and Anon Key
+→ Make sure config.js loads before other scripts
 ```
 
-### profile-images storage bucket
+**Issue**: "Google OAuth not working"
+```
+→ Verify Client ID in manifest.json
+→ Check redirect URI in Google Console
+→ Enable Google+ API
+→ Try incognito mode
+```
 
-1. Go to Storage in Supabase dashboard
-2. Create a new bucket called `profile-images`
-3. Set it to public
-4. Add policy to allow uploads
+**Issue**: "Table doesn't exist"
+```
+→ Run supabase-auth-schema.sql in Supabase SQL Editor
+→ Check table was created successfully
+```
 
-## 🔧 Troubleshooting
+**Issue**: "RLS policy error"
+```
+→ Ensure complete schema was executed
+→ Verify user is signed in
+→ Check Supabase logs for details
+```
 
-### "Please configure API keys" error
-- Make sure you've updated `config.js` with real API keys
-- Reload the extension after updating config.js
+**Issue**: "Please configure API keys" error
+```
+→ Make sure you've updated config.js with real API keys
+→ Reload the extension after updating config.js
+```
 
-### Supabase not connecting
-- Check that your Supabase URL is correct
-- Verify your anon key has the right permissions
-- Check browser console for specific errors
+**Issue**: OpenAI API errors
+```
+→ Verify your API key is valid
+→ Check you have credits in your OpenAI account
+→ Make sure API key has access to GPT-3.5 and DALL-E 3
+```
 
-### OpenAI API errors
-- Verify your API key is valid
-- Check you have credits in your OpenAI account
-- Make sure API key has access to GPT-3.5 and DALL-E 3
+---
 
-## 📝 Usage Tips
+## 📞 Getting Help
 
-1. **Generate Name First**: Create your AI name before generating profile image for best results
-2. **Upload Reference Photo**: For better AI-generated avatars, upload a photo first
-3. **Test API Keys**: Try generating a name first (uses less credits) to verify your setup
+1. Check `docs/AUTHENTICATION_SETUP.md` for detailed troubleshooting
+2. Review browser console (F12) for error messages
+3. Check Supabase logs in dashboard
+4. Use `test-supabase-connection.html` to diagnose
 
-## 🆘 Support
+---
 
-If you encounter issues:
-1. Check browser console (F12) for errors
-2. Verify API keys are correctly configured
-3. Ensure you have credits/quota in your API accounts
-4. Check network tab for failed API requests
+## 🎉 Success Criteria
 
-## 🎉 You're All Set!
+Your setup is complete when:
+- [x] Extension loads without errors
+- [x] Authentication modal appears
+- [x] Email sign up works
+- [x] Google OAuth works
+- [x] Sign out works
+- [x] User gets 'free' tier subscription
+- [x] Data persists across sessions
 
-Enjoy your enhanced PasteCraft experience with AI-powered features!
+---
+
+## 🚀 After Setup
+
+Once everything works:
+1. Create your first admin user (see docs/AUTHENTICATION_SETUP.md)
+2. Customize email templates in Supabase
+3. Add Stripe for premium subscriptions (optional)
+4. Deploy to Chrome Web Store (see docs/DEPLOYMENT.md)
+
+---
+
+## 📈 What's Next
+
+### Immediate
+- Test all authentication flows
+- Create admin account
+- Explore features
+
+### Future Enhancements
+- Stripe integration
+- Advanced analytics
+- Team collaboration
+- API webhooks
+
+---
+
+## 🎯 File Structure
+
+```
+PasteCraft/
+├── START_HERE.md                 ← Begin here!
+├── SETUP.md                      ← This file
+│
+├── docs/                         ← All documentation
+│   ├── README.md                 ← Docs index
+│   ├── SETUP_CHECKLIST.md        ← Detailed checklist
+│   ├── QUICK_START_AUTH.md       ← Fast setup
+│   ├── AUTHENTICATION_SETUP.md   ← Full guide
+│   ├── README_AUTHENTICATION.md  ← System docs
+│   ├── TASK_12_SUMMARY.md        ← Tech details
+│   └── DEPLOYMENT.md             ← Deploy guide
+│
+├── config.js                     ← YOUR CONFIG (update this!)
+├── manifest.json                 ← Update Google Client ID
+├── supabase-auth-schema.sql      ← Run in Supabase
+├── test-supabase-connection.html ← Test tool
+│
+├── popup.html                    ← Main UI
+├── popup.js                      ← Main logic
+├── styles.css                    ← Styling
+├── supabase-client.js            ← Supabase methods
+└── background.js                 ← Background tasks
+```
+
+---
+
+## ✅ Ready to Start?
+
+1. Open **START_HERE.md**
+2. Follow your chosen path (Guided or Fast)
+3. Complete the setup steps
+4. Test thoroughly
+5. Start using PasteCraft!
+
+**Time Investment**: 30 minutes  
+**Result**: Production-ready authentication system 🎉
+
+Let's build something amazing! 🚀
+
+---
+
+**Version**: 3.0.0  
+**Status**: Production Ready  
+**Authentication**: ✅ Complete  
+**Documentation**: ✅ Comprehensive
 

@@ -86,3 +86,16 @@ You will follow this structured workflow for every task:
 
 -   Pursue holistic root-cause diagnosis; reject superficial patches.
 -   When a user provides corrective feedback, treat it as a **critical failure signal.** Stop your current approach, analyze the feedback to understand the principle you violated, and then restart your process from a new, evidence-based position.
+
+---
+
+## D · PROJECT-SPECIFIC RULES (PasteCraft)
+
+### Feature Documentation in request.md
+**CRITICAL RULE:** When documenting future features in `instructions/request.md`:
+-   Write **CONCISE** bullet-point notes ONLY
+-   **NO detailed code implementations**
+-   **NO long code examples**
+-   **NO verbose explanations**
+-   Format: Feature name + brief description + key requirements only
+-   Keep each feature to 3-5 bullet points maximum

@@ -1,20 +1,29 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Simple right-click copy and paste manager",
   "author": "Ezequiel Casillas",
   "permissions": [
     "contextMenus",
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
     "https://*.supabase.co/*",
     "https://api.openai.com/*",
-    "https://api.replicate.com/*"
+    "https://api.replicate.com/*",
+    "https://accounts.google.com/*"
   ],
+  "oauth2": {
+    "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
@@ -36,5 +45,11 @@
     "32": "icon.png",
     "48": "icon.png",
     "128": "icon.png"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://pastecraft.com/*",
+      "https://*.pastecraft.com/*"
+    ]
   }
 }

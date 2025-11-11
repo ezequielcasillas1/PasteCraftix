@@ -139,6 +139,67 @@ class PasteCraftSupabase {
     }
   }
   
+  /**
+   * Download image from temporary URL and upload to Supabase Storage
+   * @param {string} imageUrl - Temporary image URL (e.g., from OpenAI DALL-E)
+   * @param {string} userId - User identifier for storage path
+   * @returns {string} Permanent Supabase Storage URL
+   */
+  async downloadAndUploadImage(imageUrl, userId) {
+    if (!this.initialized || !this.client) {
+      console.warn('⚠️ Supabase not initialized - returning original URL');
+      return imageUrl; // Fallback to original URL if Supabase not available
+    }
+    
+    try {
+      console.log('📥 Downloading image from temporary URL:', imageUrl);
+      
+      // Download image as blob
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to download image: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('✅ Image downloaded, size:', blob.size, 'bytes');
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileName = `${userId}-${timestamp}.png`;
+      const filePath = `${fileName}`;
+      
+      console.log('📤 Uploading to Supabase Storage:', filePath);
+      
+      // Upload to Supabase Storage
+      const { data, error } = await this.client.storage
+        .from('profile-images')
+        .upload(filePath, blob, {
+          contentType: 'image/png',
+          upsert: false
+        });
+      
+      if (error) {
+        console.error('❌ Upload error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Upload successful:', data);
+      
+      // Get permanent public URL
+      const { data: urlData } = this.client.storage
+        .from('profile-images')
+        .getPublicUrl(filePath);
+      
+      console.log('✅ Permanent URL obtained:', urlData.publicUrl);
+      return urlData.publicUrl;
+      
+    } catch (error) {
+      console.error('❌ Failed to convert temporary URL to permanent:', error);
+      console.warn('⚠️ Returning original temporary URL as fallback');
+      return imageUrl; // Return original URL as fallback
+    }
+  }
+  
   // OpenAI Integration Methods
   async generateAIName(userName) {
     try {
@@ -381,9 +442,14 @@ class PasteCraftSupabase {
           }
           
           const data = await response.json();
-          const imageUrl = data.data[0].url;
-          console.log(`✅ Generated funky ${animalType} avatar!`);
-          return imageUrl;
+          const temporaryImageUrl = data.data[0].url;
+          console.log(`✅ Generated funky ${animalType} avatar! Converting to permanent URL...`);
+          
+          // Convert temporary URL to permanent Supabase Storage URL
+          const userId = await this.getChromeUserId();
+          const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
+          
+          return permanentImageUrl;
         }
       }
       
@@ -425,9 +491,14 @@ class PasteCraftSupabase {
         }
         
         const data = await response.json();
-        const imageUrl = data.data[0].url;
-        console.log(`✅ Generated funky ${animalType} avatar!`);
-        return imageUrl;
+        const temporaryImageUrl = data.data[0].url;
+        console.log(`✅ Generated funky ${animalType} avatar! Converting to permanent URL...`);
+        
+        // Convert temporary URL to permanent Supabase Storage URL
+        const userId = await this.getChromeUserId();
+        const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
+        
+        return permanentImageUrl;
       }
       
       // If user uploaded a photo but no animal name, analyze photo
@@ -466,9 +537,14 @@ class PasteCraftSupabase {
         }
         
         const data = await response.json();
-        const imageUrl = data.data[0].url;
-        console.log('✅ Generated cartoon avatar with DALL-E');
-        return imageUrl;
+        const temporaryImageUrl = data.data[0].url;
+        console.log('✅ Generated cartoon avatar with DALL-E! Converting to permanent URL...');
+        
+        // Convert temporary URL to permanent Supabase Storage URL
+        const userId = await this.getChromeUserId();
+        const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
+        
+        return permanentImageUrl;
       }
       
       // If no photo uploaded, fall back to OpenAI DALL-E for text-to-image
@@ -500,9 +576,14 @@ class PasteCraftSupabase {
       }
       
       const data = await response.json();
-      const imageUrl = data.data[0].url;
-      console.log('✅ Generated profile image with DALL-E');
-      return imageUrl;
+      const temporaryImageUrl = data.data[0].url;
+      console.log('✅ Generated profile image with DALL-E! Converting to permanent URL...');
+      
+      // Convert temporary URL to permanent Supabase Storage URL
+      const userId = await this.getChromeUserId();
+      const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
+      
+      return permanentImageUrl;
       
     } catch (error) {
       console.error('Failed to generate profile image:', error);
@@ -658,6 +739,55 @@ class PasteCraftSupabase {
     return Array.from(merged.values()).sort((a, b) => b.timestamp - a.timestamp);
   }
 
+  /**
+   * Merge local and remote categories (newest wins by ID)
+   */
+  async mergeCategories(localCategories, remoteCategories) {
+    const merged = new Map();
+
+    // Add all local categories
+    localCategories.forEach(cat => {
+      merged.set(cat.id, cat);
+    });
+
+    // Add/update with remote categories (newer ID wins - later creation)
+    remoteCategories.forEach(remoteCat => {
+      const localCat = merged.get(remoteCat.id);
+      if (!localCat) {
+        // New category from remote, add it
+        merged.set(remoteCat.id, remoteCat);
+      }
+      // If exists locally, keep local (categories don't update after creation)
+    });
+
+    // Sort by name for consistent display
+    return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Merge local and remote archived clips (newest wins)
+   */
+  async mergeArchivedClips(localArchivedClips, remoteArchivedClips) {
+    const merged = new Map();
+
+    // Add all local archived clips
+    localArchivedClips.forEach(clip => {
+      merged.set(clip.id, clip);
+    });
+
+    // Add/update with remote archived clips (newer timestamp wins)
+    remoteArchivedClips.forEach(remoteClip => {
+      const localClip = merged.get(remoteClip.id);
+      if (!localClip || remoteClip.timestamp > localClip.timestamp) {
+        merged.set(remoteClip.id, remoteClip);
+      }
+    });
+
+    // Sort by timestamp descending, then limit to 1000 most recent
+    const sortedClips = Array.from(merged.values()).sort((a, b) => b.timestamp - a.timestamp);
+    return sortedClips.slice(0, 1000); // Keep only 1000 most recent locally
+  }
+
   // =====================================================
   // CATEGORIES SYNC METHODS
   // =====================================================
@@ -734,6 +864,94 @@ class PasteCraftSupabase {
       return localCategories;
     } catch (error) {
       console.error('❌ Failed to fetch categories from Supabase:', error);
+      return null;
+    }
+  }
+
+  // =====================================================
+  // ARCHIVED CLIPS SYNC METHODS
+  // =====================================================
+
+  /**
+   * Sync archived clips (searchOnlyClips) to Supabase
+   */
+  async syncArchivedClipsToSupabase(localArchivedClips) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping archived clips sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log(`📤 Syncing ${localArchivedClips.length} archived clips to Supabase...`);
+
+      // Transform local archived clips to DB format
+      const dbArchivedClips = localArchivedClips.map(clip => ({
+        user_id: userId,
+        clip_id: clip.id,
+        text: clip.text,
+        category: clip.category || 'Uncategorized',
+        timestamp: clip.timestamp
+      }));
+
+      // Upsert archived clips (insert or update on conflict)
+      const { data, error } = await this.client
+        .from('archived_clips')
+        .upsert(dbArchivedClips, {
+          onConflict: 'user_id,clip_id',
+          ignoreDuplicates: false
+        })
+        .select();
+
+      if (error) throw error;
+
+      console.log(`✅ Synced ${data.length} archived clips to Supabase`);
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync archived clips to Supabase:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync archived clips from Supabase to local storage
+   */
+  async syncArchivedClipsFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping archived clips sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getChromeUserId();
+      await this.setUserContext(userId);
+
+      console.log('📥 Fetching archived clips from Supabase...');
+
+      // Fetch all archived clips (cloud can store up to 25,000)
+      const { data, error } = await this.client
+        .from('archived_clips')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(25000); // Future: Premium tier limit
+
+      if (error) throw error;
+
+      // Transform DB format to local format
+      const localArchivedClips = data.map(clip => ({
+        id: clip.clip_id,
+        text: clip.text,
+        category: clip.category,
+        timestamp: clip.timestamp
+      }));
+
+      console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase`);
+      return localArchivedClips;
+    } catch (error) {
+      console.error('❌ Failed to fetch archived clips from Supabase:', error);
       return null;
     }
   }
@@ -1335,11 +1553,12 @@ class PasteCraftSupabase {
 
       // Get local data from Chrome storage
       const localData = await new Promise((resolve) => {
-        chrome.storage.local.get(['clips', 'categories', 'settings', 'userProfile'], resolve);
+        chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'settings', 'userProfile'], resolve);
       });
 
       const localClips = localData.clips || [];
       const localCategories = localData.categories || [];
+      const localArchivedClips = localData.searchOnlyClips || [];
       const localSettings = localData.settings || {};
       const localProfile = localData.userProfile || {};
 
@@ -1357,11 +1576,23 @@ class PasteCraftSupabase {
       // Sync categories
       await this.syncCategoriesToSupabase(localCategories);
       const remoteCategories = await this.syncCategoriesFromSupabase();
-      if (remoteCategories && remoteCategories.length > 0) {
+      if (remoteCategories) {
+        const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
         await new Promise((resolve) => {
-          chrome.storage.local.set({ categories: remoteCategories }, resolve);
+          chrome.storage.local.set({ categories: mergedCategories }, resolve);
         });
-        console.log(`✅ Categories updated: ${remoteCategories.length} total`);
+        console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+      }
+
+      // Sync archived clips (searchOnlyClips)
+      await this.syncArchivedClipsToSupabase(localArchivedClips);
+      const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
+      if (remoteArchivedClips) {
+        const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ searchOnlyClips: mergedArchivedClips }, resolve);
+        });
+        console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
       }
 
       // Sync settings
@@ -1395,7 +1626,8 @@ class PasteCraftSupabase {
         message: 'All data synced successfully',
         stats: {
           clips: remoteClips?.length || 0,
-          categories: remoteCategories?.length || 0
+          categories: remoteCategories?.length || 0,
+          archivedClips: remoteArchivedClips?.length || 0
         }
       };
 
