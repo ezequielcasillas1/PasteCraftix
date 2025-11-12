@@ -108,6 +108,57 @@
             opacity: 0.9;
         }
         
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            margin-top: 4px;
+            opacity: 0.95;
+        }
+        
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .sync-indicator.synced {
+            background: #10b981;
+            animation: none;
+        }
+        
+        .sync-indicator.syncing {
+            background: #f59e0b;
+        }
+        
+        .sync-indicator.offline {
+            background: #ef4444;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .sync-status-text {
+            font-weight: 500;
+        }
+        
+        .sync-queue-count {
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+        }
+        
         .settings-btn {
             background: rgba(255, 255, 255, 0.2);
             border: none;
@@ -1690,12 +1741,70 @@
         .generation-label {
             font-size: 13px;
             color: #6b7280;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
             font-weight: 500;
         }
         
-        .profile-image-generation button {
-            margin: 0 6px;
+        .avatar-buttons-container {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .avatar-gen-btn {
+            flex: 1;
+            min-width: 140px;
+            max-width: 180px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+        }
+
+        .avatar-gen-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -100%;
+            width: 50%;
+            height: 200%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.6),
+                transparent
+            );
+            transform: rotate(25deg);
+            animation: avatarGleam 3.5s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes avatarGleam {
+            0% {
+                left: -100%;
+            }
+            50%, 100% {
+                left: 200%;
+            }
+        }
+
+        .avatar-gen-btn:hover::after {
+            animation: avatarGleam 1.5s infinite;
+        }
+
+        .avatar-gen-btn:not(.btn-disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+        }
+
+        .avatar-gen-btn.btn-disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .avatar-gen-btn.btn-disabled::after {
+            display: none;
         }
         
         .ai-name-container {
@@ -1709,6 +1818,45 @@
             white-space: nowrap;
             min-width: fit-content;
             flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+        }
+
+        .ai-name-container .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -100%;
+            width: 50%;
+            height: 200%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.6),
+                transparent
+            );
+            transform: rotate(25deg);
+            animation: nameGleam 3s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes nameGleam {
+            0% {
+                left: -100%;
+            }
+            50%, 100% {
+                left: 200%;
+            }
+        }
+
+        .ai-name-container .btn-primary:hover::after {
+            animation: nameGleam 1.5s infinite;
+        }
+
+        .ai-name-container .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
         }
         
         .profile-input {
@@ -2804,6 +2952,398 @@
         .ai-lab-section.active {
             display: block;
         }
+
+        /* AI Summary Styles */
+        .ai-summary-container {
+            padding: 0;
+        }
+
+        .ai-summary-hero {
+            margin-bottom: 24px;
+        }
+
+        .ai-summary-description {
+            color: #64748b;
+            font-size: 14px;
+            margin: 8px 0 0 0;
+            line-height: 1.6;
+        }
+
+        .summary-input-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+
+        .summary-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 14px;
+        }
+
+        .summary-textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 150px;
+            margin-top: 12px;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .summary-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .summary-input-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            justify-content: flex-end;
+        }
+
+        .summary-clear-btn, .summary-generate-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .summary-generate-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .summary-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .summary-generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Questions Section */
+        .summary-questions-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .questions-header {
+            margin-bottom: 20px;
+        }
+
+        .questions-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 6px 0;
+        }
+
+        .questions-subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .questions-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 30px;
+            color: #64748b;
+        }
+
+        .questions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .question-chip {
+            padding: 14px 16px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            font-size: 14px;
+            color: #1e293b;
+            line-height: 1.5;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .question-chip::before {
+            content: '💡';
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            transition: left 0.3s ease;
+        }
+
+        .question-chip:hover {
+            border-color: #3b82f6;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .question-chip:hover::before {
+            left: 12px;
+        }
+
+        .question-chip:hover {
+            padding-left: 42px;
+        }
+
+        .question-chip:active {
+            transform: translateX(2px) scale(0.98);
+        }
+
+        .custom-question-section {
+            background: white;
+            padding: 16px;
+            border-radius: 10px;
+            border: 2px dashed #cbd5e1;
+            margin-bottom: 16px;
+        }
+
+        .custom-question-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .custom-question-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .custom-question-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .custom-question-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .custom-question-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .custom-question-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .back-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            background: #f1f5f9;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #64748b;
+        }
+
+        .back-btn:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+        }
+
+        /* Summary Result Section */
+        .summary-result-section {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .summary-result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .result-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .btn-icon-action {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+        }
+
+        .btn-icon-action::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -100%;
+            width: 50%;
+            height: 200%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.8),
+                transparent
+            );
+            transform: rotate(25deg);
+            animation: gleam 3s infinite;
+        }
+
+        @keyframes gleam {
+            0% {
+                left: -100%;
+            }
+            50%, 100% {
+                left: 200%;
+            }
+        }
+
+        .btn-icon-action:hover {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-icon-action:hover::after {
+            animation: gleam 1.5s infinite;
+        }
+
+        .summary-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 40px;
+            color: #64748b;
+        }
+
+        .summary-result-content {
+            background: white;
+            padding: 18px;
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+            min-height: 150px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #1e293b;
+            white-space: pre-wrap;
+        }
+
+        .summary-result-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .summary-result-actions button {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .summary-result-actions .btn-secondary {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 2px solid #e5e7eb;
+        }
+
+        .summary-result-actions .btn-secondary:hover {
+            background: #e2e8f0;
+            border-color: #cbd5e1;
+        }
+
+        .summary-result-actions .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .summary-result-actions .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
         
         /* AI Generation Section */
         .ai-generation-section {
@@ -3000,6 +3540,81 @@
             color: #dc2626;
         }
         
+        .ai-gallery-action-btn.set-profile:hover {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+        
+        .ai-gallery-item.is-profile {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .ai-profile-badge {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+            z-index: 1;
+        }
+        
+        .ai-gallery-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .pagination-btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pagination-btn:hover:not(:disabled) {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            background: #f0f9ff;
+        }
+        
+        .pagination-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .pagination-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
+        .pagination-ellipsis {
+            color: #9ca3af;
+            font-weight: 600;
+            padding: 0 4px;
+        }
+        
         .ai-gallery-empty {
             grid-column: 1 / -1;
             text-align: center;
@@ -3130,6 +3745,11 @@
                 <div class="header-info">
                     <h1>PasteCraft</h1>
                     <div class="last-capture" id="lastCapture">No recent captures</div>
+                    <div class="sync-status" id="syncStatus">
+                        <div class="sync-indicator synced" id="syncIndicator"></div>
+                        <span class="sync-status-text" id="syncStatusText">Synced</span>
+                        <span class="sync-queue-count" id="syncQueueCount" style="display: none;"></span>
+                    </div>
                 </div>
             </div>
             <div class="header-actions">
@@ -3288,17 +3908,110 @@
                                 <p>Generate your first AI image to start your gallery</p>
                             </div>
                         </div>
+                        
+                        <div class="ai-gallery-pagination" id="aiGalleryPagination" style="display: none;"></div>
                     </div>
                 </div>
 
                 <!-- AI Summary Section -->
                 <div class="ai-lab-section" id="aiSummarySection">
                     <div class="ai-summary-container">
-                        <h3 class="ai-section-title">📝 AI Summary</h3>
-                        <div class="ai-coming-soon">
-                            <div class="coming-soon-icon">🚧</div>
-                            <h4>Coming Soon</h4>
-                            <p>AI-powered summary features will be added here</p>
+                        <div class="ai-summary-hero">
+                            <h3 class="ai-section-title">📝 AI Summary</h3>
+                            <p class="ai-summary-description">Get intelligent summaries tailored to your needs—choose from AI-suggested questions or write your own.</p>
+                        </div>
+                        
+                        <!-- Step 1: Text Input -->
+                        <div class="summary-input-section" id="summaryInputSection">
+                            <div class="input-header">
+                                <label for="summaryInput" class="summary-label">
+                                    <span class="label-icon">📄</span>
+                                    <span>Paste content to summarize</span>
+                                </label>
+                                <span class="char-counter" id="summaryCharCounter">0 characters</span>
+                            </div>
+                            <textarea 
+                                id="summaryInput" 
+                                class="summary-textarea" 
+                                placeholder="Paste any text here—articles, documents, research papers, meeting notes, or any content you want summarized..."
+                                rows="8"
+                            ></textarea>
+                            
+                            <div class="summary-input-actions">
+                                <button id="clearSummaryInput" class="btn-secondary summary-clear-btn">
+                                    <span>🗑️</span>
+                                    <span>Clear</span>
+                                </button>
+                                <button id="generateQuestionsBtn" class="btn-primary summary-generate-btn" disabled>
+                                    <span>✨</span>
+                                    <span>Generate Questions</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Question Selection -->
+                        <div class="summary-questions-section" id="summaryQuestionsSection" style="display: none;">
+                            <div class="questions-header">
+                                <h4 class="questions-title">🎯 What would you like to know?</h4>
+                                <p class="questions-subtitle">Select a question or write your own below</p>
+                            </div>
+                            
+                            <div class="questions-loading" id="questionsLoading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p>Generating questions...</p>
+                            </div>
+                            
+                            <div class="questions-list" id="questionsList"></div>
+                            
+                            <div class="custom-question-section">
+                                <label for="customQuestionInput" class="custom-question-label">
+                                    <span>✍️</span>
+                                    <span>Or write your own question:</span>
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="customQuestionInput" 
+                                    class="custom-question-input" 
+                                    placeholder="e.g., Summarize the main arguments in 3 bullet points..."
+                                />
+                                <button id="customQuestionBtn" class="btn-primary custom-question-btn" disabled>
+                                    <span>📝</span>
+                                    <span>Get Custom Summary</span>
+                                </button>
+                            </div>
+                            
+                            <button id="backToInputBtn" class="btn-secondary back-btn">
+                                <span>←</span>
+                                <span>Back to Input</span>
+                            </button>
+                        </div>
+
+                        <!-- Step 3: Summary Result -->
+                        <div class="summary-result-section" id="summaryResultSection" style="display: none;">
+                            <div class="summary-result-header">
+                                <h4 class="result-title">📋 Your Summary</h4>
+                                <button id="copySummaryBtn" class="btn-icon-action" title="Copy summary">
+                                    📋
+                                </button>
+                            </div>
+                            
+                            <div class="summary-loading" id="summaryLoading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p>Generating your summary...</p>
+                            </div>
+                            
+                            <div class="summary-result-content" id="summaryResultContent"></div>
+                            
+                            <div class="summary-result-actions">
+                                <button id="newQuestionBtn" class="btn-secondary">
+                                    <span>🔙</span>
+                                    <span>Ask Different Question</span>
+                                </button>
+                                <button id="newSummaryBtn" class="btn-primary">
+                                    <span>✨</span>
+                                    <span>New Summary</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3306,11 +4019,102 @@
                 <!-- AI Breakdown Section -->
                 <div class="ai-lab-section" id="aiBreakdownSection">
                     <div class="ai-breakdown-container">
-                        <h3 class="ai-section-title">📊 AI Breakdown</h3>
-                        <div class="ai-coming-soon">
-                            <div class="coming-soon-icon">🚧</div>
-                            <h4>Coming Soon</h4>
-                            <p>AI-powered breakdown features will be added here</p>
+                        <div class="ai-breakdown-hero">
+                            <h3 class="ai-section-title">📊 AI Text Breakdown</h3>
+                            <p class="ai-breakdown-description">Transform complex text into explanations at 6 different comprehension levels—from simple to expert.</p>
+                        </div>
+                        
+                        <div class="breakdown-input-section">
+                            <div class="input-header">
+                                <label for="breakdownInput" class="breakdown-label">
+                                    <span class="label-icon">✍️</span>
+                                    <span>Enter text to analyze</span>
+                                </label>
+                                <span class="char-counter" id="breakdownCharCounter">0 characters</span>
+                            </div>
+                            <textarea 
+                                id="breakdownInput" 
+                                class="breakdown-textarea" 
+                                placeholder="Paste any text here—articles, quotes, definitions, concepts, code snippets, or anything you want to understand better..."
+                                rows="6"
+                            ></textarea>
+                            
+                            <div class="breakdown-input-actions">
+                                <button id="clearBreakdownInput" class="btn-secondary breakdown-clear-btn">
+                                    <span>🗑️</span>
+                                    <span>Clear All</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="breakdown-examples">
+                            <div class="level-selection-header">
+                                <h4 class="examples-title">🎯 Step 2: Select Your Breakdown Level</h4>
+                                <p class="examples-subtitle" id="levelSelectionHint">Type at least one sentence above to enable levels</p>
+                            </div>
+                            <div class="example-chips" id="levelChipsContainer">
+                                <button class="level-chip" data-level="eli5" disabled>
+                                    <span class="level-chip-icon">🍼</span>
+                                    <div class="level-chip-content">
+                                        <strong>Child</strong>
+                                        <small>Simple for anyone</small>
+                                    </div>
+                                </button>
+                                <button class="level-chip" data-level="elementary" disabled>
+                                    <span class="level-chip-icon">📚</span>
+                                    <div class="level-chip-content">
+                                        <strong>Elementary</strong>
+                                        <small>Grades 3-5</small>
+                                    </div>
+                                </button>
+                                <button class="level-chip" data-level="highschool" disabled>
+                                    <span class="level-chip-icon">🎓</span>
+                                    <div class="level-chip-content">
+                                        <strong>High School</strong>
+                                        <small>Teen level</small>
+                                    </div>
+                                </button>
+                                <button class="level-chip" data-level="college" disabled>
+                                    <span class="level-chip-icon">🏛️</span>
+                                    <div class="level-chip-content">
+                                        <strong>College</strong>
+                                        <small>Academic</small>
+                                    </div>
+                                </button>
+                                <button class="level-chip" data-level="phd" disabled>
+                                    <span class="level-chip-icon">👨‍🔬</span>
+                                    <div class="level-chip-content">
+                                        <strong>PhD</strong>
+                                        <small>Expert level</small>
+                                    </div>
+                                </button>
+                                <button class="level-chip" data-level="wiseman" disabled>
+                                    <span class="level-chip-icon">🧙</span>
+                                    <div class="level-chip-content">
+                                        <strong>Wise Man</strong>
+                                        <small>Philosophical</small>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="level-analyze-action">
+                                <button id="analyzeLevelBtn" class="btn-primary level-analyze-btn" disabled>
+                                    <span>🧠</span>
+                                    <span>Analyze with Selected Level</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="breakdown-quick-actions">
+                            <div class="quick-actions-header">
+                                <h4 class="quick-actions-title">📋 Quick Access from Clips</h4>
+                            </div>
+                            <div class="quick-actions-hint">
+                                <span class="hint-icon">🎯</span>
+                                <div class="hint-content">
+                                    <p class="hint-main">Click the <strong>🧠 icon</strong> on any clip to instantly analyze it</p>
+                                    <p class="hint-sub">Available on: Clips tab, Search results, and Category dropdowns</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3414,6 +4218,77 @@
                         <button class="btn-secondary" id="cancelCategorization">Cancel</button>
                         <button class="btn-primary" id="addToCategory" disabled>Add</button>
                         <button class="btn-primary" id="createNewCategory">+ New Category</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown Text Modal -->
+        <div class="modal-overlay" id="breakdownModal" style="display: none;">
+            <div class="modal-content breakdown-modal-content">
+                <div class="modal-header breakdown-modal-header">
+                    <div class="breakdown-header-content">
+                        <h3>🧠 AI Text Breakdown</h3>
+                        <p class="breakdown-header-subtitle">Choose your comprehension level</p>
+                    </div>
+                    <button class="modal-close" id="closeBreakdownModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="breakdown-original-text">
+                        <div class="breakdown-original-header">
+                            <h4>📄 Original Text</h4>
+                            <span class="text-length" id="breakdownTextLength"></span>
+                        </div>
+                        <p id="breakdownOriginalText"></p>
+                    </div>
+                    
+                    <div class="breakdown-level-info">
+                        <div class="level-info-icon">💡</div>
+                        <p class="level-info-text" id="levelInfoText">
+                            <strong>Child Level:</strong> Super simple explanation using basic words and fun examples
+                        </p>
+                    </div>
+
+                    <div class="breakdown-tabs">
+                        <button class="breakdown-tab active" data-level="eli5" title="Simple explanation for anyone">
+                            <span class="tab-emoji">🍼</span>
+                            <span class="tab-label">Child</span>
+                        </button>
+                        <button class="breakdown-tab" data-level="elementary" title="Elementary school level (grades 3-5)">
+                            <span class="tab-emoji">📚</span>
+                            <span class="tab-label">Elementary</span>
+                        </button>
+                        <button class="breakdown-tab" data-level="highschool" title="High school level understanding">
+                            <span class="tab-emoji">🎓</span>
+                            <span class="tab-label">High School</span>
+                        </button>
+                        <button class="breakdown-tab" data-level="college" title="College/undergraduate level">
+                            <span class="tab-emoji">🏛️</span>
+                            <span class="tab-label">College</span>
+                        </button>
+                        <button class="breakdown-tab" data-level="phd" title="PhD/expert level analysis">
+                            <span class="tab-emoji">👨‍🔬</span>
+                            <span class="tab-label">PhD</span>
+                        </button>
+                        <button class="breakdown-tab" data-level="wiseman" title="Philosophical wisdom and life lessons">
+                            <span class="tab-emoji">🧙</span>
+                            <span class="tab-label">Wise Man</span>
+                        </button>
+                    </div>
+                    <div class="breakdown-content">
+                        <div class="breakdown-loading" id="breakdownLoading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                            <p>AI is analyzing your text...</p>
+                            <small>This may take a few seconds</small>
+                        </div>
+                        <div class="breakdown-result" id="breakdownResult"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="copyBreakdownBtn">
+                            <span>📋</span>
+                            <span>Copy Explanation</span>
+                        </button>
+                        <button class="btn-primary" id="closeBreakdownBtn">Done</button>
                     </div>
                 </div>
             </div>
@@ -3657,12 +4532,14 @@
                             </div>
                             <div class="profile-image-generation">
                                 <p class="generation-label">Choose your avatar style:</p>
-                                <button class="btn-primary btn-disabled" id="generateAnimalBtn" disabled title="Generate AI name first">
-                                    🐾 Animal Avatar
-                                </button>
-                                <button class="btn-primary btn-disabled" id="generateCartoonBtn" disabled title="Upload a photo first">
-                                    🎨 My Cartoon
-                                </button>
+                                <div class="avatar-buttons-container">
+                                    <button class="btn-primary btn-disabled avatar-gen-btn" id="generateAnimalBtn" disabled title="Generate AI name first">
+                                        🐾 Animal Avatar
+                                    </button>
+                                    <button class="btn-primary btn-disabled avatar-gen-btn" id="generateCartoonBtn" disabled title="Upload a photo first">
+                                        🎨 My Cartoon
+                                    </button>
+                                </div>
                             </div>
                             <p class="workflow-note">
                                 <span class="note-icon">💡</span>

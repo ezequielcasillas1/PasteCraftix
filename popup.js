@@ -24,6 +24,16 @@ class PasteCraftPopup {
     };
     this.userProfile = null;
     
+    // Breakdown text cache
+    this.currentBreakdownText = null;
+    this.currentBreakdownLevel = null;
+    this.breakdownCache = {};
+    
+    // Summary state
+    this.currentSummaryText = null;
+    this.generatedQuestions = [];
+    this.currentSummaryQuestion = null;
+    
     // Countdown timers
     this.aiGenerationTimerInterval = null;
     this.profileCollapseInterval = null;
@@ -123,6 +133,13 @@ class PasteCraftPopup {
     
     // Reload data whenever popup becomes visible
     this.setupVisibilityListener();
+    
+    // Setup realtime data sync listeners
+    this.setupRealtimeListeners();
+    
+    // Setup sync status listeners
+    this.setupSyncStatusListeners();
+    
     console.log('✅ PasteCraft popup initialized successfully');
   }
   
@@ -174,32 +191,72 @@ class PasteCraftPopup {
         console.log('✅ Data reloaded successfully');
       }
     });
-    
-    // Also listen for storage changes in real-time
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      if (areaName === 'local' && (changes.clips || changes.categories || changes.searchOnlyClips)) {
-        console.log('🔄 Storage changed - reloading data...');
-        this.loadData().then(() => {
-          this.renderChips();
-          this.updateLastCapture();
-          this.updatePreview();
-          this.renderCategories();
-          this.updateCategoryFilter();
-          console.log('✅ Data reloaded after storage change');
-        });
-      }
+  }
+  
+  setupSyncStatusListeners() {
+    // Listen for sync status changes
+    window.addEventListener('syncStatusChanged', (event) => {
+      const { status, queueLength } = event.detail;
+      this.updateSyncIndicator(status, queueLength);
+    });
+  }
+  
+  setupRealtimeListeners() {
+    // Listen for realtime data changes
+    window.addEventListener('dataChanged', async (event) => {
+      const { type } = event.detail;
+      console.log(`🔔 Realtime change detected: ${type}`);
       
-      // Listen for profile changes (e.g., from background sync)
-      if (areaName === 'local' && changes.userProfile) {
-        console.log('🔄 Profile changed in storage - updating UI...');
-        this.loadUserProfile().then(() => {
-          if (this.userProfile?.profileImageUrl) {
-            this.displayImageTopLeft(this.userProfile.profileImageUrl);
-            console.log('✅ Profile image updated from storage change');
-          }
-        });
+      // Reload and re-render based on data type
+      if (type === 'clips' || type === 'archivedClips') {
+        await this.loadData();
+        this.renderChips();
+        this.updateLastCapture();
+        this.renderSearchResults();
+        this.showToast('📥 Clips synced from another device');
+      } else if (type === 'categories') {
+        await this.loadData();
+        this.renderCategories();
+        this.updateCategoryFilter();
+        this.showToast('📥 Categories synced from another device');
+      } else if (type === 'settings') {
+        await this.loadSettings();
+        this.showToast('⚙️ Settings synced from another device');
+      } else if (type === 'profile') {
+        await this.loadUserProfile();
+        if (this.userProfile?.profileImageUrl) {
+          this.displayImageTopLeft(this.userProfile.profileImageUrl);
+        }
+        this.showToast('👤 Profile synced from another device');
       }
     });
+  }
+  
+  updateSyncIndicator(status, queueLength = 0) {
+    const indicator = document.getElementById('syncIndicator');
+    const statusText = document.getElementById('syncStatusText');
+    const queueCount = document.getElementById('syncQueueCount');
+    
+    if (!indicator || !statusText) return;
+    
+    // Update indicator color and status text
+    indicator.className = `sync-indicator ${status}`;
+    
+    const statusMessages = {
+      'synced': '🟢 Synced',
+      'syncing': '🟡 Syncing...',
+      'offline': '🔴 Offline'
+    };
+    
+    statusText.textContent = statusMessages[status] || status;
+    
+    // Show queue count if pending operations
+    if (queueLength > 0 && queueCount) {
+      queueCount.textContent = `${queueLength} pending`;
+      queueCount.style.display = 'inline-block';
+    } else if (queueCount) {
+      queueCount.style.display = 'none';
+    }
   }
   
   async loadData() {
@@ -411,6 +468,45 @@ class PasteCraftPopup {
       }
     });
 
+    // Breakdown modal events
+    document.getElementById('closeBreakdownModal').addEventListener('click', () => {
+      this.hideBreakdownModal();
+    });
+
+    document.getElementById('closeBreakdownBtn').addEventListener('click', () => {
+      this.hideBreakdownModal();
+    });
+
+    document.getElementById('copyBreakdownBtn').addEventListener('click', () => {
+      this.copyBreakdownText();
+    });
+
+    // Breakdown modal overlay click to close
+    document.getElementById('breakdownModal').addEventListener('click', (e) => {
+      if (e.target.id === 'breakdownModal') {
+        this.hideBreakdownModal();
+      }
+    });
+
+    // Breakdown tab switching
+    document.querySelector('.breakdown-tabs').addEventListener('click', (e) => {
+      const tab = e.target.closest('.breakdown-tab');
+      if (tab) {
+        const level = tab.dataset.level;
+        
+        // Update active tab
+        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Update level info text
+        this.updateLevelInfo(level);
+        
+        // Generate breakdown for this level
+        this.currentBreakdownLevel = level;
+        this.generateBreakdown(level);
+      }
+    });
+
     document.getElementById('settingsModal').addEventListener('click', (e) => {
       if (e.target.id === 'settingsModal') {
         this.hideSettingsModal();
@@ -492,16 +588,17 @@ class PasteCraftPopup {
     const aiLabTabsContainer = document.querySelector('.ai-lab-tabs');
     if (aiLabTabsContainer) {
       aiLabTabsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('ai-lab-tab')) {
+        const clickedTab = e.target.closest('.ai-lab-tab');
+        if (clickedTab) {
           // Remove active class from all AI Lab tabs
           document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
           document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
           
           // Add active class to clicked tab
-          e.target.classList.add('active');
+          clickedTab.classList.add('active');
           
           // Show corresponding section
-          const tabName = e.target.dataset.aiTab;
+          const tabName = clickedTab.dataset.aiTab;
           if (tabName === 'generator') {
             document.getElementById('aiGeneratorSection').classList.add('active');
           } else if (tabName === 'gallery') {
@@ -525,6 +622,220 @@ class PasteCraftPopup {
         
         // Show breakdown section
         document.getElementById('aiBreakdownSection').classList.add('active');
+      });
+    }
+
+    // AI Breakdown page state
+    this.selectedBreakdownLevel = null;
+
+    // AI Breakdown page event listeners
+    const clearBreakdownInput = document.getElementById('clearBreakdownInput');
+    const breakdownInput = document.getElementById('breakdownInput');
+    const charCounter = document.getElementById('breakdownCharCounter');
+    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
+    const levelChips = document.querySelectorAll('.level-chip');
+    const levelSelectionHint = document.getElementById('levelSelectionHint');
+
+    if (clearBreakdownInput && breakdownInput) {
+      clearBreakdownInput.addEventListener('click', () => {
+        breakdownInput.value = '';
+        if (charCounter) charCounter.textContent = '0 characters';
+        this.selectedBreakdownLevel = null;
+        
+        // Disable and deselect all level chips
+        levelChips.forEach(chip => {
+          chip.disabled = true;
+          chip.classList.remove('selected');
+        });
+        
+        // Disable analyze button
+        if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
+        
+        // Reset hint
+        if (levelSelectionHint) {
+          levelSelectionHint.textContent = 'Type at least one sentence above to enable levels';
+        }
+        
+        breakdownInput.focus();
+      });
+    }
+
+    // Character counter and level chip enabler
+    if (breakdownInput && charCounter) {
+      breakdownInput.addEventListener('input', () => {
+        const text = breakdownInput.value.trim();
+        const length = breakdownInput.value.length;
+        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+        
+        charCounter.textContent = `${length} character${length !== 1 ? 's' : ''}`;
+        
+        // Enable level chips if at least 5 words (roughly one sentence)
+        const hasEnoughText = wordCount >= 5;
+        
+        levelChips.forEach(chip => {
+          chip.disabled = !hasEnoughText;
+        });
+        
+        // Update hint text
+        if (levelSelectionHint) {
+          if (hasEnoughText) {
+            levelSelectionHint.textContent = 'Select a level below to continue';
+          } else {
+            const remaining = 5 - wordCount;
+            levelSelectionHint.textContent = `Type ${remaining} more word${remaining !== 1 ? 's' : ''} to enable levels`;
+          }
+        }
+        
+        // If text is cleared, disable analyze button and reset selection
+        if (!hasEnoughText) {
+          this.selectedBreakdownLevel = null;
+          levelChips.forEach(chip => chip.classList.remove('selected'));
+          if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
+        }
+      });
+    }
+
+    // Level chip selection
+    levelChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (!chip.disabled) {
+          // Deselect all chips
+          levelChips.forEach(c => c.classList.remove('selected'));
+          
+          // Select this chip
+          chip.classList.add('selected');
+          this.selectedBreakdownLevel = chip.dataset.level;
+          
+          // Enable analyze button
+          if (analyzeLevelBtn) analyzeLevelBtn.disabled = false;
+          
+          // Update hint
+          if (levelSelectionHint) {
+            const levelName = chip.querySelector('strong').textContent;
+            levelSelectionHint.textContent = `${levelName} level selected - Click analyze button below`;
+          }
+        }
+      });
+    });
+
+    // Analyze button
+    if (analyzeLevelBtn && breakdownInput) {
+      analyzeLevelBtn.addEventListener('click', () => {
+        const text = breakdownInput.value.trim();
+        if (text && this.selectedBreakdownLevel) {
+          this.showBreakdownModalWithLevel(text, this.selectedBreakdownLevel);
+        }
+      });
+    }
+    
+    // AI Summary page event listeners
+    const summaryInput = document.getElementById('summaryInput');
+    const summaryCharCounter = document.getElementById('summaryCharCounter');
+    const clearSummaryInput = document.getElementById('clearSummaryInput');
+    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
+    const customQuestionInput = document.getElementById('customQuestionInput');
+    const customQuestionBtn = document.getElementById('customQuestionBtn');
+    const backToInputBtn = document.getElementById('backToInputBtn');
+    const newQuestionBtn = document.getElementById('newQuestionBtn');
+    const newSummaryBtn = document.getElementById('newSummaryBtn');
+    const copySummaryBtn = document.getElementById('copySummaryBtn');
+
+    // Summary input character counter
+    if (summaryInput && summaryCharCounter) {
+      summaryInput.addEventListener('input', () => {
+        const length = summaryInput.value.length;
+        const wordCount = summaryInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
+        summaryCharCounter.textContent = `${length} characters`;
+        
+        // Enable generate questions button if enough text (at least 20 words)
+        if (generateQuestionsBtn) {
+          generateQuestionsBtn.disabled = wordCount < 20;
+        }
+      });
+    }
+
+    // Clear summary input
+    if (clearSummaryInput && summaryInput) {
+      clearSummaryInput.addEventListener('click', () => {
+        summaryInput.value = '';
+        if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
+        if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
+        summaryInput.focus();
+      });
+    }
+
+    // Generate questions button
+    if (generateQuestionsBtn) {
+      generateQuestionsBtn.addEventListener('click', () => {
+        const text = summaryInput.value.trim();
+        if (text) {
+          this.currentSummaryText = text;
+          this.generateSummaryQuestions(text);
+        }
+      });
+    }
+
+    // Custom question input
+    if (customQuestionInput && customQuestionBtn) {
+      customQuestionInput.addEventListener('input', () => {
+        customQuestionBtn.disabled = customQuestionInput.value.trim().length < 5;
+      });
+      
+      customQuestionInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !customQuestionBtn.disabled) {
+          customQuestionBtn.click();
+        }
+      });
+    }
+
+    // Custom question button
+    if (customQuestionBtn) {
+      customQuestionBtn.addEventListener('click', () => {
+        const question = customQuestionInput.value.trim();
+        if (question && this.currentSummaryText) {
+          this.currentSummaryQuestion = question;
+          this.generateSummary(this.currentSummaryText, question);
+        }
+      });
+    }
+
+    // Back to input button
+    if (backToInputBtn) {
+      backToInputBtn.addEventListener('click', () => {
+        this.showSummarySection('input');
+        this.currentSummaryText = null;
+        this.generatedQuestions = [];
+      });
+    }
+
+    // New question button
+    if (newQuestionBtn) {
+      newQuestionBtn.addEventListener('click', () => {
+        this.showSummarySection('questions');
+      });
+    }
+
+    // New summary button
+    if (newSummaryBtn) {
+      newSummaryBtn.addEventListener('click', () => {
+        this.showSummarySection('input');
+        this.currentSummaryText = null;
+        this.generatedQuestions = [];
+        this.currentSummaryQuestion = null;
+        if (summaryInput) summaryInput.value = '';
+        if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
+        if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
+      });
+    }
+
+    // Copy summary button
+    if (copySummaryBtn) {
+      copySummaryBtn.addEventListener('click', () => {
+        const content = document.getElementById('summaryResultContent').textContent;
+        if (content) {
+          navigator.clipboard.writeText(content);
+          this.showToast('Summary copied to clipboard!');
+        }
       });
     }
     
@@ -1138,6 +1449,7 @@ class PasteCraftPopup {
     chip.innerHTML = `
       <span class="chip-text" title="${clip.text}">${text}</span>
       <div class="chip-actions">
+        <button class="chip-breakdown-btn" title="Breakdown text">🧠</button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="chip-remove" title="Remove clip">×</button>
       </div>
@@ -1162,6 +1474,8 @@ class PasteCraftPopup {
     chip.addEventListener('click', (e) => {
       if (e.target.classList.contains('chip-remove')) {
         this.removeChip(index);
+      } else if (e.target.classList.contains('chip-breakdown-btn')) {
+        this.showBreakdownModal(clip.text);
       } else if (e.target.classList.contains('chip-category-btn')) {
         this.pendingText = clip.text;
         this.pendingClipIndex = index;
@@ -1206,17 +1520,24 @@ class PasteCraftPopup {
     const lastCaptureEl = document.getElementById('lastCapture');
     if (this.clips.length > 0) {
       const lastClip = this.clips[0];
-      const timeAgo = this.getTimeAgo(lastClip.date);
+      const timeAgo = this.getTimeAgo(lastClip.timestamp);
       lastCaptureEl.textContent = `Last: ${timeAgo}`;
     } else {
       lastCaptureEl.textContent = 'No recent captures';
     }
   }
   
-  getTimeAgo(dateString) {
-    const now = new Date();
-    const clipDate = new Date(dateString);
-    const diffMs = now - clipDate;
+  getTimeAgo(timestamp) {
+    // Handle both timestamp (number) and date string formats
+    const now = Date.now();
+    const clipTime = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
+    
+    // Validate timestamp
+    if (isNaN(clipTime)) {
+      return 'unknown';
+    }
+    
+    const diffMs = now - clipTime;
     const diffMins = Math.floor(diffMs / 60000);
     
     if (diffMins < 1) return 'just now';
@@ -1442,6 +1763,7 @@ class PasteCraftPopup {
         </div>
       </div>
       <div class="search-result-actions">
+        <button class="chip-breakdown-btn" title="Breakdown text">🧠</button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="btn-copy" title="Copy to clipboard">📋</button>
       </div>
@@ -1451,6 +1773,12 @@ class PasteCraftPopup {
     item.querySelector('.btn-copy').addEventListener('click', (e) => {
       e.stopPropagation();
       this.copyClipToClipboard(clip.text);
+    });
+
+    // Breakdown functionality
+    item.querySelector('.chip-breakdown-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showBreakdownModal(clip.text);
     });
 
     // Category assignment
@@ -1662,19 +1990,7 @@ class PasteCraftPopup {
   }
 
   // Utility Functions
-  getTimeAgo(timestamp) {
-    const now = Date.now();
-    const diff = now - timestamp;
-    
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  }
+  // getTimeAgo moved up to line ~1483 to avoid duplication
 
   escapeHtml(text) {
     const div = document.createElement('div');
@@ -1742,6 +2058,227 @@ class PasteCraftPopup {
     
     // Clear selected state from options
     document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
+  }
+
+  // Breakdown Modal Functions
+  showBreakdownModal(text) {
+    this.currentBreakdownText = text;
+    this.currentBreakdownLevel = null;
+    this.breakdownCache = {}; // Cache explanations to avoid re-generating
+    
+    // Set original text
+    document.getElementById('breakdownOriginalText').textContent = text;
+    
+    // Set text length
+    const wordCount = text.trim().split(/\s+/).length;
+    document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
+    
+    // Clear previous result
+    document.getElementById('breakdownResult').textContent = '';
+    
+    // Reset tabs - no active tab initially
+    document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
+    
+    // Show initial level info
+    document.getElementById('levelInfoText').innerHTML = `
+      <strong>Choose a level:</strong> Select a comprehension level above to get an AI-powered explanation tailored to that audience
+    `;
+    
+    // Show modal
+    document.getElementById('breakdownModal').style.display = 'flex';
+  }
+
+  showBreakdownModalWithLevel(text, level) {
+    this.currentBreakdownText = text;
+    this.currentBreakdownLevel = level;
+    this.breakdownCache = {}; // Cache explanations to avoid re-generating
+    
+    // Set original text
+    document.getElementById('breakdownOriginalText').textContent = text;
+    
+    // Set text length
+    const wordCount = text.trim().split(/\s+/).length;
+    document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
+    
+    // Clear previous result
+    document.getElementById('breakdownResult').textContent = '';
+    
+    // Set active tab to the selected level
+    document.querySelectorAll('.breakdown-tab').forEach(tab => {
+      if (tab.dataset.level === level) {
+        tab.classList.add('active');
+      } else {
+        tab.classList.remove('active');
+      }
+    });
+    
+    // Update level info for the pre-selected level
+    this.updateLevelInfo(level);
+    
+    // Show modal
+    document.getElementById('breakdownModal').style.display = 'flex';
+    
+    // Auto-generate explanation for the selected level
+    this.generateBreakdown(level);
+  }
+
+  hideBreakdownModal() {
+    document.getElementById('breakdownModal').style.display = 'none';
+    this.currentBreakdownText = null;
+    this.currentBreakdownLevel = null;
+    this.breakdownCache = {};
+  }
+
+  updateLevelInfo(level) {
+    const levelDescriptions = {
+      eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
+      elementary: '<strong>Elementary School Level:</strong> Clear explanation for kids ages 8-11 with relatable examples',
+      highschool: '<strong>High School Level:</strong> More sophisticated explanation with relevant concepts for teenagers',
+      college: '<strong>College Level:</strong> Academic explanation with detailed analysis and nuanced understanding',
+      phd: '<strong>PhD/Expert Level:</strong> Technical analysis with advanced concepts and scholarly depth',
+      wiseman: '<strong>Wise Man:</strong> Philosophical wisdom with metaphors, life lessons, and profound insights'
+    };
+
+    document.getElementById('levelInfoText').innerHTML = levelDescriptions[level] || '';
+  }
+
+  async generateBreakdown(level) {
+    // Check cache first
+    if (this.breakdownCache[level]) {
+      document.getElementById('breakdownResult').textContent = this.breakdownCache[level];
+      return;
+    }
+
+    const loadingEl = document.getElementById('breakdownLoading');
+    const resultEl = document.getElementById('breakdownResult');
+
+    try {
+      // Show loading
+      loadingEl.style.display = 'flex';
+      resultEl.textContent = '';
+
+      // Generate explanation
+      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
+
+      // Cache the result
+      this.breakdownCache[level] = explanation;
+
+      // Show result
+      resultEl.textContent = explanation;
+      loadingEl.style.display = 'none';
+
+    } catch (error) {
+      console.error('Failed to generate breakdown:', error);
+      resultEl.textContent = '❌ Failed to generate explanation. Please check your OpenAI API key configuration.';
+      loadingEl.style.display = 'none';
+      this.showToast('Failed to generate explanation');
+    }
+  }
+
+  copyBreakdownText() {
+    const text = document.getElementById('breakdownResult').textContent;
+    if (text) {
+      navigator.clipboard.writeText(text);
+      this.showToast('Explanation copied to clipboard!');
+    }
+  }
+
+  // AI Summary Methods
+  showSummarySection(section) {
+    const inputSection = document.getElementById('summaryInputSection');
+    const questionsSection = document.getElementById('summaryQuestionsSection');
+    const resultSection = document.getElementById('summaryResultSection');
+
+    // Hide all sections
+    if (inputSection) inputSection.style.display = 'none';
+    if (questionsSection) questionsSection.style.display = 'none';
+    if (resultSection) resultSection.style.display = 'none';
+
+    // Show requested section
+    if (section === 'input' && inputSection) {
+      inputSection.style.display = 'block';
+    } else if (section === 'questions' && questionsSection) {
+      questionsSection.style.display = 'block';
+    } else if (section === 'result' && resultSection) {
+      resultSection.style.display = 'block';
+    }
+  }
+
+  async generateSummaryQuestions(text) {
+    try {
+      this.showSummarySection('questions');
+      const questionsLoading = document.getElementById('questionsLoading');
+      const questionsList = document.getElementById('questionsList');
+      
+      // Show loading
+      if (questionsLoading) questionsLoading.style.display = 'flex';
+      if (questionsList) questionsList.innerHTML = '';
+
+      // Generate questions using AI
+      const questions = await pasteCraftSupabase.generateSummaryQuestions(text);
+      this.generatedQuestions = questions;
+
+      // Hide loading
+      if (questionsLoading) questionsLoading.style.display = 'none';
+
+      // Display questions
+      if (questionsList) {
+        questions.forEach(question => {
+          const chip = document.createElement('button');
+          chip.className = 'question-chip';
+          chip.textContent = question;
+          chip.addEventListener('click', () => {
+            this.currentSummaryQuestion = question;
+            this.generateSummary(text, question);
+          });
+          questionsList.appendChild(chip);
+        });
+      }
+
+      // Clear custom question input
+      const customInput = document.getElementById('customQuestionInput');
+      if (customInput) {
+        customInput.value = '';
+        document.getElementById('customQuestionBtn').disabled = true;
+      }
+
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      this.showToast('Failed to generate questions. Please check your API key.');
+      this.showSummarySection('input');
+    }
+  }
+
+  async generateSummary(text, question) {
+    try {
+      this.showSummarySection('result');
+      const summaryLoading = document.getElementById('summaryLoading');
+      const summaryContent = document.getElementById('summaryResultContent');
+
+      // Show loading
+      if (summaryLoading) summaryLoading.style.display = 'flex';
+      if (summaryContent) summaryContent.textContent = '';
+
+      // Generate summary using AI
+      const summary = await pasteCraftSupabase.generateSummary(text, question);
+
+      // Hide loading
+      if (summaryLoading) summaryLoading.style.display = 'none';
+
+      // Display summary
+      if (summaryContent) {
+        summaryContent.textContent = summary;
+      }
+
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
+      const summaryContent = document.getElementById('summaryResultContent');
+      if (summaryContent) {
+        summaryContent.textContent = '❌ Failed to generate summary. Please check your OpenAI API key configuration.';
+      }
+      document.getElementById('summaryLoading').style.display = 'none';
+      this.showToast('Failed to generate summary');
+    }
   }
 
   populateCategoryOptions() {
@@ -2065,8 +2602,14 @@ class PasteCraftPopup {
       
       const html = `
         <div class="category-clip" data-clip-id="${clip.id}">
-          <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
-          <div class="category-clip-time">${timeAgo}</div>
+          <div class="category-clip-content">
+            <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
+            <div class="category-clip-time">${timeAgo}</div>
+          </div>
+          <div class="category-clip-actions">
+            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="Breakdown text">🧠</button>
+            <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy">📋</button>
+          </div>
         </div>
       `;
       console.log(`🏗️ Creating category clip with ID: ${clip.id} (type: ${typeof clip.id})`);
@@ -2103,9 +2646,41 @@ class PasteCraftPopup {
   attachClipHandlers(dropdown, category) {
     const clips = dropdown.querySelectorAll('.category-clip');
     clips.forEach(clipElement => {
+      // Handle breakdown button
+      const breakdownBtn = clipElement.querySelector('.category-clip-breakdown-btn');
+      if (breakdownBtn) {
+        breakdownBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const clipId = parseFloat(clipElement.dataset.clipId);
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clip = allClips.find(c => c.id === clipId);
+          if (clip) {
+            this.showBreakdownModal(clip.text);
+          }
+        });
+      }
+
+      // Handle copy button
+      const copyBtn = clipElement.querySelector('.category-clip-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const clipId = parseFloat(clipElement.dataset.clipId);
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clip = allClips.find(c => c.id === clipId);
+          if (clip) {
+            this.copyClipToClipboard(clip.text);
+          }
+        });
+      }
+
+      // Handle clip selection (clicking on clip itself, not buttons)
       clipElement.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggleClipSelection(clipElement, category);
+        // Only toggle selection if not clicking on buttons
+        if (!e.target.closest('.category-clip-actions')) {
+          e.stopPropagation();
+          this.toggleClipSelection(clipElement, category);
+        }
       });
     });
   }
@@ -3149,8 +3724,15 @@ class PasteCraftPopup {
   renderAIGallery(gallery) {
     const galleryGrid = document.getElementById('aiGalleryGrid');
     const galleryCount = document.getElementById('aiGalleryCount');
+    const paginationContainer = document.getElementById('aiGalleryPagination');
     
     if (!galleryGrid || !galleryCount) return;
+    
+    const imagesPerPage = 4;
+    const totalPages = Math.ceil(gallery.length / imagesPerPage);
+    
+    if (!this.currentGalleryPage) this.currentGalleryPage = 1;
+    if (this.currentGalleryPage > totalPages && totalPages > 0) this.currentGalleryPage = totalPages;
     
     galleryCount.textContent = `${gallery.length} image${gallery.length !== 1 ? 's' : ''}`;
     
@@ -3162,19 +3744,170 @@ class PasteCraftPopup {
           <p>Generate your first AI image to start your gallery</p>
         </div>
       `;
+      if (paginationContainer) paginationContainer.style.display = 'none';
       return;
     }
     
-    galleryGrid.innerHTML = gallery.map((item, index) => `
-      <div class="ai-gallery-item" data-index="${index}">
-        <img src="${item.url}" alt="AI Generated ${index + 1}" />
+    const startIndex = (this.currentGalleryPage - 1) * imagesPerPage;
+    const endIndex = startIndex + imagesPerPage;
+    const currentPageImages = gallery.slice(startIndex, endIndex);
+    const currentProfileUrl = this.userProfile?.profileImageUrl;
+    
+    galleryGrid.innerHTML = currentPageImages.map((item, pageIndex) => {
+      const actualIndex = startIndex + pageIndex;
+      const isCurrentProfile = item.url === currentProfileUrl;
+      return `
+      <div class="ai-gallery-item ${isCurrentProfile ? 'is-profile' : ''}" data-index="${actualIndex}">
+        <img src="${item.url}" alt="AI Generated ${actualIndex + 1}" />
+        ${isCurrentProfile ? '<div class="ai-profile-badge">✓ Profile</div>' : ''}
         <div class="ai-gallery-item-actions">
-          <button class="ai-gallery-action-btn delete" onclick="pasteCraftPopup.deleteFromGallery(${index})" title="Delete">
+          <button class="ai-gallery-action-btn set-profile" data-action="set-profile" data-index="${actualIndex}" title="Set as Profile Image">
+            👤
+          </button>
+          <button class="ai-gallery-action-btn delete" data-action="delete" data-index="${actualIndex}" title="Delete">
             🗑️
           </button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
+    
+    this.setupGalleryEventListeners();
+    this.renderGalleryPagination(totalPages);
+  }
+
+  setupGalleryEventListeners() {
+    const galleryGrid = document.getElementById('aiGalleryGrid');
+    if (!galleryGrid) return;
+    
+    galleryGrid.removeEventListener('click', this.handleGalleryClick);
+    this.handleGalleryClick = (e) => {
+      const button = e.target.closest('.ai-gallery-action-btn');
+      if (!button) return;
+      
+      e.stopPropagation();
+      const action = button.dataset.action;
+      const index = parseInt(button.dataset.index);
+      
+      if (action === 'set-profile') {
+        this.setAsProfile(index);
+      } else if (action === 'delete') {
+        this.deleteFromGallery(index);
+      }
+    };
+    
+    galleryGrid.addEventListener('click', this.handleGalleryClick);
+  }
+
+  renderGalleryPagination(totalPages) {
+    const paginationContainer = document.getElementById('aiGalleryPagination');
+    if (!paginationContainer) return;
+    
+    if (totalPages <= 1) {
+      paginationContainer.style.display = 'none';
+      return;
+    }
+    
+    paginationContainer.style.display = 'flex';
+    
+    let paginationHTML = '';
+    
+    paginationHTML += `
+      <button class="pagination-btn" ${this.currentGalleryPage === 1 ? 'disabled' : ''} 
+        data-page="${this.currentGalleryPage - 1}">
+        ◀
+      </button>
+    `;
+    
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, this.currentGalleryPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    if (startPage > 1) {
+      paginationHTML += `<button class="pagination-btn" data-page="1">1</button>`;
+      if (startPage > 2) paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      paginationHTML += `
+        <button class="pagination-btn ${i === this.currentGalleryPage ? 'active' : ''}" 
+          data-page="${i}">
+          ${i}
+        </button>
+      `;
+    }
+    
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+      paginationHTML += `<button class="pagination-btn" data-page="${totalPages}">${totalPages}</button>`;
+    }
+    
+    paginationHTML += `
+      <button class="pagination-btn" ${this.currentGalleryPage === totalPages ? 'disabled' : ''} 
+        data-page="${this.currentGalleryPage + 1}">
+        ▶
+      </button>
+    `;
+    
+    paginationContainer.innerHTML = paginationHTML;
+    
+    this.setupPaginationEventListeners();
+  }
+
+  setupPaginationEventListeners() {
+    const paginationContainer = document.getElementById('aiGalleryPagination');
+    if (!paginationContainer) return;
+    
+    paginationContainer.removeEventListener('click', this.handlePaginationClick);
+    this.handlePaginationClick = (e) => {
+      const button = e.target.closest('.pagination-btn');
+      if (!button || button.disabled) return;
+      
+      const page = parseInt(button.dataset.page);
+      if (!isNaN(page)) {
+        this.goToGalleryPage(page);
+      }
+    };
+    
+    paginationContainer.addEventListener('click', this.handlePaginationClick);
+  }
+
+  async goToGalleryPage(page) {
+    this.currentGalleryPage = page;
+    const result = await chrome.storage.local.get('aiGallery');
+    const gallery = result.aiGallery || [];
+    this.renderAIGallery(gallery);
+  }
+
+  async setAsProfile(index) {
+    try {
+      const result = await chrome.storage.local.get('aiGallery');
+      const gallery = result.aiGallery || [];
+      
+      if (index >= 0 && index < gallery.length) {
+        const imageUrl = gallery[index].url;
+        
+        if (!this.userProfile) {
+          this.userProfile = {};
+        }
+        
+        this.userProfile.profileImageUrl = imageUrl;
+        await this.saveUserProfile();
+        
+        this.displayImageTopLeft(imageUrl);
+        
+        this.renderAIGallery(gallery);
+        
+        this.showToast('✓ Profile image updated!', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to set profile image:', error);
+      this.showToast('❌ Failed to set profile image', 'error');
+    }
   }
 
   async deleteFromGallery(index) {

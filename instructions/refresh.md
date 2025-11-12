@@ -3,7 +3,6 @@
 ## 🐛 Current Issues Requiring Attention:
 
 {
-No active bugs at this time. All reported issues have been resolved.
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

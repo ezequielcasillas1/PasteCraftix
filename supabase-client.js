@@ -6,7 +6,12 @@ class PasteCraftSupabase {
   constructor() {
     this.client = null;
     this.initialized = false;
+    this.isOnline = navigator.onLine;
+    this.syncQueue = [];
+    this.realtimeChannels = [];
+    this.syncStatus = 'synced'; // 'offline', 'syncing', 'synced'
     this.init();
+    this.setupConnectionMonitor();
   }
   
   async init() {
@@ -39,10 +44,349 @@ class PasteCraftSupabase {
       this.initialized = true;
       console.log('✅ Supabase client initialized');
       
+      // Setup realtime subscriptions after initialization
+      await this.setupRealtimeSubscriptions();
+      
     } catch (error) {
       console.error('❌ Failed to initialize Supabase:', error);
       this.initialized = true; // Still allow OpenAI features to work
     }
+  }
+  
+  // =====================================================
+  // CONNECTION & OFFLINE MODE
+  // =====================================================
+  
+  setupConnectionMonitor() {
+    // Load sync queue from storage
+    this.loadSyncQueue();
+    
+    // Monitor online/offline events
+    window.addEventListener('online', () => {
+      console.log('🟢 Connection restored');
+      this.isOnline = true;
+      this.updateSyncStatus('syncing');
+      this.processSyncQueue();
+    });
+    
+    window.addEventListener('offline', () => {
+      console.log('🔴 Connection lost');
+      this.isOnline = false;
+      this.updateSyncStatus('offline');
+    });
+    
+    // Initial status update
+    this.updateSyncStatus(this.isOnline ? 'synced' : 'offline');
+  }
+  
+  async loadSyncQueue() {
+    try {
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get(['syncQueue'], resolve);
+      });
+      this.syncQueue = result.syncQueue || [];
+      console.log(`📦 Loaded ${this.syncQueue.length} pending sync operations`);
+      
+      // Process queue if online
+      if (this.isOnline && this.syncQueue.length > 0) {
+        setTimeout(() => this.processSyncQueue(), 1000);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load sync queue:', error);
+      this.syncQueue = [];
+    }
+  }
+  
+  async saveSyncQueue() {
+    try {
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ syncQueue: this.syncQueue }, resolve);
+      });
+    } catch (error) {
+      console.error('❌ Failed to save sync queue:', error);
+    }
+  }
+  
+  async addToSyncQueue(operation) {
+    this.syncQueue.push({
+      ...operation,
+      timestamp: Date.now(),
+      id: Date.now() + Math.random()
+    });
+    await this.saveSyncQueue();
+    console.log(`➕ Added to sync queue: ${operation.type} (${this.syncQueue.length} pending)`);
+  }
+  
+  async processSyncQueue() {
+    if (!this.isOnline || this.syncQueue.length === 0) {
+      return;
+    }
+    
+    console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
+    this.updateSyncStatus('syncing');
+    
+    const queue = [...this.syncQueue];
+    this.syncQueue = [];
+    
+    for (const operation of queue) {
+      try {
+        await this.executeSyncOperation(operation);
+        console.log(`✅ Processed: ${operation.type}`);
+      } catch (error) {
+        console.error(`❌ Failed to process ${operation.type}:`, error);
+        // Re-queue failed operations
+        this.syncQueue.push(operation);
+      }
+    }
+    
+    await this.saveSyncQueue();
+    this.updateSyncStatus(this.syncQueue.length > 0 ? 'syncing' : 'synced');
+    console.log(`✅ Queue processed. ${this.syncQueue.length} operations remaining.`);
+  }
+  
+  async executeSyncOperation(operation) {
+    switch (operation.type) {
+      case 'syncClips':
+        await this.syncClipsToSupabase(operation.data);
+        break;
+      case 'syncCategories':
+        await this.syncCategoriesToSupabase(operation.data);
+        break;
+      case 'syncArchivedClips':
+        await this.syncArchivedClipsToSupabase(operation.data);
+        break;
+      case 'syncSettings':
+        await this.syncSettingsToSupabase(operation.data);
+        break;
+      case 'syncProfile':
+        await this.syncUserProfileToSupabase(operation.data);
+        break;
+      default:
+        console.warn('Unknown sync operation type:', operation.type);
+    }
+  }
+  
+  updateSyncStatus(status) {
+    this.syncStatus = status;
+    // Emit event for UI to update
+    window.dispatchEvent(new CustomEvent('syncStatusChanged', { 
+      detail: { status, queueLength: this.syncQueue.length } 
+    }));
+  }
+  
+  async syncWithQueue(type, data, syncMethod) {
+    if (!this.isOnline) {
+      // Offline: add to queue
+      await this.addToSyncQueue({ type, data });
+      return false;
+    }
+    
+    try {
+      // Online: sync immediately
+      this.updateSyncStatus('syncing');
+      await syncMethod.call(this, data);
+      this.updateSyncStatus('synced');
+      return true;
+    } catch (error) {
+      console.error(`❌ Sync failed, adding to queue:`, error);
+      await this.addToSyncQueue({ type, data });
+      return false;
+    }
+  }
+  
+  // =====================================================
+  // REALTIME SUBSCRIPTIONS
+  // =====================================================
+  
+  async setupRealtimeSubscriptions() {
+    if (!this.client || !this.isOnline) {
+      console.warn('⚠️ Skipping realtime subscriptions - offline or not initialized');
+      return;
+    }
+    
+    try {
+      console.log('🔔 Setting up realtime subscriptions...');
+      const userId = await this.getChromeUserId();
+      
+      // Subscribe to clips changes
+      const clipsChannel = this.client
+        .channel('clips-changes')
+        .on('postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'clips',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleClipsChange(payload)
+        )
+        .subscribe();
+      
+      // Subscribe to categories changes
+      const categoriesChannel = this.client
+        .channel('categories-changes')
+        .on('postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'categories',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleCategoriesChange(payload)
+        )
+        .subscribe();
+      
+      // Subscribe to archived clips changes
+      const archivedChannel = this.client
+        .channel('archived-clips-changes')
+        .on('postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'archived_clips',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleArchivedClipsChange(payload)
+        )
+        .subscribe();
+      
+      // Subscribe to settings changes
+      const settingsChannel = this.client
+        .channel('settings-changes')
+        .on('postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'user_settings',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleSettingsChange(payload)
+        )
+        .subscribe();
+      
+      // Subscribe to profile changes
+      const profileChannel = this.client
+        .channel('profile-changes')
+        .on('postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'user_profiles',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleProfileChange(payload)
+        )
+        .subscribe();
+      
+      this.realtimeChannels = [
+        clipsChannel, 
+        categoriesChannel, 
+        archivedChannel, 
+        settingsChannel, 
+        profileChannel
+      ];
+      
+      console.log('✅ Realtime subscriptions active');
+    } catch (error) {
+      console.error('❌ Failed to setup realtime subscriptions:', error);
+    }
+  }
+  
+  async handleClipsChange(payload) {
+    console.log('🔔 Clips changed:', payload.eventType);
+    
+    // Refresh clips from Supabase
+    const remoteClips = await this.syncClipsFromSupabase();
+    if (remoteClips) {
+      const localData = await new Promise((resolve) => {
+        chrome.storage.local.get(['clips'], resolve);
+      });
+      const mergedClips = await this.mergeClips(localData.clips || [], remoteClips);
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ clips: mergedClips }, resolve);
+      });
+      
+      // Notify UI to refresh
+      window.dispatchEvent(new CustomEvent('dataChanged', { 
+        detail: { type: 'clips' } 
+      }));
+    }
+  }
+  
+  async handleCategoriesChange(payload) {
+    console.log('🔔 Categories changed:', payload.eventType);
+    
+    const remoteCategories = await this.syncCategoriesFromSupabase();
+    if (remoteCategories) {
+      const localData = await new Promise((resolve) => {
+        chrome.storage.local.get(['categories'], resolve);
+      });
+      const mergedCategories = await this.mergeCategories(localData.categories || [], remoteCategories);
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ categories: mergedCategories }, resolve);
+      });
+      
+      window.dispatchEvent(new CustomEvent('dataChanged', { 
+        detail: { type: 'categories' } 
+      }));
+    }
+  }
+  
+  async handleArchivedClipsChange(payload) {
+    console.log('🔔 Archived clips changed:', payload.eventType);
+    
+    const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
+    if (remoteArchivedClips) {
+      const localData = await new Promise((resolve) => {
+        chrome.storage.local.get(['searchOnlyClips'], resolve);
+      });
+      const mergedArchivedClips = await this.mergeArchivedClips(localData.searchOnlyClips || [], remoteArchivedClips);
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ searchOnlyClips: mergedArchivedClips }, resolve);
+      });
+      
+      window.dispatchEvent(new CustomEvent('dataChanged', { 
+        detail: { type: 'archivedClips' } 
+      }));
+    }
+  }
+  
+  async handleSettingsChange(payload) {
+    console.log('🔔 Settings changed:', payload.eventType);
+    
+    const remoteSettings = await this.syncSettingsFromSupabase();
+    if (remoteSettings) {
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ settings: remoteSettings }, resolve);
+      });
+      
+      window.dispatchEvent(new CustomEvent('dataChanged', { 
+        detail: { type: 'settings' } 
+      }));
+    }
+  }
+  
+  async handleProfileChange(payload) {
+    console.log('🔔 Profile changed:', payload.eventType);
+    
+    const remoteProfile = await this.syncUserProfileFromSupabase();
+    if (remoteProfile) {
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ userProfile: remoteProfile }, resolve);
+      });
+      
+      window.dispatchEvent(new CustomEvent('dataChanged', { 
+        detail: { type: 'profile' } 
+      }));
+    }
+  }
+  
+  unsubscribeAll() {
+    this.realtimeChannels.forEach(channel => {
+      this.client.removeChannel(channel);
+    });
+    this.realtimeChannels = [];
+    console.log('🔕 All realtime subscriptions removed');
   }
   
   // User Profile Methods
@@ -296,6 +640,172 @@ class PasteCraftSupabase {
 
     } catch (error) {
       console.error('Failed to analyze photo:', error);
+      throw error;
+    }
+  }
+
+  async breakdownText(text, level = 'eli5') {
+    try {
+      if (typeof PASTECRAFT_CONFIG === 'undefined' || !PASTECRAFT_CONFIG.openai.apiKey || PASTECRAFT_CONFIG.openai.apiKey.includes('YOUR_OPENAI_API_KEY_HERE')) {
+        console.error('❌ OpenAI API key not configured');
+        throw new Error('OpenAI API key not configured. Please update config.js with your real API key.');
+      }
+
+      console.log(`🧠 Breaking down text at ${level} level...`);
+
+      const levelPrompts = {
+        eli5: 'Explain this text as if you\'re talking to a 5-year-old child. Use very simple words, short sentences, and fun examples. Make it easy to understand.',
+        elementary: 'Explain this text at an elementary school level (grades 3-5). Use simple vocabulary, clear sentences, and relatable examples for kids ages 8-11.',
+        highschool: 'Explain this text at a high school level (grades 9-12). Use more sophisticated vocabulary and concepts that teenagers would understand. Include relevant examples.',
+        college: 'Explain this text at a college/undergraduate level. Use academic vocabulary, detailed explanations, and provide context with nuanced understanding.',
+        phd: 'Explain this text at a PhD/expert level. Use technical terminology, advanced concepts, theoretical frameworks, and scholarly depth. Assume extensive background knowledge.',
+        wiseman: 'Explain this text as a wise philosopher or sage would - with deep wisdom, metaphors, life lessons, and profound insights. Connect it to universal truths and human experience.'
+      };
+
+      const prompt = levelPrompts[level] || levelPrompts.eli5;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${PASTECRAFT_CONFIG.openai.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: prompt
+            },
+            {
+              role: 'user',
+              content: `Please explain this text:\n\n${text}`
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const explanation = data.choices[0].message.content.trim();
+      console.log('✅ Text breakdown complete');
+      return explanation;
+
+    } catch (error) {
+      console.error('Failed to breakdown text:', error);
+      throw error;
+    }
+  }
+
+  async generateSummaryQuestions(text) {
+    try {
+      if (typeof PASTECRAFT_CONFIG === 'undefined' || !PASTECRAFT_CONFIG.openai.apiKey || PASTECRAFT_CONFIG.openai.apiKey.includes('YOUR_OPENAI_API_KEY_HERE')) {
+        console.error('❌ OpenAI API key not configured');
+        throw new Error('OpenAI API key not configured. Please update config.js with your real API key.');
+      }
+
+      console.log('🤔 Generating summary questions...');
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${PASTECRAFT_CONFIG.openai.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an AI assistant that generates relevant summary questions. Generate exactly 6 diverse, specific questions about the text that users might want answered in a summary. Return ONLY a JSON array of strings, no additional text.'
+            },
+            {
+              role: 'user',
+              content: `Generate 6 diverse summary questions for this text:\n\n${text.substring(0, 3000)}`
+            }
+          ],
+          max_tokens: 300,
+          temperature: 0.8
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0].message.content.trim();
+      
+      // Parse JSON array from response
+      let questions;
+      try {
+        questions = JSON.parse(content);
+      } catch (e) {
+        // Fallback: extract questions from text
+        const lines = content.split('\n').filter(line => line.trim());
+        questions = lines.map(line => line.replace(/^[\d\.\-\*]+\s*/, '').replace(/^["']|["']$/g, '').trim()).filter(q => q.length > 0);
+      }
+
+      console.log('✅ Generated', questions.length, 'questions');
+      return questions.slice(0, 6);
+
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      throw error;
+    }
+  }
+
+  async generateSummary(text, question) {
+    try {
+      if (typeof PASTECRAFT_CONFIG === 'undefined' || !PASTECRAFT_CONFIG.openai.apiKey || PASTECRAFT_CONFIG.openai.apiKey.includes('YOUR_OPENAI_API_KEY_HERE')) {
+        console.error('❌ OpenAI API key not configured');
+        throw new Error('OpenAI API key not configured. Please update config.js with your real API key.');
+      }
+
+      console.log('📝 Generating summary for question:', question);
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${PASTECRAFT_CONFIG.openai.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an AI assistant that creates clear, concise, and well-structured summaries. Answer the user\'s question about the provided text in a comprehensive yet readable way.'
+            },
+            {
+              role: 'user',
+              content: `Text to summarize:\n\n${text}\n\n---\n\nQuestion: ${question}\n\nProvide a clear and detailed answer based on the text above.`
+            }
+          ],
+          max_tokens: 800,
+          temperature: 0.7
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const summary = data.choices[0].message.content.trim();
+      console.log('✅ Summary generated');
+      return summary;
+
+    } catch (error) {
+      console.error('Failed to generate summary:', error);
       throw error;
     }
   }
