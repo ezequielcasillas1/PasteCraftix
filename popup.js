@@ -53,6 +53,7 @@ class PasteCraftPopup {
     if (resetCallback) {
       console.log('🔑 Password reset callback detected from storage');
       // Show new password modal
+      this.hideLoadingOverlay();
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
     }
@@ -80,6 +81,7 @@ class PasteCraftPopup {
       }
       
       // Show new password modal
+      this.hideLoadingOverlay();
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
     }
@@ -128,7 +130,10 @@ class PasteCraftPopup {
     this.renderCategories();
     this.updateCategoryFilter();
     
-    // 🔄 SYNC WITH SUPABASE IN BACKGROUND
+    // 🎯 HIDE LOADING OVERLAY (local data loaded, ready to show)
+    this.hideLoadingOverlay();
+    
+    // 🔄 SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
     this.performBackgroundSync();
     
     // Reload data whenever popup becomes visible
@@ -171,6 +176,18 @@ class PasteCraftPopup {
     }
   }
   
+  hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 0.3s ease';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        console.log('✅ Loading overlay hidden');
+      }, 300);
+    }
+  }
+  
   setupVisibilityListener() {
     // Reload data when popup is shown
     document.addEventListener('visibilitychange', async () => {
@@ -198,6 +215,12 @@ class PasteCraftPopup {
     window.addEventListener('syncStatusChanged', (event) => {
       const { status, queueLength } = event.detail;
       this.updateSyncIndicator(status, queueLength);
+    });
+    
+    // Listen for sync progress updates
+    window.addEventListener('syncProgress', (event) => {
+      const { current, total, percentage } = event.detail;
+      this.updateSyncProgress(current, total, percentage);
     });
   }
   
@@ -256,6 +279,24 @@ class PasteCraftPopup {
       queueCount.style.display = 'inline-block';
     } else if (queueCount) {
       queueCount.style.display = 'none';
+    }
+  }
+  
+  updateSyncProgress(current, total, percentage) {
+    const progressContainer = document.getElementById('syncProgressContainer');
+    const progressFill = document.getElementById('syncProgressFill');
+    const progressText = document.getElementById('syncProgressText');
+    
+    if (!progressContainer || !progressFill || !progressText) return;
+    
+    // Show progress bar if syncing large dataset
+    if (total > 100 && current < total) {
+      progressContainer.style.display = 'block';
+      progressFill.style.width = `${percentage}%`;
+      progressText.textContent = `${current} / ${total} (${percentage}%)`;
+    } else {
+      // Hide progress bar when done
+      progressContainer.style.display = 'none';
     }
   }
   
@@ -530,6 +571,14 @@ class PasteCraftPopup {
         } else {
           customInput.style.display = 'none';
         }
+      }
+    });
+    
+    // Custom delimiter input
+    document.getElementById('customDelimiter').addEventListener('input', () => {
+      if (this.delimiter === 'custom') {
+        this.updatePreview();
+        this.updatePreviewFromSelection();
       }
     });
     
@@ -984,6 +1033,7 @@ class PasteCraftPopup {
   
   showAuthModal() {
     console.log('🔐 Showing auth modal...');
+    this.hideLoadingOverlay();
     document.getElementById('authModal').style.display = 'flex';
   }
   
@@ -1496,7 +1546,19 @@ class PasteCraftPopup {
       this.selectedChips.add(index);
       chipElement.classList.add('selected');
     }
+    this.syncOptionToggles();
     this.updatePreview();
+  }
+  
+  syncOptionToggles() {
+    // Sync UI toggle states with internal options
+    const deduplicateToggle = document.getElementById('deduplicateToggle');
+    const sortToggle = document.getElementById('sortToggle');
+    const uppercaseToggle = document.getElementById('uppercaseToggle');
+    
+    if (deduplicateToggle) deduplicateToggle.checked = this.options.deduplicate;
+    if (sortToggle) sortToggle.checked = this.options.sort;
+    if (uppercaseToggle) uppercaseToggle.checked = this.options.uppercase;
   }
   
   async removeChip(index) {

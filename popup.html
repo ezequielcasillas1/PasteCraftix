@@ -159,6 +159,33 @@
             margin-left: 4px;
         }
         
+        .sync-progress-container {
+            margin-top: 6px;
+        }
+        
+        .sync-progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+        
+        .sync-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .sync-progress-text {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+        
         .settings-btn {
             background: rgba(255, 255, 255, 0.2);
             border: none;
@@ -3719,9 +3746,24 @@
             }
         }
         
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        
     </style>
 </head>
 <body>
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; gap: 20px;">
+        <div style="width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <div style="color: white; font-size: 16px; font-weight: 600; text-align: center;">Loading your clips...</div>
+    </div>
+    
     <div class="popup-container">
         <!-- Top Bar Section (Profile & Sign Out) -->
         <div id="topBar" class="top-bar" style="display: none;">
@@ -3750,6 +3792,12 @@
                         <span class="sync-status-text" id="syncStatusText">Synced</span>
                         <span class="sync-queue-count" id="syncQueueCount" style="display: none;"></span>
                     </div>
+                    <div class="sync-progress-container" id="syncProgressContainer" style="display: none;">
+                        <div class="sync-progress-bar">
+                            <div class="sync-progress-fill" id="syncProgressFill"></div>
+                        </div>
+                        <span class="sync-progress-text" id="syncProgressText">0 / 0 (0%)</span>
+                    </div>
                 </div>
             </div>
             <div class="header-actions">
@@ -3767,10 +3815,10 @@
 
         <!-- Navigation Tabs -->
         <nav class="tab-nav">
-            <button class="tab-btn active" data-tab="clips">📋 Clips</button>
-            <button class="tab-btn" data-tab="search">🔍 Search</button>
-            <button class="tab-btn" data-tab="categories">📁 Categories</button>
-            <button class="tab-btn" data-tab="ai">🤖 AI Lab</button>
+            <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">📋 Clips</button>
+            <button class="tab-btn" data-tab="search" title="Search through all your saved clips">🔍 Search</button>
+            <button class="tab-btn" data-tab="categories" title="Organize clips into categories">📁 Categories</button>
+            <button class="tab-btn" data-tab="ai" title="AI tools: breakdown text and generate summaries">🤖 AI Lab</button>
         </nav>
 
         <!-- Clips Tab -->
@@ -4297,29 +4345,30 @@
         <!-- Format Controls (only show for clips and search tabs) -->
         <section class="format-controls" id="formatSection">
             <div class="control-group">
-                <label class="control-label">Delimiter</label>
+                <label class="control-label" title="Choose how to join multiple clips together">Delimiter</label>
                 <div class="segmented-control" id="delimiterControl">
-                    <button class="segment-btn active" data-delimiter="comma">Comma</button>
-                    <button class="segment-btn" data-delimiter="newline">Newline</button>
-                    <button class="segment-btn" data-delimiter="space">Space</button>
-                    <button class="segment-btn" data-delimiter="custom">Custom</button>
+                    <button class="segment-btn active" data-delimiter="comma" title="Joins clips with comma and space (apple, banana, cherry)">Comma</button>
+                    <button class="segment-btn" data-delimiter="newline" title="Puts each clip on a separate line">Newline</button>
+                    <button class="segment-btn" data-delimiter="space" title="Joins clips with just a space (apple banana cherry)">Space</button>
+                    <button class="segment-btn" data-delimiter="custom" title="Type your own delimiter (e.g., | -> emojis, etc.)">Custom</button>
                 </div>
+                <input type="text" id="customDelimiter" placeholder="Enter custom delimiter (e.g., | or -> or emoji 🎨)" style="display: none; margin-top: 8px; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 13px; width: 100%; box-sizing: border-box;">
             </div>
 
             <div class="control-group">
                 <label class="control-label">Options</label>
                 <div class="toggles">
-                    <label class="toggle">
+                    <label class="toggle" title="Delete duplicates in 1 or more clips">
                         <input type="checkbox" id="deduplicateToggle">
                         <div class="toggle-switch"></div>
                         <span>🔄 Deduplicate</span>
                     </label>
-                    <label class="toggle">
+                    <label class="toggle" title="Pick more than one clip to sort from A to Z">
                         <input type="checkbox" id="sortToggle">
                         <div class="toggle-switch"></div>
                         <span>⬆️ Sort A→Z</span>
                     </label>
-                    <label class="toggle">
+                    <label class="toggle" title="Clips can be uppercased">
                         <input type="checkbox" id="uppercaseToggle">
                         <div class="toggle-switch"></div>
                         <span>Aa UPPERCASE</span>
@@ -4430,6 +4479,56 @@
                                 <li>Your clips remain accessible across all tabs</li>
                                 <li>Use the search tab when you need to find something specific</li>
                                 <li>Use categories to keep your clips organized and easy to find</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>📸 Profile Image Creation</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> Create a personalized profile with a custom avatar generated by AI or upload your own photo.
+                        </div>
+                        <div class="help-item">
+                            <strong>How it works:</strong>
+                            <ul>
+                                <li><strong>Step 1 - Upload Photo:</strong> Upload your own photo to use as your profile picture</li>
+                                <li><strong>Step 2 - AI Remix:</strong> Click "Generate AI Avatar" to transform your photo into a creative cartoon-style animal avatar using AI</li>
+                                <li><strong>AI Vision Analysis:</strong> The AI analyzes your uploaded photo's colors, mood, and features to create a matching avatar</li>
+                                <li><strong>Gallery Storage:</strong> All generated avatars are saved in the AI Lab Gallery for later use</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>Where to find it:</strong> Click your profile icon in the top navigation, then access the "📸 Profile Picture" section.
+                        </div>
+                        <div class="help-item">
+                            <strong>Pro Tip:</strong> You can generate multiple AI avatars with different styles and save your favorites in the gallery!
+                        </div>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>🤖 AI Labs</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> Experimental AI-powered tools for content generation, analysis, and creative work.
+                        </div>
+                        <div class="help-item">
+                            <strong>Features:</strong>
+                            <ul>
+                                <li><strong>🎨 Generator:</strong> Create AI-generated images from text descriptions. Describe what you want to see, and the AI creates it instantly</li>
+                                <li><strong>🖼️ Gallery:</strong> View and manage all your AI-generated images and avatars. Download, delete, or reuse them anytime</li>
+                                <li><strong>📝 Summary:</strong> Paste long text and generate concise summaries. Ask questions about the content and get AI-powered answers</li>
+                                <li><strong>📊 Breakdown:</strong> Analyze and break down complex content into simpler parts. Choose breakdown levels (Simple, Moderate, Deep) to understand difficult concepts</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>How to access:</strong> Click the "🤖 AI" tab in the main navigation. Each AI feature has its own sub-tab.
+                        </div>
+                        <div class="help-item">
+                            <strong>Use cases:</strong>
+                            <ul>
+                                <li>Generate custom images for presentations or projects</li>
+                                <li>Summarize long articles or documents quickly</li>
+                                <li>Break down technical content into easy-to-understand explanations</li>
+                                <li>Create unique avatars and visual content</li>
                             </ul>
                         </div>
                     </div>
