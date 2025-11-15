@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PasteCraft</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
         /* Inline Critical CSS to fix blue box issue */
         * {
@@ -17,6 +20,21 @@
             width: 380px;
             background: white;
             color: #1f2937;
+        }
+
+        /* Poppins for headings and emphasis */
+        h1, h2, h3, h4, h5, h6,
+        .header h1,
+        .tab-btn,
+        .modal-header h3,
+        .ai-section-title,
+        .breakdown-header-content h3,
+        .category-title,
+        .level-chip strong,
+        .btn-primary,
+        .btn-secondary {
+            font-family: 'Poppins', system-ui, sans-serif;
+            font-weight: 600;
         }
         
         .popup-container {
@@ -283,74 +301,147 @@
         .chip {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            margin: 6px;
-            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
-            border: 2px solid #e2e8f0;
-            border-radius: 25px;
+            gap: 6px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+            border: 1.5px solid #e0e7ef;
+            border-radius: 24px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             font-size: 13px;
             font-weight: 500;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
+            margin: 4px;
         }
         
         .chip::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: -100%;
+            top: 50%;
+            left: 50%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-            transition: left 0.5s;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+            filter: blur(12px);
         }
         
         .chip:hover::before {
-            left: 100%;
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.3);
+        }
+        
+        .chip::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 40%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+            transition: left 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 24px;
+            z-index: 0;
+            filter: blur(8px);
+        }
+        
+        .chip:hover::after {
+            left: 150%;
+        }
+        
+        .chip > * {
+            position: relative;
+            z-index: 1;
         }
         
         .chip:hover {
-            border-color: #3b82f6;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 
+                0 0 0 4px rgba(59, 130, 246, 0.04),
+                0 0 0 8px rgba(59, 130, 246, 0.02),
+                0 2px 8px rgba(59, 130, 246, 0.12),
+                0 4px 16px rgba(59, 130, 246, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            transform: translateY(-1px);
         }
         
         .chip.selected {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
-            border-color: #1d4ed8;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            border-color: rgba(37, 99, 235, 0.8);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3), 0 4px 16px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
         
         .chip-text {
-            flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 200px;
+            flex: 1;
+            min-width: 0;
+            max-width: 150px;
         }
         
-        .chip-remove {
-            background: rgba(0, 0, 0, 0.1);
+        .chip-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        
+        .chip-breakdown-btn,
+        .chip-summary-btn,
+        .chip-category-btn {
+            background: none;
             border: none;
-            color: inherit;
             cursor: pointer;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
+            font-size: 16px;
+            padding: 2px 4px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+        }
+        
+        .chip-breakdown-btn:hover,
+        .chip-summary-btn:hover,
+        .chip-category-btn:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+        
+        .chip-remove {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 2px 4px;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
             font-weight: bold;
             transition: all 0.2s ease;
         }
         
         .chip-remove:hover {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+        
+        .chip.selected .chip-remove:hover {
             background: rgba(239, 68, 68, 0.8);
             color: white;
             transform: scale(1.1);
@@ -2970,6 +3061,109 @@
             }
         }
 
+        /* Breakdown Modal Styles */
+        .breakdown-original-text {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px 18px;
+            margin-bottom: 16px;
+        }
+
+        .breakdown-original-text-content {
+            font-size: 14px;
+            color: #1f2937;
+            margin: 0;
+            line-height: 1.6;
+            max-height: 250px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 12px 16px 16px 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            transition: font-style 0.3s ease, font-family 0.3s ease;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+            box-sizing: border-box;
+            display: block;
+        }
+
+        .breakdown-original-text-content::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .breakdown-original-text-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin: 4px 0;
+        }
+
+        .breakdown-original-text-content::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+            border-radius: 8px;
+            border: 2px solid #f1f5f9;
+        }
+
+        .breakdown-original-text-content::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+        }
+
+        .breakdown-original-text-content.italics {
+            font-style: italic;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            letter-spacing: 0.02em;
+        }
+
+        .breakdown-result {
+            font-size: 15px;
+            line-height: 1.8;
+            color: #1e293b;
+            white-space: pre-wrap;
+            padding: 4px;
+            transition: font-style 0.3s ease, font-family 0.3s ease;
+        }
+
+        .breakdown-result.italics {
+            font-style: italic;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            letter-spacing: 0.02em;
+        }
+
+        .breakdown-italics-btn {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1.5px solid #e5e7eb;
+            color: #1f2937;
+            min-width: 105px;
+            padding: 12px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s ease;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .breakdown-italics-btn:hover {
+            background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.15);
+        }
+
+        .breakdown-italics-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transform: translateY(-2px);
+        }
+
         /* AI Lab Sections */
         .ai-lab-section {
             display: none;
@@ -3021,10 +3215,16 @@
             font-size: 14px;
             font-family: inherit;
             resize: vertical;
-            min-height: 150px;
+            min-height: 200px;
+            max-height: 400px;
+            height: 250px;
             margin-top: 12px;
             transition: all 0.2s ease;
             background: white;
+            overflow-y: auto;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
 
         .summary-textarea:focus {
@@ -3981,8 +4181,11 @@
                             <textarea 
                                 id="summaryInput" 
                                 class="summary-textarea" 
-                                placeholder="Paste any text here—articles, documents, research papers, meeting notes, or any content you want summarized..."
-                                rows="8"
+                                placeholder="Paste any text here—articles, documents, research papers, meeting notes, or any content you want summarized...
+
+Multiple clips are separated by:
+---"
+                                rows="12"
                             ></textarea>
                             
                             <div class="summary-input-actions">
@@ -4279,7 +4482,9 @@
                         <h3>🧠 AI Text Breakdown</h3>
                         <p class="breakdown-header-subtitle">Choose your comprehension level</p>
                     </div>
-                    <button class="modal-close" id="closeBreakdownModal">✕</button>
+                    <div class="breakdown-header-actions">
+                        <button class="modal-close" id="closeBreakdownModal">✕</button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <div class="breakdown-original-text">
@@ -4287,7 +4492,7 @@
                             <h4>📄 Original Text</h4>
                             <span class="text-length" id="breakdownTextLength"></span>
                         </div>
-                        <p id="breakdownOriginalText"></p>
+                        <p id="breakdownOriginalText" class="breakdown-original-text-content"></p>
                     </div>
                     
                     <div class="breakdown-level-info">
@@ -4321,6 +4526,9 @@
                         <button class="breakdown-tab" data-level="wiseman" title="Philosophical wisdom and life lessons">
                             <span class="tab-emoji">🧙</span>
                             <span class="tab-label">Wise Man</span>
+                        </button>
+                        <button class="breakdown-italics-btn" id="breakdownItalicsBtn" title="Toggle italic style">
+                            <span style="font-style: italic; font-family: Georgia, serif; font-weight: bold; font-size: 18px;">I</span>
                         </button>
                     </div>
                     <div class="breakdown-content">

@@ -9,25 +9,85 @@
 
 ## 📋 **FUTURE ENHANCEMENTS (Post-MVP)**
 
-### **Phase 2 Features (Not Yet Implemented)**
+---
 
-#### 1. Offline Mode & Sync Queue ⭐ **MUST IMPLEMENT**
-**Priority:** CRITICAL (Required for Production)  
+#### 1. Authorization & Subscription Enforcement
+**Priority:** HIGH (Required for monetization)  
+**Status:** Foundation exists, enforcement needed  
+
+**Subscription Tiers:**
+- **FREE:** Basic features only
+  - 20 active clips
+  - 1,000 archived clips (searchable)
+  - Basic categories
+  - No AI features
+  
+- **PREMIUM:** Full access
+  - Unlimited active clips
+  - 25,000 archived clips
+  - All AI features (Breakdown, Summaries, Image Generation)
+  - Priority sync
+  - Premium support
+
+**Pricing Structure (Stripe):**
+- Weekly: $1.99/week
+- Monthly: $6.99/month (most popular - best value)
+- Yearly: $69.99/year (save $14 vs monthly)
+
 **Requirements:**
-- Full offline functionality with local storage (e.g., viewing PDFs, managing clips)
-- Auto-sync when internet connection is restored
-- Sync queue persists in local storage to survive restarts
-- Show sync status indicator (offline, syncing, synced)
-- User warning: Do not clear browser cache while offline
+- Add authorization checks before premium features (AI Breakdown, AI Summaries, Image Generation)
+- Enforce storage limits by subscription tier
+- Implement API rate limiting per subscription tier
+- Add upgrade modal/paywall when free users attempt premium features
+- Validate subscription status on backend before AI API calls
+- Create subscription tier constants (FREE, PREMIUM)
+- Add grace period handling for expired subscriptions
+- Show feature-locked badges on premium features for free users
+- Implement weekly/monthly/yearly billing cycles
+
+**Current State:**
+- Authentication working (login/signup via Supabase)
+- Subscription tier stored in database
+- getUserSubscription() method exists
+- Need to add permission checks throughout app
+
+**Blocks:** Monetization, feature gating, storage limits
 
 ---
 
-#### 4. Real-time Cross-Device Sync
-**Priority:** Medium  
+#### 2. Payment Integration (Stripe)
+**Priority:** HIGH (Required for monetization)  
+**Status:** Not started  
+
+**Pricing Plans:**
+- Weekly: $1.99/week
+- Monthly: $6.99/month (recommended)
+- Yearly: $69.99/year (2 months free)
+
+**Stripe Costs:**
+- No monthly fees
+- No setup fees
+- Per transaction: 2.9% + $0.30 only when paid
+- Example: $6.99/month → $0.50 to Stripe, $6.49 net revenue
+
+**Break-Even Analysis:**
+- Monthly costs: ~$25 (Supabase) + ~$20 (OpenAI) = $45/mo
+- Need ~7 monthly subscribers to break even
+- Need ~25 weekly subscribers to break even
+- Or 1 yearly subscriber covers ~1 month of costs
+
 **Requirements:**
-- Use Supabase Realtime (WebSocket) for instant sync across devices
-- When user has two computers open simultaneously, changes appear instantly on both
-- Subscribe to database changes for clips, categories, settings, profiles
+- Integrate Stripe Checkout for subscription payments
+- Create 3 subscription products (weekly, monthly, yearly)
+- Add webhook handlers for payment events (success, failed, canceled, renewed)
+- Update user subscription_tier in database on successful payment
+- Handle subscription lifecycle (trial, active, past_due, canceled)
+- Add "Upgrade" button throughout app (settings, AI features)
+- Add "Manage Subscription" button in settings (links to Stripe portal)
+- Implement subscription cancellation flow
+- Stripe sends invoicing and receipt emails automatically
+- Handle proration for plan changes (weekly to monthly, monthly to yearly)
+- Add 7-day free trial option (optional marketing hook)
 
 ---
 
@@ -38,23 +98,50 @@
 - Privacy-conscious (no personally identifiable information)
 - User can opt-out via settings
 
----
-
-#### 6. Conflict Resolution UI
-**Priority:** Medium  
-**Requirements:**
-- Show user when conflicts occur during sync
-- Let user choose which version to keep (local vs cloud)
-- Currently uses "newest timestamp wins" strategy automatically
 
 ---
 
-#### 7. Bulk Operations & Batch Sync
+#### 6. AI Lab Gallery - Photo Download
 **Priority:** Medium  
 **Requirements:**
-- Batch upload/download for users with many clips
-- Show progress indicator for large syncs
-- Optimize performance for 10,000+ clips
+- Add download button for each generated image
+- Support PNG and JPEG formats
+- Allow users to save photos for personal use
+- Include filename with timestamp/prompt reference
+
+---
+
+#### 7. AI Summary Quick Access Icon ✅ IMPLEMENTED
+**Priority:** Medium  
+**Status:** COMPLETE  
+**Implementation:**
+- Summary icon (📝) added next to brain icon (🧠) on all clips
+- Available on: clips page, search results, categories
+- Brain icon: Opens Breakdown modal
+- Summary icon: Navigates to AI Lab > Summary with pre-filled text
+- Analysis history tracking system implemented
+
+---
+
+#### 7b. Multi-Select Clips & Batch Processing ✅ IMPLEMENTED
+**Priority:** Medium  
+**Status:** COMPLETE  
+**Implementation:**
+- Checkboxes added to all clip types for selection
+- No floating buttons - icons stay on clips
+- Each clip has: 🧠 (Breakdown), 📝 (Summary), 📁 (Category), × (Remove)
+- Analysis history saves to chrome.storage (last 50 entries)
+
+---
+
+#### 7c. Clips to AI Image Generator
+**Priority:** Medium  
+**Requirements:**
+- AI Generator page has input box for clips from clips/search/categories pages
+- Selected clips sent to Generator display in input box ready for transformation
+- Second input box allows manual paste (placeholder: "paste your delicious crafted clip")
+- Error handling for non-visual clips (study notes, text-only content)
+- Warn user if clip lacks visual image correspondence
 
 ---
 

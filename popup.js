@@ -17,6 +17,7 @@ class PasteCraftPopup {
     this.autoDeletePeriod = 'never';
     this.searchOnlyClips = [];
     this.selectedCategoryClips = new Set();
+    this.selectedSearchClips = new Set();
     this.options = {
       deduplicate: false,
       sort: false,
@@ -38,6 +39,9 @@ class PasteCraftPopup {
     this.aiGenerationTimerInterval = null;
     this.profileCollapseInterval = null;
     this.nameCollapseInterval = null;
+    
+    // Analysis history
+    this.analysisHistory = [];
     
     this.init();
   }
@@ -112,6 +116,7 @@ class PasteCraftPopup {
     await this.loadData();
     await this.loadSettings();
     await this.loadUserProfile();
+    await this.loadAnalysisHistory();
     
     // ✅ DISPLAY SAVED PROFILE IMAGE
     console.log('🔍 Checking for saved profile image...');
@@ -520,6 +525,11 @@ class PasteCraftPopup {
 
     document.getElementById('copyBreakdownBtn').addEventListener('click', () => {
       this.copyBreakdownText();
+    });
+
+    // Italics toggle button
+    document.getElementById('breakdownItalicsBtn').addEventListener('click', () => {
+      this.toggleBreakdownItalics();
     });
 
     // Breakdown modal overlay click to close
@@ -1491,15 +1501,19 @@ class PasteCraftPopup {
     const chip = document.createElement('div');
     chip.className = 'chip animate-slide-in';
     chip.dataset.index = index;
+    chip.dataset.clipId = clip.id || index;
     
     const text = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
     
     const clipCategory = clip.category || 'Uncategorized';
+    const isSelected = this.selectedChips.has(index);
     
     chip.innerHTML = `
+      <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
       <span class="chip-text" title="${clip.text}">${text}</span>
       <div class="chip-actions">
-        <button class="chip-breakdown-btn" title="Breakdown text">🧠</button>
+        <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
+        <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="chip-remove" title="Remove clip">×</button>
       </div>
@@ -1520,17 +1534,35 @@ class PasteCraftPopup {
       chip.querySelector('.chip-text').appendChild(categoryIndicator);
     }
     
+    if (isSelected) {
+      chip.classList.add('selected');
+    }
+    
+    // Checkbox handler
+    const checkbox = chip.querySelector('.chip-checkbox');
+    checkbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleChip(index, chip);
+    });
+    
     // Click to select/deselect
     chip.addEventListener('click', (e) => {
       if (e.target.classList.contains('chip-remove')) {
         this.removeChip(index);
       } else if (e.target.classList.contains('chip-breakdown-btn')) {
-        this.showBreakdownModal(clip.text);
+        e.stopPropagation();
+        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
+        this.showBreakdownModal(textToSend);
+      } else if (e.target.classList.contains('chip-summary-btn')) {
+        e.stopPropagation();
+        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
+        this.showSummaryModal(textToSend);
       } else if (e.target.classList.contains('chip-category-btn')) {
+        e.stopPropagation();
         this.pendingText = clip.text;
         this.pendingClipIndex = index;
         this.showCategoryModal(true);
-      } else {
+      } else if (!e.target.classList.contains('chip-checkbox')) {
         this.toggleChip(index, chip);
       }
     });
@@ -1539,15 +1571,44 @@ class PasteCraftPopup {
   }
   
   toggleChip(index, chipElement) {
+    const checkbox = chipElement.querySelector('.chip-checkbox');
     if (this.selectedChips.has(index)) {
       this.selectedChips.delete(index);
       chipElement.classList.remove('selected');
+      if (checkbox) checkbox.checked = false;
     } else {
       this.selectedChips.add(index);
       chipElement.classList.add('selected');
+      if (checkbox) checkbox.checked = true;
     }
     this.syncOptionToggles();
     this.updatePreview();
+  }
+  
+  toggleSearchClip(clipId, itemElement) {
+    const checkbox = itemElement.querySelector('.search-checkbox');
+    if (this.selectedSearchClips.has(clipId)) {
+      this.selectedSearchClips.delete(clipId);
+      itemElement.classList.remove('selected');
+      if (checkbox) checkbox.checked = false;
+    } else {
+      this.selectedSearchClips.add(clipId);
+      itemElement.classList.add('selected');
+      if (checkbox) checkbox.checked = true;
+    }
+  }
+  
+  toggleCategoryClip(clipId, itemElement) {
+    const checkbox = itemElement.querySelector('.category-checkbox');
+    if (this.selectedCategoryClips.has(clipId)) {
+      this.selectedCategoryClips.delete(clipId);
+      itemElement.classList.remove('selected');
+      if (checkbox) checkbox.checked = false;
+    } else {
+      this.selectedCategoryClips.add(clipId);
+      itemElement.classList.add('selected');
+      if (checkbox) checkbox.checked = true;
+    }
   }
   
   syncOptionToggles() {
@@ -1812,11 +1873,18 @@ class PasteCraftPopup {
   createSearchResultItem(clip) {
     const item = document.createElement('div');
     item.className = 'search-result-item';
+    item.dataset.clipId = clip.id;
+    
+    const isSelected = this.selectedSearchClips.has(clip.id);
+    if (isSelected) {
+      item.classList.add('selected');
+    }
 
     const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
     const timeAgo = this.getTimeAgo(clip.timestamp);
 
     item.innerHTML = `
+      <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
       <div class="search-result-content">
         <div class="search-result-text">${this.escapeHtml(truncatedText)}</div>
         <div class="search-result-meta">
@@ -1825,11 +1893,26 @@ class PasteCraftPopup {
         </div>
       </div>
       <div class="search-result-actions">
-        <button class="chip-breakdown-btn" title="Breakdown text">🧠</button>
+        <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
+        <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="btn-copy" title="Copy to clipboard">📋</button>
       </div>
     `;
+    
+    // Checkbox handler
+    const checkbox = item.querySelector('.search-checkbox');
+    checkbox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleSearchClip(clip.id, item);
+    });
+    
+    // Item click handler for selection
+    item.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-result-actions') && !e.target.classList.contains('search-checkbox')) {
+        this.toggleSearchClip(clip.id, item);
+      }
+    });
 
     // Copy functionality
     item.querySelector('.btn-copy').addEventListener('click', (e) => {
@@ -1840,7 +1923,15 @@ class PasteCraftPopup {
     // Breakdown functionality
     item.querySelector('.chip-breakdown-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showBreakdownModal(clip.text);
+      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
+      this.showBreakdownModal(textToSend);
+    });
+    
+    // Summary functionality
+    item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
+      this.showSummaryModal(textToSend);
     });
 
     // Category assignment
@@ -2123,33 +2214,6 @@ class PasteCraftPopup {
   }
 
   // Breakdown Modal Functions
-  showBreakdownModal(text) {
-    this.currentBreakdownText = text;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {}; // Cache explanations to avoid re-generating
-    
-    // Set original text
-    document.getElementById('breakdownOriginalText').textContent = text;
-    
-    // Set text length
-    const wordCount = text.trim().split(/\s+/).length;
-    document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
-    
-    // Clear previous result
-    document.getElementById('breakdownResult').textContent = '';
-    
-    // Reset tabs - no active tab initially
-    document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
-    
-    // Show initial level info
-    document.getElementById('levelInfoText').innerHTML = `
-      <strong>Choose a level:</strong> Select a comprehension level above to get an AI-powered explanation tailored to that audience
-    `;
-    
-    // Show modal
-    document.getElementById('breakdownModal').style.display = 'flex';
-  }
-
   showBreakdownModalWithLevel(text, level) {
     this.currentBreakdownText = text;
     this.currentBreakdownLevel = level;
@@ -2189,6 +2253,27 @@ class PasteCraftPopup {
     this.currentBreakdownText = null;
     this.currentBreakdownLevel = null;
     this.breakdownCache = {};
+    
+    // Reset italics state
+    const breakdownResult = document.getElementById('breakdownResult');
+    const italicsBtn = document.getElementById('breakdownItalicsBtn');
+    if (breakdownResult && italicsBtn) {
+      breakdownResult.classList.remove('italics');
+      italicsBtn.classList.remove('active');
+    }
+  }
+
+  toggleBreakdownItalics() {
+    const breakdownResult = document.getElementById('breakdownResult');
+    const italicsBtn = document.getElementById('breakdownItalicsBtn');
+    
+    if (breakdownResult && italicsBtn) {
+      const isActive = breakdownResult.classList.toggle('italics');
+      italicsBtn.classList.toggle('active');
+      console.log(`✒️ Breakdown Result Italics ${isActive ? 'ENABLED' : 'DISABLED'}`);
+    } else {
+      console.error('❌ Elements not found:', {breakdownResult, italicsBtn});
+    }
   }
 
   updateLevelInfo(level) {
@@ -2661,15 +2746,18 @@ class PasteCraftPopup {
     return clips.map(clip => {
       const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
       const timeAgo = this.getTimeAgo(clip.timestamp);
+      const isSelected = this.selectedCategoryClips.has(clip.id);
       
       const html = `
-        <div class="category-clip" data-clip-id="${clip.id}">
+        <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}">
+          <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
           <div class="category-clip-content">
             <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
             <div class="category-clip-time">${timeAgo}</div>
           </div>
           <div class="category-clip-actions">
-            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="Breakdown text">🧠</button>
+            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown">🧠</button>
+            <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary">📝</button>
             <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy">📋</button>
           </div>
         </div>
@@ -2708,16 +2796,41 @@ class PasteCraftPopup {
   attachClipHandlers(dropdown, category) {
     const clips = dropdown.querySelectorAll('.category-clip');
     clips.forEach(clipElement => {
+      const clipId = parseFloat(clipElement.dataset.clipId);
+      
+      // Handle checkbox
+      const checkbox = clipElement.querySelector('.category-checkbox');
+      if (checkbox) {
+        checkbox.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleCategoryClip(clipId, clipElement);
+        });
+      }
+      
       // Handle breakdown button
       const breakdownBtn = clipElement.querySelector('.category-clip-breakdown-btn');
       if (breakdownBtn) {
         breakdownBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const clipId = parseFloat(clipElement.dataset.clipId);
           const allClips = [...this.clips, ...this.searchOnlyClips];
           const clip = allClips.find(c => c.id === clipId);
           if (clip) {
-            this.showBreakdownModal(clip.text);
+            const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
+            this.showBreakdownModal(textToSend);
+          }
+        });
+      }
+      
+      // Handle summary button
+      const summaryBtn = clipElement.querySelector('.category-clip-summary-btn');
+      if (summaryBtn) {
+        summaryBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clip = allClips.find(c => c.id === clipId);
+          if (clip) {
+            const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
+            this.showSummaryModal(textToSend);
           }
         });
       }
@@ -2727,7 +2840,6 @@ class PasteCraftPopup {
       if (copyBtn) {
         copyBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const clipId = parseFloat(clipElement.dataset.clipId);
           const allClips = [...this.clips, ...this.searchOnlyClips];
           const clip = allClips.find(c => c.id === clipId);
           if (clip) {
@@ -2736,12 +2848,12 @@ class PasteCraftPopup {
         });
       }
 
-      // Handle clip selection (clicking on clip itself, not buttons)
+      // Handle clip selection (clicking on clip itself, not buttons or checkbox)
       clipElement.addEventListener('click', (e) => {
-        // Only toggle selection if not clicking on buttons
-        if (!e.target.closest('.category-clip-actions')) {
+        // Only toggle selection if not clicking on buttons or checkbox
+        if (!e.target.closest('.category-clip-actions') && !e.target.classList.contains('category-checkbox')) {
           e.stopPropagation();
-          this.toggleClipSelection(clipElement, category);
+          this.toggleCategoryClip(clipId, clipElement);
         }
       });
     });
@@ -2968,7 +3080,7 @@ class PasteCraftPopup {
     
     // Enable Animal Avatar if AI name is generated
     if (this.userProfile && this.userProfile.aiGeneratedName) {
-      const match = this.userProfile.aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther)$/i);
+      const match = this.userProfile.aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       console.log('Animal match found:', match ? match[1] : 'none');
       if (match) {
         generateAnimalBtn.disabled = false;
@@ -3188,7 +3300,7 @@ class PasteCraftPopup {
       }
       
       // Extract animal type
-      const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther)$/i);
+      const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       if (!match) {
         this.showToast('⚠️ No animal found in your AI name', 'error');
         return;
@@ -4131,6 +4243,235 @@ class PasteCraftPopup {
       clearInterval(this.aiGenerationTimerInterval);
       this.aiGenerationTimerInterval = null;
     }
+  }
+  
+  showBreakdownModal(text) {
+    // Use the existing breakdown modal from the page
+    const breakdownModal = document.getElementById('breakdownModal');
+    const breakdownOriginalText = document.getElementById('breakdownOriginalText');
+    const breakdownTextLength = document.getElementById('breakdownTextLength');
+    
+    if (breakdownModal && breakdownOriginalText) {
+      // Show FULL text, not truncated - let CSS handle scrolling
+      breakdownOriginalText.textContent = text;
+      
+      if (breakdownTextLength) {
+        const wordCount = text.trim().split(/\s+/).length;
+        breakdownTextLength.textContent = `${wordCount} words`;
+      }
+      
+      // Store the full text for analysis
+      this.currentBreakdownText = text;
+      
+      // Force reflow to ensure scrollbar appears correctly
+      breakdownOriginalText.style.display = 'none';
+      breakdownOriginalText.offsetHeight; // Trigger reflow
+      breakdownOriginalText.style.display = 'block';
+      
+      // Scroll to top of the original text box
+      breakdownOriginalText.scrollTop = 0;
+      
+      // Show the modal
+      breakdownModal.style.display = 'flex';
+      
+      // Clear any previous result
+      const breakdownResult = document.getElementById('breakdownResult');
+      if (breakdownResult) {
+        breakdownResult.innerHTML = '';
+      }
+      
+      // Reset tabs - no active tab initially
+      document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
+      
+      // Show initial level info
+      const levelInfoText = document.getElementById('levelInfoText');
+      if (levelInfoText) {
+        levelInfoText.innerHTML = `
+          <strong>Choose a level:</strong> Select a comprehension level above to get an AI-powered explanation tailored to that audience
+        `;
+      }
+      
+      // Show toast if multiple clips were added
+      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
+      if (clipCount > 1) {
+        this.showToast(`🧠 ${clipCount} clips ready for breakdown (scroll to see all)`);
+      }
+      
+      // Save to history
+      this.saveToAnalysisHistory(text, 'breakdown-initiated');
+    }
+  }
+  
+  showSummaryModal(text) {
+    // Navigate to AI Lab > Summary tab and pre-fill text
+    const aiTab = document.querySelector('[data-tab="ai"]');
+    const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
+    const summaryInput = document.getElementById('summaryInput');
+    
+    if (aiTab && summarySubTab && summaryInput) {
+      // Switch to AI Lab tab
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      aiTab.classList.add('active');
+      document.getElementById('aiTab').classList.add('active');
+      
+      // Switch to Summary sub-tab
+      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
+      summarySubTab.classList.add('active');
+      document.getElementById('aiSummarySection').classList.add('active');
+      
+      // Pre-fill the text
+      summaryInput.value = text;
+      summaryInput.dispatchEvent(new Event('input'));
+      
+      // Scroll to top of textarea to show the first clip
+      summaryInput.scrollTop = 0;
+      
+      // Focus the textarea
+      summaryInput.focus();
+      
+      // Show toast if multiple clips were added
+      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
+      if (clipCount > 1) {
+        this.showToast(`📝 ${clipCount} clips added to summary (scroll to see all)`);
+      }
+      
+      // Save to history
+      this.saveToAnalysisHistory(text, 'summary-initiated');
+      
+      // Clear selections and hide buttons
+      this.clearAllSelections();
+    }
+  }
+  
+  clearAllSelections() {
+    this.selectedChips.clear();
+    this.selectedSearchClips.clear();
+    this.selectedCategoryClips.clear();
+    
+    // Re-render to update UI
+    this.renderChips();
+    this.performSearch();
+    this.renderCategories();
+  }
+  
+  getSelectedOrCurrentText(currentClipText, source) {
+    // Check if there are any selected clips based on the source
+    let selectedTexts = [];
+    
+    if (source === 'clips' && this.selectedChips.size > 0) {
+      // Get texts from selected chips
+      this.selectedChips.forEach(index => {
+        if (this.clips[index]) {
+          selectedTexts.push(this.clips[index].text);
+        }
+      });
+    } else if (source === 'search' && this.selectedSearchClips.size > 0) {
+      // Get texts from selected search clips
+      const allClips = [...this.clips, ...this.searchOnlyClips];
+      this.selectedSearchClips.forEach(clipId => {
+        const clip = allClips.find(c => c.id === clipId);
+        if (clip) {
+          selectedTexts.push(clip.text);
+        }
+      });
+    } else if (source === 'categories' && this.selectedCategoryClips.size > 0) {
+      // Get texts from selected category clips
+      const allClips = [...this.clips, ...this.searchOnlyClips];
+      this.selectedCategoryClips.forEach(clipId => {
+        const clip = allClips.find(c => c.id === clipId);
+        if (clip) {
+          selectedTexts.push(clip.text);
+        }
+      });
+    }
+    
+    // If we have selected clips, join them with delimiter
+    if (selectedTexts.length > 0) {
+      return selectedTexts.join('\n\n---\n\n');
+    }
+    
+    // Otherwise, return the current clip text
+    return currentClipText;
+  }
+  
+  showBreakdownModalWithLevel(text, level) {
+    // Show the breakdown modal with pre-selected level
+    this.showBreakdownModal(text);
+  }
+  
+  // Analysis History Functions
+  async saveToAnalysisHistory(text, type, level = null, result = null) {
+    const historyEntry = {
+      id: Date.now(),
+      text: text.substring(0, 500), // Store first 500 chars
+      type,
+      level,
+      result: result ? result.substring(0, 1000) : null,
+      timestamp: Date.now(),
+      source: this.currentTab
+    };
+    
+    // Load existing history
+    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
+    
+    // Add new entry at the beginning
+    analysisHistory.unshift(historyEntry);
+    
+    // Keep only last 50 entries
+    if (analysisHistory.length > 50) {
+      analysisHistory.splice(50);
+    }
+    
+    // Save to storage
+    await chrome.storage.local.set({ analysisHistory });
+    this.analysisHistory = analysisHistory;
+    
+    console.log('✅ Saved to analysis history:', historyEntry);
+  }
+  
+  async loadAnalysisHistory() {
+    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
+    this.analysisHistory = analysisHistory;
+    return analysisHistory;
+  }
+  
+  renderAnalysisHistory() {
+    // This will be called when user navigates to AI Lab, Breakdown, or Summary tabs
+    const history = this.analysisHistory;
+    
+    if (history.length === 0) {
+      return `
+        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+          <p style="font-size: 48px; margin: 0 0 16px 0;">📊</p>
+          <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
+          <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
+        </div>
+      `;
+    }
+    
+    return history.map(entry => {
+      const icon = entry.type === 'breakdown' ? '🧠' : entry.type === 'summary' ? '📝' : '🤖';
+      const timeAgo = this.getTimeAgo(entry.timestamp);
+      const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
+      
+      return `
+        <div class="history-entry" style="padding: 16px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" data-entry-id="${entry.id}">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <span style="font-size: 24px;">${icon}</span>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1f2937; text-transform: capitalize;">${entry.type}</span>
+                ${levelBadge}
+                <span style="font-size: 12px; color: #9ca3af; margin-left: auto;">${timeAgo}</span>
+              </div>
+              <p style="margin: 0; font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(entry.text.substring(0, 100))}...</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 }
 
