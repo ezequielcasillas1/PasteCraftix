@@ -10,6 +10,8 @@ class PasteCraftSupabase {
     this.syncQueue = [];
     this.realtimeChannels = [];
     this.syncStatus = 'synced'; // 'offline', 'syncing', 'synced'
+    this.BATCH_SIZE = 100; // Number of clips per batch
+    this.syncProgress = { current: 0, total: 0, percentage: 0 };
     this.init();
     this.setupConnectionMonitor();
   }
@@ -171,6 +173,14 @@ class PasteCraftSupabase {
     // Emit event for UI to update
     window.dispatchEvent(new CustomEvent('syncStatusChanged', { 
       detail: { status, queueLength: this.syncQueue.length } 
+    }));
+  }
+  
+  updateSyncProgress(current, total, percentage) {
+    this.syncProgress = { current, total, percentage };
+    // Emit event for UI progress bar
+    window.dispatchEvent(new CustomEvent('syncProgress', {
+      detail: { current, total, percentage }
     }));
   }
   
@@ -563,7 +573,7 @@ class PasteCraftSupabase {
           messages: [
             {
               role: 'system',
-              content: 'You are a creative name generator. Combine the user\'s name with a random cool animal type. Format: [Name][Animal]. Examples: ZekeRabbit, SarahTiger, JohnDragon, MikeFox, LilyPanda. Pick fun animals like: Rabbit, Tiger, Dragon, Fox, Wolf, Bear, Panda, Lion, Eagle, Phoenix, Unicorn, Owl. Keep it under 20 characters. Only respond with the combined name, nothing else.'
+              content: 'You are a creative name generator. Combine the user\'s name with a random cool animal type. Format: [Name][Animal]. Examples: ZekeRabbit, SarahTiger, JohnDragon, MikeFox, LilyPanda. Pick fun animals like: Rabbit, Tiger, Dragon, Fox, Wolf, Bear, Panda, Lion, Eagle, Phoenix, Unicorn, Owl, Cat, Dog, Monkey, Penguin, Koala, Raccoon, Shark, Dolphin, Cheetah, Leopard, Panther, Otter, Lynx, Jaguar, Cougar, Sloth, Badger, Moose, Bison, Rhino, Elephant, Giraffe, Zebra, Kangaroo, Platypus, Hamster, Ferret, Squirrel, Chipmunk, Hawk, Falcon, Raven, Crow, Parrot, Toucan, Flamingo, Peacock, Swan, Hummingbird, Octopus, Whale, Orca, Seal, Walrus, Seahorse, Stingray, Snake, Gecko, Chameleon, Turtle, Crocodile, Alligator, Griffin, Hydra, Pegasus, Kraken. Keep it under 20 characters. Only respond with the combined name, nothing else.'
             },
             {
               role: 'user',
@@ -1146,7 +1156,7 @@ class PasteCraftSupabase {
   // =====================================================
 
   /**
-   * Sync local clips to Supabase
+   * Sync local clips to Supabase (with batch support for large datasets)
    */
   async syncClipsToSupabase(localClips) {
     if (!this.client) {
@@ -1158,9 +1168,15 @@ class PasteCraftSupabase {
       const userId = await this.getChromeUserId();
       await this.setUserContext(userId);
 
-      console.log(`📤 Syncing ${localClips.length} clips to Supabase...`);
+      const totalClips = localClips.length;
+      console.log(`📤 Syncing ${totalClips} clips to Supabase...`);
 
-      // Transform local clips to DB format
+      // Use batch processing for large datasets (>100 clips)
+      if (totalClips > this.BATCH_SIZE) {
+        return await this.syncClipsToSupabaseBatch(localClips, userId);
+      }
+
+      // Standard sync for small datasets
       const dbClips = localClips.map(clip => ({
         user_id: userId,
         clip_id: clip.id,
@@ -1169,7 +1185,6 @@ class PasteCraftSupabase {
         timestamp: clip.timestamp
       }));
 
-      // Upsert clips (insert or update on conflict)
       const { data, error } = await this.client
         .from('clips')
         .upsert(dbClips, {
@@ -1189,7 +1204,62 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync clips from Supabase to local storage
+   * Batch sync clips to Supabase (for large datasets)
+   */
+  async syncClipsToSupabaseBatch(localClips, userId) {
+    const totalClips = localClips.length;
+    const batches = Math.ceil(totalClips / this.BATCH_SIZE);
+    let syncedCount = 0;
+
+    console.log(`📦 Using batch sync: ${batches} batches of ${this.BATCH_SIZE} clips`);
+
+    // Reset progress
+    this.updateSyncProgress(0, totalClips, 0);
+
+    for (let i = 0; i < batches; i++) {
+      const start = i * this.BATCH_SIZE;
+      const end = Math.min(start + this.BATCH_SIZE, totalClips);
+      const batchClips = localClips.slice(start, end);
+
+      // Transform to DB format
+      const dbClips = batchClips.map(clip => ({
+        user_id: userId,
+        clip_id: clip.id,
+        text: clip.text,
+        category: clip.category || 'Uncategorized',
+        timestamp: clip.timestamp
+      }));
+
+      try {
+        const { data, error } = await this.client
+          .from('clips')
+          .upsert(dbClips, {
+            onConflict: 'user_id,clip_id',
+            ignoreDuplicates: false
+          })
+          .select();
+
+        if (error) throw error;
+
+        syncedCount += data.length;
+        const percentage = Math.round((syncedCount / totalClips) * 100);
+        
+        // Update progress
+        this.updateSyncProgress(syncedCount, totalClips, percentage);
+        console.log(`📤 Batch ${i + 1}/${batches}: Synced ${syncedCount}/${totalClips} clips (${percentage}%)`);
+
+      } catch (error) {
+        console.error(`❌ Batch ${i + 1} failed:`, error);
+        throw error;
+      }
+    }
+
+    console.log(`✅ Batch sync complete: ${syncedCount} clips synced`);
+    return true;
+  }
+
+  /**
+   * Sync clips from Supabase to local storage (with batch support for large datasets)
    */
   async syncClipsFromSupabase() {
     if (!this.client) {
@@ -1203,6 +1273,23 @@ class PasteCraftSupabase {
 
       console.log('📥 Fetching clips from Supabase...');
 
+      // First, get total count
+      const { count, error: countError } = await this.client
+        .from('clips')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (countError) throw countError;
+
+      const totalClips = count || 0;
+      console.log(`📊 Total clips to fetch: ${totalClips}`);
+
+      // Use batch fetching for large datasets (>100 clips)
+      if (totalClips > this.BATCH_SIZE) {
+        return await this.syncClipsFromSupabaseBatch(userId, totalClips);
+      }
+
+      // Standard fetch for small datasets
       const { data, error } = await this.client
         .from('clips')
         .select('*')
@@ -1225,6 +1312,59 @@ class PasteCraftSupabase {
       console.error('❌ Failed to fetch clips from Supabase:', error);
       return null;
     }
+  }
+
+  /**
+   * Batch fetch clips from Supabase (for large datasets)
+   */
+  async syncClipsFromSupabaseBatch(userId, totalClips) {
+    const batches = Math.ceil(totalClips / this.BATCH_SIZE);
+    let allClips = [];
+    let fetchedCount = 0;
+
+    console.log(`📦 Using batch fetch: ${batches} batches of ${this.BATCH_SIZE} clips`);
+
+    // Reset progress
+    this.updateSyncProgress(0, totalClips, 0);
+
+    for (let i = 0; i < batches; i++) {
+      const start = i * this.BATCH_SIZE;
+      const end = start + this.BATCH_SIZE - 1;
+
+      try {
+        const { data, error } = await this.client
+          .from('clips')
+          .select('*')
+          .eq('user_id', userId)
+          .order('timestamp', { ascending: false })
+          .range(start, end);
+
+        if (error) throw error;
+
+        // Transform DB format to local format
+        const localClips = data.map(clip => ({
+          id: clip.clip_id,
+          text: clip.text,
+          category: clip.category,
+          timestamp: clip.timestamp
+        }));
+
+        allClips = allClips.concat(localClips);
+        fetchedCount += localClips.length;
+        const percentage = Math.round((fetchedCount / totalClips) * 100);
+
+        // Update progress
+        this.updateSyncProgress(fetchedCount, totalClips, percentage);
+        console.log(`📥 Batch ${i + 1}/${batches}: Fetched ${fetchedCount}/${totalClips} clips (${percentage}%)`);
+
+      } catch (error) {
+        console.error(`❌ Batch ${i + 1} failed:`, error);
+        throw error;
+      }
+    }
+
+    console.log(`✅ Batch fetch complete: ${allClips.length} clips fetched`);
+    return allClips;
   }
 
   /**
@@ -1440,13 +1580,13 @@ class PasteCraftSupabase {
 
       console.log('📥 Fetching archived clips from Supabase...');
 
-      // Fetch all archived clips (cloud can store up to 25,000)
+      // Fetch all archived clips (unlimited cloud storage)
       const { data, error } = await this.client
         .from('archived_clips')
         .select('*')
         .eq('user_id', userId)
         .order('timestamp', { ascending: false })
-        .limit(25000); // Future: Premium tier limit
+        .limit(100000); // Effectively unlimited - high limit for pagination
 
       if (error) throw error;
 

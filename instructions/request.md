@@ -24,7 +24,7 @@
   
 - **PREMIUM:** Full access
   - Unlimited active clips
-  - 25,000 archived clips
+  - Unlimited clips
   - All AI features (Breakdown, Summaries, Image Generation)
   - Priority sync
   - Premium support
@@ -109,28 +109,6 @@
 - Allow users to save photos for personal use
 - Include filename with timestamp/prompt reference
 
----
-
-#### 7. AI Summary Quick Access Icon ✅ IMPLEMENTED
-**Priority:** Medium  
-**Status:** COMPLETE  
-**Implementation:**
-- Summary icon (📝) added next to brain icon (🧠) on all clips
-- Available on: clips page, search results, categories
-- Brain icon: Opens Breakdown modal
-- Summary icon: Navigates to AI Lab > Summary with pre-filled text
-- Analysis history tracking system implemented
-
----
-
-#### 7b. Multi-Select Clips & Batch Processing ✅ IMPLEMENTED
-**Priority:** Medium  
-**Status:** COMPLETE  
-**Implementation:**
-- Checkboxes added to all clip types for selection
-- No floating buttons - icons stay on clips
-- Each clip has: 🧠 (Breakdown), 📝 (Summary), 📁 (Category), × (Remove)
-- Analysis history saves to chrome.storage (last 50 entries)
 
 ---
 
@@ -170,6 +148,104 @@
 - Currently optimized for Microsoft Edge
 - Add Chrome Web Store support
 - Test Firefox compatibility
+
+
+---
+
+#### 12. Auto-Copy on Clip Click (Settings Option)
+**Priority:** Medium  
+**Requirements:**
+- Add settings toggle: "Enable auto-copy on clip click"
+- **When Enabled:** User can copy clips by simply clicking them (no copy button needed)
+  - Single click on clip automatically copies to clipboard
+  - Multi-select: clicking multiple clips accumulates them (space-separated) into clipboard
+  - Works across all pages (clips page, search results, categories)
+- **When Disabled:** User must manually click copy button to copy clips
+- Preference persists across sessions
+
+---
+
+#### 13. Quick Copy Button Below Clips Module, should be right above the pagination numbered system.
+**Priority:** Low  
+**Requirements:**
+- Add copy button positioned directly below clips module
+- Allows quick copying without scrolling to bottom delimiter section
+- Button copies selected clip content to clipboard
+- Provides instant visual feedback on copy action
+
+---
+
+#### 14. Persistent Popup & Quick View (Stay-Open Behavior)
+**Priority:** High  
+**Requirements:**
+- **Main Popup Issue:** Popup closes when user clicks on website or navigates to different tab/page
+- **Quick View Issue:** Quick View menu closes/loses position when user interacts with page or switches tabs
+- **Solution:** Both should remain open and maintain state during website interaction and tab navigation
+- **Settings Control:** Add two toggles in settings:
+  - "Keep popup open when clicking on pages" (main application)
+  - "Keep quick view open when clicking on pages" (quick view menu)
+- **Default:** Enabled (stays open when user navigates between pages and clicks things on website)
+- When disabled: Returns to current behavior (closes on outside click/navigation)
+
+---
+
+#### 15. AI Knowledge Base & Clipboard Journey Analyzer
+**Priority:** Medium  
+**Status:** Future Enhancement  
+**Requirements:**
+- **AI-Powered Analysis Bot:** Intelligent system that analyzes user's entire clipboard history
+- **Scope of Analysis:**
+  - All clips (singles, batches, categories)
+  - Usage patterns over time
+  - Most copied content types
+  - Category distribution
+  - Temporal patterns (when user copies most)
+- **Knowledge Base Creation:**
+  - AI summarizes user's clipboard journey
+  - Identifies themes and topics from clipboard history
+  - Creates personalized insights dashboard
+  - Tracks what user copies most frequently
+- **User Dashboard Integration:**
+  - Display on pastecraft.com/account page
+  - Show AI-generated summary of clipboard usage
+  - Visualize patterns (charts, graphs, word clouds)
+  - "Your Clipboard Story" narrative
+- **Smart Features:**
+  - Discover content patterns user might not notice
+  - Suggest optimal categories based on usage
+  - Predict what user might need based on history
+  - Create "memory timeline" of clipboard activity
+- **Privacy Considerations:**
+  - User opt-in/opt-out setting
+  - Local processing option
+  - Clear data retention policies
+  - Transparent about what AI analyzes
+- **Implementation Notes:**
+  - Integrate with existing clip storage in Supabase
+  - Use OpenAI for natural language analysis
+  - Real-time updates as user copies new content
+  - Export knowledge base as PDF/report
+
+---
+
+#### 16. Website Pricing Update - Unlimited Clips Display
+**Priority:** High  
+**Status:** Complete  
+**Requirements:**
+- Update pricing.html to show "Unlimited clips" instead of "25,000 archived clips"
+- Change applies to all three pricing tiers (Weekly, Monthly, Yearly)
+- Keep consistency with homepage messaging
+
+---
+
+#### 17. Freemium Tier Display on Pricing Page
+**Priority:** High  
+**Status:** Complete  
+**Requirements:**
+- Add Free tier card to pricing.html showing freemium features
+- Display: 20 active clips, 1,000 archived clips, basic categories, cloud sync
+- Show AI features as unavailable (crossed out)
+- Link to Edge extension store for free installation
 
 ---
 

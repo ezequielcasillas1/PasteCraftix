@@ -269,9 +269,13 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
   console.log('📊 First clip:', clips[0]?.text?.substring(0, 30));
   console.log('📊 Second clip:', clips[1]?.text?.substring(0, 30) || 'NONE');
   
-  // Move clips beyond 20th to search-only storage
-  if (clips.length > 20) {
-    const overflowClips = clips.splice(20);
+  // Pagination system: enforce 500 clip limit (50 pages × 10 clips)
+  const maxClips = 500;
+  if (clips.length > maxClips) {
+    // Sort by timestamp (newest first)
+    clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    
+    const overflowClips = clips.splice(maxClips);
     searchOnlyClips.unshift(...overflowClips);
     
     // Keep search storage reasonable (max 1000 total archived clips)
@@ -279,7 +283,7 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
       searchOnlyClips.splice(1000);
     }
     
-    console.log('📦 Moved overflow to searchOnlyClips:', overflowClips.length);
+    console.log(`📦 Pagination: Moved ${overflowClips.length} clips beyond limit (${maxClips}) to searchOnlyClips`);
   }
   
   console.log('💾 ABOUT TO SAVE TO STORAGE - clips array length:', clips.length);
@@ -299,8 +303,9 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
   console.log('🔍 First clip:', verification.clips?.[0]?.text?.substring(0, 30) || 'NONE');
   console.log('🔍 Second clip:', verification.clips?.[1]?.text?.substring(0, 30) || 'NONE');
   
-  // Notify content scripts about new clip
+  // Notify content scripts and popup about new clip
   try {
+    // Notify all tabs (content scripts)
     chrome.tabs.query({}, (tabs) => {
       console.log('📢 Notifying', tabs.length, 'tabs about new clip');
       tabs.forEach(tab => {
@@ -310,8 +315,17 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
         }).catch(() => {}); // Ignore errors for tabs without content script
       });
     });
+    
+    // Also notify popup via runtime messaging
+    chrome.runtime.sendMessage({
+      action: 'clipSaved',
+      clip: newClip
+    }).catch(() => {
+      // Popup might not be open, that's OK
+      console.log('Popup not open, skipping runtime message');
+    });
   } catch (error) {
-    console.log('Could not notify content scripts:', error);
+    console.log('Could not notify about new clip:', error);
   }
   
   console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text ? (text.substring(0, 30) + '...') : 'NO TEXT');

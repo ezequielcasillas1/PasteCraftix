@@ -25,6 +25,12 @@ class PasteCraftPopup {
     };
     this.userProfile = null;
     
+    // Pagination system
+    this.currentPage = 0;
+    this.clipsPerPage = 10;
+    this.maxPages = 50;
+    this.maxClips = this.clipsPerPage * this.maxPages; // 500 clips total
+    
     // Breakdown text cache
     this.currentBreakdownText = null;
     this.currentBreakdownLevel = null;
@@ -34,6 +40,13 @@ class PasteCraftPopup {
     this.currentSummaryText = null;
     this.generatedQuestions = [];
     this.currentSummaryQuestion = null;
+    
+    // Thread conversation state
+    this.summaryThreads = [];
+    this.breakdownThreads = [];
+    this.currentSummaryThreadIndex = 0;
+    this.currentBreakdownThreadIndex = 0;
+    this.selectedFollowupLevel = null;
     
     // Countdown timers
     this.aiGenerationTimerInterval = null;
@@ -365,6 +378,35 @@ class PasteCraftPopup {
     console.log('✅ DIAGNOSTIC: Loaded archived clips:', this.searchOnlyClips.length);
     console.log('✅ DIAGNOSTIC: Categories:', this.categories.length);
     console.log('✅ DIAGNOSTIC: First clip after processing:', this.clips[0] || 'NONE');
+    
+    // Enforce pagination clip limit
+    await this.enforceClipLimit();
+  }
+  
+  async enforceClipLimit() {
+    if (this.clips.length <= this.maxClips) {
+      return;
+    }
+    
+    console.log(`📦 Clip limit exceeded: ${this.clips.length}/${this.maxClips}. Moving oldest clips to search...`);
+    
+    // Sort clips by timestamp (newest first)
+    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    
+    // Keep first 500 clips (newest), move rest to searchOnlyClips (oldest)
+    const clipsToArchive = this.clips.slice(this.maxClips);
+    this.clips = this.clips.slice(0, this.maxClips);
+    
+    // Add archived clips to searchOnlyClips
+    this.searchOnlyClips = [...clipsToArchive, ...this.searchOnlyClips];
+    
+    // Save to storage
+    await chrome.storage.local.set({
+      clips: this.clips,
+      searchOnlyClips: this.searchOnlyClips
+    });
+    
+    console.log(`✅ Archived ${clipsToArchive.length} clips to search. Active: ${this.clips.length}, Archived: ${this.searchOnlyClips.length}`);
   }
   
   setupEventListeners() {
@@ -806,9 +848,9 @@ class PasteCraftPopup {
         const wordCount = summaryInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
         summaryCharCounter.textContent = `${length} characters`;
         
-        // Enable generate questions button if enough text (at least 20 words)
+        // Enable generate questions button if enough text (at least 5 words)
         if (generateQuestionsBtn) {
-          generateQuestionsBtn.disabled = wordCount < 20;
+          generateQuestionsBtn.disabled = wordCount < 5;
         }
       });
     }
@@ -881,6 +923,14 @@ class PasteCraftPopup {
         this.currentSummaryText = null;
         this.generatedQuestions = [];
         this.currentSummaryQuestion = null;
+        // Reset threads
+        this.summaryThreads = [];
+        this.currentSummaryThreadIndex = 0;
+        // Hide follow-up and pagination
+        const followupContainer = document.getElementById('summaryFollowupContainer');
+        const paginationContainer = document.getElementById('summaryThreadPagination');
+        if (followupContainer) followupContainer.style.display = 'none';
+        if (paginationContainer) paginationContainer.style.display = 'none';
         if (summaryInput) summaryInput.value = '';
         if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
         if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
@@ -897,6 +947,96 @@ class PasteCraftPopup {
         }
       });
     }
+
+    // Summary follow-up handlers
+    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
+    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
+
+    if (summaryFollowupInput) {
+      summaryFollowupInput.addEventListener('input', (e) => {
+        if (summaryFollowupBtn) {
+          summaryFollowupBtn.disabled = e.target.value.trim() === '';
+        }
+      });
+
+      summaryFollowupInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim() && this.currentSummaryText) {
+          this.handleSummaryFollowup(e.target.value.trim());
+        }
+      });
+    }
+
+    if (summaryFollowupBtn) {
+      summaryFollowupBtn.disabled = true;
+      summaryFollowupBtn.addEventListener('click', () => {
+        if (summaryFollowupInput && this.currentSummaryText) {
+          const followupQuestion = summaryFollowupInput.value.trim();
+          if (followupQuestion) {
+            this.handleSummaryFollowup(followupQuestion);
+          }
+        }
+      });
+    }
+
+    // Breakdown follow-up handlers
+    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
+    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
+
+    if (breakdownFollowupInput) {
+      breakdownFollowupInput.addEventListener('input', (e) => {
+        const hasText = e.target.value.trim() !== '';
+        
+        // Enable/disable send button
+        if (breakdownFollowupBtn) {
+          breakdownFollowupBtn.disabled = !hasText;
+        }
+        
+        // Enable/disable level tabs
+        this.toggleFollowupLevelTabs(hasText);
+      });
+
+      breakdownFollowupInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim() && this.currentBreakdownText) {
+          this.handleBreakdownFollowup(e.target.value.trim());
+        }
+      });
+    }
+
+    if (breakdownFollowupBtn) {
+      breakdownFollowupBtn.disabled = true;
+      breakdownFollowupBtn.addEventListener('click', () => {
+        if (breakdownFollowupInput && this.currentBreakdownText) {
+          const followupQuestion = breakdownFollowupInput.value.trim();
+          if (followupQuestion) {
+            this.handleBreakdownFollowup(followupQuestion);
+          }
+        }
+      });
+    }
+
+    // Follow-up level tab handlers
+    const followupLevelTabs = document.querySelectorAll('.followup-level-tab');
+    followupLevelTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        if (!tab.classList.contains('disabled')) {
+          // Remove selected from all
+          followupLevelTabs.forEach(t => t.classList.remove('selected'));
+          // Add selected to clicked
+          tab.classList.add('selected');
+          // Store selected level
+          this.selectedFollowupLevel = tab.dataset.followupLevel;
+          console.log('📊 Selected follow-up level:', this.selectedFollowupLevel);
+          
+          // ✅ FIX: Auto-submit the followup when level is clicked
+          if (breakdownFollowupInput && this.currentBreakdownText) {
+            const followupQuestion = breakdownFollowupInput.value.trim();
+            if (followupQuestion) {
+              this.handleBreakdownFollowup(followupQuestion);
+            }
+          }
+        }
+      });
+    });
     
     // AI generation buttons
     const aiGenerateFromProfileBtn = document.getElementById('aiGenerateFromProfileBtn');
@@ -920,6 +1060,11 @@ class PasteCraftPopup {
         this.hideAIGenerationTimer();
       });
     }
+    
+    // Quick Copy Button
+    document.getElementById('quickCopyBtn').addEventListener('click', () => {
+      this.handleQuickCopy();
+    });
     
     // Setup image viewer for expanded view
     this.setupImageViewer();
@@ -1490,10 +1635,95 @@ class PasteCraftPopup {
       return;
     }
     
+    // Calculate pagination
+    const startIndex = this.currentPage * this.clipsPerPage;
+    const endIndex = Math.min(startIndex + this.clipsPerPage, this.clips.length);
+    const pageClips = this.clips.slice(startIndex, endIndex);
+    
     container.innerHTML = '';
-    this.clips.forEach((clip, index) => {
-      const chip = this.createChip(clip, index);
+    pageClips.forEach((clip, pageIndex) => {
+      const actualIndex = startIndex + pageIndex;
+      const chip = this.createChip(clip, actualIndex);
       container.appendChild(chip);
+    });
+    
+    // Render pagination controls
+    this.renderPagination();
+    
+    // Update quick copy button visibility
+    this.updateQuickCopyButton();
+  }
+  
+  renderPagination() {
+    const paginationContainer = document.getElementById('paginationControls');
+    if (!paginationContainer) return;
+    
+    const totalPages = Math.min(Math.ceil(this.clips.length / this.clipsPerPage), this.maxPages);
+    
+    if (totalPages <= 1) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+    
+    let paginationHTML = '<div class="pagination-wrapper">';
+    
+    // Previous button
+    paginationHTML += `
+      <button class="pagination-btn pagination-prev" ${this.currentPage === 0 ? 'disabled' : ''} data-page="${this.currentPage - 1}">
+        ‹ Prev
+      </button>
+    `;
+    
+    // Page numbers
+    paginationHTML += '<div class="pagination-numbers">';
+    
+    // Show first page
+    if (this.currentPage > 2) {
+      paginationHTML += `<button class="pagination-number" data-page="0">0</button>`;
+      if (this.currentPage > 3) {
+        paginationHTML += '<span class="pagination-ellipsis">...</span>';
+      }
+    }
+    
+    // Show pages around current page
+    const startPage = Math.max(0, this.currentPage - 2);
+    const endPage = Math.min(totalPages - 1, this.currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      const isActive = i === this.currentPage ? 'active' : '';
+      paginationHTML += `<button class="pagination-number ${isActive}" data-page="${i}">${i}</button>`;
+    }
+    
+    // Show last page
+    if (this.currentPage < totalPages - 3) {
+      if (this.currentPage < totalPages - 4) {
+        paginationHTML += '<span class="pagination-ellipsis">...</span>';
+      }
+      paginationHTML += `<button class="pagination-number" data-page="${totalPages - 1}">${totalPages - 1}</button>`;
+    }
+    
+    paginationHTML += '</div>';
+    
+    // Next button
+    paginationHTML += `
+      <button class="pagination-btn pagination-next" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''} data-page="${this.currentPage + 1}">
+        Next ›
+      </button>
+    `;
+    
+    paginationHTML += '</div>';
+    
+    paginationContainer.innerHTML = paginationHTML;
+    
+    // Add click handlers
+    paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const page = parseInt(e.target.dataset.page);
+        if (!isNaN(page) && page >= 0 && page < totalPages) {
+          this.currentPage = page;
+          this.renderChips();
+        }
+      });
     });
   }
   
@@ -1504,6 +1734,7 @@ class PasteCraftPopup {
     chip.dataset.clipId = clip.id || index;
     
     const text = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
+    const timeAgo = this.getTimeAgo(clip.timestamp);
     
     const clipCategory = clip.category || 'Uncategorized';
     const isSelected = this.selectedChips.has(index);
@@ -1511,6 +1742,7 @@ class PasteCraftPopup {
     chip.innerHTML = `
       <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
       <span class="chip-text" title="${clip.text}">${text}</span>
+      <span class="chip-time">${timeAgo}</span>
       <div class="chip-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
@@ -1707,6 +1939,9 @@ class PasteCraftPopup {
     
     const output = processedTexts.join(delimiters[this.delimiter] || ', ');
     previewArea.value = output;
+    
+    // Update quick copy button visibility
+    this.updateQuickCopyButton();
   }
   
   async copyToClipboard() {
@@ -1738,6 +1973,94 @@ class PasteCraftPopup {
       setTimeout(() => {
         copyBtn.textContent = 'Copy Crafted Output';
       }, 2000);
+    }
+  }
+  
+  async handleQuickCopy() {
+    const quickCopyBtn = document.getElementById('quickCopyBtn');
+    
+    if (this.selectedChips.size === 0) return;
+    
+    // Get selected clips text
+    const selectedTexts = Array.from(this.selectedChips)
+      .map(index => this.clips[index].text)
+      .filter(Boolean);
+    
+    if (selectedTexts.length === 0) return;
+    
+    // Apply options (deduplicate, sort, uppercase)
+    let processedTexts = [...selectedTexts];
+    
+    if (this.options.deduplicate) {
+      processedTexts = [...new Set(processedTexts)];
+    }
+    
+    if (this.options.sort) {
+      processedTexts.sort((a, b) => a.localeCompare(b));
+    }
+    
+    if (this.options.uppercase) {
+      processedTexts = processedTexts.map(t => t.toUpperCase());
+    }
+    
+    // Get delimiter
+    let delimiter = '\n';
+    if (this.delimiter === 'comma') {
+      delimiter = ', ';
+    } else if (this.delimiter === 'space') {
+      delimiter = ' ';
+    } else if (this.delimiter === 'pipe') {
+      delimiter = ' | ';
+    } else if (this.delimiter === 'custom') {
+      const customInput = document.getElementById('customDelimiter');
+      delimiter = customInput ? customInput.value : '\n';
+    }
+    
+    const textToCopy = processedTexts.join(delimiter);
+    
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      
+      // Success feedback
+      const originalHTML = quickCopyBtn.innerHTML;
+      quickCopyBtn.innerHTML = `
+        <span class="btn-icon">✓</span>
+        <span class="btn-text">Copied!</span>
+      `;
+      quickCopyBtn.classList.add('success');
+      
+      // Confetti for large copies
+      if (this.selectedChips.size >= 5) {
+        this.showConfetti();
+      }
+      
+      setTimeout(() => {
+        quickCopyBtn.innerHTML = originalHTML;
+        quickCopyBtn.classList.remove('success');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Quick copy failed:', error);
+      const originalHTML = quickCopyBtn.innerHTML;
+      quickCopyBtn.innerHTML = `
+        <span class="btn-icon">✗</span>
+        <span class="btn-text">Failed</span>
+      `;
+      setTimeout(() => {
+        quickCopyBtn.innerHTML = originalHTML;
+      }, 2000);
+    }
+  }
+  
+  updateQuickCopyButton() {
+    const quickCopyBtn = document.getElementById('quickCopyBtn');
+    if (!quickCopyBtn) return;
+    
+    // Show button only if there are selected clips
+    if (this.selectedChips.size > 0) {
+      quickCopyBtn.style.display = 'flex';
+    } else {
+      quickCopyBtn.style.display = 'none';
     }
   }
   
@@ -2254,6 +2577,16 @@ class PasteCraftPopup {
     this.currentBreakdownLevel = null;
     this.breakdownCache = {};
     
+    // Reset threads
+    this.breakdownThreads = [];
+    this.currentBreakdownThreadIndex = 0;
+    
+    // Hide follow-up and pagination
+    const followupContainer = document.getElementById('breakdownFollowupContainer');
+    const paginationContainer = document.getElementById('breakdownThreadPagination');
+    if (followupContainer) followupContainer.style.display = 'none';
+    if (paginationContainer) paginationContainer.style.display = 'none';
+    
     // Reset italics state
     const breakdownResult = document.getElementById('breakdownResult');
     const italicsBtn = document.getElementById('breakdownItalicsBtn');
@@ -2313,6 +2646,26 @@ class PasteCraftPopup {
       // Show result
       resultEl.textContent = explanation;
       loadingEl.style.display = 'none';
+
+      // Add to threads
+      this.breakdownThreads.push({
+        question: `Breakdown at ${level} level`,
+        answer: explanation,
+        level,
+        timestamp: Date.now()
+      });
+      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
+
+      // Show follow-up input after first response
+      const followupContainer = document.getElementById('breakdownFollowupContainer');
+      if (followupContainer) {
+        followupContainer.style.display = 'block';
+      }
+
+      // Update thread pagination (only show after 2nd response)
+      if (this.breakdownThreads.length >= 2) {
+        this.renderThreadPagination('breakdown');
+      }
 
     } catch (error) {
       console.error('Failed to generate breakdown:', error);
@@ -2417,6 +2770,25 @@ class PasteCraftPopup {
         summaryContent.textContent = summary;
       }
 
+      // Add to threads
+      this.summaryThreads.push({
+        question,
+        answer: summary,
+        timestamp: Date.now()
+      });
+      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
+
+      // Show follow-up input after first response
+      const followupContainer = document.getElementById('summaryFollowupContainer');
+      if (followupContainer) {
+        followupContainer.style.display = 'block';
+      }
+
+      // Update thread pagination (only show after 2nd response)
+      if (this.summaryThreads.length >= 2) {
+        this.renderThreadPagination('summary');
+      }
+
     } catch (error) {
       console.error('Failed to generate summary:', error);
       const summaryContent = document.getElementById('summaryResultContent');
@@ -2426,6 +2798,211 @@ class PasteCraftPopup {
       document.getElementById('summaryLoading').style.display = 'none';
       this.showToast('Failed to generate summary');
     }
+  }
+
+  // Handle Summary Follow-up
+  async handleSummaryFollowup(followupQuestion) {
+    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
+    if (summaryFollowupInput) {
+      summaryFollowupInput.value = '';
+      summaryFollowupInput.disabled = true;
+    }
+    
+    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
+    if (summaryFollowupBtn) {
+      summaryFollowupBtn.disabled = true;
+    }
+
+    // Generate summary with follow-up question
+    await this.generateSummary(this.currentSummaryText, followupQuestion);
+
+    // Re-enable input
+    if (summaryFollowupInput) {
+      summaryFollowupInput.disabled = false;
+    }
+  }
+
+  // Handle Breakdown Follow-up
+  async handleBreakdownFollowup(followupQuestion) {
+    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
+    if (breakdownFollowupInput) {
+      breakdownFollowupInput.value = '';
+      breakdownFollowupInput.disabled = true;
+    }
+    
+    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
+    if (breakdownFollowupBtn) {
+      breakdownFollowupBtn.disabled = true;
+    }
+
+    // Disable level tabs during processing
+    this.toggleFollowupLevelTabs(false);
+
+    const loadingEl = document.getElementById('breakdownLoading');
+    const resultEl = document.getElementById('breakdownResult');
+
+    try {
+      // Show loading
+      if (loadingEl) loadingEl.style.display = 'flex';
+      if (resultEl) resultEl.textContent = '';
+
+      let answer;
+      
+      // Use selected level if specified, otherwise use general summary
+      if (this.selectedFollowupLevel) {
+        console.log('🎯 Generating follow-up at level:', this.selectedFollowupLevel);
+        // Generate with specific breakdown level
+        const levelPrompt = `Based on the previous explanation, answer this follow-up question at a ${this.selectedFollowupLevel} comprehension level: ${followupQuestion}. Context: "${this.currentBreakdownText.substring(0, 100)}..."`;
+        answer = await pasteCraftSupabase.breakdownText(levelPrompt, this.selectedFollowupLevel);
+      } else {
+        // Generate standard follow-up response
+        const contextPrompt = `Based on the previous explanation about "${this.currentBreakdownText.substring(0, 100)}...", answer this follow-up: ${followupQuestion}`;
+        answer = await pasteCraftSupabase.generateSummary(this.currentBreakdownText, contextPrompt);
+      }
+
+      // Hide loading
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      // Display answer
+      if (resultEl) {
+        resultEl.textContent = answer;
+      }
+
+      // Add to threads
+      this.breakdownThreads.push({
+        question: followupQuestion,
+        answer,
+        level: this.selectedFollowupLevel || 'standard',
+        timestamp: Date.now()
+      });
+      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
+
+      // Update pagination
+      if (this.breakdownThreads.length >= 2) {
+        this.renderThreadPagination('breakdown');
+      }
+
+      // Reset selected level for next follow-up
+      this.selectedFollowupLevel = null;
+      document.querySelectorAll('.followup-level-tab').forEach(t => t.classList.remove('selected'));
+
+    } catch (error) {
+      console.error('Failed to generate follow-up:', error);
+      if (resultEl) {
+        resultEl.textContent = '❌ Failed to generate follow-up response.';
+      }
+      if (loadingEl) loadingEl.style.display = 'none';
+      this.showToast('Failed to generate follow-up');
+    }
+
+    // Re-enable input
+    if (breakdownFollowupInput) {
+      breakdownFollowupInput.disabled = false;
+    }
+  }
+
+  // Toggle Follow-up Level Tabs Enabled/Disabled
+  toggleFollowupLevelTabs(enable) {
+    const tabs = document.querySelectorAll('.followup-level-tab');
+    tabs.forEach(tab => {
+      if (enable) {
+        tab.classList.remove('disabled');
+        tab.disabled = false;
+      } else {
+        tab.classList.add('disabled');
+        tab.disabled = true;
+      }
+    });
+  }
+
+  // Render Thread Pagination Boxes
+  renderThreadPagination(type) {
+    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
+    const currentIndex = type === 'summary' ? this.currentSummaryThreadIndex : this.currentBreakdownThreadIndex;
+    const paginationContainer = document.getElementById(`${type}ThreadPagination`);
+
+    console.log('🔍 renderThreadPagination called:', { type, threadsLength: threads.length, containerFound: !!paginationContainer });
+
+    if (!paginationContainer || threads.length < 2) {
+      console.log('⚠️ Early return:', { containerExists: !!paginationContainer, threadsLength: threads.length });
+      return;
+    }
+
+    // Show pagination
+    paginationContainer.style.display = 'flex';
+    paginationContainer.style.gap = '8px';
+    paginationContainer.innerHTML = '';
+
+    console.log('✅ Rendering', threads.length, 'thread boxes for', type);
+
+    threads.forEach((thread, index) => {
+      const box = document.createElement('div');
+      box.className = `thread-box ${index === currentIndex ? 'active' : ''}`;
+      box.textContent = index + 1;
+      
+      // Force styling inline as fallback
+      box.style.cssText = `
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: ${index === currentIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
+        border: 2px solid ${index === currentIndex ? '#2563eb' : '#cbd5e1'};
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: ${index === currentIndex ? 'white' : '#64748b'};
+        transition: all 0.25s ease;
+        position: relative;
+      `;
+      
+      // Generate tooltip with AI summary title
+      const tooltipText = this.generateThreadTooltip(thread, index + 1);
+      box.setAttribute('data-tooltip', tooltipText);
+      box.setAttribute('title', tooltipText); // Fallback native tooltip
+      
+      box.addEventListener('click', () => {
+        this.navigateToThread(type, index);
+      });
+
+      paginationContainer.appendChild(box);
+      console.log(`✅ Added thread box ${index + 1}, className: "${box.className}"`);
+    });
+
+    console.log('✅ Pagination rendered. Container display:', paginationContainer.style.display);
+  }
+
+  // Generate tooltip text for thread box
+  generateThreadTooltip(thread, number) {
+    // Extract first few words as summary title
+    const question = thread.question || 'Response';
+    const summaryTitle = question.length > 30 ? question.substring(0, 30) + '...' : question;
+    return `${number}. "${summaryTitle}"`;
+  }
+
+  // Navigate to specific thread
+  navigateToThread(type, index) {
+    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
+    if (index < 0 || index >= threads.length) return;
+
+    const thread = threads[index];
+    const contentEl = document.getElementById(type === 'summary' ? 'summaryResultContent' : 'breakdownResult');
+
+    if (contentEl) {
+      contentEl.textContent = thread.answer;
+    }
+
+    // Update current index
+    if (type === 'summary') {
+      this.currentSummaryThreadIndex = index;
+    } else {
+      this.currentBreakdownThreadIndex = index;
+    }
+
+    // Re-render pagination to update active state
+    this.renderThreadPagination(type);
   }
 
   populateCategoryOptions() {
@@ -2541,11 +3118,8 @@ class PasteCraftPopup {
 
       this.clips.unshift(newClip);
       
-      // Move clips beyond 20th to search-only storage
-      if (this.clips.length > 20) {
-        const overflowClips = this.clips.splice(20);
-        await this.moveToSearchStorage(overflowClips);
-      }
+      // Enforce 500 clip limit with auto-archive
+      await this.enforceClipLimit();
 
       await chrome.storage.local.set({ clips: this.clips });
       
@@ -2558,7 +3132,7 @@ class PasteCraftPopup {
         // Don't block user - local save already succeeded
       }
       
-      // Notify content scripts about new clip
+      // Notify content scripts and other parts of extension about new clip
       try {
         chrome.tabs.query({}, (tabs) => {
           tabs.forEach(tab => {
@@ -2568,8 +3142,14 @@ class PasteCraftPopup {
             }).catch(() => {}); // Ignore errors for tabs without content script
           });
         });
+        
+        // Also send runtime message for consistency
+        chrome.runtime.sendMessage({
+          action: 'clipSaved',
+          clip: newClip
+        }).catch(() => {}); // Ignore if no receivers
       } catch (error) {
-        console.log('Could not notify content scripts:', error);
+        console.log('Could not notify about new clip:', error);
       }
       
       this.renderChips();
@@ -3868,14 +4448,30 @@ class PasteCraftPopup {
   }
 
   // Global message handler for background script
-  static handleMessage(message) {
+  static async handleMessage(message) {
+    const popup = window.pasteCraftPopup;
+    if (!popup) return;
+    
     if (message.action === 'showCategoryModal' && message.text) {
       // This will be called from background script
-      const popup = window.pasteCraftPopup;
-      if (popup) {
-        popup.pendingText = message.text;
-        popup.showCategoryModal(false);
+      popup.pendingText = message.text;
+      popup.showCategoryModal(false);
+    } else if (message.action === 'clipSaved') {
+      // Clip was saved externally (e.g., via context menu)
+      console.log('📢 Received clipSaved message - reloading data...');
+      
+      // Reload clips and categories from storage
+      await popup.loadData();
+      
+      // Re-render the UI to show updated counts
+      popup.renderCategories();
+      
+      // If we're on the clips tab, refresh the clips display too
+      if (popup.currentTab === 'clips') {
+        popup.renderClips();
       }
+      
+      console.log('✅ UI refreshed with new clip data');
     }
   }
 

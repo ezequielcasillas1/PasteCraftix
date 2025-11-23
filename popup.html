@@ -447,6 +447,209 @@
             transform: scale(1.1);
         }
         
+        .chip-time {
+            font-size: 10px;
+            color: #9ca3af;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0.8;
+        }
+        
+        .chip.selected .chip-time {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        /* Quick Copy Button - Shiny Gleamy Blue */
+        .quick-copy-btn {
+            position: relative;
+            width: calc(100% - 40px);
+            margin: 16px 20px 8px 20px;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 50%, #2563eb 100%);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            box-shadow: 
+                0 4px 16px rgba(59, 130, 246, 0.4),
+                0 0 20px rgba(96, 165, 250, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            animation: gleamShift 3s ease-in-out infinite;
+        }
+        
+        @keyframes gleamShift {
+            0%, 100% {
+                background-position: 0% 50%;
+                box-shadow: 
+                    0 4px 16px rgba(59, 130, 246, 0.4),
+                    0 0 20px rgba(96, 165, 250, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+            50% {
+                background-position: 100% 50%;
+                box-shadow: 
+                    0 6px 24px rgba(59, 130, 246, 0.6),
+                    0 0 30px rgba(96, 165, 250, 0.5),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            }
+        }
+        
+        .quick-copy-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 
+                0 8px 28px rgba(59, 130, 246, 0.6),
+                0 0 40px rgba(96, 165, 250, 0.5),
+                inset 0 2px 0 rgba(255, 255, 255, 0.4);
+            animation: gleamShift 1.5s ease-in-out infinite;
+        }
+        
+        .quick-copy-btn:active {
+            transform: translateY(0) scale(0.98);
+            box-shadow: 
+                0 2px 12px rgba(59, 130, 246, 0.5),
+                0 0 15px rgba(96, 165, 250, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        
+        .quick-copy-btn.success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #059669 100%);
+            animation: successPulse 0.6s ease-out;
+        }
+        
+        @keyframes successPulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 
+                    0 8px 32px rgba(16, 185, 129, 0.6),
+                    0 0 50px rgba(52, 211, 153, 0.6);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        .btn-shimmer {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.4) 50%, 
+                transparent 100%);
+            transform: skewX(-25deg);
+            animation: shimmerSlide 4s ease-in-out infinite;
+        }
+        
+        @keyframes shimmerSlide {
+            0%, 100% {
+                left: -100%;
+            }
+            50% {
+                left: 150%;
+            }
+        }
+        
+        .quick-copy-btn:hover .btn-shimmer {
+            animation: shimmerSlide 2s ease-in-out infinite;
+        }
+        
+        .quick-copy-btn .btn-icon {
+            font-size: 20px;
+            z-index: 1;
+        }
+        
+        .quick-copy-btn .btn-text {
+            font-size: 15px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            z-index: 1;
+        }
+        
+        .quick-copy-btn .btn-arrow {
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1;
+            transition: transform 0.3s ease;
+        }
+        
+        .quick-copy-btn:hover .btn-arrow {
+            transform: translateX(4px);
+        }
+        
+        /* Pagination Styles */
+        #paginationControls {
+            margin-top: 16px;
+            padding: 0 10px;
+        }
+        
+        .pagination-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .pagination-numbers {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .pagination-btn, .pagination-number {
+            padding: 6px 12px;
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-btn:hover:not([disabled]), .pagination-number:hover:not(.active) {
+            background: #f1f5f9;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: translateY(-1px);
+        }
+        
+        .pagination-btn[disabled] {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .pagination-number.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .pagination-ellipsis {
+            padding: 6px 4px;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+        
+        .pagination-prev, .pagination-next {
+            min-width: 70px;
+        }
+        
         .chip.selected .chip-remove {
             background: rgba(255, 255, 255, 0.2);
         }
@@ -4036,6 +4239,13 @@
                         </div>
                     </div>
                 </div>
+                <button class="quick-copy-btn" id="quickCopyBtn" style="display: none;">
+                    <span class="btn-shimmer"></span>
+                    <span class="btn-icon">📋</span>
+                    <span class="btn-text">Quick Copy Selected</span>
+                    <span class="btn-arrow">→</span>
+                </button>
+                <div id="paginationControls"></div>
             </div>
         </section>
 
@@ -4244,6 +4454,7 @@ Multiple clips are separated by:
                                 <button id="copySummaryBtn" class="btn-icon-action" title="Copy summary">
                                     📋
                                 </button>
+                                <div class="thread-pagination" id="summaryThreadPagination" style="display: none;"></div>
                             </div>
                             
                             <div class="summary-loading" id="summaryLoading" style="display: none;">
@@ -4252,6 +4463,26 @@ Multiple clips are separated by:
                             </div>
                             
                             <div class="summary-result-content" id="summaryResultContent"></div>
+                            
+                            <!-- Follow-up Input Box -->
+                            <div class="ai-followup-container" id="summaryFollowupContainer" style="display: none;">
+                                <div class="followup-label">
+                                    <span class="followup-icon">💬</span>
+                                    <span>Ask a follow-up question</span>
+                                </div>
+                                <div class="followup-input-group">
+                                    <input 
+                                        type="text" 
+                                        id="summaryFollowupInput" 
+                                        class="followup-input" 
+                                        placeholder="Continue questioning about the problem..."
+                                    />
+                                    <button id="summaryFollowupBtn" class="followup-send-btn" title="Send follow-up">
+                                        <span>Send</span>
+                                        <span class="send-icon">→</span>
+                                    </button>
+                                </div>
+                            </div>
                             
                             <div class="summary-result-actions">
                                 <button id="newQuestionBtn" class="btn-secondary">
@@ -4502,35 +4733,41 @@ Multiple clips are separated by:
                         </p>
                     </div>
 
-                    <div class="breakdown-tabs">
-                        <button class="breakdown-tab active" data-level="eli5" title="Simple explanation for anyone">
-                            <span class="tab-emoji">🍼</span>
-                            <span class="tab-label">Child</span>
-                        </button>
-                        <button class="breakdown-tab" data-level="elementary" title="Elementary school level (grades 3-5)">
-                            <span class="tab-emoji">📚</span>
-                            <span class="tab-label">Elementary</span>
-                        </button>
-                        <button class="breakdown-tab" data-level="highschool" title="High school level understanding">
-                            <span class="tab-emoji">🎓</span>
-                            <span class="tab-label">High School</span>
-                        </button>
-                        <button class="breakdown-tab" data-level="college" title="College/undergraduate level">
-                            <span class="tab-emoji">🏛️</span>
-                            <span class="tab-label">College</span>
-                        </button>
-                        <button class="breakdown-tab" data-level="phd" title="PhD/expert level analysis">
-                            <span class="tab-emoji">👨‍🔬</span>
-                            <span class="tab-label">PhD</span>
-                        </button>
-                        <button class="breakdown-tab" data-level="wiseman" title="Philosophical wisdom and life lessons">
-                            <span class="tab-emoji">🧙</span>
-                            <span class="tab-label">Wise Man</span>
-                        </button>
-                        <button class="breakdown-italics-btn" id="breakdownItalicsBtn" title="Toggle italic style">
-                            <span style="font-style: italic; font-family: Georgia, serif; font-weight: bold; font-size: 18px;">I</span>
-                        </button>
+                    <div class="breakdown-tabs-container">
+                        <div class="breakdown-tabs">
+                            <button class="breakdown-tab active" data-level="eli5" title="Simple explanation for anyone">
+                                <span class="tab-emoji">🍼</span>
+                                <span class="tab-label">Child</span>
+                            </button>
+                            <button class="breakdown-tab" data-level="elementary" title="Elementary school level (grades 3-5)">
+                                <span class="tab-emoji">📚</span>
+                                <span class="tab-label">Elementary</span>
+                            </button>
+                            <button class="breakdown-tab" data-level="highschool" title="High school level understanding">
+                                <span class="tab-emoji">🎓</span>
+                                <span class="tab-label">High School</span>
+                            </button>
+                            <button class="breakdown-tab" data-level="college" title="College/undergraduate level">
+                                <span class="tab-emoji">🏛️</span>
+                                <span class="tab-label">College</span>
+                            </button>
+                            <button class="breakdown-tab" data-level="phd" title="PhD/expert level analysis">
+                                <span class="tab-emoji">👨‍🔬</span>
+                                <span class="tab-label">PhD</span>
+                            </button>
+                            <button class="breakdown-tab" data-level="wiseman" title="Philosophical wisdom and life lessons">
+                                <span class="tab-emoji">🧙</span>
+                                <span class="tab-label">Wise Man</span>
+                            </button>
+                            <button class="breakdown-italics-btn" id="breakdownItalicsBtn" title="Toggle italic style">
+                                <span style="font-style: italic; font-family: Georgia, serif; font-weight: bold; font-size: 18px;">I</span>
+                            </button>
+                        </div>
                     </div>
+                    
+                    <!-- Thread Pagination for Breakdown -->
+                    <div class="thread-pagination" id="breakdownThreadPagination" style="display: none;"></div>
+                    
                     <div class="breakdown-content">
                         <div class="breakdown-loading" id="breakdownLoading" style="display: none;">
                             <div class="loading-spinner"></div>
@@ -4538,6 +4775,60 @@ Multiple clips are separated by:
                             <small>This may take a few seconds</small>
                         </div>
                         <div class="breakdown-result" id="breakdownResult"></div>
+                        
+                        <!-- Follow-up Input Box -->
+                        <div class="ai-followup-container" id="breakdownFollowupContainer" style="display: none;">
+                            <div class="followup-label">
+                                <span class="followup-icon">💬</span>
+                                <span>Ask a follow-up question</span>
+                            </div>
+                            <div class="followup-input-group">
+                                <input 
+                                    type="text" 
+                                    id="breakdownFollowupInput" 
+                                    class="followup-input" 
+                                    placeholder="Continue questioning about the explanation..."
+                                />
+                                <button id="breakdownFollowupBtn" class="followup-send-btn" title="Send follow-up">
+                                    <span>Send</span>
+                                    <span class="send-icon">→</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Breakdown Level Selector for Follow-ups -->
+                            <div class="followup-level-selector">
+                                <div class="followup-level-label">
+                                    <span>📊</span>
+                                    <span>Choose response style:</span>
+                                </div>
+                                <div class="followup-level-tabs" id="followupLevelTabs">
+                                    <button class="followup-level-tab disabled" data-followup-level="eli5" title="Simple explanation" disabled>
+                                        <span class="tab-emoji">🍼</span>
+                                        <span class="tab-label">Child</span>
+                                    </button>
+                                    <button class="followup-level-tab disabled" data-followup-level="elementary" title="Elementary school level" disabled>
+                                        <span class="tab-emoji">📚</span>
+                                        <span class="tab-label">Elementary</span>
+                                    </button>
+                                    <button class="followup-level-tab disabled" data-followup-level="highschool" title="High school level" disabled>
+                                        <span class="tab-emoji">🎓</span>
+                                        <span class="tab-label">High School</span>
+                                    </button>
+                                    <button class="followup-level-tab disabled" data-followup-level="college" title="College level" disabled>
+                                        <span class="tab-emoji">🏛️</span>
+                                        <span class="tab-label">College</span>
+                                    </button>
+                                    <button class="followup-level-tab disabled" data-followup-level="phd" title="PhD level" disabled>
+                                        <span class="tab-emoji">👨‍🔬</span>
+                                        <span class="tab-label">PhD</span>
+                                    </button>
+                                    <button class="followup-level-tab disabled" data-followup-level="wiseman" title="Philosophical wisdom" disabled>
+                                        <span class="tab-emoji">🧙</span>
+                                        <span class="tab-label">Wise Man</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-actions">
                         <button class="btn-secondary" id="copyBreakdownBtn">
@@ -4571,7 +4862,7 @@ Multiple clips are separated by:
                         <div class="toggle-switch"></div>
                         <span>🔄 Deduplicate</span>
                     </label>
-                    <label class="toggle" title="Pick more than one clip to sort from A to Z">
+                    <label class="toggle" title="Automatically arrange multiple clips in alphabetical order (A to Z)">
                         <input type="checkbox" id="sortToggle">
                         <div class="toggle-switch"></div>
                         <span>⬆️ Sort A→Z</span>

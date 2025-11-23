@@ -3,6 +3,7 @@
 ## 🐛 Current Issues Requiring Attention:
 
 {
+- Copy to clipboard button only copies single clip when multiple clips are selected. User expects: clicking any copy button when 2+ clips are selected should copy all selected clips (like AI Breakdown/Summary already do). Currently only copies the individual clip. Should use existing `getSelectedOrCurrentText()` method like AI features do.
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`
