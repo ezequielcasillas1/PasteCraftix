@@ -5,7 +5,7 @@ class QuickPasteInterface {
     this.clips = [];
     this.container = null;
     this.settingsModal = null;
-    this.position = { x: 20, y: 20 }; // Default position
+    this.position = { x: 0, y: null }; // Default position - left side, CSS handles vertical centering
     this.settings = {
       theme: 'light',
       autoHide: true,
@@ -13,6 +13,7 @@ class QuickPasteInterface {
       maxClipsDisplay: 20,
       delimiter: 'comma',
       customDelimiter: ', ',
+      persistOpen: true,  // Stay open when clicking on page
       options: {
         deduplicate: false,
         sort: false,
@@ -140,21 +141,27 @@ class QuickPasteInterface {
   
   addStyles() {
     const styleId = 'pastecraft-quick-paste-styles';
-    if (document.getElementById(styleId)) return;
+    // Remove old styles if they exist to allow updates
+    const existingStyles = document.getElementById(styleId);
+    if (existingStyles) {
+      existingStyles.remove();
+    }
     
     const styles = document.createElement('style');
     styles.id = styleId;
     styles.textContent = `
       #pastecraft-quick-paste {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
         width: 320px;
-        max-height: 500px;
+        max-height: 600px;
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        border-radius: 0 12px 12px 0;
+        box-shadow: 4px 0 60px rgba(0, 0, 0, 0.3);
         border: 1px solid #e2e8f0;
+        border-left: none;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         z-index: 999999;
         overflow: hidden;
@@ -164,8 +171,8 @@ class QuickPasteInterface {
       }
       
       @keyframes pastecraft-slide-in {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+        from { transform: translate(-100%, -50%); opacity: 0; }
+        to { transform: translate(0, -50%); opacity: 1; }
       }
       
       .pastecraft-header {
@@ -1040,7 +1047,7 @@ class QuickPasteInterface {
       this.container.style.top = clampedY + 'px';
       this.container.style.right = 'auto';
       this.container.style.bottom = 'auto';
-      this.container.style.transform = 'none';
+      this.container.style.transform = 'translateY(0)';
       
       // Save position
       this.position.x = clampedX;
@@ -1088,7 +1095,8 @@ class QuickPasteInterface {
     
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
-      if (this.isVisible && !this.container.contains(e.target)) {
+      // Only hide on outside click if persistOpen is disabled
+      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -1105,10 +1113,12 @@ class QuickPasteInterface {
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       if (message.action === 'clipSaved') {
         console.log('📨 Received clipSaved message:', message.clip);
+        console.log('👁️ AutoShow flag:', message.autoShow);
         this.loadClips().then(() => {
           console.log('🔄 Auto-refreshed clips after new clip saved');
           this.updateInterface();
-          if (!this.isVisible && this.clips.length > 0) {
+          // Only auto-show if autoShow flag is true (default behavior)
+          if (message.autoShow !== false && !this.isVisible && this.clips.length > 0) {
             this.showInterface();
           }
         });
@@ -1128,6 +1138,14 @@ class QuickPasteInterface {
         console.log('🗑️ Received clipsCleared message - refreshing interface');
         await this.loadClips();
         this.updateInterface();
+      } else if (message.action === 'openPopupPanel') {
+        // Extension icon clicked - open the slide-in panel
+        console.log('🎨 Received openPopupPanel message');
+        if (window.pasteCraftFloatingWidget) {
+          window.pasteCraftFloatingWidget.openPopupOverlay();
+        } else {
+          console.error('❌ Floating widget not initialized');
+        }
       }
       
       sendResponse(true);
@@ -1146,12 +1164,18 @@ class QuickPasteInterface {
       this.position.y = Math.min(y, maxY);
     }
     
-    // Apply saved/calculated position
-    this.container.style.left = this.position.x + 'px';
-    this.container.style.top = this.position.y + 'px';
-    this.container.style.right = 'auto';
-    this.container.style.bottom = 'auto';
-    this.container.style.transform = 'none';
+    // Apply saved/calculated position (don't override CSS positioning)
+    // CSS handles left: 0 and vertical centering via transform
+    // Only apply custom position if dragged by user
+    if (this.position.x !== 0 && this.position.x !== null) {
+      this.container.style.left = this.position.x + 'px';
+      this.container.style.right = 'auto';
+    }
+    if (this.position.y !== null && typeof this.position.y === 'number') {
+      this.container.style.top = this.position.y + 'px';
+      this.container.style.bottom = 'auto';
+      this.container.style.transform = 'translateY(0)';
+    }
     
     this.container.style.display = 'block';
     this.isVisible = true;
@@ -2456,13 +2480,1608 @@ class QuickPasteInterface {
   }
 }
 
+// PasteCraft Floating Widget (Monica.ai Style)
+class PasteCraftFloatingWidget {
+  constructor() {
+    console.log('🎨 PasteCraftFloatingWidget constructor called');
+    this.widget = null;
+    this.isExpanded = false;
+    this.position = { top: 50 }; // Percentage from top (50 = center)
+    this.settings = {
+      keepPopupOpen: true,  // Default: popup stays open when clicking outside
+      keepQuickViewOpen: true  // Default: quick view stays open
+    };
+    
+    // Track open state of each component
+    this.openStates = {
+      popup: false,
+      settings: false,
+      quickView: false
+    };
+    
+    // Auto-copy feature state
+    this.autoCopyEnabled = false;
+    this.autoCopyCount = 0;
+    
+    // Initialize synchronously first
+    console.log('🔨 Creating widget...');
+    this.createWidget();
+    console.log('✅ Widget created successfully');
+    this.loadSavedPosition();
+    
+    // Then load settings asynchronously
+    this.initAsync();
+  }
+  
+  async initAsync() {
+    await this.loadSettings();
+    await this.loadAutoCopyState();
+    this.setupAutoCopyListener();
+    console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
+  }
+  
+  async loadSettings() {
+    try {
+      const result = await chrome.storage.local.get(['widgetSettings']);
+      if (result.widgetSettings) {
+        this.settings = { ...this.settings, ...result.widgetSettings };
+      }
+      console.log('📝 Widget settings loaded:', this.settings);
+    } catch (error) {
+      console.error('Error loading widget settings:', error);
+    }
+  }
+  
+  async saveSettings() {
+    try {
+      await chrome.storage.local.set({ widgetSettings: this.settings });
+      console.log('💾 Widget settings saved:', this.settings);
+    } catch (error) {
+      console.error('Error saving widget settings:', error);
+    }
+  }
+  
+  createWidget() {
+    // Create main widget container
+    this.widget = document.createElement('div');
+    this.widget.id = 'pastecraft-floating-widget';
+    this.widget.className = 'pastecraft-widget';
+    
+    // Add widget HTML structure
+    this.widget.innerHTML = `
+      <div class="pastecraft-widget-inner">
+        <!-- Component 1: Logo Button -->
+        <div class="widget-component logo-button" data-tooltip="Open PasteCraft">
+          <img src="${chrome.runtime.getURL('logo.svg')}" alt="PasteCraft" class="widget-logo">
+        </div>
+        
+        <!-- Component 2: Settings Button -->
+        <div class="widget-component settings-button" data-tooltip="Settings">
+          <span class="widget-icon">⚙️</span>
+        </div>
+        
+        <!-- Component 3: Auto Copy Toggle -->
+        <div class="widget-component auto-copy-section" data-tooltip="Auto Copy">
+          <div class="auto-copy-toggle" data-state="off">
+            <span class="toggle-label">OFF</span>
+          </div>
+          <div class="auto-copy-counter">0 clips</div>
+        </div>
+        
+        <!-- Component 4: Quick View Button -->
+        <div class="widget-component quick-view-button" data-tooltip="Quick View Menu">
+          <span class="widget-icon">👁️</span>
+        </div>
+      </div>
+    `;
+    
+    // Add styles
+    this.addStyles();
+    
+    // Append to body
+    document.body.appendChild(this.widget);
+    
+    // Debug: Test if ANY clicks work on the widget
+    this.widget.addEventListener('click', (e) => {
+      console.log('🖱️ Widget clicked! Target:', e.target.className);
+    });
+    
+    // Setup event listeners
+    this.setupEventListeners();
+  }
+  
+  addStyles() {
+    // Remove old styles if they exist to ensure updates take effect
+    const existingStyles = document.getElementById('pastecraft-floating-widget-styles');
+    if (existingStyles) {
+      existingStyles.remove();
+    }
+    
+    const styles = document.createElement('style');
+    styles.id = 'pastecraft-floating-widget-styles';
+    styles.textContent = `
+      /* Main Widget Container - starts at right edge, slides left when panel opens */
+      .pastecraft-widget {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 60px;
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+        border-radius: 12px 0 0 12px;
+        box-shadow: 
+          -4px 0 16px rgba(0, 0, 0, 0.15),
+          0 4px 24px rgba(30, 64, 175, 0.3);
+        z-index: 2147483647;
+        padding: 8px 6px;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      /* Widget slides left when any panel is open */
+      .pastecraft-widget.panel-open {
+        right: 380px;
+      }
+      
+      .pastecraft-widget-inner {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+      }
+      
+      /* Widget Components */
+      .widget-component {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        position: relative;
+      }
+      
+      .widget-component:hover {
+        background: rgba(96, 165, 250, 0.2);
+        box-shadow: 0 0 16px rgba(96, 165, 250, 0.5);
+      }
+      
+      /* Active state - when panel is open */
+      .widget-component.active {
+        background: rgba(96, 165, 250, 0.3);
+        box-shadow: 0 0 20px rgba(96, 165, 250, 0.7);
+        border: 2px solid rgba(96, 165, 250, 0.8);
+      }
+      
+      /* Component 1: Logo Button */
+      .logo-button {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      .widget-logo {
+        width: 36px;
+        height: 36px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+      }
+      
+      /* Component 2: Settings Button */
+      .settings-button .widget-icon {
+        font-size: 24px;
+        transition: transform 0.3s ease;
+      }
+      
+      .settings-button:hover .widget-icon {
+        transform: rotate(90deg);
+      }
+      
+      /* Component 3: Auto Copy Toggle - Circular Button */
+      .auto-copy-section {
+        flex-direction: column;
+        height: auto;
+        padding: 8px 4px;
+        gap: 6px;
+      }
+      
+      .auto-copy-toggle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #374151;
+        border: 2px solid #4b5563;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+      
+      .auto-copy-toggle:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      }
+      
+      .auto-copy-toggle[data-state="on"] {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        border-color: #15803d;
+        box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+      }
+      
+      .toggle-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+      }
+      
+      .auto-copy-counter {
+        font-size: 10px;
+        color: #e0f2fe;
+        text-align: center;
+        white-space: nowrap;
+        transition: transform 0.2s ease;
+      }
+      
+      /* Component 4: Quick View Button */
+      .quick-view-button .widget-icon {
+        font-size: 24px;
+      }
+      
+      /* Tooltips - appear on LEFT side since widget is to left of popup */
+      .widget-component[data-tooltip]::before {
+        content: attr(data-tooltip);
+        position: absolute;
+        right: calc(100% + 12px);
+        top: 50%;
+        transform: translateY(-50%) translateX(10px);
+        background: rgba(30, 64, 175, 0.95);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+      }
+      
+      .widget-component[data-tooltip]::after {
+        content: '';
+        position: absolute;
+        right: calc(100% + 6px);
+        top: 50%;
+        transform: translateY(-50%);
+        border: 6px solid transparent;
+        border-left-color: rgba(30, 64, 175, 0.95);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s ease;
+      }
+      
+      .widget-component:hover[data-tooltip]::before,
+      .widget-component:hover[data-tooltip]::after {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+      }
+      
+      /* Animations - slides in from right */
+      @keyframes widget-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(-50%) translateX(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(-50%) translateX(0);
+        }
+      }
+      
+      .pastecraft-widget {
+        animation: widget-fade-in 0.4s ease-out;
+      }
+    `;
+    
+    document.head.appendChild(styles);
+  }
+  
+  setupEventListeners() {
+    console.log('🎯 Setting up widget event listeners...');
+    console.log('🔍 Widget element:', this.widget);
+    console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
+    
+    // Component 1: Logo Button - Toggle popup
+    const logoButton = this.widget.querySelector('.logo-button');
+    if (logoButton) {
+      logoButton.addEventListener('click', () => {
+        console.log('🎨 Logo button clicked!');
+        if (this.openStates.popup) {
+          this.closePopupOverlay();
+        } else {
+          this.openPopupOverlay();
+        }
+      });
+      console.log('✅ Logo button listener attached');
+    } else {
+      console.error('❌ Logo button not found!');
+    }
+    
+    // Component 2: Settings Button - Toggle settings
+    const settingsButton = this.widget.querySelector('.settings-button');
+    if (settingsButton) {
+      settingsButton.addEventListener('click', () => {
+        console.log('⚙️ Settings button clicked!');
+        if (this.openStates.settings) {
+          this.closeSettings();
+        } else {
+          this.openSettings();
+        }
+      });
+      console.log('✅ Settings button listener attached');
+    }
+    
+    // Component 3: Auto Copy Toggle
+    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
+    if (autoToggle) {
+      autoToggle.addEventListener('click', () => {
+        console.log('🔄 Toggle clicked!');
+        this.toggleAutoCopy();
+      });
+      console.log('✅ Auto toggle listener attached');
+    }
+    
+    // Component 4: Quick View Button - Toggle quick view
+    const quickViewButton = this.widget.querySelector('.quick-view-button');
+    if (quickViewButton) {
+      quickViewButton.addEventListener('click', () => {
+        console.log('👁️ Quick View button clicked!');
+        if (this.openStates.quickView) {
+          this.closeQuickView();
+        } else {
+          this.openQuickView();
+        }
+      });
+      console.log('✅ Quick View button listener attached');
+    }
+    
+    console.log('🎯 All event listeners setup complete!');
+  }
+  
+  openPopupOverlay() {
+    console.log('🎨 Opening popup overlay (slide-in from right)');
+    
+    // Check if overlay already exists
+    if (document.getElementById('pastecraft-popup-overlay')) {
+      console.log('⚠️ Overlay already exists');
+      return;
+    }
+    
+    // Set open state
+    this.openStates.popup = true;
+    
+    // Slide widget to the left (attached to panel)
+    this.widget.classList.add('panel-open');
+    
+    // Add active class to logo button
+    const logoButton = this.widget.querySelector('.logo-button');
+    if (logoButton) {
+      logoButton.classList.add('active');
+    }
+    
+    // Create backdrop
+    const backdrop = document.createElement('div');
+    backdrop.id = 'pastecraft-popup-backdrop';
+    backdrop.className = 'pastecraft-overlay-backdrop';
+    
+    // Create container (slide-in panel like settings)
+    const container = document.createElement('div');
+    container.id = 'pastecraft-popup-overlay';
+    container.className = 'pastecraft-overlay-panel';
+    
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.className = 'pastecraft-overlay-close';
+    closeButton.innerHTML = '×';
+    closeButton.setAttribute('aria-label', 'Close');
+    
+    // Create iframe
+    const iframe = document.createElement('iframe');
+    iframe.src = chrome.runtime.getURL('popup.html');
+    iframe.className = 'pastecraft-overlay-iframe';
+    iframe.setAttribute('allowtransparency', 'true');
+    
+    // Assemble overlay
+    container.appendChild(closeButton);
+    container.appendChild(iframe);
+    document.body.appendChild(backdrop);
+    document.body.appendChild(container);
+    
+    // Add overlay styles
+    this.addOverlayStyles();
+    
+    // Setup close handlers
+    closeButton.addEventListener('click', () => this.closePopupOverlay());
+    
+    // Only close on backdrop click if setting allows
+    if (!this.settings.keepPopupOpen) {
+      backdrop.addEventListener('click', () => this.closePopupOverlay());
+    }
+    
+    // ESC key to close
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        this.closePopupOverlay();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    
+    // Animate in
+    setTimeout(() => {
+      backdrop.classList.add('visible');
+      container.classList.add('visible');
+    }, 10);
+    
+    console.log('✅ Popup overlay opened');
+  }
+  
+  closePopupOverlay() {
+    const backdrop = document.getElementById('pastecraft-popup-backdrop');
+    const container = document.getElementById('pastecraft-popup-overlay');
+    
+    if (backdrop && container) {
+      backdrop.classList.remove('visible');
+      container.classList.remove('visible');
+      
+      // Remove after animation
+      setTimeout(() => {
+        backdrop.remove();
+        container.remove();
+      }, 300);
+      
+      // Update open state
+      this.openStates.popup = false;
+      
+      // Slide widget back to right edge (if no other panels open)
+      if (!this.openStates.settings && !this.openStates.quickView) {
+        this.widget.classList.remove('panel-open');
+      }
+      
+      // Remove active class from logo button
+      const logoButton = this.widget.querySelector('.logo-button');
+      if (logoButton) {
+        logoButton.classList.remove('active');
+      }
+      
+      console.log('✅ Popup overlay closed');
+    }
+  }
+  
+  addOverlayStyles() {
+    // Check if styles already exist
+    if (document.getElementById('pastecraft-overlay-styles')) {
+      return;
+    }
+    
+    const styles = document.createElement('style');
+    styles.id = 'pastecraft-overlay-styles';
+    styles.textContent = `
+      /* Backdrop - Transparent and allows clicks through */
+      .pastecraft-overlay-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
+        z-index: 2147483645;
+        pointer-events: none;
+      }
+      
+      .pastecraft-overlay-backdrop.visible {
+        pointer-events: none;
+      }
+      
+      /* Panel - Slides in from right like Monica.ai (narrow) */
+      .pastecraft-overlay-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 380px;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+        z-index: 2147483646;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        pointer-events: auto;
+      }
+      
+      .pastecraft-overlay-panel.visible {
+        transform: translateX(0);
+      }
+      
+      /* Close Button - positioned on left to avoid Sign Out button */
+      .pastecraft-overlay-close {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        width: 32px;
+        height: 32px;
+        background: rgba(0, 0, 0, 0.05);
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        line-height: 1;
+        color: #64748b;
+        cursor: pointer;
+        z-index: 10;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Arial, sans-serif;
+      }
+      
+      .pastecraft-overlay-close:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        transform: scale(1.1);
+      }
+      
+      .pastecraft-overlay-close:active {
+        transform: scale(0.95);
+      }
+      
+      /* Iframe */
+      .pastecraft-overlay-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: white;
+      }
+      
+      /* Responsive - Full width on mobile */
+      @media (max-width: 480px) {
+        .pastecraft-overlay-panel {
+          width: 100%;
+        }
+      }
+    `;
+    
+    document.head.appendChild(styles);
+  }
+  
+  openSettings() {
+    console.log('⚙️ Opening settings panel');
+    
+    // Check if panel already exists
+    if (document.getElementById('pastecraft-settings-panel')) {
+      return;
+    }
+    
+    // Set open state
+    this.openStates.settings = true;
+    
+    // Slide widget to the left (attached to panel)
+    this.widget.classList.add('panel-open');
+    
+    // Add active class to settings button
+    const settingsButton = this.widget.querySelector('.settings-button');
+    if (settingsButton) {
+      settingsButton.classList.add('active');
+    }
+    
+    // Create backdrop
+    const backdrop = document.createElement('div');
+    backdrop.id = 'pastecraft-settings-backdrop';
+    backdrop.className = 'pastecraft-settings-backdrop';
+    
+    // Create panel
+    const panel = document.createElement('div');
+    panel.id = 'pastecraft-settings-panel';
+    panel.className = 'pastecraft-settings-panel';
+    
+    // Panel content
+    panel.innerHTML = `
+      <div class="settings-header">
+        <h3>Widget Settings</h3>
+        <button class="settings-close" aria-label="Close">×</button>
+      </div>
+      
+      <div class="settings-content">
+        <div class="settings-section">
+          <h4>Popup Behavior</h4>
+          
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Keep popup open when clicking pages</label>
+              <p class="setting-desc">Popup stays open even when you interact with websites</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="keepPopupOpen" ${this.settings.keepPopupOpen ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Keep Quick View open when clicking pages</label>
+              <p class="setting-desc">Quick View menu stays visible during page interaction</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="keepQuickViewOpen" ${this.settings.keepQuickViewOpen ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add settings styles
+    this.addSettingsStyles();
+    
+    // Append to body
+    document.body.appendChild(backdrop);
+    document.body.appendChild(panel);
+    
+    // Setup event listeners
+    const closeBtn = panel.querySelector('.settings-close');
+    closeBtn.addEventListener('click', () => this.closeSettings());
+    backdrop.addEventListener('click', () => this.closeSettings());
+    
+    // Toggle handlers
+    const keepPopupToggle = panel.querySelector('#keepPopupOpen');
+    const keepQuickViewToggle = panel.querySelector('#keepQuickViewOpen');
+    
+    keepPopupToggle.addEventListener('change', (e) => {
+      this.settings.keepPopupOpen = e.target.checked;
+      this.saveSettings();
+      console.log('📝 Keep popup open:', this.settings.keepPopupOpen);
+    });
+    
+    keepQuickViewToggle.addEventListener('change', (e) => {
+      this.settings.keepQuickViewOpen = e.target.checked;
+      this.saveSettings();
+      console.log('📝 Keep Quick View open:', this.settings.keepQuickViewOpen);
+    });
+    
+    // Animate in
+    setTimeout(() => {
+      backdrop.classList.add('visible');
+      panel.classList.add('visible');
+    }, 10);
+  }
+  
+  closeSettings() {
+    const backdrop = document.getElementById('pastecraft-settings-backdrop');
+    const panel = document.getElementById('pastecraft-settings-panel');
+    
+    if (backdrop && panel) {
+      backdrop.classList.remove('visible');
+      panel.classList.remove('visible');
+      
+      setTimeout(() => {
+        backdrop.remove();
+        panel.remove();
+      }, 300);
+      
+      // Update open state
+      this.openStates.settings = false;
+      
+      // Slide widget back to right edge (if no other panels open)
+      if (!this.openStates.popup && !this.openStates.quickView) {
+        this.widget.classList.remove('panel-open');
+      }
+      
+      // Remove active class from settings button
+      const settingsButton = this.widget.querySelector('.settings-button');
+      if (settingsButton) {
+        settingsButton.classList.remove('active');
+      }
+    }
+  }
+  
+  addSettingsStyles() {
+    if (document.getElementById('pastecraft-settings-styles')) {
+      return;
+    }
+    
+    const styles = document.createElement('style');
+    styles.id = 'pastecraft-settings-styles';
+    styles.textContent = `
+      /* Settings Backdrop - Transparent and allows clicks through */
+      .pastecraft-settings-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
+        z-index: 2147483645;
+        pointer-events: none;
+      }
+      
+      .pastecraft-settings-backdrop.visible {
+        pointer-events: none;
+      }
+      
+      /* Settings Panel - same size as popup (380px) */
+      .pastecraft-settings-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 380px;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+        z-index: 2147483646;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        pointer-events: auto;
+      }
+      
+      .pastecraft-settings-panel.visible {
+        transform: translateX(0);
+      }
+      
+      /* Settings Header */
+      .settings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        color: white;
+      }
+      
+      .settings-header h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+      }
+      
+      .settings-close {
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+      
+      .settings-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+      }
+      
+      /* Settings Content */
+      .settings-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+      }
+      
+      .settings-section {
+        margin-bottom: 32px;
+      }
+      
+      .settings-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0 0 16px 0;
+      }
+      
+      /* Setting Item */
+      .setting-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 0;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      
+      .setting-item:last-child {
+        border-bottom: none;
+      }
+      
+      .setting-info {
+        flex: 1;
+        margin-right: 16px;
+      }
+      
+      .setting-info label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1f2937;
+        display: block;
+        margin-bottom: 4px;
+        cursor: pointer;
+      }
+      
+      .setting-desc {
+        font-size: 13px;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.4;
+      }
+      
+      /* Toggle Switch */
+      .toggle-switch {
+        position: relative;
+        width: 48px;
+        height: 24px;
+        display: inline-block;
+        cursor: pointer;
+      }
+      
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      
+      .toggle-switch .toggle-slider {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #cbd5e1;
+        border-radius: 24px;
+        transition: all 0.3s ease;
+      }
+      
+      .toggle-switch .toggle-slider::before {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        left: 2px;
+        bottom: 2px;
+        background: white;
+        border-radius: 50%;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      
+      .toggle-switch input:checked + .toggle-slider {
+        background: #60a5fa;
+      }
+      
+      .toggle-switch input:checked + .toggle-slider::before {
+        transform: translateX(24px);
+      }
+      
+      /* Responsive */
+      @media (max-width: 480px) {
+        .pastecraft-settings-panel {
+          width: 100%;
+        }
+      }
+    `;
+    
+    document.head.appendChild(styles);
+  }
+  
+  toggleAutoCopy() {
+    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const label = toggle.querySelector('.toggle-label');
+    const currentState = toggle.getAttribute('data-state');
+    const newState = currentState === 'on' ? 'off' : 'on';
+    
+    toggle.setAttribute('data-state', newState);
+    label.textContent = newState.toUpperCase();
+    this.autoCopyEnabled = newState === 'on';
+    
+    // Save state to storage
+    chrome.storage.local.set({ autoCopyEnabled: this.autoCopyEnabled });
+    
+    console.log(`🔄 Auto Copy: ${newState.toUpperCase()}`);
+    
+    // Show feedback toast
+    if (this.autoCopyEnabled) {
+      this.showWidgetToast('Auto-copy ON - copied text will be saved');
+    } else {
+      this.showWidgetToast('Auto-copy OFF');
+    }
+  }
+  
+  // Listen for copy events to auto-save copied text
+  setupAutoCopyListener() {
+    document.addEventListener('copy', async (e) => {
+      if (!this.autoCopyEnabled) return;
+      
+      // Get the selected text
+      const selectedText = window.getSelection().toString().trim();
+      if (!selectedText || selectedText.length === 0) return;
+      
+      console.log('📋 Auto-copy detected:', selectedText.substring(0, 50) + '...');
+      
+      try {
+        // Save to PasteCraft via background script
+        await chrome.runtime.sendMessage({
+          action: 'saveClip',
+          text: selectedText,
+          category: 'Uncategorized',
+          autoShow: false // Don't auto-show popup for auto-copied clips
+        });
+        
+        // Update counter
+        this.autoCopyCount++;
+        this.updateAutoCopyCounter();
+        
+        // Save counter to storage (resets daily)
+        chrome.storage.local.set({ 
+          autoCopyCount: this.autoCopyCount,
+          autoCopyDate: new Date().toDateString()
+        });
+        
+        console.log('✅ Auto-copied to PasteCraft!');
+      } catch (error) {
+        console.error('❌ Auto-copy failed:', error);
+      }
+    });
+  }
+  
+  updateAutoCopyCounter() {
+    const counter = this.widget.querySelector('.auto-copy-counter');
+    if (counter) {
+      counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
+      // Brief scale animation
+      counter.style.transform = 'scale(1.2)';
+      setTimeout(() => {
+        counter.style.transform = 'scale(1)';
+      }, 200);
+    }
+  }
+  
+  async loadAutoCopyState() {
+    try {
+      const result = await chrome.storage.local.get(['autoCopyEnabled', 'autoCopyCount', 'autoCopyDate']);
+      
+      // Check if counter should reset (new day)
+      const today = new Date().toDateString();
+      if (result.autoCopyDate !== today) {
+        this.autoCopyCount = 0;
+      } else {
+        this.autoCopyCount = result.autoCopyCount || 0;
+      }
+      
+      this.autoCopyEnabled = result.autoCopyEnabled || false;
+      
+      // Update UI
+      const toggle = this.widget.querySelector('.auto-copy-toggle');
+      const label = toggle?.querySelector('.toggle-label');
+      if (toggle && label) {
+        toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
+        label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
+      }
+      
+      this.updateAutoCopyCounter();
+      console.log('📋 Auto-copy state loaded:', this.autoCopyEnabled, 'Count:', this.autoCopyCount);
+    } catch (error) {
+      console.error('Failed to load auto-copy state:', error);
+    }
+  }
+  
+  showWidgetToast(message) {
+    // Create a simple toast near the widget
+    const existing = document.querySelector('.pastecraft-widget-toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = 'pastecraft-widget-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      right: 70px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(30, 64, 175, 0.95);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 2147483647;
+      animation: fadeInOut 2s ease forwards;
+    `;
+    
+    // Add animation styles if not exists
+    if (!document.querySelector('#pastecraft-toast-styles')) {
+      const style = document.createElement('style');
+      style.id = 'pastecraft-toast-styles';
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translateY(-50%) translateX(10px); }
+          15% { opacity: 1; transform: translateY(-50%) translateX(0); }
+          85% { opacity: 1; transform: translateY(-50%) translateX(0); }
+          100% { opacity: 0; transform: translateY(-50%) translateX(10px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  }
+  
+  openQuickView() {
+    try {
+      console.log('👁️ ===== OPENING QUICK VIEW =====');
+      console.log('👁️ Opening Quick View (slide-in panel from right)');
+      console.log('👁️ Current open states:', this.openStates);
+      
+      // Check if panel already exists
+      if (document.getElementById('pastecraft-quickview-panel')) {
+        console.log('⚠️ Quick View panel already exists');
+        return;
+      }
+      
+      console.log('👁️ Creating Quick View panel elements...');
+      
+      // Set open state
+      this.openStates.quickView = true;
+      
+      // Slide widget to the left (attached to panel)
+      this.widget.classList.add('panel-open');
+      
+      // Add active class to quick view button
+      const quickViewButton = this.widget.querySelector('.quick-view-button');
+      if (quickViewButton) {
+        quickViewButton.classList.add('active');
+      }
+      
+      // Create backdrop
+      const backdrop = document.createElement('div');
+      backdrop.id = 'pastecraft-quickview-backdrop';
+      backdrop.className = 'pastecraft-quickview-backdrop';
+      
+      // Create panel
+      const panel = document.createElement('div');
+      panel.id = 'pastecraft-quickview-panel';
+      panel.className = 'pastecraft-quickview-panel';
+      
+      // Create close button
+      const closeButton = document.createElement('button');
+      closeButton.className = 'pastecraft-overlay-close';
+      closeButton.innerHTML = '×';
+      closeButton.setAttribute('aria-label', 'Close');
+      
+      // Create iframe to load the Quick Paste interface
+      const iframe = document.createElement('iframe');
+      iframe.className = 'pastecraft-quickview-iframe';
+      iframe.setAttribute('allowtransparency', 'true');
+      
+      // Assemble panel
+      panel.appendChild(closeButton);
+      panel.appendChild(iframe);
+      document.body.appendChild(backdrop);
+      document.body.appendChild(panel);
+      
+      // Add styles
+      this.addQuickViewStyles();
+      
+      // Load Quick Paste content into iframe
+      this.loadQuickViewContent(iframe);
+      
+      // Setup close handlers
+      closeButton.addEventListener('click', () => this.closeQuickView());
+      
+      // Only close on backdrop click if setting allows
+      if (!this.settings.keepQuickViewOpen) {
+        backdrop.addEventListener('click', () => this.closeQuickView());
+      }
+      
+      // ESC key to close
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          this.closeQuickView();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    
+      // Animate in
+      setTimeout(() => {
+        backdrop.classList.add('visible');
+        panel.classList.add('visible');
+      }, 10);
+      
+      console.log('✅ Quick View panel opened');
+    } catch (error) {
+      console.error('❌ Error opening Quick View:', error);
+      console.error('❌ Error stack:', error.stack);
+      alert('Error opening Quick View. Check console for details.');
+    }
+  }
+  
+  loadQuickViewContent(iframe) {
+    // Create a custom HTML content for the Quick View
+    const content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          }
+          .quickview-header {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+          .quickview-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .clip-count {
+            font-size: 13px;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.9);
+          }
+          .quickview-controls {
+            display: flex;
+            gap: 8px;
+          }
+          .quickview-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+          }
+          .quickview-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+          }
+          .quickview-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+          }
+          .clip-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+          }
+          .clip-item:hover {
+            background: #e0f2fe;
+            border-color: #3b82f6;
+            transform: translateX(-4px);
+          }
+          .clip-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .clip-text {
+            font-size: 14px;
+            color: #1f2937;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1.5;
+          }
+          .clip-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .clip-category {
+            font-size: 11px;
+            color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+          }
+          .clip-actions {
+            display: flex;
+            gap: 4px;
+          }
+          .clip-btn {
+            background: #3b82f6;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+          }
+          .clip-btn:hover {
+            background: #2563eb;
+          }
+          .clip-btn.delete {
+            background: #ef4444;
+          }
+          .clip-btn.delete:hover {
+            background: #dc2626;
+          }
+          .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+          }
+          .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+          }
+          .empty-text {
+            font-size: 16px;
+            margin-bottom: 8px;
+          }
+          .empty-hint {
+            font-size: 14px;
+            color: #94a3b8;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="quickview-header">
+          <div class="quickview-title">
+            <span>👁️</span>
+            <span>Quick View</span>
+            <span class="clip-count" id="clip-count">0 clips</span>
+          </div>
+          <div class="quickview-controls">
+            <button class="quickview-btn" onclick="refreshClips()" title="Refresh">🔄</button>
+            <button class="quickview-btn" onclick="openSettings()" title="Settings">⚙️</button>
+          </div>
+        </div>
+        <div class="quickview-content" id="quickview-content">
+          <div class="empty-state">
+            <div class="empty-icon">✨</div>
+            <div class="empty-text">No clips saved yet</div>
+            <div class="empty-hint">Right-click selected text to save clips</div>
+          </div>
+        </div>
+        <script>
+          function loadClips() {
+            // This will communicate with parent to get clips
+            window.parent.postMessage({ type: 'quickview-get-clips' }, '*');
+          }
+          
+          function refreshClips() {
+            loadClips();
+          }
+          
+          function openSettings() {
+            window.parent.postMessage({ type: 'quickview-open-settings' }, '*');
+          }
+          
+          function copyClip(text, index) {
+            // Decode HTML entities
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = text;
+            const decodedText = textarea.value;
+            
+            navigator.clipboard.writeText(decodedText).then(() => {
+              showToast('✓ Copied to clipboard!');
+            }).catch(err => {
+              console.error('Copy failed:', err);
+              showToast('❌ Copy failed', true);
+            });
+          }
+          
+          function deleteClip(index) {
+            if (confirm('Delete this clip?')) {
+              window.parent.postMessage({ type: 'quickview-delete-clip', index }, '*');
+            }
+          }
+          
+          function showToast(message, isError = false) {
+            // Simple toast notification
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            const bgColor = isError ? '#ef4444' : '#10b981';
+            toast.style.cssText = \`position:fixed;top:20px;left:50%;transform:translateX(-50%);background:\${bgColor};color:white;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideDown 0.3s ease\`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+              toast.style.opacity = '0';
+              toast.style.transform = 'translateX(-50%) translateY(-10px)';
+              toast.style.transition = 'all 0.3s ease';
+              setTimeout(() => toast.remove(), 300);
+            }, 2000);
+          }
+          
+          // Listen for clip data from parent
+          window.addEventListener('message', (e) => {
+            if (e.data.type === 'quickview-clips-data') {
+              renderClips(e.data.clips);
+            }
+          });
+          
+          function renderClips(clips) {
+            const container = document.getElementById('quickview-content');
+            const counter = document.getElementById('clip-count');
+            
+            // Update counter
+            if (counter) {
+              counter.textContent = \`\${clips.length} clip\${clips.length !== 1 ? 's' : ''}\`;
+            }
+            
+            if (!clips || clips.length === 0) {
+              container.innerHTML = \`
+                <div class="empty-state">
+                  <div class="empty-icon">✨</div>
+                  <div class="empty-text">No clips saved yet</div>
+                  <div class="empty-hint">Right-click selected text to save clips</div>
+                </div>
+              \`;
+              return;
+            }
+            
+            container.innerHTML = clips.map((clip, index) => {
+              const text = clip.text || clip;
+              const displayText = text.length > 60 ? text.substring(0, 60) + '...' : text;
+              const category = clip.category || 'Uncategorized';
+              const escapedText = escapeHtml(text).replace(/'/g, '&apos;');
+              
+              return \`
+                <div class="clip-item">
+                  <div class="clip-content">
+                    <div class="clip-text" title="\${escapeHtml(text)}">\${escapeHtml(displayText)}</div>
+                    <div class="clip-meta">
+                      <span class="clip-category">\${escapeHtml(category)}</span>
+                    </div>
+                  </div>
+                  <div class="clip-actions">
+                    <button class="clip-btn" onclick="copyClip('\${escapedText}', \${index})" title="Copy">📋</button>
+                    <button class="clip-btn delete" onclick="deleteClip(\${index})" title="Delete">×</button>
+                  </div>
+                </div>
+              \`;
+            }).join('');
+          }
+          
+          function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+          }
+          
+          // Load clips on startup
+          loadClips();
+        </script>
+      </body>
+      </html>
+    `;
+    
+    iframe.srcdoc = content;
+    
+    // Listen for storage changes to auto-refresh clips
+    const storageListener = (changes, area) => {
+      if (area === 'local' && changes.clips && iframe.contentWindow) {
+        const clips = changes.clips.newValue || [];
+        iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+      }
+    };
+    chrome.storage.onChanged.addListener(storageListener);
+    
+    // Store listener reference for cleanup
+    this._quickViewStorageListener = storageListener;
+    
+    // Listen for messages from iframe
+    const messageHandler = (e) => {
+      if (e.data.type === 'quickview-get-clips') {
+        // Get clips from storage and send to iframe (using 'clips' key like popup.js does)
+        chrome.storage.local.get(['clips'], (result) => {
+          const clips = result.clips || [];
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+          }
+        });
+      } else if (e.data.type === 'quickview-delete-clip') {
+        // Handle clip deletion
+        chrome.storage.local.get(['clips'], (result) => {
+          const clips = result.clips || [];
+          clips.splice(e.data.index, 1);
+          chrome.storage.local.set({ clips: clips }, () => {
+            // Send updated clips back
+            if (iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            }
+            // Notify popup to refresh if it's open
+            chrome.runtime.sendMessage({ action: 'refreshClips' }).catch(() => {});
+          });
+        });
+      } else if (e.data.type === 'quickview-open-settings') {
+        // Open settings from quick view
+        this.closeQuickView();
+        setTimeout(() => this.openSettings(), 100);
+      }
+    };
+    
+    window.addEventListener('message', messageHandler);
+    // Store reference for cleanup
+    this._quickViewMessageHandler = messageHandler;
+  }
+  
+  addQuickViewStyles() {
+    // Check if styles already exist
+    if (document.getElementById('pastecraft-quickview-styles')) {
+      return;
+    }
+    
+    const styles = document.createElement('style');
+    styles.id = 'pastecraft-quickview-styles';
+    styles.textContent = `
+      /* Quick View Backdrop - Transparent and allows clicks through */
+      .pastecraft-quickview-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
+        z-index: 2147483645;
+        pointer-events: none;
+      }
+      
+      .pastecraft-quickview-backdrop.visible {
+        pointer-events: none;
+      }
+      
+      /* Quick View Panel - same size as popup (380px) */
+      .pastecraft-quickview-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 380px;
+        height: 100vh;
+        background: white;
+        box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+        z-index: 2147483646;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        pointer-events: auto;
+      }
+      
+      .pastecraft-quickview-panel.visible {
+        transform: translateX(0);
+      }
+      
+      /* Quick View Iframe */
+      .pastecraft-quickview-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: white;
+      }
+      
+      /* Responsive - Full width on mobile */
+      @media (max-width: 480px) {
+        .pastecraft-quickview-panel {
+          width: 100%;
+        }
+      }
+    `;
+    
+    document.head.appendChild(styles);
+  }
+  
+  closeQuickView() {
+    const backdrop = document.getElementById('pastecraft-quickview-backdrop');
+    const panel = document.getElementById('pastecraft-quickview-panel');
+    
+    if (backdrop && panel) {
+      backdrop.classList.remove('visible');
+      panel.classList.remove('visible');
+      
+      // Remove after animation
+      setTimeout(() => {
+        backdrop.remove();
+        panel.remove();
+      }, 300);
+      
+      // Update open state
+      this.openStates.quickView = false;
+      
+      // Slide widget back to right edge (if no other panels open)
+      if (!this.openStates.popup && !this.openStates.settings) {
+        this.widget.classList.remove('panel-open');
+      }
+      
+      // Remove active class from quick view button
+      const quickViewButton = this.widget.querySelector('.quick-view-button');
+      if (quickViewButton) {
+        quickViewButton.classList.remove('active');
+      }
+      
+      // Clean up storage listener
+      if (this._quickViewStorageListener) {
+        chrome.storage.onChanged.removeListener(this._quickViewStorageListener);
+        this._quickViewStorageListener = null;
+      }
+      
+      // Clean up message handler
+      if (this._quickViewMessageHandler) {
+        window.removeEventListener('message', this._quickViewMessageHandler);
+        this._quickViewMessageHandler = null;
+      }
+      
+      console.log('✅ Quick View panel closed');
+    }
+  }
+  
+  loadSavedPosition() {
+    chrome.storage.local.get(['widgetPosition'], (result) => {
+      if (result.widgetPosition && this.widget) {
+        this.position = result.widgetPosition;
+        this.widget.style.top = this.position.top + '%';
+        console.log('📍 Widget position loaded:', this.position.top + '%');
+      }
+    });
+  }
+  
+  savePosition() {
+    chrome.storage.local.set({ widgetPosition: this.position });
+  }
+}
+
 // Initialize Quick Paste when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     window.pasteCraftQuickPaste = new QuickPasteInterface();
+    window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
   });
 } else {
   window.pasteCraftQuickPaste = new QuickPasteInterface();
+  window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
 }
 
 // Add toast animation styles
