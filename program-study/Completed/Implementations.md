@@ -2,7 +2,28 @@
 
 All successfully implemented features are documented here.
 
-**Last Updated:** November 24, 2025 (Quick Copy Button Hover-Only Gleam)
+**Last Updated:** December 1, 2025 (Widget Slide Animation)
+
+---
+
+### [Dec 14, 2025] - Category Clip Capacity (25 → 500)
+**Status:** SUCCESS ✅  
+**Files:** popup.js  
+**Result:** Category capacity increased to 500; UI counters and "full" checks updated.
+
+---
+
+### [Dec 1, 2025] - Widget Slide Animation + Unified Panel Sizes
+**Status:** SUCCESS ✅  
+**Files:** content-script.js, manifest.json  
+**Result:** Widget starts at right edge, slides left when any panel opens (attached to panel). All panels unified to 380px width.
+
+---
+
+### [Dec 1, 2025] - Context Menu Text Updates
+**Status:** SUCCESS ✅  
+**Files:** background.js  
+**Result:** Updated context menu labels - "Copy to Quick Save" → "Copy to PasteCraft" and "View Quick Saved" → "View Quick Menu" for cleaner UX.
 
 ---
 

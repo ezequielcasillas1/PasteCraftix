@@ -4,6 +4,9 @@
 
 {
 - Copy to clipboard button only copies single clip when multiple clips are selected. User expects: clicking any copy button when 2+ clips are selected should copy all selected clips (like AI Breakdown/Summary already do). Currently only copies the individual clip. Should use existing `getSelectedOrCurrentText()` method like AI features do.
+
+- Widget Quick View button (👁️ eye icon) does not open the Quick View panel when clicked. Expected: clicking should slide in panel from right showing saved clips. Currently: nothing happens. Issue reported by user - toggle functionality and storage sync were implemented but panel fails to open entirely.
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

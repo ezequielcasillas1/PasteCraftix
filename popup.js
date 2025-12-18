@@ -411,7 +411,7 @@ class PasteCraftPopup {
   
   setupEventListeners() {
     // Tab navigation
-    document.querySelector('.tab-nav').addEventListener('click', (e) => {
+    document.querySelector('.tab-nav').addEventListener('click', async (e) => {
       if (e.target.classList.contains('tab-btn')) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -422,8 +422,22 @@ class PasteCraftPopup {
         
         // Format controls, preview, and magic wand are always visible across all tabs
         
-        if (this.currentTab === 'search') {
+        // Auto-reload data when switching tabs to ensure fresh counts
+        if (this.currentTab === 'clips') {
+          console.log('🔄 Clips tab opened - reloading data...');
+          await this.loadData();
+          this.renderChips();
+          console.log('✅ Clips data refreshed');
+        } else if (this.currentTab === 'categories') {
+          console.log('🔄 Categories tab opened - reloading data...');
+          await this.loadData();
+          this.renderCategories();
+          console.log('✅ Categories data refreshed');
+        } else if (this.currentTab === 'search') {
+          console.log('🔄 Search tab opened - reloading data...');
+          await this.loadData();
           this.renderSearchResults();
+          console.log('✅ Search data refreshed');
         } else if (this.currentTab === 'ai') {
           this.loadAIGallery();
           this.migrateProfileImageToGallery();
@@ -1597,6 +1611,11 @@ class PasteCraftPopup {
       }
     });
 
+    // Close App Button
+    document.getElementById('closeAppBtn').addEventListener('click', () => {
+      window.close();
+    });
+    
     // Sign Out
     document.getElementById('signOutBtn').addEventListener('click', async () => {
       if (confirm('Are you sure you want to sign out?')) {
@@ -1944,6 +1963,37 @@ class PasteCraftPopup {
     this.updateQuickCopyButton();
   }
   
+  // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
+  async copyToClipboardFallback(text) {
+    // Try navigator.clipboard first
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.log('📋 Clipboard API blocked, using fallback method...');
+    }
+    
+    // Fallback: Use execCommand with temporary textarea
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    try {
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (!success) throw new Error('execCommand copy failed');
+      return true;
+    } catch (e) {
+      document.body.removeChild(textarea);
+      throw e;
+    }
+  }
+  
   async copyToClipboard() {
     const previewArea = document.getElementById('previewArea');
     const copyBtn = document.getElementById('copyBtn');
@@ -1951,7 +2001,7 @@ class PasteCraftPopup {
     if (!previewArea.value) return;
     
     try {
-      await navigator.clipboard.writeText(previewArea.value);
+      await this.copyToClipboardFallback(previewArea.value);
       
       // Success feedback
       copyBtn.textContent = 'Copied! ✓';
@@ -1981,12 +2031,23 @@ class PasteCraftPopup {
     
     if (this.selectedChips.size === 0) return;
     
-    // Get selected clips text
+    console.log('📋 Quick Copy - Selected indices:', Array.from(this.selectedChips));
+    console.log('📋 Quick Copy - Total clips:', this.clips.length);
+    
+    // Get selected clips text (with safe access to prevent crashes)
     const selectedTexts = Array.from(this.selectedChips)
+      .filter(index => index < this.clips.length && this.clips[index]) // Filter valid indices first
       .map(index => this.clips[index].text)
       .filter(Boolean);
     
-    if (selectedTexts.length === 0) return;
+    console.log('📋 Quick Copy - Valid texts found:', selectedTexts.length);
+    
+    if (selectedTexts.length === 0) {
+      console.warn('⚠️ Quick Copy - No valid texts to copy. Clearing stale selections.');
+      this.selectedChips.clear();
+      this.updateQuickCopyButton();
+      return;
+    }
     
     // Apply options (deduplicate, sort, uppercase)
     let processedTexts = [...selectedTexts];
@@ -2018,8 +2079,14 @@ class PasteCraftPopup {
     
     const textToCopy = processedTexts.join(delimiter);
     
+    console.log('📋 Quick Copy - Text to copy:', textToCopy.substring(0, 100) + (textToCopy.length > 100 ? '...' : ''));
+    console.log('📋 Quick Copy - Delimiter used:', JSON.stringify(delimiter));
+    
     try {
-      await navigator.clipboard.writeText(textToCopy);
+      // Use fallback method for extension popups (Clipboard API is blocked by permissions policy)
+      await this.copyToClipboardFallback(textToCopy);
+      
+      console.log('✅ Quick Copy - Successfully copied to clipboard!');
       
       // Success feedback
       const originalHTML = quickCopyBtn.innerHTML;
@@ -2040,7 +2107,9 @@ class PasteCraftPopup {
       }, 2000);
       
     } catch (error) {
-      console.error('Quick copy failed:', error);
+      console.error('❌ Quick copy failed:', error);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
       const originalHTML = quickCopyBtn.innerHTML;
       quickCopyBtn.innerHTML = `
         <span class="btn-icon">✗</span>
@@ -2623,6 +2692,11 @@ class PasteCraftPopup {
   }
 
   async generateBreakdown(level) {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
+      return;
+    }
+
     // Check cache first
     if (this.breakdownCache[level]) {
       document.getElementById('breakdownResult').textContent = this.breakdownCache[level];
@@ -2705,6 +2779,11 @@ class PasteCraftPopup {
   }
 
   async generateSummaryQuestions(text) {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
+      return;
+    }
+
     try {
       this.showSummarySection('questions');
       const questionsLoading = document.getElementById('questionsLoading');
@@ -2750,6 +2829,11 @@ class PasteCraftPopup {
   }
 
   async generateSummary(text, question) {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
+      return;
+    }
+
     try {
       this.showSummarySection('result');
       const summaryLoading = document.getElementById('summaryLoading');
@@ -3097,6 +3181,7 @@ class PasteCraftPopup {
       
       this.renderChips();
       this.renderSearchResults();
+      this.renderCategories();
       this.updateCategoryFilter();
       this.showToast(`Moved to ${this.selectedCategoryForSave}!`);
     } else {
@@ -3132,27 +3217,23 @@ class PasteCraftPopup {
         // Don't block user - local save already succeeded
       }
       
-      // Notify content scripts and other parts of extension about new clip
+      // Notify content scripts about new clip (for Quick Paste updates)
       try {
         chrome.tabs.query({}, (tabs) => {
           tabs.forEach(tab => {
             chrome.tabs.sendMessage(tab.id, {
               action: 'clipSaved',
-              clip: newClip
+              clip: newClip,
+              autoShow: true // Auto-show when saving from popup
             }).catch(() => {}); // Ignore errors for tabs without content script
           });
         });
-        
-        // Also send runtime message for consistency
-        chrome.runtime.sendMessage({
-          action: 'clipSaved',
-          clip: newClip
-        }).catch(() => {}); // Ignore if no receivers
       } catch (error) {
-        console.log('Could not notify about new clip:', error);
+        console.log('Could not notify content scripts:', error);
       }
       
       this.renderChips();
+      this.renderCategories();
       this.updateCategoryFilter();
       this.showToast(`Saved to ${this.selectedCategoryForSave}!`);
     }
@@ -3870,6 +3951,12 @@ class PasteCraftPopup {
 
   async generateAnimalAvatar() {
     console.log('🐾 generateAnimalAvatar() CALLED!');
+    
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'avatar')) {
+      return;
+    }
+
     try {
       const userName = document.getElementById('userName').value.trim();
       const aiGeneratedName = this.userProfile?.aiGeneratedName;
@@ -3944,6 +4031,12 @@ class PasteCraftPopup {
   
   async generateMyCartoon() {
     console.log('🎨 generateMyCartoon() CALLED!');
+    
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'cartoon')) {
+      return;
+    }
+
     try {
       const userName = document.getElementById('userName').value.trim();
       const userImageBase64 = this.userProfile?.profileImageBase64;
@@ -4031,6 +4124,11 @@ class PasteCraftPopup {
   }
 
   async generateAIName() {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'name')) {
+      return;
+    }
+
     try {
       const userName = document.getElementById('userName').value.trim();
       

@@ -2970,20 +2970,21 @@ class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.id = 'pastecraft-overlay-styles';
     styles.textContent = `
-      /* Backdrop - Transparent and allows clicks through */
+      /* Backdrop */
       .pastecraft-overlay-backdrop {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: transparent;
+        background: rgba(0, 0, 0, 0.3);
         z-index: 2147483645;
-        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
       }
       
       .pastecraft-overlay-backdrop.visible {
-        pointer-events: none;
+        opacity: 1;
       }
       
       /* Panel - Slides in from right like Monica.ai (narrow) */
@@ -3001,7 +3002,6 @@ class PasteCraftFloatingWidget {
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        pointer-events: auto;
       }
       
       .pastecraft-overlay-panel.visible {
@@ -3197,20 +3197,21 @@ class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.id = 'pastecraft-settings-styles';
     styles.textContent = `
-      /* Settings Backdrop - Transparent and allows clicks through */
+      /* Settings Backdrop */
       .pastecraft-settings-backdrop {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: transparent;
+        background: rgba(0, 0, 0, 0.3);
         z-index: 2147483645;
-        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
       }
       
       .pastecraft-settings-backdrop.visible {
-        pointer-events: none;
+        opacity: 1;
       }
       
       /* Settings Panel - same size as popup (380px) */
@@ -3227,7 +3228,6 @@ class PasteCraftFloatingWidget {
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
-        pointer-events: auto;
       }
       
       .pastecraft-settings-panel.visible {
@@ -3957,20 +3957,21 @@ class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.id = 'pastecraft-quickview-styles';
     styles.textContent = `
-      /* Quick View Backdrop - Transparent and allows clicks through */
+      /* Quick View Backdrop */
       .pastecraft-quickview-backdrop {
         position: fixed;
         top: 0;
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: transparent;
+        background: rgba(0, 0, 0, 0.3);
         z-index: 2147483645;
-        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
       }
       
       .pastecraft-quickview-backdrop.visible {
-        pointer-events: none;
+        opacity: 1;
       }
       
       /* Quick View Panel - same size as popup (380px) */
@@ -3988,7 +3989,6 @@ class PasteCraftFloatingWidget {
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        pointer-events: auto;
       }
       
       .pastecraft-quickview-panel.visible {

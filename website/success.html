@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - PasteCraft</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 650px;
+            width: 100%;
+            padding: 60px 50px;
+            text-align: center;
+            animation: slideUp 0.4s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 25px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            animation: scaleIn 0.5s ease-out 0.2s both;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+        
+        h1 {
+            color: #1a202c;
+            font-size: 36px;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #718096;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        
+        .success-box {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            padding: 25px;
+            border-radius: 16px;
+            margin: 25px 0;
+            font-weight: 600;
+            font-size: 18px;
+            border: 2px solid #b1dfbb;
+        }
+        
+        .instructions {
+            background: #edf2f7;
+            border-left: 5px solid #667eea;
+            padding: 25px 30px;
+            margin: 30px 0;
+            text-align: left;
+            border-radius: 12px;
+        }
+        
+        .instructions strong {
+            color: #667eea;
+            font-size: 18px;
+            display: block;
+            margin-bottom: 15px;
+        }
+        
+        .instructions ol {
+            margin-left: 25px;
+            margin-top: 15px;
+            line-height: 2.2;
+            color: #2d3748;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 17px;
+            font-weight: 600;
+            margin: 12px 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            color: #0d47a1;
+            font-size: 15px;
+        }
+        
+        .extension-badge {
+            display: inline-block;
+            background: #f7fafc;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #667eea;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+        }
+        
+        footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✓</div>
+        <h1>Payment Successful!</h1>
+        <p class="subtitle">Welcome to PasteCraft Premium 🎉</p>
+        
+        <div class="success-box">
+            ✅ Your subscription is now active
+        </div>
+        
+        <div class="instructions">
+            <strong>📋 Start Using Premium Features:</strong>
+            <ol>
+                <li><strong>Click the PasteCraft extension icon</strong> <span class="extension-badge">📋</span> in your browser toolbar</li>
+                <li>Your premium features are now unlocked automatically</li>
+                <li>Enjoy unlimited clips, AI features, and more!</li>
+            </ol>
+        </div>
+        
+        <div class="info-box">
+            <strong>🎁 You now have access to:</strong>
+            <ul style="list-style: none; margin-top: 10px; text-align: left;">
+                <li>✓ Unlimited active clips</li>
+                <li>✓ Unlimited clips</li>
+                <li>✓ AI Breakdown & Summaries</li>
+                <li>✓ AI Image Generation</li>
+                <li>✓ Priority cloud sync</li>
+                <li>✓ Premium support</li>
+            </ul>
+        </div>
+        
+        <a href="index.html" class="btn">Return to Homepage</a>
+        
+        <footer>
+            <p>Thank you for supporting <strong>PasteCraft</strong>! 🙏</p>
+            <p style="margin-top: 8px; font-size: 13px;">
+                Questions? <a href="mailto:support@pastecraft.com">Contact support</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
+
+
+
+

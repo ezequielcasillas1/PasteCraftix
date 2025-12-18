@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - PasteCraft</title>
+    <meta name="description" content="Learn about PasteCraft and our mission to revolutionize clipboard management.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            opacity: 0.95;
+        }
+        
+        .content-section {
+            max-width: 900px;
+            margin: 80px auto;
+            padding: 0 20px;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        
+        .content-card h2 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+        
+        .content-card h3 {
+            color: #1a202c;
+            font-size: 24px;
+            margin: 30px 0 15px 0;
+        }
+        
+        .content-card p {
+            color: #4a5568;
+            font-size: 18px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        
+        .content-card ul {
+            margin-left: 30px;
+            color: #4a5568;
+            font-size: 18px;
+            line-height: 1.8;
+        }
+        
+        .content-card ul li {
+            margin-bottom: 10px;
+        }
+        
+        .placeholder-box {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            color: #718096;
+            font-style: italic;
+        }
+        
+        footer {
+            background: #1a202c;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-top: 80px;
+        }
+        
+        footer p {
+            margin-bottom: 10px;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+            
+            .content-card {
+                padding: 30px 20px;
+            }
+            
+            .nav-links {
+                gap: 15px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="index.html" class="logo">
+                <span>📋</span>
+                <span>PasteCraft</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#features">Features</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="account.html" style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px;">Account</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>About PasteCraft</h1>
+        <p>Revolutionizing how you work with your clipboard</p>
+    </section>
+
+    <section class="content-section">
+        <div class="content-card">
+            <h2>📋 Our Story</h2>
+            <div class="placeholder-box">
+                <p>Content coming soon...</p>
+                <p>This section will tell the story of PasteCraft and how it came to be.</p>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h2>🎯 Our Mission</h2>
+            <div class="placeholder-box">
+                <p>Content coming soon...</p>
+                <p>This section will describe our mission and vision for the future of clipboard management.</p>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h2>✨ What Makes Us Different</h2>
+            <div class="placeholder-box">
+                <p>Content coming soon...</p>
+                <p>This section will highlight what makes PasteCraft unique and special.</p>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h2>👥 Our Team</h2>
+            <div class="placeholder-box">
+                <p>Content coming soon...</p>
+                <p>This section will introduce the team behind PasteCraft.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; 2025 PasteCraft. All rights reserved.</p>
+        <p>
+            <a href="about.html">About</a> | 
+            <a href="contact.html">Contact</a> | 
+            <a href="pricing.html">Pricing</a> | 
+            <a href="terms.html">Terms of Use</a> | 
+            <a href="privacy.html">Privacy Policy</a>
+        </p>
+    </footer>
+</body>
+</html>
+

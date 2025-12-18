@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft - Password Reset</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 50px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+        
+        .status {
+            font-size: 18px;
+            color: #666;
+            margin: 20px 0;
+            line-height: 1.6;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(102, 126, 234, 0.2);
+            border-radius: 50%;
+            border-top: 4px solid #667eea;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border-left: 4px solid #0078d4;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: left;
+            border-radius: 8px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            margin-top: 10px;
+            line-height: 2;
+        }
+        
+        .code-display {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            word-break: break-all;
+            font-size: 12px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📋</div>
+        <h1 id="title">🔐 Password Reset</h1>
+        <div class="spinner" id="spinner"></div>
+        <div class="status" id="status">Processing your password reset request...</div>
+        <div id="content"></div>
+    </div>
+    
+    <script>
+        const EXTENSION_ID = 'nkmpfhkinojohffdichlonlipfhgbobh';
+        
+        // Get hash parameters from URL
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.substring(1));
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        const type = params.get('type');
+        const error_description = params.get('error_description');
+        
+        const spinner = document.getElementById('spinner');
+        const status = document.getElementById('status');
+        const content = document.getElementById('content');
+        const title = document.getElementById('title');
+        
+        if (error_description) {
+            spinner.style.display = 'none';
+            title.textContent = '❌ Error';
+            status.innerHTML = `<div class="error">${error_description}</div>`;
+            content.innerHTML = '<p>Please try requesting a new password reset link.</p>';
+        } else if (type === 'recovery' && access_token) {
+            // Password reset flow
+            spinner.style.display = 'none';
+            title.textContent = '✅ Reset Link Verified!';
+            status.innerHTML = '<div class="success">Your password reset link is valid!</div>';
+            
+            content.innerHTML = `
+                <div class="instructions">
+                    <strong>📋 Next Steps:</strong>
+                    <ol>
+                        <li>Copy the reset code below</li>
+                        <li>Click your <strong>PasteCraft extension icon</strong> in Edge</li>
+                        <li>Paste the code when prompted</li>
+                        <li>Set your new password</li>
+                    </ol>
+                </div>
+                
+                <p style="margin: 20px 0; font-weight: 600;">Your Reset Code:</p>
+                <div class="code-display" id="resetCode">${access_token.substring(0, 50)}...</div>
+                <button class="btn" onclick="copyCode()">📋 Copy Reset Code</button>
+                
+                <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                    ⚠️ This code is valid for 1 hour. Keep this window open while you reset your password.
+                </p>
+            `;
+            
+            // Try to communicate with extension
+            tryExtensionCommunication();
+        } else {
+            spinner.style.display = 'none';
+            title.textContent = '❌ Invalid Link';
+            status.innerHTML = '<div class="error">This link is not valid or has expired.</div>';
+            content.innerHTML = '<p>Please request a new password reset link from PasteCraft.</p>';
+        }
+        
+        function copyCode() {
+            const code = access_token;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('✅ Reset code copied! Now click the PasteCraft icon and paste it.');
+            });
+        }
+        
+        function tryExtensionCommunication() {
+            // Try to open extension popup directly
+            const extensionUrl = `chrome-extension://${EXTENSION_ID}/popup.html`;
+            
+            content.innerHTML += `
+                <div style="margin-top: 30px;">
+                    <p style="margin-bottom: 15px;"><strong>Or try this:</strong></p>
+                    <button class="btn" onclick="window.location.href='chrome-extension://${EXTENSION_ID}/popup.html#reset=${access_token}'">
+                        🚀 Open PasteCraft Directly
+                    </button>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
+

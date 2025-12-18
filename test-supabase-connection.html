@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Connection Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .success {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+        .error {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+        .warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+        button {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.success { background: #10b981; color: white; }
+        .status.error { background: #ef4444; color: white; }
+        .status.pending { background: #f59e0b; color: white; }
+        .config-display {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 PasteCraft Authentication Test</h1>
+        <p>Use this page to test your Supabase configuration before loading the extension.</p>
+
+        <!-- Configuration Display -->
+        <div class="test-section" id="configSection">
+            <h3>📋 Current Configuration</h3>
+            <div class="config-display" id="configDisplay">Loading...</div>
+        </div>
+
+        <!-- Connection Test -->
+        <div class="test-section" id="connectionSection">
+            <h3>🔌 Connection Test</h3>
+            <button onclick="testConnection()">Test Supabase Connection</button>
+            <div class="result" id="connectionResult"></div>
+        </div>
+
+        <!-- Auth Test -->
+        <div class="test-section" id="authSection">
+            <h3>🔐 Authentication Test</h3>
+            <input type="email" id="testEmail" placeholder="Test email" style="padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; width: 300px;">
+            <input type="password" id="testPassword" placeholder="Test password" style="padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; width: 300px; margin-left: 10px;">
+            <br><br>
+            <button onclick="testSignUp()">Test Sign Up</button>
+            <button onclick="testSignIn()">Test Sign In</button>
+            <button onclick="testSignOut()">Test Sign Out</button>
+            <div class="result" id="authResult"></div>
+        </div>
+
+        <!-- Current User -->
+        <div class="test-section" id="userSection">
+            <h3>👤 Current User</h3>
+            <button onclick="checkCurrentUser()">Check Current User</button>
+            <div class="result" id="userResult"></div>
+        </div>
+
+        <!-- Subscription Test -->
+        <div class="test-section" id="subscriptionSection">
+            <h3>💎 Subscription Test</h3>
+            <button onclick="testSubscription()">Check Subscription</button>
+            <div class="result" id="subscriptionResult"></div>
+        </div>
+    </div>
+
+    <!-- Load Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    
+    <script>
+        let supabaseClient = null;
+
+        // Initialize
+        window.onload = function() {
+            displayConfig();
+            initializeSupabase();
+        };
+
+        function displayConfig() {
+            const configDisplay = document.getElementById('configDisplay');
+            const config = {
+                'Supabase URL': PASTECRAFT_CONFIG.supabase.url,
+                'Anon Key': PASTECRAFT_CONFIG.supabase.anonKey ? 
+                    PASTECRAFT_CONFIG.supabase.anonKey.substring(0, 20) + '...' : 
+                    'NOT SET',
+                'OpenAI Key': PASTECRAFT_CONFIG.openai.apiKey.includes('YOUR_') ? 
+                    'NOT SET' : 
+                    'SET ✓',
+                'Replicate Token': PASTECRAFT_CONFIG.replicate.apiToken.includes('YOUR_') ? 
+                    'NOT SET' : 
+                    'SET ✓'
+            };
+
+            let html = '';
+            for (const [key, value] of Object.entries(config)) {
+                html += `${key}: ${value}\n`;
+            }
+            configDisplay.textContent = html;
+        }
+
+        function initializeSupabase() {
+            try {
+                if (PASTECRAFT_CONFIG.supabase.url.includes('YOUR_') || 
+                    PASTECRAFT_CONFIG.supabase.anonKey.includes('YOUR_')) {
+                    document.getElementById('connectionResult').innerHTML = 
+                        '<span class="status error">ERROR</span> Please update config.js with your Supabase credentials';
+                    return;
+                }
+
+                supabaseClient = supabase.createClient(
+                    PASTECRAFT_CONFIG.supabase.url,
+                    PASTECRAFT_CONFIG.supabase.anonKey
+                );
+                console.log('✅ Supabase client initialized');
+            } catch (error) {
+                console.error('❌ Failed to initialize Supabase:', error);
+                document.getElementById('connectionResult').innerHTML = 
+                    '<span class="status error">ERROR</span> ' + error.message;
+            }
+        }
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = '<span class="status pending">TESTING...</span> Connecting to Supabase...';
+
+            try {
+                if (!supabaseClient) {
+                    throw new Error('Supabase client not initialized. Check config.js');
+                }
+
+                // Try to query the auth users (should work if connection is good)
+                const { data, error } = await supabaseClient.auth.getSession();
+                
+                if (error && error.message.includes('Failed to fetch')) {
+                    throw new Error('Cannot connect to Supabase. Check your URL.');
+                }
+
+                resultDiv.innerHTML = 
+                    '<span class="status success">SUCCESS</span>\n' +
+                    'Connection to Supabase established!\n' +
+                    'Project: ' + PASTECRAFT_CONFIG.supabase.url;
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message;
+            }
+        }
+
+        async function testSignUp() {
+            const resultDiv = document.getElementById('authResult');
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+
+            if (!email || !password) {
+                resultDiv.innerHTML = '<span class="status error">ERROR</span> Please enter email and password';
+                return;
+            }
+
+            resultDiv.innerHTML = '<span class="status pending">TESTING...</span> Creating account...';
+
+            try {
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                resultDiv.innerHTML = 
+                    '<span class="status success">SUCCESS</span>\n' +
+                    'User created!\n' +
+                    'User ID: ' + data.user.id + '\n' +
+                    'Email: ' + data.user.email;
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message;
+            }
+        }
+
+        async function testSignIn() {
+            const resultDiv = document.getElementById('authResult');
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+
+            if (!email || !password) {
+                resultDiv.innerHTML = '<span class="status error">ERROR</span> Please enter email and password';
+                return;
+            }
+
+            resultDiv.innerHTML = '<span class="status pending">TESTING...</span> Signing in...';
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                resultDiv.innerHTML = 
+                    '<span class="status success">SUCCESS</span>\n' +
+                    'Signed in!\n' +
+                    'User ID: ' + data.user.id + '\n' +
+                    'Email: ' + data.user.email;
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message;
+            }
+        }
+
+        async function testSignOut() {
+            const resultDiv = document.getElementById('authResult');
+            resultDiv.innerHTML = '<span class="status pending">TESTING...</span> Signing out...';
+
+            try {
+                const { error } = await supabaseClient.auth.signOut();
+                if (error) throw error;
+
+                resultDiv.innerHTML = '<span class="status success">SUCCESS</span> Signed out successfully!';
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message;
+            }
+        }
+
+        async function checkCurrentUser() {
+            const resultDiv = document.getElementById('userResult');
+            resultDiv.innerHTML = '<span class="status pending">CHECKING...</span> Getting current user...';
+
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                
+                if (error) throw error;
+
+                if (!session) {
+                    resultDiv.innerHTML = '<span class="status warning">NOT SIGNED IN</span> No active session';
+                    return;
+                }
+
+                resultDiv.innerHTML = 
+                    '<span class="status success">SIGNED IN</span>\n' +
+                    'User ID: ' + session.user.id + '\n' +
+                    'Email: ' + session.user.email + '\n' +
+                    'Session expires: ' + new Date(session.expires_at * 1000).toLocaleString();
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message;
+            }
+        }
+
+        async function testSubscription() {
+            const resultDiv = document.getElementById('subscriptionResult');
+            resultDiv.innerHTML = '<span class="status pending">CHECKING...</span> Getting subscription...';
+
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                if (!session) {
+                    resultDiv.innerHTML = '<span class="status warning">NOT SIGNED IN</span> Sign in first to check subscription';
+                    return;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('user_subscriptions')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .single();
+
+                if (error) throw error;
+
+                if (!data) {
+                    resultDiv.innerHTML = '<span class="status warning">NO SUBSCRIPTION</span> User has no subscription record';
+                    return;
+                }
+
+                resultDiv.innerHTML = 
+                    '<span class="status success">FOUND</span>\n' +
+                    'Tier: ' + data.subscription_tier + '\n' +
+                    'Status: ' + data.subscription_status + '\n' +
+                    'Email: ' + data.email + '\n' +
+                    'Created: ' + new Date(data.created_at).toLocaleString();
+            } catch (error) {
+                resultDiv.innerHTML = 
+                    '<span class="status error">ERROR</span>\n' + 
+                    error.message + '\n\n' +
+                    'Make sure you ran supabase-auth-schema.sql in your Supabase project!';
+            }
+        }
+    </script>
+</body>
+</html>
+

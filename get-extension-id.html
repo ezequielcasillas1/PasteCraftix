@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft - Get Extension ID</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .step {
+            background: #f8f9ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .step-content {
+            color: #555;
+            line-height: 1.6;
+            margin-left: 40px;
+        }
+        
+        .code-box {
+            background: #2d2d2d;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+            position: relative;
+        }
+        
+        .code-box input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            width: 100%;
+            outline: none;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+        
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .success-msg {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .warning-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 5px;
+        }
+        
+        .link-btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.3s;
+            margin: 10px 0;
+        }
+        
+        .link-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 PasteCraft Password Reset Fix</h1>
+        <p class="subtitle">Follow these steps to fix the "requested path is invalid" error</p>
+        
+        <div class="warning">
+            <div class="warning-title">⚠️ What's Wrong?</div>
+            Your extension's callback URL is not whitelisted in Supabase. This prevents password reset links from working.
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Get Your Extension ID
+            </div>
+            <div class="step-content">
+                <p>Click the button below to open Chrome's extensions page:</p>
+                <button class="link-btn" onclick="window.open('chrome://extensions/')">Open chrome://extensions/</button>
+                <p style="margin-top: 10px;">Look for <strong>PasteCraft</strong> and copy the Extension ID (it's a long random string like: <code>abcdefghijklmnopqrstuvwxyz123456</code>)</p>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Paste Your Extension ID Here
+            </div>
+            <div class="step-content">
+                <input 
+                    type="text" 
+                    id="extensionId" 
+                    placeholder="Paste your extension ID here..."
+                    style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-family: 'Courier New', monospace;"
+                    oninput="generateUrls()">
+                <div id="success" class="success-msg">✅ URLs generated! Copy them below.</div>
+            </div>
+        </div>
+        
+        <div class="step" id="urlsSection" style="display: none;">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Add These URLs to Supabase
+            </div>
+            <div class="step-content">
+                <p>Go to your Supabase Dashboard → Authentication → URL Configuration</p>
+                <a class="link-btn" href="https://app.supabase.com/project/blpngeeqcegquiydreyu/auth/url-configuration" target="_blank">
+                    Open Supabase Dashboard →
+                </a>
+                
+                <p style="margin-top: 15px;"><strong>Add these redirect URLs (click to copy):</strong></p>
+                
+                <div class="code-box">
+                    <input type="text" id="url1" readonly>
+                </div>
+                <button class="copy-btn" onclick="copyUrl('url1')">📋 Copy URL 1</button>
+                
+                <div class="code-box">
+                    <input type="text" id="url2" readonly>
+                </div>
+                <button class="copy-btn" onclick="copyUrl('url2')">📋 Copy URL 2</button>
+                
+                <div class="code-box">
+                    <input type="text" id="url3" readonly>
+                </div>
+                <button class="copy-btn" onclick="copyUrl('url3')">📋 Copy URL 3</button>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Test Password Reset
+            </div>
+            <div class="step-content">
+                <ol style="margin-left: 20px;">
+                    <li>Reload your PasteCraft extension in Chrome</li>
+                    <li>Click the extension icon and select "Forgot Password"</li>
+                    <li>Enter your email and submit</li>
+                    <li>Check Gmail for the reset email</li>
+                    <li>Click the reset link → Should open callback.html successfully</li>
+                    <li>Click PasteCraft icon to set your new password ✅</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function generateUrls() {
+            const extensionId = document.getElementById('extensionId').value.trim();
+            
+            if (extensionId.length < 20) {
+                document.getElementById('urlsSection').style.display = 'none';
+                document.getElementById('success').style.display = 'none';
+                return;
+            }
+            
+            // Generate the URLs
+            document.getElementById('url1').value = `chrome-extension://${extensionId}/callback.html`;
+            document.getElementById('url2').value = `chrome-extension://${extensionId}/*`;
+            document.getElementById('url3').value = `chrome-extension://*/callback.html`;
+            
+            // Show the URLs section
+            document.getElementById('urlsSection').style.display = 'block';
+            document.getElementById('success').style.display = 'block';
+        }
+        
+        function copyUrl(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            document.execCommand('copy');
+            
+            // Show feedback
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#667eea';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
+

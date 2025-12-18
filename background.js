@@ -20,25 +20,25 @@ async function createContextMenus() {
     
     chrome.contextMenus.create({
       id: 'copy-to-quick-save',
-      title: '📋 PasteCraft: Copy to Quick Save',
+      title: '📋 Copy to PasteCraft',
       contexts: ['selection', 'editable', 'page']
     }, () => {
       if (chrome.runtime.lastError) {
-        console.error('❌ DIAGNOSTIC: Copy to Quick Save menu failed:', chrome.runtime.lastError);
+        console.error('❌ DIAGNOSTIC: Copy to PasteCraft menu failed:', chrome.runtime.lastError);
       } else {
-        console.log('✅ DIAGNOSTIC: Copy to Quick Save menu created successfully');
+        console.log('✅ DIAGNOSTIC: Copy to PasteCraft menu created successfully');
       }
     });
     
     chrome.contextMenus.create({
       id: 'view-quick-saved-clips',
-      title: '📋 PasteCraft: View Quick Saved',
+      title: '📋 View Quick Menu',
       contexts: ['selection', 'editable', 'page']
     }, () => {
       if (chrome.runtime.lastError) {
-        console.error('❌ DIAGNOSTIC: View Quick Saved menu failed:', chrome.runtime.lastError);
+        console.error('❌ DIAGNOSTIC: View Quick Menu failed:', chrome.runtime.lastError);
       } else {
-        console.log('✅ DIAGNOSTIC: View Quick Saved menu created successfully');
+        console.log('✅ DIAGNOSTIC: View Quick Menu created successfully');
       }
     });
     
@@ -65,6 +65,20 @@ chrome.runtime.onStartup.addListener(() => {
 console.log('🚀 DIAGNOSTIC: Creating menus immediately on script load');
 createContextMenus();
 
+// Handle extension icon click - open slide-in panel instead of popup
+chrome.action.onClicked.addListener(async (tab) => {
+  console.log('🎨 Extension icon clicked, opening slide-in panel');
+  
+  try {
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'openPopupPanel'
+    });
+    console.log('✅ Message sent to open popup panel');
+  } catch (error) {
+    console.error('❌ Could not open popup panel:', error);
+  }
+});
+
 // Handle menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log('🖱️ Context menu clicked:', info.menuItemId);
@@ -72,8 +86,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'pastecraft-main') {
     // Main menu clicked - show appropriate action based on context
     if (info.selectionText) {
-      // If text is selected, save it
-      await saveTextDirectly(info.selectionText, 'Uncategorized');
+      // If text is selected, save it (but don't auto-show since we explicitly show below)
+      await saveTextDirectly(info.selectionText, 'Uncategorized', false);
     }
     // Always show Quick Paste interface
     chrome.tabs.sendMessage(tab.id, {
@@ -85,31 +99,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     });
     
   } else if (info.menuItemId === 'copy-to-quick-save') {
-    console.log('🖱️ Copy to Quick Save clicked - selectionText:', info.selectionText);
+    console.log('🖱️ Copy to PasteCraft clicked - selectionText:', info.selectionText);
     
     if (info.selectionText && info.selectionText.trim().length > 0) {
-      // Save directly to Quick Save (Uncategorized) and show Quick Paste interface
-      await saveTextDirectly(info.selectionText, 'Uncategorized');
+      // Save directly to Quick Save (Uncategorized) without auto-showing interface
+      await saveTextDirectly(info.selectionText, 'Uncategorized', false); // false = don't auto-show
       
-      // Show Quick Paste interface near cursor
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'showQuickPaste',
-        x: info.pageX || 100,
-        y: info.pageY || 100
-      }).catch(() => {
-        console.log('Could not show Quick Paste interface');
-      });
+      // Don't show Quick Paste interface - user just wants to save
+      console.log('✅ Text saved to PasteCraft (no UI shown)');
     } else {
       // No text selected - show feedback message
-      console.log('⚠️ Copy to Quick Save clicked but no text selected or empty');
-      // Just show the interface
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'showQuickPaste',
-        x: info.pageX || 100,
-        y: info.pageY || 100
-      }).catch(() => {
-        console.log('Could not show Quick Paste interface');
-      });
+      console.log('⚠️ Copy to PasteCraft clicked but no text selected or empty');
     }
     
   } else if (info.menuItemId === 'view-quick-saved-clips') {
@@ -203,10 +203,11 @@ async function pasteClip(index, tab) {
 
 // Removed old saveText function - using saveTextDirectly instead
 
-async function saveTextDirectly(text, category = 'Uncategorized') {
+async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true) {
   console.log('🚀 DIAGNOSTIC: saveTextDirectly() called');
   console.log('📝 Text to save:', text ? (text.substring(0, 50) + '...') : 'UNDEFINED/EMPTY');
   console.log('📁 Category:', category);
+  console.log('👁️ Auto-show interface:', autoShow);
   
   // Safety check: Don't save empty/undefined text
   if (!text || text.trim().length === 0) {
@@ -311,7 +312,8 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
       tabs.forEach(tab => {
         chrome.tabs.sendMessage(tab.id, {
           action: 'clipSaved',
-          clip: newClip
+          clip: newClip,
+          autoShow: autoShow // Pass the autoShow flag
         }).catch(() => {}); // Ignore errors for tabs without content script
       });
     });
@@ -319,7 +321,8 @@ async function saveTextDirectly(text, category = 'Uncategorized') {
     // Also notify popup via runtime messaging
     chrome.runtime.sendMessage({
       action: 'clipSaved',
-      clip: newClip
+      clip: newClip,
+      autoShow: autoShow
     }).catch(() => {
       // Popup might not be open, that's OK
       console.log('Popup not open, skipping runtime message');
@@ -358,4 +361,37 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   }
   
   sendResponse({ success: false, error: 'Unknown message type' });
+});
+
+// =====================================================
+// INTERNAL MESSAGE LISTENER (Content Script Messages)
+// =====================================================
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('📨 Internal message received:', message.action);
+  
+  if (message.action === 'saveClip') {
+    // Handle auto-copy save from content script
+    saveTextDirectly(message.text, message.category || 'Uncategorized', message.autoShow !== false)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error('❌ Failed to save clip:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep message channel open for async response
+  }
+  
+  if (message.action === 'refreshClips' || message.action === 'clipsUpdated') {
+    // Broadcast to all tabs that clips were updated
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, { action: 'clipsUpdated' }).catch(() => {});
+      });
+    });
+    sendResponse({ success: true });
+    return false;
+  }
+  
+  return false;
 });

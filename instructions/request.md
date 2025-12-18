@@ -32,7 +32,7 @@
 **Pricing Structure (Stripe):**
 - Weekly: $1.99/week
 - Monthly: $6.99/month (most popular - best value)
-- Yearly: $69.99/year (save $14 vs monthly)
+- Yearly: $49.99/year (save $34 vs monthly)
 
 **Requirements:**
 - Add authorization checks before premium features (AI Breakdown, AI Summaries, Image Generation)
@@ -62,7 +62,7 @@
 **Pricing Plans:**
 - Weekly: $1.99/week
 - Monthly: $6.99/month (recommended)
-- Yearly: $69.99/year (2 months free)
+- Yearly: $49.99/year (save $34 - best deal!)
 
 **Stripe Costs:**
 - No monthly fees
@@ -152,7 +152,7 @@
 
 ---
 
-#### 12. Auto-Copy on Clip Click (Settings Option)
+#### 12. Auto-Copy on Clip Click (Settings Option) {this is done after all copy and delete buttons have been implemented}
 **Priority:** Medium  
 **Requirements:**
 - Add settings toggle: "Enable auto-copy on clip click"
@@ -160,18 +160,11 @@
   - Single click on clip automatically copies to clipboard
   - Multi-select: clicking multiple clips accumulates them (space-separated) into clipboard
   - Works across all pages (clips page, search results, categories)
+  - Hide/disable all copy buttons (quick copy button on search page, category folder copy button)
+  - Categories: Show only delete button (not `copy | delete`, just `delete` button in full)
 - **When Disabled:** User must manually click copy button to copy clips
+  - Show all copy buttons as normal (`copy | delete` format for categories)
 - Preference persists across sessions
-
----
-
-#### 13. Quick Copy Button Below Clips Module, should be right above the pagination numbered system.
-**Priority:** Low  
-**Requirements:**
-- Add copy button positioned directly below clips module
-- Allows quick copying without scrolling to bottom delimiter section
-- Button copies selected clip content to clipboard
-- Provides instant visual feedback on copy action
 
 ---
 
@@ -248,6 +241,117 @@
 - Link to Edge extension store for free installation
 
 ---
+
+#### 18. Category Folder Quick Actions
+**Priority:** Medium  
+**Requirements:**
+- Add quick copy button for entire category folder (blue gleamy shine effect)
+- Add delete button for category folder (red shiny gleam effect)
+- Position buttons right below category section, above delimiter
+- Format: `copy | delete` inline buttons with styled glow effects
+
+---
+
+#### 19. Search Page Multi-Select Copy Button
+**Priority:** Medium  
+**Requirements:**
+- Add shiny gleamy blue copy button on search page
+- Button only visible when user selects more than one clip
+- Copies all selected clips in one action
+- Same blue glow styling as category folder copy button
+
+---
+
+#### 20. Category Clip Capacity (25 → 500)
+**Priority:** Medium  
+**Status:** Complete  
+**Requirements:**
+- Increase per-category capacity from 25 to 500 (Categories tab + Category modal)
+- Update UI counters, FULL state, and toast messages to match 500
+- Keep overall clip pagination behavior unchanged
+
+---
+
+#### 21. Floating Web Interface Widget - Phase 1 (Colors & Position)
+**Priority:** High  
+**Status:** Planning
+
+**Part 1: Dark Blue Gradient Color Scheme**
+- Primary gradient background: `linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%)`
+- Light blue accents for interactive elements: `#60a5fa` (buttons, toggles)
+- Hover/glow effects: `#38bdf8` with `rgba(96, 165, 250, 0.4)` glow
+- Text colors: White (`#ffffff`) primary, `#e0f2fe` secondary, `rgba(255,255,255,0.7)` muted
+- Shadows: `0 4px 16px rgba(30, 64, 175, 0.4)` for depth + blue glow
+
+**Part 2: Right-Side Middle Position (Monica.ai Style)**
+- Fixed position: `right: 0`, vertically centered (`top: 50%, transform: translateY(-50%)`)
+- Sticks out from right edge: ~45-60px visible when minimized
+- Expanded width: 320px, Max height: 600px with scroll
+- Border radius: `12px 0 0 12px` (rounded left, flat right edge)
+- Always visible, stays on top: `z-index: 999999`
+- Shadow for depth: `-4px 0 16px rgba(0,0,0,0.15)` + blue glow
+- Smart collision detection: Auto-adjusts vertical position if other widgets present
+- User draggable: Can reposition and save preference
+
+**Part 3: Always Visible Behavior**
+- Widget appears on ALL websites without exceptions (no whitelist/blacklist)
+- Loads immediately on page load (`run_at: document_start`)
+- Never auto-hides: no hide-on-scroll, no timeout, always present
+- Maximum z-index (2147483647) to stay on top of all content
+- Three states: Minimized (60px), Expanded (320px), Dragging (semi-transparent)
+- Single global instance per page, lazy-load content for performance
+- Persists across page navigations and works in iframes
+
+**Part 4: Component Layout - Vertical Stack (Option A)**
+
+**Component 1: PasteCraft Logo Button (48x48px)** ✅ IMPLEMENTED
+- Icon: logo.svg centered
+- Click: Slides popup from right (380px width, full height)
+- Toggle: Click again to close (active state shows blue glow)
+- Loads popup.html in iframe for full app access
+- Respects "Keep popup open" setting
+- Close: Click X, backdrop, ESC, or icon button again
+- Tooltip: "Open PasteCraft" (left side, 500ms delay)
+
+**Component 2: Settings Gear Icon (40x40px)** ✅ IMPLEMENTED
+- Icon: ⚙️ gear
+- Click: Slide-in panel from right (400px width, 300ms ease-out)
+- Toggle: Click again to close (active state shows blue glow)
+- Panel has semi-transparent backdrop `rgba(0,0,0,0.3)`
+- Hover: Rotate 90° animation
+- Tooltip: "Settings" (left side)
+
+**Component 3: Auto Copy Toggle + Counter**
+- Toggle size: 48x24px, rounded (12px radius)
+- OFF state: Gray background (#374151), slider left, "ON" text visible right
+- ON state: Light blue background (#60a5fa), slider right, "OFF" text visible left
+- Slider: 20x20px white circle, 300ms transition
+- Tooltip (Monica.ai style): "Auto Copy" appears on left after 500ms hover
+  - Background: `rgba(30,64,175,0.95)`, white text, 6px padding
+  - Small arrow pointing right
+- Counter below toggle: Shows "X clips" in light blue (#e0f2fe), 10px font
+- Counter increments on each auto-copy, animates scale-up briefly
+- Counter persists daily, resets at midnight
+- Click counter: Shows breakdown (e.g., "3 from Google, 2 from Gmail")
+
+**Component 4: Quick View Menu Button (40x40px)** ✅ IMPLEMENTED
+- Icon: 👁️ eye
+- Click: Slides panel from right (400px width, full height)
+- Toggle: Click again to close (active state shows blue glow)
+- Displays saved clips with copy/delete actions
+- Respects "Keep Quick View open" setting
+- Close: Click X, backdrop, ESC, or icon button again
+- Tooltip: "Quick View Menu" (left side)
+
+**Layout Specs:**
+- Widget width: 60px minimized
+- Component spacing: 12px vertical gap between each
+- Padding: 8px top/bottom, 6px left/right
+- Total height: ~220px (auto-adjusts)
+- All tooltips appear on left side with 500ms delay
+
+---
+
 
 ## 🎯 **PRIORITY ROADMAP**
 

@@ -74,6 +74,37 @@
             box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
         }
         
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-close-app {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: 300;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        
+        .btn-close-app:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #dc2626;
+            transform: translateY(-1px);
+        }
+        
         .btn-signout {
             padding: 6px 14px;
             background: white;
@@ -4174,7 +4205,10 @@
                     <span id="topBarFunkyName" class="top-bar-funky-name">FunkyName</span>
                 </div>
             </div>
-            <div id="signOutContainer" class="top-bar-signout">
+            <div id="signOutContainer" class="top-bar-actions">
+                <button class="btn-close-app" id="closeAppBtn" title="Close PasteCraft">
+                    ×
+                </button>
                 <button class="btn-signout" id="signOutBtn">
                     👋 Sign Out
                 </button>

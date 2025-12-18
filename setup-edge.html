@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasteCraft - Edge Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0078d4 0%, #5e5ce6 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #0078d4;
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        
+        .step {
+            background: #f5f9ff;
+            border-left: 4px solid #0078d4;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+        }
+        
+        .step-number {
+            background: #0078d4;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+            font-size: 18px;
+        }
+        
+        .step-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .step-content {
+            color: #555;
+            line-height: 1.8;
+            margin-left: 47px;
+            font-size: 16px;
+        }
+        
+        .code-box {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 18px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .code-box input {
+            background: transparent;
+            border: none;
+            color: #d4d4d4;
+            width: 100%;
+            outline: none;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 15px;
+        }
+        
+        .btn {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 10px 5px 10px 0;
+            transition: all 0.3s;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            background: #106ebe;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .copy-btn {
+            background: #107c10;
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+        
+        .copy-btn:hover {
+            background: #0e6b0e;
+        }
+        
+        .success-msg {
+            background: #dff6dd;
+            color: #107c10;
+            border: 2px solid #107c10;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+            font-weight: 500;
+        }
+        
+        .warning {
+            background: #fff4ce;
+            border-left: 4px solid #ffb900;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        
+        .warning-title {
+            font-weight: bold;
+            color: #8a6d00;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        
+        .info {
+            background: #e7f3ff;
+            border-left: 4px solid #0078d4;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        ol {
+            margin-left: 25px;
+            line-height: 2;
+        }
+        
+        ol li {
+            margin: 8px 0;
+        }
+        
+        code {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #d63384;
+        }
+        
+        strong {
+            color: #0078d4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🦅 PasteCraft - Microsoft Edge Setup</h1>
+        <p class="subtitle">Configure PasteCraft for Microsoft Edge</p>
+        
+        <div class="warning">
+            <div class="warning-title">🎯 Why Edge?</div>
+            No problem! Edge is Chromium-based, so PasteCraft works perfectly. Let's set it up!
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Load PasteCraft Extension in Edge
+            </div>
+            <div class="step-content">
+                <p>Click the button below to open Edge extensions page:</p>
+                <a class="btn" href="edge://extensions/" target="_blank">📦 Open edge://extensions/</a>
+                
+                <ol style="margin-top: 15px;">
+                    <li>Enable <strong>Developer mode</strong> (toggle on the left sidebar)</li>
+                    <li>Click <strong>"Load unpacked"</strong></li>
+                    <li>Select your PasteCraft folder: <code>C:\Users\ezequiel-casillas\OneDrive\Documents\PasteCraft</code></li>
+                    <li>PasteCraft should now appear in your extensions list ✅</li>
+                </ol>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Get Your Edge Extension ID
+            </div>
+            <div class="step-content">
+                <p>After loading the extension, you'll see it in the list. Look for:</p>
+                <div class="info">
+                    <strong>PasteCraft</strong><br>
+                    ID: <code>abcdefghijklmnopqrstuvwxyz123456</code> ← Copy this!
+                </div>
+                <p style="margin-top: 10px;">Paste your Edge extension ID below:</p>
+                <input 
+                    type="text" 
+                    id="extensionId" 
+                    placeholder="Paste your Edge extension ID here..."
+                    style="width: 100%; padding: 14px; border: 2px solid #0078d4; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 16px; margin-top: 10px;"
+                    oninput="generateUrls()">
+                <div id="success" class="success-msg">✅ URLs generated! Copy them below and add to Supabase.</div>
+            </div>
+        </div>
+        
+        <div class="step" id="urlsSection" style="display: none;">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Add These URLs to Supabase
+            </div>
+            <div class="step-content">
+                <p>Open your Supabase dashboard and add these redirect URLs:</p>
+                <a class="btn" href="https://app.supabase.com/project/blpngeeqcegquiydreyu/auth/url-configuration" target="_blank">
+                    🚀 Open Supabase Dashboard
+                </a>
+                
+                <p style="margin-top: 20px;"><strong>In Supabase → Authentication → URL Configuration, add these 3 URLs:</strong></p>
+                
+                <p style="margin-top: 15px; font-weight: 600;">URL #1:</p>
+                <div class="code-box">
+                    <input type="text" id="url1" readonly>
+                </div>
+                <button class="btn copy-btn" onclick="copyUrl('url1')">📋 Copy URL 1</button>
+                
+                <p style="margin-top: 15px; font-weight: 600;">URL #2:</p>
+                <div class="code-box">
+                    <input type="text" id="url2" readonly>
+                </div>
+                <button class="btn copy-btn" onclick="copyUrl('url2')">📋 Copy URL 2</button>
+                
+                <p style="margin-top: 15px; font-weight: 600;">URL #3:</p>
+                <div class="code-box">
+                    <input type="text" id="url3" readonly>
+                </div>
+                <button class="btn copy-btn" onclick="copyUrl('url3')">📋 Copy URL 3</button>
+                
+                <div class="info" style="margin-top: 20px;">
+                    <strong>💡 Note:</strong> In Supabase, paste each URL one at a time, then click <strong>"Save"</strong> after adding all three.
+                </div>
+            </div>
+        </div>
+        
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Test Password Reset in Edge
+            </div>
+            <div class="step-content">
+                <ol>
+                    <li>Click the <strong>PasteCraft icon</strong> in Edge toolbar</li>
+                    <li>Click <strong>"Forgot Password?"</strong></li>
+                    <li>Enter your email and click <strong>"Send Reset Link"</strong></li>
+                    <li>Check your <strong>Gmail</strong> for the reset email</li>
+                    <li>Click the reset link → Opens <code>callback.html</code> in Edge ✅</li>
+                    <li>Click PasteCraft icon → Set your new password 🎉</li>
+                </ol>
+                
+                <div class="info" style="margin-top: 20px;">
+                    <strong>🔍 Troubleshooting:</strong> If you still see an error, make sure you clicked "Save" in Supabase after adding all URLs, then reload the PasteCraft extension in Edge.
+                </div>
+            </div>
+        </div>
+        
+        <div class="warning">
+            <div class="warning-title">✨ After This Setup</div>
+            <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                <li>Password reset will work perfectly in Edge</li>
+                <li>Google OAuth sign-in will work in Edge</li>
+                <li>All extension features will work in Edge</li>
+                <li>Your extension will have a different ID in Edge vs Chrome</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function generateUrls() {
+            const extensionId = document.getElementById('extensionId').value.trim();
+            
+            if (extensionId.length < 20) {
+                document.getElementById('urlsSection').style.display = 'none';
+                document.getElementById('success').style.display = 'none';
+                return;
+            }
+            
+            // Generate the URLs for Edge
+            // Edge uses extension:// protocol for extensions
+            document.getElementById('url1').value = `extension://${extensionId}/callback.html`;
+            document.getElementById('url2').value = `extension://${extensionId}/*`;
+            document.getElementById('url3').value = `extension://*/callback.html`;
+            
+            // Show the URLs section
+            document.getElementById('urlsSection').style.display = 'block';
+            document.getElementById('success').style.display = 'block';
+        }
+        
+        function copyUrl(inputId) {
+            const input = document.getElementById(inputId);
+            input.select();
+            document.execCommand('copy');
+            
+            // Show feedback
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#107c10';
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#107c10';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
+
