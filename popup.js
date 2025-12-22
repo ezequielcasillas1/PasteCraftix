@@ -18,6 +18,11 @@ class PasteCraftPopup {
     this.searchOnlyClips = [];
     this.selectedCategoryClips = new Set();
     this.selectedSearchClips = new Set();
+    this.categoryUiOrderSelectedIds = [];
+
+    // Crafted Output (preview) editability
+    this.previewIsManual = false;
+    this.previewLastAutoValue = '';
     this.options = {
       deduplicate: false,
       sort: false,
@@ -432,11 +437,13 @@ class PasteCraftPopup {
           console.log('🔄 Categories tab opened - reloading data...');
           await this.loadData();
           this.renderCategories();
+          this.updateCategoryBulkActions();
           console.log('✅ Categories data refreshed');
         } else if (this.currentTab === 'search') {
           console.log('🔄 Search tab opened - reloading data...');
           await this.loadData();
           this.renderSearchResults();
+          this.updateSearchBulkActions();
           console.log('✅ Search data refreshed');
         } else if (this.currentTab === 'ai') {
           this.loadAIGallery();
@@ -449,28 +456,65 @@ class PasteCraftPopup {
     document.getElementById('searchInput').addEventListener('input', (e) => {
       this.searchQuery = e.target.value;
       this.renderSearchResults();
+      this.updateSearchBulkActions();
     });
 
     document.getElementById('clearSearch').addEventListener('click', () => {
       document.getElementById('searchInput').value = '';
       this.searchQuery = '';
       this.renderSearchResults();
+      this.updateSearchBulkActions();
     });
 
     document.getElementById('categoryFilter').addEventListener('change', (e) => {
       this.selectedCategory = e.target.value;
       this.renderSearchResults();
+      this.updateSearchBulkActions();
     });
 
     document.getElementById('dateFilter').addEventListener('change', (e) => {
       this.selectedDateFilter = e.target.value;
       this.renderSearchResults();
+      this.updateSearchBulkActions();
     });
 
     // Category management
     document.getElementById('createCategoryBtn').addEventListener('click', () => {
       this.showCreateCategoryDialog();
     });
+
+    // Crafted Output is editable: mark as manual when user types
+    const previewArea = document.getElementById('previewArea');
+    if (previewArea) {
+      previewArea.addEventListener('input', () => {
+        this.previewIsManual = true;
+      });
+    }
+
+    // Categories bulk actions (copy | delete)
+    const categoryBulkCopyBtn = document.getElementById('categoryBulkCopyBtn');
+    const categoryBulkDeleteBtn = document.getElementById('categoryBulkDeleteBtn');
+    if (categoryBulkCopyBtn) {
+      categoryBulkCopyBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await this.handleCategoryBulkCopy();
+      });
+    }
+    if (categoryBulkDeleteBtn) {
+      categoryBulkDeleteBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await this.handleCategoryBulkDelete();
+      });
+    }
+
+    // Search bulk action (copy 2+ selected)
+    const searchBulkCopyBtn = document.getElementById('searchBulkCopyBtn');
+    if (searchBulkCopyBtn) {
+      searchBulkCopyBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await this.handleSearchBulkCopy();
+      });
+    }
 
     // Category modal events
     document.getElementById('closeCategoryModal').addEventListener('click', () => {
@@ -1079,6 +1123,14 @@ class PasteCraftPopup {
     document.getElementById('quickCopyBtn').addEventListener('click', () => {
       this.handleQuickCopy();
     });
+
+    // Quick Delete Button (2+ selected)
+    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
+    if (quickDeleteBtn) {
+      quickDeleteBtn.addEventListener('click', () => {
+        this.handleQuickDelete();
+      });
+    }
     
     // Setup image viewer for expanded view
     this.setupImageViewer();
@@ -1847,6 +1899,8 @@ class PasteCraftPopup {
       itemElement.classList.add('selected');
       if (checkbox) checkbox.checked = true;
     }
+    this.updatePreviewFromSearchSelection();
+    this.updateSearchBulkActions();
   }
   
   toggleCategoryClip(clipId, itemElement) {
@@ -1860,6 +1914,8 @@ class PasteCraftPopup {
       itemElement.classList.add('selected');
       if (checkbox) checkbox.checked = true;
     }
+    this.updatePreviewFromSelection();
+    this.updateCategoryBulkActions();
   }
   
   syncOptionToggles() {
@@ -1929,7 +1985,11 @@ class PasteCraftPopup {
       .filter(Boolean);
     
     if (selectedTexts.length === 0) {
-      previewArea.value = '';
+      // Don't wipe user edits when nothing is selected
+      if (!this.previewIsManual && this.previewLastAutoValue) {
+        previewArea.value = '';
+        this.previewLastAutoValue = '';
+      }
       return;
     }
     
@@ -1958,6 +2018,8 @@ class PasteCraftPopup {
     
     const output = processedTexts.join(delimiters[this.delimiter] || ', ');
     previewArea.value = output;
+    this.previewIsManual = false;
+    this.previewLastAutoValue = output;
     
     // Update quick copy button visibility
     this.updateQuickCopyButton();
@@ -2120,9 +2182,51 @@ class PasteCraftPopup {
       }, 2000);
     }
   }
+
+  async handleQuickDelete() {
+    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
+    if (!quickDeleteBtn) return;
+
+    const selectedIndices = Array.from(this.selectedChips || []).filter(i => Number.isFinite(i));
+    if (selectedIndices.length <= 1) return; // only for 2+
+
+    const validIndices = selectedIndices.filter(i => i >= 0 && i < this.clips.length);
+    if (validIndices.length <= 1) {
+      this.selectedChips.clear();
+      this.updateQuickCopyButton();
+      return;
+    }
+
+    if (!confirm(`Delete ${validIndices.length} selected clip${validIndices.length === 1 ? '' : 's'}?`)) {
+      return;
+    }
+
+    // Delete from highest index down to avoid reindex issues
+    validIndices.sort((a, b) => b - a).forEach((idx) => {
+      this.clips.splice(idx, 1);
+    });
+
+    await chrome.storage.local.set({ clips: this.clips });
+
+    // 🔄 AUTO-SYNC TO SUPABASE
+    try {
+      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+      console.log('✅ Bulk clip deletion synced to Supabase');
+    } catch (error) {
+      console.error('⚠️ Failed to sync bulk clip deletion to Supabase:', error);
+    }
+
+    // Clear selection + refresh UI
+    this.selectedChips.clear();
+    this.renderChips();
+    this.updatePreview();
+    this.updateQuickCopyButton();
+    this.showToast(`Deleted ${validIndices.length} clip${validIndices.length === 1 ? '' : 's'}`);
+  }
   
   updateQuickCopyButton() {
     const quickCopyBtn = document.getElementById('quickCopyBtn');
+    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
     if (!quickCopyBtn) return;
     
     // Show button only if there are selected clips
@@ -2130,6 +2234,16 @@ class PasteCraftPopup {
       quickCopyBtn.style.display = 'flex';
     } else {
       quickCopyBtn.style.display = 'none';
+    }
+
+    // Show delete only when 2+ are selected (per requirement)
+    if (quickDeleteBtn) {
+      if (this.selectedChips.size > 1) {
+        quickDeleteBtn.style.display = 'flex';
+      } else {
+        quickDeleteBtn.style.display = 'none';
+        quickDeleteBtn.classList.remove('success');
+      }
     }
   }
   
@@ -2200,6 +2314,7 @@ class PasteCraftPopup {
           <p>Type in the search bar to find your clips</p>
         </div>
       `;
+      this.updateSearchBulkActions();
       return;
     }
 
@@ -2213,6 +2328,7 @@ class PasteCraftPopup {
           <p>Try adjusting your search criteria</p>
         </div>
       `;
+      this.updateSearchBulkActions();
       return;
     }
 
@@ -2221,6 +2337,8 @@ class PasteCraftPopup {
       const resultItem = this.createSearchResultItem(clip);
       container.appendChild(resultItem);
     });
+
+    this.updateSearchBulkActions();
   }
 
   filterClips() {
@@ -3560,8 +3678,13 @@ class PasteCraftPopup {
     console.log('🔄 Updating preview from selection:', this.selectedCategoryClips?.size || 0, 'clips selected');
     
     if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) {
-      document.getElementById('previewArea').value = '';
+      // Don't wipe user edits when nothing is selected
+      if (!this.previewIsManual && this.previewLastAutoValue) {
+        document.getElementById('previewArea').value = '';
+        this.previewLastAutoValue = '';
+      }
       console.log('📄 Preview cleared - no clips selected');
+      this.updateCategoryBulkActions();
       return;
     }
 
@@ -3569,10 +3692,12 @@ class PasteCraftPopup {
     const allClips = [...this.clips, ...this.searchOnlyClips];
     console.log('🔍 All clips available:', allClips.map(c => ({id: c.id, text: c.text.substring(0, 20)})));
     console.log('🎯 Selected clip IDs:', Array.from(this.selectedCategoryClips));
-    
-    const selectedClips = Array.from(this.selectedCategoryClips)
-      .map(clipId => {
-        const found = allClips.find(clip => clip.id === clipId); // Use strict equality with numeric IDs
+
+    // Preserve CURRENT UI ORDER (DOM order in expanded category dropdowns)
+    const orderedSelectedIds = this.getSelectedCategoryClipIdsInUiOrder();
+    const selectedClips = orderedSelectedIds
+      .map((clipId) => {
+        const found = allClips.find(clip => clip.id === clipId);
         console.log(`🔎 Looking for clip ${clipId} (${typeof clipId}), found:`, found ? found.text.substring(0, 20) : 'NOT FOUND');
         return found;
       })
@@ -3611,7 +3736,245 @@ class PasteCraftPopup {
     const formattedText = processedTexts.join(delimiter);
     
     document.getElementById('previewArea').value = formattedText;
+    this.previewIsManual = false;
+    this.previewLastAutoValue = formattedText;
     console.log('✅ Preview updated with formatted text:', formattedText.substring(0, 50) + '...');
+    this.updateCategoryBulkActions();
+  }
+
+  getSelectedCategoryClipIdsInUiOrder() {
+    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return [];
+
+    const selected = this.selectedCategoryClips;
+    const ordered = [];
+
+    // Prefer DOM order of expanded dropdowns (true UI order)
+    const domClips = document.querySelectorAll('.category-item.expanded .category-clip');
+    if (domClips && domClips.length > 0) {
+      domClips.forEach(el => {
+        const id = parseFloat(el.dataset.clipId);
+        if (selected.has(id)) ordered.push(id);
+      });
+    }
+
+    // Fallback: stable data order from storage if DOM not available
+    if (ordered.length === 0) {
+      const allClips = [...this.clips, ...this.searchOnlyClips];
+      allClips.forEach(c => {
+        if (selected.has(c.id)) ordered.push(c.id);
+      });
+    }
+
+    return ordered;
+  }
+
+  updateCategoryBulkActions() {
+    const bar = document.getElementById('categoryBulkActions');
+    const countEl = document.getElementById('categoryBulkCount');
+    if (!bar || !countEl) return;
+
+    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
+
+    if (this.currentTab === 'categories' && count > 0) {
+      bar.style.display = 'flex';
+      countEl.textContent = `${count} selected`;
+    } else {
+      bar.style.display = 'none';
+      countEl.textContent = '';
+      const copyBtn = document.getElementById('categoryBulkCopyBtn');
+      if (copyBtn) copyBtn.classList.remove('success');
+    }
+  }
+
+  async handleCategoryBulkCopy() {
+    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return;
+
+    // Ensure preview matches selection + UI order + delimiter/options
+    this.updatePreviewFromSelection();
+    const previewArea = document.getElementById('previewArea');
+    const textToCopy = previewArea ? previewArea.value : '';
+    if (!textToCopy) return;
+
+    const copyBtn = document.getElementById('categoryBulkCopyBtn');
+    const originalText = copyBtn ? copyBtn.textContent : 'copy';
+
+    try {
+      await this.copyToClipboardFallback(textToCopy);
+      if (copyBtn) {
+        copyBtn.textContent = 'copied ✓';
+        copyBtn.classList.add('success');
+      }
+      setTimeout(() => {
+        if (copyBtn) {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('success');
+        }
+      }, 1400);
+    } catch (error) {
+      console.error('❌ Category bulk copy failed:', error);
+      if (copyBtn) {
+        copyBtn.textContent = 'failed';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 1400);
+      }
+    }
+  }
+
+  async handleCategoryBulkDelete() {
+    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
+    if (count === 0) return;
+
+    if (!confirm(`Delete ${count} selected clip${count === 1 ? '' : 's'}?`)) return;
+
+    const ids = new Set(this.selectedCategoryClips);
+    const beforeActive = this.clips.length;
+    const beforeArchived = this.searchOnlyClips.length;
+
+    this.clips = this.clips.filter(c => !ids.has(c.id));
+    this.searchOnlyClips = this.searchOnlyClips.filter(c => !ids.has(c.id));
+
+    await chrome.storage.local.set({
+      clips: this.clips,
+      searchOnlyClips: this.searchOnlyClips
+    });
+
+    try {
+      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+      await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
+      console.log('✅ Bulk deletion synced to Supabase');
+    } catch (error) {
+      console.error('⚠️ Failed to sync bulk deletion to Supabase:', error);
+    }
+
+    this.selectedCategoryClips.clear();
+    document.getElementById('previewArea').value = '';
+    this.renderChips();
+    this.renderSearchResults();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateCategoryBulkActions();
+
+    const deletedCount = (beforeActive - this.clips.length) + (beforeArchived - this.searchOnlyClips.length);
+    this.showToast(`Deleted ${deletedCount} clip${deletedCount === 1 ? '' : 's'}`);
+  }
+
+  getSelectedSearchClipIdsInUiOrder() {
+    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return [];
+
+    const selected = this.selectedSearchClips;
+    const ordered = [];
+
+    // UI order = DOM order of current search results
+    const domItems = document.querySelectorAll('#searchResults .search-result-item');
+    if (domItems && domItems.length > 0) {
+      domItems.forEach(el => {
+        const id = parseFloat(el.dataset.clipId);
+        if (selected.has(id)) ordered.push(id);
+      });
+    }
+
+    // Fallback: storage order
+    if (ordered.length === 0) {
+      const allClips = [...this.clips, ...this.searchOnlyClips];
+      allClips.forEach(c => {
+        if (selected.has(c.id)) ordered.push(c.id);
+      });
+    }
+
+    return ordered;
+  }
+
+  updatePreviewFromSearchSelection() {
+    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return;
+
+    const previewArea = document.getElementById('previewArea');
+    if (!previewArea) return;
+
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
+    const selectedClips = orderedIds.map(id => allClips.find(c => c.id === id)).filter(Boolean);
+
+    if (selectedClips.length === 0) return;
+
+    let processedTexts = selectedClips.map(c => c.text);
+
+    if (this.options.deduplicate) {
+      processedTexts = [...new Set(processedTexts)];
+    }
+    if (this.options.sort) {
+      processedTexts.sort();
+    }
+    if (this.options.uppercase) {
+      processedTexts = processedTexts.map(t => t.toUpperCase());
+    }
+
+    const delimiters = {
+      comma: ', ',
+      newline: '\n',
+      space: ' ',
+      custom: document.getElementById('customDelimiter')?.value || ', '
+    };
+    const delimiter = delimiters[this.delimiter] || delimiters.comma;
+    const formattedText = processedTexts.join(delimiter);
+
+    previewArea.value = formattedText;
+    this.previewIsManual = false;
+    this.previewLastAutoValue = formattedText;
+  }
+
+  updateSearchBulkActions() {
+    const bar = document.getElementById('searchBulkActions');
+    const countEl = document.getElementById('searchBulkCount');
+    if (!bar || !countEl) return;
+
+    const visibleSelectedCount = this.getSelectedSearchClipIdsInUiOrder().length;
+
+    if (this.currentTab === 'search' && visibleSelectedCount > 1) {
+      bar.style.display = 'flex';
+      countEl.textContent = `${visibleSelectedCount} selected`;
+    } else {
+      bar.style.display = 'none';
+      countEl.textContent = '';
+      const copyBtn = document.getElementById('searchBulkCopyBtn');
+      if (copyBtn) copyBtn.classList.remove('success');
+    }
+  }
+
+  async handleSearchBulkCopy() {
+    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
+    if (orderedIds.length <= 1) return; // only show/copy for 2+
+
+    // Ensure preview matches current selection + options + delimiter
+    this.updatePreviewFromSearchSelection();
+    const previewArea = document.getElementById('previewArea');
+    const textToCopy = previewArea ? previewArea.value : '';
+    if (!textToCopy) return;
+
+    const copyBtn = document.getElementById('searchBulkCopyBtn');
+    const originalText = copyBtn ? copyBtn.textContent : 'copy';
+
+    try {
+      await this.copyToClipboardFallback(textToCopy);
+      if (copyBtn) {
+        copyBtn.textContent = 'copied ✓';
+        copyBtn.classList.add('success');
+      }
+      setTimeout(() => {
+        if (copyBtn) {
+          copyBtn.textContent = originalText;
+          copyBtn.classList.remove('success');
+        }
+      }, 1400);
+    } catch (error) {
+      console.error('❌ Search bulk copy failed:', error);
+      if (copyBtn) {
+        copyBtn.textContent = 'failed';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 1400);
+      }
+    }
   }
 
   // Search-Only Storage Management

@@ -17,9 +17,11 @@
         
         body {
             font-family: 'Inter', system-ui, sans-serif;
-            width: 380px;
+            width: 100%;
+            min-width: 380px;
             background: white;
             color: #1f2937;
+            overflow-x: hidden;
         }
 
         /* Poppins for headings and emphasis */
@@ -42,6 +44,85 @@
             background: white;
             border-radius: 8px;
             overflow: hidden;
+        }
+
+        /* Bulk Actions (bottom options menu) */
+        .category-bulk-actions,
+        .search-bulk-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 12px;
+            margin: 10px 16px 0 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+        }
+
+        .category-bulk-actions .bulk-action,
+        .search-bulk-actions .bulk-action {
+            border: none;
+            background: transparent;
+            font-family: 'Poppins', system-ui, sans-serif;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            padding: 8px 10px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .category-bulk-actions .bulk-action.copy,
+        .search-bulk-actions .bulk-action.copy {
+            color: #1d4ed8;
+        }
+
+        .category-bulk-actions .bulk-action.copy:hover,
+        .search-bulk-actions .bulk-action.copy:hover {
+            background: rgba(59, 130, 246, 0.12);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .category-bulk-actions .bulk-action.copy.success,
+        .search-bulk-actions .bulk-action.copy.success {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 10px 18px rgba(59, 130, 246, 0.32);
+        }
+
+        .category-bulk-actions .bulk-action.delete,
+        .search-bulk-actions .bulk-action.delete {
+            color: #b91c1c;
+        }
+
+        .category-bulk-actions .bulk-action.delete:hover,
+        .search-bulk-actions .bulk-action.delete:hover {
+            background: rgba(239, 68, 68, 0.10);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+            transform: translateY(-1px);
+        }
+
+        .category-bulk-actions .bulk-sep,
+        .search-bulk-actions .bulk-sep {
+            color: #94a3b8;
+            font-weight: 700;
+            user-select: none;
+        }
+
+        .category-bulk-actions .bulk-count,
+        .search-bulk-actions .bulk-count {
+            margin-left: auto;
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
         }
         
         /* Top Bar for Profile & Sign Out */
@@ -257,6 +338,9 @@
             max-height: 320px;
             overflow-y: auto;
             overflow-x: hidden;
+            /* Reserve room for the scrollbar so row actions can extend closer to the right edge */
+            padding-right: 8px;
+            scrollbar-gutter: stable;
         }
         
         /* Custom scrollbar for chip container */
@@ -330,7 +414,7 @@
         }
         
         .chip {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 6px;
             padding: 8px 12px;
@@ -344,7 +428,8 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
             position: relative;
             overflow: visible;
-            margin: 4px;
+            margin: 6px 0;
+            width: 100%;
         }
         
         .chip::before {
@@ -415,7 +500,6 @@
             text-overflow: ellipsis;
             flex: 1;
             min-width: 0;
-            max-width: 150px;
         }
         
         .chip-actions {
@@ -617,6 +701,54 @@
         
         .quick-copy-btn:hover .btn-arrow {
             transform: translateX(4px);
+        }
+
+        /* Quick Delete Button - Shiny Gleamy Red */
+        .quick-delete-btn {
+            position: relative;
+            width: calc(100% - 40px);
+            margin: 0 20px 8px 20px;
+            padding: 12px 22px;
+            background: linear-gradient(135deg, #ef4444 0%, #f87171 50%, #dc2626 100%);
+            background-size: 200% 200%;
+            background-position: 0% 50%;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            box-shadow:
+                0 2px 8px rgba(239, 68, 68, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .quick-delete-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow:
+                0 8px 28px rgba(239, 68, 68, 0.45),
+                0 0 40px rgba(248, 113, 113, 0.4),
+                inset 0 2px 0 rgba(255, 255, 255, 0.28);
+            animation: gleamShift 1.5s ease-in-out infinite;
+        }
+
+        .quick-delete-btn:active {
+            transform: translateY(0) scale(0.98);
+            box-shadow:
+                0 2px 12px rgba(239, 68, 68, 0.4),
+                0 0 15px rgba(248, 113, 113, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        }
+
+        .quick-delete-btn.success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #059669 100%);
+            animation: successPulse 0.6s ease-out;
         }
         
         /* Pagination Styles */
@@ -4277,6 +4409,11 @@
                     <span class="btn-text">Quick Copy Selected</span>
                     <span class="btn-arrow">→</span>
                 </button>
+                <button class="quick-delete-btn" id="quickDeleteBtn" style="display: none;">
+                    <span class="btn-shimmer"></span>
+                    <span class="btn-icon">🗑️</span>
+                    <span class="btn-text">Delete Selected</span>
+                </button>
                 <div id="paginationControls"></div>
             </div>
         </section>
@@ -4307,6 +4444,10 @@
                     <p>Type in the search bar to find your clips</p>
                 </div>
             </div>
+            <div class="search-bulk-actions" id="searchBulkActions" style="display: none;">
+                <button class="bulk-action copy" id="searchBulkCopyBtn" title="Copy 2+ selected clips">copy</button>
+                <span class="bulk-count" id="searchBulkCount"></span>
+            </div>
         </section>
 
         <!-- Categories Tab -->
@@ -4323,6 +4464,12 @@
                     <h3>No categories yet</h3>
                     <p>Create your first category to organize clips</p>
                 </div>
+            </div>
+            <div class="category-bulk-actions" id="categoryBulkActions" style="display: none;">
+                <button class="bulk-action copy" id="categoryBulkCopyBtn" title="Copy 1 or more selected clips">copy</button>
+                <span class="bulk-sep">|</span>
+                <button class="bulk-action delete" id="categoryBulkDeleteBtn" title="Delete 1 or more selected clips">delete</button>
+                <span class="bulk-count" id="categoryBulkCount"></span>
             </div>
         </section>
 
@@ -4910,7 +5057,7 @@ Multiple clips are separated by:
 
         <!-- Preview Area (only show for clips and search tabs) -->
         <section class="preview-area" id="previewSection">
-            <textarea class="preview-textarea" id="previewArea" placeholder="Select clips above to see formatted output..." readonly></textarea>
+            <textarea class="preview-textarea" id="previewArea" placeholder="Select clips above to auto-build output, or type here to edit..." ></textarea>
             <button class="copy-btn" id="copyBtn">Copy Crafted Output</button>
         </section>
 
