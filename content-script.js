@@ -2619,7 +2619,7 @@ class PasteCraftFloatingWidget {
       
       /* Widget slides left when any panel is open */
       .pastecraft-widget.panel-open {
-        right: 380px;
+        right: 476px;
       }
       
       .pastecraft-widget-inner {
@@ -2905,10 +2905,21 @@ class PasteCraftFloatingWidget {
     
     // Setup close handlers
     closeButton.addEventListener('click', () => this.closePopupOverlay());
-    
-    // Only close on backdrop click if setting allows
+    // Close on outside click (without blocking page interaction) if setting allows
+    if (this._popupOutsidePointerDown) {
+      document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
+      this._popupOutsidePointerDown = null;
+    }
     if (!this.settings.keepPopupOpen) {
-      backdrop.addEventListener('click', () => this.closePopupOverlay());
+      this._popupOutsidePointerDown = (e) => {
+        const currentContainer = document.getElementById('pastecraft-popup-overlay');
+        if (!currentContainer) return;
+        const target = e.target;
+        if (currentContainer.contains(target)) return;
+        if (this.widget && this.widget.contains(target)) return;
+        this.closePopupOverlay();
+      };
+      document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
     }
     
     // ESC key to close
@@ -2933,14 +2944,19 @@ class PasteCraftFloatingWidget {
     const backdrop = document.getElementById('pastecraft-popup-backdrop');
     const container = document.getElementById('pastecraft-popup-overlay');
     
-    if (backdrop && container) {
-      backdrop.classList.remove('visible');
-      container.classList.remove('visible');
-      
+    // Cleanup outside click handler
+    if (this._popupOutsidePointerDown) {
+      document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
+      this._popupOutsidePointerDown = null;
+    }
+    
+    if (backdrop) backdrop.classList.remove('visible');
+    if (container) container.classList.remove('visible');
+    if (backdrop || container) {
       // Remove after animation
       setTimeout(() => {
-        backdrop.remove();
-        container.remove();
+        if (backdrop) backdrop.remove();
+        if (container) container.remove();
       }, 300);
       
       // Update open state
@@ -2977,22 +2993,24 @@ class PasteCraftFloatingWidget {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(0, 0, 0, 0.3);
+        background: transparent;
         z-index: 2147483645;
         opacity: 0;
         transition: opacity 0.3s ease;
+        pointer-events: none;
       }
       
       .pastecraft-overlay-backdrop.visible {
         opacity: 1;
       }
       
-      /* Panel - Slides in from right like Monica.ai (narrow) */
+      /* Panel - Slides in from right (wider for better UX) */
       .pastecraft-overlay-panel {
         position: fixed;
         top: 0;
         right: 0;
-        width: 380px;
+        width: 476px;
+        max-width: 90vw;
         height: 100vh;
         background: white;
         box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
@@ -3135,7 +3153,21 @@ class PasteCraftFloatingWidget {
     // Setup event listeners
     const closeBtn = panel.querySelector('.settings-close');
     closeBtn.addEventListener('click', () => this.closeSettings());
-    backdrop.addEventListener('click', () => this.closeSettings());
+    
+    // Close on outside click (without blocking page interaction)
+    if (this._settingsOutsidePointerDown) {
+      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, true);
+      this._settingsOutsidePointerDown = null;
+    }
+    this._settingsOutsidePointerDown = (e) => {
+      const currentPanel = document.getElementById('pastecraft-settings-panel');
+      if (!currentPanel) return;
+      const target = e.target;
+      if (currentPanel.contains(target)) return;
+      if (this.widget && this.widget.contains(target)) return;
+      this.closeSettings();
+    };
+    document.addEventListener('pointerdown', this._settingsOutsidePointerDown, true);
     
     // Toggle handlers
     const keepPopupToggle = panel.querySelector('#keepPopupOpen');
@@ -3164,13 +3196,18 @@ class PasteCraftFloatingWidget {
     const backdrop = document.getElementById('pastecraft-settings-backdrop');
     const panel = document.getElementById('pastecraft-settings-panel');
     
-    if (backdrop && panel) {
-      backdrop.classList.remove('visible');
-      panel.classList.remove('visible');
-      
+    if (this._settingsOutsidePointerDown) {
+      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, true);
+      this._settingsOutsidePointerDown = null;
+    }
+    
+    if (backdrop) backdrop.classList.remove('visible');
+    if (panel) panel.classList.remove('visible');
+    
+    if (backdrop || panel) {
       setTimeout(() => {
-        backdrop.remove();
-        panel.remove();
+        if (backdrop) backdrop.remove();
+        if (panel) panel.remove();
       }, 300);
       
       // Update open state
@@ -3204,22 +3241,24 @@ class PasteCraftFloatingWidget {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(0, 0, 0, 0.3);
+        background: transparent;
         z-index: 2147483645;
         opacity: 0;
         transition: opacity 0.3s ease;
+        pointer-events: none;
       }
       
       .pastecraft-settings-backdrop.visible {
         opacity: 1;
       }
       
-      /* Settings Panel - same size as popup (380px) */
+      /* Settings Panel - same size as popup (wide) */
       .pastecraft-settings-panel {
         position: fixed;
         top: 0;
         right: 0;
-        width: 380px;
+        width: 476px;
+        max-width: 90vw;
         height: 100vh;
         background: white;
         box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
@@ -3587,10 +3626,21 @@ class PasteCraftFloatingWidget {
       
       // Setup close handlers
       closeButton.addEventListener('click', () => this.closeQuickView());
-      
-      // Only close on backdrop click if setting allows
+      // Close on outside click (without blocking page interaction) if setting allows
+      if (this._quickViewOutsidePointerDown) {
+        document.removeEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
+        this._quickViewOutsidePointerDown = null;
+      }
       if (!this.settings.keepQuickViewOpen) {
-        backdrop.addEventListener('click', () => this.closeQuickView());
+        this._quickViewOutsidePointerDown = (e) => {
+          const currentPanel = document.getElementById('pastecraft-quickview-panel');
+          if (!currentPanel) return;
+          const target = e.target;
+          if (currentPanel.contains(target)) return;
+          if (this.widget && this.widget.contains(target)) return;
+          this.closeQuickView();
+        };
+        document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
       }
       
       // ESC key to close
@@ -3964,22 +4014,24 @@ class PasteCraftFloatingWidget {
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: rgba(0, 0, 0, 0.3);
+        background: transparent;
         z-index: 2147483645;
         opacity: 0;
         transition: opacity 0.3s ease;
+        pointer-events: none;
       }
       
       .pastecraft-quickview-backdrop.visible {
         opacity: 1;
       }
       
-      /* Quick View Panel - same size as popup (380px) */
+      /* Quick View Panel - same size as popup (wide) */
       .pastecraft-quickview-panel {
         position: fixed;
         top: 0;
         right: 0;
-        width: 380px;
+        width: 476px;
+        max-width: 90vw;
         height: 100vh;
         background: white;
         box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
@@ -4018,14 +4070,19 @@ class PasteCraftFloatingWidget {
     const backdrop = document.getElementById('pastecraft-quickview-backdrop');
     const panel = document.getElementById('pastecraft-quickview-panel');
     
-    if (backdrop && panel) {
-      backdrop.classList.remove('visible');
-      panel.classList.remove('visible');
-      
+    if (this._quickViewOutsidePointerDown) {
+      document.removeEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
+      this._quickViewOutsidePointerDown = null;
+    }
+    
+    if (backdrop) backdrop.classList.remove('visible');
+    if (panel) panel.classList.remove('visible');
+    
+    if (backdrop || panel) {
       // Remove after animation
       setTimeout(() => {
-        backdrop.remove();
-        panel.remove();
+        if (backdrop) backdrop.remove();
+        if (panel) panel.remove();
       }, 300);
       
       // Update open state

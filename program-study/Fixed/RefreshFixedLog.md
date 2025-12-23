@@ -4,6 +4,13 @@ All issues that have been resolved and fixed are documented here.
 
 ---
 
+### [Dec 23, 2025] - Website View Tint Overlay Regression (In-Page Panels)
+**Status:** SUCCESS ✅
+**Files:** content-script.js
+**Result:** Removed dimming/backdrop tint and made in-page panels non-blocking so users can interact with the website while Popup/Settings/Quick View are open.
+
+---
+
 ### [November 23, 2025] - Category Clip Counts Not Updating in Real-Time
 **Status:** SUCCESS ✅
 **Files:** popup.js, background.js

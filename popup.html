@@ -1013,7 +1013,9 @@
         
         /* Tab Navigation */
         .tab-nav {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto;
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -1022,7 +1024,6 @@
         }
         
         .tab-btn {
-            flex: 1;
             padding: 10px 16px;
             border: none;
             background: transparent;
@@ -1032,6 +1033,26 @@
             color: #64748b;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .tab-icon {
+            font-size: 18px;
+            line-height: 1;
+            display: inline-block;
+        }
+        
+        .tab-icon-img {
+            width: 24px;
+            height: 24px;
+            vertical-align: middle;
+        }
+        
+        .tab-btn-notes {
+            grid-column: 1 / -1;
         }
         
         .tab-btn:hover {
@@ -1147,6 +1168,287 @@
         .empty-search p {
             margin: 0;
             font-size: 14px;
+        }
+        
+        /* Notes Tab Styles */
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+        
+        .notes-actions {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+        }
+        
+        .create-note-btn,
+        .create-album-btn,
+        .view-albums-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .create-note-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .create-note-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .create-album-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+        }
+        
+        .create-album-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+
+        .view-albums-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.28);
+        }
+
+        .view-albums-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.38);
+        }
+
+        .view-albums-btn.active {
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25), 0 4px 12px rgba(245, 158, 11, 0.38);
+        }
+
+        .notes-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .notes-ai-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f1f5f9;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .notes-ai-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            letter-spacing: 0.3px;
+        }
+
+        .notes-toggle .toggle-switch {
+            width: 40px;
+            height: 22px;
+        }
+
+        .notes-toggle .toggle-switch::after {
+            width: 18px;
+            height: 18px;
+            top: 2px;
+            left: 2px;
+        }
+
+        .notes-toggle input:checked + .toggle-switch::after {
+            transform: translateX(18px);
+        }
+        
+        .notes-view-toggle {
+            display: flex;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        
+        .view-toggle-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #64748b;
+            transition: all 0.2s ease;
+        }
+        
+        .view-toggle-btn:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        
+        .view-toggle-btn.active {
+            background: white;
+            color: #3b82f6;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .notes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        
+        .notes-container.list-view {
+            grid-template-columns: 1fr;
+        }
+        
+        .notes-container.list-view .note-card {
+            max-width: 100%;
+        }
+        
+        .note-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .note-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .note-card.album {
+            border-color: #8b5cf6;
+        }
+        
+        .note-card.album:hover {
+            border-color: #6d28d9;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+        }
+        
+        .note-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .note-card-type {
+            font-size: 20px;
+        }
+        
+        .note-card-actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .note-action-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .note-action-btn:hover {
+            background: #f3f4f6;
+        }
+        
+        .note-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .note-card-description {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .note-card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        
+        .note-card-count {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .note-card-count span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .notes-pagination {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            padding: 12px 0 0 0;
+            flex-wrap: wrap;
+        }
+
+        .notes-page-btn {
+            width: 34px;
+            height: 34px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: #ffffff;
+            cursor: pointer;
+            font-weight: 700;
+            color: #64748b;
+            transition: all 0.2s ease;
+        }
+
+        .notes-page-btn:hover {
+            border-color: #3b82f6;
+            color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        .notes-page-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-color: #2563eb;
         }
         
         /* Categories Tab Styles */
@@ -1647,6 +1949,428 @@
         .btn-primary:disabled:hover {
             transform: none;
             box-shadow: none;
+        }
+        
+        /* Note Editor Modal Styles */
+        .note-editor-content {
+            max-width: 600px;
+            max-height: 85vh;
+        }
+        
+        .note-editor-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .field-hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin: -4px 0 4px 0;
+            font-style: italic;
+        }
+
+        .note-input-field,
+        .note-textarea-field {
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Inter', system-ui, sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        .field-with-ai {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .field-with-ai .note-input-field {
+            flex: 1;
+        }
+
+        .note-ai-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            border: 2px solid #e5e7eb;
+            background: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .note-ai-btn:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        .note-ai-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+            box-shadow: none;
+        }
+        
+        .note-ai-toggle-container {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #93c5fd;
+            border-radius: 10px;
+        }
+        
+        .note-ai-toggle-container .notes-ai-toggle {
+            margin-bottom: 8px;
+        }
+        
+        .note-ai-toggle-container .note-ai-hint {
+            margin: 0;
+            font-size: 11px;
+            color: #1e40af;
+        }
+        
+        .note-input-field:focus,
+        .note-textarea-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .note-textarea-field {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .note-attachments-section {
+            margin-top: 8px;
+        }
+        
+        .note-attachments-section h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+        
+        .attachment-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .attachment-btn {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .attachment-btn:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+        
+        .attachments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .attachment-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .attachment-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #374151;
+        }
+        
+        .attachment-date {
+            font-size: 11px;
+            color: #9ca3af;
+            white-space: nowrap;
+        }
+        
+        .attachment-remove {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: #ef4444;
+            font-size: 16px;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .attachment-remove:hover {
+            background: #fee2e2;
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding: 16px 24px;
+            border-top: 2px solid #f1f5f9;
+            flex-shrink: 0;
+        }
+        
+        /* Album Picker Modal Styles */
+        .album-picker-content {
+            max-width: 500px;
+        }
+        
+        .album-picker-search {
+            margin-bottom: 16px;
+        }
+        
+        .album-picker-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+        
+        .album-picker-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .album-picker-item:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .album-picker-item.album {
+            border-color: #ddd6fe;
+            background: #faf5ff;
+        }
+        
+        .album-picker-item.album:hover {
+            border-color: #8b5cf6;
+        }
+        
+        .album-picker-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .album-picker-icon {
+            font-size: 20px;
+        }
+        
+        .album-picker-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .album-picker-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .album-picker-meta {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        .create-new-from-picker {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+        
+        /* Note Viewer Modal Styles */
+        .note-viewer-content {
+            max-width: 700px;
+            max-height: 90vh;
+        }
+        
+        .note-viewer-body {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .note-viewer-section {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 16px;
+        }
+        
+        .note-viewer-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .note-viewer-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .note-viewer-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 12px 0;
+        }
+        
+        .note-viewer-text {
+            font-size: 14px;
+            color: #1f2937;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+        
+        .note-viewer-attachments {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .viewer-attachment-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .viewer-attachment-item:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+        
+        .viewer-attachment-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .viewer-attachment-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        
+        .viewer-attachment-text {
+            font-size: 14px;
+            color: #374151;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .viewer-attachment-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        .btn-copy-viewer {
+            padding: 6px 12px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-copy-viewer:hover {
+            background: #dbeafe;
+            transform: translateY(-1px);
+        }
+        
+        .btn-copy-attachment {
+            padding: 4px 10px;
+            background: white;
+            color: #3b82f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-copy-attachment:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
         }
         
         /* Chip Category Assignment */
@@ -4382,10 +5106,22 @@
 
         <!-- Navigation Tabs -->
         <nav class="tab-nav">
-            <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">📋 Clips</button>
-            <button class="tab-btn" data-tab="search" title="Search through all your saved clips">🔍 Search</button>
-            <button class="tab-btn" data-tab="categories" title="Organize clips into categories">📁 Categories</button>
-            <button class="tab-btn" data-tab="ai" title="AI tools: breakdown text and generate summaries">🤖 AI Lab</button>
+            <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">
+                <span class="tab-icon">📋</span> Clips
+            </button>
+            <button class="tab-btn" data-tab="search" title="Search through all your saved clips">
+                <span class="tab-icon">🔍</span> Search
+            </button>
+            <button class="tab-btn" data-tab="categories" title="Organize clips into categories">
+                <span class="tab-icon">📁</span> Categories
+            </button>
+            <button class="tab-btn" data-tab="ai" title="AI tools: breakdown text and generate summaries">
+                <span class="tab-icon">🤖</span> AI Lab
+            </button>
+            <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
+                <img src="assets/notebook_354567.svg" alt="Notes" class="tab-icon-img">
+                Notes
+            </button>
         </nav>
 
         <!-- Clips Tab -->
@@ -4416,6 +5152,47 @@
                 </button>
                 <div id="paginationControls"></div>
             </div>
+        </section>
+
+        <!-- Notes Tab -->
+        <section class="tab-content" id="notesTab">
+            <div class="notes-header">
+                <div class="notes-actions">
+                    <button class="create-note-btn" id="createNoteBtn">
+                        <img src="assets/notebook_354567.svg" alt="" style="width: 18px; height: 18px; margin-right: 6px;">
+                        <span>New Note</span>
+                    </button>
+                    <button class="create-album-btn" id="createAlbumBtn">
+                        <span>📚</span>
+                        <span>New Album</span>
+                    </button>
+                    <button class="view-albums-btn" id="viewAlbumsBtn" title="View Albums">
+                        <span>📚</span>
+                        <span>View Albums</span>
+                    </button>
+                </div>
+                <div class="notes-controls">
+                    <div class="notes-view-toggle">
+                        <button class="view-toggle-btn active" data-view="grid" title="Grid view">⊞</button>
+                        <button class="view-toggle-btn" data-view="list" title="List view">☰</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="notes-container" id="notesContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <h3>No notes yet</h3>
+                    <p>Create a note or album to bundle your clips, images, and URLs</p>
+                    <div class="demo-hint">
+                        <span class="demo-step">📝 Take notes</span>
+                        <span class="demo-step">📚 Create albums</span>
+                        <span class="demo-step">📤 Export to PDF</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes-pagination" id="notesPagination" style="display: none;"></div>
         </section>
 
         <!-- Search Tab -->
@@ -5343,6 +6120,140 @@ Multiple clips are separated by:
                         <p class="profile-note">This will delete all your data and remove you from the platform.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Editor Modal -->
+    <div class="modal-overlay" id="noteEditorModal" style="display: none;">
+        <div class="modal-content note-editor-content">
+            <div class="modal-header">
+                <h3 id="noteEditorTitle">
+                    <img src="assets/notebook_354567.svg" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
+                    <span id="noteEditorType">New Note</span>
+                </h3>
+                <button class="modal-close" id="closeNoteEditor">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-editor-form">
+                    <div class="note-ai-toggle-container">
+                        <div class="notes-ai-toggle" title="Enable AI buttons for Title/Description (requires Content)">
+                            <span class="notes-ai-label">🤖 AI Assistant</span>
+                            <label class="toggle notes-toggle">
+                                <input type="checkbox" id="notesAiToggle">
+                                <span class="toggle-switch"></span>
+                            </label>
+                        </div>
+                        <p class="note-ai-hint">Turn on to generate Title & Description from your Content using AI</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Title</label>
+                        <div class="field-with-ai">
+                            <input type="text" id="noteTitleInput" placeholder="Enter note title (optional)..." class="note-input-field">
+                            <button class="note-ai-btn" id="aiTitleBtn" type="button" title="AI generate title" style="display: none;">🤖</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <div class="field-with-ai">
+                            <input type="text" id="noteDescriptionInput" placeholder="Brief description (optional)..." class="note-input-field">
+                            <button class="note-ai-btn" id="aiDescBtn" type="button" title="AI generate description" style="display: none;">🤖</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Content</label>
+                        <p class="field-hint">💡 Add content here first to enable AI title & description generation</p>
+                        <textarea id="noteBodyInput" placeholder="Write your note content here..." class="note-textarea-field" rows="8"></textarea>
+                    </div>
+                    
+                    <div class="note-attachments-section">
+                        <h4>Attachments</h4>
+                        <div class="attachment-actions">
+                            <button class="attachment-btn" id="addClipToNote">
+                                <span>📋</span>
+                                <span>Add Clip</span>
+                            </button>
+                            <button class="attachment-btn" id="addImageToNote">
+                                <span>🖼️</span>
+                                <span>Add Image</span>
+                            </button>
+                            <button class="attachment-btn" id="addURLToNote">
+                                <span>🔗</span>
+                                <span>Add URL</span>
+                            </button>
+                        </div>
+                        <div id="noteAttachmentsList" class="attachments-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelNoteEditor">Cancel</button>
+                <button class="btn-primary" id="saveNote">Save Note</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Album Picker Modal -->
+    <div class="modal-overlay" id="albumPickerModal" style="display: none;">
+        <div class="modal-content album-picker-content">
+            <div class="modal-header">
+                <h3>
+                    <img src="assets/notebook_354567.svg" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
+                    Send to Note/Album
+                </h3>
+                <button class="modal-close" id="closeAlbumPicker">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="album-picker-search">
+                    <input type="text" id="albumPickerSearch" placeholder="🔍 Search notes and albums..." class="note-input-field">
+                </div>
+                <div class="album-picker-list" id="albumPickerList"></div>
+                <button class="btn-secondary create-new-from-picker" id="createNewNoteFromPicker">
+                    <img src="assets/notebook_354567.svg" alt="" style="width: 16px; height: 16px; margin-right: 6px;">
+                    Create New Note
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Note Viewer Modal (Full Card View) -->
+    <div class="modal-overlay" id="noteViewerModal" style="display: none;">
+        <div class="modal-content note-viewer-content">
+            <div class="modal-header">
+                <h3 id="noteViewerTitle">
+                    <span id="noteViewerIcon">📝</span>
+                    <span id="noteViewerTitleText">Note Title</span>
+                </h3>
+                <button class="modal-close" id="closeNoteViewer">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-viewer-body">
+                    <div class="note-viewer-section" id="noteViewerDescSection" style="display: none;">
+                        <h4 class="note-viewer-section-title">Description</h4>
+                        <p id="noteViewerDesc"></p>
+                    </div>
+                    
+                    <div class="note-viewer-section">
+                        <div class="note-viewer-section-header">
+                            <h4 class="note-viewer-section-title">Content</h4>
+                            <button class="btn-copy-viewer" id="copyNoteContent" title="Copy content">📋 Copy</button>
+                        </div>
+                        <div id="noteViewerContent" class="note-viewer-text"></div>
+                    </div>
+
+                    <div class="note-viewer-section" id="noteViewerAttachmentsSection" style="display: none;">
+                        <div class="note-viewer-section-header">
+                            <h4 class="note-viewer-section-title">Attachments</h4>
+                            <button class="btn-copy-viewer" id="copyAllAttachments" title="Copy all attachments">📋 Copy All</button>
+                        </div>
+                        <div id="noteViewerAttachments" class="note-viewer-attachments"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="closeNoteViewerBtn">Close</button>
+                <button class="btn-primary" id="editNoteFromViewer">Edit Note</button>
             </div>
         </div>
     </div>

@@ -61,6 +61,18 @@ class PasteCraftPopup {
     // Analysis history
     this.analysisHistory = [];
     
+    // Notes system
+    this.notes = [];
+    this.currentNoteId = null;
+    this.currentNoteType = 'note';
+    this.currentNoteAttachments = [];
+    this.pendingClipForNotes = null;
+    this.pendingNoteForAlbum = null;
+    this.currentViewerNoteId = null;
+    this.notesViewMode = 'notes'; // 'notes' | 'albums'
+    this.notesPageIndex = 0; // starts at 0
+    this.notesAiEnabled = false;
+    
     this.init();
   }
   
@@ -448,7 +460,170 @@ class PasteCraftPopup {
         } else if (this.currentTab === 'ai') {
           this.loadAIGallery();
           this.migrateProfileImageToGallery();
+        } else if (this.currentTab === 'notes') {
+          console.log('🔄 Notes tab opened - loading notes...');
+          await this.loadNotes();
+          this.renderNotes();
+          console.log('✅ Notes loaded');
         }
+      }
+    });
+
+    // Notes functionality
+    document.getElementById('createNoteBtn').addEventListener('click', () => {
+      this.openNoteEditor('note');
+    });
+
+    document.getElementById('createAlbumBtn').addEventListener('click', () => {
+      this.openNoteEditor('album');
+    });
+
+    const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
+    if (viewAlbumsBtn) {
+      viewAlbumsBtn.addEventListener('click', async () => {
+        this.notesViewMode = this.notesViewMode === 'albums' ? 'notes' : 'albums';
+        this.notesPageIndex = 0;
+        viewAlbumsBtn.classList.toggle('active', this.notesViewMode === 'albums');
+        await this.saveNotesPrefs();
+        this.renderNotes();
+      });
+    }
+
+    const notesAiToggle = document.getElementById('notesAiToggle');
+    if (notesAiToggle) {
+      notesAiToggle.addEventListener('change', async (e) => {
+        this.notesAiEnabled = !!e.target.checked;
+        await this.saveNotesPrefs();
+        this.updateNoteAiControls();
+      });
+    }
+
+    document.getElementById('closeNoteEditor').addEventListener('click', () => {
+      this.closeNoteEditor();
+    });
+
+    document.getElementById('cancelNoteEditor').addEventListener('click', () => {
+      this.closeNoteEditor();
+    });
+
+    document.getElementById('saveNote').addEventListener('click', () => {
+      this.saveNote();
+    });
+
+    document.getElementById('addClipToNote').addEventListener('click', () => {
+      this.showClipPickerForNote();
+    });
+
+    document.getElementById('addImageToNote').addEventListener('click', () => {
+      this.showImagePickerForNote();
+    });
+
+    document.getElementById('addURLToNote').addEventListener('click', () => {
+      this.addURLToNote();
+    });
+
+    const aiTitleBtn = document.getElementById('aiTitleBtn');
+    if (aiTitleBtn) {
+      aiTitleBtn.addEventListener('click', async () => {
+        await this.generateNoteTitleFromContent();
+      });
+    }
+
+    const aiDescBtn = document.getElementById('aiDescBtn');
+    if (aiDescBtn) {
+      aiDescBtn.addEventListener('click', async () => {
+        await this.generateNoteDescriptionFromContent();
+      });
+    }
+
+    const noteBodyInput = document.getElementById('noteBodyInput');
+    if (noteBodyInput) {
+      noteBodyInput.addEventListener('input', () => {
+        this.updateNoteAiControls();
+      });
+    }
+
+    // Album Picker Modal
+    document.getElementById('closeAlbumPicker').addEventListener('click', () => {
+      this.closeAlbumPicker();
+    });
+
+    document.getElementById('createNewNoteFromPicker').addEventListener('click', () => {
+      this.closeAlbumPicker();
+      this.openNoteEditor('note');
+    });
+
+    document.getElementById('albumPickerSearch').addEventListener('input', (e) => {
+      this.filterAlbumPicker(e.target.value);
+    });
+
+    // Notes view toggle (delegate to parent to handle dynamic content)
+    const notesHeader = document.querySelector('.notes-header');
+    if (notesHeader) {
+      notesHeader.addEventListener('click', (e) => {
+        const toggleBtn = e.target.closest('.view-toggle-btn');
+        if (toggleBtn) {
+          document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+          toggleBtn.classList.add('active');
+          const view = toggleBtn.dataset.view;
+          const container = document.getElementById('notesContainer');
+          if (container) {
+            if (view === 'list') {
+              container.classList.add('list-view');
+            } else {
+              container.classList.remove('list-view');
+            }
+          }
+        }
+      });
+    }
+
+    // Note Viewer Modal
+    document.getElementById('closeNoteViewer').addEventListener('click', () => {
+      this.closeNoteViewer();
+    });
+
+    document.getElementById('closeNoteViewerBtn').addEventListener('click', () => {
+      this.closeNoteViewer();
+    });
+
+    document.getElementById('editNoteFromViewer').addEventListener('click', () => {
+      const noteId = this.currentViewerNoteId;
+      this.closeNoteViewer();
+      if (noteId) {
+        const note = this.notes.find(n => n.id == noteId);
+        this.openNoteEditor(note?.type || 'note', noteId);
+      }
+    });
+
+    document.getElementById('copyNoteContent').addEventListener('click', () => {
+      const content = document.getElementById('noteViewerContent').textContent;
+      if (content) {
+        navigator.clipboard.writeText(content);
+        this.showToast('Content copied!');
+      }
+    });
+
+    document.getElementById('copyAllAttachments').addEventListener('click', () => {
+      this.copyAllNoteAttachments();
+    });
+
+    // Modal overlay clicks
+    document.getElementById('noteEditorModal').addEventListener('click', (e) => {
+      if (e.target.id === 'noteEditorModal') {
+        this.closeNoteEditor();
+      }
+    });
+
+    document.getElementById('albumPickerModal').addEventListener('click', (e) => {
+      if (e.target.id === 'albumPickerModal') {
+        this.closeAlbumPicker();
+      }
+    });
+
+    document.getElementById('noteViewerModal').addEventListener('click', (e) => {
+      if (e.target.id === 'noteViewerModal') {
+        this.closeNoteViewer();
       }
     });
 
@@ -3537,6 +3712,9 @@ class PasteCraftPopup {
           <div class="category-clip-actions">
             <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown">🧠</button>
             <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary">📝</button>
+            <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes">
+              <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
+            </button>
             <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy">📋</button>
           </div>
         </div>
@@ -3610,6 +3788,23 @@ class PasteCraftPopup {
           if (clip) {
             const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
             this.showSummaryModal(textToSend);
+          }
+        });
+      }
+
+      // Handle send to notes button
+      const notesBtn = clipElement.querySelector('.category-clip-notes-btn');
+      if (notesBtn) {
+        notesBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clip = allClips.find(c => c.id === clipId);
+          if (clip) {
+            // Load notes and show album picker
+            await this.loadNotes();
+            this.showAlbumPicker();
+            // Store the clip to be added
+            this.pendingClipForNotes = clip;
           }
         });
       }
@@ -5529,6 +5724,740 @@ class PasteCraftPopup {
         </div>
       `;
     }).join('');
+  }
+
+  // ==================== NOTES SYSTEM ====================
+  
+  async loadNotes() {
+    const {
+      notes = [],
+      notesViewMode = 'notes',
+      notesPageIndex = 0,
+      notesAiEnabled = false
+    } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
+    this.notes = notes;
+    this.notesViewMode = notesViewMode;
+    this.notesPageIndex = typeof notesPageIndex === 'number' ? notesPageIndex : 0;
+    this.notesAiEnabled = !!notesAiEnabled;
+
+    const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
+    if (viewAlbumsBtn) viewAlbumsBtn.classList.toggle('active', this.notesViewMode === 'albums');
+    const notesAiToggle = document.getElementById('notesAiToggle');
+    if (notesAiToggle) notesAiToggle.checked = this.notesAiEnabled;
+
+    console.log(`📝 Loaded ${notes.length} notes`);
+    return notes;
+  }
+
+  async saveNotes() {
+    await chrome.storage.local.set({ notes: this.notes });
+    console.log(`💾 Saved ${this.notes.length} notes`);
+  }
+
+  async saveNotesPrefs() {
+    await chrome.storage.local.set({
+      notesViewMode: this.notesViewMode,
+      notesPageIndex: this.notesPageIndex,
+      notesAiEnabled: this.notesAiEnabled
+    });
+  }
+
+  renderNotes() {
+    const container = document.getElementById('notesContainer');
+    const paginationEl = document.getElementById('notesPagination');
+    
+    const allNotes = Array.isArray(this.notes) ? this.notes : [];
+    const filtered = allNotes.filter(n => (this.notesViewMode === 'albums' ? n.type === 'album' : n.type !== 'album'));
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">${this.notesViewMode === 'albums' ? '📚' : '📝'}</div>
+          <h3>No ${this.notesViewMode === 'albums' ? 'albums' : 'notes'} yet</h3>
+          <p>${this.notesViewMode === 'albums' ? 'Create an album to bundle clips, images, and URLs' : 'Create a note or album to bundle your clips, images, and URLs'}</p>
+          <div class="demo-hint">
+            <span class="demo-step">📝 Take notes</span>
+            <span class="demo-step">📚 Create albums</span>
+            <span class="demo-step">📤 Export to PDF</span>
+          </div>
+        </div>
+      `;
+      if (paginationEl) paginationEl.style.display = 'none';
+      return;
+    }
+
+    // Pagination: 3 cards per page, page index starts at 0
+    const pageSize = 3;
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (this.notesPageIndex < 0) this.notesPageIndex = 0;
+    if (this.notesPageIndex > pageCount - 1) this.notesPageIndex = pageCount - 1;
+    const start = this.notesPageIndex * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
+
+    container.innerHTML = pageItems.map(note => {
+      const clipCount = note.clips?.length || 0;
+      const imageCount = note.images?.length || 0;
+      const urlCount = note.urls?.length || 0;
+      const totalItems = clipCount + imageCount + urlCount;
+      const icon = note.type === 'album' ? '📚' : '📝';
+      const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
+      const date = new Date(note.createdAt).toLocaleDateString();
+      const safeTitle = (note.title || '').trim();
+      const safeDesc = (note.description || '').trim();
+      const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
+
+      const sendToAlbumBtn = note.type !== 'album' ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album">📚</button>` : '';
+      
+      return `
+        <div class="${cardClass}" data-note-id="${note.id}">
+          <div class="note-card-header">
+            <span class="note-card-type">${icon}</span>
+            <div class="note-card-actions">
+              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit">✏️</button>
+              ${sendToAlbumBtn}
+              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export">📤</button>
+              <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
+          <p class="note-card-description">${this.escapeHtml(safeDesc)}</p>
+          <div class="note-card-meta">
+            <div class="note-card-count">
+              ${clipCount > 0 ? `<span>📋 ${clipCount}</span>` : ''}
+              ${imageCount > 0 ? `<span>🖼️ ${imageCount}</span>` : ''}
+              ${urlCount > 0 ? `<span>🔗 ${urlCount}</span>` : ''}
+              ${totalItems === 0 ? '<span style="color: #9ca3af;">Empty</span>' : ''}
+            </div>
+            <span>${date}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Render pagination controls (0..N-1)
+    if (paginationEl) {
+      if (pageCount <= 1) {
+        paginationEl.style.display = 'none';
+      } else {
+        paginationEl.style.display = 'flex';
+        paginationEl.innerHTML = Array.from({ length: pageCount }).map((_, idx) => {
+          const active = idx === this.notesPageIndex ? 'active' : '';
+          return `<button class="notes-page-btn ${active}" data-page="${idx}" title="Page ${idx}">${idx}</button>`;
+        }).join('');
+
+        paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const nextPage = parseInt(btn.dataset.page, 10);
+            if (!Number.isNaN(nextPage)) {
+              this.notesPageIndex = nextPage;
+              await this.saveNotesPrefs();
+              this.renderNotes();
+            }
+          });
+        });
+      }
+    }
+
+    // Add event listeners to note cards
+    container.querySelectorAll('.note-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('note-action-btn')) {
+          const noteId = card.dataset.noteId;
+          this.openNoteViewer(noteId);
+        }
+      });
+    });
+
+    // Edit buttons
+    container.querySelectorAll('.edit-note').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.openNoteEditor('note', noteId);
+      });
+    });
+
+    // Export buttons
+    container.querySelectorAll('.export-note').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.exportNoteToPDF(noteId);
+      });
+    });
+
+    // Delete buttons
+    container.querySelectorAll('.delete-note').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.deleteNote(noteId);
+      });
+    });
+
+    // Send to Album buttons
+    container.querySelectorAll('.send-to-album-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        const note = this.notes.find(n => n.id == noteId);
+        if (note) {
+          this.pendingNoteForAlbum = note;
+          await this.loadNotes();
+          this.showAlbumPickerForNote();
+        }
+      });
+    });
+  }
+
+  updateNoteAiControls() {
+    const aiTitleBtn = document.getElementById('aiTitleBtn');
+    const aiDescBtn = document.getElementById('aiDescBtn');
+    const bodyInput = document.getElementById('noteBodyInput');
+
+    if (!aiTitleBtn || !aiDescBtn || !bodyInput) return;
+
+    const hasContent = !!bodyInput.value.trim();
+    const shouldShow = !!this.notesAiEnabled;
+
+    aiTitleBtn.style.display = shouldShow ? 'inline-flex' : 'none';
+    aiDescBtn.style.display = shouldShow ? 'inline-flex' : 'none';
+
+    aiTitleBtn.disabled = !hasContent;
+    aiDescBtn.disabled = !hasContent;
+  }
+
+  async generateNoteTitleFromContent() {
+    const bodyInput = document.getElementById('noteBodyInput');
+    const titleInput = document.getElementById('noteTitleInput');
+    const aiTitleBtn = document.getElementById('aiTitleBtn');
+    if (!bodyInput || !titleInput || !aiTitleBtn) return;
+
+    const content = bodyInput.value.trim();
+    if (!content) {
+      this.showToast('Add content first');
+      this.updateNoteAiControls();
+      return;
+    }
+
+    // Premium check (reuse Summary gating)
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
+      return;
+    }
+
+    try {
+      aiTitleBtn.disabled = true;
+      const question = 'Generate a short note title (max 6 words). Return ONLY the title, no quotes.';
+      const result = await pasteCraftSupabase.generateSummary(content.substring(0, 3000), question);
+      const cleaned = (result || '').trim().replace(/^["'“”]+|["'“”]+$/g, '');
+      if (cleaned) titleInput.value = cleaned;
+      this.showToast('Title generated');
+    } catch (e) {
+      console.error('Failed to generate title:', e);
+      this.showToast('Failed to generate title');
+    } finally {
+      aiTitleBtn.disabled = false;
+      this.updateNoteAiControls();
+    }
+  }
+
+  async generateNoteDescriptionFromContent() {
+    const bodyInput = document.getElementById('noteBodyInput');
+    const descInput = document.getElementById('noteDescriptionInput');
+    const aiDescBtn = document.getElementById('aiDescBtn');
+    if (!bodyInput || !descInput || !aiDescBtn) return;
+
+    const content = bodyInput.value.trim();
+    if (!content) {
+      this.showToast('Add content first');
+      this.updateNoteAiControls();
+      return;
+    }
+
+    // Premium check (reuse Summary gating)
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
+      return;
+    }
+
+    try {
+      aiDescBtn.disabled = true;
+      const question = 'Generate a one-sentence description for this note (max 140 characters). Return ONLY the description.';
+      const result = await pasteCraftSupabase.generateSummary(content.substring(0, 3000), question);
+      const cleaned = (result || '').trim().replace(/^["'“”]+|["'“”]+$/g, '');
+      if (cleaned) descInput.value = cleaned;
+      this.showToast('Description generated');
+    } catch (e) {
+      console.error('Failed to generate description:', e);
+      this.showToast('Failed to generate description');
+    } finally {
+      aiDescBtn.disabled = false;
+      this.updateNoteAiControls();
+    }
+  }
+
+  openNoteEditor(type = 'note', noteId = null) {
+    this.currentNoteType = type;
+    this.currentNoteId = noteId;
+    this.currentNoteAttachments = [];
+
+    const modal = document.getElementById('noteEditorModal');
+    const titleInput = document.getElementById('noteTitleInput');
+    const descInput = document.getElementById('noteDescriptionInput');
+    const bodyInput = document.getElementById('noteBodyInput');
+    const attachmentsList = document.getElementById('noteAttachmentsList');
+    const editorType = document.getElementById('noteEditorType');
+    const aiToggle = document.getElementById('notesAiToggle');
+
+    if (noteId) {
+      // Edit existing note
+      const note = this.notes.find(n => n.id == noteId);
+      if (note) {
+        this.currentNoteType = note.type;
+        titleInput.value = note.title;
+        descInput.value = note.description;
+        bodyInput.value = note.body;
+        this.currentNoteAttachments = [
+          ...(note.clips || []),
+          ...(note.images || []),
+          ...(note.urls || [])
+        ];
+        editorType.textContent = note.type === 'album' ? 'Edit Album' : 'Edit Note';
+      }
+    } else {
+      // New note
+      titleInput.value = '';
+      descInput.value = '';
+      bodyInput.value = '';
+      this.currentNoteAttachments = [];
+      editorType.textContent = type === 'album' ? 'New Album' : 'New Note';
+    }
+
+    // Set AI toggle state
+    if (aiToggle) aiToggle.checked = this.notesAiEnabled;
+
+    this.renderNoteAttachments();
+    this.updateNoteAiControls();
+    modal.style.display = 'flex';
+  }
+
+  closeNoteEditor() {
+    document.getElementById('noteEditorModal').style.display = 'none';
+    this.currentNoteId = null;
+    this.currentNoteType = 'note';
+    this.currentNoteAttachments = [];
+  }
+
+  renderNoteAttachments() {
+    const attachmentsList = document.getElementById('noteAttachmentsList');
+    
+    if (this.currentNoteAttachments.length === 0) {
+      attachmentsList.innerHTML = '<p style="text-align: center; color: #9ca3af; font-size: 13px;">No attachments yet</p>';
+      return;
+    }
+
+    attachmentsList.innerHTML = this.currentNoteAttachments.map((att, index) => {
+      const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
+      const text = att.type === 'url' ? att.url : att.text?.substring(0, 50) + '...';
+      const date = att.addedDate ? new Date(att.addedDate).toLocaleDateString() : '';
+
+      return `
+        <div class="attachment-item">
+          <div class="attachment-info">
+            <span>${icon}</span>
+            <span class="attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(text)}</span>
+            ${date ? `<span class="attachment-date">${date}</span>` : ''}
+          </div>
+          <button class="attachment-remove" data-index="${index}">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    // Add remove handlers
+    attachmentsList.querySelectorAll('.attachment-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const index = parseInt(btn.dataset.index);
+        this.currentNoteAttachments.splice(index, 1);
+        this.renderNoteAttachments();
+      });
+    });
+  }
+
+  async saveNote() {
+    const title = document.getElementById('noteTitleInput').value.trim();
+    const description = document.getElementById('noteDescriptionInput').value.trim();
+    const body = document.getElementById('noteBodyInput').value.trim();
+
+    const noteData = {
+      id: this.currentNoteId || Date.now(),
+      type: this.currentNoteType,
+      title,
+      description,
+      body,
+      clips: this.currentNoteAttachments.filter(a => a.type === 'clip'),
+      images: this.currentNoteAttachments.filter(a => a.type === 'image'),
+      urls: this.currentNoteAttachments.filter(a => a.type === 'url'),
+      createdAt: this.currentNoteId ? (this.notes.find(n => n.id == this.currentNoteId)?.createdAt || Date.now()) : Date.now(),
+      updatedAt: Date.now()
+    };
+
+    if (this.currentNoteId) {
+      // Update existing note
+      const index = this.notes.findIndex(n => n.id == this.currentNoteId);
+      if (index !== -1) {
+        this.notes[index] = noteData;
+      }
+    } else {
+      // Add new note
+      this.notes.unshift(noteData);
+    }
+
+    await this.saveNotes();
+    this.renderNotes();
+    this.closeNoteEditor();
+    this.showToast(this.currentNoteId ? 'Note updated!' : 'Note created!');
+  }
+
+  async deleteNote(noteId) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note) return;
+
+    const confirmed = confirm(`Delete "${note.title}"?`);
+    if (!confirmed) return;
+
+    this.notes = this.notes.filter(n => n.id != noteId);
+    await this.saveNotes();
+    this.renderNotes();
+    this.showToast('Note deleted');
+  }
+
+  showClipPickerForNote() {
+    if (this.clips.length === 0) {
+      this.showToast('No clips available. Create some clips first!');
+      return;
+    }
+
+    // Simple implementation: add the most recent clip
+    const recentClip = this.clips[0];
+    if (recentClip) {
+      this.currentNoteAttachments.push({
+        type: 'clip',
+        id: recentClip.id,
+        text: recentClip.text,
+        addedDate: Date.now()
+      });
+      this.renderNoteAttachments();
+      this.showToast('Clip added to note');
+    }
+  }
+
+  showImagePickerForNote() {
+    this.showToast('Image picker coming soon! Use Add URL for now.');
+  }
+
+  addURLToNote() {
+    const url = prompt('Enter URL:');
+    if (url && url.trim()) {
+      this.currentNoteAttachments.push({
+        type: 'url',
+        id: Date.now(),
+        url: url.trim(),
+        title: url.trim(),
+        addedDate: Date.now()
+      });
+      this.renderNoteAttachments();
+      this.showToast('URL added to note');
+    }
+  }
+
+  exportNoteToPDF(noteId) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note) return;
+
+    // Simple text export (PDF generation would require a library)
+    let content = `${note.title}\n\n${note.description}\n\n${note.body}\n\n`;
+    
+    if (note.clips?.length > 0) {
+      content += '\nCLIPS:\n';
+      note.clips.forEach((clip, i) => {
+        content += `${i + 1}. ${clip.text}\n`;
+      });
+    }
+    
+    if (note.urls?.length > 0) {
+      content += '\nLINKS:\n';
+      note.urls.forEach((url, i) => {
+        content += `${i + 1}. ${url.url}\n`;
+      });
+    }
+
+    // Create a blob and download
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${note.title.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    this.showToast('Note exported as text file');
+  }
+
+  openNoteViewer(noteId) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note) return;
+
+    this.currentViewerNoteId = noteId;
+    const modal = document.getElementById('noteViewerModal');
+    const icon = document.getElementById('noteViewerIcon');
+    const titleText = document.getElementById('noteViewerTitleText');
+    const descSection = document.getElementById('noteViewerDescSection');
+    const descText = document.getElementById('noteViewerDesc');
+    const contentText = document.getElementById('noteViewerContent');
+    const attachSection = document.getElementById('noteViewerAttachmentsSection');
+    const attachList = document.getElementById('noteViewerAttachments');
+
+    // Set icon and title
+    icon.textContent = note.type === 'album' ? '📚' : '📝';
+    const safeTitle = (note.title || '').trim();
+    titleText.textContent = safeTitle || (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
+
+    // Description
+    const safeDesc = (note.description || '').trim();
+    if (safeDesc) {
+      descSection.style.display = 'block';
+      descText.textContent = safeDesc;
+    } else {
+      descSection.style.display = 'none';
+    }
+
+    // Content
+    contentText.textContent = note.body || 'No content';
+
+    // Attachments
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
+
+    if (allAttachments.length > 0) {
+      attachSection.style.display = 'block';
+      attachList.innerHTML = allAttachments.map((att, idx) => {
+        const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
+        const text = att.type === 'url' ? att.url : (att.text || '').substring(0, 80);
+        const displayText = text.length > 80 ? text + '...' : text;
+
+        return `
+          <div class="viewer-attachment-item">
+            <div class="viewer-attachment-info">
+              <span class="viewer-attachment-icon">${icon}</span>
+              <span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</span>
+            </div>
+            <div class="viewer-attachment-actions">
+              <button class="btn-copy-attachment" data-index="${idx}">Copy</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Add copy handlers
+      attachList.querySelectorAll('.btn-copy-attachment').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          const att = allAttachments[idx];
+          if (att) {
+            const copyText = att.type === 'url' ? att.url : att.text;
+            if (copyText) {
+              navigator.clipboard.writeText(copyText);
+              this.showToast('Attachment copied!');
+            }
+          }
+        });
+      });
+    } else {
+      attachSection.style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  closeNoteViewer() {
+    document.getElementById('noteViewerModal').style.display = 'none';
+    this.currentViewerNoteId = null;
+  }
+
+  copyAllNoteAttachments() {
+    const noteId = this.currentViewerNoteId;
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note) return;
+
+    const allText = [
+      ...(note.clips || []).map(c => c.text || ''),
+      ...(note.urls || []).map(u => u.url || '')
+    ].filter(t => t).join('\n\n');
+
+    if (allText) {
+      navigator.clipboard.writeText(allText);
+      this.showToast('All attachments copied!');
+    } else {
+      this.showToast('No attachments to copy');
+    }
+  }
+
+  showAlbumPicker() {
+    const modal = document.getElementById('albumPickerModal');
+    this.renderAlbumPicker();
+    modal.style.display = 'flex';
+  }
+
+  showAlbumPickerForNote() {
+    const modal = document.getElementById('albumPickerModal');
+    this.renderAlbumPicker();
+    modal.style.display = 'flex';
+  }
+
+  closeAlbumPicker() {
+    document.getElementById('albumPickerModal').style.display = 'none';
+    this.pendingNoteForAlbum = null;
+  }
+
+  renderAlbumPicker(searchTerm = '') {
+    const list = document.getElementById('albumPickerList');
+    
+    // If we have a pending note to send to album, show only albums
+    const showOnlyAlbums = !!this.pendingNoteForAlbum;
+    let filteredNotes = showOnlyAlbums ? this.notes.filter(n => n.type === 'album') : this.notes;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filteredNotes = filteredNotes.filter(n => 
+        n.title.toLowerCase().includes(term) || 
+        n.description.toLowerCase().includes(term)
+      );
+    }
+
+    if (filteredNotes.length === 0) {
+      list.innerHTML = `<p style="text-align: center; color: #9ca3af; padding: 20px;">No ${showOnlyAlbums ? 'albums' : 'notes'} found</p>`;
+      return;
+    }
+
+    list.innerHTML = filteredNotes.map(note => {
+      const icon = note.type === 'album' ? '📚' : '📝';
+      const itemCount = (note.clips?.length || 0) + (note.images?.length || 0) + (note.urls?.length || 0);
+      const itemClass = note.type === 'album' ? 'album-picker-item album' : 'album-picker-item';
+
+      return `
+        <div class="${itemClass}" data-note-id="${note.id}">
+          <div class="album-picker-info">
+            <span class="album-picker-icon">${icon}</span>
+            <div class="album-picker-details">
+              <div class="album-picker-title">${this.escapeHtml(note.title)}</div>
+              <div class="album-picker-meta">${itemCount} items</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Add click handlers
+    list.querySelectorAll('.album-picker-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const noteId = item.dataset.noteId;
+        
+        // Check if we're adding a note to an album or a clip to a note
+        if (this.pendingNoteForAlbum) {
+          await this.addNoteToAlbum(noteId);
+        } else {
+          await this.addCurrentClipToNote(noteId);
+        }
+      });
+    });
+  }
+
+  filterAlbumPicker(searchTerm) {
+    this.renderAlbumPicker(searchTerm);
+  }
+
+  async addCurrentClipToNote(noteId) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note) return;
+
+    // Get the clip to add (pending clip or most recent clip)
+    let clipToAdd = this.pendingClipForNotes;
+    
+    if (!clipToAdd) {
+      if (this.clips.length === 0) {
+        this.showToast('No clips to add');
+        return;
+      }
+      clipToAdd = this.clips[0];
+    }
+
+    if (!note.clips) note.clips = [];
+    
+    note.clips.push({
+      type: 'clip',
+      id: clipToAdd.id,
+      text: clipToAdd.text,
+      addedDate: Date.now()
+    });
+
+    note.updatedAt = Date.now();
+    await this.saveNotes();
+    this.closeAlbumPicker();
+    this.pendingClipForNotes = null; // Clear pending clip
+    this.showToast(`Clip added to "${note.title}"`);
+  }
+
+  async addNoteToAlbum(albumId) {
+    const album = this.notes.find(n => n.id == albumId && n.type === 'album');
+    const sourceNote = this.pendingNoteForAlbum;
+    
+    if (!album || !sourceNote) return;
+
+    // Copy content from note to album (keep original note unchanged)
+    if (!album.clips) album.clips = [];
+    if (!album.urls) album.urls = [];
+    if (!album.images) album.images = [];
+
+    // Add a special "note content" clip if the note has body content
+    if (sourceNote.body && sourceNote.body.trim()) {
+      album.clips.push({
+        type: 'clip',
+        id: Date.now(),
+        text: `[From: ${sourceNote.title || 'Untitled Note'}]\n\n${sourceNote.body}`,
+        addedDate: Date.now()
+      });
+    }
+
+    // Copy all attachments from source note
+    if (sourceNote.clips?.length > 0) {
+      album.clips.push(...sourceNote.clips.map(c => ({
+        ...c,
+        addedDate: Date.now()
+      })));
+    }
+
+    if (sourceNote.urls?.length > 0) {
+      album.urls.push(...sourceNote.urls.map(u => ({
+        ...u,
+        addedDate: Date.now()
+      })));
+    }
+
+    if (sourceNote.images?.length > 0) {
+      album.images.push(...sourceNote.images.map(i => ({
+        ...i,
+        addedDate: Date.now()
+      })));
+    }
+
+    album.updatedAt = Date.now();
+    await this.saveNotes();
+    this.closeAlbumPicker();
+    this.pendingNoteForAlbum = null;
+    this.showToast(`Note content copied to album "${album.title}"`);
+    this.renderNotes(); // Refresh to show updated counts
   }
 }
 
