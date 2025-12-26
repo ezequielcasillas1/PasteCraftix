@@ -1,3 +1,323 @@
+/* Clip Picker Modal Styles */
+.clip-picker-content {
+  max-width: 620px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.clip-picker-content .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 0;
+}
+
+.clip-picker-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.clip-picker-tab {
+  flex: 1;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clip-picker-tab:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.clip-picker-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--surface);
+}
+
+.clip-picker-tab-content {
+  display: none;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.clip-picker-tab-content.active {
+  display: block;
+}
+
+.clip-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.clip-picker-item {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.clip-picker-item:hover {
+  background: #eff6ff;
+  border-color: var(--primary);
+  transform: translateX(3px);
+}
+
+.clip-picker-item.selected {
+  background: #dbeafe;
+  border-color: var(--primary);
+}
+
+.clip-picker-item.already-added {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.clip-picker-item.already-added:hover {
+  transform: none;
+  border-color: var(--border);
+}
+
+.clip-picker-checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.clip-picker-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.clip-picker-item-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 3em;
+  margin-bottom: 6px;
+}
+
+.clip-picker-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.already-added-badge {
+  background: var(--success);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.clip-picker-search {
+  margin-bottom: 12px;
+}
+
+.clip-picker-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clip-picker-category {
+  padding: 14px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clip-picker-category:hover {
+  background: #eff6ff;
+  border-color: var(--primary);
+}
+
+.clip-picker-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.clip-picker-category-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clip-picker-category-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.clip-picker-category-clips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.clip-picker-category-clip {
+  padding: 8px 10px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clip-picker-category-clip:hover {
+  background: #eff6ff;
+  border-color: var(--primary);
+  transform: translateX(3px);
+}
+
+.clip-picker-category-clip.selected {
+  background: #dbeafe;
+  border-color: var(--primary);
+}
+
+.clip-picker-category-clip.already-added {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f3f4f6;
+}
+
+.clip-picker-category-clip.already-added:hover {
+  transform: none;
+  border-color: var(--border);
+}
+
+.clip-picker-checkbox-sm {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.clip-picker-category-clip-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.already-added-badge-sm {
+  background: var(--success);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.clip-picker-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.clip-picker-empty-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.clip-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-top: 2px solid var(--border);
+  background: var(--surface);
+  gap: 12px;
+}
+
+.clip-picker-selection-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.clip-picker-add-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+}
+
+.clip-picker-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Clip Picker: reuse existing Search/Categories row styles, just add disabled state */
+.search-result-item.already-added,
+.category-clip.already-added {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.search-result-item.already-added:hover,
+.category-clip.already-added:hover {
+  background: inherit;
+}
+
+.chip.already-added {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chip.already-added:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #e5e7eb;
+}
 /* PasteCraft Modern UI Styles */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 

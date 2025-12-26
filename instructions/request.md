@@ -251,28 +251,6 @@
 - Optional: auto-open preview before saving (confirm/cancel)
 - Popup/module option: allow **manual** Image → Text via **image upload** or **copy/paste image** (clipboard) for users not using the widget
 
----
-
-#### 22. Notes Page + Album Cards (Bundle Clips + Export)
-**Priority:** High  
-**Status:** Not started  
-**Requirements:**
-- Add **Notes** page in popup nav (right next to **Lab**)
-- Notes are card-based: **title + description + editable body**
-- Album-style note: bundle multiple clips into one “album card” with acquisition date/metadata
-- Inside an album: add links/exports to external docs (Google Docs, OneNote, etc.) + create PDF exports
-- Allow adding/sending images from **Images** page (Image Copy / Gallery) into a note/album
-
----
-
-#### 24. Categories “Send to Notes” Icon (Album Picker Popup)
-**Priority:** High  
-**Status:** Not started  
-**Requirements:**
-- In **Categories**: show a functional **note icon** right below the **AI Summary** icon
-- On click: open a popup module to choose which **Note/Album** to send the copied clip into
-- Supports selecting target note/album from Notes page + confirms save
-- Works with current (most recent) copy and/or selected clips
 
 ---
 
