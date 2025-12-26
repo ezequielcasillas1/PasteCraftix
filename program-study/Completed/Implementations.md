@@ -1,3 +1,23 @@
+### Dec 25, 2025 - Clips Page "Send to Notes" Icon
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js
+**Result:** Added "Send to Notes" icon to clips between AI Summary and Categories icons. Clean styling with no backgrounds/outlines. Opens album picker to send clips to notes/albums.
+
+### Dec 25, 2025 - Search Page "Send to Notes" Icon
+**Status:** ✅ SUCCESS
+**Files:** popup.js
+**Result:** Added "Send to Notes" icon to search results between AI Summary and Categories icons. Opens album picker to send clips to notes/albums.
+
+### Dec 25, 2025 - Album Picker UX Enhancement
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js
+**Result:** Added "Create New Album" button to album picker modal. Added back button navigation in note editor to return to album picker when creating notes/albums from picker flow.
+
+### Dec 24, 2025 - Clip Joiner & Settings UI Enhancement
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js
+**Result:** Renamed "Delimiter" to "Clip Joiner" with live example text (updates on selection). Renamed "Options" to "Clip Settings". Added info icons with modal pop-ups showing real-world use cases for both features.
+
 ### Dec 22, 2025 - Widget Panels Width Increase (Popup + Settings + Quick View)
 **Status:** ✅ SUCCESS
 **Files:** content-script.js, popup.html

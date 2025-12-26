@@ -7,6 +7,7 @@ class PasteCraftPopup {
     this.clips = [];
     this.categories = [];
     this.selectedChips = new Set();
+    this.selectedPickerClips = new Set();
     this.delimiter = 'comma';
     this.currentTab = 'clips';
     this.searchQuery = '';
@@ -429,12 +430,17 @@ class PasteCraftPopup {
   setupEventListeners() {
     // Tab navigation
     document.querySelector('.tab-nav').addEventListener('click', async (e) => {
-      if (e.target.classList.contains('tab-btn')) {
+      const target = e.target;
+      const tabBtn = (target && target.closest)
+        ? target.closest('.tab-btn')
+        : (target && target.classList && target.classList.contains('tab-btn') ? target : null);
+
+      if (tabBtn) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
-        e.target.classList.add('active');
-        this.currentTab = e.target.dataset.tab;
+        tabBtn.classList.add('active');
+        this.currentTab = tabBtn.dataset.tab;
         document.getElementById(this.currentTab + 'Tab').classList.add('active');
         
         // Format controls, preview, and magic wand are always visible across all tabs
@@ -514,6 +520,33 @@ class PasteCraftPopup {
       this.showClipPickerForNote();
     });
 
+    // Clip Picker Modal
+    document.getElementById('closeClipPicker').addEventListener('click', () => {
+      this.closeClipPicker();
+    });
+
+    const clipPickerTabs = document.querySelectorAll('.clip-picker-tab');
+    // #region agent log - clip picker tabs found
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'popup.js:setupEventListeners:clipPickerTabs',message:'clip picker tabs query',data:{tabsFound:clipPickerTabs?.length||0,modalExists:!!document.getElementById('clipPickerModal')},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    clipPickerTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.dataset.pickerTab;
+        // #region agent log - clip picker tab clicked
+        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'popup.js:clipPicker:tabClick',message:'clip picker tab click',data:{targetTab:targetTab||null,tabText:(tab.textContent||'').trim().slice(0,40)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        this.switchClipPickerTab(targetTab);
+      });
+    });
+
+    document.getElementById('clipPickerSearchInput').addEventListener('input', (e) => {
+      this.searchClipsInPicker(e.target.value);
+    });
+
+    document.getElementById('clipPickerAddBtn').addEventListener('click', () => {
+      this.addSelectedClipsToNote();
+    });
+
     document.getElementById('addImageToNote').addEventListener('click', () => {
       this.showImagePickerForNote();
     });
@@ -550,7 +583,17 @@ class PasteCraftPopup {
 
     document.getElementById('createNewNoteFromPicker').addEventListener('click', () => {
       this.closeAlbumPicker();
-      this.openNoteEditor('note');
+      this.openNoteEditor('note', null, true);
+    });
+
+    document.getElementById('createNewAlbumFromPicker').addEventListener('click', () => {
+      this.closeAlbumPicker();
+      this.openNoteEditor('album', null, true);
+    });
+
+    document.getElementById('backToAlbumPicker').addEventListener('click', () => {
+      this.closeNoteEditor();
+      this.showAlbumPicker();
     });
 
     document.getElementById('albumPickerSearch').addEventListener('input', (e) => {
@@ -561,18 +604,53 @@ class PasteCraftPopup {
     const notesHeader = document.querySelector('.notes-header');
     if (notesHeader) {
       notesHeader.addEventListener('click', (e) => {
+        const _pcTarget = e.target;
+        const _pcTargetTag = (_pcTarget && _pcTarget.tagName) ? _pcTarget.tagName : null;
+        const _pcTargetType = (_pcTarget && typeof _pcTarget.nodeType === 'number') ? _pcTarget.nodeType : null;
+        const _pcTargetHasClosest = !!(_pcTarget && typeof _pcTarget.closest === 'function');
+        // #region agent log - notes view toggle click raw target
+        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'popup.js:notesViewToggle:click:target',message:'notes header click target',data:{targetTag:_pcTargetTag,targetType:_pcTargetType,targetHasClosest:_pcTargetHasClosest},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+
         const toggleBtn = e.target.closest('.view-toggle-btn');
+        // #region agent log - notes view toggle closest result
+        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'popup.js:notesViewToggle:click:closest',message:'closest(.view-toggle-btn) result',data:{found:!!toggleBtn,btnTag:toggleBtn?.tagName||null,view:toggleBtn?.dataset?.view||null},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (toggleBtn) {
           document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
           toggleBtn.classList.add('active');
           const view = toggleBtn.dataset.view;
           const container = document.getElementById('notesContainer');
           if (container) {
+            const _pcBefore = {hasListView:container.classList.contains('list-view')};
             if (view === 'list') {
               container.classList.add('list-view');
             } else {
               container.classList.remove('list-view');
             }
+            const _pcAfter = {hasListView:container.classList.contains('list-view')};
+            // #region agent log - notes view toggle applied
+            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E',location:'popup.js:notesViewToggle:apply',message:'applied notes view class',data:{view:view||null,before:_pcBefore,after:_pcAfter},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+
+            const _pcComputed = {
+              gridTemplateColumns: getComputedStyle(container).gridTemplateColumns,
+              display: getComputedStyle(container).display
+            };
+            const _pcFirstCard = container.querySelector('.note-card');
+            const _pcFirstCardStyle = _pcFirstCard ? {
+              padding: getComputedStyle(_pcFirstCard).padding,
+              borderRadius: getComputedStyle(_pcFirstCard).borderRadius
+            } : null;
+            // #region agent log - notes view toggle computed styles
+            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'F',location:'popup.js:notesViewToggle:computed',message:'notes view computed styles',data:{view:view||null,container:_pcComputed,firstCard:_pcFirstCardStyle},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+
+            // Re-render to apply view-dependent pagination (list=3, grid=8)
+            // #region agent log - notes view toggle rerender
+            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'G',location:'popup.js:notesViewToggle:rerender',message:'rerendering notes after view toggle',data:{view:view||null},timestamp:Date.now()})}).catch(()=>{});
+            // #endregion
+            this.renderNotes();
           }
         }
       });
@@ -618,6 +696,12 @@ class PasteCraftPopup {
     document.getElementById('albumPickerModal').addEventListener('click', (e) => {
       if (e.target.id === 'albumPickerModal') {
         this.closeAlbumPicker();
+      }
+    });
+
+    document.getElementById('clipPickerModal').addEventListener('click', (e) => {
+      if (e.target.id === 'clipPickerModal') {
+        this.closeClipPicker();
       }
     });
 
@@ -789,6 +873,54 @@ class PasteCraftPopup {
       }
     });
 
+    // Info modal events
+    const clipJoinerInfo = document.getElementById('clipJoinerInfo');
+    if (clipJoinerInfo) {
+      clipJoinerInfo.addEventListener('click', () => {
+        document.getElementById('clipJoinerModal').classList.add('active');
+      });
+    }
+
+    const clipSettingsInfo = document.getElementById('clipSettingsInfo');
+    if (clipSettingsInfo) {
+      clipSettingsInfo.addEventListener('click', () => {
+        document.getElementById('clipSettingsModal').classList.add('active');
+      });
+    }
+
+    const closeClipJoinerModal = document.getElementById('closeClipJoinerModal');
+    if (closeClipJoinerModal) {
+      closeClipJoinerModal.addEventListener('click', () => {
+        document.getElementById('clipJoinerModal').classList.remove('active');
+      });
+    }
+
+    const closeClipSettingsModal = document.getElementById('closeClipSettingsModal');
+    if (closeClipSettingsModal) {
+      closeClipSettingsModal.addEventListener('click', () => {
+        document.getElementById('clipSettingsModal').classList.remove('active');
+      });
+    }
+
+    // Close info modals when clicking overlay
+    const clipJoinerModal = document.getElementById('clipJoinerModal');
+    if (clipJoinerModal) {
+      clipJoinerModal.addEventListener('click', (e) => {
+        if (e.target.id === 'clipJoinerModal') {
+          clipJoinerModal.classList.remove('active');
+        }
+      });
+    }
+
+    const clipSettingsModal = document.getElementById('clipSettingsModal');
+    if (clipSettingsModal) {
+      clipSettingsModal.addEventListener('click', (e) => {
+        if (e.target.id === 'clipSettingsModal') {
+          clipSettingsModal.classList.remove('active');
+        }
+      });
+    }
+
     // Breakdown modal events
     document.getElementById('closeBreakdownModal').addEventListener('click', () => {
       this.hideBreakdownModal();
@@ -847,6 +979,7 @@ class PasteCraftPopup {
         this.delimiter = e.target.dataset.delimiter;
         this.updatePreview();
         this.updatePreviewFromSelection(); // Also update category selection preview
+        this.updateDelimiterExample(); // Update example text
         
         // Handle custom delimiter
         const customInput = document.getElementById('customDelimiter');
@@ -864,6 +997,7 @@ class PasteCraftPopup {
       if (this.delimiter === 'custom') {
         this.updatePreview();
         this.updatePreviewFromSelection();
+        this.updateDelimiterExample(); // Update example text
       }
     });
     
@@ -1309,6 +1443,9 @@ class PasteCraftPopup {
     
     // Setup image viewer for expanded view
     this.setupImageViewer();
+    
+    // Initialize delimiter example text
+    this.updateDelimiterExample();
   }
   
   // =====================================================
@@ -1992,6 +2129,9 @@ class PasteCraftPopup {
       <div class="chip-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
+        <button class="chip-notes-btn" title="Send to Notes">
+          <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
+        </button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="chip-remove" title="Remove clip">×</button>
       </div>
@@ -2035,6 +2175,14 @@ class PasteCraftPopup {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
         this.showSummaryModal(textToSend);
+      } else if (e.target.classList.contains('chip-notes-btn') || e.target.closest('.chip-notes-btn')) {
+        e.stopPropagation();
+        // Load notes and show album picker
+        this.loadNotes().then(() => {
+          this.showAlbumPicker();
+          // Store the clip to be added
+          this.pendingClipForNotes = clip;
+        });
       } else if (e.target.classList.contains('chip-category-btn')) {
         e.stopPropagation();
         this.pendingText = clip.text;
@@ -2198,6 +2346,28 @@ class PasteCraftPopup {
     
     // Update quick copy button visibility
     this.updateQuickCopyButton();
+  }
+  
+  updateDelimiterExample() {
+    const exampleText = document.querySelector('.example-text');
+    if (!exampleText) return;
+    
+    const delimiters = {
+      comma: ', ',
+      newline: '\n',
+      space: ' ',
+      custom: document.getElementById('customDelimiter')?.value || ' | '
+    };
+    
+    const delimiter = delimiters[this.delimiter] || ', ';
+    const items = ['apple', 'banana', 'cherry'];
+    
+    // For newline, show it visually
+    if (this.delimiter === 'newline') {
+      exampleText.textContent = 'apple ↵ banana ↵ cherry';
+    } else {
+      exampleText.textContent = items.join(delimiter);
+    }
   }
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
@@ -2580,6 +2750,9 @@ class PasteCraftPopup {
       <div class="search-result-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
+        <button class="search-notes-btn" title="Send to Notes">
+          <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
+        </button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="btn-copy" title="Copy to clipboard">📋</button>
       </div>
@@ -2617,6 +2790,16 @@ class PasteCraftPopup {
       e.stopPropagation();
       const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
       this.showSummaryModal(textToSend);
+    });
+
+    // Send to Notes functionality
+    item.querySelector('.search-notes-btn').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      // Load notes and show album picker
+      await this.loadNotes();
+      this.showAlbumPicker();
+      // Store the clip to be added
+      this.pendingClipForNotes = clip;
     });
 
     // Category assignment
@@ -5765,16 +5948,18 @@ class PasteCraftPopup {
   renderNotes() {
     const container = document.getElementById('notesContainer');
     const paginationEl = document.getElementById('notesPagination');
+    const isListView = !!container?.classList?.contains('list-view');
     
     const allNotes = Array.isArray(this.notes) ? this.notes : [];
-    const filtered = allNotes.filter(n => (this.notesViewMode === 'albums' ? n.type === 'album' : n.type !== 'album'));
+    // Show notes + albums together (View Albums button removed; mixed catalog is the desired UX)
+    const filtered = allNotes;
 
     if (filtered.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">${this.notesViewMode === 'albums' ? '📚' : '📝'}</div>
-          <h3>No ${this.notesViewMode === 'albums' ? 'albums' : 'notes'} yet</h3>
-          <p>${this.notesViewMode === 'albums' ? 'Create an album to bundle clips, images, and URLs' : 'Create a note or album to bundle your clips, images, and URLs'}</p>
+          <div class="empty-state-icon">📝</div>
+          <h3>No notes yet</h3>
+          <p>Create a note or album to bundle your clips, images, and URLs</p>
           <div class="demo-hint">
             <span class="demo-step">📝 Take notes</span>
             <span class="demo-step">📚 Create albums</span>
@@ -5786,13 +5971,21 @@ class PasteCraftPopup {
       return;
     }
 
-    // Pagination: 3 cards per page, page index starts at 0
-    const pageSize = 3;
+    // Pagination: list shows 3; grid shows 6 (2 columns × 3 rows)
+    const pageSize = isListView ? 3 : 6;
     const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
     if (this.notesPageIndex < 0) this.notesPageIndex = 0;
     if (this.notesPageIndex > pageCount - 1) this.notesPageIndex = pageCount - 1;
     const start = this.notesPageIndex * pageSize;
     const pageItems = filtered.slice(start, start + pageSize);
+
+    // #region agent log - notes paging snapshot
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H',location:'popup.js:renderNotes:paging',message:'renderNotes paging snapshot',data:{isListView,pageSize,filteredCount:filtered.length,pageIndex:this.notesPageIndex,pageCount,renderCount:pageItems.length,firstRenderedId:pageItems[0]?.id||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    // #region agent log - post-fix marker (notes paging)
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'post-fix',hypothesisId:'H',location:'popup.js:renderNotes:paging:post',message:'post-fix: renderNotes paging snapshot',data:{isListView,pageSize,filteredCount:filtered.length,pageIndex:this.notesPageIndex,pageCount,renderCount:pageItems.length,firstRenderedId:pageItems[0]?.id||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     container.innerHTML = pageItems.map(note => {
       const clipCount = note.clips?.length || 0;
@@ -5995,7 +6188,7 @@ class PasteCraftPopup {
     }
   }
 
-  openNoteEditor(type = 'note', noteId = null) {
+  openNoteEditor(type = 'note', noteId = null, showBack = false) {
     this.currentNoteType = type;
     this.currentNoteId = noteId;
     this.currentNoteAttachments = [];
@@ -6007,6 +6200,13 @@ class PasteCraftPopup {
     const attachmentsList = document.getElementById('noteAttachmentsList');
     const editorType = document.getElementById('noteEditorType');
     const aiToggle = document.getElementById('notesAiToggle');
+
+    // Show/hide back button
+    if (showBack) {
+      this.showBackToAlbumPicker();
+    } else {
+      this.hideBackToAlbumPicker();
+    }
 
     if (noteId) {
       // Edit existing note
@@ -6045,6 +6245,7 @@ class PasteCraftPopup {
     this.currentNoteId = null;
     this.currentNoteType = 'note';
     this.currentNoteAttachments = [];
+    this.hideBackToAlbumPicker();
   }
 
   renderNoteAttachments() {
@@ -6083,6 +6284,14 @@ class PasteCraftPopup {
   }
 
   async saveNote() {
+    // #region agent log - saveNote entry
+    try {
+      const container = document.getElementById('notesContainer');
+      const isListView = !!container?.classList?.contains('list-view');
+      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'K',location:'popup.js:saveNote:entry',message:'saveNote entry',data:{currentNoteId:this.currentNoteId||null,currentNoteType:this.currentNoteType||null,notesPageIndex:this.notesPageIndex,isListView,notesLen:Array.isArray(this.notes)?this.notes.length:null},timestamp:Date.now()})}).catch(()=>{});
+    } catch (_) {}
+    // #endregion
+
     const title = document.getElementById('noteTitleInput').value.trim();
     const description = document.getElementById('noteDescriptionInput').value.trim();
     const body = document.getElementById('noteBodyInput').value.trim();
@@ -6109,9 +6318,19 @@ class PasteCraftPopup {
     } else {
       // Add new note
       this.notes.unshift(noteData);
+      // Always jump to first page so the newly created note appears immediately (top-left in grid)
+      this.notesPageIndex = 0;
+      // #region agent log - saveNote reset page index
+      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'post-fix',hypothesisId:'L',location:'popup.js:saveNote:resetPage',message:'reset notesPageIndex to 0 after create',data:{notesPageIndex:this.notesPageIndex},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     }
 
+    // #region agent log - saveNote after upsert
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'K',location:'popup.js:saveNote:after-upsert',message:'saveNote after upsert',data:{created:!this.currentNoteId,newFirstId:this.notes?.[0]?.id||null,notesPageIndex:this.notesPageIndex,notesLen:Array.isArray(this.notes)?this.notes.length:null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     await this.saveNotes();
+    await this.saveNotesPrefs();
     this.renderNotes();
     this.closeNoteEditor();
     this.showToast(this.currentNoteId ? 'Note updated!' : 'Note created!');
@@ -6131,23 +6350,412 @@ class PasteCraftPopup {
   }
 
   showClipPickerForNote() {
-    if (this.clips.length === 0) {
+    if (this.clips.length === 0 && this.searchOnlyClips.length === 0) {
       this.showToast('No clips available. Create some clips first!');
       return;
     }
 
-    // Simple implementation: add the most recent clip
-    const recentClip = this.clips[0];
-    if (recentClip) {
+    this.selectedPickerClips.clear();
+    this.updateClipPickerFooter();
+    
+    const modal = document.getElementById('clipPickerModal');
+    if (modal) {
+      modal.style.display = 'flex';
+      // #region agent log - clip picker opened
+      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B',location:'popup.js:clipPicker:open',message:'clip picker opened',data:{attachmentsCount:Array.isArray(this.currentNoteAttachments)?this.currentNoteAttachments.length:null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      this.switchClipPickerTab('clips');
+      this.renderClipPickerRecentClips();
+    }
+  }
+
+  closeClipPicker() {
+    const modal = document.getElementById('clipPickerModal');
+    if (modal) {
+      modal.style.display = 'none';
+      this.selectedPickerClips.clear();
+    }
+  }
+
+  updateClipPickerFooter() {
+    const countEl = document.getElementById('clipPickerSelectionCount');
+    const addBtn = document.getElementById('clipPickerAddBtn');
+    
+    if (countEl) {
+      const count = this.selectedPickerClips.size;
+      countEl.textContent = count === 1 ? '1 selected' : `${count} selected`;
+    }
+    
+    if (addBtn) {
+      addBtn.disabled = this.selectedPickerClips.size === 0;
+    }
+  }
+
+  togglePickerClip(clipId, itemElement) {
+    const checkbox = itemElement.querySelector('.clip-picker-checkbox, .clip-picker-checkbox-sm, .search-checkbox, .category-checkbox');
+    
+    if (this.selectedPickerClips.has(clipId)) {
+      this.selectedPickerClips.delete(clipId);
+      itemElement.classList.remove('selected');
+      if (checkbox) checkbox.checked = false;
+    } else {
+      this.selectedPickerClips.add(clipId);
+      itemElement.classList.add('selected');
+      if (checkbox) checkbox.checked = true;
+    }
+    
+    this.updateClipPickerFooter();
+  }
+
+  normalizePickerText(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  createPickerSearchRowHTML(clip) {
+    const category = clip.category || 'Uncategorized';
+    const timeAgo = this.getTimeAgo(clip.timestamp);
+    const normalized = this.normalizePickerText(clip.text);
+    const truncatedText = normalized.length > 110 ? normalized.substring(0, 110) + '...' : normalized;
+    const isSelected = this.selectedPickerClips.has(clip.id);
+    const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
+    const selectedClass = isSelected ? 'selected' : '';
+    const addedClass = alreadyAdded ? 'already-added' : '';
+
+    return `
+      <div class="search-result-item ${selectedClass} ${addedClass}" data-clip-id="${clip.id}">
+        <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
+        <div class="search-result-content">
+          <div class="search-result-text">${this.escapeHtml(truncatedText)}</div>
+          <div class="search-result-meta">
+            <span class="search-result-category">${this.escapeHtml(category)}</span>
+            <span>${timeAgo}</span>
+            ${alreadyAdded ? '<span class="already-added-badge">✓ Added</span>' : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  createPickerChipElement(clip) {
+    const chip = document.createElement('div');
+    chip.className = 'chip animate-slide-in';
+    chip.dataset.clipId = clip.id;
+
+    const timeAgo = this.getTimeAgo(clip.timestamp);
+    const normalized = this.normalizePickerText(clip.text);
+    const truncatedText = normalized.length > 30 ? normalized.substring(0, 30) + '...' : normalized;
+
+    const isSelected = this.selectedPickerClips.has(clip.id);
+    const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
+
+    chip.innerHTML = `
+      <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
+      <span class="chip-text" title="${this.escapeHtml(normalized)}">${this.escapeHtml(truncatedText)}</span>
+      <span class="chip-time">${timeAgo}</span>
+      ${alreadyAdded ? '<span class="already-added-badge-sm">✓</span>' : ''}
+    `;
+
+    if (isSelected) chip.classList.add('selected');
+    if (alreadyAdded) chip.classList.add('already-added');
+
+    if (!alreadyAdded) {
+      const checkbox = chip.querySelector('.chip-checkbox');
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.togglePickerClip(clip.id, chip);
+      });
+
+      chip.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('chip-checkbox')) {
+          this.togglePickerClip(clip.id, chip);
+        }
+      });
+    }
+
+    return chip;
+  }
+
+  attachPickerSearchRowHandlers(container) {
+    container.querySelectorAll('.search-result-item').forEach(item => {
+      const alreadyAdded = item.classList.contains('already-added');
+      if (alreadyAdded) return;
+
+      const checkbox = item.querySelector('.search-checkbox');
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const clipId = item.dataset.clipId;
+        this.togglePickerClip(clipId, item);
+      });
+
+      item.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('search-checkbox')) {
+          const clipId = item.dataset.clipId;
+          this.togglePickerClip(clipId, item);
+        }
+      });
+    });
+  }
+
+  switchClipPickerTab(tabName) {
+    const contentIds = ['clipPickerClipsTab','clipPickerSearchTab','clipPickerCategoriesTab'];
+    const before = contentIds.map(id => {
+      const el = document.getElementById(id);
+      return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
+    });
+
+    // #region agent log - before switch
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'popup.js:clipPicker:switch:before',message:'before switchClipPickerTab',data:{tabName:tabName||null,before},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    document.querySelectorAll('.clip-picker-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.pickerTab === tabName);
+    });
+
+    document.querySelectorAll('.clip-picker-tab-content').forEach(content => {
+      content.classList.remove('active');
+      // Force hide to avoid CSS conflicts causing all panes to stay visible
+      content.style.display = 'none';
+    });
+
+    const targetContent = document.getElementById(`clipPicker${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`);
+    if (targetContent) {
+      targetContent.classList.add('active');
+      // Force show target pane
+      targetContent.style.display = 'block';
+    }
+
+    const after = contentIds.map(id => {
+      const el = document.getElementById(id);
+      return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
+    });
+
+    // #region agent log - after switch
+    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'popup.js:clipPicker:switch:after',message:'after switchClipPickerTab',data:{tabName:tabName||null,after},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    if (tabName === 'clips') {
+      this.renderClipPickerRecentClips();
+    } else if (tabName === 'categories') {
+      this.renderClipPickerCategories();
+    } else if (tabName === 'search') {
+      const searchInput = document.getElementById('clipPickerSearchInput');
+      if (searchInput) searchInput.value = '';
+      this.renderClipPickerSearchResults([]);
+    }
+  }
+
+  renderClipPickerRecentClips() {
+    const container = document.getElementById('clipPickerRecentList');
+    if (!container) return;
+
+    const recentClips = this.clips.slice(0, 20);
+
+    if (recentClips.length === 0) {
+      container.innerHTML = `
+        <div class="clip-picker-empty">
+          <div class="clip-picker-empty-icon">📋</div>
+          <p>No recent clips available</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    recentClips.forEach(clip => {
+      container.appendChild(this.createPickerChipElement(clip));
+    });
+  }
+
+  searchClipsInPicker(query) {
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    
+    if (!query.trim()) {
+      this.renderClipPickerSearchResults([]);
+      return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const results = allClips.filter(clip => 
+      (clip.text || '').toLowerCase().includes(lowerQuery) ||
+      (clip.category && clip.category.toLowerCase().includes(lowerQuery))
+    );
+
+    this.renderClipPickerSearchResults(results.slice(0, 50));
+  }
+
+  renderClipPickerSearchResults(results) {
+    const container = document.getElementById('clipPickerSearchList');
+    if (!container) return;
+
+    if (results.length === 0) {
+      container.innerHTML = `
+        <div class="clip-picker-empty">
+          <div class="clip-picker-empty-icon">🔍</div>
+          <p>No clips found matching your search</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = results.map(clip => this.createPickerSearchRowHTML(clip)).join('');
+    this.attachPickerSearchRowHandlers(container);
+  }
+
+  renderClipPickerCategories() {
+    const container = document.getElementById('clipPickerCategoriesList');
+    if (!container) return;
+
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    const categories = this.categories || [];
+    const uncategorizedClips = allClips.filter(c => (c.category || 'Uncategorized') === 'Uncategorized');
+
+    const pickerCategories = [
+      { id: 'uncategorized', name: 'Uncategorized', icon: '📁', isVirtual: true, clips: uncategorizedClips },
+      ...categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        icon: c.icon || '📁',
+        isVirtual: false,
+        clips: allClips.filter(cl => cl.category === c.name)
+      }))
+    ].filter(c => c.clips.length > 0);
+
+    if (pickerCategories.length === 0) {
+      container.innerHTML = `
+        <div class="clip-picker-empty">
+          <div class="clip-picker-empty-icon">📁</div>
+          <p>No clips found in categories</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = pickerCategories.map(cat => {
+      const clipCount = cat.clips.length;
+      const dropdownId = `picker-dropdown-${cat.id}`;
+      const clipsHtml = cat.clips.slice(0, 25).map(clip => {
+        const timeAgo = this.getTimeAgo(clip.timestamp);
+        const normalized = this.normalizePickerText(clip.text);
+        const truncatedText = normalized.length > 60 ? normalized.substring(0, 60) + '...' : normalized;
+        const isSelected = this.selectedPickerClips.has(clip.id);
+        const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
+
+        return `
+          <div class="category-clip ${isSelected ? 'selected' : ''} ${alreadyAdded ? 'already-added' : ''}" data-clip-id="${clip.id}">
+            <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
+            <div class="category-clip-content">
+              <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
+              <div class="category-clip-time">${timeAgo}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="category-item" data-picker-category-id="${cat.id}">
+          <div class="category-header">
+            <div class="category-info">
+              <div class="category-icon">${this.escapeHtml(cat.icon)}</div>
+              <div class="category-details">
+                <h4>${this.escapeHtml(cat.name)}</h4>
+                <p>${clipCount} clips</p>
+              </div>
+            </div>
+            <div class="category-header-actions">
+              <span class="category-expand-icon">▶</span>
+            </div>
+          </div>
+          <div class="category-dropdown" id="${dropdownId}">
+            ${clipsHtml || '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Toggle expand/collapse (scoped to picker only)
+    container.querySelectorAll('.category-item .category-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const item = header.closest('.category-item');
+        const dropdown = item.querySelector('.category-dropdown');
+        const isExpanded = item.classList.contains('expanded');
+
+        // close others in picker
+        container.querySelectorAll('.category-item.expanded').forEach(other => {
+          if (other !== item) {
+            other.classList.remove('expanded');
+            other.querySelector('.category-dropdown')?.classList.remove('expanded');
+          }
+        });
+
+        if (isExpanded) {
+          item.classList.remove('expanded');
+          dropdown.classList.remove('expanded');
+        } else {
+          item.classList.add('expanded');
+          dropdown.classList.add('expanded');
+        }
+      });
+    });
+
+    // Attach selection handlers
+    container.querySelectorAll('.category-clip').forEach(row => {
+      const alreadyAdded = row.classList.contains('already-added');
+      if (alreadyAdded) return;
+
+      const checkbox = row.querySelector('.category-checkbox');
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.togglePickerClip(row.dataset.clipId, row);
+      });
+
+      row.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('category-checkbox')) {
+          this.togglePickerClip(row.dataset.clipId, row);
+        }
+      });
+    });
+  }
+
+  addSelectedClipsToNote() {
+    if (this.selectedPickerClips.size === 0) {
+      this.showToast('No clips selected');
+      return;
+    }
+
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    this.selectedPickerClips.forEach(clipId => {
+      const clip = allClips.find(c => c.id == clipId);
+      
+      if (!clip) return;
+
+      const alreadyAdded = this.currentNoteAttachments.some(att => 
+        att.type === 'clip' && att.id == clipId
+      );
+
+      if (alreadyAdded) {
+        skippedCount++;
+        return;
+      }
+
       this.currentNoteAttachments.push({
         type: 'clip',
-        id: recentClip.id,
-        text: recentClip.text,
+        id: clip.id,
+        text: clip.text,
         addedDate: Date.now()
       });
-      this.renderNoteAttachments();
-      this.showToast('Clip added to note');
-    }
+      addedCount++;
+    });
+
+    this.renderNoteAttachments();
+    this.closeClipPicker();
+    
+    const parts = [];
+    if (addedCount > 0) parts.push(addedCount === 1 ? '✅ 1 clip added' : `✅ ${addedCount} clips added`);
+    if (skippedCount > 0) parts.push(skippedCount === 1 ? '(1 already added)' : `(${skippedCount} already added)`);
+    this.showToast(parts.join(' '));
   }
 
   showImagePickerForNote() {
@@ -6319,6 +6927,20 @@ class PasteCraftPopup {
   closeAlbumPicker() {
     document.getElementById('albumPickerModal').style.display = 'none';
     this.pendingNoteForAlbum = null;
+  }
+
+  showBackToAlbumPicker() {
+    const backBtn = document.getElementById('backToAlbumPicker');
+    if (backBtn) {
+      backBtn.style.display = 'block';
+    }
+  }
+
+  hideBackToAlbumPicker() {
+    const backBtn = document.getElementById('backToAlbumPicker');
+    if (backBtn) {
+      backBtn.style.display = 'none';
+    }
   }
 
   renderAlbumPicker(searchTerm = '') {
