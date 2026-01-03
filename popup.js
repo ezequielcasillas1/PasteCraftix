@@ -193,9 +193,10 @@ class PasteCraftPopup {
         console.log('✅ Background sync complete:', syncResult.stats);
         // Reload data after sync
         await this.loadData();
-        this.renderChips();
-        this.renderCategories();
-        this.updateCategoryFilter();
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
         
         // 🔄 RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
         await this.loadUserProfile();
@@ -474,6 +475,101 @@ class PasteCraftPopup {
         }
       }
     });
+
+    // Manual Text Input functionality
+    const manualInputToggle = document.getElementById('manualInputToggle');
+    const manualInputBody = document.getElementById('manualInputBody');
+    const manualInputHeader = document.querySelector('.manual-input-header');
+    
+    if (manualInputToggle && manualInputBody && manualInputHeader) {
+      manualInputHeader.addEventListener('click', () => {
+        const isVisible = manualInputBody.style.display !== 'none';
+        manualInputBody.style.display = isVisible ? 'none' : 'block';
+        manualInputToggle.classList.toggle('active', !isVisible);
+      });
+    }
+
+    const manualInputSaveBtn = document.getElementById('manualInputSaveBtn');
+    const manualInputTextarea = document.getElementById('manualInputTextarea');
+    const manualInputCategory = document.getElementById('manualInputCategory');
+    const manualInputClearBtn = document.getElementById('manualInputClearBtn');
+
+    if (manualInputSaveBtn && manualInputTextarea && manualInputCategory) {
+      manualInputSaveBtn.addEventListener('click', async () => {
+        const text = manualInputTextarea.value.trim();
+        if (!text) {
+          this.showToast('Please enter some text to save');
+          return;
+        }
+
+        const category = manualInputCategory.value || 'Uncategorized';
+        
+        // Check category limit (Uncategorized = unlimited, others = 150 max)
+        if (category !== 'Uncategorized') {
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clipsInCategory = allClips.filter(clip => clip.category === category);
+          
+          if (clipsInCategory.length >= 150) {
+            this.showToast(`Category "${category}" is full (150 clips max)`);
+            return;
+          }
+        }
+
+        const newClip = {
+          id: Date.now() + Math.random(),
+          text: text,
+          category: category,
+          timestamp: Date.now()
+        };
+
+        this.clips.unshift(newClip);
+        
+        await this.enforceClipLimit();
+        await chrome.storage.local.set({ clips: this.clips });
+        
+        // Sync to Supabase
+        try {
+          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+          console.log('✅ Manual clip synced to Supabase');
+        } catch (error) {
+          console.error('⚠️ Failed to sync manual clip to Supabase:', error);
+        }
+        
+        // Notify content scripts (without auto-showing Quick View)
+        try {
+          chrome.tabs.query({}, (tabs) => {
+            tabs.forEach(tab => {
+              chrome.tabs.sendMessage(tab.id, {
+                action: 'clipSaved',
+                clip: newClip,
+                autoShow: false
+              }).catch(() => {});
+            });
+          });
+        } catch (error) {
+          console.log('Could not notify content scripts:', error);
+        }
+        
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
+        this.showToast(`Saved to ${category}!`);
+        
+        // Clear textarea
+        manualInputTextarea.value = '';
+      });
+    }
+
+    if (manualInputClearBtn && manualInputTextarea) {
+      manualInputClearBtn.addEventListener('click', () => {
+        manualInputTextarea.value = '';
+        manualInputTextarea.focus();
+      });
+    }
+
+    // Populate category dropdown
+    this.updateManualInputCategories();
 
     // Notes functionality
     document.getElementById('createNoteBtn').addEventListener('click', () => {
@@ -807,7 +903,7 @@ class PasteCraftPopup {
         document.getElementById('addToCategory').disabled = false;
       } else if (option && option.classList.contains('category-full')) {
         // Show feedback for full categories
-        this.showToast('This category is full (25 clips max). Remove some clips first.');
+        this.showToast('This category is full (150 clips max). Remove some clips first.');
       }
     });
 
@@ -1977,7 +2073,13 @@ class PasteCraftPopup {
 
     // Close App Button
     document.getElementById('closeAppBtn').addEventListener('click', () => {
-      window.close();
+      // If we're in an iframe (content-script overlay), send message to parent
+      if (window.self !== window.top) {
+        window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, '*');
+      } else {
+        // Otherwise just close the window (for standalone popup)
+        window.close();
+      }
     });
     
     // Sign Out
@@ -2853,7 +2955,7 @@ class PasteCraftPopup {
           <div class="category-icon">${category.icon}</div>
           <div class="category-details">
             <h4>${this.escapeHtml(category.name)}</h4>
-            <p>${clipCount}/25 clips</p>
+            <p>${clipCount}/150 clips</p>
           </div>
         </div>
         <div class="category-header-actions">
@@ -3008,6 +3110,37 @@ class PasteCraftPopup {
     });
     
     select.value = currentValue;
+  }
+
+  updateManualInputCategories() {
+    const select = document.getElementById('manualInputCategory');
+    if (!select) return;
+    
+    const currentValue = select.value;
+    
+    // Include categories from both active and archived clips
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    const uniqueCategories = [...new Set(allClips.map(clip => clip.category))];
+    
+    // Always include Uncategorized
+    if (!uniqueCategories.includes('Uncategorized')) {
+      uniqueCategories.unshift('Uncategorized');
+    }
+    
+    select.innerHTML = '';
+    uniqueCategories.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      option.textContent = category;
+      select.appendChild(option);
+    });
+    
+    // Restore previous selection or default to Uncategorized
+    if (uniqueCategories.includes(currentValue)) {
+      select.value = currentValue;
+    } else {
+      select.value = 'Uncategorized';
+    }
   }
 
   // Utility Functions
@@ -3569,14 +3702,14 @@ class PasteCraftPopup {
     const container = document.getElementById('categoryOptions');
     const allClips = [...this.clips, ...this.searchOnlyClips];
     
-    // Count clips in Uncategorized
+    // Count clips in Uncategorized (unlimited capacity)
     const uncategorizedCount = allClips.filter(clip => clip.category === 'Uncategorized').length;
-    const uncategorizedFull = uncategorizedCount >= 25;
+    const uncategorizedFull = false; // Uncategorized is never full
     
     container.innerHTML = `
       <div class="category-option ${uncategorizedFull ? 'category-full' : ''}" data-category="Uncategorized">
         <div class="category-option-icon">📄</div>
-        <span>Uncategorized (${uncategorizedCount}/25)</span>
+        <span>Uncategorized (${uncategorizedCount}/∞)</span>
         ${uncategorizedFull ? '<span class="full-indicator">FULL</span>' : ''}
         <button class="category-delete-btn" title="Delete this clip">🗑️</button>
       </div>
@@ -3584,14 +3717,14 @@ class PasteCraftPopup {
 
     this.categories.forEach(category => {
       const clipsInCategory = allClips.filter(clip => clip.category === category.name).length;
-      const isFull = clipsInCategory >= 25;
+      const isFull = clipsInCategory >= 150;
       
       const option = document.createElement('div');
       option.className = `category-option ${isFull ? 'category-full' : ''}`;
       option.dataset.category = category.name;
       option.innerHTML = `
         <div class="category-option-icon">${category.icon}</div>
-        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/25)</span>
+        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/150)</span>
         ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
         <button class="category-delete-btn" title="Delete this clip">🗑️</button>
       `;
@@ -3632,15 +3765,17 @@ class PasteCraftPopup {
       // Reassigning existing clip - check category limit first
       const currentClip = this.clips[this.pendingClipIndex];
       if (currentClip.category !== this.selectedCategoryForSave) {
-        // Only check limit if moving to a different category
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const clipsInTargetCategory = allClips.filter(clip => 
-          clip.category === this.selectedCategoryForSave && clip.id !== currentClip.id
-        );
-        
-        if (clipsInTargetCategory.length >= 25) {
-          this.showToast(`Category "${this.selectedCategoryForSave}" is full (25 clips max). Remove some clips first.`);
-          return;
+        // Only check limit if moving to a different category (Uncategorized = unlimited, others = 150 max)
+        if (this.selectedCategoryForSave !== 'Uncategorized') {
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clipsInTargetCategory = allClips.filter(clip => 
+            clip.category === this.selectedCategoryForSave && clip.id !== currentClip.id
+          );
+          
+          if (clipsInTargetCategory.length >= 150) {
+            this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
+            return;
+          }
         }
       }
       
@@ -3661,13 +3796,15 @@ class PasteCraftPopup {
       this.updateCategoryFilter();
       this.showToast(`Moved to ${this.selectedCategoryForSave}!`);
     } else {
-      // New clip save - check category limit first
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      const clipsInCategory = allClips.filter(clip => clip.category === this.selectedCategoryForSave);
-      
-      if (clipsInCategory.length >= 25) {
-        this.showToast(`Category "${this.selectedCategoryForSave}" is full (25 clips max). Remove some clips first.`);
-        return;
+      // New clip save - check category limit first (Uncategorized = unlimited, others = 150 max)
+      if (this.selectedCategoryForSave !== 'Uncategorized') {
+        const allClips = [...this.clips, ...this.searchOnlyClips];
+        const clipsInCategory = allClips.filter(clip => clip.category === this.selectedCategoryForSave);
+        
+        if (clipsInCategory.length >= 150) {
+          this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
+          return;
+        }
       }
 
       const newClip = {
@@ -3708,9 +3845,10 @@ class PasteCraftPopup {
         console.log('Could not notify content scripts:', error);
       }
       
-      this.renderChips();
-      this.renderCategories();
-      this.updateCategoryFilter();
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
       this.showToast(`Saved to ${this.selectedCategoryForSave}!`);
     }
 
@@ -4231,6 +4369,7 @@ class PasteCraftPopup {
     this.renderSearchResults();
     this.renderCategories();
     this.updateCategoryFilter();
+    this.updateManualInputCategories();
     this.updateCategoryBulkActions();
 
     const deletedCount = (beforeActive - this.clips.length) + (beforeArchived - this.searchOnlyClips.length);
@@ -4940,9 +5079,10 @@ class PasteCraftPopup {
       this.userProfile = null;
 
       // Update UI
-      this.renderChips();
-      this.renderCategories();
-      this.updateCategoryFilter();
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
       this.hideProfileModal();
 
       this.showToast('✅ All data deleted. You have been unsubscribed.', 'success');

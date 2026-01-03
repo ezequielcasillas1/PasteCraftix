@@ -93,9 +93,9 @@
 **Status:** Not started  
 
 **Requirements:**
-- Replace the PasteCraft logo **on the main widget icon** with the user’s **profile-made image** (profile image or selected Images → Gallery image)
-- Preferences: add button under Dark Mode: “Set profile image to widget icon” (rectangular; placeholder icon on right)
-- Images → Gallery: per-image widget-icon button (placeholder icon) with tooltip: “Set as widget icon”
+- Replace the PasteCraft logo **on the main widget icon** with the user's **profile-made image** (profile image or selected Images → Gallery image)
+- Preferences: add button under Dark Mode: "Set profile image to widget icon" (rectangular)
+- Images → Gallery: per-image widget-icon button with tooltip: "Set as widget icon"
 - Persist setting in storage; fallback to default logo if image fails
 
 ---

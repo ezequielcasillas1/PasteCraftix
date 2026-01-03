@@ -1826,9 +1826,20 @@ class PasteCraftSupabase {
    */
   async isPremiumUser(userId) {
     const subscription = await this.getUserSubscription(userId);
-    return subscription && 
-           (subscription.subscription_tier === 'premium' || subscription.subscription_tier === 'admin') &&
-           subscription.subscription_status === 'active';
+    const isPaidPremium = !!(subscription &&
+      (subscription.subscription_tier === 'premium' || subscription.subscription_tier === 'admin') &&
+      subscription.subscription_status === 'active'
+    );
+
+    // Coupon-based AI access (DEV4EVER / months_free) should also grant premium AI gating access.
+    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
+    const hasCouponAiAccess = !!(subscription && (
+      subscription.has_unlimited_ai === true ||
+      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
+    ));
+
+    const isPremium = isPaidPremium || hasCouponAiAccess;
+    return isPremium;
   }
 
   /**

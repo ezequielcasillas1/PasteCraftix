@@ -318,6 +318,184 @@
   box-shadow: none;
   border-color: #e5e7eb;
 }
+
+/* Manual Text Input Section */
+.manual-input-section {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-bottom: 2px solid #bae6fd;
+  transition: all 0.3s ease;
+}
+
+.manual-input-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.manual-input-header:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.manual-input-icon {
+  font-size: 20px;
+}
+
+.manual-input-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  flex: 1;
+}
+
+.manual-input-toggle {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.manual-input-toggle:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.manual-input-toggle.active {
+  transform: rotate(180deg);
+}
+
+.manual-input-body {
+  padding: 0 20px 16px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.manual-input-textarea {
+  width: 100%;
+  min-height: 80px;
+  max-height: 200px;
+  padding: 12px;
+  border: 2px solid #bae6fd;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  background: white;
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.manual-input-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.manual-input-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.manual-input-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.manual-input-category {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid #bae6fd;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background: white;
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.manual-input-category:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.manual-input-save-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.manual-input-save-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.manual-input-save-btn:active {
+  transform: translateY(0);
+}
+
+.manual-input-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.manual-input-clear-btn {
+  padding: 10px 12px;
+  background: white;
+  color: #64748b;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.manual-input-clear-btn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.manual-input-clear-btn:active {
+  transform: translateY(0);
+}
+
 /* PasteCraft Modern UI Styles */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 

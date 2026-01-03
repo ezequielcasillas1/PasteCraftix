@@ -7,6 +7,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 })
 
 serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
   const signature = req.headers.get('stripe-signature')
 
   if (!signature) {
@@ -19,7 +26,9 @@ serve(async (req) => {
     
     // Verify webhook signature
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
-    const event = stripe.webhooks.constructEvent(
+
+    // Deno uses SubtleCrypto; Stripe requires the async variant for webhook verification in this runtime.
+    const event = await stripe.webhooks.constructEventAsync(
       body,
       signature,
       webhookSecret || ''
@@ -33,115 +42,116 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     // Handle different event types
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object
-        console.log('Checkout session completed:', session.id)
-        
-        // Get customer email and subscription ID
-        const customerEmail = session.customer_email || session.customer_details?.email
-        const subscriptionId = session.subscription as string
-        
-        if (customerEmail && subscriptionId) {
-          // Update user subscription in database
-          const { error } = await supabase
-            .from('user_subscriptions')
-            .upsert({
-              email: customerEmail,
-              subscription_tier: 'premium',
-              subscription_status: 'active',
-              stripe_customer_id: session.customer as string,
-              stripe_subscription_id: subscriptionId,
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'email'
-            })
+    // IMPORTANT: Do not fail the webhook delivery for downstream DB/Stripe issues.
+    // After signature verification succeeds, we return 2xx and rely on logs for debugging.
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object
+          console.log('Checkout session completed:', session.id)
+          
+          // Get customer email and subscription ID
+          const customerEmail = session.customer_email || session.customer_details?.email
+          const subscriptionId = session.subscription as string
+          
+          if (customerEmail && subscriptionId) {
+            const { error } = await supabase
+              .from('user_subscriptions')
+              .upsert({
+                email: customerEmail,
+                subscription_tier: 'premium',
+                subscription_status: 'active',
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: subscriptionId,
+                updated_at: new Date().toISOString(),
+              }, {
+                onConflict: 'email'
+              })
 
-          if (error) {
-            console.error('Error updating subscription:', error)
-          } else {
-            console.log('Subscription activated for:', customerEmail)
+            if (error) {
+              console.error('Error updating subscription:', error)
+            } else {
+              console.log('Subscription activated for:', customerEmail)
+            }
           }
+          break
         }
-        break
-      }
 
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object
-        console.log('Subscription updated:', subscription.id)
-        
-        // Get customer
-        const customer = await stripe.customers.retrieve(subscription.customer as string)
-        const email = (customer as any).email
-        
-        if (email) {
-          // Update subscription status
-          const status = subscription.status === 'active' ? 'active' : 
-                        subscription.status === 'past_due' ? 'past_due' :
-                        subscription.status === 'canceled' ? 'canceled' : 'inactive'
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object
+          console.log('Subscription updated:', subscription.id)
+          
+          const customer = await stripe.customers.retrieve(subscription.customer as string)
+          const email = (customer as any).email
+          
+          if (email) {
+            const status = subscription.status === 'active' ? 'active' : 
+                          subscription.status === 'past_due' ? 'past_due' :
+                          subscription.status === 'canceled' ? 'canceled' : 'inactive'
+            
+            const { error } = await supabase
+              .from('user_subscriptions')
+              .update({
+                subscription_status: status,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('stripe_subscription_id', subscription.id)
+
+            if (error) {
+              console.error('Error updating subscription status:', error)
+            } else {
+              console.log('Subscription status updated:', status)
+            }
+          }
+          break
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object
+          console.log('Subscription deleted:', subscription.id)
           
           const { error } = await supabase
             .from('user_subscriptions')
             .update({
-              subscription_status: status,
+              subscription_tier: 'free',
+              subscription_status: 'canceled',
               updated_at: new Date().toISOString(),
             })
             .eq('stripe_subscription_id', subscription.id)
 
           if (error) {
-            console.error('Error updating subscription status:', error)
+            console.error('Error canceling subscription:', error)
           } else {
-            console.log('Subscription status updated:', status)
+            console.log('Subscription canceled')
           }
+          break
         }
-        break
-      }
 
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object
-        console.log('Subscription deleted:', subscription.id)
-        
-        // Mark subscription as canceled
-        const { error } = await supabase
-          .from('user_subscriptions')
-          .update({
-            subscription_tier: 'free',
-            subscription_status: 'canceled',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('stripe_subscription_id', subscription.id)
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object
+          console.log('Payment failed for invoice:', invoice.id)
+          
+          if (invoice.subscription) {
+            const { error } = await supabase
+              .from('user_subscriptions')
+              .update({
+                subscription_status: 'past_due',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('stripe_subscription_id', invoice.subscription as string)
 
-        if (error) {
-          console.error('Error canceling subscription:', error)
-        } else {
-          console.log('Subscription canceled')
-        }
-        break
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object
-        console.log('Payment failed for invoice:', invoice.id)
-        
-        // Mark subscription as past_due
-        if (invoice.subscription) {
-          const { error } = await supabase
-            .from('user_subscriptions')
-            .update({
-              subscription_status: 'past_due',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('stripe_subscription_id', invoice.subscription as string)
-
-          if (error) {
-            console.error('Error updating payment failure:', error)
+            if (error) {
+              console.error('Error updating payment failure:', error)
+            }
           }
+          break
         }
-        break
-      }
 
-      default:
-        console.log('Unhandled event type:', event.type)
+        default:
+          console.log('Unhandled event type:', event.type)
+      }
+    } catch (handlerError) {
+      console.error('Webhook handler error:', handlerError)
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -151,7 +161,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as any)?.message || String(error) }),
       {
         headers: { 'Content-Type': 'application/json' },
         status: 400,

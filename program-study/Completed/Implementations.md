@@ -1,3 +1,8 @@
+### Jan 2, 2025 - Manual Text Input for Clips
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js, styles.css, background.js
+**Result:** Added collapsible manual text input section below header, above tabs. Users can type/paste text directly, select category (defaults to Uncategorized), and save as clip. Includes save and clear buttons with proper validation. Quick View menu does NOT auto-show when saving from manual input. Category limits: Uncategorized = unlimited (∞), all other categories = 150 clips max. Updated all UI displays to show correct limits.
+
 ### Dec 25, 2025 - Clips Page "Send to Notes" Icon
 **Status:** ✅ SUCCESS
 **Files:** popup.html, popup.js

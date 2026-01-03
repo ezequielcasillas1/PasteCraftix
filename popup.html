@@ -139,6 +139,7 @@
             display: flex;
             align-items: center;
             cursor: pointer;
+            position: relative;
         }
         
         .top-bar-profile img {
@@ -5323,6 +5324,35 @@
                 </button>
             </div>
         </header>
+
+        <!-- Manual Text Input Section -->
+        <section class="manual-input-section" id="manualInputSection">
+            <div class="manual-input-header">
+                <span class="manual-input-icon">✍️</span>
+                <span class="manual-input-title">Quick Save Text</span>
+                <button class="manual-input-toggle" id="manualInputToggle" title="Toggle input">
+                    ▼
+                </button>
+            </div>
+            <div class="manual-input-body" id="manualInputBody" style="display: none;">
+                <textarea 
+                    class="manual-input-textarea" 
+                    id="manualInputTextarea" 
+                    placeholder="Type or paste text here to save as a clip..."></textarea>
+                <div class="manual-input-actions">
+                    <select class="manual-input-category" id="manualInputCategory">
+                        <option value="Uncategorized">Uncategorized</option>
+                    </select>
+                    <button class="manual-input-save-btn" id="manualInputSaveBtn">
+                        <span>💾</span>
+                        <span>Save Clip</span>
+                    </button>
+                    <button class="manual-input-clear-btn" id="manualInputClearBtn">
+                        <span>🗑️</span>
+                    </button>
+                </div>
+            </div>
+        </section>
 
         <!-- Navigation Tabs -->
         <nav class="tab-nav">

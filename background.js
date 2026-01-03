@@ -237,29 +237,31 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
   
   console.log('📦 New clip object:', newClip);
   
-  // Check category limit (10 clips max per category in ACTIVE storage)
-  const activeClipsInCategory = clips.filter(clip => clip.category === category);
-  
-  if (activeClipsInCategory.length >= 10) {
-    console.log(`⚠️ Category "${category}" is at limit (10 clips). Moving oldest to archive...`);
+  // Check category limit (Uncategorized = unlimited, others = 150 max per category in ACTIVE storage)
+  if (category !== 'Uncategorized') {
+    const activeClipsInCategory = clips.filter(clip => clip.category === category);
     
-    // Find ACTUAL oldest clip in this category by timestamp and move to search-only storage
-    let oldestClip = null;
-    let oldestClipIndex = -1;
-    let oldestTimestamp = Infinity;
-    
-    clips.forEach((clip, index) => {
-      if (clip.category === category && clip.timestamp < oldestTimestamp) {
-        oldestTimestamp = clip.timestamp;
-        oldestClip = clip;
-        oldestClipIndex = index;
+    if (activeClipsInCategory.length >= 150) {
+      console.log(`⚠️ Category "${category}" is at limit (150 clips). Moving oldest to archive...`);
+      
+      // Find ACTUAL oldest clip in this category by timestamp and move to search-only storage
+      let oldestClip = null;
+      let oldestClipIndex = -1;
+      let oldestTimestamp = Infinity;
+      
+      clips.forEach((clip, index) => {
+        if (clip.category === category && clip.timestamp < oldestTimestamp) {
+          oldestTimestamp = clip.timestamp;
+          oldestClip = clip;
+          oldestClipIndex = index;
+        }
+      });
+      
+      if (oldestClipIndex !== -1) {
+        clips.splice(oldestClipIndex, 1);
+        searchOnlyClips.unshift(oldestClip);
+        console.log('📦 Moved ACTUAL oldest clip to archive (timestamp:', oldestClip.timestamp + '):', oldestClip.text ? (oldestClip.text.substring(0, 30) + '...') : 'NO TEXT');
       }
-    });
-    
-    if (oldestClipIndex !== -1) {
-      clips.splice(oldestClipIndex, 1);
-      searchOnlyClips.unshift(oldestClip);
-      console.log('📦 Moved ACTUAL oldest clip to archive (timestamp:', oldestClip.timestamp + '):', oldestClip.text ? (oldestClip.text.substring(0, 30) + '...') : 'NO TEXT');
     }
   }
   

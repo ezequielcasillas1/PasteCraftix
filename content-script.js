@@ -2905,6 +2905,14 @@ class PasteCraftFloatingWidget {
     
     // Setup close handlers
     closeButton.addEventListener('click', () => this.closePopupOverlay());
+    
+    // Listen for close messages from iframe
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'PASTECRAFT_CLOSE_POPUP') {
+        this.closePopupOverlay();
+      }
+    });
+    
     // Close on outside click (without blocking page interaction) if setting allows
     if (this._popupOutsidePointerDown) {
       document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -3026,36 +3034,9 @@ class PasteCraftFloatingWidget {
         transform: translateX(0);
       }
       
-      /* Close Button - positioned on left to avoid Sign Out button */
+      /* Close Button - HIDDEN per user request */
       .pastecraft-overlay-close {
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        width: 32px;
-        height: 32px;
-        background: rgba(0, 0, 0, 0.05);
-        border: none;
-        border-radius: 50%;
-        font-size: 24px;
-        line-height: 1;
-        color: #64748b;
-        cursor: pointer;
-        z-index: 10;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: Arial, sans-serif;
-      }
-      
-      .pastecraft-overlay-close:hover {
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
-        transform: scale(1.1);
-      }
-      
-      .pastecraft-overlay-close:active {
-        transform: scale(0.95);
+        display: none !important;
       }
       
       /* Iframe */
