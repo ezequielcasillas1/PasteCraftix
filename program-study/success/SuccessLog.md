@@ -59,3 +59,8 @@
 4. Public launch
 
 **Critical Note:** User successfully cancelled subscription. Still has premium access via dev4ever coupon (permanent).
+
+### Jan 3, 2026 - DEV4EVER Coupon Premium Access After Cancellation
+**Status:** ✅ SUCCESS
+**Files:** supabase-client.js, instructions/refresh.md, supabase/functions/stripe-webhook/index.ts, website/account.html, popup.js
+**Result:** Coupon entitlement now grants premium AI access even when Stripe subscription is canceled; instrumentation cleaned. (Commit: 228aa8f)
