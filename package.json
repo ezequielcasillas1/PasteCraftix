@@ -7,7 +7,10 @@
   "scripts": {
     "test": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
     "setup": "echo \"Follow START_HERE.md for setup instructions\" && exit 0",
-    "docs": "echo \"Documentation available in .md files\" && exit 0"
+    "docs": "echo \"Documentation available in .md files\" && exit 0",
+    "feature-icons": "node scripts/convert-feature-icons.js 256",
+    "store-icons": "node scripts/convert-store-icons.js",
+    "store-screenshots": "node scripts/convert-store-screenshots.js"
   },
   "keywords": [
     "chrome-extension",
@@ -20,7 +23,7 @@
     "type": "git",
     "url": "https://github.com/ezequielcasillas1/pastecraft-mobile"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "sharp": "^0.33.5"
+  }
 }
-

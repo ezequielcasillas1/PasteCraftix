@@ -7,6 +7,8 @@
 
 - Widget Quick View button (👁️ eye icon) does not open the Quick View panel when clicked. Expected: clicking should slide in panel from right showing saved clips. Currently: nothing happens. Issue reported by user - toggle functionality and storage sync were implemented but panel fails to open entirely.
 
+- DEV4EVER coupon users are redirected to upgrade page after canceling paid subscription. Expected: coupon entitlement (`has_unlimited_ai`) should still allow premium AI features. Current: premium check sends user to buy subscription.
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

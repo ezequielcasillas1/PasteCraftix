@@ -64,3 +64,8 @@
 **Status:** ✅ SUCCESS
 **Files:** supabase-client.js, instructions/refresh.md, supabase/functions/stripe-webhook/index.ts, website/account.html, popup.js
 **Result:** Coupon entitlement now grants premium AI access even when Stripe subscription is canceled; instrumentation cleaned. (Commit: 228aa8f)
+
+### Jan 4, 2026 - Pre-publish Hardening (Support Forms + Security Cleanup)
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js, netlify/functions/support-ticket.js, website/account.html, website/pricing.html
+**Result:** Added popup support form icons + Netlify/Resend email relay; added account password reset + email prefs; removed debug/instrumentation. (Commit: pending)

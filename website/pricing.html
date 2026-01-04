@@ -452,15 +452,7 @@
             try {
                 const isLocal = window.location.origin.startsWith('http://127.0.0.1') || window.location.origin.startsWith('http://localhost');
 
-                // #region agent log
-                isLocal && fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'website/pricing.html:createCheckout',message:'createCheckout_enter',data:{origin:window.location.origin,href:window.location.href,priceId},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H0'})}).catch(()=>{});
-                // #endregion
-
                 const url = 'https://blpngeeqcegquiydreyu.supabase.co/functions/v1/create-checkout';
-
-                // #region agent log
-                isLocal && fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'website/pricing.html:createCheckout',message:'fetch_start',data:{url,hasAuthHeader:true,hasApikeyHeader:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H1'})}).catch(()=>{});
-                // #endregion
 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -484,10 +476,6 @@
 
                 const rawText = await response.text();
 
-                // #region agent log
-                isLocal && fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'website/pricing.html:createCheckout',message:'fetch_done',data:{status:response.status,ok:response.ok,contentType:response.headers.get('content-type'),bodySnippet:(rawText||'').slice(0,240)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H2'})}).catch(()=>{});
-                // #endregion
-
                 let parsed = null;
                 try { parsed = rawText ? JSON.parse(rawText) : null; } catch (_) {}
 
@@ -510,9 +498,6 @@
                 }
             } catch (error) {
                 const isLocal = window.location.origin.startsWith('http://127.0.0.1') || window.location.origin.startsWith('http://localhost');
-                // #region agent log
-                isLocal && fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'website/pricing.html:createCheckout',message:'createCheckout_catch',data:{name:error?.name,message:String(error?.message||error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'H3'})}).catch(()=>{});
-                // #endregion
                 console.error('Error:', error);
                 alert('Something went wrong. Please try again or contact support.');
             }

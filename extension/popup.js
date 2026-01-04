@@ -622,15 +622,9 @@ class PasteCraftPopup {
     });
 
     const clipPickerTabs = document.querySelectorAll('.clip-picker-tab');
-    // #region agent log - clip picker tabs found
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'popup.js:setupEventListeners:clipPickerTabs',message:'clip picker tabs query',data:{tabsFound:clipPickerTabs?.length||0,modalExists:!!document.getElementById('clipPickerModal')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     clipPickerTabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.pickerTab;
-        // #region agent log - clip picker tab clicked
-        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'popup.js:clipPicker:tabClick',message:'clip picker tab click',data:{targetTab:targetTab||null,tabText:(tab.textContent||'').trim().slice(0,40)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         this.switchClipPickerTab(targetTab);
       });
     });
@@ -704,14 +698,8 @@ class PasteCraftPopup {
         const _pcTargetTag = (_pcTarget && _pcTarget.tagName) ? _pcTarget.tagName : null;
         const _pcTargetType = (_pcTarget && typeof _pcTarget.nodeType === 'number') ? _pcTarget.nodeType : null;
         const _pcTargetHasClosest = !!(_pcTarget && typeof _pcTarget.closest === 'function');
-        // #region agent log - notes view toggle click raw target
-        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'popup.js:notesViewToggle:click:target',message:'notes header click target',data:{targetTag:_pcTargetTag,targetType:_pcTargetType,targetHasClosest:_pcTargetHasClosest},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
 
         const toggleBtn = e.target.closest('.view-toggle-btn');
-        // #region agent log - notes view toggle closest result
-        fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'popup.js:notesViewToggle:click:closest',message:'closest(.view-toggle-btn) result',data:{found:!!toggleBtn,btnTag:toggleBtn?.tagName||null,view:toggleBtn?.dataset?.view||null},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         if (toggleBtn) {
           document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
           toggleBtn.classList.add('active');
@@ -725,9 +713,6 @@ class PasteCraftPopup {
               container.classList.remove('list-view');
             }
             const _pcAfter = {hasListView:container.classList.contains('list-view')};
-            // #region agent log - notes view toggle applied
-            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E',location:'popup.js:notesViewToggle:apply',message:'applied notes view class',data:{view:view||null,before:_pcBefore,after:_pcAfter},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
 
             const _pcComputed = {
               gridTemplateColumns: getComputedStyle(container).gridTemplateColumns,
@@ -738,14 +723,8 @@ class PasteCraftPopup {
               padding: getComputedStyle(_pcFirstCard).padding,
               borderRadius: getComputedStyle(_pcFirstCard).borderRadius
             } : null;
-            // #region agent log - notes view toggle computed styles
-            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'F',location:'popup.js:notesViewToggle:computed',message:'notes view computed styles',data:{view:view||null,container:_pcComputed,firstCard:_pcFirstCardStyle},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
 
             // Re-render to apply view-dependent pagination (list=3, grid=8)
-            // #region agent log - notes view toggle rerender
-            fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'G',location:'popup.js:notesViewToggle:rerender',message:'rerendering notes after view toggle',data:{view:view||null},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
             this.renderNotes();
           }
         }
@@ -2081,6 +2060,44 @@ class PasteCraftPopup {
         window.close();
       }
     });
+
+    // Support Forms (Team/Help/Support/Improve/Report Bugs)
+    const openSupport = (type) => {
+      try {
+        this.openSupportForm(type);
+      } catch (e) {
+        console.error('Support form open failed:', e);
+        this.showToast('❌ Could not open support form', 'error');
+      }
+    };
+
+    const teamBtn = document.getElementById('supportTeamBtn');
+    const helpBtn = document.getElementById('supportHelpBtn');
+    const supportBtn = document.getElementById('supportSupportBtn');
+    const improveBtn = document.getElementById('supportImproveBtn');
+    const reportBugsBtn = document.getElementById('supportReportBugsBtn');
+
+    teamBtn && teamBtn.addEventListener('click', () => openSupport('team'));
+    helpBtn && helpBtn.addEventListener('click', () => openSupport('help'));
+    supportBtn && supportBtn.addEventListener('click', () => openSupport('support'));
+    improveBtn && improveBtn.addEventListener('click', () => openSupport('howcanweimprove'));
+    reportBugsBtn && reportBugsBtn.addEventListener('click', () => openSupport('reportbugs'));
+
+    const closeSupportBtn = document.getElementById('closeSupportFormModal');
+    const cancelSupportBtn = document.getElementById('cancelSupportForm');
+    const sendSupportBtn = document.getElementById('sendSupportForm');
+    const supportModal = document.getElementById('supportFormModal');
+
+    closeSupportBtn && closeSupportBtn.addEventListener('click', () => this.closeSupportForm());
+    cancelSupportBtn && cancelSupportBtn.addEventListener('click', () => this.closeSupportForm());
+    supportModal && supportModal.addEventListener('click', (e) => {
+      if (e && e.target && e.target.id === 'supportFormModal') {
+        this.closeSupportForm();
+      }
+    });
+    sendSupportBtn && sendSupportBtn.addEventListener('click', async () => {
+      await this.submitSupportForm();
+    });
     
     // Sign Out
     document.getElementById('signOutBtn').addEventListener('click', async () => {
@@ -2099,6 +2116,135 @@ class PasteCraftPopup {
         }
       }
     });
+  }
+
+  openSupportForm(type) {
+    this.currentSupportFormType = type;
+    const titleEl = document.getElementById('supportFormTitle');
+    const infoEl = document.getElementById('supportFormInfo');
+    const fieldsEl = document.getElementById('supportFormFields');
+    const subjectEl = document.getElementById('supportFormSubject');
+    const descEl = document.getElementById('supportFormDescription');
+    const statusEl = document.getElementById('supportFormStatus');
+
+    const titles = {
+      team: '👥 Team',
+      help: '🆘 Help',
+      support: '💬 Support',
+      howcanweimprove: '💡 How can we improve?',
+      reportbugs: '🐞 Report a bug',
+    };
+
+    if (titleEl) titleEl.textContent = `📨 ${titles[type] || 'Contact PasteCraft'}`;
+
+    const userEmail = this.currentUser?.email || '';
+    if (infoEl) {
+      infoEl.textContent = userEmail
+        ? `From: ${userEmail} • We’ll reply to this email.`
+        : `We’ll reply to your PasteCraft account email.`;
+    }
+
+    if (fieldsEl) fieldsEl.innerHTML = '';
+    if (subjectEl) subjectEl.value = '';
+    if (descEl) descEl.value = '';
+    if (statusEl) {
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+      statusEl.style.color = '#111827';
+    }
+
+    const modal = document.getElementById('supportFormModal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  closeSupportForm() {
+    const modal = document.getElementById('supportFormModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async submitSupportForm() {
+    const type = this.currentSupportFormType;
+    const subjectEl = document.getElementById('supportFormSubject');
+    const descEl = document.getElementById('supportFormDescription');
+    const statusEl = document.getElementById('supportFormStatus');
+    const sendBtn = document.getElementById('sendSupportForm');
+
+    const subject = (subjectEl?.value || '').trim();
+    const description = (descEl?.value || '').trim();
+
+    if (!subject || !description) {
+      this.showToast('⚠️ Please add subject and description', 'error');
+      return;
+    }
+
+    try {
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+      }
+
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#111827';
+        statusEl.textContent = 'Sending…';
+      }
+
+      const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        this.showToast('❌ Please sign in again', 'error');
+        return;
+      }
+
+      const endpoint = 'https://pastecraft.com/.netlify/functions/support-ticket';
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          type,
+          subject,
+          description,
+          fields: {},
+        }),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        console.error('Support ticket failed:', resp.status, text);
+        this.showToast('❌ Could not send message', 'error');
+        if (statusEl) {
+          statusEl.style.display = 'block';
+          statusEl.style.color = '#b91c1c';
+          statusEl.textContent = 'Failed to send. Please try again.';
+        }
+        return;
+      }
+
+      this.showToast('✅ Sent', 'success');
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#065f46';
+        statusEl.textContent = 'Sent successfully.';
+      }
+
+      setTimeout(() => this.closeSupportForm(), 600);
+    } catch (e) {
+      console.error('Support ticket error:', e);
+      this.showToast('❌ Could not send message', 'error');
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#b91c1c';
+        statusEl.textContent = 'Failed to send. Please try again.';
+      }
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+      }
+    }
   }
   
   renderChips() {
@@ -6119,14 +6265,6 @@ class PasteCraftPopup {
     const start = this.notesPageIndex * pageSize;
     const pageItems = filtered.slice(start, start + pageSize);
 
-    // #region agent log - notes paging snapshot
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H',location:'popup.js:renderNotes:paging',message:'renderNotes paging snapshot',data:{isListView,pageSize,filteredCount:filtered.length,pageIndex:this.notesPageIndex,pageCount,renderCount:pageItems.length,firstRenderedId:pageItems[0]?.id||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
-    // #region agent log - post-fix marker (notes paging)
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'post-fix',hypothesisId:'H',location:'popup.js:renderNotes:paging:post',message:'post-fix: renderNotes paging snapshot',data:{isListView,pageSize,filteredCount:filtered.length,pageIndex:this.notesPageIndex,pageCount,renderCount:pageItems.length,firstRenderedId:pageItems[0]?.id||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     container.innerHTML = pageItems.map(note => {
       const clipCount = note.clips?.length || 0;
       const imageCount = note.images?.length || 0;
@@ -6424,14 +6562,6 @@ class PasteCraftPopup {
   }
 
   async saveNote() {
-    // #region agent log - saveNote entry
-    try {
-      const container = document.getElementById('notesContainer');
-      const isListView = !!container?.classList?.contains('list-view');
-      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'K',location:'popup.js:saveNote:entry',message:'saveNote entry',data:{currentNoteId:this.currentNoteId||null,currentNoteType:this.currentNoteType||null,notesPageIndex:this.notesPageIndex,isListView,notesLen:Array.isArray(this.notes)?this.notes.length:null},timestamp:Date.now()})}).catch(()=>{});
-    } catch (_) {}
-    // #endregion
-
     const title = document.getElementById('noteTitleInput').value.trim();
     const description = document.getElementById('noteDescriptionInput').value.trim();
     const body = document.getElementById('noteBodyInput').value.trim();
@@ -6460,14 +6590,7 @@ class PasteCraftPopup {
       this.notes.unshift(noteData);
       // Always jump to first page so the newly created note appears immediately (top-left in grid)
       this.notesPageIndex = 0;
-      // #region agent log - saveNote reset page index
-      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'post-fix',hypothesisId:'L',location:'popup.js:saveNote:resetPage',message:'reset notesPageIndex to 0 after create',data:{notesPageIndex:this.notesPageIndex},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     }
-
-    // #region agent log - saveNote after upsert
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'K',location:'popup.js:saveNote:after-upsert',message:'saveNote after upsert',data:{created:!this.currentNoteId,newFirstId:this.notes?.[0]?.id||null,notesPageIndex:this.notesPageIndex,notesLen:Array.isArray(this.notes)?this.notes.length:null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     await this.saveNotes();
     await this.saveNotesPrefs();
@@ -6501,9 +6624,6 @@ class PasteCraftPopup {
     const modal = document.getElementById('clipPickerModal');
     if (modal) {
       modal.style.display = 'flex';
-      // #region agent log - clip picker opened
-      fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B',location:'popup.js:clipPicker:open',message:'clip picker opened',data:{attachmentsCount:Array.isArray(this.currentNoteAttachments)?this.currentNoteAttachments.length:null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       this.switchClipPickerTab('clips');
       this.renderClipPickerRecentClips();
     }
@@ -6643,10 +6763,6 @@ class PasteCraftPopup {
       return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
     });
 
-    // #region agent log - before switch
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'popup.js:clipPicker:switch:before',message:'before switchClipPickerTab',data:{tabName:tabName||null,before},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     document.querySelectorAll('.clip-picker-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.pickerTab === tabName);
     });
@@ -6668,10 +6784,6 @@ class PasteCraftPopup {
       const el = document.getElementById(id);
       return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
     });
-
-    // #region agent log - after switch
-    fetch('http://127.0.0.1:7244/ingest/91e013ba-d2fd-46fe-8432-69834df98fba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'popup.js:clipPicker:switch:after',message:'after switchClipPickerTab',data:{tabName:tabName||null,after},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (tabName === 'clips') {
       this.renderClipPickerRecentClips();

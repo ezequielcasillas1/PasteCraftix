@@ -3,8 +3,8 @@
 Place promotional images here.
 
 ## Required Files:
-- `promo-marquee-1400x560.png` (1400x560 pixels)
-- `promo-small-440x280.png` (440x280 pixels)
+- `marquee/promo-marquee-1400x560.png` (1400x560 pixels)
+- `small/promo-small-440x280.png` (440x280 pixels)
 
 ## Optional Files:
 - Feature icons (256x256 each)

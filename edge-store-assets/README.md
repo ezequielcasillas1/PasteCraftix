@@ -11,6 +11,7 @@ edge-store-assets/
 ├── README.md (this file)
 ├── RECRAFT_AI_PROMPTS.md (Recraft AI generation guide)
 ├── icons/
+│   ├── icon-master-1024.png (source/master, optional but recommended)
 │   ├── icon-16.png
 │   ├── icon-32.png
 │   ├── icon-48.png
@@ -23,8 +24,10 @@ edge-store-assets/
 │   ├── screenshot-04-ai-features.png
 │   └── screenshot-05-search.png
 └── promotional/
-    ├── promo-marquee-1400x560.png
-    ├── promo-small-440x280.png
+    ├── marquee/
+    │   └── promo-marquee-1400x560.png
+    ├── small/
+    │   └── promo-small-440x280.png
     └── feature-icons/ (optional)
         ├── feature-clipboard.png
         ├── feature-cloud.png
@@ -70,6 +73,12 @@ edge-store-assets/
 - [ ] icon-128.png (128x128)
 - [ ] icon-300.png (300x300)
 
+### Icons (Recommended Source)
+- [ ] icon-master-1024.png (1024x1024) - keep as your “master” for future resizing/edits
+
+### Feature Icons (Optional)
+- [ ] Place optional feature icons in `promotional/feature-icons/` (not in `icons/`)
+
 ### Screenshots (Minimum 1, Recommended 5)
 - [ ] screenshot-01-main-popup.png
 - [ ] screenshot-02-quick-view.png
@@ -78,8 +87,8 @@ edge-store-assets/
 - [ ] screenshot-05-search.png
 
 ### Promotional (Optional but Recommended)
-- [ ] promo-marquee-1400x560.png
-- [ ] promo-small-440x280.png
+- [ ] promotional/marquee/promo-marquee-1400x560.png
+- [ ] promotional/small/promo-small-440x280.png
 
 ---
 

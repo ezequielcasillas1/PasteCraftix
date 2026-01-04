@@ -304,6 +304,54 @@
             font-style: italic;
             margin: 20px 0;
         }
+
+        .settings-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .settings-status {
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            display: none;
+        }
+
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .settings-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .settings-toggle .toggle-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .settings-toggle .toggle-title {
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .settings-toggle .toggle-subtitle {
+            font-size: 13px;
+            color: #718096;
+        }
         
         footer {
             background: #1a202c;
@@ -446,9 +494,20 @@
                 <div class="action-card">
                     <h3>🔐 Account Settings</h3>
                     <p>Manage your email, password, and preferences.</p>
-                    <div class="placeholder-box">
-                        <p>Settings coming soon...</p>
+                    <div class="settings-row">
+                        <button class="btn-secondary" id="sendPasswordResetBtn" type="button">Send password reset email</button>
+                        <button class="btn-secondary" id="savePreferencesBtn" type="button">Save preferences</button>
                     </div>
+
+                    <div class="settings-toggle">
+                        <input type="checkbox" id="marketingOptIn" />
+                        <div class="toggle-text">
+                            <div class="toggle-title">Email me product updates</div>
+                            <div class="toggle-subtitle">Opt in to receive PasteCraft product announcements.</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-status" id="settingsStatus"></div>
                 </div>
                 
                 <div class="action-card">
@@ -536,6 +595,17 @@
             // Set user info
             document.getElementById('userName').textContent = `Welcome back, ${user.email.split('@')[0]}!`;
             document.getElementById('userEmail').textContent = user.email;
+
+            // Initialize preferences UI from user metadata
+            try {
+                const { data: { user: freshUser } } = await sb.auth.getUser();
+                const u = freshUser || user;
+                const optIn = !!(u.user_metadata && u.user_metadata.marketing_opt_in);
+                const checkbox = document.getElementById('marketingOptIn');
+                if (checkbox) checkbox.checked = optIn;
+            } catch (e) {
+                // ignore
+            }
             
             // Get subscription info
             try {
@@ -566,6 +636,54 @@
                 console.error('Error loading dashboard:', error);
             }
         }
+
+        function showSettingsStatus(message, type) {
+            const el = document.getElementById('settingsStatus');
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent = message;
+            if (type === 'success') el.style.color = '#065f46';
+            else if (type === 'error') el.style.color = '#b91c1c';
+            else el.style.color = '#4a5568';
+        }
+
+        // Account Settings: password reset + preferences
+        document.getElementById('sendPasswordResetBtn')?.addEventListener('click', async () => {
+            try {
+                const { data: { user } } = await sb.auth.getUser();
+                if (!user?.email) {
+                    showSettingsStatus('Please sign in again.', 'error');
+                    return;
+                }
+
+                showSettingsStatus('Sending password reset email…', 'info');
+                const { error } = await sb.auth.resetPasswordForEmail(user.email, {
+                    redirectTo: 'https://auth.pastecraft.com'
+                });
+                if (error) throw error;
+
+                showSettingsStatus('Password reset email sent.', 'success');
+            } catch (e) {
+                showSettingsStatus(e?.message || 'Could not send reset email.', 'error');
+            }
+        });
+
+        document.getElementById('savePreferencesBtn')?.addEventListener('click', async () => {
+            try {
+                const checkbox = document.getElementById('marketingOptIn');
+                const optIn = !!checkbox?.checked;
+
+                showSettingsStatus('Saving preferences…', 'info');
+                const { error } = await sb.auth.updateUser({
+                    data: { marketing_opt_in: optIn }
+                });
+                if (error) throw error;
+
+                showSettingsStatus('Preferences saved.', 'success');
+            } catch (e) {
+                showSettingsStatus(e?.message || 'Could not save preferences.', 'error');
+            }
+        });
 
         // Sign Out
         async function signOut() {

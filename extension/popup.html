@@ -161,6 +161,91 @@
             align-items: center;
             gap: 8px;
         }
+
+        .support-icon-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .support-icon-btn img {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .support-icon-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+        }
+
+        .support-icon-btn:active {
+            transform: translateY(0);
+        }
+
+        .support-form-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: #1e3a8a;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+
+        .support-form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .support-form-field label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .support-form-input,
+        .support-form-textarea {
+            width: 100%;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #111827;
+            background: white;
+            outline: none;
+        }
+
+        .support-form-textarea {
+            min-height: 110px;
+            resize: vertical;
+            line-height: 1.4;
+        }
+
+        .support-form-input:focus,
+        .support-form-textarea:focus {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .support-form-status {
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #111827;
+        }
         
         .btn-close-app {
             width: 32px;
@@ -5283,6 +5368,21 @@
                 </div>
             </div>
             <div id="signOutContainer" class="top-bar-actions">
+                <button class="support-icon-btn" id="supportTeamBtn" title="Team">
+                    <img src="assets/support-icons/team.png" alt="Team" />
+                </button>
+                <button class="support-icon-btn" id="supportHelpBtn" title="Help">
+                    <img src="assets/support-icons/help.png" alt="Help" />
+                </button>
+                <button class="support-icon-btn" id="supportSupportBtn" title="Support">
+                    <img src="assets/support-icons/support.png" alt="Support" />
+                </button>
+                <button class="support-icon-btn" id="supportImproveBtn" title="How can we improve?">
+                    <img src="assets/support-icons/howcanweimprove.png" alt="How can we improve?" />
+                </button>
+                <button class="support-icon-btn" id="supportReportBugsBtn" title="Report a bug">
+                    <img src="assets/support-icons/reportbugs.png" alt="Report a bug" />
+                </button>
                 <button class="btn-close-app" id="closeAppBtn" title="Close PasteCraft">
                     ×
                 </button>
@@ -6269,6 +6369,41 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-actions">
                     <button class="btn-primary" id="backToSettingsFromHelp">← Back to Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Support Forms Modal -->
+        <div class="modal-overlay" id="supportFormModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="supportFormTitle">📨 Contact PasteCraft</h3>
+                    <button class="modal-close" id="closeSupportFormModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="support-form-info" id="supportFormInfo">
+                        Your message will be sent from your PasteCraft account email to our team.
+                    </div>
+
+                    <!-- Dynamic fields per form type -->
+                    <div id="supportFormFields"></div>
+
+                    <div class="support-form-field">
+                        <label for="supportFormSubject">Subject</label>
+                        <input class="support-form-input" id="supportFormSubject" type="text" maxlength="160" placeholder="Short summary" />
+                    </div>
+
+                    <div class="support-form-field">
+                        <label for="supportFormDescription">Description</label>
+                        <textarea class="support-form-textarea" id="supportFormDescription" maxlength="4000" placeholder="Describe the issue/request with any details that help us respond quickly..."></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="cancelSupportForm">Cancel</button>
+                        <button class="btn-primary" id="sendSupportForm">Send</button>
+                    </div>
+
+                    <div class="support-form-status" id="supportFormStatus" style="display: none;"></div>
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@
 $version = "3.0.6"
 $outputName = "pastecraft-v$version.zip"
 $tempFolder = "temp-package"
+$extensionFolder = "extension"
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  PasteCraft Extension Packager" -ForegroundColor Cyan
@@ -11,8 +12,8 @@ Write-Host "  Version: $version" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Files to include in the package
-$filesToInclude = @(
+# Files to include in the package (copied into a clean temp folder so the ZIP root is correct)
+$extensionFilesToInclude = @(
     "manifest.json",
     "background.js",
     "content-script.js",
@@ -27,20 +28,34 @@ $filesToInclude = @(
     "callback-hosted.html",
     "icon.png",
     "logo.svg",
-    "index.html",
-    "get-extension-id.html",
-    "setup-edge.html"
+    "index.html"
+)
+
+# Optional helper pages (kept outside extension/ for repo organization, but included in the ZIP)
+$toolFilesToInclude = @(
+    @{ Source = "tools\\utils\\get-extension-id.html"; Dest = "get-extension-id.html" },
+    @{ Source = "tools\\setup\\setup-edge.html"; Dest = "setup-edge.html" }
 )
 
 # Check if all files exist
 Write-Host "Checking required files..." -ForegroundColor Yellow
 $missingFiles = @()
-foreach ($file in $filesToInclude) {
-    if (-Not (Test-Path $file)) {
-        $missingFiles += $file
-        Write-Host "  ❌ Missing: $file" -ForegroundColor Red
+foreach ($file in $extensionFilesToInclude) {
+    $path = Join-Path $extensionFolder $file
+    if (-Not (Test-Path $path)) {
+        $missingFiles += $path
+        Write-Host "  ❌ Missing: $path" -ForegroundColor Red
     } else {
-        Write-Host "  ✅ Found: $file" -ForegroundColor Green
+        Write-Host "  ✅ Found: $path" -ForegroundColor Green
+    }
+}
+
+foreach ($tool in $toolFilesToInclude) {
+    if (-Not (Test-Path $tool.Source)) {
+        $missingFiles += $tool.Source
+        Write-Host "  ❌ Missing: $($tool.Source)" -ForegroundColor Red
+    } else {
+        Write-Host "  ✅ Found: $($tool.Source)" -ForegroundColor Green
     }
 }
 
@@ -54,6 +69,12 @@ if ($missingFiles.Count -gt 0) {
 Write-Host ""
 Write-Host "All files found! Creating package..." -ForegroundColor Yellow
 
+# Recreate temp folder
+if (Test-Path $tempFolder) {
+    Remove-Item $tempFolder -Recurse -Force
+}
+New-Item -ItemType Directory -Force -Path $tempFolder | Out-Null
+
 # Remove old package if exists
 if (Test-Path $outputName) {
     Remove-Item $outputName -Force
@@ -62,10 +83,21 @@ if (Test-Path $outputName) {
 
 # Create the ZIP package
 try {
-    Compress-Archive -Path $filesToInclude -DestinationPath $outputName -Force
+    foreach ($file in $extensionFilesToInclude) {
+        Copy-Item -Force (Join-Path $extensionFolder $file) (Join-Path $tempFolder $file)
+    }
+
+    foreach ($tool in $toolFilesToInclude) {
+        Copy-Item -Force $tool.Source (Join-Path $tempFolder $tool.Dest)
+    }
+
+    Compress-Archive -Path (Join-Path $tempFolder "*") -DestinationPath $outputName -Force
+
+    # Cleanup temp folder
+    Remove-Item $tempFolder -Recurse -Force
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
-    Write-Host "  ✅ SUCCESS!" -ForegroundColor Green
+    Write-Host "  SUCCESS!" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Package created: $outputName" -ForegroundColor Cyan
@@ -76,7 +108,7 @@ try {
     Write-Host "Package size: $fileSizeMB MB" -ForegroundColor Cyan
     
     Write-Host ""
-    Write-Host "📦 Your extension package is ready!" -ForegroundColor Yellow
+    Write-Host "Your extension package is ready!" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor White
     Write-Host "1. Test the package by loading it in Edge (edge://extensions/)" -ForegroundColor White
@@ -85,11 +117,11 @@ try {
     Write-Host "4. Complete the store listing with assets from edge-store-assets/" -ForegroundColor White
     Write-Host "5. Submit for review!" -ForegroundColor White
     Write-Host ""
-    Write-Host "Good luck! 🚀" -ForegroundColor Green
+    Write-Host "Good luck!" -ForegroundColor Green
     
 } catch {
     Write-Host ""
-    Write-Host "❌ ERROR creating package: $_" -ForegroundColor Red
+    Write-Host ("ERROR creating package: " + $_) -ForegroundColor Red
     exit 1
 }
 
