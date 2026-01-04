@@ -73,4 +73,4 @@
 ### Jan 4, 2026 - Popup Instant Clip Refresh + Repo-Loader Paths
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/content-script.js, manifest.json, extension/manifest.json, extension/background.js
-**Result:** Popup refreshes instantly after saving clips; fixed repo-root loader getURL paths; removed debug instrumentation. (Commit: pending)
+**Result:** Popup refreshes instantly after saving clips; fixed repo-root loader getURL paths; removed debug instrumentation. (Commit: 8c7ae5b)
