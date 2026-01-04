@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "PasteCraft (Repo Loader)",
+  "version": "3.0.6",
+  "description": "Dev loader manifest to allow loading the PasteCraft repo root as an unpacked extension. Actual extension lives in /extension.",
+  "author": "Ezequiel Casillas",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "scripting",
+    "identity",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://api.openai.com/*",
+    "https://api.replicate.com/*",
+    "https://accounts.google.com/*"
+  ],
+  "oauth2": {
+    "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile"
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["extension/content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {},
+  "background": {
+    "service_worker": "extension/background.js"
+  },
+  "icons": {
+    "16": "extension/icon.png",
+    "32": "extension/icon.png",
+    "48": "extension/icon.png",
+    "128": "extension/icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "extension/popup.html",
+        "extension/popup.js",
+        "extension/styles.css",
+        "extension/logo.svg",
+        "extension/icon.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://pastecraft.com/*",
+      "https://*.pastecraft.com/*"
+    ]
+  }
+}
+
+

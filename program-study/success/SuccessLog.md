@@ -69,3 +69,8 @@
 **Status:** ✅ SUCCESS
 **Files:** popup.html, popup.js, netlify/functions/support-ticket.js, website/account.html, website/pricing.html
 **Result:** Added popup support form icons + Netlify/Resend email relay; added account password reset + email prefs; removed debug/instrumentation. (Commit: pending)
+
+### Jan 4, 2026 - Popup Instant Clip Refresh + Repo-Loader Paths
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/content-script.js, manifest.json, extension/manifest.json, extension/background.js
+**Result:** Popup refreshes instantly after saving clips; fixed repo-root loader getURL paths; removed debug instrumentation. (Commit: pending)

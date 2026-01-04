@@ -1,4 +1,25 @@
 // PasteCraft Quick Paste Content Script
+
+// Resource URL helper:
+// - When loaded via repo root `manifest.json` ("Repo Loader"), assets live under `extension/*`.
+// - When loaded via `/extension/manifest.json`, assets live at the extension root.
+const __PASTECRAFT_MANIFEST =
+  typeof chrome !== 'undefined' &&
+  chrome.runtime &&
+  typeof chrome.runtime.getManifest === 'function'
+    ? chrome.runtime.getManifest()
+    : null;
+const __PASTECRAFT_IS_REPO_LOADER =
+  !!__PASTECRAFT_MANIFEST &&
+  (String(__PASTECRAFT_MANIFEST.name || '').includes('Repo Loader') ||
+    String(__PASTECRAFT_MANIFEST.description || '').includes('repo root') ||
+    String(__PASTECRAFT_MANIFEST.description || '').includes('Actual extension lives in /extension'));
+
+function pastecraftGetURL(path) {
+  const normalized = String(path || '').replace(/^\/+/, '');
+  const finalPath = __PASTECRAFT_IS_REPO_LOADER ? `extension/${normalized}` : normalized;
+  return chrome.runtime.getURL(finalPath);
+}
 class QuickPasteInterface {
   constructor() {
     this.isVisible = false;
@@ -2275,7 +2296,7 @@ class PasteCraftFloatingWidget {
       <div class="pastecraft-widget-inner">
         <!-- Component 1: Logo Button -->
         <div class="widget-component logo-button" data-tooltip="Open PasteCraft">
-          <img src="${chrome.runtime.getURL('logo.svg')}" alt="PasteCraft" class="widget-logo">
+          <img src="${pastecraftGetURL('logo.svg')}" alt="PasteCraft" class="widget-logo">
         </div>
         
         <!-- Component 2: Settings Button -->
@@ -2613,7 +2634,7 @@ class PasteCraftFloatingWidget {
     
     // Create iframe
     const iframe = document.createElement('iframe');
-    iframe.src = chrome.runtime.getURL('popup.html');
+    iframe.src = pastecraftGetURL('popup.html');
     iframe.className = 'pastecraft-overlay-iframe';
     iframe.setAttribute('allowtransparency', 'true');
     

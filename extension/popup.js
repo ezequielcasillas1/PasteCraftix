@@ -2620,14 +2620,13 @@ class PasteCraftPopup {
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
   async copyToClipboardFallback(text) {
-    // Try navigator.clipboard first
     try {
       await navigator.clipboard.writeText(text);
       return true;
     } catch (e) {
       console.log('📋 Clipboard API blocked, using fallback method...');
     }
-    
+
     // Fallback: Use execCommand with temporary textarea
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -2637,7 +2636,7 @@ class PasteCraftPopup {
     document.body.appendChild(textarea);
     textarea.focus();
     textarea.select();
-    
+
     try {
       const success = document.execCommand('copy');
       document.body.removeChild(textarea);
@@ -3899,7 +3898,7 @@ class PasteCraftPopup {
       
       // Close modal and refresh UI
       this.hideCategoryModal();
-      this.renderClips();
+      this.renderChips();
       this.showToast('Clip deleted successfully');
     }
   }
@@ -5593,7 +5592,7 @@ class PasteCraftPopup {
       
       // If we're on the clips tab, refresh the clips display too
       if (popup.currentTab === 'clips') {
-        popup.renderClips();
+        popup.renderChips();
       }
       
       console.log('✅ UI refreshed with new clip data');
