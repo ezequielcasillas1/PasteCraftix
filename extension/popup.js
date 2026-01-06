@@ -2127,6 +2127,48 @@ class PasteCraftPopup {
     const descEl = document.getElementById('supportFormDescription');
     const statusEl = document.getElementById('supportFormStatus');
 
+    const SUPPORT_FORM_SCHEMAS = {
+      reportbugs: {
+        blurb: 'Report bugs and UX/UI discrepancies.',
+        fields: [
+          { key: 'where', label: 'Where did it happen? (optional)', type: 'text', maxLen: 160, placeholder: 'Page, feature, or screen' },
+          { key: 'steps', label: 'Steps to reproduce (optional)', type: 'textarea', maxLen: 800, placeholder: '1) …\n2) …\n3) …' },
+          { key: 'expected_vs_actual', label: 'Expected vs actual (optional)', type: 'textarea', maxLen: 800, placeholder: 'Expected …\nActual …' },
+        ],
+      },
+      help: {
+        blurb: 'How do I use the app? Where do I find this feature? Add examples.',
+        fields: [
+          { key: 'feature', label: 'Feature / question (optional)', type: 'text', maxLen: 160, placeholder: 'What are you trying to do?' },
+          { key: 'example', label: 'Example (optional)', type: 'textarea', maxLen: 800, placeholder: 'Example input/output or scenario…' },
+        ],
+      },
+      support: {
+        blurb: 'Login, signup, errors, and account/subscription concerns.',
+        fields: [
+          { key: 'category', label: 'Category (optional)', type: 'select', options: ['Login', 'Signup', 'Error', 'Account', 'Subscription', 'Other'] },
+          { key: 'error_message', label: 'Error message (optional)', type: 'textarea', maxLen: 800, placeholder: 'Paste the exact error message (if any)…' },
+        ],
+      },
+      howcanweimprove: {
+        blurb: 'Feature requests and UX/UI improvements.',
+        fields: [
+          { key: 'request_type', label: 'Request type (optional)', type: 'select', options: ['Feature request', 'UX/UI improvement', 'Other'] },
+          { key: 'why', label: 'Why this matters (optional)', type: 'textarea', maxLen: 800, placeholder: 'What problem does this solve? What would “better” look like?' },
+        ],
+      },
+      team: {
+        blurb: 'Talk to the team, work for us, partnerships, etc.',
+        fields: [
+          { key: 'topic', label: 'Topic (optional)', type: 'select', options: ['Talk to the team', 'Work for us', 'Partnership', 'Press', 'Other'] },
+          { key: 'contact', label: 'Best way to contact you (optional)', type: 'text', maxLen: 160, placeholder: 'Email/phone/link (we’ll reply to your account email by default)' },
+          { key: 'links', label: 'Links (optional)', type: 'textarea', maxLen: 800, placeholder: 'Portfolio, LinkedIn, website, docs…' },
+        ],
+      },
+    };
+
+    const schema = SUPPORT_FORM_SCHEMAS[type] || { blurb: '', fields: [] };
+
     const titles = {
       team: '👥 Team',
       help: '🆘 Help',
@@ -2139,12 +2181,73 @@ class PasteCraftPopup {
 
     const userEmail = this.currentUser?.email || '';
     if (infoEl) {
-      infoEl.textContent = userEmail
+      infoEl.innerHTML = '';
+      const line1 = document.createElement('div');
+      line1.textContent = userEmail
         ? `From: ${userEmail} • We’ll reply to this email.`
         : `We’ll reply to your PasteCraft account email.`;
+      infoEl.appendChild(line1);
+
+      if (schema.blurb) {
+        const line2 = document.createElement('div');
+        line2.textContent = schema.blurb;
+        line2.style.marginTop = '6px';
+        line2.style.color = '#374151';
+        infoEl.appendChild(line2);
+      }
     }
 
-    if (fieldsEl) fieldsEl.innerHTML = '';
+    if (fieldsEl) {
+      fieldsEl.innerHTML = '';
+      for (const field of schema.fields || []) {
+        if (!field || !field.key) continue;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'support-form-field';
+
+        const label = document.createElement('label');
+        const inputId = `supportField_${field.key}`;
+        label.htmlFor = inputId;
+        label.textContent = field.label || field.key;
+
+        let inputEl = null;
+        if (field.type === 'textarea') {
+          const ta = document.createElement('textarea');
+          ta.className = 'support-form-textarea';
+          if (field.maxLen) ta.maxLength = field.maxLen;
+          if (field.placeholder) ta.placeholder = field.placeholder;
+          ta.rows = 3;
+          inputEl = ta;
+        } else if (field.type === 'select') {
+          const sel = document.createElement('select');
+          sel.className = 'support-form-input';
+          const optEmpty = document.createElement('option');
+          optEmpty.value = '';
+          optEmpty.textContent = 'Select…';
+          sel.appendChild(optEmpty);
+          for (const opt of field.options || []) {
+            const o = document.createElement('option');
+            o.value = String(opt);
+            o.textContent = String(opt);
+            sel.appendChild(o);
+          }
+          inputEl = sel;
+        } else {
+          const inp = document.createElement('input');
+          inp.className = 'support-form-input';
+          inp.type = 'text';
+          if (field.maxLen) inp.maxLength = field.maxLen;
+          if (field.placeholder) inp.placeholder = field.placeholder;
+          inputEl = inp;
+        }
+
+        inputEl.id = inputId;
+        inputEl.setAttribute('data-support-field', field.key);
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(inputEl);
+        fieldsEl.appendChild(wrapper);
+      }
+    }
     if (subjectEl) subjectEl.value = '';
     if (descEl) descEl.value = '';
     if (statusEl) {
@@ -2171,6 +2274,23 @@ class PasteCraftPopup {
 
     const subject = (subjectEl?.value || '').trim();
     const description = (descEl?.value || '').trim();
+    const fields = {};
+    try {
+      const fieldEls = document.querySelectorAll('#supportFormFields [data-support-field]');
+      fieldEls.forEach((el) => {
+        const key = el?.getAttribute && el.getAttribute('data-support-field');
+        if (!key) return;
+        const raw = typeof el.value === 'string' ? el.value : '';
+        const val = raw.trim();
+        if (val) fields[key] = val;
+      });
+    } catch (_) {
+      // ignore field collection failures
+    }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:entry',message:'support submit start',data:{type,subjectLen:subject.length,descriptionLen:description.length,fieldKeys:Object.keys(fields),href:String(window.location && window.location.href || '').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     if (!subject || !description) {
       this.showToast('⚠️ Please add subject and description', 'error');
@@ -2192,11 +2312,17 @@ class PasteCraftPopup {
       const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) {
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B',location:'extension/popup.js:submitSupportForm:noToken',message:'missing access token from session',data:{type,hasSession:!!session},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         this.showToast('❌ Please sign in again', 'error');
         return;
       }
 
       const endpoint = 'https://pastecraft.com/.netlify/functions/support-ticket';
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:beforeFetch',message:'calling support-ticket endpoint',data:{type,endpoint},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -2207,21 +2333,32 @@ class PasteCraftPopup {
           type,
           subject,
           description,
-          fields: {},
+          fields,
         }),
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'extension/popup.js:submitSupportForm:respHeaders',message:'support-ticket response headers snapshot',data:{type,status:resp.status,contentType:String(resp.headers.get('content-type')||''),server:String(resp.headers.get('server')||''),nfRequestId:String(resp.headers.get('x-nf-request-id')||''),cacheStatus:String(resp.headers.get('cache-status')||'')},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'extension/popup.js:submitSupportForm:respNotOk',message:'support-ticket response not ok',data:{type,status:resp.status,bodyPreview:String(text||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         console.error('Support ticket failed:', resp.status, text);
         this.showToast('❌ Could not send message', 'error');
         if (statusEl) {
           statusEl.style.display = 'block';
           statusEl.style.color = '#b91c1c';
-          statusEl.textContent = 'Failed to send. Please try again.';
+          statusEl.textContent = resp.status === 429 ? 'Too many requests. Please wait a moment and try again.' : 'Failed to send. Please try again.';
         }
         return;
       }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E',location:'extension/popup.js:submitSupportForm:respOk',message:'support-ticket sent ok',data:{type,status:resp.status},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
 
       this.showToast('✅ Sent', 'success');
       if (statusEl) {
@@ -2232,6 +2369,9 @@ class PasteCraftPopup {
 
       setTimeout(() => this.closeSupportForm(), 600);
     } catch (e) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:exception',message:'support-ticket threw exception',data:{type,errorName:String(e&&e.name||''),errorMessage:String(e&&e.message||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('Support ticket error:', e);
       this.showToast('❌ Could not send message', 'error');
       if (statusEl) {
@@ -2501,6 +2641,8 @@ class PasteCraftPopup {
   }
   
   async removeChip(index) {
+    const clip = this.clips?.[index];
+
     this.clips.splice(index, 1);
     await chrome.storage.local.set({ clips: this.clips });
     this.selectedChips.clear();

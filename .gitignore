@@ -51,3 +51,6 @@ config.toml
 netlify.toml
 PRODUCTION_*.md
 
+
+# Local Netlify folder
+.netlify

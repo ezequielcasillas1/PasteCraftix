@@ -150,6 +150,8 @@ exports.handler = async (event) => {
     return json(400, { ok: false, error: 'User email not found' });
   }
 
+  const userAgent = String(event.headers?.['user-agent'] || event.headers?.['User-Agent'] || '').trim();
+
   const now = Date.now();
   const last = lastSentByUser.get(userId) || 0;
   if (cooldownSeconds > 0 && now - last < cooldownSeconds * 1000) {
@@ -170,6 +172,7 @@ exports.handler = async (event) => {
     `Type: ${type}`,
     `From: ${userEmail}`,
     `UserId: ${userId}`,
+    userAgent ? `UserAgent: ${userAgent}` : null,
     ``,
     `Subject: ${subjectInput}`,
     ``,
@@ -178,7 +181,7 @@ exports.handler = async (event) => {
     ``,
     `Extra:`,
     Object.keys(safeExtras).length ? JSON.stringify(safeExtras, null, 2) : '{}',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const sendRes = await sendViaResend({
     resendApiKey,

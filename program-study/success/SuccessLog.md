@@ -74,3 +74,8 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/content-script.js, manifest.json, extension/manifest.json, extension/background.js
 **Result:** Popup refreshes instantly after saving clips; fixed repo-root loader getURL paths; removed debug instrumentation. (Commit: 8c7ae5b)
+
+### Jan 6, 2026 - Support Form Schemas (5 Email Processes)
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, netlify/functions/support-ticket.js
+**Result:** Added per-form descriptions + fields for team/help/support/reportbugs/howcanweimprove; emails now include structured field details + user-agent context. (Commit: pending)
