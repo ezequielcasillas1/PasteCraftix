@@ -44,3 +44,8 @@
 - Monitor for race conditions or sync conflicts
 - Verify queue processes correctly after extended offline periods
 
+### 2026-01-06 - Support Email Send (Netlify Function 404)
+**Status:** PARTIAL
+**Files:** extension/popup.js, netlify/functions/support-ticket.js
+**Result:** Support form POST returns 404 because Netlify site isn’t deploying functions yet; connect site to GitHub repo or deploy via Netlify CLI. (Commit: 10a2dfc)
+
