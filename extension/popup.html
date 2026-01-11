@@ -5959,6 +5959,18 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
+                        <h4>📚 Albums - Attachments</h4>
+                        <p class="settings-description">When you click an attachment inside an album, choose how it opens:</p>
+                        <select id="albumAttachmentOpenMode" class="settings-select">
+                            <option value="overlay">Open inside the extension (Back button) (default)</option>
+                            <option value="edgePopup">Open in a popup window</option>
+                        </select>
+                        <div class="settings-note">
+                            <span class="note-icon">ℹ️</span>
+                            <span>Overlay keeps you inside the extension with Back. Popup window opens above the extension; close it to return.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
                         <h4>📊 Storage Information</h4>
                         <div class="storage-info">
                             <div class="storage-item">
@@ -6687,6 +6699,81 @@ Multiple clips are separated by:
             <div class="modal-footer">
                 <button class="btn-secondary" id="closeNoteViewerBtn">Close</button>
                 <button class="btn-primary" id="editNoteFromViewer">Edit Note</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Album Attachment Viewer (Overlay Mode) -->
+    <div class="modal-overlay" id="albumAttachmentViewerModal" style="display: none;">
+        <div class="modal-content note-viewer-content">
+            <div class="modal-header">
+                <h3 id="albumAttachmentViewerHeader">
+                    <button class="btn-secondary" id="albumAttachmentBackBtn" title="Back" style="margin-right: 8px; padding: 4px 10px;">Back</button>
+                    <span id="albumAttachmentViewerTitle">Attachment</span>
+                </h3>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="albumAttachmentOpenInPopupBtn" title="Open in popup window">Open</button>
+                    <button class="modal-close" id="closeAlbumAttachmentViewer">✕</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="note-viewer-body">
+                    <div class="note-viewer-section" id="albumAttachmentViewerNoteMeta" style="display: none;">
+                        <h4 class="note-viewer-section-title">Album</h4>
+                        <p id="albumAttachmentViewerAlbumTitle" style="margin: 0; color: #374151; font-weight: 600;"></p>
+                        <p id="albumAttachmentViewerAlbumDesc" style="margin: 6px 0 0 0; color: #6b7280;"></p>
+                    </div>
+                    <div class="note-viewer-section">
+                        <h4 class="note-viewer-section-title">Details</h4>
+                        <div id="albumAttachmentViewerBody" class="note-viewer-text"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Album Source Note Viewer (Overlay Mode) -->
+    <div class="modal-overlay" id="albumSourceNoteModal" style="display: none;">
+        <div class="modal-content note-viewer-content">
+            <div class="modal-header">
+                <h3 id="albumSourceNoteHeader">
+                    <button class="btn-secondary" id="albumSourceNoteBackBtn" title="Back" style="margin-right: 8px; padding: 4px 10px;">Back</button>
+                    <span id="albumSourceNoteTitleText">Note</span>
+                </h3>
+                <div class="modal-actions">
+                    <button class="modal-close" id="closeAlbumSourceNoteModal">✕</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="note-viewer-body">
+                    <div class="note-viewer-section" id="albumSourceNoteDescSection" style="display: none;">
+                        <h4 class="note-viewer-section-title">Description</h4>
+                        <p id="albumSourceNoteDesc"></p>
+                    </div>
+
+                    <div class="note-viewer-section">
+                        <div class="note-viewer-section-header">
+                            <h4 class="note-viewer-section-title">Content</h4>
+                            <button class="btn-copy-viewer" id="albumSourceNoteCopyContent" title="Copy content">📋 Copy</button>
+                        </div>
+                        <div id="albumSourceNoteBody" class="note-viewer-text"></div>
+                    </div>
+
+                    <div class="note-viewer-section" id="albumSourceNoteClipsSection" style="display:none;">
+                        <h4 class="note-viewer-section-title">Clips</h4>
+                        <div id="albumSourceNoteClips" class="note-viewer-attachments"></div>
+                    </div>
+
+                    <div class="note-viewer-section" id="albumSourceNoteUrlsSection" style="display:none;">
+                        <h4 class="note-viewer-section-title">URLs</h4>
+                        <div id="albumSourceNoteUrls" class="note-viewer-attachments"></div>
+                    </div>
+
+                    <div class="note-viewer-section" id="albumSourceNoteImagesSection" style="display:none;">
+                        <h4 class="note-viewer-section-title">Images</h4>
+                        <div id="albumSourceNoteImages" class="note-viewer-attachments"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

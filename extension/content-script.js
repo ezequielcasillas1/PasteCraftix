@@ -54,6 +54,7 @@ class QuickPasteInterface {
     this.createInterface();
     this.setupEventListeners();
     this.setupMessageListener();
+    this.setupStorageSync();
     
     // Removed auto-show on right-click - now controlled by context menu
     
@@ -1144,6 +1145,13 @@ class QuickPasteInterface {
         this.applySettings();
         this.updateInterface();
         console.log('⚙️ Settings updated from popup:', this.settings);
+      } else if (message.action === 'clipsUpdated') {
+        // Another tab updated clips (delete/move/etc) - refresh our interface
+        console.log('🔄 Received clipsUpdated - refreshing clips');
+        await this.loadClips();
+        if (this.isVisible) {
+          this.updateInterface();
+        }
       } else if (message.action === 'clipsCleared') {
         // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
@@ -1161,6 +1169,63 @@ class QuickPasteInterface {
       
       sendResponse(true);
     });
+  }
+
+  setupStorageSync() {
+    // Keep settings/position in sync across all open tabs
+    if (this._storageSyncListener) return;
+
+    this._storageSyncListener = (changes, area) => {
+      if (area !== 'local') return;
+
+      let settingsChanged = false;
+
+      if (changes.quickPasteSettings) {
+        const next = changes.quickPasteSettings.newValue;
+        if (next && typeof next === 'object') {
+          this.settings = { ...this.settings, ...next };
+          settingsChanged = true;
+        }
+      }
+
+      if (changes.quickPastePosition) {
+        const nextPos = changes.quickPastePosition.newValue;
+        if (nextPos && typeof nextPos === 'object') {
+          this.position = { ...this.position, ...nextPos };
+
+          // Apply new position if UI exists
+          if (this.container) {
+            if (this.position.x && this.position.x !== 0) {
+              this.container.style.left = this.position.x + 'px';
+              this.container.style.right = 'auto';
+            } else {
+              this.container.style.left = '';
+              this.container.style.right = '';
+            }
+
+            if (typeof this.position.y === 'number') {
+              this.container.style.top = this.position.y + 'px';
+              this.container.style.bottom = 'auto';
+              this.container.style.transform = 'translateY(0)';
+            } else {
+              this.container.style.top = '';
+              this.container.style.bottom = '';
+              this.container.style.transform = '';
+            }
+          }
+        }
+      }
+
+      if (settingsChanged) {
+        this.applySettings();
+        // Avoid heavy rerenders unless UI is open/visible
+        if (this.isVisible) {
+          this.updateInterface();
+        }
+      }
+    };
+
+    chrome.storage.onChanged.addListener(this._storageSyncListener);
   }
   
   showInterface(x, y) {
@@ -2252,6 +2317,7 @@ class PasteCraftFloatingWidget {
     this.createWidget();
     console.log('✅ Widget created successfully');
     this.loadSavedPosition();
+    this.setupStorageSync();
     
     // Then load settings asynchronously
     this.initAsync();
@@ -2262,6 +2328,72 @@ class PasteCraftFloatingWidget {
     await this.loadAutoCopyState();
     this.setupAutoCopyListener();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
+  }
+
+  setupStorageSync() {
+    // Keep widget settings/state in sync across all open tabs
+    if (this._storageSyncListener) return;
+
+    this._storageSyncListener = (changes, area) => {
+      if (area !== 'local') return;
+
+      if (changes.widgetSettings) {
+        const next = changes.widgetSettings.newValue;
+        if (next && typeof next === 'object') {
+          this.settings = { ...this.settings, ...next };
+        }
+      }
+
+      if (changes.widgetPosition) {
+        const nextPos = changes.widgetPosition.newValue;
+        if (nextPos && typeof nextPos === 'object') {
+          this.position = nextPos;
+          if (this.widget && typeof this.position.top === 'number') {
+            this.widget.style.top = this.position.top + '%';
+          }
+        }
+      }
+
+      let autoCopyUiChanged = false;
+
+      if (changes.autoCopyEnabled) {
+        this.autoCopyEnabled = !!changes.autoCopyEnabled.newValue;
+        autoCopyUiChanged = true;
+      }
+
+      if (changes.autoCopyCount || changes.autoCopyDate) {
+        const today = new Date().toDateString();
+        const nextDate = changes.autoCopyDate ? changes.autoCopyDate.newValue : undefined;
+        const nextCount = changes.autoCopyCount ? changes.autoCopyCount.newValue : undefined;
+
+        // Reset across tabs on day rollover
+        if (nextDate && nextDate !== today) {
+          this.autoCopyCount = 0;
+        } else if (typeof nextCount === 'number') {
+          this.autoCopyCount = nextCount;
+        }
+        autoCopyUiChanged = true;
+      }
+
+      if (autoCopyUiChanged) {
+        this.updateAutoCopyUI();
+      }
+    };
+
+    chrome.storage.onChanged.addListener(this._storageSyncListener);
+  }
+
+  updateAutoCopyUI() {
+    if (!this.widget) return;
+
+    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const label = toggle?.querySelector('.toggle-label');
+    if (toggle && label) {
+      toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
+      label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
+    }
+
+    this.updateAutoCopyCounter();
   }
   
   async loadSettings() {
@@ -3232,16 +3364,8 @@ class PasteCraftFloatingWidget {
       }
       
       this.autoCopyEnabled = result.autoCopyEnabled || false;
-      
-      // Update UI
-      const toggle = this.widget.querySelector('.auto-copy-toggle');
-      const label = toggle?.querySelector('.toggle-label');
-      if (toggle && label) {
-        toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
-        label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
-      }
-      
-      this.updateAutoCopyCounter();
+
+      this.updateAutoCopyUI();
       console.log('📋 Auto-copy state loaded:', this.autoCopyEnabled, 'Count:', this.autoCopyCount);
     } catch (error) {
       console.error('Failed to load auto-copy state:', error);

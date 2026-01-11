@@ -70,9 +70,11 @@ class PasteCraftPopup {
     this.pendingClipForNotes = null;
     this.pendingNoteForAlbum = null;
     this.currentViewerNoteId = null;
+    this.currentAlbumAttachmentContext = null;
     this.notesViewMode = 'notes'; // 'notes' | 'albums'
     this.notesPageIndex = 0; // starts at 0
     this.notesAiEnabled = false;
+    this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
     
     this.init();
   }
@@ -761,6 +763,27 @@ class PasteCraftPopup {
       this.copyAllNoteAttachments();
     });
 
+    // Album Attachment Viewer (Overlay Mode)
+    const albumAttachmentBackBtn = document.getElementById('albumAttachmentBackBtn');
+    if (albumAttachmentBackBtn) {
+      albumAttachmentBackBtn.addEventListener('click', () => this.closeAlbumAttachmentViewer());
+    }
+
+    const closeAlbumAttachmentViewerBtn = document.getElementById('closeAlbumAttachmentViewer');
+    if (closeAlbumAttachmentViewerBtn) {
+      closeAlbumAttachmentViewerBtn.addEventListener('click', () => this.closeAlbumAttachmentViewer());
+    }
+
+    const albumAttachmentOpenInPopupBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
+    if (albumAttachmentOpenInPopupBtn) {
+      albumAttachmentOpenInPopupBtn.addEventListener('click', () => {
+        const ctx = this.currentAlbumAttachmentContext;
+        if (ctx && ctx.noteId != null && typeof ctx.attachmentIndex === 'number') {
+          this.openAlbumAttachmentInEdgePopup(ctx.noteId, ctx.attachmentIndex);
+        }
+      });
+    }
+
     // Modal overlay clicks
     document.getElementById('noteEditorModal').addEventListener('click', (e) => {
       if (e.target.id === 'noteEditorModal') {
@@ -785,6 +808,46 @@ class PasteCraftPopup {
         this.closeNoteViewer();
       }
     });
+
+    const albumAttachmentViewerModal = document.getElementById('albumAttachmentViewerModal');
+    if (albumAttachmentViewerModal) {
+      albumAttachmentViewerModal.addEventListener('click', (e) => {
+        if (e.target.id === 'albumAttachmentViewerModal') {
+          this.closeAlbumAttachmentViewer();
+        }
+      });
+    }
+
+    // Album Source Note Viewer (Overlay Mode)
+    const albumSourceNoteBackBtn = document.getElementById('albumSourceNoteBackBtn');
+    if (albumSourceNoteBackBtn) {
+      albumSourceNoteBackBtn.addEventListener('click', () => this.closeAlbumSourceNoteOverlay());
+    }
+
+    const closeAlbumSourceNoteModalBtn = document.getElementById('closeAlbumSourceNoteModal');
+    if (closeAlbumSourceNoteModalBtn) {
+      closeAlbumSourceNoteModalBtn.addEventListener('click', () => this.closeAlbumSourceNoteOverlay());
+    }
+
+    const albumSourceNoteCopyContentBtn = document.getElementById('albumSourceNoteCopyContent');
+    if (albumSourceNoteCopyContentBtn) {
+      albumSourceNoteCopyContentBtn.addEventListener('click', () => {
+        const content = document.getElementById('albumSourceNoteBody')?.textContent;
+        if (content) {
+          navigator.clipboard.writeText(content);
+          this.showToast('Content copied!');
+        }
+      });
+    }
+
+    const albumSourceNoteModal = document.getElementById('albumSourceNoteModal');
+    if (albumSourceNoteModal) {
+      albumSourceNoteModal.addEventListener('click', (e) => {
+        if (e.target.id === 'albumSourceNoteModal') {
+          this.closeAlbumSourceNoteOverlay();
+        }
+      });
+    }
 
     // Search functionality
     document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -2288,10 +2351,6 @@ class PasteCraftPopup {
       // ignore field collection failures
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:entry',message:'support submit start',data:{type,subjectLen:subject.length,descriptionLen:description.length,fieldKeys:Object.keys(fields),href:String(window.location && window.location.href || '').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     if (!subject || !description) {
       this.showToast('⚠️ Please add subject and description', 'error');
       return;
@@ -2312,19 +2371,14 @@ class PasteCraftPopup {
       const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) {
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B',location:'extension/popup.js:submitSupportForm:noToken',message:'missing access token from session',data:{type,hasSession:!!session},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         this.showToast('❌ Please sign in again', 'error');
         return;
       }
 
-      const endpoint = 'https://pastecraft.com/.netlify/functions/support-ticket';
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:beforeFetch',message:'calling support-ticket endpoint',data:{type,endpoint},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      const endpoint = `https://pastecraft.com/.netlify/functions/support-ticket?v=${Date.now()}`;
       const resp = await fetch(endpoint, {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
@@ -2337,15 +2391,8 @@ class PasteCraftPopup {
         }),
       });
 
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'C',location:'extension/popup.js:submitSupportForm:respHeaders',message:'support-ticket response headers snapshot',data:{type,status:resp.status,contentType:String(resp.headers.get('content-type')||''),server:String(resp.headers.get('server')||''),nfRequestId:String(resp.headers.get('x-nf-request-id')||''),cacheStatus:String(resp.headers.get('cache-status')||'')},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D',location:'extension/popup.js:submitSupportForm:respNotOk',message:'support-ticket response not ok',data:{type,status:resp.status,bodyPreview:String(text||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         console.error('Support ticket failed:', resp.status, text);
         this.showToast('❌ Could not send message', 'error');
         if (statusEl) {
@@ -2356,10 +2403,6 @@ class PasteCraftPopup {
         return;
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'E',location:'extension/popup.js:submitSupportForm:respOk',message:'support-ticket sent ok',data:{type,status:resp.status},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
       this.showToast('✅ Sent', 'success');
       if (statusEl) {
         statusEl.style.display = 'block';
@@ -2369,9 +2412,6 @@ class PasteCraftPopup {
 
       setTimeout(() => this.closeSupportForm(), 600);
     } catch (e) {
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/734bf680-3679-4819-b23a-8a4c58f383ae',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A',location:'extension/popup.js:submitSupportForm:exception',message:'support-ticket threw exception',data:{type,errorName:String(e&&e.name||''),errorMessage:String(e&&e.message||'').slice(0,200)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('Support ticket error:', e);
       this.showToast('❌ Could not send message', 'error');
       if (statusEl) {
@@ -4154,7 +4194,11 @@ class PasteCraftPopup {
 
   // Settings Management Functions
   async loadSettings() {
-    const { autoDeletePeriod = 'never', quickPasteSettings = {} } = await chrome.storage.local.get(['autoDeletePeriod', 'quickPasteSettings']);
+    const {
+      autoDeletePeriod = 'never',
+      quickPasteSettings = {},
+      albumAttachmentOpenMode = 'overlay'
+    } = await chrome.storage.local.get(['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode']);
     this.autoDeletePeriod = autoDeletePeriod;
     this.quickPasteSettings = {
       theme: 'light',
@@ -4163,6 +4207,10 @@ class PasteCraftPopup {
       maxClipsDisplay: 20,
       ...quickPasteSettings
     };
+    this.albumAttachmentOpenMode =
+      albumAttachmentOpenMode === 'overlay' || albumAttachmentOpenMode === 'edgePopup'
+        ? albumAttachmentOpenMode
+        : 'overlay';
   }
 
   async saveSettings() {
@@ -4174,17 +4222,25 @@ class PasteCraftPopup {
     this.quickPasteSettings.autoHide = document.getElementById('quickPasteAutoHidePopup').checked;
     this.quickPasteSettings.showTimestamps = document.getElementById('quickPasteShowTimestampsPopup').checked;
     this.quickPasteSettings.maxClipsDisplay = parseInt(document.getElementById('quickPasteMaxClipsPopup').value);
+
+    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
+    this.albumAttachmentOpenMode =
+      albumAttachmentOpenModeEl && (albumAttachmentOpenModeEl.value === 'overlay' || albumAttachmentOpenModeEl.value === 'edgePopup')
+        ? albumAttachmentOpenModeEl.value
+        : 'edgePopup';
     
     await chrome.storage.local.set({ 
       autoDeletePeriod: newAutoDeletePeriod,
-      quickPasteSettings: this.quickPasteSettings
+      quickPasteSettings: this.quickPasteSettings,
+      albumAttachmentOpenMode: this.albumAttachmentOpenMode
     });
     
     // 🔄 AUTO-SYNC TO SUPABASE
     try {
       const settingsData = {
         autoDeletePeriod: newAutoDeletePeriod,
-        quickPasteSettings: this.quickPasteSettings
+        quickPasteSettings: this.quickPasteSettings,
+        albumAttachmentOpenMode: this.albumAttachmentOpenMode
       };
       
       await pasteCraftSupabase.syncSettingsToSupabase(settingsData);
@@ -4229,6 +4285,9 @@ class PasteCraftPopup {
     document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings.autoHide;
     document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings.showTimestamps;
     document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings.maxClipsDisplay;
+
+    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
+    if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
     
     document.getElementById('settingsModal').style.display = 'flex';
     
@@ -6703,6 +6762,7 @@ class PasteCraftPopup {
   }
 
   async saveNote() {
+    const isUpdate = !!this.currentNoteId;
     const title = document.getElementById('noteTitleInput').value.trim();
     const description = document.getElementById('noteDescriptionInput').value.trim();
     const body = document.getElementById('noteBodyInput').value.trim();
@@ -6733,11 +6793,128 @@ class PasteCraftPopup {
       this.notesPageIndex = 0;
     }
 
+    // If this note is included in any albums, refresh those albums immediately.
+    if (noteData.type !== 'album') {
+      this.refreshAlbumsForNote(noteData);
+    }
+
     await this.saveNotes();
     await this.saveNotesPrefs();
     this.renderNotes();
     this.closeNoteEditor();
-    this.showToast(this.currentNoteId ? 'Note updated!' : 'Note created!');
+    this.showToast(isUpdate ? 'Note updated!' : 'Note created!');
+  }
+
+  refreshAlbumsForNote(sourceNote) {
+    if (!sourceNote || sourceNote.type === 'album') return;
+
+    const sourceNoteId = sourceNote.id;
+    const safeTitle = (sourceNote.title || '').trim();
+    const displayTitle = safeTitle ? safeTitle : 'Untitled Note';
+    const bodyPrefix = `[From: ${displayTitle}]`;
+
+    const sourceAttachmentIds = new Set();
+    (sourceNote.clips || []).forEach(c => {
+      if (c && c.id != null) sourceAttachmentIds.add(c.id);
+    });
+    (sourceNote.urls || []).forEach(u => {
+      if (u && u.id != null) sourceAttachmentIds.add(u.id);
+    });
+    (sourceNote.images || []).forEach(i => {
+      if (i && i.id != null) sourceAttachmentIds.add(i.id);
+    });
+
+    const updatedAlbumIds = new Set();
+
+    const containsSourceNoteId = (arr) =>
+      Array.isArray(arr) && arr.some(x => x && x.sourceNoteId == sourceNoteId);
+    const containsAnySourceAttachmentId = (arr) =>
+      Array.isArray(arr) && arr.some(x => x && sourceAttachmentIds.has(x.id));
+
+    for (const album of (this.notes || [])) {
+      if (!album || album.type !== 'album') continue;
+
+      const isLinked =
+        containsSourceNoteId(album.clips) ||
+        containsSourceNoteId(album.urls) ||
+        containsSourceNoteId(album.images) ||
+        containsAnySourceAttachmentId(album.clips) ||
+        containsAnySourceAttachmentId(album.urls) ||
+        containsAnySourceAttachmentId(album.images);
+
+      if (!isLinked) continue;
+
+      if (!Array.isArray(album.clips)) album.clips = [];
+      if (!Array.isArray(album.urls)) album.urls = [];
+      if (!Array.isArray(album.images)) album.images = [];
+
+      // Remove previous synced items for this note (tagged items) and best-effort cleanup for legacy (id match / body prefix).
+      album.clips = album.clips.filter(c => {
+        if (!c) return false;
+        if (c.sourceNoteId == sourceNoteId) return false;
+        if (sourceAttachmentIds.has(c.id)) return false;
+        if (typeof c.text === 'string' && c.text.startsWith(bodyPrefix)) return false;
+        return true;
+      });
+      album.urls = album.urls.filter(u => {
+        if (!u) return false;
+        if (u.sourceNoteId == sourceNoteId) return false;
+        if (sourceAttachmentIds.has(u.id)) return false;
+        return true;
+      });
+      album.images = album.images.filter(i => {
+        if (!i) return false;
+        if (i.sourceNoteId == sourceNoteId) return false;
+        if (sourceAttachmentIds.has(i.id)) return false;
+        return true;
+      });
+
+      // Re-copy current note content into album with tagging.
+      const now = Date.now();
+      if (sourceNote.body && sourceNote.body.trim()) {
+        album.clips.push({
+          type: 'clip',
+          id: now + Math.random(),
+          text: `${bodyPrefix}\n\n${sourceNote.body}`,
+          addedDate: now,
+          sourceNoteId
+        });
+      }
+
+      if (sourceNote.clips?.length > 0) {
+        album.clips.push(...sourceNote.clips.map(c => ({
+          ...c,
+          addedDate: now,
+          sourceNoteId
+        })));
+      }
+
+      if (sourceNote.urls?.length > 0) {
+        album.urls.push(...sourceNote.urls.map(u => ({
+          ...u,
+          addedDate: now,
+          sourceNoteId
+        })));
+      }
+
+      if (sourceNote.images?.length > 0) {
+        album.images.push(...sourceNote.images.map(i => ({
+          ...i,
+          addedDate: now,
+          sourceNoteId
+        })));
+      }
+
+      album.updatedAt = now;
+      if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
+      if (!album.sourceNoteIds.includes(sourceNoteId)) album.sourceNoteIds.push(sourceNoteId);
+
+      updatedAlbumIds.add(album.id);
+    }
+
+    if (this.currentViewerNoteId && updatedAlbumIds.has(this.currentViewerNoteId)) {
+      this.openNoteViewer(this.currentViewerNoteId);
+    }
   }
 
   async deleteNote(noteId) {
@@ -7208,6 +7385,7 @@ class PasteCraftPopup {
     if (!note) return;
 
     this.currentViewerNoteId = noteId;
+    const isAlbum = note.type === 'album';
     const modal = document.getElementById('noteViewerModal');
     const icon = document.getElementById('noteViewerIcon');
     const titleText = document.getElementById('noteViewerTitleText');
@@ -7216,6 +7394,7 @@ class PasteCraftPopup {
     const contentText = document.getElementById('noteViewerContent');
     const attachSection = document.getElementById('noteViewerAttachmentsSection');
     const attachList = document.getElementById('noteViewerAttachments');
+    const copyAllBtn = document.getElementById('copyAllAttachments');
 
     // Set icon and title
     icon.textContent = note.type === 'album' ? '📚' : '📝';
@@ -7243,10 +7422,47 @@ class PasteCraftPopup {
 
     if (allAttachments.length > 0) {
       attachSection.style.display = 'block';
+      if (copyAllBtn) copyAllBtn.style.display = isAlbum ? 'none' : '';
       attachList.innerHTML = allAttachments.map((att, idx) => {
         const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
         const text = att.type === 'url' ? att.url : (att.text || '').substring(0, 80);
         const displayText = text.length > 80 ? text + '...' : text;
+
+        if (isAlbum) {
+          const sourceNoteId = att.sourceNoteId;
+          let sourceNote = sourceNoteId ? this.notes.find(n => n && n.id == sourceNoteId) : null;
+          // Legacy fallback: try to infer source note by matching attachment id.
+          if (!sourceNote && att && att.id != null) {
+            sourceNote = (this.notes || []).find(n => {
+              if (!n || n.type === 'album') return false;
+              const hasClip = Array.isArray(n.clips) && n.clips.some(c => c && c.id == att.id);
+              const hasUrl = Array.isArray(n.urls) && n.urls.some(u => u && u.id == att.id);
+              const hasImage = Array.isArray(n.images) && n.images.some(i => i && i.id == att.id);
+              return hasClip || hasUrl || hasImage;
+            }) || null;
+          }
+          const fromTitle = sourceNote ? ((sourceNote.title || '').trim() || 'Untitled Note') : 'Album';
+          const metaLine = `
+            <div style="margin-top:6px; font-size:11px; color:#6b7280; line-height:1.25;">
+              <div><strong style="color:#4b5563;">From:</strong> ${this.escapeHtml(fromTitle)}</div>
+            </div>
+          `;
+          return `
+            <div class="viewer-attachment-item viewer-attachment-openable" data-index="${idx}" role="button" tabindex="0">
+              <div class="viewer-attachment-info">
+                <span class="viewer-attachment-icon">${icon}</span>
+                <div style="min-width:0;">
+                  <div class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>
+                  ${metaLine}
+                </div>
+              </div>
+              <div class="viewer-attachment-actions">
+                <button class="btn-copy-album-attachment" data-index="${idx}" type="button">Copy</button>
+                <button class="btn-open-album-attachment" data-index="${idx}" type="button" title="Open attachment" style="border:none; background:transparent; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:0 2px;">›</button>
+              </div>
+            </div>
+          `;
+        }
 
         return `
           <div class="viewer-attachment-item">
@@ -7261,22 +7477,93 @@ class PasteCraftPopup {
         `;
       }).join('');
 
-      // Add copy handlers
-      attachList.querySelectorAll('.btn-copy-attachment').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.dataset.index, 10);
+      if (isAlbum) {
+        const openSourceNote = (idx) => {
           const att = allAttachments[idx];
-          if (att) {
-            const copyText = att.type === 'url' ? att.url : att.text;
+          if (!att) return;
+          let sourceNoteId = att.sourceNoteId;
+          // Legacy fallback: infer source note by attachment id
+          if (sourceNoteId == null && att.id != null) {
+            const inferred = (this.notes || []).find(n => {
+              if (!n || n.type === 'album') return false;
+              const hasClip = Array.isArray(n.clips) && n.clips.some(c => c && c.id == att.id);
+              const hasUrl = Array.isArray(n.urls) && n.urls.some(u => u && u.id == att.id);
+              const hasImage = Array.isArray(n.images) && n.images.some(i => i && i.id == att.id);
+              return hasClip || hasUrl || hasImage;
+            });
+            if (inferred) sourceNoteId = inferred.id;
+          }
+
+          if (sourceNoteId == null) {
+            this.showToast('No source note for this item');
+            return;
+          }
+          this.openAlbumSourceNoteOverlay(sourceNoteId, noteId);
+        };
+
+        // Copy handlers (albums)
+        attachList.querySelectorAll('.btn-copy-album-attachment').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.index, 10);
+            const att = allAttachments[idx];
+            if (!att) return;
+
+            const copyText =
+              att.type === 'url'
+                ? att.url
+                : att.type === 'image'
+                  ? (att.url || att.src || att.dataUrl)
+                  : att.text;
+
             if (copyText) {
               navigator.clipboard.writeText(copyText);
               this.showToast('Attachment copied!');
             }
-          }
+          });
         });
-      });
+
+        // Explicit open attachment (secondary action)
+        attachList.querySelectorAll('.btn-open-album-attachment').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.index, 10);
+            if (!Number.isNaN(idx)) this.openAlbumAttachment(noteId, idx);
+          });
+        });
+
+        attachList.querySelectorAll('.viewer-attachment-openable').forEach(item => {
+          item.addEventListener('click', () => {
+            const idx = parseInt(item.dataset.index, 10);
+            if (!Number.isNaN(idx)) openSourceNote(idx);
+          });
+          item.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const idx = parseInt(item.dataset.index, 10);
+              if (!Number.isNaN(idx)) openSourceNote(idx);
+            }
+          });
+        });
+      } else {
+        // Add copy handlers (notes only)
+        attachList.querySelectorAll('.btn-copy-attachment').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.index, 10);
+            const att = allAttachments[idx];
+            if (att) {
+              const copyText = att.type === 'url' ? att.url : att.text;
+              if (copyText) {
+                navigator.clipboard.writeText(copyText);
+                this.showToast('Attachment copied!');
+              }
+            }
+          });
+        });
+      }
     } else {
       attachSection.style.display = 'none';
+      if (copyAllBtn) copyAllBtn.style.display = '';
     }
 
     modal.style.display = 'flex';
@@ -7285,6 +7572,276 @@ class PasteCraftPopup {
   closeNoteViewer() {
     document.getElementById('noteViewerModal').style.display = 'none';
     this.currentViewerNoteId = null;
+  }
+
+  openAlbumSourceNoteOverlay(sourceNoteId, albumId) {
+    const sourceNote = this.notes.find(n => n && n.id == sourceNoteId && n.type !== 'album');
+    if (!sourceNote) {
+      this.showToast('Source note not found');
+      return;
+    }
+
+    const modal = document.getElementById('albumSourceNoteModal');
+    const titleText = document.getElementById('albumSourceNoteTitleText');
+    const descSection = document.getElementById('albumSourceNoteDescSection');
+    const descText = document.getElementById('albumSourceNoteDesc');
+    const body = document.getElementById('albumSourceNoteBody');
+    const clipsSection = document.getElementById('albumSourceNoteClipsSection');
+    const clipsList = document.getElementById('albumSourceNoteClips');
+    const urlsSection = document.getElementById('albumSourceNoteUrlsSection');
+    const urlsList = document.getElementById('albumSourceNoteUrls');
+    const imagesSection = document.getElementById('albumSourceNoteImagesSection');
+    const imagesList = document.getElementById('albumSourceNoteImages');
+
+    if (!modal || !titleText || !descSection || !descText || !body || !clipsSection || !clipsList || !urlsSection || !urlsList || !imagesSection || !imagesList) {
+      return;
+    }
+
+    this.currentAlbumSourceNoteContext = { sourceNoteId, albumId };
+
+    const safeTitle = (sourceNote.title || '').trim();
+    titleText.textContent = safeTitle || 'Untitled Note';
+
+    const safeDesc = (sourceNote.description || '').trim();
+    if (safeDesc) {
+      descSection.style.display = 'block';
+      descText.textContent = safeDesc;
+    } else {
+      descSection.style.display = 'none';
+    }
+
+    body.textContent = (sourceNote.body || '').trim() || 'No content';
+
+    // Render sections
+    const clips = Array.isArray(sourceNote.clips) ? sourceNote.clips : [];
+    const urls = Array.isArray(sourceNote.urls) ? sourceNote.urls : [];
+    const images = Array.isArray(sourceNote.images) ? sourceNote.images : [];
+
+    clipsSection.style.display = clips.length > 0 ? 'block' : 'none';
+    urlsSection.style.display = urls.length > 0 ? 'block' : 'none';
+    imagesSection.style.display = images.length > 0 ? 'block' : 'none';
+
+    clipsList.innerHTML = clips.map((c, idx) => {
+      const text = (c && c.text) ? String(c.text) : '';
+      const display = text.length > 120 ? text.substring(0, 120) + '...' : text;
+      return `
+        <div class="viewer-attachment-item" data-type="clip" data-index="${idx}">
+          <div class="viewer-attachment-info">
+            <span class="viewer-attachment-icon">📋</span>
+            <span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</span>
+          </div>
+          <div class="viewer-attachment-actions">
+            <button class="btn-copy-source-note-attachment" data-type="clip" data-index="${idx}" type="button">Copy</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    urlsList.innerHTML = urls.map((u, idx) => {
+      const url = (u && u.url) ? String(u.url) : '';
+      const display = url.length > 120 ? url.substring(0, 120) + '...' : url;
+      return `
+        <div class="viewer-attachment-item" data-type="url" data-index="${idx}">
+          <div class="viewer-attachment-info">
+            <span class="viewer-attachment-icon">🔗</span>
+            <span class="viewer-attachment-text" title="${this.escapeHtml(url)}">${this.escapeHtml(display)}</span>
+          </div>
+          <div class="viewer-attachment-actions">
+            <button class="btn-copy-source-note-attachment" data-type="url" data-index="${idx}" type="button">Copy</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    imagesList.innerHTML = images.map((i, idx) => {
+      const src = (i && (i.url || i.src || i.dataUrl)) ? String(i.url || i.src || i.dataUrl) : '';
+      const display = src.length > 120 ? src.substring(0, 120) + '...' : src;
+      return `
+        <div class="viewer-attachment-item" data-type="image" data-index="${idx}">
+          <div class="viewer-attachment-info">
+            <span class="viewer-attachment-icon">🖼️</span>
+            <span class="viewer-attachment-text" title="${this.escapeHtml(src)}">${this.escapeHtml(display)}</span>
+          </div>
+          <div class="viewer-attachment-actions">
+            <button class="btn-copy-source-note-attachment" data-type="image" data-index="${idx}" type="button">Copy</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Per-attachment copy handlers
+    modal.querySelectorAll('.btn-copy-source-note-attachment').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.type;
+        const idx = parseInt(btn.dataset.index, 10);
+        if (Number.isNaN(idx)) return;
+
+        let copyText = '';
+        if (type === 'clip') {
+          const c = clips[idx];
+          copyText = c && c.text ? String(c.text) : '';
+        } else if (type === 'url') {
+          const u = urls[idx];
+          copyText = u && u.url ? String(u.url) : '';
+        } else if (type === 'image') {
+          const i = images[idx];
+          copyText = i ? String(i.url || i.src || i.dataUrl || '') : '';
+        }
+
+        if (copyText) {
+          navigator.clipboard.writeText(copyText);
+          this.showToast('Attachment copied!');
+        }
+      });
+    });
+
+    modal.style.display = 'flex';
+  }
+
+  closeAlbumSourceNoteOverlay() {
+    const modal = document.getElementById('albumSourceNoteModal');
+    if (modal) modal.style.display = 'none';
+    this.currentAlbumSourceNoteContext = null;
+  }
+
+  getAlbumAttachmentOpenMode() {
+    return this.albumAttachmentOpenMode === 'overlay' || this.albumAttachmentOpenMode === 'edgePopup'
+      ? this.albumAttachmentOpenMode
+      : 'edgePopup';
+  }
+
+  openAlbumAttachment(noteId, attachmentIndex) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note || note.type !== 'album') return;
+
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
+    const att = allAttachments[attachmentIndex];
+    if (!att) return;
+
+    this.currentAlbumAttachmentContext = { noteId, attachmentIndex };
+
+    const mode = this.getAlbumAttachmentOpenMode();
+    if (mode === 'overlay') {
+      this.openAlbumAttachmentOverlay(note, att);
+      return;
+    }
+
+    this.openAlbumAttachmentInEdgePopup(noteId, attachmentIndex);
+  }
+
+  openAlbumAttachmentInEdgePopup(noteId, attachmentIndex) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note || note.type !== 'album') return;
+
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
+    const att = allAttachments[attachmentIndex];
+    if (!att) return;
+
+    const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+    const mfName = mf && mf.name ? String(mf.name) : '';
+    const mfDesc = mf && mf.description ? String(mf.description) : '';
+    const isRepoLoader =
+      mfName.includes('Repo Loader') ||
+      mfDesc.includes('repo root') ||
+      mfDesc.includes('Actual extension lives in /extension');
+
+    if (att.type === 'url' && att.url) {
+      try {
+        chrome.windows.create({
+          url: att.url,
+          type: 'popup',
+          width: 980,
+          height: 720,
+          focused: true
+        });
+      } catch (e) {
+        console.error('Failed to open URL in popup:', e);
+        this.showToast('Could not open link');
+      }
+      return;
+    }
+
+    const viewerPath = isRepoLoader ? 'extension/attachment-viewer.html' : 'attachment-viewer.html';
+    const viewerUrl =
+      chrome.runtime.getURL(viewerPath) +
+      `?noteId=${encodeURIComponent(String(noteId))}&index=${encodeURIComponent(String(attachmentIndex))}`;
+
+    try {
+      chrome.windows.create({
+        url: viewerUrl,
+        type: 'popup',
+        width: 980,
+        height: 720,
+        focused: true
+      });
+    } catch (e) {
+      console.error('Failed to open attachment viewer popup:', e);
+      this.showToast('Could not open attachment');
+    }
+  }
+
+  openAlbumAttachmentOverlay(note, att) {
+    const modal = document.getElementById('albumAttachmentViewerModal');
+    const titleEl = document.getElementById('albumAttachmentViewerTitle');
+    const metaSection = document.getElementById('albumAttachmentViewerNoteMeta');
+    const albumTitle = document.getElementById('albumAttachmentViewerAlbumTitle');
+    const albumDesc = document.getElementById('albumAttachmentViewerAlbumDesc');
+    const body = document.getElementById('albumAttachmentViewerBody');
+    const openBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
+
+    if (!modal || !titleEl || !metaSection || !albumTitle || !albumDesc || !body) return;
+
+    // Album meta
+    const safeTitle = (note.title || '').trim() || 'Untitled Album';
+    const safeDesc = (note.description || '').trim();
+    metaSection.style.display = 'block';
+    albumTitle.textContent = safeTitle;
+    albumDesc.textContent = safeDesc || '';
+
+    // Attachment content
+    const typeLabel = att.type === 'clip' ? 'Clip' : att.type === 'image' ? 'Image' : 'Link';
+    titleEl.textContent = typeLabel;
+
+    // Always allow open-in-popup as an escape hatch
+    if (openBtn) openBtn.style.display = 'inline-flex';
+
+    if (att.type === 'clip') {
+      body.textContent = att.text || '';
+    } else if (att.type === 'image') {
+      const src = att.dataUrl || att.url || att.src || '';
+      if (src) {
+        body.innerHTML = `<img src="${this.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`;
+      } else {
+        body.textContent = 'Image attachment is missing a source.';
+      }
+    } else {
+      const url = att.url || '';
+      const safeUrl = this.escapeHtml(url);
+      body.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="font-weight:600; color:#111827;">Link</div>
+          <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+          <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
+        </div>
+      `;
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  closeAlbumAttachmentViewer() {
+    const modal = document.getElementById('albumAttachmentViewerModal');
+    if (modal) modal.style.display = 'none';
+    this.currentAlbumAttachmentContext = null;
   }
 
   copyAllNoteAttachments() {
@@ -7418,6 +7975,7 @@ class PasteCraftPopup {
     });
 
     note.updatedAt = Date.now();
+    this.refreshAlbumsForNote(note);
     await this.saveNotes();
     this.closeAlbumPicker();
     this.pendingClipForNotes = null; // Clear pending clip
@@ -7434,14 +7992,17 @@ class PasteCraftPopup {
     if (!album.clips) album.clips = [];
     if (!album.urls) album.urls = [];
     if (!album.images) album.images = [];
+    if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
+    if (!album.sourceNoteIds.includes(sourceNote.id)) album.sourceNoteIds.push(sourceNote.id);
 
     // Add a special "note content" clip if the note has body content
     if (sourceNote.body && sourceNote.body.trim()) {
       album.clips.push({
         type: 'clip',
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         text: `[From: ${sourceNote.title || 'Untitled Note'}]\n\n${sourceNote.body}`,
-        addedDate: Date.now()
+        addedDate: Date.now(),
+        sourceNoteId: sourceNote.id
       });
     }
 
@@ -7449,21 +8010,24 @@ class PasteCraftPopup {
     if (sourceNote.clips?.length > 0) {
       album.clips.push(...sourceNote.clips.map(c => ({
         ...c,
-        addedDate: Date.now()
+        addedDate: Date.now(),
+        sourceNoteId: sourceNote.id
       })));
     }
 
     if (sourceNote.urls?.length > 0) {
       album.urls.push(...sourceNote.urls.map(u => ({
         ...u,
-        addedDate: Date.now()
+        addedDate: Date.now(),
+        sourceNoteId: sourceNote.id
       })));
     }
 
     if (sourceNote.images?.length > 0) {
       album.images.push(...sourceNote.images.map(i => ({
         ...i,
-        addedDate: Date.now()
+        addedDate: Date.now(),
+        sourceNoteId: sourceNote.id
       })));
     }
 

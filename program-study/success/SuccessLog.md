@@ -79,3 +79,28 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, netlify/functions/support-ticket.js
 **Result:** Added per-form descriptions + fields for team/help/support/reportbugs/howcanweimprove; emails now include structured field details + user-agent context. (Commit: 10a2dfc)
+
+### Jan 7, 2026 - Cross-tab Settings Sync (Auto Copy + Quick Paste)
+**Status:** ✅ SUCCESS
+**Files:** extension/content-script.js
+**Result:** Auto-copy + settings now sync across all tabs via storage listeners; added clipsUpdated refresh. (Commit: pending)
+
+### Jan 7, 2026 - Albums Attachments Open Behavior
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/attachment-viewer.html, extension/attachment-viewer.js
+**Result:** Album attachments open instead of copy (popup default) with setting for overlay/back mode. (Commit: pending)
+
+### Jan 11, 2026 - Albums Reflect Updated Notes
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Albums re-sync after note updates (save note + add clip to note) so new clips/URLs reflect immediately. (Commit: pending)
+
+### Jan 11, 2026 - Album Viewer Note Context + Quick Copy
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Album viewer shows source note title/description/body per attachment and adds per-item copy without breaking open behavior. (Commit: pending)
+
+### Jan 11, 2026 - Album Click Opens Full Source Note Overlay
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Album item click opens full source note (title/desc/body + clips/urls/images) with per-item copy; Back returns to album. (Commit: pending)
