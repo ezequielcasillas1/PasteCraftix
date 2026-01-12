@@ -18,6 +18,11 @@
 **Files:** extension/popup.html, extension/popup.js, extension/attachment-viewer.html, extension/attachment-viewer.js
 **Result:** Album attachments no longer copy; click opens via Settings (Edge popup default or in-extension overlay with Back).
 
+### Jan 7, 2026 - Album Editor Cleanup (No Attachments)
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Removed attachments UI from album editor; albums no longer save clips/urls/images (notes-only container).
+
 ### Jan 11, 2026 - Albums Reflect Updated Notes
 **Status:** SUCCESS
 **Files:** extension/popup.js
@@ -32,5 +37,11 @@
 **Status:** SUCCESS
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Album item click now opens full source note view with clips/urls/images sections and per-item copy; Back returns to album.
+
+### Jan 12, 2026 - Pricing Page 3-Card Plans + Toggles
+**Status:** SUCCESS
+**Files:** website/pricing.html, website/upgrade.html
+**Result:** Pricing UI now uses Free/Basic/Enhanced with weekly/monthly/yearly toggles (Basic/Enhanced) and updated clip + AI gating.
+
 
 

@@ -90,6 +90,11 @@
 **Files:** extension/popup.html, extension/popup.js, extension/attachment-viewer.html, extension/attachment-viewer.js
 **Result:** Album attachments open instead of copy (popup default) with setting for overlay/back mode. (Commit: pending)
 
+### Jan 12, 2026 - Pricing 3-Card Plans + Toggles
+**Status:** ✅ SUCCESS
+**Files:** website/pricing.html, website/upgrade.html
+**Result:** Replaced interval cards with Free/Basic/Enhanced + billing toggles and updated pricing/gating. (Commit: pending)
+
 ### Jan 11, 2026 - Albums Reflect Updated Notes
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js
@@ -104,3 +109,4 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Album item click opens full source note (title/desc/body + clips/urls/images) with per-item copy; Back returns to album. (Commit: pending)
+

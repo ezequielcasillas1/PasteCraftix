@@ -71,6 +71,7 @@ class PasteCraftPopup {
     this.pendingNoteForAlbum = null;
     this.currentViewerNoteId = null;
     this.currentAlbumAttachmentContext = null;
+    this.noteViewerParentAlbumId = null;
     this.notesViewMode = 'notes'; // 'notes' | 'albums'
     this.notesPageIndex = 0; // starts at 0
     this.notesAiEnabled = false;
@@ -615,6 +616,10 @@ class PasteCraftPopup {
     });
 
     document.getElementById('addClipToNote').addEventListener('click', () => {
+      if (this.currentNoteType === 'album') {
+        this.showToast('Albums do not use attachments');
+        return;
+      }
       this.showClipPickerForNote();
     });
 
@@ -640,10 +645,18 @@ class PasteCraftPopup {
     });
 
     document.getElementById('addImageToNote').addEventListener('click', () => {
+      if (this.currentNoteType === 'album') {
+        this.showToast('Albums do not use attachments');
+        return;
+      }
       this.showImagePickerForNote();
     });
 
     document.getElementById('addURLToNote').addEventListener('click', () => {
+      if (this.currentNoteType === 'album') {
+        this.showToast('Albums do not use attachments');
+        return;
+      }
       this.addURLToNote();
     });
 
@@ -741,6 +754,17 @@ class PasteCraftPopup {
     document.getElementById('closeNoteViewerBtn').addEventListener('click', () => {
       this.closeNoteViewer();
     });
+
+    const noteViewerBackBtn = document.getElementById('noteViewerBackBtn');
+    if (noteViewerBackBtn) {
+      noteViewerBackBtn.addEventListener('click', () => {
+        if (this.noteViewerParentAlbumId) {
+          const albumId = this.noteViewerParentAlbumId;
+          this.noteViewerParentAlbumId = null;
+          this.openNoteViewer(albumId);
+        }
+      });
+    }
 
     document.getElementById('editNoteFromViewer').addEventListener('click', () => {
       const noteId = this.currentViewerNoteId;
@@ -6466,10 +6490,11 @@ class PasteCraftPopup {
     const pageItems = filtered.slice(start, start + pageSize);
 
     container.innerHTML = pageItems.map(note => {
-      const clipCount = note.clips?.length || 0;
-      const imageCount = note.images?.length || 0;
-      const urlCount = note.urls?.length || 0;
-      const totalItems = clipCount + imageCount + urlCount;
+      const noteRefCount = note.type === 'album' ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0) : 0;
+      const clipCount = note.type === 'album' ? 0 : (note.clips?.length || 0);
+      const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
+      const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
+      const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
       const icon = note.type === 'album' ? '📚' : '📝';
       const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
       const date = new Date(note.createdAt).toLocaleDateString();
@@ -6494,6 +6519,7 @@ class PasteCraftPopup {
           <p class="note-card-description">${this.escapeHtml(safeDesc)}</p>
           <div class="note-card-meta">
             <div class="note-card-count">
+              ${note.type === 'album' && noteRefCount > 0 ? `<span>📝 ${noteRefCount}</span>` : ''}
               ${clipCount > 0 ? `<span>📋 ${clipCount}</span>` : ''}
               ${imageCount > 0 ? `<span>🖼️ ${imageCount}</span>` : ''}
               ${urlCount > 0 ? `<span>🔗 ${urlCount}</span>` : ''}
@@ -6676,8 +6702,10 @@ class PasteCraftPopup {
     const descInput = document.getElementById('noteDescriptionInput');
     const bodyInput = document.getElementById('noteBodyInput');
     const attachmentsList = document.getElementById('noteAttachmentsList');
+    const attachmentsSection = document.getElementById('noteEditorAttachmentsSection');
     const editorType = document.getElementById('noteEditorType');
     const aiToggle = document.getElementById('notesAiToggle');
+    const saveBtn = document.getElementById('saveNote');
 
     // Show/hide back button
     if (showBack) {
@@ -6694,11 +6722,13 @@ class PasteCraftPopup {
         titleInput.value = note.title;
         descInput.value = note.description;
         bodyInput.value = note.body;
-        this.currentNoteAttachments = [
-          ...(note.clips || []),
-          ...(note.images || []),
-          ...(note.urls || [])
-        ];
+        this.currentNoteAttachments = note.type === 'album'
+          ? []
+          : [
+              ...(note.clips || []),
+              ...(note.images || []),
+              ...(note.urls || [])
+            ];
         editorType.textContent = note.type === 'album' ? 'Edit Album' : 'Edit Note';
       }
     } else {
@@ -6713,7 +6743,15 @@ class PasteCraftPopup {
     // Set AI toggle state
     if (aiToggle) aiToggle.checked = this.notesAiEnabled;
 
-    this.renderNoteAttachments();
+    // Albums do not take attachments
+    if (attachmentsSection) attachmentsSection.style.display = this.currentNoteType === 'album' ? 'none' : 'block';
+    if (saveBtn) saveBtn.textContent = this.currentNoteType === 'album' ? 'Save Album' : 'Save Note';
+
+    if (this.currentNoteType !== 'album') {
+      this.renderNoteAttachments();
+    } else if (attachmentsList) {
+      attachmentsList.innerHTML = '';
+    }
     this.updateNoteAiControls();
     modal.style.display = 'flex';
   }
@@ -6767,15 +6805,20 @@ class PasteCraftPopup {
     const description = document.getElementById('noteDescriptionInput').value.trim();
     const body = document.getElementById('noteBodyInput').value.trim();
 
+    const existing = this.currentNoteId ? this.notes.find(n => n.id == this.currentNoteId) : null;
     const noteData = {
       id: this.currentNoteId || Date.now(),
       type: this.currentNoteType,
       title,
       description,
       body,
-      clips: this.currentNoteAttachments.filter(a => a.type === 'clip'),
-      images: this.currentNoteAttachments.filter(a => a.type === 'image'),
-      urls: this.currentNoteAttachments.filter(a => a.type === 'url'),
+      ...(this.currentNoteType === 'album'
+        ? { noteRefs: Array.isArray(existing?.noteRefs) ? existing.noteRefs : [] }
+        : {
+            clips: this.currentNoteAttachments.filter(a => a.type === 'clip'),
+            images: this.currentNoteAttachments.filter(a => a.type === 'image'),
+            urls: this.currentNoteAttachments.filter(a => a.type === 'url')
+          }),
       createdAt: this.currentNoteId ? (this.notes.find(n => n.id == this.currentNoteId)?.createdAt || Date.now()) : Date.now(),
       updatedAt: Date.now()
     };
@@ -7389,17 +7432,21 @@ class PasteCraftPopup {
     const modal = document.getElementById('noteViewerModal');
     const icon = document.getElementById('noteViewerIcon');
     const titleText = document.getElementById('noteViewerTitleText');
+    const backBtn = document.getElementById('noteViewerBackBtn');
     const descSection = document.getElementById('noteViewerDescSection');
     const descText = document.getElementById('noteViewerDesc');
     const contentText = document.getElementById('noteViewerContent');
     const attachSection = document.getElementById('noteViewerAttachmentsSection');
     const attachList = document.getElementById('noteViewerAttachments');
     const copyAllBtn = document.getElementById('copyAllAttachments');
+    const attachmentsTitle = document.getElementById('noteViewerAttachmentsTitle');
 
     // Set icon and title
     icon.textContent = note.type === 'album' ? '📚' : '📝';
     const safeTitle = (note.title || '').trim();
     titleText.textContent = safeTitle || (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
+    if (backBtn) backBtn.style.display = this.noteViewerParentAlbumId && !isAlbum ? 'inline-flex' : 'none';
+    if (isAlbum) this.noteViewerParentAlbumId = null;
 
     // Description
     const safeDesc = (note.description || '').trim();
@@ -7413,12 +7460,10 @@ class PasteCraftPopup {
     // Content
     contentText.textContent = note.body || 'No content';
 
-    // Attachments
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
+    // Album shows Notes list (references). Notes show Attachments list.
+    if (isAlbum) {
+      if (attachmentsTitle) attachmentsTitle.textContent = 'Notes';
+      if (copyAllBtn) copyAllBtn.style.display = 'none';
 
     if (allAttachments.length > 0) {
       attachSection.style.display = 'block';
@@ -7471,11 +7516,11 @@ class PasteCraftPopup {
               <span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</span>
             </div>
             <div class="viewer-attachment-actions">
-              <button class="btn-copy-attachment" data-index="${idx}">Copy</button>
+              <button class="btn-copy-attachment" data-index="${idx}" type="button">Copy</button>
             </div>
           </div>
         `;
-      }).join('');
+        }).join('');
 
       if (isAlbum) {
         const openSourceNote = (idx) => {
@@ -7572,6 +7617,146 @@ class PasteCraftPopup {
   closeNoteViewer() {
     document.getElementById('noteViewerModal').style.display = 'none';
     this.currentViewerNoteId = null;
+    this.noteViewerParentAlbumId = null;
+  }
+
+  getAlbumAttachmentOpenMode() {
+    return this.albumAttachmentOpenMode === 'overlay' || this.albumAttachmentOpenMode === 'edgePopup'
+      ? this.albumAttachmentOpenMode
+      : 'edgePopup';
+  }
+
+  openAlbumAttachment(noteId, attachmentIndex) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note || note.type !== 'album') return;
+
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
+    const att = allAttachments[attachmentIndex];
+    if (!att) return;
+
+    this.currentAlbumAttachmentContext = { noteId, attachmentIndex };
+
+    const mode = this.getAlbumAttachmentOpenMode();
+    if (mode === 'overlay') {
+      this.openAlbumAttachmentOverlay(note, att);
+      return;
+    }
+
+    this.openAlbumAttachmentInEdgePopup(noteId, attachmentIndex);
+  }
+
+  openAlbumAttachmentInEdgePopup(noteId, attachmentIndex) {
+    const note = this.notes.find(n => n.id == noteId);
+    if (!note || note.type !== 'album') return;
+
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
+    const att = allAttachments[attachmentIndex];
+    if (!att) return;
+
+    const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+    const mfName = mf && mf.name ? String(mf.name) : '';
+    const mfDesc = mf && mf.description ? String(mf.description) : '';
+    const isRepoLoader =
+      mfName.includes('Repo Loader') ||
+      mfDesc.includes('repo root') ||
+      mfDesc.includes('Actual extension lives in /extension');
+
+    if (att.type === 'url' && att.url) {
+      try {
+        chrome.windows.create({
+          url: att.url,
+          type: 'popup',
+          width: 980,
+          height: 720,
+          focused: true
+        });
+      } catch (e) {
+        console.error('Failed to open URL in popup:', e);
+        this.showToast('Could not open link');
+      }
+      return;
+    }
+
+    const viewerPath = isRepoLoader ? 'extension/attachment-viewer.html' : 'attachment-viewer.html';
+    const viewerUrl =
+      chrome.runtime.getURL(viewerPath) +
+      `?noteId=${encodeURIComponent(String(noteId))}&index=${encodeURIComponent(String(attachmentIndex))}`;
+
+    try {
+      chrome.windows.create({
+        url: viewerUrl,
+        type: 'popup',
+        width: 980,
+        height: 720,
+        focused: true
+      });
+    } catch (e) {
+      console.error('Failed to open attachment viewer popup:', e);
+      this.showToast('Could not open attachment');
+    }
+  }
+
+  openAlbumAttachmentOverlay(note, att) {
+    const modal = document.getElementById('albumAttachmentViewerModal');
+    const titleEl = document.getElementById('albumAttachmentViewerTitle');
+    const metaSection = document.getElementById('albumAttachmentViewerNoteMeta');
+    const albumTitle = document.getElementById('albumAttachmentViewerAlbumTitle');
+    const albumDesc = document.getElementById('albumAttachmentViewerAlbumDesc');
+    const body = document.getElementById('albumAttachmentViewerBody');
+    const openBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
+
+    if (!modal || !titleEl || !metaSection || !albumTitle || !albumDesc || !body) return;
+
+    // Album meta
+    const safeTitle = (note.title || '').trim() || 'Untitled Album';
+    const safeDesc = (note.description || '').trim();
+    metaSection.style.display = 'block';
+    albumTitle.textContent = safeTitle;
+    albumDesc.textContent = safeDesc || '';
+
+    // Attachment content
+    const typeLabel = att.type === 'clip' ? 'Clip' : att.type === 'image' ? 'Image' : 'Link';
+    titleEl.textContent = typeLabel;
+
+    // Always allow open-in-popup as an escape hatch
+    if (openBtn) openBtn.style.display = 'inline-flex';
+
+    if (att.type === 'clip') {
+      body.textContent = att.text || '';
+    } else if (att.type === 'image') {
+      const src = att.dataUrl || att.url || att.src || '';
+      if (src) {
+        body.innerHTML = `<img src="${this.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`;
+      } else {
+        body.textContent = 'Image attachment is missing a source.';
+      }
+    } else {
+      const url = att.url || '';
+      const safeUrl = this.escapeHtml(url);
+      body.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="font-weight:600; color:#111827;">Link</div>
+          <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+          <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
+        </div>
+      `;
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  closeAlbumAttachmentViewer() {
+    const modal = document.getElementById('albumAttachmentViewerModal');
+    if (modal) modal.style.display = 'none';
+    this.currentAlbumAttachmentContext = null;
   }
 
   openAlbumSourceNoteOverlay(sourceNoteId, albumId) {
@@ -7915,7 +8100,10 @@ class PasteCraftPopup {
 
     list.innerHTML = filteredNotes.map(note => {
       const icon = note.type === 'album' ? '📚' : '📝';
-      const itemCount = (note.clips?.length || 0) + (note.images?.length || 0) + (note.urls?.length || 0);
+      const itemCount =
+        note.type === 'album'
+          ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0)
+          : (note.clips?.length || 0) + (note.images?.length || 0) + (note.urls?.length || 0);
       const itemClass = note.type === 'album' ? 'album-picker-item album' : 'album-picker-item';
 
       return `
@@ -8035,7 +8223,7 @@ class PasteCraftPopup {
     await this.saveNotes();
     this.closeAlbumPicker();
     this.pendingNoteForAlbum = null;
-    this.showToast(`Note content copied to album "${album.title}"`);
+    this.showToast(`Note added to album "${album.title}"`);
     this.renderNotes(); // Refresh to show updated counts
   }
 }

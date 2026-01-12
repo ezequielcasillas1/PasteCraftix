@@ -33,4 +33,3 @@
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Clicking an album item opens the full source note overlay with clips/urls/images + per-item copy; attachment open is secondary.
 
-

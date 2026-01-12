@@ -218,6 +218,52 @@
             background: #edf2f7;
             border-color: #cbd5e0;
         }
+
+        /* Billing toggle */
+        .billing-toggle {
+            display: inline-flex;
+            gap: 8px;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 6px;
+            margin: 18px 0 8px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .billing-toggle button {
+            border: none;
+            background: transparent;
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .billing-toggle button.active {
+            background: white;
+            color: #1a202c;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        }
+
+        .btn[disabled] {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .checkout-note {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #718096;
+            min-height: 18px;
+        }
         
         /* FAQ Section */
         .faq-section {
@@ -319,15 +365,15 @@
         <div class="pricing-card">
             <div class="plan-name">Free</div>
             <div class="plan-price">$0<span>/forever</span></div>
-            <div class="plan-description">Get started with basic features</div>
+            <div class="plan-description">All Basic features (no AI) • 1,000 clips</div>
             
             <ul class="plan-features">
-                <li><span class="check">✓</span> 20 active clips</li>
-                <li><span class="check">✓</span> 1,000 archived clips</li>
+                <li><span class="check">✓</span> Up to 1,000 clips</li>
                 <li><span class="check">✓</span> Basic categories</li>
                 <li><span class="check">✓</span> Cloud sync</li>
                 <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
                 <li><span class="cross">✗</span> AI Image Generation</li>
+                <li><span class="cross">✗</span> Lowest support</li>
             </ul>
             
             <a href="https://microsoftedge.microsoft.com/addons" class="btn btn-secondary" style="text-decoration: none; border: none;">
@@ -335,66 +381,59 @@
             </a>
         </div>
 
-        <!-- Weekly Plan -->
-        <div class="pricing-card">
-            <div class="plan-name">Weekly</div>
-            <div class="plan-price">$1.99<span>/week</span></div>
-            <div class="plan-description">Try premium with flexible weekly billing</div>
-            
-            <ul class="plan-features">
-                <li><span class="check">✓</span> Unlimited active clips</li>
-                <li><span class="check">✓</span> Unlimited clips</li>
-                <li><span class="check">✓</span> AI Breakdown & Summaries</li>
-                <li><span class="check">✓</span> AI Image Generation</li>
-                <li><span class="check">✓</span> Priority sync</li>
-                <li><span class="check">✓</span> Cancel anytime</li>
-            </ul>
-            
-            <button class="btn btn-secondary" onclick="createCheckout('price_1SaMM0LOdeLTrjapKLTHBByC')">
-                Get Started
-            </button>
-        </div>
-
-        <!-- Monthly Plan (Popular) -->
-        <div class="pricing-card popular">
+        <!-- Basic Plan (Popular) -->
+        <div class="pricing-card popular" id="card-basic" data-plan="basic">
             <div class="popular-badge">🌟 Most Popular</div>
-            <div class="plan-name">Monthly</div>
-            <div class="plan-price">$6.99<span>/month</span></div>
-            <div class="plan-description">Best value for regular users</div>
-            
+            <div class="plan-name">Basic</div>
+            <div class="plan-price" id="price-basic">$1.99<span>/month</span></div>
+            <div class="plan-description">Unlimited clips (no AI)</div>
+
+            <div class="billing-toggle" role="tablist" aria-label="Basic billing interval">
+                <button type="button" class="active" data-plan="basic" data-interval="monthly">Monthly</button>
+                <button type="button" data-plan="basic" data-interval="weekly">Weekly</button>
+                <button type="button" data-plan="basic" data-interval="yearly">Yearly</button>
+            </div>
+
             <ul class="plan-features">
-                <li><span class="check">✓</span> Unlimited active clips</li>
                 <li><span class="check">✓</span> Unlimited clips</li>
-                <li><span class="check">✓</span> AI Breakdown & Summaries</li>
-                <li><span class="check">✓</span> AI Image Generation</li>
-                <li><span class="check">✓</span> Priority sync</li>
-                <li><span class="check">✓</span> Premium support</li>
+                <li><span class="check">✓</span> Basic categories</li>
+                <li><span class="check">✓</span> Cloud sync</li>
+                <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
+                <li><span class="cross">✗</span> AI Image Generation</li>
+                <li><span class="check">✓</span> Standard support</li>
             </ul>
-            
-            <button class="btn btn-primary" onclick="createCheckout('price_1SUYs3LOdeLTrjapCFFDe7td')">
+
+            <button class="btn btn-primary" id="btn-basic" disabled>
                 Get Started
             </button>
+            <div class="checkout-note" id="note-basic">Checkout coming soon.</div>
         </div>
 
-        <!-- Yearly Plan -->
-        <div class="pricing-card">
-            <div class="plan-name">Yearly</div>
-            <div class="plan-price">$49.99<span>/year</span></div>
-            <div class="plan-description">Save $34/year - best deal!</div>
-            
+        <!-- Enhanced Plan -->
+        <div class="pricing-card" id="card-enhanced" data-plan="enhanced">
+            <div class="plan-name">Enhanced</div>
+            <div class="plan-price" id="price-enhanced">$4.99<span>/month</span></div>
+            <div class="plan-description">AI tools + unlimited clips</div>
+
+            <div class="billing-toggle" role="tablist" aria-label="Enhanced billing interval">
+                <button type="button" class="active" data-plan="enhanced" data-interval="monthly">Monthly</button>
+                <button type="button" data-plan="enhanced" data-interval="weekly">Weekly</button>
+                <button type="button" data-plan="enhanced" data-interval="yearly">Yearly</button>
+            </div>
+
             <ul class="plan-features">
-                <li><span class="check">✓</span> Unlimited active clips</li>
                 <li><span class="check">✓</span> Unlimited clips</li>
                 <li><span class="check">✓</span> AI Breakdown & Summaries</li>
                 <li><span class="check">✓</span> AI Image Generation</li>
-                <li><span class="check">✓</span> Priority sync</li>
-                <li><span class="check">✓</span> Premium support</li>
-                <li><span class="check">✓</span> <strong>Best value!</strong></li>
+                <li><span class="check">✓</span> Basic categories</li>
+                <li><span class="check">✓</span> Cloud sync</li>
+                <li><span class="check">✓</span> Standard support</li>
             </ul>
-            
-            <button class="btn btn-secondary" onclick="createCheckout('price_1SaMNJLOdeLTrjapjJ8iCoP7')">
+
+            <button class="btn btn-secondary" id="btn-enhanced" disabled>
                 Get Started
             </button>
+            <div class="checkout-note" id="note-enhanced">Checkout coming soon.</div>
         </div>
     </div>
 
@@ -424,7 +463,7 @@
         
         <div class="faq-item">
             <h3>What if I have issues?</h3>
-            <p>We offer premium support for all paying customers. Email us at <a href="mailto:support@pastecraft.com">support@pastecraft.com</a> and we'll help you right away!</p>
+            <p>Email us at <a href="mailto:support@pastecraft.com">support@pastecraft.com</a> and we'll help you out. Paid plans include standard support, and the free plan includes the lowest support.</p>
         </div>
     </section>
 
@@ -447,6 +486,79 @@
         // Supabase anon key (public) - used as Bearer token for Edge Functions
         // NOTE: Must match `config.js` (PASTECRAFT_CONFIG.supabase.anonKey)
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o';
+
+        const PLAN_CONFIG = {
+            basic: {
+                prices: {
+                    weekly: { amount: 0.99, suffix: '/week', priceId: 'TODO_STRIPE_PRICE_BASIC_WEEKLY' },
+                    monthly: { amount: 1.99, suffix: '/month', priceId: 'TODO_STRIPE_PRICE_BASIC_MONTHLY' },
+                    yearly: { amount: 9.99, suffix: '/year', priceId: 'TODO_STRIPE_PRICE_BASIC_YEARLY' },
+                }
+            },
+            enhanced: {
+                prices: {
+                    weekly: { amount: 1.99, suffix: '/week', priceId: 'TODO_STRIPE_PRICE_ENHANCED_WEEKLY' },
+                    monthly: { amount: 4.99, suffix: '/month', priceId: 'TODO_STRIPE_PRICE_ENHANCED_MONTHLY' },
+                    yearly: { amount: 49.99, suffix: '/year', priceId: 'TODO_STRIPE_PRICE_ENHANCED_YEARLY' },
+                }
+            }
+        };
+
+        const selectedIntervalByPlan = { basic: 'monthly', enhanced: 'monthly' };
+
+        function formatUsd(amount) {
+            return `$${amount.toFixed(2)}`;
+        }
+
+        function isRealStripePriceId(priceId) {
+            return typeof priceId === 'string' && priceId.startsWith('price_');
+        }
+
+        function setCardUi(plan) {
+            const interval = selectedIntervalByPlan[plan];
+            const cfg = PLAN_CONFIG[plan]?.prices?.[interval];
+            if (!cfg) return;
+
+            const priceEl = document.getElementById(`price-${plan}`);
+            const btnEl = document.getElementById(`btn-${plan}`);
+            const noteEl = document.getElementById(`note-${plan}`);
+
+            if (priceEl) priceEl.innerHTML = `${formatUsd(cfg.amount)}<span>${cfg.suffix}</span>`;
+
+            const canCheckout = isRealStripePriceId(cfg.priceId);
+            if (btnEl) {
+                btnEl.disabled = !canCheckout;
+                btnEl.onclick = canCheckout ? () => createCheckout(cfg.priceId) : null;
+            }
+
+            if (noteEl) noteEl.textContent = canCheckout ? '' : 'Checkout coming soon.';
+
+            document.querySelectorAll(`.billing-toggle button[data-plan="${plan}"]`).forEach((b) => {
+                b.classList.toggle('active', b.getAttribute('data-interval') === interval);
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const btn = target.closest('.billing-toggle button');
+            if (!btn) return;
+
+            const plan = btn.getAttribute('data-plan');
+            const interval = btn.getAttribute('data-interval');
+            if (!plan || !interval) return;
+            if (!selectedIntervalByPlan[plan]) return;
+
+            selectedIntervalByPlan[plan] = interval;
+            setCardUi(plan);
+        });
+
+        function initPricingCards() {
+            setCardUi('basic');
+            setCardUi('enhanced');
+        }
+
+        initPricingCards();
 
         async function createCheckout(priceId) {
             try {

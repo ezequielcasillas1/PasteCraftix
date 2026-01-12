@@ -6574,7 +6574,7 @@ Multiple clips are separated by:
                         <textarea id="noteBodyInput" placeholder="Write your note content here..." class="note-textarea-field" rows="8"></textarea>
                     </div>
                     
-                    <div class="note-attachments-section">
+                    <div class="note-attachments-section" id="noteEditorAttachmentsSection">
                         <h4>Attachments</h4>
                         <div class="attachment-actions">
                             <button class="attachment-btn" id="addClipToNote">
@@ -6667,6 +6667,7 @@ Multiple clips are separated by:
         <div class="modal-content note-viewer-content">
             <div class="modal-header">
                 <h3 id="noteViewerTitle">
+                    <button class="btn-secondary" id="noteViewerBackBtn" title="Back" style="display:none; margin-right: 8px; padding: 4px 10px;">Back</button>
                     <span id="noteViewerIcon">📝</span>
                     <span id="noteViewerTitleText">Note Title</span>
                 </h3>
@@ -6689,7 +6690,7 @@ Multiple clips are separated by:
 
                     <div class="note-viewer-section" id="noteViewerAttachmentsSection" style="display: none;">
                         <div class="note-viewer-section-header">
-                            <h4 class="note-viewer-section-title">Attachments</h4>
+                            <h4 class="note-viewer-section-title" id="noteViewerAttachmentsTitle">Attachments</h4>
                             <button class="btn-copy-viewer" id="copyAllAttachments" title="Copy all attachments">📋 Copy All</button>
                         </div>
                         <div id="noteViewerAttachments" class="note-viewer-attachments"></div>
@@ -6777,7 +6778,6 @@ Multiple clips are separated by:
             </div>
         </div>
     </div>
-
     <!-- Authentication Modal -->
     <div class="modal-overlay" id="authModal" style="display: none;">
         <div class="modal-content auth-modal-new">
