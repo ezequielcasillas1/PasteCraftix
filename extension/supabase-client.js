@@ -1,6 +1,5 @@
 // Supabase Client for PasteCraft
 // This file initializes the Supabase client for the extension
-console.log('🟢 supabase-client.js LOADED at', new Date().toISOString());
 
 class PasteCraftSupabase {
   constructor() {
@@ -216,7 +215,7 @@ class PasteCraftSupabase {
     
     try {
       console.log('🔔 Setting up realtime subscriptions...');
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       
       // Subscribe to clips changes
       const clipsChannel = this.client
@@ -769,7 +768,7 @@ class PasteCraftSupabase {
       console.log('✅ Image generated! Converting to permanent URL...');
 
       // Convert temporary URL to permanent Supabase Storage URL
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
 
       return permanentImageUrl;
@@ -804,6 +803,84 @@ class PasteCraftSupabase {
   }
 
   /**
+   * Get a stable user id for cloud sync.
+   * - Prefer a stored cross-device id in chrome.storage.sync (if browser sync is enabled)
+   * - Otherwise fall back to existing chrome.storage.local chromeUserId (legacy behavior)
+   * - If neither exists: generate a new id (if authed, derive from auth UUID; else random chrome_*)
+   *
+   * This preserves legacy cloud data (keyed by chromeUserId) while allowing new devices
+   * to recover the same id via chrome.storage.sync once at least one device writes it.
+   */
+  async getSyncUserId() {
+    // If authenticated, always use auth user UUID as the stable cross-device sync key.
+    // If this device has legacy data keyed by chromeUserId, we can migrate it to auth id here.
+    let authUserId = null;
+    if (this.client) {
+      try {
+        const { data: { session } } = await this.client.auth.getSession();
+        authUserId = session?.user?.id || null;
+      } catch (_) {}
+    }
+
+    if (authUserId) {
+      // If the user previously synced using a different (legacy) id on this same device,
+      // migrate its remote data to the auth id once.
+      let localChromeUserId = null;
+      try {
+        const localResult = await new Promise((resolve) => chrome.storage.local.get(['chromeUserId'], resolve));
+        localChromeUserId = localResult?.chromeUserId || null;
+      } catch (_) {}
+
+      // Persist the stable id for other devices (browser sync)
+      try { await new Promise((resolve) => chrome.storage.sync.set({ accountUserId: authUserId }, resolve)); } catch (_) {}
+      try { await new Promise((resolve) => chrome.storage.local.set({ chromeUserId: authUserId }, resolve)); } catch (_) {}
+
+      // Migrate legacy remote clips if we have a different legacy id available
+      if (localChromeUserId && localChromeUserId !== authUserId) {
+        try {
+          const legacyRemote = await this.syncClipsFromSupabase(localChromeUserId);
+          if (legacyRemote && legacyRemote.length > 0) {
+            await this.syncClipsToSupabaseForUser(legacyRemote, authUserId);
+          }
+        } catch (_) {
+          // Best-effort migration only
+        }
+      }
+
+      await this.ensureUserProfileRow(authUserId);
+      return authUserId;
+    }
+
+    // Not authenticated: fall back to any stored accountUserId (sync) or legacy local chromeUserId
+    let syncStoredId = null;
+    try {
+      const syncResult = await new Promise((resolve) => chrome.storage.sync.get(['accountUserId'], resolve));
+      syncStoredId = syncResult?.accountUserId || null;
+    } catch (_) {}
+
+    if (syncStoredId) {
+      await this.ensureUserProfileRow(syncStoredId);
+      return syncStoredId;
+    }
+
+    const chromeUserId = await this.getChromeUserId();
+    await this.ensureUserProfileRow(chromeUserId);
+    return chromeUserId;
+  }
+
+  async ensureUserProfileRow(userId) {
+    if (!this.client) return;
+    try {
+      await this.setUserContext(userId);
+      await this.client
+        .from('user_profiles')
+        .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: false });
+    } catch (_) {
+      // Don't block sync if profile row can't be ensured
+    }
+  }
+
+  /**
    * Set RLS context for user
    */
   async setUserContext(userId) {
@@ -834,25 +911,25 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
 
-      const totalClips = localClips.length;
+      const totalClips = Array.isArray(localClips) ? localClips.length : 0;
       console.log(`📤 Syncing ${totalClips} clips to Supabase...`);
 
       // Use batch processing for large datasets (>100 clips)
       if (totalClips > this.BATCH_SIZE) {
-        return await this.syncClipsToSupabaseBatch(localClips, userId);
+        const ok = await this.syncClipsToSupabaseBatch(localClips, userId);
+        if (ok) {
+          await this.deleteRemoteClipsNotInLocal(localClips, userId);
+        }
+        return ok;
       }
 
       // Standard sync for small datasets
-      const dbClips = localClips.map(clip => ({
-        user_id: userId,
-        clip_id: clip.id,
-        text: clip.text,
-        category: clip.category || 'Uncategorized',
-        timestamp: clip.timestamp
-      }));
+      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+      const stats = dbClips && dbClips._pcStats ? dbClips._pcStats : null;
 
       const { data, error } = await this.client
         .from('clips')
@@ -865,11 +942,134 @@ class PasteCraftSupabase {
       if (error) throw error;
 
       console.log(`✅ Synced ${data.length} clips to Supabase`);
+      await this.deleteRemoteClipsNotInLocal(localClips, userId);
       return true;
     } catch (error) {
       console.error('❌ Failed to sync clips to Supabase:', error);
       return false;
     }
+  }
+
+  async deleteRemoteClipsNotInLocal(localClips, userId) {
+    if (!this.client) return;
+
+    try {
+      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+      const keepIds = new Set((Array.isArray(dbClips) ? dbClips : []).map(x => x?.clip_id).filter(Boolean));
+
+      // Fetch all remote clip ids (paged)
+      const remoteIds = [];
+      const pageSize = 10000;
+      for (let from = 0; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const { data, error } = await this.client
+          .from('clips')
+          .select('clip_id')
+          .eq('user_id', userId)
+          .range(from, to);
+
+        if (error) throw error;
+        const rows = Array.isArray(data) ? data : [];
+        rows.forEach(r => { if (r?.clip_id != null) remoteIds.push(String(r.clip_id)); });
+        if (rows.length < pageSize) break;
+      }
+
+      const idsToDelete = remoteIds.filter(id => !keepIds.has(id));
+
+      if (idsToDelete.length === 0) return;
+
+      // Delete in manageable batches
+      const batchSize = 200;
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        const { error } = await this.client
+          .from('clips')
+          .delete()
+          .eq('user_id', userId)
+          .in('clip_id', batch);
+        if (error) throw error;
+      }
+    } catch (e) {
+      // Don't block user flows if remote cleanup fails
+      console.warn('⚠️ Remote clip cleanup failed:', e?.message || e);
+    }
+  }
+
+  /**
+   * Sync local clips to Supabase for a specific userId (used for legacy→auth migration).
+   */
+  async syncClipsToSupabaseForUser(localClips, userId) {
+    if (!this.client) return false;
+    try {
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+
+      const { error } = await this.client
+        .from('clips')
+        .upsert(dbClips, { onConflict: 'user_id,clip_id', ignoreDuplicates: false });
+
+      if (error) throw error;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  buildDbClipsForUpsert(localClips, userId) {
+    const arr = Array.isArray(localClips) ? localClips : [];
+
+    // Stable-ish hash for legacy clips without ids (avoid undefined clip_id collisions)
+    const hash = (s) => {
+      const str = String(s || '');
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(36);
+    };
+
+    const seen = new Map(); // clip_id -> dbClip (keep newest)
+    const dupCounter = new Map(); // baseId -> count
+    let droppedNoText = 0;
+    let droppedInvalid = 0;
+    let inferredIds = 0;
+
+    for (let i = 0; i < arr.length; i++) {
+      const clip = arr[i];
+      const text = typeof clip === 'string' ? clip : (clip?.text ?? clip);
+      if (!text) { droppedNoText++; continue; }
+
+      const ts = typeof clip === 'object' && clip ? (clip.timestamp ?? null) : null;
+      const rawId =
+        (typeof clip === 'object' && clip ? (clip.id ?? clip.clip_id ?? clip.clipId ?? null) : null) ??
+        `legacy_${hash(text)}_${Number.isFinite(ts) ? ts : 0}`;
+      if (!(typeof clip === 'object' && clip && (clip.id ?? clip.clip_id ?? clip.clipId))) inferredIds++;
+
+      const baseId = String(rawId);
+      const count = (dupCounter.get(baseId) || 0) + 1;
+      dupCounter.set(baseId, count);
+      const clipId = count === 1 ? baseId : `${baseId}__dup${count}`;
+
+      const db = {
+        user_id: userId,
+        clip_id: clipId,
+        text: String(text),
+        category: (typeof clip === 'object' && clip && clip.category) ? clip.category : 'Uncategorized',
+        timestamp: Number.isFinite(ts) ? ts : Date.now()
+      };
+
+      const existing = seen.get(clipId);
+      if (!existing || (db.timestamp || 0) > (existing.timestamp || 0)) {
+        seen.set(clipId, db);
+      }
+    }
+
+    const out = Array.from(seen.values());
+    out._pcStats = { inputCount: arr.length, outCount: out.length, droppedNoText, droppedInvalid, inferredIds };
+    return out;
   }
 
   /**
@@ -890,14 +1090,8 @@ class PasteCraftSupabase {
       const end = Math.min(start + this.BATCH_SIZE, totalClips);
       const batchClips = localClips.slice(start, end);
 
-      // Transform to DB format
-      const dbClips = batchClips.map(clip => ({
-        user_id: userId,
-        clip_id: clip.id,
-        text: clip.text,
-        category: clip.category || 'Uncategorized',
-        timestamp: clip.timestamp
-      }));
+      // Transform to DB format (and dedupe/normalize ids)
+      const dbClips = this.buildDbClipsForUpsert(batchClips, userId);
 
       try {
         const { data, error } = await this.client
@@ -930,14 +1124,14 @@ class PasteCraftSupabase {
   /**
    * Sync clips from Supabase to local storage (with batch support for large datasets)
    */
-  async syncClipsFromSupabase() {
+  async syncClipsFromSupabase(userIdOverride = null) {
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping clip sync');
       return null;
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = userIdOverride || await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📥 Fetching clips from Supabase...');
@@ -1040,22 +1234,37 @@ class PasteCraftSupabase {
    * Merge local and remote clips (newest wins)
    */
   async mergeClips(localClips, remoteClips) {
-    const merged = new Map();
+    const contentMerged = new Map();
 
-    // Add all local clips
-    localClips.forEach(clip => {
-      merged.set(clip.id, clip);
-    });
+    const hashText = (t) => {
+      const s = String(t || '');
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(36);
+    };
 
-    // Add/update with remote clips (newer timestamp wins)
-    remoteClips.forEach(remoteClip => {
-      const localClip = merged.get(remoteClip.id);
-      if (!localClip || remoteClip.timestamp > localClip.timestamp) {
-        merged.set(remoteClip.id, remoteClip);
+    const contentKey = (clip) => {
+      if (!clip) return '';
+      const text = String(clip.text || '');
+      const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
+      const bucket = Math.floor(ts / 3000); // 3s bucket to collapse accidental dupes
+      const cat = clip.category != null ? String(clip.category) : '';
+      return `${hashText(text)}:${bucket}:${cat}`;
+    };
+
+    const add = (clip) => {
+      if (!clip || !clip.text) return;
+      const k = contentKey(clip);
+      const prev = contentMerged.get(k);
+      if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
+        contentMerged.set(k, clip);
       }
-    });
+    };
 
-    return Array.from(merged.values()).sort((a, b) => b.timestamp - a.timestamp);
+    localClips.forEach(add);
+    remoteClips.forEach(add);
+
+    return Array.from(contentMerged.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }
 
   /**
@@ -1087,23 +1296,38 @@ class PasteCraftSupabase {
    * Merge local and remote archived clips (newest wins)
    */
   async mergeArchivedClips(localArchivedClips, remoteArchivedClips) {
-    const merged = new Map();
+    const contentMerged = new Map();
 
-    // Add all local archived clips
-    localArchivedClips.forEach(clip => {
-      merged.set(clip.id, clip);
-    });
+    const hashText = (t) => {
+      const s = String(t || '');
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(36);
+    };
 
-    // Add/update with remote archived clips (newer timestamp wins)
-    remoteArchivedClips.forEach(remoteClip => {
-      const localClip = merged.get(remoteClip.id);
-      if (!localClip || remoteClip.timestamp > localClip.timestamp) {
-        merged.set(remoteClip.id, remoteClip);
+    const contentKey = (clip) => {
+      if (!clip) return '';
+      const text = String(clip.text || '');
+      const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
+      const bucket = Math.floor(ts / 3000);
+      const cat = clip.category != null ? String(clip.category) : '';
+      return `${hashText(text)}:${bucket}:${cat}`;
+    };
+
+    const add = (clip) => {
+      if (!clip || !clip.text) return;
+      const k = contentKey(clip);
+      const prev = contentMerged.get(k);
+      if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
+        contentMerged.set(k, clip);
       }
-    });
+    };
+
+    localArchivedClips.forEach(add);
+    remoteArchivedClips.forEach(add);
 
     // Sort by timestamp descending, then limit to 1000 most recent
-    const sortedClips = Array.from(merged.values()).sort((a, b) => b.timestamp - a.timestamp);
+    const sortedClips = Array.from(contentMerged.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return sortedClips.slice(0, 1000); // Keep only 1000 most recent locally
   }
 
@@ -1121,7 +1345,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log(`📤 Syncing ${localCategories.length} categories to Supabase...`);
@@ -1161,7 +1385,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📥 Fetching categories from Supabase...');
@@ -1201,19 +1425,13 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log(`📤 Syncing ${localArchivedClips.length} archived clips to Supabase...`);
 
-      // Transform local archived clips to DB format
-      const dbArchivedClips = localArchivedClips.map(clip => ({
-        user_id: userId,
-        clip_id: clip.id,
-        text: clip.text,
-        category: clip.category || 'Uncategorized',
-        timestamp: clip.timestamp
-      }));
+      // Transform local archived clips to DB format (and dedupe/normalize ids)
+      const dbArchivedClips = this.buildDbClipsForUpsert(localArchivedClips, userId);
 
       // Upsert archived clips (insert or update on conflict)
       const { data, error } = await this.client
@@ -1244,7 +1462,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📥 Fetching archived clips from Supabase...');
@@ -1289,7 +1507,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📤 Syncing settings to Supabase...');
@@ -1336,7 +1554,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📥 Fetching settings from Supabase...');
@@ -1390,7 +1608,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📤 Syncing user profile to Supabase...');
@@ -1433,7 +1651,7 @@ class PasteCraftSupabase {
     }
 
     try {
-      const userId = await this.getChromeUserId();
+      const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
 
       console.log('📥 Fetching user profile from Supabase...');

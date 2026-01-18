@@ -23,6 +23,11 @@
 **Files:** popup.html, popup.js, Instructions/request.md
 **Result:** Added red Delete Selected button in Clips (2+ selected), placed below Quick Copy and above pagination. (Commit: pending)
 
+### Jan 18, 2026 - Cross-device Sync + Duplicate Clip Fix
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, extension/popup.html
+**Result:** Sync/transfer fixed + post-open duplication removed; instrumentation deleted. (Commit: pending)
+
 ### Dec 20, 2025 - Production Deployment Complete
 
 **Status:** ✅ SUCCESS - System Production Ready

@@ -43,5 +43,10 @@
 **Files:** website/pricing.html, website/upgrade.html
 **Result:** Pricing UI now uses Free/Basic/Enhanced with weekly/monthly/yearly toggles (Basic/Enhanced) and updated clip + AI gating.
 
+### Jan 18, 2026 - Cross-device Sync + Duplicate Clip Fix
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, extension/popup.html
+**Result:** Cross-device sync now transfers reliably; fixed duplicate clips appearing after popup opens; removed debug instrumentation/scripts (no commit yet).
+
 
 

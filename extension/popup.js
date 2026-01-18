@@ -1,5 +1,5 @@
 // PasteCraft Advanced Popup Script
-console.log('🟢 popup.js LOADED at', new Date().toISOString());
+// (startup logging removed)
 
 class PasteCraftPopup {
   constructor() {
@@ -147,6 +147,11 @@ class PasteCraftPopup {
     // Show top bar (with sign out button)
     document.getElementById('topBar').style.display = 'flex';
     
+    // Cross-device transfer (browser sync): restore from chrome.storage.sync if local is empty,
+    // and/or back up local into sync to enable transfer to a new machine.
+    await this.bootstrapStorageSyncTransfer();
+    this.setupStorageSyncListener();
+
     await this.loadData();
     await this.loadSettings();
     await this.loadUserProfile();
@@ -185,6 +190,289 @@ class PasteCraftPopup {
     this.setupSyncStatusListeners();
     
     console.log('✅ PasteCraft popup initialized successfully');
+  }
+
+  setupStorageSyncListener() {
+    try {
+      // Debounce repeated sync change events (and avoid re-entrancy loops)
+      this._handlingSyncChange = false;
+      this._lastSyncChangeAt = 0;
+
+      chrome.storage.onChanged.addListener(async (changes, areaName) => {
+        if (areaName !== 'sync') return;
+        if (!changes || !changes.pc_sync_backup_v1) return;
+        if (this._handlingSyncChange) return;
+        const now = Date.now();
+        if (now - this._lastSyncChangeAt < 750) return;
+        this._lastSyncChangeAt = now;
+        this._handlingSyncChange = true;
+
+        const next = changes.pc_sync_backup_v1?.newValue || null;
+        const nextClips = next && Array.isArray(next.clips) ? next.clips.length : 0;
+        const nextNotes = next && Array.isArray(next.notes) ? next.notes.length : 0;
+
+        try {
+          await this.bootstrapStorageSyncTransfer();
+          await this.loadData();
+          await this.loadNotes();
+          this.renderChips();
+          this.renderCategories();
+          this.renderNotes();
+          this.updateCategoryFilter();
+          this.updateLastCapture();
+          this.updatePreview();
+        } finally {
+          this._handlingSyncChange = false;
+        }
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  async bootstrapStorageSyncTransfer() {
+    try {
+      const local = await chrome.storage.local.get([
+        'clips',
+        'categories',
+        'searchOnlyClips',
+        'notes',
+        'notesViewMode',
+        'notesPageIndex',
+        'notesAiEnabled',
+        'settings',
+        'userProfile'
+      ]);
+
+      // Repair duplicate / missing clip ids in local storage BEFORE any syncing/backup.
+      // This prevents clip rows overwriting each other in Supabase and collapsing during merge.
+      const repaired = this.repairLocalClipIds(local.clips, local.searchOnlyClips);
+      if (repaired.changed) {
+        await chrome.storage.local.set({
+          clips: repaired.clips,
+          searchOnlyClips: repaired.searchOnlyClips
+        });
+        local.clips = repaired.clips;
+        local.searchOnlyClips = repaired.searchOnlyClips;
+      }
+
+      const sync = await new Promise((resolve) => chrome.storage.sync.get(['pc_sync_backup_v1'], resolve));
+      const backup = sync?.pc_sync_backup_v1 || null;
+
+      const localClipsCount = Array.isArray(local.clips) ? local.clips.length : 0;
+      const localNotesCount = Array.isArray(local.notes) ? local.notes.length : 0;
+
+      const backupClipsCount = backup && Array.isArray(backup.clips) ? backup.clips.length : 0;
+      const backupNotesCount = backup && Array.isArray(backup.notes) ? backup.notes.length : 0;
+
+      const backupUpdatedAt = backup && typeof backup.updatedAt === 'number' ? backup.updatedAt : 0;
+
+      const localHasAny = localClipsCount > 0 || localNotesCount > 0;
+      const backupHasAny = backupClipsCount > 0 || backupNotesCount > 0;
+
+      // Merge helper (works for clips, archived clips, categories, notes)
+      const stableKey = (item) => {
+        if (!item) return '';
+        if (typeof item === 'string') return `s:${item.slice(0, 80)}`;
+        // Prefer content-based key for clip-like objects to avoid duplicates across sources with different ids.
+        if (typeof item.text === 'string' && typeof item.timestamp === 'number') {
+          const s = item.text;
+          let h = 2166136261;
+          for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+          const textHash = (h >>> 0).toString(36);
+          const bucket = Math.floor(item.timestamp / 3000); // 3s bucket to collapse accidental dupes
+          const cat = item.category != null ? String(item.category) : '';
+          return `clip:${textHash}:${bucket}:${cat}`;
+        }
+        const id = item.id ?? item.clip_id ?? item.clipId ?? item.category_id ?? item.categoryId ?? null;
+        if (id != null) return `id:${String(id)}`;
+        const t = item.text ?? item.url ?? item.name ?? '';
+        const ts = item.timestamp ?? item.createdAt ?? item.updatedAt ?? 0;
+        return `h:${String(t).slice(0, 80)}:${ts}`;
+      };
+
+      const mergeArrays = (a, b) => {
+        const out = new Map();
+        const add = (x) => {
+          const k = stableKey(x);
+          if (!k) return;
+          const prev = out.get(k);
+          const ts = (x && typeof x === 'object') ? (x.timestamp ?? x.updatedAt ?? x.createdAt ?? 0) : 0;
+          const prevTs = (prev && typeof prev === 'object') ? (prev.timestamp ?? prev.updatedAt ?? prev.createdAt ?? 0) : 0;
+          if (!prev || (ts || 0) >= (prevTs || 0)) out.set(k, x);
+        };
+        (Array.isArray(a) ? a : []).forEach(add);
+        (Array.isArray(b) ? b : []).forEach(add);
+        return Array.from(out.values());
+      };
+
+      const mergedClips = mergeArrays(local.clips, backup?.clips).slice(0, 500);
+      const mergedSearchOnlyClips = mergeArrays(local.searchOnlyClips, backup?.searchOnlyClips).slice(0, 1000);
+      const mergedCategories = mergeArrays(local.categories, backup?.categories).slice(0, 300);
+      const mergedNotes = mergeArrays(local.notes, backup?.notes).slice(0, 300);
+
+      // Decide which direction to sync.
+      const shouldWriteLocal =
+        backupHasAny && (
+          backupUpdatedAt > 0 ||
+          backupClipsCount > localClipsCount ||
+          backupNotesCount > localNotesCount
+        );
+
+      const shouldWriteSync =
+        localHasAny && (
+          !backupHasAny ||
+          localClipsCount > backupClipsCount ||
+          localNotesCount > backupNotesCount
+        );
+
+      if (shouldWriteLocal && (mergedClips.length > localClipsCount || mergedNotes.length > localNotesCount)) {
+        await chrome.storage.local.set({
+          clips: mergedClips,
+          categories: mergedCategories,
+          searchOnlyClips: mergedSearchOnlyClips,
+          notes: mergedNotes,
+          notesViewMode: backup?.notesViewMode || local.notesViewMode || 'notes',
+          notesPageIndex: typeof (backup?.notesPageIndex) === 'number' ? backup.notesPageIndex : (typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0),
+          notesAiEnabled: backup ? !!backup.notesAiEnabled : !!local.notesAiEnabled,
+          settings: backup?.settings || local.settings || {},
+          userProfile: backup?.userProfile || local.userProfile || null
+        });
+      }
+
+      if (shouldWriteSync && (mergedClips.length !== backupClipsCount || mergedNotes.length !== backupNotesCount)) {
+        const payload = {
+          version: 1,
+          updatedAt: Date.now(),
+          clips: mergedClips,
+          categories: mergedCategories,
+          searchOnlyClips: mergedSearchOnlyClips,
+          notes: mergedNotes,
+          notesViewMode: local.notesViewMode || backup?.notesViewMode || 'notes',
+          notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : (typeof backup?.notesPageIndex === 'number' ? backup.notesPageIndex : 0),
+          notesAiEnabled: !!local.notesAiEnabled,
+          settings: local.settings || backup?.settings || {},
+          userProfile: local.userProfile || backup?.userProfile || null
+        };
+
+        await new Promise((resolve) => chrome.storage.sync.set({ pc_sync_backup_v1: payload }, resolve));
+      }
+    } catch (e) {
+      // Ignore sync failures (quota / sync disabled)
+    }
+  }
+
+  async backupLocalToSync(reason = 'local-change') {
+    try {
+      const local = await chrome.storage.local.get([
+        'clips',
+        'categories',
+        'searchOnlyClips',
+        'notes',
+        'notesViewMode',
+        'notesPageIndex',
+        'notesAiEnabled',
+        'settings',
+        'userProfile'
+      ]);
+
+      const payload = {
+        version: 1,
+        updatedAt: Date.now(),
+        clips: Array.isArray(local.clips) ? local.clips : [],
+        categories: Array.isArray(local.categories) ? local.categories : [],
+        searchOnlyClips: Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : [],
+        notes: Array.isArray(local.notes) ? local.notes : [],
+        notesViewMode: local.notesViewMode || 'notes',
+        notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0,
+        notesAiEnabled: !!local.notesAiEnabled,
+        settings: local.settings || {},
+        userProfile: local.userProfile || null
+      };
+
+      await new Promise((resolve) => chrome.storage.sync.set({ pc_sync_backup_v1: payload }, resolve));
+    } catch (_) {
+      // ignore (quota / sync disabled)
+    }
+  }
+
+  repairLocalClipIds(clipsRaw, searchOnlyRaw) {
+    const normalize = (raw) => {
+      const arr = Array.isArray(raw) ? raw : [];
+      const seen = new Set();
+      let changed = false;
+
+      const hashText = (t) => {
+        const s = String(t || '');
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return (h >>> 0).toString(36);
+      };
+
+      const toObj = (clip, i) => {
+        if (typeof clip === 'string') {
+          changed = true;
+          const ts = Date.now();
+          return {
+            id: `${ts}_${hashText(clip)}_${i}`,
+            text: clip,
+            category: 'Uncategorized',
+            timestamp: ts
+          };
+        }
+        if (clip && typeof clip === 'object') return { ...clip };
+        changed = true;
+        return null;
+      };
+
+      const out = [];
+      for (let i = 0; i < arr.length; i++) {
+        const c = toObj(arr[i], i);
+        if (!c) continue;
+        if (!c.text) { changed = true; continue; }
+
+        const ts = typeof c.timestamp === 'number' ? c.timestamp : Date.now();
+        if (typeof c.timestamp !== 'number') { c.timestamp = ts; changed = true; }
+
+        let id = c.id ?? c.clip_id ?? c.clipId ?? null;
+        if (id == null) {
+          id = `${ts}_${hashText(c.text)}_${i}`;
+          c.id = id;
+          changed = true;
+        } else {
+          if (c.id == null) { c.id = id; changed = true; }
+        }
+
+        const key = String(c.id);
+        if (seen.has(key)) {
+          // If duplicate id is actually the same clip content, drop it to prevent user-visible dupes.
+          // Otherwise, mint a stable-ish new id.
+          const contentKey = `${hashText(c.text)}:${Math.floor(ts / 3000)}:${String(c.category || 'Uncategorized')}`;
+          const hasSameContentAlready = out.some(x => `${hashText(x.text)}:${Math.floor((x.timestamp || 0) / 3000)}:${String(x.category || 'Uncategorized')}` === contentKey);
+          if (hasSameContentAlready) {
+            changed = true;
+            continue;
+          }
+          c.id = `${key}__r${ts}_${i}`;
+          changed = true;
+        }
+        seen.add(String(c.id));
+        out.push(c);
+      }
+
+      return { out, changed };
+    };
+
+    const active = normalize(clipsRaw);
+    const archived = normalize(searchOnlyRaw);
+
+    return {
+      changed: !!(active.changed || archived.changed),
+      activeChanged: !!active.changed,
+      archivedChanged: !!archived.changed,
+      clips: active.out,
+      searchOnlyClips: archived.out
+    };
   }
   
   async performBackgroundSync() {
@@ -341,35 +629,40 @@ class PasteCraftPopup {
   }
   
   async loadData() {
-    console.log('🚀 DIAGNOSTIC: loadData() called at', new Date().toISOString());
-    
     const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
-    console.log('🔍 RAW STORAGE DATA:', {
-      clipsCount: result.clips?.length || 0,
-      categoriesCount: result.categories?.length || 0,
-      searchOnlyClipsCount: result.searchOnlyClips?.length || 0,
-      firstClip: result.clips?.[0] || 'NONE',
-      firstClipText: result.clips?.[0]?.text?.substring(0, 30) || 'N/A'
-    });
     
     const { clips = [], categories = [], searchOnlyClips = [] } = result;
+    let normalizedChanged = false;
+
+    const hashText = (t) => {
+      const s = String(t || '');
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(36);
+    };
     
     // Load active clips (max 20, shown in clips tab and quick paste)
     this.clips = clips.map(clip => {
       // Handle both old string format and new object format
       if (typeof clip === 'string') {
+        normalizedChanged = true;
+        const ts = Date.now();
         return {
-          id: Date.now() + Math.random(),
+          id: `${ts}_${hashText(clip)}`,
           text: clip,
           category: 'Uncategorized',
-          timestamp: Date.now()
+          timestamp: ts
         };
       } else {
+        const text = clip?.text || clip;
+        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
+        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
+        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
         return {
-          id: clip.id || Date.now() + Math.random(),
-          text: clip.text || clip,
-          category: clip.category || 'Uncategorized',
-          timestamp: clip.timestamp || Date.now()
+          id,
+          text,
+          category: clip?.category || 'Uncategorized',
+          timestamp: ts
         };
       }
     });
@@ -377,30 +670,37 @@ class PasteCraftPopup {
     // Load search-only clips (archived clips, only shown in search)
     this.searchOnlyClips = searchOnlyClips.map(clip => {
       if (typeof clip === 'string') {
+        normalizedChanged = true;
+        const ts = Date.now();
         return {
-          id: Date.now() + Math.random(),
+          id: `${ts}_${hashText(clip)}`,
           text: clip,
           category: 'Uncategorized',
-          timestamp: Date.now()
+          timestamp: ts
         };
       } else {
+        const text = clip?.text || clip;
+        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
+        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
+        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
         return {
-          id: clip.id || Date.now() + Math.random(),
-          text: clip.text || clip,
-          category: clip.category || 'Uncategorized',
-          timestamp: clip.timestamp || Date.now()
+          id,
+          text,
+          category: clip?.category || 'Uncategorized',
+          timestamp: ts
         };
       }
     });
     
     this.categories = categories;
     
-    // Debug logging
-    console.log('✅ DIAGNOSTIC: Loaded active clips:', this.clips.length);
-    console.log('✅ DIAGNOSTIC: Loaded archived clips:', this.searchOnlyClips.length);
-    console.log('✅ DIAGNOSTIC: Categories:', this.categories.length);
-    console.log('✅ DIAGNOSTIC: First clip after processing:', this.clips[0] || 'NONE');
-    
+    if (normalizedChanged) {
+      await chrome.storage.local.set({
+        clips: this.clips,
+        searchOnlyClips: this.searchOnlyClips
+      });
+    }
+
     // Enforce pagination clip limit
     await this.enforceClipLimit();
   }
@@ -2709,6 +3009,8 @@ class PasteCraftPopup {
 
     this.clips.splice(index, 1);
     await chrome.storage.local.set({ clips: this.clips });
+    await this.backupLocalToSync('delete:removeChip');
+
     this.selectedChips.clear();
     
     // 🔄 AUTO-SYNC TO SUPABASE
@@ -3005,6 +3307,7 @@ class PasteCraftPopup {
     });
 
     await chrome.storage.local.set({ clips: this.clips });
+    await this.backupLocalToSync('delete:handleQuickDelete');
 
     // 🔄 AUTO-SYNC TO SUPABASE
     try {
@@ -4093,6 +4396,7 @@ class PasteCraftPopup {
       // Remove the clip
       this.clips.splice(this.pendingClipIndex, 1);
       await chrome.storage.local.set({ clips: this.clips });
+      await this.backupLocalToSync('delete:handleClipDelete');
       
       // Sync to Supabase
       try {
@@ -4724,6 +5028,7 @@ class PasteCraftPopup {
       clips: this.clips,
       searchOnlyClips: this.searchOnlyClips
     });
+    await this.backupLocalToSync('delete:handleCategoryBulkDelete');
 
     try {
       await pasteCraftSupabase.syncClipsToSupabase(this.clips);
@@ -7429,6 +7734,11 @@ class PasteCraftPopup {
 
     this.currentViewerNoteId = noteId;
     const isAlbum = note.type === 'album';
+    const allAttachments = [
+      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
+      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
+      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
+    ];
     const modal = document.getElementById('noteViewerModal');
     const icon = document.getElementById('noteViewerIcon');
     const titleText = document.getElementById('noteViewerTitleText');
@@ -7464,6 +7774,7 @@ class PasteCraftPopup {
     if (isAlbum) {
       if (attachmentsTitle) attachmentsTitle.textContent = 'Notes';
       if (copyAllBtn) copyAllBtn.style.display = 'none';
+    }
 
     if (allAttachments.length > 0) {
       attachSection.style.display = 'block';
@@ -8246,6 +8557,15 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSimpleClips();
   }
 });
+
+// Also boot immediately if DOMContentLoaded already fired (resilience for any non-blocking script load edge-cases)
+if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
+  try {
+    window.pasteCraftPopup = new PasteCraftPopup();
+  } catch (error) {
+    console.error('❌ Popup initialization failed (immediate boot):', error);
+  }
+}
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
