@@ -11,10 +11,65 @@ class PasteCraftSupabase {
     this.syncStatus = 'synced'; // 'offline', 'syncing', 'synced'
     this.BATCH_SIZE = 100; // Number of clips per batch
     this.syncProgress = { current: 0, total: 0, percentage: 0 };
+    this._subscriptionCacheKey = 'pc_subscription_cache_v1';
     this.init();
     this.setupConnectionMonitor();
   }
   
+  // =====================================================
+  // NETWORK HELPERS (avoid "hang forever")
+  // =====================================================
+  async _fetchWithTimeout(url, options = {}, timeoutMs = 30000, timeoutMessage = 'Request timed out') {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error(timeoutMessage);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  // =====================================================
+  // SUBSCRIPTION CACHE (helps avoid slow/failing fetches)
+  // =====================================================
+
+  async getCachedSubscription(userId) {
+    try {
+      if (!userId) return null;
+      const res = await chrome.storage.local.get([this._subscriptionCacheKey]);
+      const payload = res?.[this._subscriptionCacheKey] || null;
+      if (!payload || payload.userId !== userId) return null;
+      const cachedAt = typeof payload.cachedAt === 'number' ? payload.cachedAt : 0;
+      const subscription = payload.subscription || null;
+      // Cache TTL: 6 hours (enough to survive transient network issues)
+      if (!cachedAt || (Date.now() - cachedAt) > (6 * 60 * 60 * 1000)) return null;
+      return subscription;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async setCachedSubscription(userId, subscription) {
+    try {
+      if (!userId || !subscription) return;
+      await chrome.storage.local.set({
+        [this._subscriptionCacheKey]: {
+          userId,
+          subscription,
+          cachedAt: Date.now()
+        }
+      });
+    } catch (_) {
+      // ignore
+    }
+  }
+
   async init() {
     try {
       if (typeof PASTECRAFT_CONFIG === 'undefined') {
@@ -310,10 +365,12 @@ class PasteCraftSupabase {
       const localData = await new Promise((resolve) => {
         chrome.storage.local.get(['clips'], resolve);
       });
+      const localBeforeLen = Array.isArray(localData?.clips) ? localData.clips.length : 0;
       const mergedClips = await this.mergeClips(localData.clips || [], remoteClips);
       await new Promise((resolve) => {
         chrome.storage.local.set({ clips: mergedClips }, resolve);
       });
+
       
       // Notify UI to refresh
       window.dispatchEvent(new CustomEvent('dataChanged', { 
@@ -508,7 +565,12 @@ class PasteCraftSupabase {
       console.log('📥 Downloading image from temporary URL:', imageUrl);
       
       // Download image as blob
-      const response = await fetch(imageUrl);
+      const response = await this._fetchWithTimeout(
+        imageUrl,
+        {},
+        30000,
+        'Image download timed out'
+      );
       if (!response.ok) {
         throw new Error(`Failed to download image: ${response.statusText}`);
       }
@@ -556,14 +618,23 @@ class PasteCraftSupabase {
   // OpenAI Integration Methods
   async generateAIName(userName) {
     try {
-      const response = await fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/generate-ai-name`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify({ userName })
-      });
+      const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
+      const candidates = [`${baseUrl}/ai-name`, `${baseUrl}/generate-ai-name`];
+
+      let response = null;
+      for (const url of candidates) {
+        response = await this._fetchWithTimeout(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          },
+          body: JSON.stringify({ userName })
+        }, 30000, 'AI name generation timed out');
+
+        // Back-compat: some deployments use a different function name
+        if (response.status !== 404) break;
+      }
       
       if (!response.ok) {
         const error = await response.json();
@@ -721,11 +792,12 @@ class PasteCraftSupabase {
   async generateProfileImage(description, userImageBase64 = null, aiGeneratedName = null) {
     try {
       let requestBody = {};
+
       
       // Extract animal type from aiGeneratedName if provided
       let animalType = null;
       if (aiGeneratedName) {
-        const animalMatch = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
+        const animalMatch = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
         if (animalMatch) {
           animalType = animalMatch[1];
         }
@@ -749,14 +821,24 @@ class PasteCraftSupabase {
         throw new Error('No valid input provided for image generation. Please provide a description, photo, or AI name with animal.');
       }
 
-      const response = await fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/avatar-generator`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify(requestBody)
-      });
+      const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
+      const candidates = [`${baseUrl}/ai-image`, `${baseUrl}/avatar-generator`];
+
+      let response = null;
+      for (const url of candidates) {
+        response = await this._fetchWithTimeout(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          },
+          body: JSON.stringify(requestBody)
+        }, 90000, 'Image generation timed out');
+
+        // Back-compat: some deployments use a different function name
+        if (response.status !== 404) break;
+      }
+
 
       if (!response.ok) {
         const error = await response.json();
@@ -911,12 +993,14 @@ class PasteCraftSupabase {
     }
 
     try {
+      const _pcSyncStart = Date.now();
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
 
       const totalClips = Array.isArray(localClips) ? localClips.length : 0;
       console.log(`📤 Syncing ${totalClips} clips to Supabase...`);
+
 
       // Use batch processing for large datasets (>100 clips)
       if (totalClips > this.BATCH_SIZE) {
@@ -928,9 +1012,13 @@ class PasteCraftSupabase {
       }
 
       // Standard sync for small datasets
+      const _pcBuildStart = Date.now();
       const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+      const _pcBuildMs = Date.now() - _pcBuildStart;
       const stats = dbClips && dbClips._pcStats ? dbClips._pcStats : null;
 
+
+      const _pcUpsertStart = Date.now();
       const { data, error } = await this.client
         .from('clips')
         .upsert(dbClips, {
@@ -938,8 +1026,10 @@ class PasteCraftSupabase {
           ignoreDuplicates: false
         })
         .select();
+      const _pcUpsertMs = Date.now() - _pcUpsertStart;
 
       if (error) throw error;
+
 
       console.log(`✅ Synced ${data.length} clips to Supabase`);
       await this.deleteRemoteClipsNotInLocal(localClips, userId);
@@ -954,6 +1044,7 @@ class PasteCraftSupabase {
     if (!this.client) return;
 
     try {
+      const _pcCleanupStart = Date.now();
       const dbClips = this.buildDbClipsForUpsert(localClips, userId);
       const keepIds = new Set((Array.isArray(dbClips) ? dbClips : []).map(x => x?.clip_id).filter(Boolean));
 
@@ -2032,6 +2123,9 @@ class PasteCraftSupabase {
 
       if (error) throw error;
 
+      // Best-effort cache write (avoids slow/failing future fetches)
+      this.setCachedSubscription(userId, data);
+
       return data;
     } catch (error) {
       console.error('❌ Failed to get subscription:', error);
@@ -2043,6 +2137,24 @@ class PasteCraftSupabase {
    * Check if user has premium access
    */
   async isPremiumUser(userId) {
+    // Fast path: cached subscription (avoid blocking UI on slow network)
+    const cached = await this.getCachedSubscription(userId);
+    if (cached) {
+      const cachedExpiresAtMs = cached?.ai_access_expires_at ? Date.parse(cached.ai_access_expires_at) : NaN;
+      const cachedIsPaidPremium = !!(cached &&
+        (cached.subscription_tier === 'premium' || cached.subscription_tier === 'admin') &&
+        cached.subscription_status === 'active'
+      );
+      const cachedHasCouponAiAccess = !!(cached && (
+        cached.has_unlimited_ai === true ||
+        (Number.isFinite(cachedExpiresAtMs) && cachedExpiresAtMs > Date.now())
+      ));
+      const cachedIsPremium = cachedIsPaidPremium || cachedHasCouponAiAccess;
+      if (cachedIsPremium) {
+        return true;
+      }
+    }
+
     const subscription = await this.getUserSubscription(userId);
     const isPaidPremium = !!(subscription &&
       (subscription.subscription_tier === 'premium' || subscription.subscription_tier === 'admin') &&

@@ -33,3 +33,17 @@
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Clicking an album item opens the full source note overlay with clips/urls/images + per-item copy; attachment open is secondary.
 
+### Jan 18, 2026 - Cross-device Sync + Duplicate Clip Fix
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, extension/popup.html
+**Result:** Fixed transfer/sync stability + eliminated post-open duplicate clip rendering; removed all debug instrumentation/scripts (no commit yet).
+
+### Jan 18, 2026 - Category Creation UI Lag
+**Status:** SUCCESS
+**Files:** extension/popup.js
+**Result:** Category folders render immediately (no waiting on cloud sync); added loading state on create buttons while background sync runs.
+
+### Jan 18, 2026 - Profile Avatar Generation Hanging
+**Status:** PARTIAL
+**Files:** extension/supabase-client.js, extension/popup.js
+**Result:** Fixed profile AI image calls to hit `ai-image` + added fetch timeouts so avatar generation can’t hang forever (better errors on timeout).

@@ -48,5 +48,15 @@
 **Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, extension/popup.html
 **Result:** Cross-device sync now transfers reliably; fixed duplicate clips appearing after popup opens; removed debug instrumentation/scripts (no commit yet).
 
+### Jan 18, 2026 - Manual Clip Upload Loading Spinner
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/styles.css
+**Result:** Added Save Clip uploading spinner + disabled state during Supabase sync so users know uploads may take time.
+
+### Jan 18, 2026 - Profile Funky Animal Name Remix
+**Status:** PARTIAL
+**Files:** extension/popup.html, extension/popup.js, supabase/functions/ai-name/index.ts
+**Result:** Renamed “Funky Name” → “Funky Animal Name” and updated AI name prompt to remix the user’s typed name while ending with a valid animal.
+
 
 

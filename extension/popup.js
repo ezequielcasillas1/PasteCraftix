@@ -76,6 +76,8 @@ class PasteCraftPopup {
     this.notesPageIndex = 0; // starts at 0
     this.notesAiEnabled = false;
     this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
+
+    // (debug instrumentation removed)
     
     this.init();
   }
@@ -141,8 +143,19 @@ class PasteCraftPopup {
     this.currentUser = currentUser;
     
     // Load subscription info
-    this.userSubscription = await pasteCraftSupabase.getUserSubscription(currentUser.id);
-    console.log('💎 Subscription tier:', this.userSubscription?.subscription_tier);
+    // Do NOT block popup UI on slow network subscription fetch.
+    // Use cached subscription if available, then refresh in background.
+    try {
+      this.userSubscription = await pasteCraftSupabase.getCachedSubscription(currentUser.id);
+    } catch (_) {
+      this.userSubscription = null;
+    }
+    console.log('💎 Subscription tier (cached):', this.userSubscription?.subscription_tier);
+
+    pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
+      this.userSubscription = sub;
+      console.log('💎 Subscription tier (fresh):', this.userSubscription?.subscription_tier);
+    }).catch(() => {});
     
     // Show top bar (with sign out button)
     document.getElementById('topBar').style.display = 'flex';
@@ -210,6 +223,8 @@ class PasteCraftPopup {
         const next = changes.pc_sync_backup_v1?.newValue || null;
         const nextClips = next && Array.isArray(next.clips) ? next.clips.length : 0;
         const nextNotes = next && Array.isArray(next.notes) ? next.notes.length : 0;
+        const nextUpdatedAt = next && typeof next.updatedAt === 'number' ? next.updatedAt : 0;
+
 
         try {
           await this.bootstrapStorageSyncTransfer();
@@ -237,6 +252,7 @@ class PasteCraftPopup {
         'categories',
         'searchOnlyClips',
         'notes',
+        'pc_local_updatedAt',
         'notesViewMode',
         'notesPageIndex',
         'notesAiEnabled',
@@ -266,9 +282,24 @@ class PasteCraftPopup {
       const backupNotesCount = backup && Array.isArray(backup.notes) ? backup.notes.length : 0;
 
       const backupUpdatedAt = backup && typeof backup.updatedAt === 'number' ? backup.updatedAt : 0;
+      let localUpdatedAt = typeof local.pc_local_updatedAt === 'number' ? local.pc_local_updatedAt : 0;
 
       const localHasAny = localClipsCount > 0 || localNotesCount > 0;
       const backupHasAny = backupClipsCount > 0 || backupNotesCount > 0;
+
+      // If local already has data but no updated marker yet, initialize it so we don't
+      // incorrectly restore an older sync backup over existing local state.
+      let localUpdatedAtInitialized = false;
+      if (localHasAny && localUpdatedAt === 0) {
+        localUpdatedAt = Date.now();
+        localUpdatedAtInitialized = true;
+        try {
+          await chrome.storage.local.set({ pc_local_updatedAt: localUpdatedAt });
+          local.pc_local_updatedAt = localUpdatedAt;
+        } catch (_) {
+          // ignore
+        }
+      }
 
       // Merge helper (works for clips, archived clips, categories, notes)
       const stableKey = (item) => {
@@ -311,27 +342,53 @@ class PasteCraftPopup {
       const mergedCategories = mergeArrays(local.categories, backup?.categories).slice(0, 300);
       const mergedNotes = mergeArrays(local.notes, backup?.notes).slice(0, 300);
 
+      // Prefer newest side by updatedAt, falling back to count-based heuristics when missing.
+      // This prevents deleted clips from being restored from an older sync backup.
+      const preferLocal = localHasAny && localUpdatedAt > 0 && (backupUpdatedAt === 0 || localUpdatedAt >= backupUpdatedAt);
+      const preferBackup = backupHasAny && backupUpdatedAt > 0 && (localUpdatedAt === 0 || backupUpdatedAt > localUpdatedAt);
+
       // Decide which direction to sync.
       const shouldWriteLocal =
-        backupHasAny && (
-          backupUpdatedAt > 0 ||
-          backupClipsCount > localClipsCount ||
-          backupNotesCount > localNotesCount
+        preferBackup ||
+        (
+          !preferLocal &&
+          backupHasAny && (
+            backupClipsCount > localClipsCount ||
+            backupNotesCount > localNotesCount
+          )
         );
 
       const shouldWriteSync =
-        localHasAny && (
-          !backupHasAny ||
-          localClipsCount > backupClipsCount ||
-          localNotesCount > backupNotesCount
+        preferLocal ||
+        (
+          !preferBackup &&
+          localHasAny && (
+            !backupHasAny ||
+            localClipsCount > backupClipsCount ||
+            localNotesCount > backupNotesCount
+          )
         );
 
-      if (shouldWriteLocal && (mergedClips.length > localClipsCount || mergedNotes.length > localNotesCount)) {
+      // When we prefer one side by updatedAt, do not merge in the other side (merging would resurrect deleted clips).
+      const nextLocalClips = preferBackup ? (Array.isArray(backup?.clips) ? backup.clips : []) : mergedClips;
+      const nextLocalArchived = preferBackup ? (Array.isArray(backup?.searchOnlyClips) ? backup.searchOnlyClips : []) : mergedSearchOnlyClips;
+      const nextLocalCategories = preferBackup ? (Array.isArray(backup?.categories) ? backup.categories : []) : mergedCategories;
+      const nextLocalNotes = preferBackup ? (Array.isArray(backup?.notes) ? backup.notes : []) : mergedNotes;
+
+      const nextSyncClips = preferLocal ? (Array.isArray(local.clips) ? local.clips : []) : mergedClips;
+      const nextSyncArchived = preferLocal ? (Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : []) : mergedSearchOnlyClips;
+      const nextSyncCategories = preferLocal ? (Array.isArray(local.categories) ? local.categories : []) : mergedCategories;
+      const nextSyncNotes = preferLocal ? (Array.isArray(local.notes) ? local.notes : []) : mergedNotes;
+
+      const willWriteLocal = shouldWriteLocal && (nextLocalClips.length !== localClipsCount || nextLocalNotes.length !== localNotesCount);
+      const willWriteSync = shouldWriteSync && (nextSyncClips.length !== backupClipsCount || nextSyncNotes.length !== backupNotesCount);
+
+      if (willWriteLocal) {
         await chrome.storage.local.set({
-          clips: mergedClips,
-          categories: mergedCategories,
-          searchOnlyClips: mergedSearchOnlyClips,
-          notes: mergedNotes,
+          clips: nextLocalClips.slice(0, 500),
+          categories: nextLocalCategories.slice(0, 300),
+          searchOnlyClips: nextLocalArchived.slice(0, 1000),
+          notes: nextLocalNotes.slice(0, 300),
           notesViewMode: backup?.notesViewMode || local.notesViewMode || 'notes',
           notesPageIndex: typeof (backup?.notesPageIndex) === 'number' ? backup.notesPageIndex : (typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0),
           notesAiEnabled: backup ? !!backup.notesAiEnabled : !!local.notesAiEnabled,
@@ -340,14 +397,14 @@ class PasteCraftPopup {
         });
       }
 
-      if (shouldWriteSync && (mergedClips.length !== backupClipsCount || mergedNotes.length !== backupNotesCount)) {
+      if (willWriteSync) {
         const payload = {
           version: 1,
           updatedAt: Date.now(),
-          clips: mergedClips,
-          categories: mergedCategories,
-          searchOnlyClips: mergedSearchOnlyClips,
-          notes: mergedNotes,
+          clips: nextSyncClips.slice(0, 500),
+          categories: nextSyncCategories.slice(0, 300),
+          searchOnlyClips: nextSyncArchived.slice(0, 1000),
+          notes: nextSyncNotes.slice(0, 300),
           notesViewMode: local.notesViewMode || backup?.notesViewMode || 'notes',
           notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : (typeof backup?.notesPageIndex === 'number' ? backup.notesPageIndex : 0),
           notesAiEnabled: !!local.notesAiEnabled,
@@ -390,7 +447,25 @@ class PasteCraftPopup {
         userProfile: local.userProfile || null
       };
 
-      await new Promise((resolve) => chrome.storage.sync.set({ pc_sync_backup_v1: payload }, resolve));
+      // Persist local "last updated" marker so sync-transfer doesn't restore older backups over deletions.
+      try {
+        await chrome.storage.local.set({ pc_local_updatedAt: payload.updatedAt });
+      } catch (_) {
+        // ignore
+      }
+
+      let ok = true;
+      try {
+        await new Promise((resolve) => {
+          chrome.storage.sync.set({ pc_sync_backup_v1: payload }, () => {
+            if (chrome.runtime && chrome.runtime.lastError) ok = false;
+            resolve();
+          });
+        });
+      } catch (e) {
+        ok = false;
+      }
+
     } catch (_) {
       // ignore (quota / sync disabled)
     }
@@ -703,6 +778,7 @@ class PasteCraftPopup {
 
     // Enforce pagination clip limit
     await this.enforceClipLimit();
+
   }
   
   async enforceClipLimit() {
@@ -796,9 +872,21 @@ class PasteCraftPopup {
     const manualInputTextarea = document.getElementById('manualInputTextarea');
     const manualInputCategory = document.getElementById('manualInputCategory');
     const manualInputClearBtn = document.getElementById('manualInputClearBtn');
+    const manualInputSaveSpinner = document.getElementById('manualInputSaveSpinner');
+    const manualInputSaveIcon = document.getElementById('manualInputSaveIcon');
+    const manualInputSaveLabel = document.getElementById('manualInputSaveLabel');
+
+    const setManualInputSavingState = (isSaving) => {
+      if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
+      if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
+      if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
+      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Uploading…' : 'Save Clip';
+    };
 
     if (manualInputSaveBtn && manualInputTextarea && manualInputCategory) {
       manualInputSaveBtn.addEventListener('click', async () => {
+        if (this.manualClipSaveInProgress) return;
+
         const text = manualInputTextarea.value.trim();
         if (!text) {
           this.showToast('Please enter some text to save');
@@ -818,49 +906,65 @@ class PasteCraftPopup {
           }
         }
 
-        const newClip = {
-          id: Date.now() + Math.random(),
-          text: text,
-          category: category,
-          timestamp: Date.now()
-        };
+        try {
+          setManualInputSavingState(true);
+          this.manualClipSaveInProgress = true;
 
-        this.clips.unshift(newClip);
-        
-        await this.enforceClipLimit();
-        await chrome.storage.local.set({ clips: this.clips });
-        
-        // Sync to Supabase
-        try {
-          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-          console.log('✅ Manual clip synced to Supabase');
-        } catch (error) {
-          console.error('⚠️ Failed to sync manual clip to Supabase:', error);
-        }
-        
-        // Notify content scripts (without auto-showing Quick View)
-        try {
-          chrome.tabs.query({}, (tabs) => {
-            tabs.forEach(tab => {
-              chrome.tabs.sendMessage(tab.id, {
-                action: 'clipSaved',
-                clip: newClip,
-                autoShow: false
-              }).catch(() => {});
+
+          const newClip = {
+            id: Date.now() + Math.random(),
+            text: text,
+            category: category,
+            timestamp: Date.now()
+          };
+
+          this.clips.unshift(newClip);
+          
+          await this.enforceClipLimit();
+
+
+          await chrome.storage.local.set({ clips: this.clips });
+
+          
+          // Sync to Supabase
+          try {
+            const _pcSyncStart = Date.now();
+            const ok = await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+            const _pcSyncMs = Date.now() - _pcSyncStart;
+
+
+            console.log('✅ Manual clip synced to Supabase');
+          } catch (error) {
+            console.error('⚠️ Failed to sync manual clip to Supabase:', error);
+          }
+          
+          // Notify content scripts (without auto-showing Quick View)
+          try {
+            chrome.tabs.query({}, (tabs) => {
+              tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, {
+                  action: 'clipSaved',
+                  clip: newClip,
+                  autoShow: false
+                }).catch(() => {});
+              });
             });
-          });
-        } catch (error) {
-          console.log('Could not notify content scripts:', error);
+          } catch (error) {
+            console.log('Could not notify content scripts:', error);
+          }
+          
+          this.renderChips();
+          this.renderCategories();
+          this.updateCategoryFilter();
+          this.updateManualInputCategories();
+          this.showToast(`Saved to ${category}!`);
+          
+          // Clear textarea
+          manualInputTextarea.value = '';
+        } finally {
+          this.manualClipSaveInProgress = false;
+          setManualInputSavingState(false);
         }
-        
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-        this.showToast(`Saved to ${category}!`);
-        
-        // Clear textarea
-        manualInputTextarea.value = '';
       });
     }
 
@@ -3302,12 +3406,16 @@ class PasteCraftPopup {
     }
 
     // Delete from highest index down to avoid reindex issues
+    const removed = [];
     validIndices.sort((a, b) => b - a).forEach((idx) => {
+      const c = this.clips?.[idx];
+      if (c) removed.push({ id: c?.id != null ? String(c.id) : null, idx });
       this.clips.splice(idx, 1);
     });
 
     await chrome.storage.local.set({ clips: this.clips });
     await this.backupLocalToSync('delete:handleQuickDelete');
+
 
     // 🔄 AUTO-SYNC TO SUPABASE
     try {
@@ -3440,6 +3548,11 @@ class PasteCraftPopup {
     });
 
     this.updateSearchBulkActions();
+  }
+
+  // Backwards-compat: older code paths still call this name
+  performSearch() {
+    this.renderSearchResults();
   }
 
   filterClips() {
@@ -3586,7 +3699,14 @@ class PasteCraftPopup {
     }
 
     container.innerHTML = '';
-    this.categories.forEach(category => {
+    // Newest categories first (top of list)
+    const categoriesSorted = [...this.categories].sort((a, b) => {
+      const aTs = Number(a?.created ?? a?.id ?? 0);
+      const bTs = Number(b?.created ?? b?.id ?? 0);
+      return bTs - aTs;
+    });
+
+    categoriesSorted.forEach(category => {
       const categoryItem = this.createCategoryItem(category);
       container.appendChild(categoryItem);
     });
@@ -3650,11 +3770,32 @@ class PasteCraftPopup {
     const name = prompt('Enter category name:');
     if (name && name.trim()) {
       const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon);
+      this.createCategory(name.trim(), icon, { originButtonId: 'createCategoryBtn' });
     }
   }
 
-  async createCategory(name, icon) {
+  setActionButtonLoading(buttonId, isLoading, loadingText = 'Loading...') {
+    if (!buttonId) return;
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+
+    if (!btn.dataset.originalHtml) {
+      btn.dataset.originalHtml = btn.innerHTML;
+    }
+
+    if (isLoading) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="btn-loading-spinner" aria-hidden="true"></span>${this.escapeHtml(loadingText)}`;
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = btn.dataset.originalHtml;
+    }
+  }
+
+  async createCategory(name, icon, options = {}) {
+    const originButtonId = options?.originButtonId || null;
+    this.setActionButtonLoading(originButtonId, true, 'Creating...');
+
     const category = {
       id: Date.now(),
       name,
@@ -3664,17 +3805,39 @@ class PasteCraftPopup {
 
     this.categories.push(category);
     await chrome.storage.local.set({ categories: this.categories });
-    
-    // 🔄 AUTO-SYNC TO SUPABASE
-    try {
-      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-      console.log('✅ Category creation synced to Supabase');
-    } catch (error) {
-      console.error('⚠️ Failed to sync category creation to Supabase:', error);
-    }
-    
+
+    // Render immediately so the folder appears instantly (don't block on network sync)
     this.renderCategories();
     this.updateCategoryFilter();
+
+    // If the category modal is open, refresh its options too
+    const categoryModal = document.getElementById('categoryModal');
+    if (categoryModal && categoryModal.style.display === 'flex') {
+      this.populateCategoryOptions();
+    }
+
+    // 🔄 AUTO-SYNC TO SUPABASE (background)
+    let cleared = false;
+    const clearLoading = () => {
+      if (cleared) return;
+      cleared = true;
+      this.setActionButtonLoading(originButtonId, false);
+    };
+
+    const fallbackTimer = setTimeout(clearLoading, 8000);
+
+    Promise.resolve()
+      .then(() => pasteCraftSupabase.syncCategoriesToSupabase(this.categories))
+      .then(() => {
+        console.log('✅ Category creation synced to Supabase');
+      })
+      .catch((error) => {
+        console.error('⚠️ Failed to sync category creation to Supabase:', error);
+      })
+      .finally(() => {
+        clearTimeout(fallbackTimer);
+        clearLoading();
+      });
   }
 
   async editCategory(category) {
@@ -4393,10 +4556,12 @@ class PasteCraftPopup {
     if (!clipToDelete) return;
     
     if (confirm('Delete this clip permanently?')) {
+
       // Remove the clip
       this.clips.splice(this.pendingClipIndex, 1);
       await chrome.storage.local.set({ clips: this.clips });
       await this.backupLocalToSync('delete:handleClipDelete');
+
       
       // Sync to Supabase
       try {
@@ -4514,7 +4679,7 @@ class PasteCraftPopup {
     const name = prompt('Enter category name:');
     if (name && name.trim()) {
       const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon).then(() => {
+      this.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' }).then(() => {
         this.populateCategoryOptions();
       });
     }
@@ -5021,6 +5186,7 @@ class PasteCraftPopup {
     const beforeActive = this.clips.length;
     const beforeArchived = this.searchOnlyClips.length;
 
+
     this.clips = this.clips.filter(c => !ids.has(c.id));
     this.searchOnlyClips = this.searchOnlyClips.filter(c => !ids.has(c.id));
 
@@ -5307,13 +5473,13 @@ class PasteCraftPopup {
       } else {
         generateAnimalBtn.disabled = true;
         generateAnimalBtn.classList.add('btn-disabled');
-        generateAnimalBtn.title = 'No animal detected in AI name';
+        generateAnimalBtn.title = 'No animal detected in funky animal name';
         console.log('⚠️ AI name has no animal type');
       }
     } else {
       generateAnimalBtn.disabled = true;
       generateAnimalBtn.classList.add('btn-disabled');
-      generateAnimalBtn.title = 'Generate AI name first';
+      generateAnimalBtn.title = 'Generate funky animal name first';
       console.log('⚠️ No AI name generated yet');
     }
     
@@ -5349,6 +5515,7 @@ class PasteCraftPopup {
     // Get new buttons
     const generateAnimalBtn = document.getElementById('generateAnimalBtn');
     const generateCartoonBtn = document.getElementById('generateCartoonBtn');
+
     
     // Remove old listeners by cloning and replacing nodes (for buttons)
     const newUploadBtn = uploadImageBtn.cloneNode(true);
@@ -5403,7 +5570,7 @@ class PasteCraftPopup {
     }
 
     // Upload image button - attach to NEW cloned button
-    newUploadBtn.addEventListener('click', () => {
+    newUploadBtn.addEventListener('click', (e) => {
       profileImageUpload.click();
     });
 
@@ -5508,23 +5675,28 @@ class PasteCraftPopup {
     console.log('🐾 generateAnimalAvatar() CALLED!');
     
     // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'avatar')) {
+    let hasAvatarAccess = true;
+    if (this.currentUser) {
+      hasAvatarAccess = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'avatar');
+    }
+    if (!hasAvatarAccess) {
       return;
     }
 
     try {
       const userName = document.getElementById('userName').value.trim();
       const aiGeneratedName = this.userProfile?.aiGeneratedName;
+      const animalMatch = aiGeneratedName?.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       
       if (!userName || !aiGeneratedName) {
-        this.showToast('⚠️ Please generate an AI name first', 'error');
+        this.showToast('⚠️ Please generate a funky animal name first', 'error');
         return;
       }
       
       // Extract animal type
       const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       if (!match) {
-        this.showToast('⚠️ No animal found in your AI name', 'error');
+        this.showToast('⚠️ No animal found in your funky animal name', 'error');
         return;
       }
       
@@ -5588,7 +5760,11 @@ class PasteCraftPopup {
     console.log('🎨 generateMyCartoon() CALLED!');
     
     // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'cartoon')) {
+    let hasCartoonAccess = true;
+    if (this.currentUser) {
+      hasCartoonAccess = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'cartoon');
+    }
+    if (!hasCartoonAccess) {
       return;
     }
 
@@ -5692,7 +5868,7 @@ class PasteCraftPopup {
         return;
       }
 
-      this.showToast('🎭 Generating funky AI name...', 'info');
+      this.showToast('🎭 Generating funky animal name...', 'info');
       document.getElementById('generateNameBtn').disabled = true;
       document.getElementById('generateNameBtn').textContent = '⏳ Generating...';
 
@@ -5718,17 +5894,17 @@ class PasteCraftPopup {
         // ✅ SHOW COUNTDOWN TIMER AND AUTO-COLLAPSE SECTION
         this.startNameSectionCollapse();
         
-        this.showToast('✅ Funky name generated!', 'success');
+        this.showToast('✅ Funky animal name generated!', 'success');
       } else {
-        this.showToast('❌ Failed to generate AI name', 'error');
+        this.showToast('❌ Failed to generate funky animal name', 'error');
       }
 
     } catch (error) {
       console.error('Failed to generate AI name:', error);
-      this.showToast('❌ Failed to generate AI name', 'error');
+      this.showToast('❌ Failed to generate funky animal name', 'error');
     } finally {
       document.getElementById('generateNameBtn').disabled = false;
-      document.getElementById('generateNameBtn').textContent = 'Generate AI Name';
+      document.getElementById('generateNameBtn').textContent = 'Generate Funky Animal Name';
     }
   }
 
@@ -6602,7 +6778,8 @@ class PasteCraftPopup {
     
     // Re-render to update UI
     this.renderChips();
-    this.performSearch();
+    // Refresh search UI (performSearch was removed/renamed)
+    this.renderSearchResults();
     this.renderCategories();
   }
   

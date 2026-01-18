@@ -5364,7 +5364,7 @@
             <div id="topLeftProfileImage" class="top-bar-profile">
                 <img id="topLeftProfileImg" src="" alt="Profile" />
                 <div class="top-bar-name-section">
-                    <span id="topBarFunkyName" class="top-bar-funky-name">FunkyName</span>
+                    <span id="topBarFunkyName" class="top-bar-funky-name">FunkyAnimalName</span>
                 </div>
             </div>
             <div id="signOutContainer" class="top-bar-actions">
@@ -5444,8 +5444,9 @@
                         <option value="Uncategorized">Uncategorized</option>
                     </select>
                     <button class="manual-input-save-btn" id="manualInputSaveBtn">
-                        <span>💾</span>
-                        <span>Save Clip</span>
+                        <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
+                        <span id="manualInputSaveIcon">💾</span>
+                        <span id="manualInputSaveLabel">Save Clip</span>
                     </button>
                     <button class="manual-input-clear-btn" id="manualInputClearBtn">
                         <span>🗑️</span>
@@ -6431,16 +6432,16 @@ Multiple clips are separated by:
                     <!-- AI Name Section (Collapsible) -->
                     <div class="profile-section">
                         <div class="profile-section-header" id="nameRegHeader">
-                            <h4>🎭 Your Funky Name</h4>
+                            <h4>🎭 Your Funky Animal Name</h4>
                             <button class="section-toggle" id="nameToggleBtn">▼</button>
                         </div>
                         <div class="profile-section-content" id="nameRegContent">
                             <div class="ai-name-container">
                                 <input type="text" id="userName" class="profile-input" placeholder="Enter your name">
-                                <button class="btn-primary" id="generateNameBtn">Generate AI Name</button>
+                                <button class="btn-primary" id="generateNameBtn">Generate Funky Animal Name</button>
                             </div>
                             <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
-                                <span class="ai-name-label">Your AI Name:</span>
+                                <span class="ai-name-label">Your Funky Animal Name:</span>
                                 <span class="ai-name-value" id="aiNameValue">-</span>
                             </div>
                             <!-- Countdown Timer for Name Section -->
