@@ -48,3 +48,11 @@
 **Status:** PARTIAL
 **Files:** extension/popup.js, netlify/functions/support-ticket.js
 **Result:** Support form POST returns 404 because Netlify site isn’t deploying functions yet; connect site to GitHub repo or deploy via Netlify CLI. (Commit: 10a2dfc)
+
+### 2026-01-19 - Category Deletion Still Broken (Post Bugfix Stacking)
+**Status:** ⚠️ PARTIAL
+**Commit:** 50c2b04
+**Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, bugfixes.md
+**What Works:** Clip persistence after refresh (updatedAt marker); deletion flow updates UI faster.
+**What's Missing:** Category deletion still unreliable after refresh/sync; needs deeper fix.
+**Next Steps:** Reproduce + trace sync/resurrection path; harden delete flow and sync ordering.
