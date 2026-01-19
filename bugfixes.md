@@ -47,3 +47,8 @@
 **Status:** PARTIAL
 **Files:** extension/supabase-client.js, extension/popup.js
 **Result:** Fixed profile AI image calls to hit `ai-image` + added fetch timeouts so avatar generation can’t hang forever (better errors on timeout).
+
+### Jan 19, 2026 - Clip Disappears After Refresh (Sync Backup Overwrites Local)
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/background.js
+**Result:** Fixed refresh wiping newest clips by updating `pc_local_updatedAt` on saves so sync-transfer won’t overwrite local with stale sync backup.

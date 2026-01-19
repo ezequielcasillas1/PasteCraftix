@@ -1502,6 +1502,36 @@ class PasteCraftSupabase {
     }
   }
 
+  /**
+   * Delete a category row from Supabase so it doesn't "reappear" via realtime sync.
+   */
+  async deleteCategoryFromSupabase(categoryId) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping category delete');
+      return false;
+    }
+
+    const category_id = categoryId != null ? String(categoryId) : '';
+    if (!category_id) return false;
+
+    try {
+      const userId = await this.getSyncUserId();
+      await this.setUserContext(userId);
+
+      const { error } = await this.client
+        .from('categories')
+        .delete()
+        .eq('user_id', userId)
+        .eq('category_id', category_id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to delete category from Supabase:', error);
+      return false;
+    }
+  }
+
   // =====================================================
   // ARCHIVED CLIPS SYNC METHODS
   // =====================================================

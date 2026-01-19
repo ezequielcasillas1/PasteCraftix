@@ -910,7 +910,6 @@ class PasteCraftPopup {
           setManualInputSavingState(true);
           this.manualClipSaveInProgress = true;
 
-
           const newClip = {
             id: Date.now() + Math.random(),
             text: text,
@@ -923,7 +922,7 @@ class PasteCraftPopup {
           await this.enforceClipLimit();
 
 
-          await chrome.storage.local.set({ clips: this.clips });
+          await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
 
           
           // Sync to Supabase
@@ -3877,7 +3876,8 @@ class PasteCraftPopup {
   }
 
   async deleteCategory(category) {
-    if (confirm(`Delete category "${category.name}"? Clips will be moved to "Uncategorized".`)) {
+    const ok = confirm(`Delete category "${category.name}"? Clips will be moved to "Uncategorized".`);
+    if (ok) {
       // Move clips to Uncategorized
       this.clips.forEach(clip => {
         if (clip.category === category.name) {
@@ -3890,21 +3890,31 @@ class PasteCraftPopup {
       
       await chrome.storage.local.set({ 
         categories: this.categories,
-        clips: this.clips 
+        clips: this.clips,
+        pc_local_updatedAt: Date.now()
       });
-      
-      // 🔄 AUTO-SYNC TO SUPABASE
-      try {
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        console.log('✅ Category deletion synced to Supabase');
-      } catch (error) {
-        console.error('⚠️ Failed to sync category deletion to Supabase:', error);
-      }
-      
+
+      // Update UI immediately (don't block on network sync)
       this.renderCategories();
       this.updateCategoryFilter();
       this.renderChips();
+
+      // 🔄 AUTO-SYNC TO SUPABASE (background)
+      Promise.resolve()
+        .then(async () => {
+          // Remove the category from Supabase so realtime merge doesn't resurrect it
+          try {
+            await pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? ''));
+          } catch (_) {}
+          await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        })
+        .then(() => {
+          console.log('✅ Category deletion synced to Supabase');
+        })
+        .catch((error) => {
+          console.error('⚠️ Failed to sync category deletion to Supabase:', error);
+        });
     }
   }
 
@@ -4600,7 +4610,7 @@ class PasteCraftPopup {
       }
       
       this.clips[this.pendingClipIndex].category = this.selectedCategoryForSave;
-      await chrome.storage.local.set({ clips: this.clips });
+      await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
       
       // 🔄 AUTO-SYNC TO SUPABASE
       try {
@@ -4639,7 +4649,7 @@ class PasteCraftPopup {
       // Enforce 500 clip limit with auto-archive
       await this.enforceClipLimit();
 
-      await chrome.storage.local.set({ clips: this.clips });
+      await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
       
       // 🔄 AUTO-SYNC TO SUPABASE
       try {

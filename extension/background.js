@@ -263,7 +263,7 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
   console.log('💾 ABOUT TO SAVE TO STORAGE - full clips array:', clips);
   console.log('💾 ABOUT TO SAVE TO STORAGE - searchOnly array length:', searchOnlyClips.length);
   
-  await chrome.storage.local.set({ clips, searchOnlyClips });
+  await chrome.storage.local.set({ clips, searchOnlyClips, pc_local_updatedAt: Date.now() });
   
   console.log('✅ SAVE COMPLETE - verifying...');
   
