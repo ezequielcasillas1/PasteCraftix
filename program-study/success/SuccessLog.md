@@ -28,6 +28,11 @@
 **Files:** extension/popup.js, extension/supabase-client.js, extension/background.js, extension/popup.html
 **Result:** Sync/transfer fixed + post-open duplication removed; instrumentation deleted. (Commit: pending)
 
+### Jan 20, 2026 - Image Copy to Clips (Context Menu)
+**Status:** ✅ SUCCESS
+**Files:** extension/background.js, extension/popup.js
+**Result:** Added “Copy Image to PasteCraft” / “Copy Image Link to PasteCraft” to reliably save image URLs into Clips. (Commit: bafc2cd)
+
 ### Dec 20, 2025 - Production Deployment Complete
 
 **Status:** ✅ SUCCESS - System Production Ready
