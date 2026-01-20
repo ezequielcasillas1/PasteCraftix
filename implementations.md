@@ -58,5 +58,15 @@
 **Files:** extension/popup.html, extension/popup.js, supabase/functions/ai-name/index.ts
 **Result:** Renamed “Funky Name” → “Funky Animal Name” and updated AI name prompt to remix the user’s typed name while ending with a valid animal.
 
+### Jan 19, 2026 - Profile Name Save Buttons
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Added Save buttons next to the typed name and the generated funky animal name so users can save either field on demand.
+
+### Jan 20, 2026 - Rich Auto-Copy + Clip Viewer (Open Button)
+**Status:** SUCCESS
+**Files:** extension/content-script.js, extension/background.js, extension/popup.js, extension/popup.html, extension/styles.css
+**Result:** Auto-copy now captures text/plain + text/html + optional image metadata; added a per-clip Open button next to 🧠 that opens an in-extension viewer overlay.
+
 
 

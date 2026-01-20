@@ -169,6 +169,9 @@ class PasteCraftPopup {
     await this.loadSettings();
     await this.loadUserProfile();
     await this.loadAnalysisHistory();
+
+    // Always update top bar name/image (even if no image saved yet)
+    this.updateTopBarIdentity();
     
     // ✅ DISPLAY SAVED PROFILE IMAGE
     console.log('🔍 Checking for saved profile image...');
@@ -639,21 +642,17 @@ class PasteCraftPopup {
         this.renderChips();
         this.updateLastCapture();
         this.renderSearchResults();
-        this.showToast('📥 Clips synced from another device');
       } else if (type === 'categories') {
         await this.loadData();
         this.renderCategories();
         this.updateCategoryFilter();
-        this.showToast('📥 Categories synced from another device');
       } else if (type === 'settings') {
         await this.loadSettings();
-        this.showToast('⚙️ Settings synced from another device');
       } else if (type === 'profile') {
         await this.loadUserProfile();
         if (this.userProfile?.profileImageUrl) {
           this.displayImageTopLeft(this.userProfile.profileImageUrl);
         }
-        this.showToast('👤 Profile synced from another device');
       }
     });
   }
@@ -737,7 +736,8 @@ class PasteCraftPopup {
           id,
           text,
           category: clip?.category || 'Uncategorized',
-          timestamp: ts
+          timestamp: ts,
+          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
         };
       }
     });
@@ -762,7 +762,8 @@ class PasteCraftPopup {
           id,
           text,
           category: clip?.category || 'Uncategorized',
-          timestamp: ts
+          timestamp: ts,
+          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
         };
       }
     });
@@ -1510,6 +1511,28 @@ class PasteCraftPopup {
         this.hideBreakdownModal();
       }
     });
+
+    // Clip Viewer modal events
+    const closeClipViewerModal = document.getElementById('closeClipViewerModal');
+    if (closeClipViewerModal) {
+      closeClipViewerModal.addEventListener('click', () => this.hideClipViewerModal());
+    }
+    const closeClipViewerBtn = document.getElementById('closeClipViewerBtn');
+    if (closeClipViewerBtn) {
+      closeClipViewerBtn.addEventListener('click', () => this.hideClipViewerModal());
+    }
+    const copyClipViewerBtn = document.getElementById('copyClipViewerBtn');
+    if (copyClipViewerBtn) {
+      copyClipViewerBtn.addEventListener('click', () => this.copyClipViewerText());
+    }
+    const clipViewerModal = document.getElementById('clipViewerModal');
+    if (clipViewerModal) {
+      clipViewerModal.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'clipViewerModal') {
+          this.hideClipViewerModal();
+        }
+      });
+    }
 
     // Breakdown tab switching
     document.querySelector('.breakdown-tabs').addEventListener('click', (e) => {
@@ -2983,6 +3006,7 @@ class PasteCraftPopup {
       <span class="chip-time">${timeAgo}</span>
       <div class="chip-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
+        <button class="chip-open-btn" title="Open">🔎</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="chip-notes-btn" title="Send to Notes">
           <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
@@ -3026,6 +3050,11 @@ class PasteCraftPopup {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
         this.showBreakdownModal(textToSend);
+      } else if (e.target.classList.contains('chip-open-btn')) {
+        e.stopPropagation();
+        if (typeof this.openClipViewer === 'function') {
+          this.openClipViewer(clip);
+        }
       } else if (e.target.classList.contains('chip-summary-btn')) {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
@@ -3617,6 +3646,7 @@ class PasteCraftPopup {
       </div>
       <div class="search-result-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
+        <button class="chip-open-btn" title="Open">🔎</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="search-notes-btn" title="Send to Notes">
           <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
@@ -3652,6 +3682,17 @@ class PasteCraftPopup {
       const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
       this.showBreakdownModal(textToSend);
     });
+
+    // Open/view functionality
+    const openBtn = item.querySelector('.chip-open-btn');
+    if (openBtn) {
+      openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof this.openClipViewer === 'function') {
+          this.openClipViewer(clip);
+        }
+      });
+    }
     
     // Summary functionality
     item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
@@ -3803,7 +3844,7 @@ class PasteCraftPopup {
     };
 
     this.categories.push(category);
-    await chrome.storage.local.set({ categories: this.categories });
+    await chrome.storage.local.set({ categories: this.categories, pc_local_updatedAt: Date.now() });
 
     // Render immediately so the folder appears instantly (don't block on network sync)
     this.renderCategories();
@@ -3857,7 +3898,8 @@ class PasteCraftPopup {
 
       await chrome.storage.local.set({ 
         categories: this.categories,
-        clips: this.clips 
+        clips: this.clips,
+        pc_local_updatedAt: Date.now()
       });
       
       // 🔄 AUTO-SYNC TO SUPABASE
@@ -3885,12 +3927,20 @@ class PasteCraftPopup {
         }
       });
 
+      // Move archived clips to Uncategorized too (prevents deleted category lingering in filters/dropdowns)
+      this.searchOnlyClips.forEach(clip => {
+        if (clip.category === category.name) {
+          clip.category = 'Uncategorized';
+        }
+      });
+
       // Remove category
       this.categories = this.categories.filter(cat => cat.id !== category.id);
       
       await chrome.storage.local.set({ 
         categories: this.categories,
         clips: this.clips,
+        searchOnlyClips: this.searchOnlyClips,
         pc_local_updatedAt: Date.now()
       });
 
@@ -3989,26 +4039,73 @@ class PasteCraftPopup {
   }
 
   showToast(message) {
-    // Simple toast notification
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #10b981;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      z-index: 10000;
-      animation: slideIn 0.3s ease;
-    `;
-    toast.textContent = message;
-    document.body.appendChild(toast);
+    // Single-instance toast (no stacking) + safe auto-dismiss.
+    const TOAST_DURATION_MS = 3000;
 
-    setTimeout(() => {
-      toast.remove();
-    }, 2000);
+    this._toastState = this._toastState || {
+      el: null,
+      timerId: null,
+      lastMessage: null,
+      lastShownAt: 0
+    };
+
+    const now = Date.now();
+    const msg = String(message ?? '');
+    if (!msg) return;
+
+    // Dedupe: ignore rapid repeats of the same message (prevents "stuck" toasts from re-firing).
+    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < 1200) {
+      return;
+    }
+    this._toastState.lastMessage = msg;
+    this._toastState.lastShownAt = now;
+
+    // Create once, then reuse.
+    if (!this._toastState.el || !this._toastState.el.isConnected) {
+      const toast = document.createElement('div');
+      toast.setAttribute('data-pastecraft-toast', '1');
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 10000;
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 180ms ease, transform 180ms ease;
+        pointer-events: none;
+      `;
+      document.body.appendChild(toast);
+      this._toastState.el = toast;
+    }
+
+    const toast = this._toastState.el;
+    toast.textContent = msg;
+
+    // Reset any pending dismissal.
+    if (this._toastState.timerId) {
+      clearTimeout(this._toastState.timerId);
+      this._toastState.timerId = null;
+    }
+
+    // Show (animate in).
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+
+    // Hide after duration (animate out, then remove).
+    this._toastState.timerId = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-6px)';
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 220);
+    }, TOAST_DURATION_MS);
   }
 
   // Category Modal Functions
@@ -4881,6 +4978,7 @@ class PasteCraftPopup {
           </div>
           <div class="category-clip-actions">
             <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown">🧠</button>
+            <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open">🔎</button>
             <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary">📝</button>
             <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes">
               <img src="assets/notebook_354567.svg" alt="" style="width: 14px; height: 14px;">
@@ -4944,6 +5042,19 @@ class PasteCraftPopup {
           if (clip) {
             const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
             this.showBreakdownModal(textToSend);
+          }
+        });
+      }
+
+      // Handle open/view button
+      const openBtn = clipElement.querySelector('.category-clip-open-btn');
+      if (openBtn) {
+        openBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const allClips = [...this.clips, ...this.searchOnlyClips];
+          const clip = allClips.find(c => c.id === clipId);
+          if (clip && typeof this.openClipViewer === 'function') {
+            this.openClipViewer(clip);
           }
         });
       }
@@ -5386,6 +5497,78 @@ class PasteCraftPopup {
     }
   }
 
+  updateTopBarIdentity(imageUrlOverride = undefined) {
+    const topBar = document.getElementById('topBar');
+    const topLeftContainer = document.getElementById('topLeftProfileImage');
+    const topLeftImg = document.getElementById('topLeftProfileImg');
+    const topLeftPlaceholder = document.getElementById('topLeftProfilePlaceholder');
+    const nameEl = document.getElementById('topBarFunkyName');
+    const nameSection = nameEl?.closest?.('.top-bar-name-section') || null;
+
+    if (!topBar || !topLeftContainer) return;
+
+    // Always show top bar when authenticated
+    topBar.style.display = 'flex';
+    topLeftContainer.style.display = 'flex';
+
+    const profileImageUrl =
+      (typeof imageUrlOverride === 'string' ? imageUrlOverride : null) ??
+      this.userProfile?.profileImageUrl ??
+      '';
+
+    // Image / placeholder
+    if (!profileImageUrl) {
+      if (topLeftImg) {
+        topLeftImg.src = '';
+        topLeftImg.style.display = 'none';
+      }
+      if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'flex';
+    } else if (topLeftImg) {
+      topLeftImg.src = profileImageUrl;
+      topLeftImg.style.display = 'block';
+      if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'none';
+
+      topLeftImg.onerror = () => {
+        topLeftImg.style.display = 'none';
+        if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'flex';
+      };
+    }
+
+    // Display name: prefer user's name, fallback to funky animal name, then email prefix
+    const userName = typeof this.userProfile?.userName === 'string' ? this.userProfile.userName.trim() : '';
+    const funkyName = typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '';
+    const emailPrefix = typeof this.currentUser?.email === 'string' ? this.currentUser.email.split('@')[0] : '';
+    const displayName = userName || funkyName || emailPrefix || '';
+
+    if (nameEl) {
+      nameEl.textContent = displayName;
+      nameEl.style.display = displayName ? 'inline-block' : 'none';
+    }
+
+    // Enable marquee only if name overflows
+    if (nameSection) {
+      nameSection.classList.remove('is-marquee');
+      nameSection.style.removeProperty('--pc-marquee-distance');
+      nameSection.style.removeProperty('--pc-marquee-duration');
+
+      if (displayName && nameEl) {
+        // Wait a tick so layout measurements are accurate
+        requestAnimationFrame(() => {
+          const available = nameSection.clientWidth;
+          const needed = nameEl.scrollWidth;
+          const distance = Math.max(0, needed - available);
+          if (distance > 6) {
+            // ~30px/sec, clamp duration to keep readable
+            const duration = Math.min(18, Math.max(8, distance / 30));
+            nameSection.style.setProperty('--pc-marquee-distance', String(distance));
+            nameSection.style.setProperty('--pc-marquee-duration', `${duration}s`);
+            nameSection.classList.add('is-marquee');
+          }
+        });
+      }
+    }
+  }
+
   async saveUserProfile() {
     try {
       console.log('💾 Attempting to save user profile:', this.userProfile);
@@ -5408,6 +5591,9 @@ class PasteCraftPopup {
         console.error('⚠️ Failed to sync profile to Supabase:', syncError);
         // Don't fail the whole save if sync fails
       }
+
+      // Keep top bar in sync with latest profile data
+      this.updateTopBarIdentity();
     } catch (error) {
       console.error('❌ CRITICAL: Failed to save user profile:', error);
       this.showToast('❌ Failed to save profile image', 'error');
@@ -5422,8 +5608,8 @@ class PasteCraftPopup {
       if (this.userProfile.userName) {
         document.getElementById('userName').value = this.userProfile.userName;
       }
-      if (this.userProfile.aiName) {
-        document.getElementById('aiNameValue').textContent = this.userProfile.aiName;
+      if (this.userProfile.aiGeneratedName) {
+        document.getElementById('aiNameValue').textContent = this.userProfile.aiGeneratedName;
         document.getElementById('aiNameDisplay').style.display = 'flex';
       }
       if (this.userProfile.profileImageUrl) {
@@ -5515,6 +5701,8 @@ class PasteCraftPopup {
     const uploadImageBtn = document.getElementById('uploadImageBtn');
     const generateImageBtn = document.getElementById('generateImageBtn');
     const generateNameBtn = document.getElementById('generateNameBtn');
+    const saveUserNameBtn = document.getElementById('saveUserNameBtn');
+    const saveAiNameBtn = document.getElementById('saveAiNameBtn');
     const unsubscribeBtn = document.getElementById('unsubscribeBtn');
     const profileImageUpload = document.getElementById('profileImageUpload');
     const nameToggleBtn = document.getElementById('nameToggleBtn');
@@ -5537,8 +5725,14 @@ class PasteCraftPopup {
     const newGenerateCartoonBtn = generateCartoonBtn.cloneNode(true);
     generateCartoonBtn.replaceWith(newGenerateCartoonBtn);
     
+    const newSaveUserNameBtn = saveUserNameBtn.cloneNode(true);
+    saveUserNameBtn.replaceWith(newSaveUserNameBtn);
+
     const newGenerateNameBtn = generateNameBtn.cloneNode(true);
     generateNameBtn.replaceWith(newGenerateNameBtn);
+
+    const newSaveAiNameBtn = saveAiNameBtn.cloneNode(true);
+    saveAiNameBtn.replaceWith(newSaveAiNameBtn);
     
     const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
     unsubscribeBtn.replaceWith(newUnsubscribeBtn);
@@ -5612,6 +5806,49 @@ class PasteCraftPopup {
     newGenerateNameBtn.addEventListener('click', async () => {
       console.log('🖱️ Generate Name button CLICKED!');
       await this.generateAIName();
+    });
+
+    // Save user name - attach to NEW cloned button
+    newSaveUserNameBtn.addEventListener('click', async () => {
+      try {
+        const userName = document.getElementById('userName').value.trim();
+        if (!userName) {
+          this.showToast('⚠️ Please enter a name first', 'error');
+          return;
+        }
+
+        if (!this.userProfile) this.userProfile = {};
+        this.userProfile.userName = userName;
+
+        await this.saveUserProfile();
+        this.showToast('✅ Name saved', 'success');
+      } catch (error) {
+        console.error('Failed to save name:', error);
+        this.showToast('❌ Failed to save name', 'error');
+      }
+    });
+
+    // Save funky animal name - attach to NEW cloned button
+    newSaveAiNameBtn.addEventListener('click', async () => {
+      try {
+        const aiNameFromUi = document.getElementById('aiNameValue')?.textContent?.trim() || '';
+        const aiName = aiNameFromUi || (typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '');
+
+        if (!aiName || aiName === '-') {
+          this.showToast('⚠️ Please generate a funky animal name first', 'error');
+          return;
+        }
+
+        if (!this.userProfile) this.userProfile = {};
+        this.userProfile.aiGeneratedName = aiName;
+
+        await this.saveUserProfile();
+        this.updateAIGenerateButtonState();
+        this.showToast('✅ Funky name saved', 'success');
+      } catch (error) {
+        console.error('Failed to save funky name:', error);
+        this.showToast('❌ Failed to save funky name', 'error');
+      }
     });
 
     // Unsubscribe - attach to NEW cloned button
@@ -5959,46 +6196,8 @@ class PasteCraftPopup {
   // Display image and funky name in top bar
   displayImageTopLeft(imageUrl) {
     console.log('🖼️ displayImageTopLeft() called with URL:', imageUrl);
-    const topBar = document.getElementById('topBar');
-    const topLeftContainer = document.getElementById('topLeftProfileImage');
-    const topLeftImg = document.getElementById('topLeftProfileImg');
-    const topBarFunkyName = document.getElementById('topBarFunkyName');
-    
-    if (!topBar) {
-      console.error('❌ CRITICAL: #topBar container not found in DOM!');
-      return;
-    }
-    
-    if (!topLeftContainer) {
-      console.error('❌ CRITICAL: #topLeftProfileImage container not found in DOM!');
-      return;
-    }
-    
-    if (!topLeftImg) {
-      console.error('❌ CRITICAL: #topLeftProfileImg element not found in DOM!');
-      return;
-    }
-    
-    if (topLeftContainer && topLeftImg) {
-      topLeftImg.src = imageUrl;
-      topBar.style.display = 'flex';
-      topLeftContainer.style.display = 'flex';
-      
-      // Display funky name if available
-      if (this.userProfile?.aiGeneratedName && topBarFunkyName) {
-        topBarFunkyName.textContent = this.userProfile.aiGeneratedName;
-        topBarFunkyName.style.display = 'inline';
-      } else if (topBarFunkyName) {
-        topBarFunkyName.style.display = 'none';
-      }
-      
-      console.log('✅ Profile image displayed successfully in top bar');
-      console.log('✅ Top bar visibility:', topBar.style.display);
-      console.log('✅ Image source set to:', topLeftImg.src);
-      if (this.userProfile?.aiGeneratedName) {
-        console.log('✅ Funky name displayed:', this.userProfile.aiGeneratedName);
-      }
-    }
+    this.updateTopBarIdentity(imageUrl);
+    console.log('✅ Top bar identity updated');
   }
 
   // Auto-collapse profile name section after generation
@@ -6778,6 +6977,123 @@ class PasteCraftPopup {
       
       // Clear selections and hide buttons
       this.clearAllSelections();
+    }
+  }
+
+  openClipViewer(clip) {
+    const modal = document.getElementById('clipViewerModal');
+    const titleEl = document.getElementById('clipViewerTitle');
+    const metaEl = document.getElementById('clipViewerMeta');
+    const bodyEl = document.getElementById('clipViewerBody');
+    const htmlDetails = document.getElementById('clipViewerHtmlDetails');
+    const htmlPre = document.getElementById('clipViewerHtml');
+
+    if (!modal || !titleEl || !bodyEl) return;
+
+    this.currentClipViewerClip = clip || null;
+
+    const text = (clip && clip.text != null) ? String(clip.text) : '';
+    const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+
+    titleEl.textContent = meta && meta.kind === 'image'
+      ? '🖼️ Clip Viewer'
+      : meta && meta.kind === 'url'
+        ? '🔗 Clip Viewer'
+        : '🔎 Clip Viewer';
+
+    // Meta section
+    if (metaEl) {
+      const bits = [];
+      if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
+      if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
+      if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
+
+      if (bits.length) {
+        metaEl.innerHTML = bits.join('<br>');
+        metaEl.style.display = 'block';
+      } else {
+        metaEl.textContent = '';
+        metaEl.style.display = 'none';
+      }
+    }
+
+    // Body
+    const safeText = this.escapeHtml(text);
+    let html = '';
+    let url = '';
+    let imgSrc = '';
+
+    if (meta) {
+      if (typeof meta.html === 'string' && meta.html.trim()) html = meta.html;
+      if (typeof meta.url === 'string' && meta.url.trim()) url = meta.url.trim();
+      if (meta.image && typeof meta.image === 'object') {
+        imgSrc = (meta.image.dataUrl || meta.image.srcUrl || '').trim();
+      }
+    }
+
+    const parts = [];
+
+    if (url) {
+      const safeUrl = this.escapeHtml(url);
+      parts.push(`
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom: 12px;">
+          <div style="font-weight:700; color:#111827;">Link</div>
+          <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+        </div>
+      `);
+    }
+
+    const isRenderableImageSrc =
+      imgSrc.startsWith('data:image/') ||
+      imgSrc.startsWith('http://') ||
+      imgSrc.startsWith('https://');
+
+    if (imgSrc && !isRenderableImageSrc) {
+      parts.push(`<div style="margin-bottom:10px; color:#6b7280; font-size:12px;">Image preview unavailable (non-renderable source).</div>`);
+    } else if (imgSrc && isRenderableImageSrc) {
+      parts.push(`<img src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
+      if (meta && meta.image && meta.image.tooLarge) {
+        parts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image payload too large to embed; showing what’s available.</div>`);
+      }
+      if (meta && meta.image && meta.image.exportFailed) {
+        parts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image export blocked by the page (canvas/security restrictions).</div>`);
+      }
+    }
+
+    parts.push(`<pre class="clip-viewer-pre">${safeText}</pre>`);
+
+    bodyEl.innerHTML = parts.join('');
+
+    // Raw HTML (collapsed)
+    if (htmlDetails && htmlPre) {
+      if (html) {
+        htmlPre.textContent = String(html);
+        htmlDetails.style.display = 'block';
+      } else {
+        htmlPre.textContent = '';
+        htmlDetails.style.display = 'none';
+      }
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  hideClipViewerModal() {
+    const modal = document.getElementById('clipViewerModal');
+    if (modal) modal.style.display = 'none';
+    this.currentClipViewerClip = null;
+  }
+
+  async copyClipViewerText() {
+    const clip = this.currentClipViewerClip;
+    const text = (clip && clip.text != null) ? String(clip.text) : '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.showToast('Content copied!');
+    } catch (e) {
+      console.error('Copy failed:', e);
+      this.showToast('Copy failed');
     }
   }
   

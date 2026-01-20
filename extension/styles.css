@@ -2891,3 +2891,61 @@ body {
 }
 
 
+/* ============================================
+   Clip Viewer (per-clip open button)
+   ============================================ */
+.clip-viewer-content {
+  max-width: 720px;
+  width: 95%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.clip-viewer-content .modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.clip-viewer-meta {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 12px;
+}
+
+.clip-viewer-body {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.clip-viewer-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #111827;
+}
+
+.clip-viewer-body img {
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  display: block;
+}
+
+.clip-viewer-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+

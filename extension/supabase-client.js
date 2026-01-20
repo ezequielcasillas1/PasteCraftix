@@ -1459,6 +1459,10 @@ class PasteCraftSupabase {
       if (error) throw error;
 
       console.log(`✅ Synced ${data.length} categories to Supabase`);
+
+      // Ensure remote deletions are respected:
+      // if a category was deleted locally, remove it remotely so realtime merge can't resurrect it.
+      await this.deleteRemoteCategoriesNotInLocal(localCategories, userId);
       return true;
     } catch (error) {
       console.error('❌ Failed to sync categories to Supabase:', error);
@@ -1529,6 +1533,51 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to delete category from Supabase:', error);
       return false;
+    }
+  }
+
+  async deleteRemoteCategoriesNotInLocal(localCategories, userId) {
+    if (!this.client) return;
+    try {
+      const keepIds = new Set((Array.isArray(localCategories) ? localCategories : [])
+        .map(c => c?.id)
+        .filter(id => id != null)
+        .map(id => String(id))
+      );
+
+      // Fetch remote ids (paged, in case of large sets)
+      const remoteIds = [];
+      const pageSize = 10000;
+      for (let from = 0; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const { data, error } = await this.client
+          .from('categories')
+          .select('category_id')
+          .eq('user_id', userId)
+          .range(from, to);
+        if (error) throw error;
+        const rows = Array.isArray(data) ? data : [];
+        rows.forEach(r => { if (r?.category_id != null) remoteIds.push(String(r.category_id)); });
+        if (rows.length < pageSize) break;
+      }
+
+      const idsToDelete = remoteIds.filter(id => !keepIds.has(id));
+      if (idsToDelete.length === 0) return;
+
+      // Delete in batches
+      const batchSize = 200;
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        const { error } = await this.client
+          .from('categories')
+          .delete()
+          .eq('user_id', userId)
+          .in('category_id', batch);
+        if (error) throw error;
+      }
+    } catch (e) {
+      // Don't break user flows if cleanup fails
+      console.warn('⚠️ Remote category cleanup failed:', e?.message || e);
     }
   }
 

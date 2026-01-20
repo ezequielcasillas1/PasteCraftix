@@ -150,6 +150,20 @@
             object-fit: cover;
             transition: transform 0.2s ease;
         }
+
+        .top-bar-profile-placeholder {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid #3b82f6;
+            background: linear-gradient(135deg, rgba(254,241,86,0.38) 0%, rgba(78,162,234,0.22) 55%, rgba(39,109,215,0.22) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1f2937;
+            font-size: 16px;
+            user-select: none;
+        }
         
         .top-bar-profile:hover img {
             transform: scale(1.05);
@@ -3335,6 +3349,29 @@
             box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
         }
 
+        /* Save buttons for name + funky name */
+        .btn-save-name {
+            white-space: nowrap;
+            min-width: fit-content;
+            flex-shrink: 0;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+        }
+
+        .ai-name-value-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .ai-name-value-row .ai-name-value {
+            flex: 1;
+            min-width: 0;
+        }
+
         .ai-name-container .btn-primary::after {
             content: '';
             position: absolute;
@@ -4228,6 +4265,10 @@
             align-items: center;
             gap: 8px;
             margin-left: 12px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            position: relative;
         }
         
         .top-bar-funky-name {
@@ -4237,6 +4278,33 @@
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            display: inline-block;
+            white-space: nowrap;
+            will-change: transform;
+        }
+
+        /* Ensure name never overlaps support buttons */
+        .top-bar-profile {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .top-bar-actions {
+            flex-shrink: 0;
+        }
+
+        /* Cinema-style marquee for long names (enabled via JS by adding .is-marquee) */
+        .top-bar-name-section.is-marquee .top-bar-funky-name {
+            animation: pcTopBarMarquee var(--pc-marquee-duration, 10s) linear infinite;
+        }
+
+        .top-bar-name-section.is-marquee:hover .top-bar-funky-name {
+            animation-play-state: paused;
+        }
+
+        @keyframes pcTopBarMarquee {
+            0%, 10% { transform: translateX(0); }
+            90%, 100% { transform: translateX(calc(-1px * var(--pc-marquee-distance, 0))); }
         }
         
         /* ============================================
@@ -5362,26 +5430,27 @@
         <!-- Top Bar Section (Profile & Sign Out) -->
         <div id="topBar" class="top-bar" style="display: none;">
             <div id="topLeftProfileImage" class="top-bar-profile">
-                <img id="topLeftProfileImg" src="" alt="Profile" />
+                <img id="topLeftProfileImg" src="" alt="Profile" style="display: none;" />
+                <div id="topLeftProfilePlaceholder" class="top-bar-profile-placeholder" aria-hidden="true">👤</div>
                 <div class="top-bar-name-section">
                     <span id="topBarFunkyName" class="top-bar-funky-name">FunkyAnimalName</span>
                 </div>
             </div>
             <div id="signOutContainer" class="top-bar-actions">
                 <button class="support-icon-btn" id="supportTeamBtn" title="Team">
-                    <img src="assets/support-icons/team.png" alt="Team" />
+                    <img src="assets/support-icons/team.svg" alt="Team" />
                 </button>
                 <button class="support-icon-btn" id="supportHelpBtn" title="Help">
-                    <img src="assets/support-icons/help.png" alt="Help" />
+                    <img src="assets/support-icons/help.svg" alt="Help" />
                 </button>
                 <button class="support-icon-btn" id="supportSupportBtn" title="Support">
-                    <img src="assets/support-icons/support.png" alt="Support" />
+                    <img src="assets/support-icons/support.svg" alt="Support" />
                 </button>
                 <button class="support-icon-btn" id="supportImproveBtn" title="How can we improve?">
-                    <img src="assets/support-icons/howcanweimprove.png" alt="How can we improve?" />
+                    <img src="assets/support-icons/howcanweimprove.svg" alt="How can we improve?" />
                 </button>
                 <button class="support-icon-btn" id="supportReportBugsBtn" title="Report a bug">
-                    <img src="assets/support-icons/reportbugs.png" alt="Report a bug" />
+                    <img src="assets/support-icons/reportbugs.svg" alt="Report a bug" />
                 </button>
                 <button class="btn-close-app" id="closeAppBtn" title="Close PasteCraft">
                     ×
@@ -6156,6 +6225,31 @@ Multiple clips are separated by:
             </div>
         </div>
 
+        <!-- Clip Viewer Modal -->
+        <div class="modal-overlay" id="clipViewerModal" style="display: none;">
+            <div class="modal-content clip-viewer-content">
+                <div class="modal-header">
+                    <h3 id="clipViewerTitle">🔎 Clip Viewer</h3>
+                    <button class="modal-close" id="closeClipViewerModal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
+                    <div class="clip-viewer-body" id="clipViewerBody"></div>
+                    <details class="clip-viewer-details" id="clipViewerHtmlDetails" style="display:none; margin-top: 12px;">
+                        <summary>Raw HTML</summary>
+                        <pre class="clip-viewer-pre" id="clipViewerHtml"></pre>
+                    </details>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="copyClipViewerBtn">
+                        <span>📋</span>
+                        <span>Copy</span>
+                    </button>
+                    <button class="btn-primary" id="closeClipViewerBtn">Done</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Format Controls (only show for clips and search tabs) -->
         <section class="format-controls" id="formatSection">
             <div class="control-group">
@@ -6438,11 +6532,15 @@ Multiple clips are separated by:
                         <div class="profile-section-content" id="nameRegContent">
                             <div class="ai-name-container">
                                 <input type="text" id="userName" class="profile-input" placeholder="Enter your name">
+                                <button class="btn-secondary btn-save-name" id="saveUserNameBtn">Save</button>
                                 <button class="btn-primary" id="generateNameBtn">Generate Funky Animal Name</button>
                             </div>
                             <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
                                 <span class="ai-name-label">Your Funky Animal Name:</span>
-                                <span class="ai-name-value" id="aiNameValue">-</span>
+                                <div class="ai-name-value-row">
+                                    <span class="ai-name-value" id="aiNameValue">-</span>
+                                    <button class="btn-secondary btn-save-name" id="saveAiNameBtn">Save</button>
+                                </div>
                             </div>
                             <!-- Countdown Timer for Name Section -->
                             <div class="profile-countdown-timer" id="nameCountdownTimer" style="display: none;">

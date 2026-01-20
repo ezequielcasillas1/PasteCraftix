@@ -1359,7 +1359,35 @@ class QuickPasteInterface {
   }
   
   showToast(message, type = 'info') {
-    const toast = document.createElement('div');
+    const TOAST_DURATION_MS = 3000;
+
+    // Single-instance toast (no stacking) + safe auto-dismiss.
+    this._toastState = this._toastState || {
+      el: null,
+      timerId: null,
+      lastMessage: null,
+      lastShownAt: 0
+    };
+
+    const now = Date.now();
+    const msg = String(message ?? '');
+    if (!msg) return;
+
+    // Dedupe rapid repeats of the same message
+    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < 1200) {
+      return;
+    }
+    this._toastState.lastMessage = msg;
+    this._toastState.lastShownAt = now;
+
+    let toast = this._toastState.el;
+    if (!toast || !toast.isConnected) {
+      toast = document.createElement('div');
+      toast.className = 'pastecraft-toast';
+      this._toastState.el = toast;
+      document.body.appendChild(toast);
+    }
+
     toast.style.cssText = `
       position: fixed;
       top: 20px;
@@ -1379,17 +1407,19 @@ class QuickPasteInterface {
       max-width: 90vw;
     `;
     
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
+    toast.textContent = msg;
+
+    if (this._toastState.timerId) {
+      clearTimeout(this._toastState.timerId);
+      this._toastState.timerId = null;
+    }
+
+    this._toastState.timerId = setTimeout(() => {
       toast.style.animation = 'pastecraft-toast-out 0.3s ease forwards';
       setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
       }, 300);
-    }, 2000);
+    }, TOAST_DURATION_MS);
   }
   
   getTimeAgo(timestamp) {
@@ -3304,20 +3334,102 @@ class PasteCraftFloatingWidget {
   
   // Listen for copy events to auto-save copied text
   setupAutoCopyListener() {
-    document.addEventListener('copy', async (e) => {
+    const handler = async (e) => {
       if (!this.autoCopyEnabled) return;
       
-      // Get the selected text
-      const selectedText = window.getSelection().toString().trim();
-      if (!selectedText || selectedText.length === 0) return;
-      
-      console.log('📋 Auto-copy detected:', selectedText.substring(0, 50) + '...');
-      
+      const MAX_TEXT = 30000;
+      const MAX_HTML = 50000;
+      const MAX_IMAGE_BYTES = 600 * 1024; // ~600KB max for dataURL capture
+
+      const cd = e && e.clipboardData ? e.clipboardData : null;
+
+      const safeTrim = (s, max) => {
+        const str = String(s ?? '');
+        if (str.length <= max) return str;
+        return str.slice(0, max) + '…';
+      };
+
+      const isProbablyUrl = (s) => {
+        const t = String(s || '').trim();
+        if (!t) return false;
+        try {
+          const u = new URL(t);
+          return u.protocol === 'http:' || u.protocol === 'https:';
+        } catch (_) {
+          return false;
+        }
+      };
+
+      // Prefer clipboardData payloads (more reliable for rich copy)
+      const plain = cd ? (cd.getData('text/plain') || '') : '';
+      const html = cd ? (cd.getData('text/html') || '') : '';
+      const selection = window.getSelection ? String(window.getSelection().toString() || '') : '';
+
+      let textToSave = (plain || selection || '').trim();
+
+      const meta = {
+        kind: 'text',
+        plainText: safeTrim(textToSave, MAX_TEXT),
+        html: html ? safeTrim(html, MAX_HTML) : '',
+        url: isProbablyUrl(textToSave) ? textToSave.trim() : '',
+        image: null,
+        sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
+        capturedAt: Date.now()
+      };
+
+      if (meta.url) meta.kind = 'url';
+      if (meta.html && !meta.url) meta.kind = 'html';
+
+      // Attempt to capture an image item (when browser provides it on copy)
+      try {
+        if (cd && cd.items && cd.items.length) {
+          for (let i = 0; i < cd.items.length; i++) {
+            const it = cd.items[i];
+            const type = String(it && it.type ? it.type : '');
+            if (type.startsWith('image/')) {
+              const file = it.getAsFile ? it.getAsFile() : null;
+              if (!file) continue;
+              if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
+                meta.image = { mime: type, dataUrl: '', srcUrl: '', tooLarge: true, size: file.size };
+                meta.kind = 'image';
+                if (!textToSave) textToSave = '[Image]';
+                break;
+              }
+
+              const dataUrl = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => resolve('');
+                reader.readAsDataURL(file);
+              });
+
+              if (dataUrl) {
+                meta.image = { mime: type, dataUrl, srcUrl: '' };
+                meta.kind = 'image';
+                // Ensure we save something searchable even when copy had no text
+                if (!textToSave) textToSave = '[Image]';
+                meta.plainText = safeTrim(textToSave, MAX_TEXT);
+              }
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        // Non-fatal: text capture still works
+        console.warn('⚠️ Auto-copy image capture failed:', err?.message || err);
+      }
+
+      // If nothing textual and no image payload, nothing to save.
+      if (!textToSave && !(meta && meta.kind === 'image')) return;
+
+      console.log('📋 Auto-copy detected:', textToSave.substring(0, 50) + '...');
+
       try {
         // Save to PasteCraft via background script
         await chrome.runtime.sendMessage({
           action: 'saveClip',
-          text: selectedText,
+          text: safeTrim(textToSave, MAX_TEXT),
+          meta,
           category: 'Uncategorized',
           autoShow: false // Don't auto-show popup for auto-copied clips
         });
@@ -3336,7 +3448,10 @@ class PasteCraftFloatingWidget {
       } catch (error) {
         console.error('❌ Auto-copy failed:', error);
       }
-    });
+    };
+
+    // Use capture phase: some native copy actions don’t bubble.
+    document.addEventListener('copy', handler, true);
   }
   
   updateAutoCopyCounter() {

@@ -22,6 +22,26 @@ async function createContextMenus() {
         console.error('❌ Copy to PasteCraft menu failed:', chrome.runtime.lastError);
       }
     });
+
+    chrome.contextMenus.create({
+      id: 'copy-image-to-pastecraft',
+      title: '🖼️ Copy Image to PasteCraft',
+      contexts: ['image']
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('❌ Copy Image to PasteCraft menu failed:', chrome.runtime.lastError);
+      }
+    });
+
+    chrome.contextMenus.create({
+      id: 'copy-image-link-to-pastecraft',
+      title: '🔗 Copy Image Link to PasteCraft',
+      contexts: ['image']
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('❌ Copy Image Link to PasteCraft menu failed:', chrome.runtime.lastError);
+      }
+    });
     
     chrome.contextMenus.create({
       id: 'view-quick-saved-clips',
@@ -140,6 +160,27 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     });
     
+  } else if (info.menuItemId === 'copy-image-to-pastecraft' || info.menuItemId === 'copy-image-link-to-pastecraft') {
+    const srcUrl = (info && info.srcUrl) ? String(info.srcUrl) : '';
+    if (!srcUrl) {
+      console.log('⚠️ Copy image clicked but srcUrl missing');
+      return;
+    }
+
+    // For now both actions save the image URL + meta so it shows and previews in Clips.
+    const meta = {
+      kind: 'image',
+      plainText: '',
+      html: '',
+      url: '',
+      image: { mime: '', dataUrl: '', srcUrl },
+      sourcePageUrl: (tab && tab.url) ? String(tab.url) : '',
+      capturedAt: Date.now()
+    };
+
+    await saveTextDirectly(srcUrl, 'Uncategorized', false, meta);
+    console.log('✅ Image copied to PasteCraft:', srcUrl);
+
   } else if (info.menuItemId.startsWith('paste-')) {
     // Legacy paste functionality (if needed)
     const clipIndex = parseInt(info.menuItemId.replace('paste-', ''));
@@ -184,7 +225,61 @@ async function pasteClip(index, tab) {
 
 // Removed old saveText function - using saveTextDirectly instead
 
-async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true) {
+function sanitizeClipMeta(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+
+  const MAX_TEXT = 30000;
+  const MAX_HTML = 50000;
+  const MAX_DATAURL_CHARS = 900000; // ~900KB of base64-ish chars
+
+  const trim = (s, max) => {
+    const str = String(s ?? '');
+    if (str.length <= max) return str;
+    return str.slice(0, max) + '…';
+  };
+
+  const out = {};
+  const kind = typeof meta.kind === 'string' ? meta.kind : 'text';
+  out.kind = kind;
+
+  if (meta.plainText != null) out.plainText = trim(meta.plainText, MAX_TEXT);
+  if (meta.html != null) out.html = trim(meta.html, MAX_HTML);
+  if (meta.url != null) out.url = trim(meta.url, 4000);
+  if (meta.sourcePageUrl != null) out.sourcePageUrl = trim(meta.sourcePageUrl, 4000);
+  if (typeof meta.capturedAt === 'number') out.capturedAt = meta.capturedAt;
+
+  if (meta.image && typeof meta.image === 'object') {
+    const img = {};
+    if (meta.image.mime != null) img.mime = trim(meta.image.mime, 128);
+    if (meta.image.srcUrl != null) img.srcUrl = trim(meta.image.srcUrl, 4000);
+    if (meta.image.dataUrl != null) {
+      const du = String(meta.image.dataUrl || '');
+      img.dataUrl = du.length <= MAX_DATAURL_CHARS ? du : '';
+      if (!img.dataUrl && du) img.tooLarge = true;
+    }
+    if (typeof meta.image.size === 'number') img.size = meta.image.size;
+    if (meta.image.tooLarge === true) img.tooLarge = true;
+    out.image = img;
+  }
+
+  // Ensure we don't persist a huge object
+  try {
+    const json = JSON.stringify(out);
+    if (json.length > 140000) {
+      // drop heavy fields first
+      if (out.html) out.html = trim(out.html, 8000);
+      if (out.image && out.image.dataUrl) out.image.dataUrl = '';
+      const json2 = JSON.stringify(out);
+      if (json2.length > 140000) return null;
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return out;
+}
+
+async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null) {
   console.log('📝 Text to save:', text ? (text.substring(0, 50) + '...') : 'UNDEFINED/EMPTY');
   console.log('📁 Category:', category);
   console.log('👁️ Auto-show interface:', autoShow);
@@ -198,11 +293,13 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
   const { clips = [], searchOnlyClips = [] } = result;
   
+  const safeMeta = sanitizeClipMeta(meta);
   const newClip = {
     id: Date.now() + Math.random(),
     text: text,
     category: category,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    ...(safeMeta ? { meta: safeMeta } : {})
   };
   
   console.log('📦 New clip object:', newClip);
@@ -343,7 +440,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.action === 'saveClip') {
     // Handle auto-copy save from content script
-    saveTextDirectly(message.text, message.category || 'Uncategorized', message.autoShow !== false)
+    saveTextDirectly(
+      message.text,
+      message.category || 'Uncategorized',
+      message.autoShow !== false,
+      message.meta || null
+    )
       .then(() => {
         sendResponse({ success: true });
       })

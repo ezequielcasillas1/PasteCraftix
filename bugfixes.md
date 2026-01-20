@@ -52,3 +52,8 @@
 **Status:** SUCCESS
 **Files:** extension/popup.js, extension/background.js
 **Result:** Fixed refresh wiping newest clips by updating `pc_local_updatedAt` on saves so sync-transfer won’t overwrite local with stale sync backup.
+
+### Jan 20, 2026 - Image Copy Not Saving to Clips
+**Status:** SUCCESS
+**Files:** extension/background.js
+**Result:** Added image right-click actions (Copy Image / Copy Image Link) that save the image URL to clips reliably (browser native copy does not trigger auto-copy).
