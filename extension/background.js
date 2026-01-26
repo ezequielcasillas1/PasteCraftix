@@ -1,5 +1,79 @@
 // PasteCraft Background Script
 
+const PASTECRAFT_LOGS_ENABLED = (() => {
+  try {
+    if (typeof globalThis !== 'undefined' && globalThis.PASTECRAFT_DEBUG === true) {
+      return true;
+    }
+  } catch (_) {
+    // Ignore access errors.
+  }
+  return false;
+})();
+
+if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
+  const pastecraftNoop = () => {};
+  console.log = pastecraftNoop;
+  console.debug = pastecraftNoop;
+  console.info = pastecraftNoop;
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+async function safeTabsSendMessage(tabId, message) {
+  if (!Number.isFinite(tabId)) return false;
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isRepoLoaderBuild() {
+  try {
+    const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+    const name = mf && mf.name ? String(mf.name) : '';
+    const desc = mf && mf.description ? String(mf.description) : '';
+    return (
+      name.includes('Repo Loader') ||
+      desc.includes('repo root') ||
+      desc.includes('Actual extension lives in /extension')
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function getExtensionPageUrl(pagePath) {
+  const raw = String(pagePath || '').trim();
+  const path = raw.startsWith('extension/') || !isRepoLoaderBuild() ? raw : `extension/${raw}`;
+  return chrome.runtime.getURL(path);
+}
+
+async function getAppOpenMode() {
+  try {
+    const { widgetSettings = {} } = await chrome.storage.local.get(['widgetSettings']);
+    const v = widgetSettings && typeof widgetSettings.appOpenMode === 'string' ? widgetSettings.appOpenMode : 'inPage';
+    return v === 'edgePopup' ? 'edgePopup' : 'inPage';
+  } catch (_) {
+    return 'inPage';
+  }
+}
+
+async function openAppPopupWindow() {
+  const url = getExtensionPageUrl('popup.html');
+  return chrome.windows.create({
+    url,
+    type: 'popup',
+    width: 520,
+    height: 760,
+    focused: true
+  });
+}
+
 // Force create context menus immediately
 async function createContextMenus() {
   // Clear all existing menus first
@@ -75,21 +149,33 @@ createContextMenus();
 
 // Handle extension icon click - open slide-in panel instead of popup
 chrome.action.onClicked.addListener(async (tab) => {
-  console.log('🎨 Extension icon clicked, opening slide-in panel');
-  
   try {
-    await chrome.tabs.sendMessage(tab.id, {
-      action: 'openPopupPanel'
-    });
-    console.log('✅ Message sent to open popup panel');
+    const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+    const mode = await getAppOpenMode();
+    if (mode === 'edgePopup') {
+      console.log('🎨 Extension icon clicked, opening popup window');
+      await openAppPopupWindow();
+      return;
+    }
+
+    console.log('🎨 Extension icon clicked, opening slide-in panel');
+    if (tabId == null) throw new Error('tab_unavailable');
+    const ok = await safeTabsSendMessage(tabId, { action: 'openPopupPanel' });
+    if (!ok) throw new Error('content_script_unavailable');
   } catch (error) {
-    console.error('❌ Could not open popup panel:', error);
+    console.error('❌ Could not open PasteCraft UI:', error);
+    // Fallback: open separate window if in-page injection is blocked (e.g. browser internal pages)
+    try {
+      await openAppPopupWindow();
+    } catch (_) {}
   }
 });
 
 // Handle menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log('🖱️ Context menu clicked:', info.menuItemId);
+  const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+  const tabUrl = tab && tab.url ? String(tab.url) : '';
   
   if (info.menuItemId === 'pastecraft-main') {
     // Main menu clicked - show appropriate action based on context
@@ -98,13 +184,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       await saveTextDirectly(info.selectionText, 'Uncategorized', false);
     }
     // Always show Quick Paste interface
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'showQuickPaste',
-      x: info.pageX || 100,
-      y: info.pageY || 100
-    }).catch(() => {
-      console.log('Could not show Quick Paste interface');
-    });
+    if (tabId != null) {
+      await safeTabsSendMessage(tabId, {
+        action: 'showQuickPaste',
+        x: info.pageX || 100,
+        y: info.pageY || 100
+      });
+    }
     
   } else if (info.menuItemId === 'copy-to-quick-save') {
     console.log('🖱️ Copy to PasteCraft clicked - selectionText:', info.selectionText);
@@ -122,16 +208,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
   } else if (info.menuItemId === 'view-quick-saved-clips') {
     // Show Quick Paste interface for viewing/pasting clips
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'showQuickPaste',
-      x: info.pageX || 100,
-      y: info.pageY || 100
-    }).then(() => {
-    }).catch((error) => {
-      console.error('❌ Could not show Quick Paste interface:', error.message || error);
+    const ok = tabId != null
+      ? await safeTabsSendMessage(tabId, {
+          action: 'showQuickPaste',
+          x: info.pageX || 100,
+          y: info.pageY || 100
+        })
+      : false;
+    
+    if (!ok) {
+      console.error('❌ Could not show Quick Paste interface: content script not available');
       
       // Check if this is a restricted page (browser internal pages)
-      if (tab.url.startsWith('edge://') || tab.url.startsWith('chrome://') || tab.url.startsWith('moz-extension://')) {
+      if (tabUrl.startsWith('edge://') || tabUrl.startsWith('chrome://') || tabUrl.startsWith('moz-extension://')) {
         // Fallback: Open extension popup instead
         chrome.action.openPopup().catch(() => {
           console.log('Could not open popup. Navigate to a regular webpage.');
@@ -140,25 +229,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       }
       
       // Try to inject content script manually if it's not loaded
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content-script.js']
-      }).then(() => {
-        // Try sending message again after injection
-        setTimeout(() => {
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'showQuickPaste',
-            x: info.pageX || 100,
-            y: info.pageY || 100
-          }).then(() => {
-          }).catch((retryError) => {
-            console.error('❌ Still failed after manual injection:', retryError);
-          });
-        }, 500);
-      }).catch((injectError) => {
-        console.error('❌ Failed to inject content script:', injectError);
-      });
-    });
+      if (tabId != null) {
+        chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['content-script.js']
+        }).then(() => {
+          // Try sending message again after injection
+          setTimeout(() => {
+            safeTabsSendMessage(tabId, {
+              action: 'showQuickPaste',
+              x: info.pageX || 100,
+              y: info.pageY || 100
+            }).catch(() => {});
+          }, 500);
+        }).catch((injectError) => {
+          console.error('❌ Failed to inject content script:', injectError);
+        });
+      }
+    }
     
   } else if (info.menuItemId === 'copy-image-to-pastecraft' || info.menuItemId === 'copy-image-link-to-pastecraft') {
     const srcUrl = (info && info.srcUrl) ? String(info.srcUrl) : '';
@@ -167,16 +255,30 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    // For now both actions save the image URL + meta so it shows and previews in Clips.
-    const meta = {
-      kind: 'image',
-      plainText: '',
-      html: '',
-      url: '',
-      image: { mime: '', dataUrl: '', srcUrl },
-      sourcePageUrl: (tab && tab.url) ? String(tab.url) : '',
-      capturedAt: Date.now()
-    };
+    const sourcePageUrl = (tab && tab.url) ? String(tab.url) : '';
+    const capturedAt = Date.now();
+
+    // IMPORTANT:
+    // - "Copy Image Link" should behave like a URL clip (copy/paste shows a URL, not an image).
+    // - "Copy Image" should behave like an image clip (previewable in Clips).
+    const meta = (info.menuItemId === 'copy-image-link-to-pastecraft')
+      ? {
+          kind: 'url',
+          plainText: srcUrl,
+          html: '',
+          url: srcUrl,
+          sourcePageUrl,
+          capturedAt
+        }
+      : {
+          kind: 'image',
+          plainText: '',
+          html: '',
+          url: '',
+          image: { mime: '', dataUrl: '', srcUrl },
+          sourcePageUrl,
+          capturedAt
+        };
 
     await saveTextDirectly(srcUrl, 'Uncategorized', false, meta);
     console.log('✅ Image copied to PasteCraft:', srcUrl);
@@ -190,14 +292,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // Paste function
 async function pasteClip(index, tab) {
-  const { clips = [] } = await chrome.storage.local.get(['clips']);
+  const result = await chrome.storage.local.get(['clips']);
+  const clips = normalizeArray(result?.clips);
   const clip = clips[index];
   
   if (!clip) return;
   
   try {
+    const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+    if (tabId == null) return;
     await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+      target: { tabId },
       function: (text) => {
         const activeElement = document.activeElement;
         if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) {
@@ -280,9 +385,12 @@ function sanitizeClipMeta(meta) {
 }
 
 async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null) {
-  console.log('📝 Text to save:', text ? (text.substring(0, 50) + '...') : 'UNDEFINED/EMPTY');
-  console.log('📁 Category:', category);
-  console.log('👁️ Auto-show interface:', autoShow);
+  // Keep logs lightweight (this runs in a service worker).
+  console.log('📝 Saving clip:', {
+    category,
+    autoShow,
+    preview: text ? (text.substring(0, 50) + '...') : 'EMPTY'
+  });
   
   // Safety check: Don't save empty/undefined text
   if (!text || text.trim().length === 0) {
@@ -291,7 +399,8 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
   }
   
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-  const { clips = [], searchOnlyClips = [] } = result;
+  const clips = normalizeArray(result?.clips);
+  const searchOnlyClips = normalizeArray(result?.searchOnlyClips);
   
   const safeMeta = sanitizeClipMeta(meta);
   const newClip = {
@@ -302,7 +411,7 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
     ...(safeMeta ? { meta: safeMeta } : {})
   };
   
-  console.log('📦 New clip object:', newClip);
+  console.log('📦 New clip id:', newClip.id);
   
   // Check category limit (Uncategorized = unlimited, others = 150 max per category in ACTIVE storage)
   if (category !== 'Uncategorized') {
@@ -332,12 +441,8 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
     }
   }
   
-  console.log('🔄 BEFORE unshift - clips array:', clips);
   clips.unshift(newClip);
-  console.log('📊 AFTER unshift - clips length:', clips.length);
-  console.log('📊 AFTER unshift - clips array:', clips);
-  console.log('📊 First clip:', clips[0]?.text?.substring(0, 30));
-  console.log('📊 Second clip:', clips[1]?.text?.substring(0, 30) || 'NONE');
+  console.log('📊 Clips count (active):', clips.length);
   
   // Pagination system: enforce 500 clip limit (50 pages × 10 clips)
   const maxClips = 500;
@@ -356,30 +461,17 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
     console.log(`📦 Pagination: Moved ${overflowClips.length} clips beyond limit (${maxClips}) to searchOnlyClips`);
   }
   
-  console.log('💾 ABOUT TO SAVE TO STORAGE - clips array length:', clips.length);
-  console.log('💾 ABOUT TO SAVE TO STORAGE - full clips array:', clips);
-  console.log('💾 ABOUT TO SAVE TO STORAGE - searchOnly array length:', searchOnlyClips.length);
-  
   await chrome.storage.local.set({ clips, searchOnlyClips, pc_local_updatedAt: Date.now() });
-  
-  console.log('✅ SAVE COMPLETE - verifying...');
-  
-  // Verify save worked
-  const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-  console.log('🔍 VERIFICATION - Storage now has:');
-  console.log('   - Active clips:', verification.clips?.length || 0);
-  console.log('   - Archived clips:', verification.searchOnlyClips?.length || 0);
-  console.log('🔍 FULL clips array in storage:', verification.clips);
-  console.log('🔍 First clip:', verification.clips?.[0]?.text?.substring(0, 30) || 'NONE');
-  console.log('🔍 Second clip:', verification.clips?.[1]?.text?.substring(0, 30) || 'NONE');
+  console.log('✅ Saved to local storage:', { active: clips.length, archived: searchOnlyClips.length });
   
   // Notify content scripts and popup about new clip
   try {
     // Notify all tabs (content scripts)
     chrome.tabs.query({}, (tabs) => {
-      console.log('📢 Notifying', tabs.length, 'tabs about new clip');
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, {
+      normalizeArray(tabs).forEach(tab => {
+        const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+        if (tabId == null) return;
+        safeTabsSendMessage(tabId, {
           action: 'clipSaved',
           clip: newClip,
           autoShow: autoShow // Pass the autoShow flag
@@ -407,25 +499,62 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
 // EXTERNAL MESSAGE LISTENER (Password Reset from Web)
 // =====================================================
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-  console.log('📨 External message received:', message);
-  console.log('📨 From:', sender);
+  // Never log secrets from external pages.
+  const senderUrl = sender && sender.url ? String(sender.url) : '';
+  let senderOrigin = '';
+  try { senderOrigin = senderUrl ? (new URL(senderUrl)).origin : ''; } catch (_) { senderOrigin = ''; }
+  console.log('📨 External message received:', {
+    type: message?.type,
+    from: senderOrigin,
+    hasAccessToken: !!message?.access_token
+  });
+
+  const allowedOrigin = 'https://auth.pastecraft.com';
+  if (senderOrigin !== allowedOrigin) {
+    sendResponse({ success: false, error: 'unauthorized_origin' });
+    return false;
+  }
   
-  if (message.type === 'password_reset' && message.access_token) {
-    console.log('🔑 Password reset token received from web');
-    
-    // Store the reset tokens
-    chrome.storage.local.set({
-      password_reset_callback: {
-        access_token: message.access_token,
-        refresh_token: message.refresh_token,
-        type: 'recovery',
-        timestamp: Date.now()
+  // Strict schema check
+  const type = message && typeof message.type === 'string' ? message.type : '';
+  if (type === 'password_reset') {
+    const accessToken = message && typeof message.access_token === 'string' ? message.access_token : '';
+    const refreshToken = message && typeof message.refresh_token === 'string' ? message.refresh_token : '';
+    const state = message && typeof message.state === 'string' ? message.state : '';
+
+    if (!accessToken || accessToken.length > 4096 || (refreshToken && refreshToken.length > 4096) || (state && state.length > 256)) {
+      sendResponse({ success: false, error: 'invalid_payload' });
+      return false;
+    }
+
+    // Require one-time state match (prevents any allowed origin page from blindly injecting tokens).
+    chrome.storage.local.get(['pc_password_reset_state_v1'], (res) => {
+      const expected = res && res.pc_password_reset_state_v1 ? res.pc_password_reset_state_v1 : null;
+      const expectedState = expected && typeof expected.state === 'string' ? expected.state : '';
+      const createdAt = expected && typeof expected.createdAt === 'number' ? expected.createdAt : 0;
+      const isFresh = !!createdAt && (Date.now() - createdAt) < (2 * 60 * 60 * 1000); // 2h
+
+      if (!state || !expectedState || !isFresh || state !== expectedState) {
+        sendResponse({ success: false, error: 'state_mismatch' });
+        return;
       }
-    }, () => {
-      console.log('✅ Password reset tokens stored successfully');
-      sendResponse({ success: true });
+
+      // Consume the state so it can't be replayed.
+      chrome.storage.local.remove(['pc_password_reset_state_v1'], () => {
+        // Store the reset tokens for the extension's reset UI.
+        chrome.storage.local.set({
+          password_reset_callback: {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            type: 'recovery',
+            timestamp: Date.now()
+          }
+        }, () => {
+          sendResponse({ success: true });
+        });
+      });
     });
-    
+
     return true; // Keep message channel open for async response
   }
   
@@ -437,7 +566,115 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 // =====================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 Internal message received:', message.action);
+
+  if (message.action === 'pcOpenPopupWindow') {
+    try {
+      const url = message && typeof message.url === 'string' ? message.url : '';
+      const page = message && typeof message.page === 'string' ? message.page : '';
+      const width = Number.isFinite(message?.width) ? Math.max(200, Math.round(message.width)) : 980;
+      const height = Number.isFinite(message?.height) ? Math.max(200, Math.round(message.height)) : 720;
+
+      const finalUrl = url || (page ? getExtensionPageUrl(page) : '');
+      if (!finalUrl) {
+        sendResponse({ success: false, error: 'missing_url' });
+        return false;
+      }
+
+      chrome.windows.create({ url: finalUrl, type: 'popup', width, height, focused: true }, () => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          sendResponse({ success: false, error: err.message || String(err) });
+        } else {
+          sendResponse({ success: true });
+        }
+      });
+      return true; // async sendResponse
+    } catch (e) {
+      sendResponse({ success: false, error: e?.message || String(e) });
+      return false;
+    }
+  }
   
+  if (message.action === 'pcFetchEdgeFunction') {
+    // Proxy fetch to avoid page-level CORS/network issues in content scripts.
+    // Allowlist only Supabase Edge Functions we expect.
+    (async () => {
+      try {
+        const url = String(message.url || '');
+        const method = String(message.method || 'POST').toUpperCase();
+        const accessToken = String(message.accessToken || '');
+        const body = message.body ?? null;
+
+        if (!url || !/^https:\/\/.+\.supabase\.co\/functions\/v1\/(ai-hint|ai-trends)(\b|\/|$)/i.test(url)) {
+          sendResponse({ success: false, status: 400, error: 'Blocked URL' });
+          return;
+        }
+
+        const headers = {
+          'Content-Type': 'application/json',
+        };
+        if (accessToken) {
+          headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+
+        const resp = await fetch(url, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+
+        const status = resp.status;
+        const ok = resp.ok;
+        const data = await resp.json().catch(() => ({}));
+
+        sendResponse({ success: true, ok, status, data });
+      } catch (error) {
+        sendResponse({ success: false, status: 0, error: error?.message || String(error) });
+      }
+    })();
+
+    return true; // Keep message channel open for async response
+  }
+
+  if (message.action === 'pcRefreshSupabaseToken') {
+    (async () => {
+      try {
+        const supabaseUrl = String(message.supabaseUrl || '');
+        const anonKey = String(message.anonKey || '');
+        const refreshToken = String(message.refreshToken || '');
+        if (!supabaseUrl || !anonKey || !refreshToken) {
+          sendResponse({ success: false, status: 400, error: 'Missing token params' });
+          return;
+        }
+
+        if (!/^https:\/\/.+\.supabase\.co$/i.test(supabaseUrl)) {
+          sendResponse({ success: false, status: 400, error: 'Invalid supabaseUrl' });
+          return;
+        }
+
+        const url = `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': anonKey,
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+
+        const status = resp.status;
+        const ok = resp.ok;
+        const data = await resp.json().catch(() => ({}));
+        sendResponse({ success: true, ok, status, data });
+      } catch (error) {
+        sendResponse({ success: false, status: 0, error: error?.message || String(error) });
+      }
+    })();
+
+    return true;
+  }
+
   if (message.action === 'saveClip') {
     // Handle auto-copy save from content script
     saveTextDirectly(
@@ -459,8 +696,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'refreshClips' || message.action === 'clipsUpdated') {
     // Broadcast to all tabs that clips were updated
     chrome.tabs.query({}, (tabs) => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, { action: 'clipsUpdated' }).catch(() => {});
+      normalizeArray(tabs).forEach(tab => {
+        const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+        if (tabId == null) return;
+        safeTabsSendMessage(tabId, { action: 'clipsUpdated' }).catch(() => {});
       });
     });
     sendResponse({ success: true });

@@ -687,8 +687,26 @@
 
         // Sign Out
         async function signOut() {
-            await sb.auth.signOut();
-            window.location.reload();
+            // UI-first sign-out (instant), then best-effort network revoke.
+            try {
+                document.getElementById('dashboard')?.classList.remove('active');
+                document.getElementById('authContainer').style.display = 'block';
+                document.getElementById('accountLink').style.display = 'none';
+            } catch (e) {}
+
+            // Local sign-out first (fast, works offline)
+            try {
+                await sb.auth.signOut({ scope: 'local' });
+            } catch (e) {
+                // Back-compat
+                try { await sb.auth.signOut(); } catch (_) {}
+            }
+
+            // Best-effort global sign-out (don't block UX)
+            try {
+                const p = sb.auth.signOut({ scope: 'global' });
+                await Promise.race([p, new Promise((resolve) => setTimeout(resolve, 1500))]);
+            } catch (_) {}
         }
     </script>
 </body>

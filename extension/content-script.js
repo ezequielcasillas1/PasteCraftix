@@ -1,5 +1,34 @@
 // PasteCraft Quick Paste Content Script
 
+const PASTECRAFT_LOGS_ENABLED = (() => {
+  try {
+    if (typeof globalThis !== 'undefined' && globalThis.PASTECRAFT_DEBUG === true) {
+      return true;
+    }
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('pastecraft_debug') === 'true';
+    }
+  } catch (_) {
+    // Ignore storage access errors.
+  }
+  return false;
+})();
+
+if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
+  const pastecraftNoop = () => {};
+  console.log = pastecraftNoop;
+  console.debug = pastecraftNoop;
+  console.info = pastecraftNoop;
+}
+
+async function safeRuntimeSendMessage(message) {
+  try {
+    return await chrome.runtime.sendMessage(message);
+  } catch (_) {
+    return null;
+  }
+}
+
 // Resource URL helper:
 // - When loaded via repo root `manifest.json` ("Repo Loader"), assets live under `extension/*`.
 // - When loaded via `/extension/manifest.json`, assets live at the extension root.
@@ -43,9 +72,33 @@ class QuickPasteInterface {
     };
     this.isDragging = false;
     this.dragOffset = { x: 0, y: 0 };
+    // selectedClips stores stable clip id keys (String(clip.id)), not indices.
     this.selectedClips = new Set(); // Track selected clips for multi-select
+
+    // Serialize clip mutations to prevent races / double-click issues.
+    this._clipOpQueue = Promise.resolve();
     
     this.init();
+  }
+
+  _clipIdKey(id) {
+    return String(id);
+  }
+
+  _queueClipOp(fn) {
+    const run = this._clipOpQueue.then(fn, fn);
+    this._clipOpQueue = run.catch(() => {});
+    return run;
+  }
+
+  _fnv1a36(str) {
+    const s = String(str || '');
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
   }
   
   async init() {
@@ -69,8 +122,39 @@ class QuickPasteInterface {
       console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!result.clips);
       console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', result.clips?.length || 0);
       
-      this.clips = result.clips || [];
+      const raw = Array.isArray(result.clips) ? result.clips : [];
+      let changed = false;
+
+      // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
+      const normalized = raw.map((clip, i) => {
+        if (!clip || typeof clip !== 'object') {
+          const text = String(clip || '');
+          const id = `legacy_${this._fnv1a36(`${text}|${i}`)}`;
+          changed = true;
+          return { id, text, category: 'Uncategorized', timestamp: Date.now() };
+        }
+
+        if (clip.id == null) {
+          const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
+          const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
+          const bucket = Math.floor(ts / 3000);
+          const id = `legacy_${this._fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
+          changed = true;
+          return { ...clip, id };
+        }
+
+        return clip;
+      });
+
+      this.clips = normalized;
       console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
+
+      // Persist repaired ids so other UIs (popup/sync) stay consistent.
+      if (changed) {
+        try {
+          await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+        } catch (_) {}
+      }
       
       if (this.clips.length > 0) {
         console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
@@ -141,9 +225,10 @@ class QuickPasteInterface {
       const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
       const category = clip.category || 'Uncategorized';
       const timeAgo = this.settings.showTimestamps ? this.getTimeAgo(clip.timestamp) : '';
+      const clipIdKey = this._clipIdKey(clip?.id != null ? clip.id : index);
       
       return `
-        <div class="pastecraft-clip" data-index="${index}" title="${text}">
+        <div class="pastecraft-clip" data-index="${index}" data-clip-id="${clipIdKey}" title="${text}">
           <div class="pastecraft-clip-content">
             <div class="pastecraft-clip-text">${this.escapeHtml(displayText)}</div>
             <div class="pastecraft-clip-meta">
@@ -152,8 +237,8 @@ class QuickPasteInterface {
             </div>
           </div>
           <div class="pastecraft-clip-actions">
-            <button class="pastecraft-btn pastecraft-paste" data-index="${index}" title="Paste">📋</button>
-            <button class="pastecraft-btn pastecraft-delete" data-index="${index}" title="Delete">×</button>
+            <button class="pastecraft-btn pastecraft-paste" data-clip-id="${clipIdKey}" data-index="${index}" title="Paste">📋</button>
+            <button class="pastecraft-btn pastecraft-delete" data-clip-id="${clipIdKey}" data-index="${index}" title="Delete">×</button>
           </div>
         </div>
       `;
@@ -201,7 +286,7 @@ class QuickPasteInterface {
         justify-content: space-between;
         align-items: center;
         padding: 12px 16px;
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        background: #5797EF;
         color: white;
         font-size: 14px;
         font-weight: 600;
@@ -1086,13 +1171,23 @@ class QuickPasteInterface {
       if (deleteBtn) {
         // Delete individual clip
         e.stopPropagation();
-        const index = parseInt(deleteBtn.dataset.index);
-        this.deleteClip(index);
+        const clipId = deleteBtn.dataset.clipId;
+        if (clipId) {
+          this.deleteClipById(clipId);
+        } else {
+          const index = parseInt(deleteBtn.dataset.index);
+          this.deleteClip(index);
+        }
       } else if (pasteBtn) {
         // Paste individual clip
         e.stopPropagation();
-        const index = parseInt(pasteBtn.dataset.index);
-        this.pasteClip(index);
+        const clipId = pasteBtn.dataset.clipId;
+        if (clipId) {
+          this.pasteClipById(clipId);
+        } else {
+          const index = parseInt(pasteBtn.dataset.index);
+          this.pasteClip(index);
+        }
       } else if (copyMultipleBtn) {
         // Copy multiple selected clips
         e.stopPropagation();
@@ -1100,8 +1195,8 @@ class QuickPasteInterface {
       } else if (clipElement) {
         // Toggle selection (NEW: multi-select functionality)
         e.stopPropagation();
-        const index = parseInt(clipElement.dataset.index);
-        this.toggleClipSelection(index, clipElement);
+        const clipId = clipElement.dataset.clipId;
+        if (clipId) this.toggleClipSelection(clipId, clipElement);
       }
     });
     
@@ -1123,7 +1218,10 @@ class QuickPasteInterface {
   
   setupMessageListener() {
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+      const action = message && typeof message.action === 'string' ? message.action : '';
+      let handled = false;
       if (message.action === 'clipSaved') {
+        handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
         this.loadClips().then(() => {
@@ -1135,17 +1233,20 @@ class QuickPasteInterface {
           }
         });
         } else if (message.action === 'showQuickPaste') {
+        handled = true;
         // Load latest clips before showing
         await this.loadClips();
         this.updateInterface();
         this.showInterface(message.x, message.y);
       } else if (message.action === 'settingsUpdated') {
+        handled = true;
         // Update settings from popup
         this.settings = { ...this.settings, ...message.settings };
         this.applySettings();
         this.updateInterface();
         console.log('⚙️ Settings updated from popup:', this.settings);
       } else if (message.action === 'clipsUpdated') {
+        handled = true;
         // Another tab updated clips (delete/move/etc) - refresh our interface
         console.log('🔄 Received clipsUpdated - refreshing clips');
         await this.loadClips();
@@ -1153,11 +1254,13 @@ class QuickPasteInterface {
           this.updateInterface();
         }
       } else if (message.action === 'clipsCleared') {
+        handled = true;
         // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
         await this.loadClips();
         this.updateInterface();
       } else if (message.action === 'openPopupPanel') {
+        handled = true;
         // Extension icon clicked - open the slide-in panel
         console.log('🎨 Received openPopupPanel message');
         if (window.pasteCraftFloatingWidget) {
@@ -1166,8 +1269,8 @@ class QuickPasteInterface {
           console.error('❌ Floating widget not initialized');
         }
       }
-      
-      sendResponse(true);
+      if (handled) sendResponse(true);
+      return handled;
     });
   }
 
@@ -2125,7 +2228,8 @@ class QuickPasteInterface {
       // Clear from storage
       await chrome.storage.local.set({ 
         clips: [],
-        searchOnlyClips: [] // Also clear archived clips
+        searchOnlyClips: [], // Also clear archived clips
+        pc_local_updatedAt: Date.now()
       });
       
       // Update local state
@@ -2164,12 +2268,13 @@ class QuickPasteInterface {
       index,
       element: clipElement,
       currentClasses: clipElement.className,
-      isSelected: this.selectedClips.has(index)
+      isSelected: this.selectedClips.has(String(index))
     });
     
-    if (this.selectedClips.has(index)) {
+    const clipIdKey = String(index);
+    if (this.selectedClips.has(clipIdKey)) {
       // Deselect - remove inline styles
-      this.selectedClips.delete(index);
+      this.selectedClips.delete(clipIdKey);
       clipElement.classList.remove('selected');
       clipElement.style.background = '';
       clipElement.style.color = '';
@@ -2183,7 +2288,7 @@ class QuickPasteInterface {
       console.log(`❌ DESELECTED clip ${index} - REMOVED INLINE STYLES`);
     } else {
       // Select - add class twice for nuclear specificity
-      this.selectedClips.add(index);
+      this.selectedClips.add(clipIdKey);
       clipElement.classList.add('selected');
       // Force immediate style application
       clipElement.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
@@ -2230,11 +2335,26 @@ class QuickPasteInterface {
   async copyMultipleClips() {
     if (this.selectedClips.size < 2) return;
     
-    // Get selected clips text
-    let selectedClipsData = Array.from(this.selectedClips)
-      .sort((a, b) => a - b) // Sort by index
-      .map(index => this.clips[index])
-      .filter(clip => clip) // Remove any undefined clips
+    // Get selected clips text (preserve UI order)
+    const selected = this.selectedClips;
+    const orderedIds = [];
+    const domClips = this.container ? this.container.querySelectorAll('.pastecraft-clip') : [];
+    if (domClips && domClips.length > 0) {
+      domClips.forEach(el => {
+        const id = el?.dataset?.clipId;
+        if (id && selected.has(id)) orderedIds.push(id);
+      });
+    }
+    if (orderedIds.length === 0) {
+      this.clips.forEach(c => {
+        const id = this._clipIdKey(c?.id);
+        if (selected.has(id)) orderedIds.push(id);
+      });
+    }
+
+    let selectedClipsData = orderedIds
+      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id))
+      .filter(Boolean)
       .map(clip => clip.text);
     
     // Apply formatting options
@@ -2292,30 +2412,55 @@ class QuickPasteInterface {
   
   // NEW: Delete individual clip functionality
   async deleteClip(index) {
-    const clip = this.clips[index];
+    // Back-compat wrapper: delete by visible index
+    const clip = this.clips?.[index];
     if (!clip) return;
-    
-    try {
-      // Remove from clips array
-      this.clips.splice(index, 1);
-      
-      // Save to storage
-      await chrome.storage.local.set({ clips: this.clips });
-      
-      // Update interface
+    await this.deleteClipById(this._clipIdKey(clip?.id));
+  }
+
+  async deleteClipById(clipIdKey) {
+    const id = String(clipIdKey || '');
+    if (!id) return;
+
+    return this._queueClipOp(async () => {
+      const before = this.clips.length;
+      const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
+
+      // Compute next state
+      this.clips = this.clips.filter(c => this._clipIdKey(c?.id) !== id);
+      const deleted = before - this.clips.length;
+
+      // Idempotent no-op
+      if (deleted === 0) {
+        this.selectedClips.delete(id);
+        this.updateCopyMultipleButton();
+        return;
+      }
+
+      // Persist once
+      await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+
+      // Update UI
       this.updateInterface();
-      
+
       // Show success toast
-      this.showToast(`🗑️ Deleted clip: "${clip.text.substring(0, 30)}..."`, 'success');
-      
-      console.log(`✅ Deleted clip at index ${index}`);
-      
+      const preview = clip && clip.text ? String(clip.text).substring(0, 30) : 'clip';
+      this.showToast(`🗑️ Deleted clip: "${preview}..."`, 'success');
+
+      console.log(`✅ Deleted clip ${id}`);
+
       // Notify other tabs about the change
-      chrome.runtime.sendMessage({ action: 'clipsUpdated' });
-    } catch (error) {
-      console.error('❌ Failed to delete clip:', error);
-      this.showToast('❌ Failed to delete clip', 'error');
-    }
+      safeRuntimeSendMessage({ action: 'clipsUpdated' });
+    });
+  }
+
+  async pasteClipById(clipIdKey) {
+    const id = String(clipIdKey || '');
+    if (!id) return;
+    const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
+    if (!clip) return;
+    const index = this.clips.indexOf(clip);
+    if (index >= 0) return this.pasteClip(index);
   }
 }
 
@@ -2324,12 +2469,43 @@ class PasteCraftFloatingWidget {
   constructor() {
     console.log('🎨 PasteCraftFloatingWidget constructor called');
     this.widget = null;
+    this.aiHelperEl = null;
+    this.aiHelperTips = [];
+    this.aiHelperAiTips = [];
+    this.aiHelperMode = 'clipboard'; // 'clipboard' | 'trends'
+    this.aiHelperTrends = [];
+    this.aiHelperTrendsLastFetchedDay = '';
+    this.aiHelperLastSignal = null;
+    this.aiHelperDebounce = null;
+    this.aiHelperLastAiAt = 0;
+    this._aiHelperConfigCache = null;
     this.isExpanded = false;
     this.position = { top: 50 }; // Percentage from top (50 = center)
     this.settings = {
+      // How the main app opens from the widget/icon
+      // 'inPage' (slide-in panel) | 'edgePopup' (separate window)
+      appOpenMode: 'inPage',
       keepPopupOpen: true,  // Default: popup stays open when clicking outside
-      keepQuickViewOpen: true  // Default: quick view stays open
+      keepQuickViewOpen: true,  // Default: quick view stays open
+      clickAndDragEnabled: false, // Default: click & drag dropbox is off
+
+      // Top-right helper widget
+      aiHelperEnabled: true,
+      aiHelperRuleTipsEnabled: true,
+      aiHelperAiTipsEnabled: true,
+      aiHelperShowOnCopyOnly: false,
+      aiHelperMode: 'clipboard',
+      // Always start top-right; user can drag to reposition.
+      aiHelperPlacement: 'top-right',
+      aiHelperUserPositioned: false,
+      aiHelperUserPosition: null
     };
+
+    // Click & Drag capture UI state
+    this._pcClickAndDragSetup = false;
+    this._pcDropBoxEl = null;
+    this._pcDropBoxVisible = false;
+    this._pcDragActive = false;
     
     // Track open state of each component
     this.openStates = {
@@ -2348,6 +2524,8 @@ class PasteCraftFloatingWidget {
     console.log('✅ Widget created successfully');
     this.loadSavedPosition();
     this.setupStorageSync();
+    this.setupClickAndDragCapture();
+    this.setupAiHelperCopyListener();
     
     // Then load settings asynchronously
     this.initAsync();
@@ -2357,6 +2535,7 @@ class PasteCraftFloatingWidget {
     await this.loadSettings();
     await this.loadAutoCopyState();
     this.setupAutoCopyListener();
+    this.updateAiHelperUI();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
   }
 
@@ -2372,6 +2551,11 @@ class PasteCraftFloatingWidget {
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
         }
+        if (this.settings && this.settings.clickAndDragEnabled === false) {
+          this.hideClickAndDragDropBox(true);
+        }
+        // Keep helper UI in sync across tabs (visibility, placement, mode)
+        this.updateAiHelperUI();
       }
 
       if (changes.widgetPosition) {
@@ -2486,6 +2670,9 @@ class PasteCraftFloatingWidget {
     
     // Append to body
     document.body.appendChild(this.widget);
+
+    // Create the top-right helper widget
+    this.createAiHelperWidget();
     
     // Debug: Test if ANY clicks work on the widget
     this.widget.addEventListener('click', (e) => {
@@ -2513,7 +2700,8 @@ class PasteCraftFloatingWidget {
         top: 50%;
         transform: translateY(-50%);
         width: 60px;
-        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+        /* 70% transparent background (alpha 0.3) */
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 50%, rgba(29, 78, 216, 0.3) 100%);
         border-radius: 12px 0 0 12px;
         box-shadow: 
           -4px 0 16px rgba(0, 0, 0, 0.15),
@@ -2690,9 +2878,771 @@ class PasteCraftFloatingWidget {
       .pastecraft-widget {
         animation: widget-fade-in 0.4s ease-out;
       }
+
+      /* =====================================================
+         PasteCraft Top-Right Helper Widget
+         ===================================================== */
+      #pastecraft-ai-helper {
+        position: fixed;
+        top: 14px;
+        right: calc(var(--pastecraft-panel-width, 0px) + 14px);
+        width: 320px;
+        max-width: 44vw;
+        max-height: 42vh;
+        z-index: 2147483647;
+        border-radius: 12px;
+        border: 1px solid rgba(96, 165, 250, 0.55);
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.22) 0%, rgba(30, 58, 138, 0.22) 55%, rgba(29, 78, 216, 0.22) 100%);
+        box-shadow:
+          0 8px 24px rgba(0, 0, 0, 0.14),
+          0 0 22px rgba(96, 165, 250, 0.22);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        overflow: hidden;
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #pastecraft-ai-helper.hidden {
+        display: none !important;
+      }
+
+      /* Popup window mode (in-page) */
+      #pastecraft-ai-helper.pastecraft-ai-helper-popup {
+        top: 50% !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        width: min(520px, 92vw) !important;
+        max-width: 92vw !important;
+        max-height: min(64vh, 620px) !important;
+        background: rgba(15, 23, 42, 0.82) !important;
+        border: 1px solid rgba(96, 165, 250, 0.65) !important;
+        box-shadow:
+          0 18px 60px rgba(0, 0, 0, 0.38),
+          0 0 26px rgba(96, 165, 250, 0.26) !important;
+      }
+
+      #pastecraft-ai-helper-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.18);
+        z-index: 2147483646;
+        opacity: 0;
+        transition: opacity 0.18s ease;
+        pointer-events: none;
+      }
+
+      #pastecraft-ai-helper-backdrop.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #pastecraft-ai-helper .ai-helper-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        background: rgba(30, 64, 175, 0.45);
+        border-bottom: 1px solid rgba(96, 165, 250, 0.35);
+      }
+
+      #pastecraft-ai-helper .ai-helper-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #e0f2fe;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        user-select: none;
+      }
+
+      #pastecraft-ai-helper .ai-helper-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #pastecraft-ai-helper .ai-helper-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        background: rgba(255, 255, 255, 0.10);
+        color: #e0f2fe;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      #pastecraft-ai-helper .ai-helper-btn:hover {
+        background: rgba(96, 165, 250, 0.18);
+        box-shadow: 0 0 14px rgba(96, 165, 250, 0.35);
+      }
+
+      #pastecraft-ai-helper .ai-helper-body {
+        padding: 10px 12px 12px 12px;
+        overflow: auto;
+      }
+
+      #pastecraft-ai-helper .ai-helper-empty {
+        color: rgba(224, 242, 254, 0.85);
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 6px 2px;
+      }
+
+      #pastecraft-ai-helper .ai-helper-tip {
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        border-radius: 10px;
+        padding: 10px 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      }
+
+      #pastecraft-ai-helper .ai-helper-tip:last-child {
+        margin-bottom: 0;
+      }
+
+      #pastecraft-ai-helper .ai-helper-tip-title {
+        color: #eff6ff;
+        font-size: 13px;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+      }
+
+      #pastecraft-ai-helper .ai-helper-tip-body {
+        color: rgba(224, 242, 254, 0.9);
+        font-size: 12px;
+        margin: 0;
+        line-height: 1.45;
+      }
+
+      #pastecraft-ai-helper .ai-helper-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        background: rgba(15, 23, 42, 0.35);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        color: rgba(224, 242, 254, 0.9);
+      }
     `;
     
     document.head.appendChild(styles);
+  }
+
+  createAiHelperWidget() {
+    // Avoid duplicates
+    const existing = document.getElementById('pastecraft-ai-helper');
+    if (existing) {
+      this.aiHelperEl = existing;
+      return;
+    }
+
+    this.aiHelperEl = document.createElement('div');
+    this.aiHelperEl.id = 'pastecraft-ai-helper';
+    this.aiHelperEl.innerHTML = `
+      <div class="ai-helper-header">
+        <div class="ai-helper-title">
+          <span>PasteCraft Tips</span>
+          <span class="ai-helper-badge" id="pastecraft-ai-helper-badge">FREE</span>
+        </div>
+        <div class="ai-helper-actions">
+          <button class="ai-helper-btn" id="pastecraft-ai-helper-mode-clipboard" title="Clipboard Coach" aria-label="Clipboard Coach">📋</button>
+          <button class="ai-helper-btn" id="pastecraft-ai-helper-mode-trends" title="Daily Trends" aria-label="Daily Trends">🌐</button>
+          <button class="ai-helper-btn" id="pastecraft-ai-helper-open-settings" title="Settings" aria-label="Settings">⚙️</button>
+          <button class="ai-helper-btn" id="pastecraft-ai-helper-close" title="Hide" aria-label="Hide">×</button>
+        </div>
+      </div>
+      <div class="ai-helper-body" id="pastecraft-ai-helper-body"></div>
+    `;
+
+    document.body.appendChild(this.aiHelperEl);
+
+    // Wire buttons
+    const btnSettings = this.aiHelperEl.querySelector('#pastecraft-ai-helper-open-settings');
+    const btnClose = this.aiHelperEl.querySelector('#pastecraft-ai-helper-close');
+    const btnModeClipboard = this.aiHelperEl.querySelector('#pastecraft-ai-helper-mode-clipboard');
+    const btnModeTrends = this.aiHelperEl.querySelector('#pastecraft-ai-helper-mode-trends');
+
+    btnSettings?.addEventListener('click', () => {
+      // Use existing settings panel; ensure dock logic already shifts helper via CSS var.
+      if (this.openStates?.settings) return;
+      this.openSettings();
+    });
+
+    btnClose?.addEventListener('click', async () => {
+      this.settings.aiHelperEnabled = false;
+      await this.saveSettings();
+      this.updateAiHelperUI();
+    });
+
+    btnModeClipboard?.addEventListener('click', async () => {
+      this.aiHelperMode = 'clipboard';
+      this.settings.aiHelperMode = 'clipboard';
+      await this.saveSettings();
+      this.updateAiHelperUI();
+    });
+
+    btnModeTrends?.addEventListener('click', async () => {
+      this.aiHelperMode = 'trends';
+      this.settings.aiHelperMode = 'trends';
+      await this.saveSettings();
+      this.updateAiHelperUI();
+      // Best-effort fetch when switching
+      this.maybeRefreshDailyTrends();
+    });
+
+    this.updateAiHelperUI();
+
+    // Draggable helper card (user-positioned override)
+    this.setupAiHelperDrag();
+
+    // Keep within viewport on resize
+    if (!this._aiHelperResizeBound) {
+      this._aiHelperResizeBound = true;
+      window.addEventListener('resize', () => this.clampAiHelperToViewport(), { passive: true });
+    }
+  }
+
+  scheduleAiHelperInitialPlacementAfterLoad() {
+    if (this._aiHelperInitialPlacementScheduled) return;
+    this._aiHelperInitialPlacementScheduled = true;
+
+    const run = () => {
+      if (this._aiHelperInitialPlacementDone) return;
+      this._aiHelperInitialPlacementDone = true;
+
+      // Let late styles/layout settle (common on SPAs and pages with async CSS).
+      setTimeout(() => {
+        try {
+          requestAnimationFrame(() => requestAnimationFrame(() => this.applyAiHelperPlacement()));
+        } catch (_) {
+          this.applyAiHelperPlacement();
+        }
+      }, 180);
+    };
+
+    // If already loaded, run soon; else run after window load.
+    if (document.readyState === 'complete') {
+      run();
+      return;
+    }
+
+    window.addEventListener('load', run, { once: true });
+  }
+
+  updateAiHelperUI() {
+    if (!this.aiHelperEl) return;
+
+    const enabled = !!this.settings.aiHelperEnabled;
+    this.aiHelperEl.classList.toggle('hidden', !enabled);
+    if (!enabled) {
+      this.setAiHelperPopupMode(false);
+      return;
+    }
+
+    const badge = this.aiHelperEl.querySelector('#pastecraft-ai-helper-badge');
+    if (badge) badge.textContent = 'FREE';
+
+    // Restore mode from settings
+    this.aiHelperMode = (this.settings?.aiHelperMode === 'trends') ? 'trends' : 'clipboard';
+
+    this.renderAiHelperTips();
+
+    // If in trends mode, fetch/cached refresh (non-blocking)
+    if (this.aiHelperMode === 'trends') {
+      this.maybeRefreshDailyTrends().catch(() => {});
+    }
+
+    this.applyAiHelperPlacement();
+  }
+
+  applyAiHelperPlacement() {
+    if (!this.aiHelperEl) return;
+    if (this.aiHelperEl.classList.contains('hidden')) return;
+
+    // Always inline + top-right, unless the user dragged it somewhere.
+    this.setAiHelperPopupMode(false);
+    if (this.settings?.aiHelperUserPositioned && this.settings?.aiHelperUserPosition) {
+      this.applyAiHelperUserPosition();
+      return;
+    }
+
+    this.setAiHelperInlineAnchors({ top: 14, right: 14 });
+  }
+
+  applyAiHelperUserPosition() {
+    if (!this.aiHelperEl) return;
+    const p = this.settings?.aiHelperUserPosition;
+    const left = Number.isFinite(p?.left) ? Math.round(p.left) : null;
+    const top = Number.isFinite(p?.top) ? Math.round(p.top) : null;
+    if (typeof left !== 'number' || typeof top !== 'number') return;
+
+    // Ensure inline mode (not in-page popup mode)
+    this.aiHelperEl.classList.remove('pastecraft-ai-helper-popup');
+    this.aiHelperEl.style.transform = '';
+
+    this.aiHelperEl.style.left = `${left}px`;
+    this.aiHelperEl.style.top = `${top}px`;
+    this.aiHelperEl.style.right = 'auto';
+    this.aiHelperEl.style.bottom = 'auto';
+  }
+
+  clampAiHelperToViewport() {
+    if (!this.aiHelperEl) return;
+    if (!(this.settings?.aiHelperUserPositioned && this.settings?.aiHelperUserPosition)) return;
+
+    const rect = this.aiHelperEl.getBoundingClientRect();
+    const vw = Math.max(0, window.innerWidth || 0);
+    const vh = Math.max(0, window.innerHeight || 0);
+    if (vw <= 0 || vh <= 0) return;
+
+    const maxLeft = Math.max(0, vw - rect.width);
+    const maxTop = Math.max(0, vh - rect.height);
+    const nextLeft = Math.max(0, Math.min(rect.left, maxLeft));
+    const nextTop = Math.max(0, Math.min(rect.top, maxTop));
+
+    this.settings.aiHelperUserPosition = { left: nextLeft, top: nextTop };
+    this.applyAiHelperUserPosition();
+    // Best-effort persist (don’t block UI)
+    this.saveSettings().catch?.(() => {});
+  }
+
+  setupAiHelperDrag() {
+    if (!this.aiHelperEl) return;
+    if (this._aiHelperDragBound) return;
+    this._aiHelperDragBound = true;
+
+    const header = this.aiHelperEl.querySelector('.ai-helper-header');
+    if (!header) return;
+
+    header.style.cursor = 'move';
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      const rect = this.aiHelperEl.getBoundingClientRect();
+      const vw = Math.max(0, window.innerWidth || 0);
+      const vh = Math.max(0, window.innerHeight || 0);
+      const maxLeft = Math.max(0, vw - rect.width);
+      const maxTop = Math.max(0, vh - rect.height);
+
+      const nextLeft = Math.max(0, Math.min(startLeft + dx, maxLeft));
+      const nextTop = Math.max(0, Math.min(startTop + dy, maxTop));
+
+      this.aiHelperEl.style.left = `${Math.round(nextLeft)}px`;
+      this.aiHelperEl.style.top = `${Math.round(nextTop)}px`;
+      this.aiHelperEl.style.right = 'auto';
+      this.aiHelperEl.style.bottom = 'auto';
+      this.aiHelperEl.style.transform = '';
+      this.aiHelperEl.classList.remove('pastecraft-ai-helper-popup');
+    };
+
+    const onUp = async () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.userSelect = '';
+
+      const rect = this.aiHelperEl.getBoundingClientRect();
+      this.settings.aiHelperUserPositioned = true;
+      this.settings.aiHelperUserPosition = { left: rect.left, top: rect.top };
+      this.settings.aiHelperPlacement = 'top-right';
+      await this.saveSettings();
+    };
+
+    header.addEventListener('pointerdown', (e) => {
+      // Don't drag when clicking the header buttons.
+      if (e.target && e.target.closest && e.target.closest('.ai-helper-btn')) return;
+      if (this.aiHelperEl.classList.contains('hidden')) return;
+
+      const rect = this.aiHelperEl.getBoundingClientRect();
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      // Switch to user-positioned coordinates immediately.
+      this.settings.aiHelperUserPositioned = true;
+      this.settings.aiHelperUserPosition = { left: startLeft, top: startTop };
+      this.applyAiHelperUserPosition();
+
+      try { header.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+      document.body.style.userSelect = 'none';
+    });
+
+    header.addEventListener('pointermove', onMove);
+    header.addEventListener('pointerup', () => onUp());
+    header.addEventListener('pointercancel', () => onUp());
+  }
+
+  setAiHelperPopupMode(enabled, opts = {}) {
+    const allowBackdropClose = opts.allowBackdropClose !== false;
+    if (!this.aiHelperEl) return;
+
+    const existingBackdrop = document.getElementById('pastecraft-ai-helper-backdrop');
+
+    if (!enabled) {
+      this.aiHelperEl.classList.remove('pastecraft-ai-helper-popup');
+      this.aiHelperEl.style.transform = '';
+      if (existingBackdrop) existingBackdrop.remove();
+      return;
+    }
+
+    this.aiHelperEl.classList.add('pastecraft-ai-helper-popup');
+
+    // Backdrop
+    let backdrop = existingBackdrop;
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'pastecraft-ai-helper-backdrop';
+      document.body.appendChild(backdrop);
+      // Animate in
+      setTimeout(() => backdrop?.classList.add('visible'), 10);
+    } else {
+      backdrop.classList.add('visible');
+    }
+
+    // Optional click-outside to "minimize" back to inline (AUTO fallback only)
+    if (allowBackdropClose) {
+      backdrop.onclick = () => {
+        // Try to place inline again; if still impossible, keep popup.
+        this.setAiHelperPopupMode(false);
+        this.applyAiHelperPlacement();
+      };
+    } else {
+      backdrop.onclick = null;
+    }
+  }
+
+  setAiHelperInlineAnchors(anchors) {
+    if (!this.aiHelperEl) return;
+
+    const a = anchors || {};
+    const hasTop = typeof a.top === 'number';
+    const hasBottom = typeof a.bottom === 'number';
+    const hasLeft = typeof a.left === 'number';
+    const hasRight = typeof a.right === 'number';
+
+    // Clear transform from popup mode
+    this.aiHelperEl.classList.remove('pastecraft-ai-helper-popup');
+    this.aiHelperEl.style.transform = '';
+
+    // Apply anchors (right uses panel-width offset to avoid slide-in panels)
+    this.aiHelperEl.style.top = hasTop ? `${Math.round(a.top)}px` : '';
+    this.aiHelperEl.style.bottom = hasBottom ? `${Math.round(a.bottom)}px` : '';
+    this.aiHelperEl.style.left = hasLeft ? `${Math.round(a.left)}px` : '';
+    this.aiHelperEl.style.right = hasRight
+      ? `calc(var(--pastecraft-panel-width, 0px) + ${Math.round(a.right)}px)`
+      : '';
+  }
+
+  findBestAiHelperPlacement() {
+    if (!this.aiHelperEl) return null;
+
+    const margin = 14;
+    const vw = Math.max(0, window.innerWidth || 0);
+    const vh = Math.max(0, window.innerHeight || 0);
+    if (vw < 200 || vh < 160) return null;
+
+    const panelOffsetPx = (this.openStates?.popup || this.openStates?.settings || this.openStates?.quickView)
+      ? this.getActivePanelWidthPx()
+      : 0;
+
+    // Measure helper size (without flashing)
+    const prevVis = this.aiHelperEl.style.visibility;
+    const prevDisp = this.aiHelperEl.style.display;
+    const wasHidden = this.aiHelperEl.classList.contains('hidden');
+    if (wasHidden) this.aiHelperEl.classList.remove('hidden');
+    this.aiHelperEl.style.visibility = 'hidden';
+    this.aiHelperEl.style.display = 'flex';
+    // force layout
+    const rect = this.aiHelperEl.getBoundingClientRect();
+    const w = Math.max(220, Math.round(rect.width || 320));
+    const h = Math.max(140, Math.round(rect.height || 240));
+    this.aiHelperEl.style.visibility = prevVis || '';
+    this.aiHelperEl.style.display = prevDisp || '';
+    if (wasHidden) this.aiHelperEl.classList.add('hidden');
+
+    // Avoid overlapping our main widget
+    const widgetRect = this.widget?.getBoundingClientRect?.();
+
+    const candidates = [
+      { name: 'top-right', top: margin, right: margin },
+      { name: 'top-left', top: margin, left: margin },
+      { name: 'bottom-right', bottom: margin, right: margin },
+      { name: 'bottom-left', bottom: margin, left: margin }
+    ];
+
+    let best = null;
+    let bestScore = -Infinity;
+
+    for (const c of candidates) {
+      const testRect = this._resolveAnchorsToRect({ ...c, w, h, vw, vh, margin, panelOffsetPx });
+      if (!testRect) continue;
+
+      // Must be fully on-screen
+      if (testRect.x < 0 || testRect.y < 0 || (testRect.x + testRect.w) > vw || (testRect.y + testRect.h) > vh) continue;
+
+      // Avoid overlapping the main widget on the right edge
+      if (widgetRect && this._rectsIntersect(testRect, {
+        x: widgetRect.left,
+        y: widgetRect.top,
+        w: widgetRect.width,
+        h: widgetRect.height
+      })) {
+        continue;
+      }
+
+      const score = this._scoreViewportRect(testRect);
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+
+    // Require a minimum "cleanliness" score
+    if (bestScore < 40) return null;
+    return best;
+  }
+
+  _resolveAnchorsToRect({ top, bottom, left, right, w, h, vw, vh, margin, panelOffsetPx = 0 }) {
+    // NOTE: right anchor is relative to the viewport edge excluding any slide-in panel
+    // but for hit-testing "what's behind", we use the actual viewport coordinates.
+    let x = null;
+    let y = null;
+
+    if (typeof left === 'number') x = left;
+    if (typeof right === 'number') x = vw - right - panelOffsetPx - w;
+    if (typeof top === 'number') y = top;
+    if (typeof bottom === 'number') y = vh - bottom - h;
+
+    if (typeof x !== 'number' || typeof y !== 'number') return null;
+    return { x, y, w, h };
+  }
+
+  _rectsIntersect(a, b) {
+    return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+  }
+
+  _scoreViewportRect(r) {
+    const samplePoints = [
+      { dx: 0.2, dy: 0.2 },
+      { dx: 0.5, dy: 0.2 },
+      { dx: 0.8, dy: 0.2 },
+      { dx: 0.2, dy: 0.5 },
+      { dx: 0.5, dy: 0.5 },
+      { dx: 0.8, dy: 0.5 },
+      { dx: 0.2, dy: 0.8 },
+      { dx: 0.5, dy: 0.8 },
+      { dx: 0.8, dy: 0.8 }
+    ];
+
+    let white = 0;
+    let blocked = 0;
+    let unknown = 0;
+
+    for (const p of samplePoints) {
+      const x = Math.round(r.x + r.w * p.dx);
+      const y = Math.round(r.y + r.h * p.dy);
+      const el = document.elementFromPoint(x, y);
+      if (!el) {
+        unknown++;
+        continue;
+      }
+
+      // Ignore our own UI
+      if (this.aiHelperEl && this.aiHelperEl.contains(el)) continue;
+      if (this.widget && this.widget.contains(el)) continue;
+      if (el.closest?.('#pastecraft-popup-overlay, #pastecraft-settings-panel, #pastecraft-quickview-panel')) {
+        blocked++;
+        continue;
+      }
+
+      if (this._isImportantUnderlyingElement(el)) {
+        blocked++;
+        continue;
+      }
+
+      const lum = this._getEffectiveBackgroundLuminance(el);
+      if (typeof lum !== 'number') {
+        unknown++;
+        continue;
+      }
+      if (lum >= 0.90) white++;
+    }
+
+    const total = samplePoints.length;
+    const whiteRatio = white / total;
+    const blockedRatio = blocked / total;
+
+    // Score: favor white space, heavily penalize important/interactive elements behind it
+    return (whiteRatio * 100) - (blockedRatio * 120) - (unknown * 4);
+  }
+
+  _isImportantUnderlyingElement(el) {
+    const t = el;
+    const tag = (t?.tagName || '').toLowerCase();
+    if (tag === 'nav' || tag === 'header') return true;
+    if (t?.getAttribute?.('role') === 'navigation') return true;
+
+    // Common nav/header selectors
+    const navLike = t?.closest?.('nav, header, [role="navigation"], .navbar, .nav, .topbar, .site-header');
+    if (navLike) return true;
+
+    // Interactive elements (avoid covering)
+    const interactive = t?.closest?.('a, button, input, textarea, select, summary, [role="button"], [role="link"], [contenteditable="true"]');
+    if (interactive) return true;
+
+    return false;
+  }
+
+  _getEffectiveBackgroundLuminance(el) {
+    const color = this._findOpaqueBackgroundColor(el);
+    if (!color) return null;
+    const rgb = this._parseCssColorToRgb(color);
+    if (!rgb) return null;
+    // Relative luminance approximation (sRGB)
+    return (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  }
+
+  _findOpaqueBackgroundColor(el) {
+    let cur = el;
+    let guard = 0;
+    while (cur && guard++ < 16) {
+      try {
+        const cs = window.getComputedStyle(cur);
+        const bg = cs?.backgroundColor;
+        if (bg && !/rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/i.test(bg) && bg !== 'transparent') {
+          return bg;
+        }
+      } catch (_) {}
+      cur = cur.parentElement;
+    }
+    try {
+      const bodyBg = window.getComputedStyle(document.body)?.backgroundColor;
+      if (bodyBg && bodyBg !== 'transparent') return bodyBg;
+    } catch (_) {}
+    return null;
+  }
+
+  _parseCssColorToRgb(s) {
+    const str = String(s || '').trim();
+    const m = str.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (m) {
+      const r = Number(m[1]); const g = Number(m[2]); const b = Number(m[3]);
+      const a = (m[4] !== undefined) ? Number(m[4]) : 1;
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a)) return null;
+      if (a <= 0.05) return null;
+      return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) };
+    }
+    // hex (#fff or #ffffff)
+    const hx = str.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hx) {
+      const h = hx[1];
+      if (h.length === 3) {
+        const r = parseInt(h[0] + h[0], 16);
+        const g = parseInt(h[1] + h[1], 16);
+        const b = parseInt(h[2] + h[2], 16);
+        return { r, g, b };
+      }
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return { r, g, b };
+    }
+    return null;
+  }
+
+  renderAiHelperTips() {
+    if (!this.aiHelperEl) return;
+    const body = this.aiHelperEl.querySelector('#pastecraft-ai-helper-body');
+    if (!body) return;
+
+    if (this.aiHelperMode === 'trends') {
+      const hasTrends = Array.isArray(this.aiHelperTrends) && this.aiHelperTrends.length > 0;
+      if (!hasTrends) {
+        body.innerHTML = `<div class="ai-helper-empty">Daily Trends: Fetching tips (Premium) or switch back to Clipboard Coach.</div>`;
+        return;
+      }
+      body.innerHTML = this.aiHelperTrends
+        .slice(0, 3)
+        .map(t => {
+          const title = String(t?.title || '');
+          const text = String(t?.body || '');
+          return `
+            <div class="ai-helper-tip">
+              <div class="ai-helper-tip-title">${this.escapeHtml(title)}</div>
+              <p class="ai-helper-tip-body">${this.escapeHtml(text)}</p>
+            </div>
+          `;
+        })
+        .join('');
+      return;
+    }
+
+    const showOnCopyOnly = !!this.settings.aiHelperShowOnCopyOnly;
+    const mergedTips = [
+      ...(Array.isArray(this.aiHelperTips) ? this.aiHelperTips : []),
+      ...(Array.isArray(this.aiHelperAiTips) ? this.aiHelperAiTips : [])
+    ];
+    const hasTips = mergedTips.length > 0;
+    if (showOnCopyOnly && !hasTips) {
+      body.innerHTML = '';
+      return;
+    }
+
+    if (!hasTips) {
+      body.innerHTML = `<div class="ai-helper-empty">Copy something on this page to get helpful PasteCraft tips.</div>`;
+      return;
+    }
+
+    body.innerHTML = mergedTips
+      .slice(0, 3)
+      .map(t => {
+        const title = String(t?.title || '');
+        const text = String(t?.body || '');
+        return `
+          <div class="ai-helper-tip">
+            <div class="ai-helper-tip-title">${this.escapeHtml(title)}</div>
+            <p class="ai-helper-tip-body">${this.escapeHtml(text)}</p>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
   }
   
   setupEventListeners() {
@@ -2705,6 +3655,15 @@ class PasteCraftFloatingWidget {
     if (logoButton) {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
+        if (String(this.settings?.appOpenMode || 'inPage') === 'edgePopup') {
+          safeRuntimeSendMessage({
+            action: 'pcOpenPopupWindow',
+            page: 'popup.html',
+            width: 520,
+            height: 760
+          });
+          return;
+        }
         if (this.openStates.popup) {
           this.closePopupOverlay();
         } else {
@@ -2757,6 +3716,65 @@ class PasteCraftFloatingWidget {
     console.log('🎯 All event listeners setup complete!');
   }
   
+  ensurePageDockStyles() {
+    // Inject once per page/tab
+    if (document.getElementById('pastecraft-page-dock-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'pastecraft-page-dock-styles';
+    style.textContent = `
+      /* PasteCraft: "docked" mode - push page content left when panel is open */
+      html.pastecraft-page-pushed body {
+        margin-right: var(--pastecraft-panel-width, 476px) !important;
+        transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      }
+
+      /* On small screens panels become full-width; don't push page */
+      @media (max-width: 480px) {
+        html.pastecraft-page-pushed body {
+          margin-right: 0 !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  getActivePanelWidthPx() {
+    // Prefer the currently-open & visible panel, fall back to 476px.
+    const candidates = [
+      { open: this.openStates?.popup, el: document.getElementById('pastecraft-popup-overlay') },
+      { open: this.openStates?.settings, el: document.getElementById('pastecraft-settings-panel') },
+      { open: this.openStates?.quickView, el: document.getElementById('pastecraft-quickview-panel') }
+    ];
+
+    const pick =
+      candidates.find(c => c.open && c.el && c.el.classList.contains('visible')) ||
+      candidates.find(c => c.open && c.el);
+
+    const width = pick?.el?.getBoundingClientRect?.().width;
+    if (typeof width === 'number' && Number.isFinite(width) && width > 0) return width;
+    return 476;
+  }
+
+  syncPageDocking() {
+    this.ensurePageDockStyles();
+
+    const shouldPush = !!(this.openStates?.popup || this.openStates?.settings || this.openStates?.quickView);
+    const root = document.documentElement;
+    if (!root) return;
+
+    if (!shouldPush) {
+      root.classList.remove('pastecraft-page-pushed');
+      root.style.removeProperty('--pastecraft-panel-width');
+      return;
+    }
+
+    const widthPx = this.getActivePanelWidthPx();
+    root.style.setProperty('--pastecraft-panel-width', `${Math.round(widthPx)}px`);
+    root.classList.add('pastecraft-page-pushed');
+  }
+
   openPopupOverlay() {
     console.log('🎨 Opening popup overlay (slide-in from right)');
     
@@ -2771,6 +3789,9 @@ class PasteCraftFloatingWidget {
     
     // Slide widget to the left (attached to panel)
     this.widget.classList.add('panel-open');
+
+    // Push the website content left (docked mode)
+    this.syncPageDocking();
     
     // Add active class to logo button
     const logoButton = this.widget.querySelector('.logo-button');
@@ -2849,6 +3870,8 @@ class PasteCraftFloatingWidget {
     setTimeout(() => {
       backdrop.classList.add('visible');
       container.classList.add('visible');
+      // Recompute width once visible (responsive cases)
+      this.syncPageDocking();
     }, 10);
     
     console.log('✅ Popup overlay opened');
@@ -2886,6 +3909,9 @@ class PasteCraftFloatingWidget {
       if (logoButton) {
         logoButton.classList.remove('active');
       }
+
+      // Update docked page push based on remaining panels
+      this.syncPageDocking();
       
       console.log('✅ Popup overlay closed');
     }
@@ -2977,6 +4003,9 @@ class PasteCraftFloatingWidget {
     
     // Slide widget to the left (attached to panel)
     this.widget.classList.add('panel-open');
+
+    // Push the website content left (docked mode)
+    this.syncPageDocking();
     
     // Add active class to settings button
     const settingsButton = this.widget.querySelector('.settings-button');
@@ -3003,6 +4032,79 @@ class PasteCraftFloatingWidget {
       
       <div class="settings-content">
         <div class="settings-section">
+          <h4>Open Mode</h4>
+          
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Open PasteCraft in</label>
+              <p class="setting-desc">Choose between the in-page panel or a separate popup window</p>
+            </div>
+            <select id="appOpenMode" class="pc-settings-select">
+              <option value="inPage" ${String(this.settings.appOpenMode || 'inPage') === 'inPage' ? 'selected' : ''}>In-page panel (default)</option>
+              <option value="edgePopup" ${String(this.settings.appOpenMode || '') === 'edgePopup' ? 'selected' : ''}>Popup window (separate)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Helper Tips</h4>
+          
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Enable top-right tips widget</label>
+              <p class="setting-desc">Shows a small helper card with copy/clipboard tips</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="aiHelperEnabled" ${this.settings.aiHelperEnabled ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Rule-based tips (Free)</label>
+              <p class="setting-desc">Local tips based on what you copy (no network)</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="aiHelperRuleTipsEnabled" ${this.settings.aiHelperRuleTipsEnabled ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>AI tips (Premium)</label>
+              <p class="setting-desc">More advanced tips powered by AI (Premium only)</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="aiHelperAiTipsEnabled" ${this.settings.aiHelperAiTipsEnabled ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Only show after copy</label>
+              <p class="setting-desc">Hide the widget until you copy something</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="aiHelperShowOnCopyOnly" ${this.settings.aiHelperShowOnCopyOnly ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Tips widget placement</label>
+              <p class="setting-desc">Always top-right. You can drag the card anywhere.</p>
+            </div>
+            <select id="aiHelperPlacement" class="pc-settings-select" disabled>
+              <option value="top-right" selected>Fixed top-right (draggable)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <h4>Popup Behavior</h4>
           
           <div class="setting-item">
@@ -3023,6 +4125,21 @@ class PasteCraftFloatingWidget {
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="keepQuickViewOpen" ${this.settings.keepQuickViewOpen ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Capture</h4>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label>Enable Click & Drag capture</label>
+              <p class="setting-desc">Drag text, links, or images into a drop box to save to Clips</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="clickAndDragEnabled" ${this.settings.clickAndDragEnabled ? 'checked' : ''}>
               <span class="toggle-slider"></span>
             </label>
           </div>
@@ -3059,6 +4176,22 @@ class PasteCraftFloatingWidget {
     // Toggle handlers
     const keepPopupToggle = panel.querySelector('#keepPopupOpen');
     const keepQuickViewToggle = panel.querySelector('#keepQuickViewOpen');
+    const clickAndDragToggle = panel.querySelector('#clickAndDragEnabled');
+
+    const appOpenModeSelect = panel.querySelector('#appOpenMode');
+
+    const aiHelperEnabledToggle = panel.querySelector('#aiHelperEnabled');
+    const aiHelperRuleTipsToggle = panel.querySelector('#aiHelperRuleTipsEnabled');
+    const aiHelperAiTipsToggle = panel.querySelector('#aiHelperAiTipsEnabled');
+    const aiHelperShowOnCopyOnlyToggle = panel.querySelector('#aiHelperShowOnCopyOnly');
+    const aiHelperPlacementSelect = panel.querySelector('#aiHelperPlacement');
+
+    appOpenModeSelect?.addEventListener('change', (e) => {
+      const v = String(e.target.value || 'inPage');
+      this.settings.appOpenMode = v === 'edgePopup' ? 'edgePopup' : 'inPage';
+      this.saveSettings();
+      this.showWidgetToast(this.settings.appOpenMode === 'edgePopup' ? 'Open: Popup window' : 'Open: In-page panel');
+    });
     
     keepPopupToggle.addEventListener('change', (e) => {
       this.settings.keepPopupOpen = e.target.checked;
@@ -3071,11 +4204,51 @@ class PasteCraftFloatingWidget {
       this.saveSettings();
       console.log('📝 Keep Quick View open:', this.settings.keepQuickViewOpen);
     });
+
+    clickAndDragToggle.addEventListener('change', (e) => {
+      this.settings.clickAndDragEnabled = e.target.checked;
+      this.saveSettings();
+      console.log('📝 Click & Drag enabled:', this.settings.clickAndDragEnabled);
+      this.showWidgetToast(this.settings.clickAndDragEnabled ? 'Click & Drag ON' : 'Click & Drag OFF');
+    });
+
+    aiHelperEnabledToggle?.addEventListener('change', (e) => {
+      this.settings.aiHelperEnabled = e.target.checked;
+      this.saveSettings();
+      this.updateAiHelperUI();
+      this.showWidgetToast(this.settings.aiHelperEnabled ? 'Tips widget ON' : 'Tips widget OFF');
+    });
+
+    aiHelperRuleTipsToggle?.addEventListener('change', (e) => {
+      this.settings.aiHelperRuleTipsEnabled = e.target.checked;
+      this.saveSettings();
+      this.updateAiHelperUI();
+      this.showWidgetToast(this.settings.aiHelperRuleTipsEnabled ? 'Rule tips ON' : 'Rule tips OFF');
+    });
+
+    aiHelperAiTipsToggle?.addEventListener('change', (e) => {
+      this.settings.aiHelperAiTipsEnabled = e.target.checked;
+      this.saveSettings();
+      this.updateAiHelperUI();
+      this.showWidgetToast(this.settings.aiHelperAiTipsEnabled ? 'AI tips ON' : 'AI tips OFF');
+    });
+
+    aiHelperShowOnCopyOnlyToggle?.addEventListener('change', (e) => {
+      this.settings.aiHelperShowOnCopyOnly = e.target.checked;
+      this.saveSettings();
+      this.updateAiHelperUI();
+      this.showWidgetToast(this.settings.aiHelperShowOnCopyOnly ? 'Show-on-copy ON' : 'Show-on-copy OFF');
+    });
+
+    // Placement is always top-right + draggable now.
+    aiHelperPlacementSelect?.addEventListener('change', () => {});
     
     // Animate in
     setTimeout(() => {
       backdrop.classList.add('visible');
       panel.classList.add('visible');
+      // Recompute width once visible (responsive cases)
+      this.syncPageDocking();
     }, 10);
   }
   
@@ -3110,6 +4283,9 @@ class PasteCraftFloatingWidget {
       if (settingsButton) {
         settingsButton.classList.remove('active');
       }
+
+      // Update docked page push based on remaining panels
+      this.syncPageDocking();
     }
   }
   
@@ -3202,6 +4378,22 @@ class PasteCraftFloatingWidget {
         flex: 1;
         overflow-y: auto;
         padding: 24px;
+      }
+
+      .pc-settings-select {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        color: #0f172a;
+        font-size: 13px;
+        outline: none;
+        min-width: 140px;
+      }
+
+      .pc-settings-select:focus {
+        border-color: rgba(59, 130, 246, 0.75);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.20);
       }
       
       .settings-section {
@@ -3426,7 +4618,7 @@ class PasteCraftFloatingWidget {
 
       try {
         // Save to PasteCraft via background script
-        await chrome.runtime.sendMessage({
+        await safeRuntimeSendMessage({
           action: 'saveClip',
           text: safeTrim(textToSave, MAX_TEXT),
           meta,
@@ -3452,6 +4644,504 @@ class PasteCraftFloatingWidget {
 
     // Use capture phase: some native copy actions don’t bubble.
     document.addEventListener('copy', handler, true);
+  }
+
+  // Listen for copy events to show contextual helper tips (FREE rule-based; PREMIUM AI later)
+  setupAiHelperCopyListener() {
+    if (this._aiHelperCopyListener) return;
+
+    this._aiHelperCopyListener = (e) => {
+      if (!this.settings?.aiHelperEnabled) return;
+      if (!this.settings?.aiHelperRuleTipsEnabled && !this.settings?.aiHelperAiTipsEnabled) return;
+      if ((this.settings?.aiHelperMode || this.aiHelperMode) === 'trends') return;
+
+      // Debounce: a single user action can fire multiple copy-related signals.
+      if (this.aiHelperDebounce) clearTimeout(this.aiHelperDebounce);
+      this.aiHelperDebounce = setTimeout(() => {
+        try {
+          const signal = this.extractCopySignal(e);
+          if (!signal) return;
+
+          // Avoid re-rendering on identical repeated signals
+          const sigKey = `${signal.kind}|${signal.text}|${signal.url}|${signal.hasHtml ? '1' : '0'}`;
+          if (this.aiHelperLastSignal === sigKey) return;
+          this.aiHelperLastSignal = sigKey;
+
+          if (this.settings.aiHelperRuleTipsEnabled) {
+            this.aiHelperTips = this.generateRuleTips(signal);
+          } else {
+            this.aiHelperTips = [];
+          }
+
+          // Update local "clipboard coach" stats (FREE, local-only)
+          this.updateClipboardCoachStats(signal).catch(() => {});
+
+          // PREMIUM AI tips (rate-limited + requires auth session bridge)
+          this.aiHelperAiTips = [];
+          if (this.settings.aiHelperAiTipsEnabled) {
+            this.maybeFetchAiHelperAiTips(signal);
+          } else {
+            this.setAiHelperBadge('FREE');
+          }
+
+          this.renderAiHelperTips();
+        } catch (err) {
+          console.warn('⚠️ AI helper copy listener failed:', err?.message || err);
+        }
+      }, 180);
+    };
+
+    document.addEventListener('copy', this._aiHelperCopyListener, true);
+  }
+
+  setAiHelperBadge(text) {
+    if (!this.aiHelperEl) return;
+    const badge = this.aiHelperEl.querySelector('#pastecraft-ai-helper-badge');
+    if (badge) badge.textContent = String(text || 'FREE');
+  }
+
+  async getPasteCraftConfigFromFile() {
+    // Content scripts don’t automatically have access to PASTECRAFT_CONFIG.
+    // We safely extract the Supabase URL + anonKey from extension/config.js using regex (no eval).
+    if (this._aiHelperConfigCache) return this._aiHelperConfigCache;
+    try {
+      const url = chrome.runtime.getURL('config.js');
+      const text = await fetch(url).then(r => r.text());
+      const m = text.match(/supabase\s*:\s*\{\s*[\s\S]*?url\s*:\s*['"]([^'"]+)['"]/i);
+      const supabaseUrl = m && m[1] ? String(m[1]) : '';
+      const k = text.match(/anonKey\s*:\s*['"]([^'"]+)['"]/i);
+      const anonKey = k && k[1] ? String(k[1]) : '';
+      this._aiHelperConfigCache = { supabaseUrl, anonKey };
+      return this._aiHelperConfigCache;
+    } catch (_) {
+      this._aiHelperConfigCache = { supabaseUrl: '', anonKey: '' };
+      return this._aiHelperConfigCache;
+    }
+  }
+
+  async getSessionBridge() {
+    try {
+      const res = await chrome.storage.local.get(['pc_supabase_session_v1']);
+      const payload = res?.pc_supabase_session_v1 || null;
+      const accessToken = payload?.access_token ? String(payload.access_token) : '';
+      const refreshToken = payload?.refresh_token ? String(payload.refresh_token) : '';
+      const expiresAt = payload?.expires_at ?? null;
+      const userId = payload?.user_id ? String(payload.user_id) : '';
+      return { accessToken, refreshToken, expiresAt, userId };
+    } catch (_) {
+      return { accessToken: '', refreshToken: '', expiresAt: null, userId: '' };
+    }
+  }
+
+  async ensureValidAccessToken() {
+    const cfg = await this.getPasteCraftConfigFromFile();
+    const supabaseUrl = String(cfg?.supabaseUrl || '');
+    const anonKey = String(cfg?.anonKey || '');
+    const sess = await this.getSessionBridge();
+    const accessToken = String(sess?.accessToken || '');
+    const refreshToken = String(sess?.refreshToken || '');
+    const expiresAt = sess?.expiresAt;
+
+    // If no session or no refresh token, nothing to do.
+    if (!supabaseUrl || !anonKey || !refreshToken) {
+      return { accessToken, userId: String(sess?.userId || '') };
+    }
+
+    // expires_at is typically unix seconds. Refresh when missing or expiring within 60s.
+    const expiresAtSec = (typeof expiresAt === 'number') ? expiresAt : Number(expiresAt);
+    const shouldRefresh = !Number.isFinite(expiresAtSec) || (expiresAtSec * 1000 - Date.now()) < 60000;
+    if (!shouldRefresh && accessToken) {
+      return { accessToken, userId: String(sess?.userId || '') };
+    }
+
+    const result = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({
+        action: 'pcRefreshSupabaseToken',
+        supabaseUrl,
+        anonKey,
+        refreshToken
+      }, (resp) => {
+        const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
+        if (err) return resolve({ success: false, status: 0, error: err });
+        resolve(resp || null);
+      });
+    });
+
+    if (!result || result.success !== true || !result.ok) {
+      return { accessToken, userId: String(sess?.userId || '') };
+    }
+
+    const data = result.data || {};
+    const nextAccess = data?.access_token ? String(data.access_token) : accessToken;
+    const nextRefresh = data?.refresh_token ? String(data.refresh_token) : refreshToken;
+    const nextExpiresIn = Number(data?.expires_in || 0);
+    const nextExpiresAt = nextExpiresIn ? Math.floor(Date.now() / 1000) + nextExpiresIn : null;
+    const nextUserId = data?.user?.id ? String(data.user.id) : String(sess?.userId || '');
+
+    // Update storage bridge so next calls use the fresh token.
+    try {
+      await chrome.storage.local.set({
+        pc_supabase_session_v1: {
+          access_token: nextAccess,
+          refresh_token: nextRefresh,
+          expires_at: nextExpiresAt,
+          user_id: nextUserId,
+          updated_at: Date.now()
+        }
+      });
+    } catch (_) {}
+
+    return { accessToken: nextAccess, userId: nextUserId };
+  }
+
+  async getCachedSubscriptionForUser(userId) {
+    try {
+      if (!userId) return null;
+      const res = await chrome.storage.local.get(['pc_subscription_cache_v1']);
+      const payload = res?.pc_subscription_cache_v1 || null;
+      if (!payload || payload.userId !== userId) return null;
+      return payload.subscription || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _isPremiumFromSubscription(subscription) {
+    try {
+      if (!subscription) return false;
+      const tier = String(subscription.subscription_tier || '').toLowerCase();
+      const status = String(subscription.subscription_status || '').toLowerCase();
+      const isPaid = (tier === 'premium' || tier === 'admin') && status === 'active';
+      const expiresAtMs = subscription.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
+      const hasCoupon = subscription.has_unlimited_ai === true || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now());
+      return !!(isPaid || hasCoupon);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async maybeFetchAiHelperAiTips(signal) {
+    // Rate limit: at most 1 AI request per 10s per tab.
+    if ((Date.now() - this.aiHelperLastAiAt) < 10000) return;
+    this.aiHelperLastAiAt = Date.now();
+
+    const ensured = await this.ensureValidAccessToken();
+    const accessToken = String(ensured?.accessToken || '');
+    const userId = String(ensured?.userId || '');
+    if (!accessToken || !userId) {
+      this.setAiHelperBadge('FREE');
+      return;
+    }
+
+    const cfg = await this.getPasteCraftConfigFromFile();
+    const supabaseUrl = String(cfg?.supabaseUrl || '');
+    if (!supabaseUrl) {
+      this.setAiHelperBadge('AI');
+      return;
+    }
+
+    this.setAiHelperBadge('AI');
+
+    try {
+      // Attach lightweight daily clipboard stats (no clipboard history)
+      let stats = null;
+      try {
+        const s = await chrome.storage.local.get(['pc_ai_helper_stats_v1']);
+        stats = s?.pc_ai_helper_stats_v1 || null;
+      } catch (_) {}
+
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'pcFetchEdgeFunction',
+          url: `${supabaseUrl}/functions/v1/ai-hint`,
+          method: 'POST',
+          accessToken,
+          body: {
+            kind: signal?.kind || 'text',
+            text: String(signal?.text || '').slice(0, 5000),
+            url: String(signal?.url || '').slice(0, 2000),
+            pageUrl: String(signal?.pageUrl || '').slice(0, 2000),
+            study: {
+              day: stats?.day || '',
+              total: stats?.total || 0,
+              byType: stats?.byType || {}
+            }
+          }
+        }, (resp) => {
+          const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
+          if (err) return resolve({ success: false, status: 0, error: err });
+          resolve(resp || null);
+        });
+      });
+
+      if (!result || result.success !== true) {
+        if (result && result.status === 402) this.setAiHelperBadge('FREE');
+        console.warn('⚠️ AI hints unavailable:', result?.error || 'Failed to fetch');
+        return;
+      }
+
+      if (!result.ok) {
+        if (result.status === 402) this.setAiHelperBadge('FREE');
+        console.warn('⚠️ AI hints unavailable:', result?.data?.error || result.status);
+        return;
+      }
+
+      const data = result.data || {};
+      const tips = Array.isArray(data?.tips) ? data.tips : [];
+      this.aiHelperAiTips = tips
+        .filter(t => t && typeof t.title === 'string' && typeof t.body === 'string')
+        .slice(0, 2)
+        .map(t => ({ title: `AI: ${t.title}`, body: t.body }));
+
+      this.renderAiHelperTips();
+    } catch (err) {
+      console.warn('⚠️ AI hint request failed:', err?.message || err);
+    }
+  }
+
+  async maybeRefreshDailyTrends() {
+    // Only fetch in trends mode
+    if ((this.settings?.aiHelperMode || this.aiHelperMode) !== 'trends') return;
+
+    const today = new Date().toDateString();
+
+    // Local daily cache
+    try {
+      const cached = await chrome.storage.local.get(['pc_ai_trends_v1']);
+      const payload = cached?.pc_ai_trends_v1 || null;
+      if (payload && payload.day === today && Array.isArray(payload.tips) && payload.tips.length) {
+        this.aiHelperTrends = payload.tips;
+        this.aiHelperTrendsLastFetchedDay = today;
+        this.setAiHelperBadge('AI');
+        this.renderAiHelperTips();
+        return;
+      }
+    } catch (_) {}
+
+    const ensured = await this.ensureValidAccessToken();
+    const accessToken = String(ensured?.accessToken || '');
+    const userId = String(ensured?.userId || '');
+    if (!accessToken || !userId) {
+      this.aiHelperTrends = [{
+        title: 'Premium: Daily Trends',
+        body: 'Sign in and upgrade to Premium to get daily trend research tips.'
+      }];
+      this.setAiHelperBadge('FREE');
+      this.renderAiHelperTips();
+      return;
+    }
+
+    const cfg = await this.getPasteCraftConfigFromFile();
+    const supabaseUrl = String(cfg?.supabaseUrl || '');
+    if (!supabaseUrl) return;
+
+    this.setAiHelperBadge('AI');
+
+    try {
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'pcFetchEdgeFunction',
+          url: `${supabaseUrl}/functions/v1/ai-trends`,
+          method: 'POST',
+          accessToken,
+          body: {}
+        }, (resp) => {
+          const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
+          if (err) return resolve({ success: false, status: 0, error: err });
+          resolve(resp || null);
+        });
+      });
+
+      if (!result || result.success !== true) {
+        this.aiHelperTrends = [{
+          title: 'Daily Trends failed',
+          body: String(result?.error || (result ? JSON.stringify(result) : 'No response (extension not reloaded?)'))
+        }];
+        this.renderAiHelperTips();
+        return;
+      }
+
+      if (!result.ok) {
+        if (result.status === 402) {
+          this.aiHelperTrends = [{
+            title: 'Premium: Daily Trends',
+            body: 'Upgrade to Premium to get daily trend research tips.'
+          }];
+          this.setAiHelperBadge('FREE');
+          this.renderAiHelperTips();
+          return;
+        }
+
+        this.aiHelperTrends = [{
+          title: 'Daily Trends unavailable',
+          body: String(result?.data?.error || result.status)
+        }];
+        this.renderAiHelperTips();
+        return;
+      }
+
+      const data = result.data || {};
+      const tips = Array.isArray(data?.tips) ? data.tips : [];
+      this.aiHelperTrends = tips
+        .filter(t => t && typeof t.title === 'string' && typeof t.body === 'string')
+        .slice(0, 3)
+        .map(t => ({ title: `Trend: ${t.title}`, body: t.body }));
+
+      try {
+        await chrome.storage.local.set({
+          pc_ai_trends_v1: {
+            day: today,
+            tips: this.aiHelperTrends,
+            updatedAt: Date.now()
+          }
+        });
+      } catch (_) {}
+
+      this.aiHelperTrendsLastFetchedDay = today;
+      this.renderAiHelperTips();
+    } catch (err) {
+      this.aiHelperTrends = [{
+        title: 'Daily Trends failed',
+        body: String(err?.message || err)
+      }];
+      this.renderAiHelperTips();
+    }
+  }
+
+  extractCopySignal(e) {
+    const MAX_TEXT = 5000;
+    const cd = e && e.clipboardData ? e.clipboardData : null;
+    const plain = cd ? (cd.getData('text/plain') || '') : '';
+    const html = cd ? (cd.getData('text/html') || '') : '';
+    const selection = window.getSelection ? String(window.getSelection().toString() || '') : '';
+
+    const raw = (plain || selection || '').trim();
+    if (!raw && !html) return null;
+
+    const safe = (s) => {
+      const str = String(s ?? '').trim();
+      if (str.length <= MAX_TEXT) return str;
+      return str.slice(0, MAX_TEXT) + '…';
+    };
+
+    const looksUrl = (s) => {
+      const t = String(s || '').trim();
+      if (!t) return false;
+      try {
+        const u = new URL(t);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const text = safe(raw);
+    const url = looksUrl(text) ? text : '';
+    const kind = url ? 'url' : (html ? 'html' : 'text');
+
+    return {
+      kind,
+      text,
+      url,
+      hasHtml: !!html,
+      pageUrl: (typeof location !== 'undefined' && location.href) ? location.href : ''
+    };
+  }
+
+  generateRuleTips(signal) {
+    const tips = [];
+    const text = String(signal?.text || '').trim();
+
+    const add = (title, body) => {
+      if (tips.length >= 3) return;
+      tips.push({ title, body });
+    };
+
+    const isMultiLine = /\r?\n/.test(text);
+    const commaCount = (text.match(/,/g) || []).length;
+    const hasManySpaces = /\s{2,}/.test(text);
+    const isTagsLike = /(^|[\s,;#])#?[a-z0-9_-]{2,}([\s,;]|$)/i.test(text) && (commaCount >= 2 || isMultiLine);
+    const isOtpLike =
+      (/^\d{4,8}$/.test(text) && !signal.url) ||
+      (/\b(otp|2fa|code|verification|one[-\s]?time)\b/i.test(text) && /\d{4,8}/.test(text));
+    const isKeyValueLike = /[A-Za-z0-9_-]+\s*[:=]\s*[^]+/.test(text) && text.length <= 400;
+    const isProbablySnippet = /[{()}]|=>|function\s|\bconst\b|\blet\b|\bvar\b/i.test(text);
+
+    if (signal.url) {
+      add('Save that link', 'This looks like a URL. Save it to PasteCraft so you can open it later.');
+    }
+
+    if (isOtpLike) {
+      add('One-time code detected', 'This looks like a verification code. Save it if you might need it again in a few minutes.');
+    }
+
+    if (isMultiLine || commaCount >= 3 || isTagsLike || hasManySpaces) {
+      add('Looks like multiple items', 'Consider Batch Copy or Add-to-Copy so you can pick items one at a time later.');
+    }
+
+    if (isKeyValueLike) {
+      add('Looks like structured info', 'Consider saving this so you don’t lose key/value details (settings, IDs, config).');
+    }
+
+    if (isProbablySnippet) {
+      add('Code-like text', 'Save this clip so you can reuse it (snippets tend to be copied more than once).');
+    }
+
+    // Fallback
+    if (tips.length === 0) {
+      add('Tip', 'If you might need this again, save it to PasteCraft now.');
+    }
+
+    return tips.slice(0, 3);
+  }
+
+  async updateClipboardCoachStats(signal) {
+    const key = 'pc_ai_helper_stats_v1';
+    const today = new Date().toDateString();
+    const host = (() => {
+      try { return location?.hostname ? String(location.hostname) : ''; } catch (_) { return ''; }
+    })();
+
+    const bucket = (signal) => {
+      const t = String(signal?.text || '');
+      const commaCount = (t.match(/,/g) || []).length;
+      const isMultiLine = /\r?\n/.test(t);
+      const isUrl = !!signal?.url;
+      const isOtpLike = (/^\d{4,8}$/.test(t.trim()) && !isUrl) || (/\b(otp|2fa|code|verification|one[-\s]?time)\b/i.test(t) && /\d{4,8}/.test(t));
+      const isTagsLike = /(^|[\s,;#])#?[a-z0-9_-]{2,}([\s,;]|$)/i.test(t) && (commaCount >= 2 || isMultiLine);
+      const isKeyValueLike = /[A-Za-z0-9_-]+\s*[:=]\s*[^]+/.test(t) && t.length <= 600;
+      if (isUrl) return 'url';
+      if (isOtpLike) return 'otp';
+      if (isTagsLike) return 'tags';
+      if (isKeyValueLike) return 'kv';
+      if (isMultiLine || commaCount >= 3) return 'multi';
+      return 'text';
+    };
+
+    const b = bucket(signal);
+
+    const res = await chrome.storage.local.get([key]);
+    const stats = res?.[key] && typeof res[key] === 'object' ? res[key] : {};
+
+    // Reset daily counters per day rollover
+    if (stats.day !== today) {
+      stats.day = today;
+      stats.total = 0;
+      stats.byType = {};
+      stats.byHost = {};
+      stats.updatedAt = Date.now();
+    }
+
+    stats.total = (stats.total || 0) + 1;
+    stats.byType = stats.byType || {};
+    stats.byType[b] = (stats.byType[b] || 0) + 1;
+    if (host) {
+      stats.byHost = stats.byHost || {};
+      stats.byHost[host] = (stats.byHost[host] || 0) + 1;
+    }
+    stats.updatedAt = Date.now();
+
+    await chrome.storage.local.set({ [key]: stats });
   }
   
   updateAutoCopyCounter() {
@@ -3528,6 +5218,424 @@ class PasteCraftFloatingWidget {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 2000);
   }
+
+  setupClickAndDragCapture() {
+    if (this._pcClickAndDragSetup) return;
+    this._pcClickAndDragSetup = true;
+
+    this.ensureClickAndDragDropBox();
+
+    // Show drop box only during active drags, and only if enabled.
+    this._pcOnDragStart = (e) => {
+      if (!this.settings || this.settings.clickAndDragEnabled !== true) return;
+      // Ignore drags that originate from our own UI.
+      const t = e && e.target ? e.target : null;
+      if (t && (t.closest?.('#pastecraft-click-drag-dropbox') || t.closest?.('#pastecraft-floating-widget'))) return;
+
+      this._pcDragActive = true;
+      this.showClickAndDragDropBox();
+    };
+
+    this._pcOnDragEnd = () => {
+      if (!this._pcDragActive) return;
+      this._pcDragActive = false;
+      this.hideClickAndDragDropBox();
+    };
+
+    document.addEventListener('dragstart', this._pcOnDragStart, true);
+    document.addEventListener('dragend', this._pcOnDragEnd, true);
+  }
+
+  ensureClickAndDragDropBox() {
+    if (this._pcDropBoxEl && document.body.contains(this._pcDropBoxEl)) return;
+
+    if (!document.getElementById('pastecraft-click-drag-dropbox-styles')) {
+      const iconUrl = pastecraftGetURL('assets/distribute-spacing-vertical.svg');
+      const style = document.createElement('style');
+      style.id = 'pastecraft-click-drag-dropbox-styles';
+      style.textContent = `
+        #pastecraft-click-drag-dropbox {
+          position: fixed;
+          width: 64px;
+          height: 64px;
+          border-radius: 14px;
+          z-index: 2147483647;
+          opacity: 0;
+          transform: scale(0.92);
+          pointer-events: none;
+          transition: opacity 140ms ease, transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+          border: 2px solid rgba(96, 165, 250, 0.25);
+          box-shadow: -6px 0 24px rgba(0,0,0,0.18), 0 6px 26px rgba(30, 64, 175, 0.22);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+        }
+
+        #pastecraft-click-drag-dropbox.pc-visible {
+          opacity: 1;
+          transform: scale(1);
+          pointer-events: auto;
+        }
+
+        #pastecraft-click-drag-dropbox .pc-dropbox-inner {
+          width: 100%;
+          height: 100%;
+          border-radius: 12px;
+          /* 70% transparent background (alpha 0.3) */
+          background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 55%, rgba(29, 78, 216, 0.3) 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          user-select: none;
+        }
+
+        #pastecraft-click-drag-dropbox .pc-dropbox-icon {
+          width: 26px;
+          height: 26px;
+          background: linear-gradient(135deg, #fbbf24 0%, #60a5fa 45%, #2563eb 100%);
+          -webkit-mask: url("${iconUrl}") center / contain no-repeat;
+          mask: url("${iconUrl}") center / contain no-repeat;
+          filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+        }
+
+        #pastecraft-click-drag-dropbox .pc-dropbox-label {
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 700;
+          color: rgba(255,255,255,0.92);
+          letter-spacing: 0.2px;
+        }
+
+        #pastecraft-click-drag-dropbox.pc-hover {
+          border-color: rgba(96, 165, 250, 0.75);
+          box-shadow:
+            0 0 0 4px rgba(59, 130, 246, 0.20),
+            0 0 0 8px rgba(245, 158, 11, 0.16),
+            -6px 0 28px rgba(0,0,0,0.22),
+            0 10px 30px rgba(30, 64, 175, 0.25);
+        }
+
+        #pastecraft-click-drag-dropbox.pc-success {
+          border-color: rgba(245, 158, 11, 0.85);
+          box-shadow:
+            0 0 0 4px rgba(245, 158, 11, 0.22),
+            0 0 0 8px rgba(59, 130, 246, 0.18),
+            -6px 0 28px rgba(0,0,0,0.22),
+            0 10px 30px rgba(30, 64, 175, 0.25);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const el = document.createElement('div');
+    el.id = 'pastecraft-click-drag-dropbox';
+    el.innerHTML = `
+      <div class="pc-dropbox-inner" aria-hidden="true">
+        <div class="pc-dropbox-icon"></div>
+        <div class="pc-dropbox-label">Drop</div>
+      </div>
+    `;
+
+    // Drag-over behavior (allow drop)
+    el.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      el.classList.add('pc-hover');
+    });
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      try {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      } catch (_) {}
+      el.classList.add('pc-hover');
+    });
+    el.addEventListener('dragleave', (e) => {
+      // Only remove hover if actually leaving the element.
+      const rt = e.relatedTarget;
+      if (rt && el.contains(rt)) return;
+      el.classList.remove('pc-hover');
+    });
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('pc-hover');
+      const dt = e.dataTransfer || null;
+      (async () => {
+        const saved = await this.saveClickAndDragFromDataTransfer(dt);
+        if (saved) {
+          this.flashClickAndDragDropBoxSuccess();
+          this.showWidgetToast('Saved to Clips');
+        } else {
+          this.showWidgetToast('Nothing to save');
+        }
+      })();
+    });
+
+    document.body.appendChild(el);
+    this._pcDropBoxEl = el;
+  }
+
+  positionClickAndDragDropBox() {
+    const el = this._pcDropBoxEl;
+    if (!el) return;
+
+    const size = 64;
+    const gap = 12;
+    const rect = this.widget ? this.widget.getBoundingClientRect() : null;
+
+    const x = rect
+      ? Math.max(8, Math.round(rect.left - gap - size))
+      : Math.max(8, window.innerWidth - 140);
+    const y = rect
+      ? Math.max(8, Math.round(rect.top + rect.height / 2 - size / 2))
+      : Math.max(8, Math.round(window.innerHeight / 2 - size / 2));
+
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }
+
+  showClickAndDragDropBox() {
+    this.ensureClickAndDragDropBox();
+    this.positionClickAndDragDropBox();
+    if (!this._pcDropBoxEl) return;
+    this._pcDropBoxEl.classList.add('pc-visible');
+    this._pcDropBoxVisible = true;
+  }
+
+  hideClickAndDragDropBox(immediate = false) {
+    if (!this._pcDropBoxEl) return;
+    this._pcDropBoxEl.classList.remove('pc-hover');
+    this._pcDropBoxEl.classList.remove('pc-success');
+    this._pcDropBoxEl.classList.remove('pc-visible');
+    this._pcDropBoxVisible = false;
+    if (immediate) {
+      // Force-hide immediately (some pages can keep transitions running).
+      this._pcDropBoxEl.style.opacity = '0';
+      this._pcDropBoxEl.style.pointerEvents = 'none';
+      setTimeout(() => {
+        if (!this._pcDropBoxVisible && this._pcDropBoxEl) {
+          this._pcDropBoxEl.style.opacity = '';
+          this._pcDropBoxEl.style.pointerEvents = '';
+        }
+      }, 0);
+    }
+  }
+
+  flashClickAndDragDropBoxSuccess() {
+    if (!this._pcDropBoxEl) return;
+    this._pcDropBoxEl.classList.add('pc-success');
+    clearTimeout(this._pcDropBoxSuccessTimer);
+    this._pcDropBoxSuccessTimer = setTimeout(() => {
+      if (this._pcDropBoxEl) this._pcDropBoxEl.classList.remove('pc-success');
+    }, 650);
+  }
+
+  _pcSafeTrim(s, max) {
+    const str = String(s ?? '');
+    if (str.length <= max) return str;
+    return str.slice(0, max) + '…';
+  }
+
+  _pcFirstUriFromUriList(uriList) {
+    const raw = String(uriList || '').trim();
+    if (!raw) return '';
+    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (const l of lines) {
+      if (l.startsWith('#')) continue;
+      return l;
+    }
+    return '';
+  }
+
+  _pcTryParseUrl(s, baseUrl = '') {
+    const t = String(s || '').trim();
+    if (!t) return '';
+    try {
+      // Support relative URLs from dragged HTML (e.g., <img src="/img.png">).
+      const u = baseUrl ? new URL(t, baseUrl) : new URL(t);
+      return u.href;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  _pcTryParseAbsoluteHttpUrl(s) {
+    const t = String(s || '').trim();
+    if (!t) return '';
+    // Treat "www." as URL-like for user intent, normalize to https.
+    const normalized = /^www\./i.test(t) ? `https://${t}` : t;
+    if (!/^https?:\/\//i.test(normalized)) return '';
+    try {
+      const u = new URL(normalized);
+      return u.href;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  _pcLooksLikeImageUrl(u) {
+    const s = String(u || '').trim();
+    if (!s) return false;
+    return /\.(png|jpe?g|gif|webp|svg)(\?|#|$)/i.test(s);
+  }
+
+  _pcParseHtmlForImageOrLink(html) {
+    const out = { imgSrc: '', linkHref: '' };
+    const raw = String(html || '');
+    if (!raw) return out;
+    try {
+      const doc = new DOMParser().parseFromString(raw, 'text/html');
+      const img = doc.querySelector('img[src]');
+      if (img) out.imgSrc = String(img.getAttribute('src') || '').trim();
+      const a = doc.querySelector('a[href]');
+      if (a) out.linkHref = String(a.getAttribute('href') || '').trim();
+    } catch (_) {}
+    return out;
+  }
+
+  _pcTextFromHtml(html) {
+    const raw = String(html || '');
+    if (!raw) return '';
+    try {
+      const doc = new DOMParser().parseFromString(raw, 'text/html');
+      const t = String((doc && doc.body && (doc.body.innerText || doc.body.textContent)) || '').trim();
+      return t;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  _pcSelectionText() {
+    try {
+      const s = window.getSelection ? window.getSelection() : null;
+      const t = s ? String(s.toString() || '').trim() : '';
+      return t;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async saveClickAndDragFromDataTransfer(dt) {
+    if (!dt) return false;
+    if (!this.settings || this.settings.clickAndDragEnabled !== true) return false;
+
+    const MAX_TEXT = 30000;
+    const MAX_HTML = 50000;
+
+    let plain = '';
+    let html = '';
+    let uriList = '';
+    try { plain = dt.getData('text/plain') || ''; } catch (_) {}
+    try { html = dt.getData('text/html') || ''; } catch (_) {}
+    try { uriList = dt.getData('text/uri-list') || ''; } catch (_) {}
+
+    const { imgSrc, linkHref } = this._pcParseHtmlForImageOrLink(html);
+    const uriFromList = this._pcFirstUriFromUriList(uriList);
+
+    const sourcePageUrl = String(location && location.href ? location.href : '');
+    const capturedAt = Date.now();
+
+    // Build best-effort text candidate early; used to prevent URL payloads overriding highlighted text.
+    const fromPlain = String(plain || '').trim();
+    const fromHtml = this._pcTextFromHtml(html);
+    const fromSelection = this._pcSelectionText();
+    const textCandidate = (fromPlain || fromHtml || fromSelection || '').trim();
+    // IMPORTANT: do NOT treat arbitrary text as a URL just because it can be resolved as a relative URL.
+    const textLooksUrl = !!this._pcTryParseAbsoluteHttpUrl(textCandidate);
+
+    // 1) Image (match existing "Copy Image to PasteCraft": kind=image with srcUrl)
+    const imgAbs = this._pcTryParseUrl(imgSrc, sourcePageUrl);
+    const uriAbs = this._pcTryParseUrl(uriFromList, sourcePageUrl);
+    const imageUrl = imgAbs || (this._pcLooksLikeImageUrl(uriAbs) ? uriAbs : '');
+
+    if (imageUrl) {
+      const meta = {
+        kind: 'image',
+        plainText: '',
+        html: '',
+        url: '',
+        image: { mime: '', dataUrl: '', srcUrl: this._pcSafeTrim(imageUrl, 4000) },
+        sourcePageUrl: this._pcSafeTrim(sourcePageUrl, 4000),
+        capturedAt
+      };
+
+      await safeRuntimeSendMessage({
+        action: 'saveClip',
+        text: this._pcSafeTrim(imageUrl, MAX_TEXT),
+        meta,
+        category: 'Uncategorized',
+        autoShow: false
+      });
+      return true;
+    }
+
+    // 2) Text (prefer highlighted text over URL payloads, unless text is itself a URL)
+    if (textCandidate && !textLooksUrl) {
+      const meta = {
+        kind: 'text',
+        plainText: this._pcSafeTrim(textCandidate, MAX_TEXT),
+        html: this._pcSafeTrim(html, MAX_HTML),
+        url: '',
+        sourcePageUrl: this._pcSafeTrim(sourcePageUrl, 4000),
+        capturedAt
+      };
+
+      await safeRuntimeSendMessage({
+        action: 'saveClip',
+        text: this._pcSafeTrim(textCandidate, MAX_TEXT),
+        meta,
+        category: 'Uncategorized',
+        autoShow: false
+      });
+      return true;
+    }
+
+    // 3) URL
+    const linkAbs = this._pcTryParseUrl(linkHref, sourcePageUrl);
+    const url = uriAbs || linkAbs || (textLooksUrl ? this._pcTryParseAbsoluteHttpUrl(textCandidate) : '') || '';
+    if (url) {
+      const meta = {
+        kind: 'url',
+        plainText: this._pcSafeTrim(url, MAX_TEXT),
+        html: '',
+        url: this._pcSafeTrim(url, 4000),
+        sourcePageUrl: this._pcSafeTrim(sourcePageUrl, 4000),
+        capturedAt
+      };
+
+      await safeRuntimeSendMessage({
+        action: 'saveClip',
+        text: this._pcSafeTrim(url, MAX_TEXT),
+        meta,
+        category: 'Uncategorized',
+        autoShow: false
+      });
+      return true;
+    }
+
+    // 4) Text fallback (even if it looks like a URL, if we got here there's nothing else)
+    if (textCandidate) {
+      const meta = {
+        kind: 'text',
+        plainText: this._pcSafeTrim(textCandidate, MAX_TEXT),
+        html: this._pcSafeTrim(html, MAX_HTML),
+        url: '',
+        sourcePageUrl: this._pcSafeTrim(sourcePageUrl, 4000),
+        capturedAt
+      };
+
+      await safeRuntimeSendMessage({
+        action: 'saveClip',
+        text: this._pcSafeTrim(textCandidate, MAX_TEXT),
+        meta,
+        category: 'Uncategorized',
+        autoShow: false
+      });
+      return true;
+    }
+
+    return false;
+  }
   
   openQuickView() {
     try {
@@ -3548,6 +5656,9 @@ class PasteCraftFloatingWidget {
       
       // Slide widget to the left (attached to panel)
       this.widget.classList.add('panel-open');
+
+      // Push the website content left (docked mode)
+      this.syncPageDocking();
       
       // Add active class to quick view button
       const quickViewButton = this.widget.querySelector('.quick-view-button');
@@ -3620,6 +5731,8 @@ class PasteCraftFloatingWidget {
       setTimeout(() => {
         backdrop.classList.add('visible');
         panel.classList.add('visible');
+        // Recompute width once visible (responsive cases)
+        this.syncPageDocking();
       }, 10);
       
       console.log('✅ Quick View panel opened');
@@ -3828,9 +5941,9 @@ class PasteCraftFloatingWidget {
             });
           }
           
-          function deleteClip(index) {
+          function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', index }, '*');
+              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, '*');
             }
           }
           
@@ -3851,6 +5964,7 @@ class PasteCraftFloatingWidget {
           
           // Listen for clip data from parent
           window.addEventListener('message', (e) => {
+            if (!e || !e.data) return;
             if (e.data.type === 'quickview-clips-data') {
               renderClips(e.data.clips);
             }
@@ -3881,6 +5995,10 @@ class PasteCraftFloatingWidget {
               const displayText = text.length > 60 ? text.substring(0, 60) + '...' : text;
               const category = clip.category || 'Uncategorized';
               const escapedText = escapeHtml(text).replace(/'/g, '&apos;');
+              const clipId = (clip && clip.id != null) ? String(clip.id) : String(index);
+              const clipIdArg = JSON.stringify(clipId);
+              const isArchived = !!(clip && (clip.archived === true || clip.source === 'archived'));
+              const archivedArg = isArchived ? 'true' : 'false';
               
               return \`
                 <div class="clip-item">
@@ -3892,7 +6010,7 @@ class PasteCraftFloatingWidget {
                   </div>
                   <div class="clip-actions">
                     <button class="clip-btn" onclick="copyClip('\${escapedText}', \${index})" title="Copy">📋</button>
-                    <button class="clip-btn delete" onclick="deleteClip(\${index})" title="Delete">×</button>
+                    <button class="clip-btn delete" onclick="deleteClip(\${clipIdArg}, \${index}, \${archivedArg})" title="Delete">×</button>
                   </div>
                 </div>
               \`;
@@ -3914,12 +6032,70 @@ class PasteCraftFloatingWidget {
     
     iframe.srcdoc = content;
     
+    const hashText = (s) => {
+      const str = String(s || '');
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(36);
+    };
+
+    const normalizeClip = (clip, index, source) => {
+      if (typeof clip === 'string') {
+        const ts = Date.now();
+        return {
+          id: `${ts}_${hashText(clip)}_${index}`,
+          text: clip,
+          category: 'Uncategorized',
+          timestamp: ts,
+          source
+        };
+      }
+      if (!clip || typeof clip !== 'object') return null;
+      const text = clip.text ?? clip;
+      if (!text) return null;
+      const ts = (typeof clip.timestamp === 'number') ? clip.timestamp : Date.now();
+      const id = clip.id ?? clip.clip_id ?? clip.clipId ?? `${ts}_${hashText(text)}_${index}`;
+      return {
+        ...clip,
+        id: String(id),
+        text: String(text),
+        category: clip.category || 'Uncategorized',
+        timestamp: ts,
+        source
+      };
+    };
+
+    const getQuickViewClips = async () => {
+      const result = await new Promise((resolve) => chrome.storage.local.get(['clips', 'searchOnlyClips'], resolve));
+      const active = Array.isArray(result?.clips) ? result.clips : [];
+      const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+
+      const merged = [
+        ...active.map((c, i) => normalizeClip(c, i, 'active')).filter(Boolean),
+        ...archived.map((c, i) => normalizeClip(c, i, 'archived')).filter(Boolean).map(c => ({ ...c, archived: true }))
+      ];
+
+      // Newest-first, stable fallback (id) for tie-break.
+      merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
+
+      // Keep panel fast: Quick View is for “recent”, not infinite scroll.
+      return merged.slice(0, 200);
+    };
+
     // Listen for storage changes to auto-refresh clips
     const storageListener = (changes, area) => {
-      if (area === 'local' && changes.clips && iframe.contentWindow) {
-        const clips = changes.clips.newValue || [];
-        iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
-      }
+      if (area !== 'local' || !iframe.contentWindow) return;
+      if (!changes.clips && !changes.searchOnlyClips) return;
+      getQuickViewClips()
+        .then((clips) => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+          }
+        })
+        .catch(() => {});
     };
     chrome.storage.onChanged.addListener(storageListener);
     
@@ -3928,26 +6104,64 @@ class PasteCraftFloatingWidget {
     
     // Listen for messages from iframe
     const messageHandler = (e) => {
+      if (!e || !e.data) return;
+      if (iframe.contentWindow && e.source !== iframe.contentWindow) return;
+
       if (e.data.type === 'quickview-get-clips') {
-        // Get clips from storage and send to iframe (using 'clips' key like popup.js does)
-        chrome.storage.local.get(['clips'], (result) => {
-          const clips = result.clips || [];
+        getQuickViewClips().then((clips) => {
           if (iframe.contentWindow) {
             iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
           }
-        });
+        }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
-        // Handle clip deletion
-        chrome.storage.local.get(['clips'], (result) => {
-          const clips = result.clips || [];
-          clips.splice(e.data.index, 1);
-          chrome.storage.local.set({ clips: clips }, () => {
-            // Send updated clips back
-            if (iframe.contentWindow) {
-              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+        // Handle clip deletion (active + archived)
+        const clipIdKey = String(e.data.clipId || '');
+        const isArchived = e.data.archived === true;
+
+        chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
+          const clips = Array.isArray(result?.clips) ? result.clips : [];
+          const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+
+          const filterOutById = (arr) => arr.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== clipIdKey);
+
+          let nextClips = clips;
+          let nextArchived = archived;
+
+          if (clipIdKey) {
+            if (isArchived) {
+              nextArchived = filterOutById(archived);
+            } else {
+              nextClips = filterOutById(clips);
             }
-            // Notify popup to refresh if it's open
-            chrome.runtime.sendMessage({ action: 'refreshClips' }).catch(() => {});
+          }
+
+          // If we couldn't delete by id (legacy/missing), fall back to index within the merged view:
+          // recompute merged list, find target at index, then delete from correct source.
+          const idDeleteWorked = (isArchived ? nextArchived.length !== archived.length : nextClips.length !== clips.length);
+          if (!idDeleteWorked && Number.isFinite(e.data.index)) {
+            const idx = parseInt(e.data.index, 10);
+            if (!Number.isNaN(idx) && idx >= 0) {
+              const merged = [
+                ...clips.map((c, i) => normalizeClip(c, i, 'active')).filter(Boolean),
+                ...archived.map((c, i) => normalizeClip(c, i, 'archived')).filter(Boolean).map(c => ({ ...c, archived: true }))
+              ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
+
+              const target = merged[idx];
+              if (target && target.source === 'archived') {
+                nextArchived = archived.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
+              } else if (target && target.source === 'active') {
+                nextClips = clips.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
+              }
+            }
+          }
+
+          chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
+            getQuickViewClips().then((merged) => {
+              if (iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
+              }
+              safeRuntimeSendMessage({ action: 'clipsUpdated' });
+            }).catch(() => {});
           });
         });
       } else if (e.data.type === 'quickview-open-settings') {
@@ -4074,6 +6288,9 @@ class PasteCraftFloatingWidget {
         window.removeEventListener('message', this._quickViewMessageHandler);
         this._quickViewMessageHandler = null;
       }
+
+      // Update docked page push based on remaining panels
+      this.syncPageDocking();
       
       console.log('✅ Quick View panel closed');
     }

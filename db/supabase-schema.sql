@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS public.clips (
     category TEXT DEFAULT 'Uncategorized',
     timestamp BIGINT NOT NULL, -- Unix timestamp in milliseconds
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    device_id TEXT,
+    content_hash TEXT,
     UNIQUE(user_id, clip_id)
 );
 
@@ -47,6 +51,7 @@ CREATE TABLE IF NOT EXISTS public.clips (
 CREATE INDEX IF NOT EXISTS idx_clips_user_id ON public.clips(user_id);
 CREATE INDEX IF NOT EXISTS idx_clips_category ON public.clips(category);
 CREATE INDEX IF NOT EXISTS idx_clips_timestamp ON public.clips(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_clips_deleted_at ON public.clips(deleted_at);
 
 -- =====================================================
 -- TABLE: archived_clips
@@ -60,6 +65,10 @@ CREATE TABLE IF NOT EXISTS public.archived_clips (
     category TEXT DEFAULT 'Uncategorized',
     timestamp BIGINT NOT NULL,
     archived_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    device_id TEXT,
+    content_hash TEXT,
     UNIQUE(user_id, clip_id)
 );
 
@@ -67,6 +76,7 @@ CREATE TABLE IF NOT EXISTS public.archived_clips (
 CREATE INDEX IF NOT EXISTS idx_archived_clips_user_id ON public.archived_clips(user_id);
 CREATE INDEX IF NOT EXISTS idx_archived_clips_text ON public.archived_clips USING gin(to_tsvector('english', text));
 CREATE INDEX IF NOT EXISTS idx_archived_clips_timestamp ON public.archived_clips(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_archived_clips_deleted_at ON public.archived_clips(deleted_at);
 
 -- =====================================================
 -- TABLE: categories
@@ -79,12 +89,93 @@ CREATE TABLE IF NOT EXISTS public.categories (
     name TEXT NOT NULL,
     icon TEXT DEFAULT '📁',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    device_id TEXT,
     UNIQUE(user_id, category_id),
     UNIQUE(user_id, name) -- Category names must be unique per user
 );
 
 -- Index for user categories
 CREATE INDEX IF NOT EXISTS idx_categories_user_id ON public.categories(user_id);
+CREATE INDEX IF NOT EXISTS idx_categories_deleted_at ON public.categories(deleted_at);
+
+-- =====================================================
+-- TABLE: notes
+-- =====================================================
+-- Stores notes + albums (synced, append-only history via note_versions)
+CREATE TABLE IF NOT EXISTS public.notes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    note_id TEXT NOT NULL, -- Extension-generated ID
+    note_type TEXT NOT NULL DEFAULT 'note', -- 'note' | 'album'
+    title TEXT,
+    description TEXT,
+    body TEXT,
+    attachments JSONB DEFAULT '[]'::jsonb, -- clips/images/urls for notes
+    note_refs JSONB DEFAULT '[]'::jsonb, -- note ids for albums
+    source_note_ids JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    device_id TEXT,
+    updated_ms BIGINT,
+    content_hash TEXT,
+    UNIQUE(user_id, note_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_user_id ON public.notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_notes_deleted_at ON public.notes(deleted_at);
+
+-- =====================================================
+-- TABLE: note_versions
+-- =====================================================
+-- Immutable snapshots for notes (history)
+CREATE TABLE IF NOT EXISTS public.note_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    note_id TEXT NOT NULL,
+    version_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    snapshot JSONB NOT NULL,
+    device_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_note_versions_user_id ON public.note_versions(user_id);
+CREATE INDEX IF NOT EXISTS idx_note_versions_note_id ON public.note_versions(note_id);
+
+-- =====================================================
+-- TABLE: device_sync_state
+-- =====================================================
+-- Tracks per-device sync state (multi-device reconciliation)
+CREATE TABLE IF NOT EXISTS public.device_sync_state (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL,
+    last_sync_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_sync_ms BIGINT,
+    UNIQUE(user_id, device_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_sync_user_id ON public.device_sync_state(user_id);
+
+-- =====================================================
+-- TABLE: audit_log
+-- =====================================================
+-- Append-only audit for user data mutations
+CREATE TABLE IF NOT EXISTS public.audit_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    data JSONB,
+    device_id TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON public.audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity_type ON public.audit_log(entity_type);
 
 -- =====================================================
 -- TABLE: settings
@@ -117,14 +208,14 @@ CREATE OR REPLACE VIEW public.user_clip_stats AS
 SELECT 
     p.user_id,
     p.user_name,
-    COUNT(DISTINCT c.id) as active_clips_count,
-    COUNT(DISTINCT a.id) as archived_clips_count,
+    COUNT(DISTINCT c.id) FILTER (WHERE c.deleted_at IS NULL) as active_clips_count,
+    COUNT(DISTINCT a.id) FILTER (WHERE a.deleted_at IS NULL) as archived_clips_count,
     COUNT(DISTINCT cat.id) as categories_count,
-    MAX(c.timestamp) as last_clip_timestamp
+    MAX(c.timestamp) FILTER (WHERE c.deleted_at IS NULL) as last_clip_timestamp
 FROM public.user_profiles p
 LEFT JOIN public.clips c ON p.user_id = c.user_id
 LEFT JOIN public.archived_clips a ON p.user_id = a.user_id
-LEFT JOIN public.categories cat ON p.user_id = cat.user_id
+LEFT JOIN public.categories cat ON p.user_id = cat.user_id AND cat.deleted_at IS NULL
 GROUP BY p.user_id, p.user_name;
 
 -- View: category_clip_counts
@@ -133,12 +224,12 @@ CREATE OR REPLACE VIEW public.category_clip_counts AS
 SELECT 
     user_id,
     category,
-    COUNT(*) as clip_count,
-    MAX(timestamp) as last_updated
+    COUNT(*) FILTER (WHERE deleted_at IS NULL) as clip_count,
+    MAX(timestamp) FILTER (WHERE deleted_at IS NULL) as last_updated
 FROM (
-    SELECT user_id, category, timestamp FROM public.clips
+    SELECT user_id, category, timestamp, deleted_at FROM public.clips
     UNION ALL
-    SELECT user_id, category, timestamp FROM public.archived_clips
+    SELECT user_id, category, timestamp, deleted_at FROM public.archived_clips
 ) combined
 GROUP BY user_id, category
 ORDER BY user_id, clip_count DESC;
@@ -169,6 +260,30 @@ CREATE TRIGGER update_settings_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger for clips
+CREATE TRIGGER update_clips_updated_at
+    BEFORE UPDATE ON public.clips
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for archived_clips
+CREATE TRIGGER update_archived_clips_updated_at
+    BEFORE UPDATE ON public.archived_clips
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for categories
+CREATE TRIGGER update_categories_updated_at
+    BEFORE UPDATE ON public.categories
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger for notes
+CREATE TRIGGER update_notes_updated_at
+    BEFORE UPDATE ON public.notes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Function: auto_archive_old_clips
 -- Moves clips beyond position 20 to archived_clips
 CREATE OR REPLACE FUNCTION auto_archive_old_clips(p_user_id TEXT)
@@ -190,24 +305,6 @@ BEGIN
     ON CONFLICT (user_id, clip_id) DO NOTHING;
     
     GET DIAGNOSTICS archived_count = ROW_COUNT;
-    
-    -- Delete archived clips from active table
-    DELETE FROM public.clips
-    WHERE id IN (
-        SELECT id FROM public.clips
-        WHERE user_id = p_user_id
-        ORDER BY timestamp DESC
-        OFFSET 20
-    );
-    
-    -- Keep only latest 1000 archived clips
-    DELETE FROM public.archived_clips
-    WHERE id IN (
-        SELECT id FROM public.archived_clips
-        WHERE user_id = p_user_id
-        ORDER BY timestamp DESC
-        OFFSET 1000
-    );
     
     RETURN archived_count;
 END;
@@ -266,79 +363,115 @@ ALTER TABLE public.clips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.archived_clips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.note_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.device_sync_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
 -- user_profiles policies
 CREATE POLICY "Users can view their own profile"
     ON public.user_profiles FOR SELECT
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can insert their own profile"
     ON public.user_profiles FOR INSERT
-    WITH CHECK (user_id = current_setting('app.current_user_id', true));
+    WITH CHECK (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can update their own profile"
     ON public.user_profiles FOR UPDATE
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 -- clips policies
 CREATE POLICY "Users can view their own clips"
     ON public.clips FOR SELECT
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can insert their own clips"
     ON public.clips FOR INSERT
-    WITH CHECK (user_id = current_setting('app.current_user_id', true));
+    WITH CHECK (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can update their own clips"
     ON public.clips FOR UPDATE
-    USING (user_id = current_setting('app.current_user_id', true));
-
-CREATE POLICY "Users can delete their own clips"
-    ON public.clips FOR DELETE
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 -- archived_clips policies
 CREATE POLICY "Users can view their own archived clips"
     ON public.archived_clips FOR SELECT
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can insert their own archived clips"
     ON public.archived_clips FOR INSERT
-    WITH CHECK (user_id = current_setting('app.current_user_id', true));
-
-CREATE POLICY "Users can delete their own archived clips"
-    ON public.archived_clips FOR DELETE
-    USING (user_id = current_setting('app.current_user_id', true));
+    WITH CHECK (auth.uid()::text = user_id);
 
 -- categories policies
 CREATE POLICY "Users can view their own categories"
     ON public.categories FOR SELECT
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can insert their own categories"
     ON public.categories FOR INSERT
-    WITH CHECK (user_id = current_setting('app.current_user_id', true));
+    WITH CHECK (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can update their own categories"
     ON public.categories FOR UPDATE
-    USING (user_id = current_setting('app.current_user_id', true));
-
-CREATE POLICY "Users can delete their own categories"
-    ON public.categories FOR DELETE
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 -- settings policies
 CREATE POLICY "Users can view their own settings"
     ON public.settings FOR SELECT
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can insert their own settings"
     ON public.settings FOR INSERT
-    WITH CHECK (user_id = current_setting('app.current_user_id', true));
+    WITH CHECK (auth.uid()::text = user_id);
 
 CREATE POLICY "Users can update their own settings"
     ON public.settings FOR UPDATE
-    USING (user_id = current_setting('app.current_user_id', true));
+    USING (auth.uid()::text = user_id);
+
+-- notes policies
+CREATE POLICY "Users can view their own notes"
+    ON public.notes FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own notes"
+    ON public.notes FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update their own notes"
+    ON public.notes FOR UPDATE
+    USING (auth.uid()::text = user_id);
+
+-- note_versions policies
+CREATE POLICY "Users can view their own note versions"
+    ON public.note_versions FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own note versions"
+    ON public.note_versions FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+-- device_sync_state policies
+CREATE POLICY "Users can view their own device sync state"
+    ON public.device_sync_state FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can upsert their own device sync state"
+    ON public.device_sync_state FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update their own device sync state"
+    ON public.device_sync_state FOR UPDATE
+    USING (auth.uid()::text = user_id);
+
+-- audit_log policies
+CREATE POLICY "Users can view their own audit log"
+    ON public.audit_log FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own audit log"
+    ON public.audit_log FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
 
 -- =====================================================
 -- REALTIME SUBSCRIPTIONS
@@ -349,6 +482,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.clips;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.archived_clips;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.categories;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.note_versions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.device_sync_state;
 
 -- =====================================================
 -- SAMPLE DATA (for testing)
@@ -379,9 +515,12 @@ VALUES ('test_user_123', 'dark', 20);
 -- GRANTS (for anon and authenticated roles)
 -- =====================================================
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 
 -- =====================================================
 -- SCHEMA SETUP COMPLETE

@@ -1,0 +1,25 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="pcGradient" x1="2" y1="4" x2="22" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fef156"/>
+      <stop offset=".55" stop-color="#4ea2ea"/>
+      <stop offset="1" stop-color="#276dd7"/>
+    </linearGradient>
+    <linearGradient id="pcGradientSoft" x1="6" y1="6" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E8F4FF"/>
+      <stop offset="1" stop-color="#FEF3C7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Note card -->
+  <rect x="3.5" y="3.5" width="12.5" height="17" rx="2.2" fill="url(#pcGradient)" />
+  <rect x="6" y="6" width="7.5" height="2" rx="1" fill="url(#pcGradientSoft)" opacity="0.95" />
+  <rect x="6" y="9.5" width="7.5" height="1.6" rx="0.8" fill="url(#pcGradientSoft)" opacity="0.85" />
+  <rect x="6" y="12.5" width="6" height="1.6" rx="0.8" fill="url(#pcGradientSoft)" opacity="0.8" />
+
+  <!-- Send arrow -->
+  <path
+    fill="url(#pcGradient)"
+    d="M13.2 13.2c0 .55.45 1 1 1h3.8v1.9c0 .96 1.21 1.45 1.88.76l2.93-3.05c.52-.52.52-1.37-.01-1.88l-2.92-3.06c-.68-.65-1.88-.18-1.88.76v1.9h-3.8c-.55 0-1 .45-1 1Z"
+  />
+</svg>

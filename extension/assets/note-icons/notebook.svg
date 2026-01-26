@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="pcGradient" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fef156"/>
+      <stop offset=".55" stop-color="#4ea2ea"/>
+      <stop offset="1" stop-color="#276dd7"/>
+    </linearGradient>
+    <linearGradient id="pcGradientDark" x1="96" y1="96" x2="416" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4ea2ea"/>
+      <stop offset="1" stop-color="#276dd7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Original notebook icon (same shape), updated to PasteCraft gradient -->
+  <circle cx="256" cy="256" r="256" fill="url(#pcGradient)"/>
+  <path fill="url(#pcGradientDark)" d="M403.728,132.364l-5.584,4.464l-19.216-6.404l-26.056-33.076L340.5,124.932l-17.388,5.492
+    l-28.308-33.076l-7.376,32.156h-25.62l-25.06-32.156l-7.88,30.328l-24.704,2.748l-25.488-33.076l-12.94,71.504l-34.768,217.76
+    l-20.604,16.708l105.192,105.464c13.18,2.1,26.68,3.216,40.444,3.216c141.388,0,256-114.612,256-256c0-5.244-0.208-10.432-0.52-15.6
+    L403.728,132.364z"/>
+  <path fill="#FFFFFF" d="M414.652,375.528c0,21.52-17.604,39.12-39.124,39.12h-239.06c-21.516,0-39.12-17.6-39.12-39.12
+    V161.376c0-21.516,17.604-39.12,39.12-39.12h239.06c21.52,0,39.124,17.604,39.124,39.12V375.528z"/>
+  <g fill="#2B414D">
+    <rect x="159.12" y="97.352" width="19.564" height="49.8"/>
+    <rect x="217.2" y="97.352" width="19.564" height="49.8"/>
+    <rect x="275.248" y="97.352" width="19.564" height="49.8"/>
+    <rect x="333.32" y="97.352" width="19.564" height="49.8"/>
+  </g>
+  <g fill="#BBBDBF">
+    <rect x="163.456" y="206.332" width="185.08" height="19.564"/>
+    <rect x="163.456" y="255.708" width="185.08" height="19.564"/>
+    <rect x="163.456" y="305.12" width="185.08" height="19.564"/>
+    <rect x="163.456" y="354.48" width="185.08" height="19.564"/>
+  </g>
+</svg>

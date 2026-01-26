@@ -638,6 +638,17 @@
         .chip-notes-btn img {
             display: block;
         }
+
+        .pc-icon {
+            display: inline-block;
+            vertical-align: middle;
+            flex-shrink: 0;
+        }
+        
+        .pc-icon-14 { width: 14px; height: 14px; }
+        .pc-icon-16 { width: 16px; height: 16px; }
+        .pc-icon-18 { width: 18px; height: 18px; }
+        .pc-icon-20 { width: 20px; height: 20px; }
         
         .chip-remove {
             background: none;
@@ -1572,7 +1583,7 @@
             border: none;
             cursor: pointer;
             font-size: 18px;
-            padding: 4px;
+            padding: 6px;
             border-radius: 4px;
             transition: all 0.2s ease;
         }
@@ -5539,7 +5550,7 @@
                 <span class="tab-icon">🤖</span> AI Lab
             </button>
             <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
-                <img src="assets/notebook_354567.svg" alt="Notes" class="tab-icon-img">
+                <img src="assets/note-icons/notebook.svg" alt="Notes" class="tab-icon-img pc-icon pc-icon-20">
                 Notes
             </button>
         </nav>
@@ -5579,11 +5590,11 @@
             <div class="notes-header">
                 <div class="notes-actions">
                     <button class="create-note-btn" id="createNoteBtn">
-                        <img src="assets/notebook_354567.svg" alt="" style="width: 18px; height: 18px; margin-right: 6px;">
+                        <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-18" style="margin-right: 6px;">
                         <span>New Note</span>
                     </button>
                     <button class="create-album-btn" id="createAlbumBtn">
-                        <span>📚</span>
+                        <img src="assets/note-icons/album-folder.svg" alt="" class="pc-icon pc-icon-18" style="margin-right: 6px;">
                         <span>New Album</span>
                     </button>
                 </div>
@@ -6041,6 +6052,24 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
+                        <h4>🔐 Quick Login Code</h4>
+                        <p class="settings-description">Require a 3-digit code to open PasteCraft on this browser profile.</p>
+                        <div class="quick-settings-checkboxes">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="pinLockEnabled">
+                                Require 3-digit code on open
+                            </label>
+                        </div>
+                        <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
+                            <button class="btn-secondary" id="changePinBtn" type="button">Change 3-digit code</button>
+                            <button class="btn-secondary" id="disablePinBtn" type="button">Disable code</button>
+                        </div>
+                        <div class="settings-note">
+                            <span class="note-icon">ℹ️</span>
+                            <span>This only locks the extension UI. Your account session stays signed in.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
                         <h4>📊 Storage Information</h4>
                         <div class="storage-info">
                             <div class="storage-item">
@@ -6055,6 +6084,59 @@ Multiple clips are separated by:
                                 <span class="storage-label">Uncategorized:</span>
                                 <span class="storage-value" id="uncategorizedClipsCount">0</span>
                             </div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>🕒 Restore Data</h4>
+                        <p class="settings-description">Restore your data from local snapshots, browser sync, or cloud backup. Data is automatically synced when online.</p>
+
+                        <div class="quick-setting">
+                            <label>What to restore:</label>
+                            <select id="restoreTypeSelect" class="settings-select">
+                                <option value="clips">Clips (all file types)</option>
+                                <option value="categories">Categories</option>
+                                <option value="notes">Notes</option>
+                                <option value="gallery">Gallery (AI images)</option>
+                                <option value="all">Everything</option>
+                            </select>
+                        </div>
+
+                        <div class="quick-setting">
+                            <label>Restore from:</label>
+                            <select id="restoreSourceSelect" class="settings-select">
+                                <option value="local">Local Snapshot</option>
+                                <option value="sync">Browser Sync Backup</option>
+                                <option value="cloud">Cloud (Supabase)</option>
+                            </select>
+                        </div>
+
+                        <div class="quick-setting" id="restoreWindowGroup">
+                            <label>Restore window:</label>
+                            <select id="restoreWindowSelect" class="settings-select">
+                                <option value="1day">1 Day ago</option>
+                                <option value="1week">1 Week ago</option>
+                                <option value="2weeks">2 Weeks ago</option>
+                                <option value="4weeks">4 Weeks ago</option>
+                            </select>
+                        </div>
+
+                        <div class="settings-note" style="margin-top: 10px;">
+                            <span class="note-icon">ℹ️</span>
+                            <span id="restorePreviewText">Select options and click Preview to see what will be restored.</span>
+                        </div>
+
+                        <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
+                            <button class="btn-secondary" id="previewRestoreBtn" type="button">Preview</button>
+                            <button class="btn-primary" id="restoreNowBtn" type="button">Restore now</button>
+                        </div>
+
+                        <div class="settings-note" style="margin-top: 10px;">
+                            <span class="note-icon">⚠️</span>
+                            <span>Restore replaces selected local data with the backup.</span>
+                        </div>
+                        <div class="settings-note" style="margin-top: 10px;">
+                            <span class="note-icon">ℹ️</span>
+                            <span>Removing the extension clears local restore points.</span>
                         </div>
                     </div>
                     <div class="modal-actions">
@@ -6635,7 +6717,7 @@ Multiple clips are separated by:
                     ← Back
                 </button>
                 <h3 id="noteEditorTitle">
-                    <img src="assets/notebook_354567.svg" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
+                    <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 8px;">
                     <span id="noteEditorType">New Note</span>
                 </h3>
                 <button class="modal-close" id="closeNoteEditor">✕</button>
@@ -6737,7 +6819,7 @@ Multiple clips are separated by:
         <div class="modal-content album-picker-content">
             <div class="modal-header">
                 <h3>
-                    <img src="assets/notebook_354567.svg" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px;">
+                    <img src="assets/note-icons/send.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 8px;">
                     Send to Note/Album
                 </h3>
                 <button class="modal-close" id="closeAlbumPicker">✕</button>
@@ -6749,11 +6831,11 @@ Multiple clips are separated by:
                 <div class="album-picker-list" id="albumPickerList"></div>
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
                     <button class="btn-secondary create-new-from-picker" id="createNewNoteFromPicker" style="flex: 1;">
-                        <img src="assets/notebook_354567.svg" alt="" style="width: 16px; height: 16px; margin-right: 6px;">
+                        <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 6px;">
                         Create New Note
                     </button>
                     <button class="btn-secondary create-new-from-picker" id="createNewAlbumFromPicker" style="flex: 1;">
-                        <img src="assets/notebook_354567.svg" alt="" style="width: 16px; height: 16px; margin-right: 6px;">
+                        <img src="assets/note-icons/album-folder.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 6px;">
                         Create New Album
                     </button>
                 </div>
@@ -6937,6 +7019,14 @@ Multiple clips are separated by:
                         <span class="btn-icon">→</span>
                     </button>
 
+                    <label class="auth-checkbox-new" style="margin-top: -6px;">
+                        <input type="checkbox" id="rememberLoginWithPin">
+                        <span class="checkbox-mark"></span>
+                        <span class="checkbox-text">
+                            Remember this login with a <strong>3-digit code</strong>
+                        </span>
+                    </label>
+
                     <div class="verification-help">
                         <p class="verification-help-text">
                             📧 Didn't receive verification email?
@@ -7090,6 +7180,106 @@ Multiple clips are separated by:
                 <input type="password" id="adminPassword" class="auth-input" placeholder="Admin password" required>
                 <button class="btn-primary" id="adminSigninBtn">Sign In as Admin</button>
                 <button class="btn-secondary" id="backToUserAuth">← Back to User Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Unlock Modal -->
+    <div class="modal-overlay" id="pinModal" style="display: none;">
+        <div class="modal-content auth-modal-new">
+            <div class="auth-container">
+                <div class="auth-brand" style="margin-bottom: 18px;">
+                    <div class="auth-logo-wrapper">
+                        <img src="icon.png" alt="PasteCraft" class="auth-logo-img">
+                    </div>
+                    <h1 class="auth-title" style="font-size: 22px;">Enter 3-digit code</h1>
+                    <p class="auth-tagline">Unlock PasteCraft</p>
+                </div>
+
+                <div class="auth-form-new">
+                    <div class="form-group-new">
+                        <label class="form-label-new">
+                            <span class="label-icon">🔢</span>
+                            Code
+                        </label>
+                        <input
+                            type="password"
+                            id="pinUnlockInput"
+                            class="auth-input-new"
+                            inputmode="numeric"
+                            pattern="\\d{3}"
+                            maxlength="3"
+                            placeholder="•••"
+                            autocomplete="one-time-code">
+                        <span class="input-hint" id="pinUnlockHint">3 digits (0-9)</span>
+                    </div>
+
+                    <button class="btn-primary-new auth-submit-new" id="unlockPinBtn" type="button">
+                        <span class="btn-text">Unlock</span>
+                        <span class="btn-icon">→</span>
+                    </button>
+
+                    <div class="auth-footer-text" style="margin-top: 6px;">
+                        <a href="#" id="pinSignInAgainLink">Sign in with email &amp; password instead</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Setup / Change Modal -->
+    <div class="modal-overlay" id="pinSetupModal" style="display: none;">
+        <div class="modal-content auth-modal-new">
+            <div class="auth-container">
+                <div class="auth-brand" style="margin-bottom: 18px;">
+                    <div class="auth-logo-wrapper">
+                        <img src="icon.png" alt="PasteCraft" class="auth-logo-img">
+                    </div>
+                    <h1 class="auth-title" id="pinSetupTitle" style="font-size: 22px;">Set 3-digit code</h1>
+                    <p class="auth-tagline">This will lock the extension UI</p>
+                </div>
+
+                <div class="auth-form-new">
+                    <div class="form-group-new">
+                        <label class="form-label-new">
+                            <span class="label-icon">🔢</span>
+                            New code
+                        </label>
+                        <input
+                            type="password"
+                            id="pinSetupInput"
+                            class="auth-input-new"
+                            inputmode="numeric"
+                            pattern="\\d{3}"
+                            maxlength="3"
+                            placeholder="•••">
+                    </div>
+
+                    <div class="form-group-new">
+                        <label class="form-label-new">
+                            <span class="label-icon">✅</span>
+                            Confirm code
+                        </label>
+                        <input
+                            type="password"
+                            id="pinSetupConfirmInput"
+                            class="auth-input-new"
+                            inputmode="numeric"
+                            pattern="\\d{3}"
+                            maxlength="3"
+                            placeholder="•••">
+                    </div>
+
+                    <div class="modal-actions" style="padding: 0; margin-top: 6px;">
+                        <button class="btn-secondary" id="cancelPinSetupBtn" type="button">Cancel</button>
+                        <button class="btn-primary" id="savePinSetupBtn" type="button">Save code</button>
+                    </div>
+
+                    <div class="settings-note" style="margin-top: 14px;">
+                        <span class="note-icon">ℹ️</span>
+                        <span>Tip: a 3-digit code is not very strong. Use this only on devices you trust.</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

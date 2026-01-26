@@ -1,3 +1,18 @@
+### Jan 25, 2026 - Zero-Loss Sync + Durable Storage
+**Status:** ✅ SUCCESS
+**Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js, instructions/request.md
+**Result:** Soft deletes + notes cloud sync + audit/device sync tracking for durable multi-device retention. (Commit: pending)
+
+### Jan 25, 2026 - Messaging Errors (Missing Receiver/Tab)
+**Status:** ✅ SUCCESS
+**Files:** extension/background.js, extension/content-script.js
+**Result:** Added safe messaging helpers + array normalization to stop runtime errors. (Commit: pending)
+
+### Jan 25, 2026 - Supabase set_config Request Flood
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** Throttled set_config RPC with backoff/in-flight dedupe to prevent browser resource exhaustion. (Commit: pending)
+
 ### Dec 22, 2025 - Widget Panels Width Increase (Popup + Settings + Quick View)
 **Status:** ✅ SUCCESS
 **Files:** content-script.js, popup.html

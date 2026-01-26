@@ -12,6 +12,16 @@ class PasteCraftSupabase {
     this.BATCH_SIZE = 100; // Number of clips per batch
     this.syncProgress = { current: 0, total: 0, percentage: 0 };
     this._subscriptionCacheKey = 'pc_subscription_cache_v1';
+    this._sessionBridgeKey = 'pc_supabase_session_v1';
+    this._deviceIdKey = 'pc_device_id_v1';
+    this.deviceId = null;
+    // When true, prevent background sync/realtime work (e.g., after sign-out).
+    this._pauseSync = false;
+    // Avoid spamming set_config RPC across repeated calls.
+    this._lastUserContextId = null;
+    this._lastUserContextAt = 0;
+    this._userContextBackoffUntil = 0;
+    this._userContextInFlight = null;
     this.init();
     this.setupConnectionMonitor();
   }
@@ -99,6 +109,10 @@ class PasteCraftSupabase {
       
       this.initialized = true;
       console.log('✅ Supabase client initialized');
+
+      // Persist auth session into chrome.storage so content-script can use it for
+      // authenticated Edge Function calls (e.g., premium AI tips in-page).
+      this.setupAuthSessionBridge();
       
       // Setup realtime subscriptions after initialization
       await this.setupRealtimeSubscriptions();
@@ -106,6 +120,103 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to initialize Supabase:', error);
       this.initialized = true; // Still allow OpenAI features to work
+    }
+  }
+
+  // =====================================================
+  // AUTH SESSION BRIDGE (extension page -> content script)
+  // =====================================================
+  setupAuthSessionBridge() {
+    if (!this.client || !this.client.auth) return;
+    if (this._authBridgeSetup) return;
+    this._authBridgeSetup = true;
+
+    const writeSession = async (session) => {
+      try {
+        if (!session || !session.access_token) {
+          await chrome.storage.local.remove([this._sessionBridgeKey]);
+          return;
+        }
+        await chrome.storage.local.set({
+          [this._sessionBridgeKey]: {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token || null,
+            expires_at: session.expires_at || null,
+            user_id: session.user?.id || null,
+            updated_at: Date.now()
+          }
+        });
+      } catch (_) {
+        // ignore
+      }
+    };
+
+    // Initial snapshot
+    this.client.auth.getSession()
+      .then(({ data }) => writeSession(data?.session))
+      .catch(() => {});
+
+    // Live updates
+    try {
+      this.client.auth.onAuthStateChange((_event, session) => {
+        writeSession(session);
+      });
+    } catch (_) {
+      // Back-compat: if onAuthStateChange is not available, we still wrote initial snapshot.
+    }
+  }
+
+  async getStoredAccessToken() {
+    try {
+      const res = await chrome.storage.local.get([this._sessionBridgeKey]);
+      const payload = res?.[this._sessionBridgeKey] || null;
+      const tok = payload?.access_token ? String(payload.access_token) : '';
+      return tok || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async getAiHintsForCopySignal(signal) {
+    // Premium-only helper: returns [{title, body}] or null.
+    try {
+      if (!this.client) return null;
+      const { data: { session } } = await this.client.auth.getSession();
+      const userId = session?.user?.id || null;
+      const accessToken = session?.access_token || '';
+      if (!userId || !accessToken) return null;
+
+      const isPremium = await this.isPremiumUser(userId);
+      if (!isPremium) return null;
+
+      const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-hint`;
+      const response = await this._fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          kind: signal?.kind || 'text',
+          text: String(signal?.text || '').slice(0, 5000),
+          url: String(signal?.url || '').slice(0, 2000),
+          pageUrl: String(signal?.pageUrl || '').slice(0, 2000)
+        })
+      }, 20000, 'AI hint request timed out');
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.error || response.statusText || 'AI hint failed');
+      }
+
+      const data = await response.json().catch(() => ({}));
+      const tips = Array.isArray(data?.tips) ? data.tips : [];
+      return tips
+        .filter(t => t && typeof t.title === 'string' && typeof t.body === 'string')
+        .slice(0, 3);
+    } catch (error) {
+      console.error('Failed to get AI hints:', error);
+      return null;
     }
   }
   
@@ -133,6 +244,28 @@ class PasteCraftSupabase {
     
     // Initial status update
     this.updateSyncStatus(this.isOnline ? 'synced' : 'offline');
+  }
+
+  async getDeviceId() {
+    if (this.deviceId) return this.deviceId;
+    let deviceId = '';
+    try {
+      const res = await chrome.storage.local.get([this._deviceIdKey]);
+      deviceId = res?.[this._deviceIdKey] || '';
+    } catch (_) {
+      deviceId = '';
+    }
+    if (!deviceId) {
+      const fallback = `pc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      deviceId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : fallback;
+      try {
+        await chrome.storage.local.set({ [this._deviceIdKey]: deviceId });
+      } catch (_) {
+        // ignore
+      }
+    }
+    this.deviceId = deviceId;
+    return deviceId;
   }
   
   async loadSyncQueue() {
@@ -174,6 +307,7 @@ class PasteCraftSupabase {
   }
   
   async processSyncQueue() {
+    if (this._pauseSync) return;
     if (!this.isOnline || this.syncQueue.length === 0) {
       return;
     }
@@ -205,11 +339,26 @@ class PasteCraftSupabase {
       case 'syncClips':
         await this.syncClipsToSupabase(operation.data);
         break;
+      case 'syncDeletedClips':
+        await this.syncDeletedClipsToSupabase(operation.data);
+        break;
       case 'syncCategories':
         await this.syncCategoriesToSupabase(operation.data);
         break;
+      case 'syncDeletedCategories':
+        await this.syncDeletedCategoriesToSupabase(operation.data);
+        break;
       case 'syncArchivedClips':
         await this.syncArchivedClipsToSupabase(operation.data);
+        break;
+      case 'syncDeletedArchivedClips':
+        await this.syncDeletedArchivedClipsToSupabase(operation.data);
+        break;
+      case 'syncNotes':
+        await this.syncNotesToSupabase(operation.data);
+        break;
+      case 'syncDeletedNotes':
+        await this.syncDeletedNotesToSupabase(operation.data);
         break;
       case 'syncSettings':
         await this.syncSettingsToSupabase(operation.data);
@@ -267,6 +416,10 @@ class PasteCraftSupabase {
       console.warn('⚠️ Skipping realtime subscriptions - offline or not initialized');
       return;
     }
+    if (this._pauseSync) {
+      console.warn('⚠️ Skipping realtime subscriptions - sync paused');
+      return;
+    }
     
     try {
       console.log('🔔 Setting up realtime subscriptions...');
@@ -313,6 +466,19 @@ class PasteCraftSupabase {
           (payload) => this.handleArchivedClipsChange(payload)
         )
         .subscribe();
+
+      const notesChannel = this.client
+        .channel('notes-changes')
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notes',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleNotesChange(payload)
+        )
+        .subscribe();
       
       // Subscribe to settings changes
       const settingsChannel = this.client
@@ -343,10 +509,11 @@ class PasteCraftSupabase {
         .subscribe();
       
       this.realtimeChannels = [
-        clipsChannel, 
-        categoriesChannel, 
-        archivedChannel, 
-        settingsChannel, 
+        clipsChannel,
+        categoriesChannel,
+        archivedChannel,
+        notesChannel,
+        settingsChannel,
         profileChannel
       ];
       
@@ -416,6 +583,25 @@ class PasteCraftSupabase {
       }));
     }
   }
+
+  async handleNotesChange(payload) {
+    console.log('🔔 Notes changed:', payload.eventType);
+
+    const remoteNotes = await this.syncNotesFromSupabase();
+    if (remoteNotes) {
+      const localData = await new Promise((resolve) => {
+        chrome.storage.local.get(['notes'], resolve);
+      });
+      const mergedNotes = await this.mergeNotes(localData.notes || [], remoteNotes);
+      await new Promise((resolve) => {
+        chrome.storage.local.set({ notes: mergedNotes }, resolve);
+      });
+
+      window.dispatchEvent(new CustomEvent('dataChanged', {
+        detail: { type: 'notes' }
+      }));
+    }
+  }
   
   async handleSettingsChange(payload) {
     console.log('🔔 Settings changed:', payload.eventType);
@@ -437,8 +623,44 @@ class PasteCraftSupabase {
     
     const remoteProfile = await this.syncUserProfileFromSupabase();
     if (remoteProfile) {
+      // Merge with local profile to avoid overwriting stable images with temporary/expired ones.
+      let currentLocal = {};
+      try {
+        const existing = await new Promise((resolve) => chrome.storage.local.get(['userProfile'], resolve));
+        currentLocal = existing?.userProfile || {};
+      } catch (_) {}
+
+      const pickUrl = (localUrl, remoteUrl) => {
+        const l = typeof localUrl === 'string' ? localUrl : '';
+        const r = typeof remoteUrl === 'string' ? remoteUrl : '';
+        if (!l && !r) return '';
+        const supaHost = this._pcGetSupabaseHost();
+        const isSupa = (x) => {
+          const o = this._pcTryParseUrl(x);
+          return !!(o && supaHost && o.hostname === supaHost);
+        };
+        const isTemp = (x) => {
+          const o = this._pcTryParseUrl(x);
+          if (!o) return false;
+          const az = o.hostname.includes('blob.core.windows.net');
+          const hasSig = o.searchParams.has('sig');
+          return az || hasSig || this._pcIsExpiredSas(x);
+        };
+        if (isSupa(r)) return r;
+        if (isSupa(l)) return l;
+        if (l && isTemp(r)) return l;
+        return r || l;
+      };
+
+      const mergedProfile = {
+        ...currentLocal,
+        ...remoteProfile,
+        profileImageUrl: pickUrl(currentLocal?.profileImageUrl, remoteProfile?.profileImageUrl),
+        profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (currentLocal?.profileImageBase64 || null))
+      };
+
       await new Promise((resolve) => {
-        chrome.storage.local.set({ userProfile: remoteProfile }, resolve);
+        chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
       });
       
       window.dispatchEvent(new CustomEvent('dataChanged', { 
@@ -563,6 +785,28 @@ class PasteCraftSupabase {
     
     try {
       console.log('📥 Downloading image from temporary URL:', imageUrl);
+
+      // #region agent log
+      try {
+        const u = String(imageUrl || '');
+        let host = '';
+        let hasSig = false;
+        let seMs = null;
+        let expired = null;
+        try {
+          const urlObj = new URL(u);
+          host = urlObj.hostname || '';
+          hasSig = urlObj.searchParams.has('sig');
+          const se = urlObj.searchParams.get('se');
+          if (se) {
+            const ms = Date.parse(se);
+            seMs = Number.isFinite(ms) ? ms : null;
+            expired = seMs != null ? (Date.now() > seMs) : null;
+          }
+        } catch (_) {}
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:entry',message:'downloadAndUploadImage starting',data:{host,hasSig,seMs,expired,hasUserId:!!userId},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
       
       // Download image as blob
       const response = await this._fetchWithTimeout(
@@ -577,6 +821,13 @@ class PasteCraftSupabase {
       
       const blob = await response.blob();
       console.log('✅ Image downloaded, size:', blob.size, 'bytes');
+
+      // #region agent log
+      try {
+        const ct = response?.headers ? (response.headers.get('content-type') || '') : '';
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:downloaded',message:'downloadAndUploadImage downloaded blob',data:{status:response.status,ok:!!response.ok,contentType:ct,blobSize:blob?.size??null,blobType:blob?.type??''},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
       
       // Generate unique filename
       const timestamp = Date.now();
@@ -611,10 +862,125 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to convert temporary URL to permanent:', error);
       console.warn('⚠️ Returning original temporary URL as fallback');
+
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:catch',message:'downloadAndUploadImage failed (fallback)',data:{error:String(error?.message||error||'')},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
+
       return imageUrl; // Return original URL as fallback
     }
   }
   
+  // =====================================================
+  // PROFILE IMAGE URL NORMALIZATION (avoid expiring URLs)
+  // =====================================================
+  _pcIsDataImageUrl(u) {
+    return typeof u === 'string' && u.startsWith('data:image/');
+  }
+
+  _pcTryParseUrl(u) {
+    try { return new URL(String(u || '')); } catch (_) { return null; }
+  }
+
+  _pcGetSupabaseHost() {
+    try {
+      const url = (typeof PASTECRAFT_CONFIG !== 'undefined' && PASTECRAFT_CONFIG?.supabase?.url)
+        ? String(PASTECRAFT_CONFIG.supabase.url)
+        : '';
+      return url ? (new URL(url)).hostname : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  _pcIsExpiredSas(u) {
+    const urlObj = this._pcTryParseUrl(u);
+    if (!urlObj) return false;
+    const se = urlObj.searchParams.get('se');
+    if (!se) return false;
+    const ms = Date.parse(se);
+    if (!Number.isFinite(ms)) return false;
+    return Date.now() > ms;
+  }
+
+  async uploadDataUrlToProfileImages(dataUrl, userId) {
+    if (!this.client) return null;
+    const u = typeof dataUrl === 'string' ? dataUrl : '';
+    if (!this._pcIsDataImageUrl(u)) return null;
+    try {
+      const t0 = Date.now();
+      // Avoid fetch(data:) (can be unreliable for very large data URLs in extension contexts).
+      const comma = u.indexOf(',');
+      const header = comma >= 0 ? u.slice(0, comma) : '';
+      const b64 = comma >= 0 ? u.slice(comma + 1) : '';
+      const m = header.match(/^data:([^;]+);base64$/i);
+      const ct = m && m[1] ? m[1] : 'image/png';
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: ct });
+      const t1 = Date.now();
+      const ext =
+        ct.includes('png') ? 'png' :
+        ct.includes('jpeg') ? 'jpg' :
+        ct.includes('webp') ? 'webp' :
+        ct.includes('gif') ? 'gif' :
+        'png';
+
+      const timestamp = Date.now();
+      const fileName = `${userId}-${timestamp}.${ext}`;
+      const filePath = `${fileName}`;
+
+      const { error } = await this.client.storage
+        .from('profile-images')
+        .upload(filePath, blob, { contentType: ct || 'image/png', upsert: false });
+      const t2 = Date.now();
+      if (error) throw error;
+
+      const { data: urlData } = this.client.storage
+        .from('profile-images')
+        .getPublicUrl(filePath);
+      const t3 = Date.now();
+
+      return urlData?.publicUrl || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async convertToPermanentProfileImageUrl(imageUrl, userId) {
+    const u = typeof imageUrl === 'string' ? imageUrl : '';
+    if (!u) return '';
+    if (!this.client) return u;
+    const t0 = Date.now();
+
+    if (this._pcIsDataImageUrl(u)) {
+      const uploaded = await this.uploadDataUrlToProfileImages(u, userId);
+      return uploaded || u;
+    }
+
+    const urlObj = this._pcTryParseUrl(u);
+    const supaHost = this._pcGetSupabaseHost();
+    if (urlObj && supaHost && urlObj.hostname === supaHost) {
+      return u;
+    }
+
+    const looksLikeAzureBlob = !!(urlObj && urlObj.hostname && urlObj.hostname.includes('blob.core.windows.net'));
+    const hasSig = !!(urlObj && urlObj.searchParams && urlObj.searchParams.has('sig'));
+    if (looksLikeAzureBlob || hasSig || this._pcIsExpiredSas(u)) {
+      try {
+        const perm = await this.downloadAndUploadImage(u, userId);
+        return perm || u;
+      } catch (_) {
+        return u;
+      }
+    }
+
+    return u;
+  }
+
   // OpenAI Integration Methods
   async generateAIName(userName) {
     try {
@@ -653,50 +1019,33 @@ class PasteCraftSupabase {
   
   async analyzePhotoWithVision(imageBase64) {
     try {
-      if (typeof PASTECRAFT_CONFIG === 'undefined' || !PASTECRAFT_CONFIG.openai.apiKey || PASTECRAFT_CONFIG.openai.apiKey.includes('YOUR_OPENAI_API_KEY_HERE')) {
-        console.error('❌ OpenAI API key not configured');
-        throw new Error('OpenAI API key not configured.');
+      if (!this.client) {
+        throw new Error('Supabase not initialized');
       }
 
-      console.log('🔍 Analyzing photo with GPT-4 Vision...');
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const { data: { session } } = await this.client.auth.getSession();
+      const accessToken = session?.access_token || '';
+      if (!accessToken) {
+        throw new Error('Please sign in to use Vision.');
+      }
+
+      const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-vision`;
+      const response = await this._fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.openai.apiKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Describe this person in detail for creating a cartoon avatar. Focus on: face shape, hair style and color, eye color, glasses/facial hair if any, skin tone, distinctive features, and overall vibe. Be specific and descriptive. Keep it under 100 words.'
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageBase64
-                  }
-                }
-              ]
-            }
-          ],
-          max_tokens: 200
-        })
-      });
+        body: JSON.stringify({ imageBase64 })
+      }, 30000, 'Vision analysis timed out');
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Vision API error: ${errorData.error?.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || response.statusText || 'Vision analysis failed');
       }
 
       const data = await response.json();
-      const description = data.choices[0].message.content;
-      console.log('✅ Photo analysis complete:', description);
+      const description = data?.description || '';
       return description;
 
     } catch (error) {
@@ -852,7 +1201,7 @@ class PasteCraftSupabase {
       // Convert temporary URL to permanent Supabase Storage URL
       const userId = await this.getSyncUserId();
       const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
-
+      
       return permanentImageUrl;
 
     } catch (error) {
@@ -969,13 +1318,36 @@ class PasteCraftSupabase {
     if (!this.client) return;
     
     try {
-      await this.client.rpc('set_config', {
+      if (!userId) return;
+      const now = Date.now();
+      if (this._userContextBackoffUntil && now < this._userContextBackoffUntil) return;
+
+      const recent = this._lastUserContextId === userId && (now - this._lastUserContextAt) < (5 * 60 * 1000);
+      if (recent) return;
+
+      if (this._userContextInFlight && this._userContextInFlight.userId === userId) {
+        await this._userContextInFlight.promise;
+        return;
+      }
+
+      const rpcPromise = this.client.rpc('set_config', {
         setting: 'app.current_user_id',
         value: userId
       });
+      this._userContextInFlight = { userId, promise: rpcPromise };
+
+      await rpcPromise;
+      this._lastUserContextId = userId;
+      this._lastUserContextAt = Date.now();
+      this._userContextBackoffUntil = 0;
       console.log('✅ User context set:', userId);
     } catch (error) {
+      this._userContextBackoffUntil = Date.now() + 30000;
       console.warn('⚠️ Could not set user context (RLS may not be configured):', error.message);
+    } finally {
+      if (this._userContextInFlight && this._userContextInFlight.userId === userId) {
+        this._userContextInFlight = null;
+      }
     }
   }
 
@@ -1004,16 +1376,12 @@ class PasteCraftSupabase {
 
       // Use batch processing for large datasets (>100 clips)
       if (totalClips > this.BATCH_SIZE) {
-        const ok = await this.syncClipsToSupabaseBatch(localClips, userId);
-        if (ok) {
-          await this.deleteRemoteClipsNotInLocal(localClips, userId);
-        }
-        return ok;
+        return await this.syncClipsToSupabaseBatch(localClips, userId, deviceId);
       }
 
       // Standard sync for small datasets
       const _pcBuildStart = Date.now();
-      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+      const dbClips = this.buildDbClipsForUpsert(localClips, userId, deviceId);
       const _pcBuildMs = Date.now() - _pcBuildStart;
       const stats = dbClips && dbClips._pcStats ? dbClips._pcStats : null;
 
@@ -1032,57 +1400,10 @@ class PasteCraftSupabase {
 
 
       console.log(`✅ Synced ${data.length} clips to Supabase`);
-      await this.deleteRemoteClipsNotInLocal(localClips, userId);
       return true;
     } catch (error) {
       console.error('❌ Failed to sync clips to Supabase:', error);
       return false;
-    }
-  }
-
-  async deleteRemoteClipsNotInLocal(localClips, userId) {
-    if (!this.client) return;
-
-    try {
-      const _pcCleanupStart = Date.now();
-      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
-      const keepIds = new Set((Array.isArray(dbClips) ? dbClips : []).map(x => x?.clip_id).filter(Boolean));
-
-      // Fetch all remote clip ids (paged)
-      const remoteIds = [];
-      const pageSize = 10000;
-      for (let from = 0; ; from += pageSize) {
-        const to = from + pageSize - 1;
-        const { data, error } = await this.client
-          .from('clips')
-          .select('clip_id')
-          .eq('user_id', userId)
-          .range(from, to);
-
-        if (error) throw error;
-        const rows = Array.isArray(data) ? data : [];
-        rows.forEach(r => { if (r?.clip_id != null) remoteIds.push(String(r.clip_id)); });
-        if (rows.length < pageSize) break;
-      }
-
-      const idsToDelete = remoteIds.filter(id => !keepIds.has(id));
-
-      if (idsToDelete.length === 0) return;
-
-      // Delete in manageable batches
-      const batchSize = 200;
-      for (let i = 0; i < idsToDelete.length; i += batchSize) {
-        const batch = idsToDelete.slice(i, i + batchSize);
-        const { error } = await this.client
-          .from('clips')
-          .delete()
-          .eq('user_id', userId)
-          .in('clip_id', batch);
-        if (error) throw error;
-      }
-    } catch (e) {
-      // Don't block user flows if remote cleanup fails
-      console.warn('⚠️ Remote clip cleanup failed:', e?.message || e);
     }
   }
 
@@ -1095,7 +1416,8 @@ class PasteCraftSupabase {
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
 
-      const dbClips = this.buildDbClipsForUpsert(localClips, userId);
+      const deviceId = await this.getDeviceId();
+      const dbClips = this.buildDbClipsForUpsert(localClips, userId, deviceId);
 
       const { error } = await this.client
         .from('clips')
@@ -1108,7 +1430,7 @@ class PasteCraftSupabase {
     }
   }
 
-  buildDbClipsForUpsert(localClips, userId) {
+  buildDbClipsForUpsert(localClips, userId, deviceId) {
     const arr = Array.isArray(localClips) ? localClips : [];
 
     // Stable-ish hash for legacy clips without ids (avoid undefined clip_id collisions)
@@ -1134,6 +1456,14 @@ class PasteCraftSupabase {
       if (!text) { droppedNoText++; continue; }
 
       const ts = typeof clip === 'object' && clip ? (clip.timestamp ?? null) : null;
+      const updatedAtMs =
+        typeof clip === 'object' && clip
+          ? (clip.updatedAt ?? clip.updated_at ?? ts)
+          : ts;
+      const deletedAtMs =
+        typeof clip === 'object' && clip
+          ? (clip.deletedAt ?? clip.deleted_at ?? null)
+          : null;
       const rawId =
         (typeof clip === 'object' && clip ? (clip.id ?? clip.clip_id ?? clip.clipId ?? null) : null) ??
         `legacy_${hash(text)}_${Number.isFinite(ts) ? ts : 0}`;
@@ -1149,7 +1479,11 @@ class PasteCraftSupabase {
         clip_id: clipId,
         text: String(text),
         category: (typeof clip === 'object' && clip && clip.category) ? clip.category : 'Uncategorized',
-        timestamp: Number.isFinite(ts) ? ts : Date.now()
+        timestamp: Number.isFinite(ts) ? ts : Date.now(),
+        updated_at: Number.isFinite(updatedAtMs) ? new Date(updatedAtMs).toISOString() : new Date().toISOString(),
+        deleted_at: Number.isFinite(deletedAtMs) ? new Date(deletedAtMs).toISOString() : null,
+        device_id: deviceId || null,
+        content_hash: hash(text)
       };
 
       const existing = seen.get(clipId);
@@ -1163,10 +1497,106 @@ class PasteCraftSupabase {
     return out;
   }
 
+  async insertAuditLogs(rows) {
+    if (!this.client) return;
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    try {
+      await this.client.from('audit_log').insert(rows);
+    } catch (error) {
+      console.warn('⚠️ Audit log insert failed:', error?.message || error);
+    }
+  }
+
+  async syncDeletedClipsToSupabase(deletedClips) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping deleted clips sync');
+      return false;
+    }
+
+    const items = Array.isArray(deletedClips) ? deletedClips : [];
+    if (items.length === 0) return true;
+
+    try {
+      const userId = await this.getSyncUserId();
+      await this.setUserContext(userId);
+
+      const normalized = items.map(item => ({
+        ...item,
+        deletedAt: Number.isFinite(item?.deletedAt) ? item.deletedAt : Date.now()
+      }));
+      const dbClips = this.buildDbClipsForUpsert(normalized, userId, deviceId);
+
+      const { error } = await this.client
+        .from('clips')
+        .upsert(dbClips, {
+          onConflict: 'user_id,clip_id',
+          ignoreDuplicates: false
+        });
+      if (error) throw error;
+
+      await this.insertAuditLogs(dbClips.map(clip => ({
+        user_id: userId,
+        entity_type: 'clip',
+        entity_id: String(clip.clip_id),
+        action: 'soft_delete',
+        data: { text: clip.text, category: clip.category, timestamp: clip.timestamp },
+        device_id: deviceId || null
+      })));
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted clips to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncDeletedArchivedClipsToSupabase(deletedClips) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping deleted archived clips sync');
+      return false;
+    }
+
+    const items = Array.isArray(deletedClips) ? deletedClips : [];
+    if (items.length === 0) return true;
+
+    try {
+      const userId = await this.getSyncUserId();
+      await this.setUserContext(userId);
+
+      const normalized = items.map(item => ({
+        ...item,
+        deletedAt: Number.isFinite(item?.deletedAt) ? item.deletedAt : Date.now()
+      }));
+      const dbClips = this.buildDbClipsForUpsert(normalized, userId, deviceId);
+
+      const { error } = await this.client
+        .from('archived_clips')
+        .upsert(dbClips, {
+          onConflict: 'user_id,clip_id',
+          ignoreDuplicates: false
+        });
+      if (error) throw error;
+
+      await this.insertAuditLogs(dbClips.map(clip => ({
+        user_id: userId,
+        entity_type: 'archived_clip',
+        entity_id: String(clip.clip_id),
+        action: 'soft_delete',
+        data: { text: clip.text, category: clip.category, timestamp: clip.timestamp },
+        device_id: deviceId || null
+      })));
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted archived clips to Supabase:', error);
+      return false;
+    }
+  }
+
   /**
    * Batch sync clips to Supabase (for large datasets)
    */
-  async syncClipsToSupabaseBatch(localClips, userId) {
+  async syncClipsToSupabaseBatch(localClips, userId, deviceId) {
     const totalClips = localClips.length;
     const batches = Math.ceil(totalClips / this.BATCH_SIZE);
     let syncedCount = 0;
@@ -1182,7 +1612,7 @@ class PasteCraftSupabase {
       const batchClips = localClips.slice(start, end);
 
       // Transform to DB format (and dedupe/normalize ids)
-      const dbClips = this.buildDbClipsForUpsert(batchClips, userId);
+      const dbClips = this.buildDbClipsForUpsert(batchClips, userId, deviceId);
 
       try {
         const { data, error } = await this.client
@@ -1257,7 +1687,10 @@ class PasteCraftSupabase {
         id: clip.clip_id,
         text: clip.text,
         category: clip.category,
-        timestamp: clip.timestamp
+        timestamp: clip.timestamp,
+        updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
+        deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
+        deviceId: clip.device_id || null
       }));
 
       console.log(`✅ Fetched ${localClips.length} clips from Supabase`);
@@ -1300,7 +1733,10 @@ class PasteCraftSupabase {
           id: clip.clip_id,
           text: clip.text,
           category: clip.category,
-          timestamp: clip.timestamp
+          timestamp: clip.timestamp,
+          updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
+          deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
+          deviceId: clip.device_id || null
         }));
 
         allClips = allClips.concat(localClips);
@@ -1326,6 +1762,13 @@ class PasteCraftSupabase {
    */
   async mergeClips(localClips, remoteClips) {
     const contentMerged = new Map();
+    const deletedById = new Map();
+
+    remoteClips.forEach(clip => {
+      const id = clip?.id != null ? String(clip.id) : '';
+      if (!id || !clip?.deletedAt) return;
+      deletedById.set(id, clip.deletedAt);
+    });
 
     const hashText = (t) => {
       const s = String(t || '');
@@ -1345,6 +1788,10 @@ class PasteCraftSupabase {
 
     const add = (clip) => {
       if (!clip || !clip.text) return;
+      const id = clip?.id != null ? String(clip.id) : '';
+      const deletedAt = id ? deletedById.get(id) : null;
+      const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
+      if (deletedAt && deletedAt >= clipUpdatedAt) return;
       const k = contentKey(clip);
       const prev = contentMerged.get(k);
       if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
@@ -1363,20 +1810,46 @@ class PasteCraftSupabase {
    */
   async mergeCategories(localCategories, remoteCategories) {
     const merged = new Map();
+    const deletedById = new Map();
+
+    remoteCategories.forEach(cat => {
+      const id = cat?.id != null ? String(cat.id) : '';
+      if (!id || !cat?.deletedAt) return;
+      deletedById.set(id, cat.deletedAt);
+    });
+
+    const shouldDrop = (cat) => {
+      if (!cat) return true;
+      const id = cat?.id != null ? String(cat.id) : '';
+      const deletedAt = id ? deletedById.get(id) : null;
+      const updatedAt = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : 0;
+      return deletedAt && deletedAt >= updatedAt;
+    };
 
     // Add all local categories
     localCategories.forEach(cat => {
-      merged.set(cat.id, cat);
+      if (!shouldDrop(cat)) {
+        merged.set(cat.id, cat);
+      }
     });
 
     // Add/update with remote categories (newer ID wins - later creation)
     remoteCategories.forEach(remoteCat => {
+      if (shouldDrop(remoteCat)) {
+        merged.delete(remoteCat.id);
+        return;
+      }
       const localCat = merged.get(remoteCat.id);
       if (!localCat) {
         // New category from remote, add it
         merged.set(remoteCat.id, remoteCat);
+        return;
       }
-      // If exists locally, keep local (categories don't update after creation)
+      const localUpdatedAt = Number.isFinite(localCat?.updatedAt) ? localCat.updatedAt : 0;
+      const remoteUpdatedAt = Number.isFinite(remoteCat?.updatedAt) ? remoteCat.updatedAt : 0;
+      if (remoteUpdatedAt >= localUpdatedAt) {
+        merged.set(remoteCat.id, remoteCat);
+      }
     });
 
     // Sort by name for consistent display
@@ -1388,6 +1861,13 @@ class PasteCraftSupabase {
    */
   async mergeArchivedClips(localArchivedClips, remoteArchivedClips) {
     const contentMerged = new Map();
+    const deletedById = new Map();
+
+    remoteArchivedClips.forEach(clip => {
+      const id = clip?.id != null ? String(clip.id) : '';
+      if (!id || !clip?.deletedAt) return;
+      deletedById.set(id, clip.deletedAt);
+    });
 
     const hashText = (t) => {
       const s = String(t || '');
@@ -1407,6 +1887,10 @@ class PasteCraftSupabase {
 
     const add = (clip) => {
       if (!clip || !clip.text) return;
+      const id = clip?.id != null ? String(clip.id) : '';
+      const deletedAt = id ? deletedById.get(id) : null;
+      const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
+      if (deletedAt && deletedAt >= clipUpdatedAt) return;
       const k = contentKey(clip);
       const prev = contentMerged.get(k);
       if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
@@ -1441,12 +1925,19 @@ class PasteCraftSupabase {
 
       console.log(`📤 Syncing ${localCategories.length} categories to Supabase...`);
 
-      const dbCategories = localCategories.map(cat => ({
-        user_id: userId,
-        category_id: cat.id,
-        name: cat.name,
-        icon: cat.icon || '📁'
-      }));
+      const dbCategories = localCategories.map(cat => {
+        const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
+        const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : null;
+        return {
+          user_id: userId,
+          category_id: cat.id,
+          name: cat.name,
+          icon: cat.icon || '📁',
+          updated_at: new Date(updatedAtMs).toISOString(),
+          deleted_at: Number.isFinite(deletedAtMs) ? new Date(deletedAtMs).toISOString() : null,
+          device_id: deviceId || null
+        };
+      });
 
       const { data, error } = await this.client
         .from('categories')
@@ -1459,13 +1950,60 @@ class PasteCraftSupabase {
       if (error) throw error;
 
       console.log(`✅ Synced ${data.length} categories to Supabase`);
-
-      // Ensure remote deletions are respected:
-      // if a category was deleted locally, remove it remotely so realtime merge can't resurrect it.
-      await this.deleteRemoteCategoriesNotInLocal(localCategories, userId);
       return true;
     } catch (error) {
       console.error('❌ Failed to sync categories to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncDeletedCategoriesToSupabase(deletedCategories) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping deleted categories sync');
+      return false;
+    }
+
+    const items = Array.isArray(deletedCategories) ? deletedCategories : [];
+    if (items.length === 0) return true;
+
+    try {
+      const userId = await this.getSyncUserId();
+      await this.setUserContext(userId);
+
+      const dbCategories = items.map(cat => {
+        const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
+        const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
+        return {
+          user_id: userId,
+          category_id: cat.id,
+          name: cat.name || 'Uncategorized',
+          icon: cat.icon || '📁',
+          updated_at: new Date(updatedAtMs).toISOString(),
+          deleted_at: new Date(deletedAtMs).toISOString(),
+          device_id: deviceId || null
+        };
+      });
+
+      const { error } = await this.client
+        .from('categories')
+        .upsert(dbCategories, {
+          onConflict: 'user_id,category_id',
+          ignoreDuplicates: false
+        });
+      if (error) throw error;
+
+      await this.insertAuditLogs(dbCategories.map(cat => ({
+        user_id: userId,
+        entity_type: 'category',
+        entity_id: String(cat.category_id),
+        action: 'soft_delete',
+        data: { name: cat.name, icon: cat.icon },
+        device_id: deviceId || null
+      })));
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted categories to Supabase:', error);
       return false;
     }
   }
@@ -1495,7 +2033,10 @@ class PasteCraftSupabase {
       const localCategories = data.map(cat => ({
         id: cat.category_id,
         name: cat.name,
-        icon: cat.icon
+        icon: cat.icon,
+        updatedAt: cat.updated_at ? Date.parse(cat.updated_at) : Date.now(),
+        deletedAt: cat.deleted_at ? Date.parse(cat.deleted_at) : null,
+        deviceId: cat.device_id || null
       }));
 
       console.log(`✅ Fetched ${localCategories.length} categories from Supabase`);
@@ -1507,7 +2048,7 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Delete a category row from Supabase so it doesn't "reappear" via realtime sync.
+   * Soft-delete a category row from Supabase.
    */
   async deleteCategoryFromSupabase(categoryId) {
     if (!this.client) {
@@ -1520,11 +2061,13 @@ class PasteCraftSupabase {
 
     try {
       const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
       await this.setUserContext(userId);
 
+      const deletedAt = new Date().toISOString();
       const { error } = await this.client
         .from('categories')
-        .delete()
+        .update({ deleted_at: deletedAt, device_id: deviceId || null })
         .eq('user_id', userId)
         .eq('category_id', category_id);
 
@@ -1533,51 +2076,6 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to delete category from Supabase:', error);
       return false;
-    }
-  }
-
-  async deleteRemoteCategoriesNotInLocal(localCategories, userId) {
-    if (!this.client) return;
-    try {
-      const keepIds = new Set((Array.isArray(localCategories) ? localCategories : [])
-        .map(c => c?.id)
-        .filter(id => id != null)
-        .map(id => String(id))
-      );
-
-      // Fetch remote ids (paged, in case of large sets)
-      const remoteIds = [];
-      const pageSize = 10000;
-      for (let from = 0; ; from += pageSize) {
-        const to = from + pageSize - 1;
-        const { data, error } = await this.client
-          .from('categories')
-          .select('category_id')
-          .eq('user_id', userId)
-          .range(from, to);
-        if (error) throw error;
-        const rows = Array.isArray(data) ? data : [];
-        rows.forEach(r => { if (r?.category_id != null) remoteIds.push(String(r.category_id)); });
-        if (rows.length < pageSize) break;
-      }
-
-      const idsToDelete = remoteIds.filter(id => !keepIds.has(id));
-      if (idsToDelete.length === 0) return;
-
-      // Delete in batches
-      const batchSize = 200;
-      for (let i = 0; i < idsToDelete.length; i += batchSize) {
-        const batch = idsToDelete.slice(i, i + batchSize);
-        const { error } = await this.client
-          .from('categories')
-          .delete()
-          .eq('user_id', userId)
-          .in('category_id', batch);
-        if (error) throw error;
-      }
-    } catch (e) {
-      // Don't break user flows if cleanup fails
-      console.warn('⚠️ Remote category cleanup failed:', e?.message || e);
     }
   }
 
@@ -1596,12 +2094,13 @@ class PasteCraftSupabase {
 
     try {
       const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
       await this.setUserContext(userId);
 
       console.log(`📤 Syncing ${localArchivedClips.length} archived clips to Supabase...`);
 
       // Transform local archived clips to DB format (and dedupe/normalize ids)
-      const dbArchivedClips = this.buildDbClipsForUpsert(localArchivedClips, userId);
+      const dbArchivedClips = this.buildDbClipsForUpsert(localArchivedClips, userId, deviceId);
 
       // Upsert archived clips (insert or update on conflict)
       const { data, error } = await this.client
@@ -1652,7 +2151,10 @@ class PasteCraftSupabase {
         id: clip.clip_id,
         text: clip.text,
         category: clip.category,
-        timestamp: clip.timestamp
+        timestamp: clip.timestamp,
+        updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
+        deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
+        deviceId: clip.device_id || null
       }));
 
       console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase`);
@@ -1660,6 +2162,275 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to fetch archived clips from Supabase:', error);
       return null;
+    }
+  }
+
+  // =====================================================
+  // NOTES SYNC METHODS
+  // =====================================================
+
+  buildDbNotesForUpsert(localNotes, userId, deviceId) {
+    const notes = Array.isArray(localNotes) ? localNotes : [];
+    const rows = [];
+    const snapshots = [];
+
+    const hash = (s) => {
+      const str = String(s || '');
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0).toString(36);
+    };
+
+    notes.forEach((note, index) => {
+      const rawId = note?.id ?? note?.note_id ?? `note_${Date.now()}_${index}`;
+      const noteId = String(rawId);
+      const noteType = note?.type || note?.note_type || 'note';
+      const createdAtMs = Number.isFinite(note?.createdAt) ? note.createdAt : Date.now();
+      const updatedAtMs = Number.isFinite(note?.updatedAt) ? note.updatedAt : createdAtMs;
+      const deletedAtMs = Number.isFinite(note?.deletedAt) ? note.deletedAt : null;
+
+      let attachments = [];
+      let noteRefs = [];
+      let sourceNoteIds = [];
+
+      const clips = Array.isArray(note?.clips) ? note.clips : [];
+      const images = Array.isArray(note?.images) ? note.images : [];
+      const urls = Array.isArray(note?.urls) ? note.urls : [];
+      attachments = [
+        ...clips.map(c => ({ ...c, type: 'clip' })),
+        ...images.map(i => ({ ...i, type: 'image' })),
+        ...urls.map(u => ({ ...u, type: 'url' }))
+      ];
+
+      if (noteType === 'album') {
+        noteRefs = Array.isArray(note?.noteRefs) ? note.noteRefs : [];
+        sourceNoteIds = Array.isArray(note?.sourceNoteIds) ? note.sourceNoteIds : [];
+      }
+
+      const contentHash = hash([
+        note?.title || '',
+        note?.description || '',
+        note?.body || '',
+        JSON.stringify(attachments),
+        JSON.stringify(noteRefs)
+      ].join('|'));
+
+      const row = {
+        user_id: userId,
+        note_id: noteId,
+        note_type: noteType,
+        title: note?.title || '',
+        description: note?.description || '',
+        body: note?.body || '',
+        attachments,
+        note_refs: noteRefs,
+        source_note_ids: sourceNoteIds,
+        created_at: new Date(createdAtMs).toISOString(),
+        updated_at: new Date(updatedAtMs).toISOString(),
+        updated_ms: updatedAtMs,
+        deleted_at: Number.isFinite(deletedAtMs) ? new Date(deletedAtMs).toISOString() : null,
+        device_id: deviceId || null,
+        content_hash: contentHash
+      };
+
+      rows.push(row);
+      snapshots.push({
+        user_id: userId,
+        note_id: noteId,
+        snapshot: {
+          id: noteId,
+          type: noteType,
+          title: row.title,
+          description: row.description,
+          body: row.body,
+          clips: Array.isArray(note?.clips) ? note.clips : [],
+          images: Array.isArray(note?.images) ? note.images : [],
+          urls: Array.isArray(note?.urls) ? note.urls : [],
+          noteRefs,
+          sourceNoteIds,
+          createdAt: createdAtMs,
+          updatedAt: updatedAtMs,
+          deletedAt: Number.isFinite(deletedAtMs) ? deletedAtMs : null
+        },
+        device_id: deviceId || null
+      });
+    });
+
+    return { rows, snapshots };
+  }
+
+  async syncNotesToSupabase(localNotes) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping notes sync');
+      return false;
+    }
+
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const { rows, snapshots } = this.buildDbNotesForUpsert(localNotes, userId, deviceId);
+      if (rows.length === 0) return true;
+
+      const { error } = await this.client
+        .from('notes')
+        .upsert(rows, {
+          onConflict: 'user_id,note_id',
+          ignoreDuplicates: false
+        });
+      if (error) throw error;
+
+      try {
+        await this.client.from('note_versions').insert(snapshots);
+      } catch (_) {
+        // Versioning should not block core sync
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync notes to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncNotesFromSupabase() {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping notes sync');
+      return null;
+    }
+
+    try {
+      const userId = await this.getSyncUserId();
+      await this.setUserContext(userId);
+
+      const { data, error } = await this.client
+        .from('notes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+
+      const notes = data.map(row => {
+        const noteType = row.note_type || 'note';
+        const attachments = Array.isArray(row.attachments) ? row.attachments : [];
+        const noteRefs = Array.isArray(row.note_refs) ? row.note_refs : [];
+        const sourceNoteIds = Array.isArray(row.source_note_ids) ? row.source_note_ids : [];
+
+        const clips = attachments.filter(a => a?.type === 'clip');
+        const images = attachments.filter(a => a?.type === 'image');
+        const urls = attachments.filter(a => a?.type === 'url');
+
+        return {
+          id: row.note_id,
+          type: noteType,
+          title: row.title || '',
+          description: row.description || '',
+          body: row.body || '',
+          clips,
+          images,
+          urls,
+          noteRefs,
+          sourceNoteIds,
+          createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
+          updatedAt: Number.isFinite(row.updated_ms) ? row.updated_ms : (row.updated_at ? Date.parse(row.updated_at) : Date.now()),
+          deletedAt: row.deleted_at ? Date.parse(row.deleted_at) : null,
+          deviceId: row.device_id || null
+        };
+      });
+
+      return notes;
+    } catch (error) {
+      console.error('❌ Failed to sync notes from Supabase:', error);
+      return null;
+    }
+  }
+
+  async mergeNotes(localNotes, remoteNotes) {
+    const merged = new Map();
+    const deletedById = new Map();
+
+    remoteNotes.forEach(note => {
+      const id = note?.id != null ? String(note.id) : '';
+      if (!id || !note?.deletedAt) return;
+      deletedById.set(id, note.deletedAt);
+    });
+
+    const shouldDrop = (note) => {
+      if (!note) return true;
+      const id = note?.id != null ? String(note.id) : '';
+      const deletedAt = id ? deletedById.get(id) : null;
+      const updatedAt = Number.isFinite(note?.updatedAt) ? note.updatedAt : 0;
+      return deletedAt && deletedAt >= updatedAt;
+    };
+
+    localNotes.forEach(note => {
+      if (!shouldDrop(note)) {
+        merged.set(note.id, note);
+      }
+    });
+
+    remoteNotes.forEach(remoteNote => {
+      if (shouldDrop(remoteNote)) {
+        merged.delete(remoteNote.id);
+        return;
+      }
+      const localNote = merged.get(remoteNote.id);
+      if (!localNote) {
+        merged.set(remoteNote.id, remoteNote);
+        return;
+      }
+      const localUpdatedAt = Number.isFinite(localNote?.updatedAt) ? localNote.updatedAt : 0;
+      const remoteUpdatedAt = Number.isFinite(remoteNote?.updatedAt) ? remoteNote.updatedAt : 0;
+      if (remoteUpdatedAt >= localUpdatedAt) {
+        merged.set(remoteNote.id, remoteNote);
+      }
+    });
+
+    return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+
+  async syncDeletedNotesToSupabase(deletedNotes) {
+    if (!this.client) {
+      console.warn('⚠️ Supabase not initialized - skipping deleted notes sync');
+      return false;
+    }
+
+    const items = Array.isArray(deletedNotes) ? deletedNotes : [];
+    if (items.length === 0) return true;
+
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const normalized = items.map(note => ({
+        ...note,
+        deletedAt: Number.isFinite(note?.deletedAt) ? note.deletedAt : Date.now()
+      }));
+      const { rows } = this.buildDbNotesForUpsert(normalized, userId, deviceId);
+
+      const { error } = await this.client
+        .from('notes')
+        .upsert(rows, {
+          onConflict: 'user_id,note_id',
+          ignoreDuplicates: false
+        });
+      if (error) throw error;
+
+      await this.insertAuditLogs(rows.map(note => ({
+        user_id: userId,
+        entity_type: 'note',
+        entity_id: String(note.note_id),
+        action: 'soft_delete',
+        data: { title: note.title, note_type: note.note_type },
+        device_id: deviceId || null
+      })));
+
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted notes to Supabase:', error);
+      return false;
     }
   }
 
@@ -1783,12 +2554,24 @@ class PasteCraftSupabase {
 
       console.log('📤 Syncing user profile to Supabase...');
 
+      // Normalize profile image URL to a stable Supabase Storage URL when possible
+      let stableProfileImageUrl = localProfile.profileImageUrl || null;
+      if (stableProfileImageUrl) {
+        stableProfileImageUrl = await this.convertToPermanentProfileImageUrl(stableProfileImageUrl, userId);
+      }
+
+      // Avoid syncing huge base64 blobs (can cause statement timeout / unreliable profile fetch)
+      const rawBase64 = localProfile.profileImageBase64 || null;
+      const safeBase64 = (typeof rawBase64 === 'string' && rawBase64.startsWith('data:image/') && rawBase64.length <= 250000)
+        ? rawBase64
+        : null;
+
       const dbProfile = {
         user_id: userId,
         user_name: localProfile.userName || null,
         ai_generated_name: localProfile.aiGeneratedName || null,
-        profile_image_url: localProfile.profileImageUrl || null,
-        profile_image_base64: localProfile.profileImageBase64 || null,
+        profile_image_url: stableProfileImageUrl || null,
+        profile_image_base64: safeBase64,
         generated_image_url: localProfile.generatedImageUrl || null,
         ai_generated_image: localProfile.aiGeneratedImage || false
       };
@@ -2000,7 +2783,23 @@ class PasteCraftSupabase {
       console.log('🔑 Requesting password reset for:', email);
       
       // Use auth.pastecraft.com - the hosted callback page
-      const callbackUrl = 'https://auth.pastecraft.com';
+      // Include a one-time state value so the extension can validate the token handoff.
+      let state = '';
+      try {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        state = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+      } catch (_) {
+        state = String(Date.now()) + String(Math.random()).slice(2);
+      }
+
+      try {
+        await new Promise((resolve) => chrome.storage.local.set({
+          pc_password_reset_state_v1: { state, createdAt: Date.now() }
+        }, resolve));
+      } catch (_) {}
+
+      const callbackUrl = `https://auth.pastecraft.com/?state=${encodeURIComponent(state)}`;
       console.log('🔗 Reset redirect URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
@@ -2141,6 +2940,86 @@ class PasteCraftSupabase {
     }
   }
 
+  // =====================================================
+  // FAST SIGN-OUT (local-first, non-blocking global revoke)
+  // =====================================================
+
+  _getSupabaseAuthStorageKey() {
+    try {
+      const url = (typeof PASTECRAFT_CONFIG !== 'undefined' && PASTECRAFT_CONFIG?.supabase?.url)
+        ? String(PASTECRAFT_CONFIG.supabase.url)
+        : '';
+      const host = url ? (new URL(url)).hostname : '';
+      const projectRef = host ? host.split('.')[0] : '';
+      return projectRef ? `sb-${projectRef}-auth-token` : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async _clearCachedAuthState() {
+    // Best-effort: clear extension-side caches/ids without deleting user data.
+    try {
+      await new Promise((resolve) => chrome.storage.local.remove([this._subscriptionCacheKey], resolve));
+    } catch (_) {}
+
+    // Browser sync user id is only meaningful for signed-in sync; remove on sign-out.
+    try {
+      await new Promise((resolve) => chrome.storage.sync.remove(['accountUserId'], resolve));
+    } catch (_) {}
+  }
+
+  _clearSupabaseLocalStorage() {
+    try {
+      const key = this._getSupabaseAuthStorageKey();
+      if (key && typeof localStorage !== 'undefined') {
+        localStorage.removeItem(key);
+      }
+    } catch (_) {}
+  }
+
+  async signOutFast() {
+    if (!this.client) {
+      return { success: true, localOnly: true };
+    }
+
+    // Stop background work immediately.
+    this._pauseSync = true;
+    try { this.unsubscribeAll(); } catch (_) {}
+    try { this.updateSyncStatus('offline'); } catch (_) {}
+
+    // Clear local caches/ids and local auth token storage (best-effort).
+    await this._clearCachedAuthState();
+    this._clearSupabaseLocalStorage();
+
+    // Local sign-out should not require network and should be fast.
+    try {
+      const { error } = await this.client.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+    } catch (e) {
+      // Back-compat: older supabase-js may not support scope option.
+      try {
+        const { error } = await this.client.auth.signOut();
+        if (error) throw error;
+      } catch (_) {
+        // If this fails, we already cleared local storage; treat as signed-out locally.
+      }
+    }
+
+    // Best-effort global sign-out in background (do not block UI).
+    try {
+      const p = this.client.auth.signOut({ scope: 'global' });
+      await Promise.race([
+        p,
+        new Promise((resolve) => setTimeout(resolve, 1500))
+      ]);
+    } catch (_) {
+      // ignore
+    }
+
+    return { success: true };
+  }
+
   /**
    * Get current user session
    */
@@ -2150,10 +3029,27 @@ class PasteCraftSupabase {
     }
 
     try {
-      const { data: { session }, error } = await this.client.auth.getSession();
+      // Fast path: if we have a recent auth bridge session, treat as signed-in
+      // even if supabase-js session resolution is slow/hanging.
+      try {
+        const res = await chrome.storage.local.get([this._sessionBridgeKey]);
+        const payload = res?.[this._sessionBridgeKey] || null;
+        const userId = payload?.user_id ? String(payload.user_id) : '';
+        const expiresAt = typeof payload?.expires_at === 'number' ? payload.expires_at : null; // seconds since epoch
+        const nowSec = Math.floor(Date.now() / 1000);
+        const notExpired = !expiresAt || expiresAt > (nowSec + 30);
+        if (userId && notExpired) {
+          return { id: userId, email: payload?.email ? String(payload.email) : '' };
+        }
+      } catch (_) {}
+
+      // Guardrail: auth session resolution can hang (offline / browser issues). Never block popup indefinitely.
+      const timeoutMs = 5000;
+      const sessionPromise = this.client.auth.getSession();
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timeout') }), timeoutMs));
+      const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
 
       if (error) throw error;
-
       return session?.user || null;
     } catch (error) {
       console.error('❌ Get current user failed:', error);
@@ -2311,14 +3207,36 @@ class PasteCraftSupabase {
 
       // Get local data from Chrome storage
       const localData = await new Promise((resolve) => {
-        chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'settings', 'userProfile'], resolve);
+        chrome.storage.local.get([
+          'clips',
+          'categories',
+          'searchOnlyClips',
+          'notes',
+          'settings',
+          'userProfile',
+          'pc_deleted_clips',
+          'pc_deleted_archived_clips',
+          'pc_deleted_categories',
+          'pc_deleted_notes'
+        ], resolve);
       });
 
       const localClips = localData.clips || [];
       const localCategories = localData.categories || [];
       const localArchivedClips = localData.searchOnlyClips || [];
+      const localNotes = localData.notes || [];
       const localSettings = localData.settings || {};
       const localProfile = localData.userProfile || {};
+      const deletedClips = localData.pc_deleted_clips || [];
+      const deletedArchivedClips = localData.pc_deleted_archived_clips || [];
+      const deletedCategories = localData.pc_deleted_categories || [];
+      const deletedNotes = localData.pc_deleted_notes || [];
+
+      // Sync soft deletions first (prevents resurrection)
+      await this.syncDeletedClipsToSupabase(deletedClips);
+      await this.syncDeletedArchivedClipsToSupabase(deletedArchivedClips);
+      await this.syncDeletedCategoriesToSupabase(deletedCategories);
+      await this.syncDeletedNotesToSupabase(deletedNotes);
 
       // Sync clips
       await this.syncClipsToSupabase(localClips);
@@ -2353,6 +3271,17 @@ class PasteCraftSupabase {
         console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
       }
 
+      // Sync notes
+      await this.syncNotesToSupabase(localNotes);
+      const remoteNotes = await this.syncNotesFromSupabase();
+      if (remoteNotes) {
+        const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ notes: mergedNotes }, resolve);
+        });
+        console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+      }
+
       // Sync settings
       await this.syncSettingsToSupabase(localSettings);
       const remoteSettings = await this.syncSettingsFromSupabase();
@@ -2367,15 +3296,54 @@ class PasteCraftSupabase {
       await this.syncUserProfileToSupabase(localProfile);
       const remoteProfile = await this.syncUserProfileFromSupabase();
       if (remoteProfile) {
-        // Merge profiles (remote takes precedence for images, local for text)
+        const pickUrl = (localUrl, remoteUrl) => {
+          const l = typeof localUrl === 'string' ? localUrl : '';
+          const r = typeof remoteUrl === 'string' ? remoteUrl : '';
+          if (!l && !r) return '';
+          const supaHost = this._pcGetSupabaseHost();
+          const isSupa = (x) => {
+            const o = this._pcTryParseUrl(x);
+            return !!(o && supaHost && o.hostname === supaHost);
+          };
+          const isTemp = (x) => {
+            const o = this._pcTryParseUrl(x);
+            if (!o) return false;
+            const az = o.hostname.includes('blob.core.windows.net');
+            const hasSig = o.searchParams.has('sig');
+            return az || hasSig || this._pcIsExpiredSas(x);
+          };
+          if (isSupa(r)) return r;
+          if (isSupa(l)) return l;
+          if (l && isTemp(r)) return l;
+          return r || l;
+        };
+
         const mergedProfile = {
           ...localProfile,
-          ...remoteProfile
+          ...remoteProfile,
+          profileImageUrl: pickUrl(localProfile?.profileImageUrl, remoteProfile?.profileImageUrl),
+          profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (localProfile?.profileImageBase64 || null))
         };
         await new Promise((resolve) => {
           chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
         });
         console.log('✅ User profile updated');
+      }
+
+      try {
+        const deviceId = await this.getDeviceId();
+        const userId = await this.getSyncUserId();
+        await this.client
+          .from('device_sync_state')
+          .upsert({
+            user_id: userId,
+            device_id: deviceId,
+            last_sync_at: new Date().toISOString(),
+            last_seen_at: new Date().toISOString(),
+            last_sync_ms: Date.now()
+          }, { onConflict: 'user_id,device_id', ignoreDuplicates: false });
+      } catch (_) {
+        // ignore device sync state failures
       }
 
       console.log('✅ Full sync complete!');
@@ -2385,7 +3353,8 @@ class PasteCraftSupabase {
         stats: {
           clips: remoteClips?.length || 0,
           categories: remoteCategories?.length || 0,
-          archivedClips: remoteArchivedClips?.length || 0
+          archivedClips: remoteArchivedClips?.length || 0,
+          notes: remoteNotes?.length || 0
         }
       };
 

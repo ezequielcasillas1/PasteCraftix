@@ -1,3 +1,13 @@
+### Jan 25, 2026 - Messaging Errors (Missing Receiver/Tab)
+**Status:** SUCCESS
+**Files:** extension/background.js, extension/content-script.js
+**Result:** Added safe messaging helpers + array normalization to prevent runtime messaging and null length errors.
+
+### Jan 25, 2026 - Supabase set_config Request Flood
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** Throttled set_config RPC and added backoff/in-flight dedupe to stop resource exhaustion errors.
+
 ### Jan 4, 2026 - Pre-publish Cleanup
 **Status:** SUCCESS
 **Files:** popup.js, website/pricing.html, content-script.js

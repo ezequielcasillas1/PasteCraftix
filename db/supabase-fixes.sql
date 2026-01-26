@@ -6,17 +6,12 @@
 -- =====================================================
 -- FIX #1: Create missing set_config RPC function
 -- =====================================================
--- This function is required for RLS policies to work with custom user IDs
+-- SECURITY NOTE:
+-- Do NOT expose a set_config RPC to clients. If your RLS depends on
+-- current_setting('app.current_user_id'), a client could spoof it.
+-- This project should use auth.uid()-based policies instead.
 
-CREATE OR REPLACE FUNCTION set_config(setting TEXT, value TEXT)
-RETURNS VOID AS $$
-BEGIN
-  PERFORM set_config(setting, value, false);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute to anon and authenticated roles
-GRANT EXECUTE ON FUNCTION set_config(TEXT, TEXT) TO anon, authenticated;
+DROP FUNCTION IF EXISTS public.set_config(TEXT, TEXT);
 
 -- =====================================================
 -- FIX #2: Storage Bucket Instructions
@@ -92,6 +87,179 @@ CREATE POLICY "Allow all deletes from profile-images"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'profile-images');
 */
+
+-- =====================================================
+-- FIX #4: Durable Sync + Retention (Soft Delete + Notes)
+-- =====================================================
+-- Adds soft delete columns, notes tables, device sync tracking, and audit logs.
+
+-- --- Clips + Archived Clips ---
+ALTER TABLE public.clips
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS device_id TEXT,
+  ADD COLUMN IF NOT EXISTS content_hash TEXT;
+
+ALTER TABLE public.archived_clips
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS device_id TEXT,
+  ADD COLUMN IF NOT EXISTS content_hash TEXT;
+
+ALTER TABLE public.categories
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS device_id TEXT;
+
+-- --- Notes Tables ---
+CREATE TABLE IF NOT EXISTS public.notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+  note_id TEXT NOT NULL,
+  note_type TEXT NOT NULL DEFAULT 'note',
+  title TEXT,
+  description TEXT,
+  body TEXT,
+  attachments JSONB DEFAULT '[]'::jsonb,
+  note_refs JSONB DEFAULT '[]'::jsonb,
+  source_note_ids JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  device_id TEXT,
+  updated_ms BIGINT,
+  content_hash TEXT,
+  UNIQUE(user_id, note_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.note_versions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+  note_id TEXT NOT NULL,
+  version_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  snapshot JSONB NOT NULL,
+  device_id TEXT
+);
+
+-- --- Device Sync State ---
+CREATE TABLE IF NOT EXISTS public.device_sync_state (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  last_sync_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_sync_ms BIGINT,
+  UNIQUE(user_id, device_id)
+);
+
+-- --- Audit Log ---
+CREATE TABLE IF NOT EXISTS public.audit_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  data JSONB,
+  device_id TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- --- Update triggers ---
+DROP TRIGGER IF EXISTS update_clips_updated_at ON public.clips;
+CREATE TRIGGER update_clips_updated_at
+  BEFORE UPDATE ON public.clips
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_archived_clips_updated_at ON public.archived_clips;
+CREATE TRIGGER update_archived_clips_updated_at
+  BEFORE UPDATE ON public.archived_clips
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_categories_updated_at ON public.categories;
+CREATE TRIGGER update_categories_updated_at
+  BEFORE UPDATE ON public.categories
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_notes_updated_at ON public.notes;
+CREATE TRIGGER update_notes_updated_at
+  BEFORE UPDATE ON public.notes
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- --- Enable RLS on new tables ---
+ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.note_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.device_sync_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
+-- --- RLS deletes off (soft delete only) ---
+DROP POLICY IF EXISTS "Users can delete their own clips" ON public.clips;
+DROP POLICY IF EXISTS "Users can delete their own archived clips" ON public.archived_clips;
+DROP POLICY IF EXISTS "Users can delete their own categories" ON public.categories;
+
+-- --- Notes RLS ---
+DROP POLICY IF EXISTS "Users can view their own notes" ON public.notes;
+CREATE POLICY "Users can view their own notes"
+ON public.notes FOR SELECT
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own notes" ON public.notes;
+CREATE POLICY "Users can insert their own notes"
+ON public.notes FOR INSERT
+WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own notes" ON public.notes;
+CREATE POLICY "Users can update their own notes"
+ON public.notes FOR UPDATE
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can view their own note versions" ON public.note_versions;
+CREATE POLICY "Users can view their own note versions"
+ON public.note_versions FOR SELECT
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own note versions" ON public.note_versions;
+CREATE POLICY "Users can insert their own note versions"
+ON public.note_versions FOR INSERT
+WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can view their own device sync state" ON public.device_sync_state;
+CREATE POLICY "Users can view their own device sync state"
+ON public.device_sync_state FOR SELECT
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can upsert their own device sync state" ON public.device_sync_state;
+CREATE POLICY "Users can upsert their own device sync state"
+ON public.device_sync_state FOR INSERT
+WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own device sync state" ON public.device_sync_state;
+CREATE POLICY "Users can update their own device sync state"
+ON public.device_sync_state FOR UPDATE
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can view their own audit log" ON public.audit_log;
+CREATE POLICY "Users can view their own audit log"
+ON public.audit_log FOR SELECT
+USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own audit log" ON public.audit_log;
+CREATE POLICY "Users can insert their own audit log"
+ON public.audit_log FOR INSERT
+WITH CHECK (auth.uid()::text = user_id);
+
+-- --- Realtime ---
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.note_versions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.device_sync_state;
+
+-- --- Indexes ---
+CREATE INDEX IF NOT EXISTS idx_clips_deleted_at ON public.clips(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_archived_clips_deleted_at ON public.archived_clips(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_categories_deleted_at ON public.categories(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_notes_deleted_at ON public.notes(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_note_versions_note_id ON public.note_versions(note_id);
+CREATE INDEX IF NOT EXISTS idx_device_sync_user_id ON public.device_sync_state(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON public.audit_log(user_id);
 
 -- =====================================================
 -- VERIFICATION QUERIES

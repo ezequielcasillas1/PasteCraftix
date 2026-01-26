@@ -237,6 +237,8 @@
     
     <script>
         const EXTENSION_ID = 'nkmpfhkinojohffdichlonlipfhgbobh';
+        const searchParams = new URLSearchParams(window.location.search || '');
+        const state = searchParams.get('state') || '';
         
         // Get hash parameters from URL
         const hash = window.location.hash;
@@ -312,19 +314,11 @@
                     extension toolbar (usually top-right corner).
                 </div>
             `;
-            
-            // Store tokens in localStorage as backup
-            try {
-                localStorage.setItem('pastecraft_reset_token', accessToken);
-                localStorage.setItem('pastecraft_reset_refresh', refreshToken);
-                localStorage.setItem('pastecraft_reset_time', Date.now().toString());
-                console.log('✅ Tokens stored in localStorage');
-            } catch (e) {
-                console.warn('❌ Could not store in localStorage:', e);
+
+            // Try to communicate with extension only if state is present (nonce gating).
+            if (state) {
+                tryExtensionMessage({ type: 'password_reset', access_token: accessToken, refresh_token: refreshToken, state });
             }
-            
-            // Try to communicate with extension
-            tryExtensionMessage({ type: 'password_reset', access_token: accessToken, refresh_token: refreshToken });
         }
         
         function handleOAuthSignIn(accessToken, refreshToken) {

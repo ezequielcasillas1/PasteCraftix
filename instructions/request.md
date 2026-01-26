@@ -254,6 +254,17 @@
 
 ---
 
+#### 22. Quick Login Code (3-digit PIN lock)
+**Priority:** Medium  
+**Status:** Implemented (Extension)  
+**Requirements:**
+- Opt-in “Remember login with 3-digit code” on Sign In
+- Require PIN to unlock the extension UI on open (keep Supabase session; don’t store passwords)
+- Settings: enable/disable + change/reset code
+- Store salted hash in browser sync; add lockout on repeated failures
+
+---
+
 #### 26. URL Link Clips (Clickable + Redeemable)
 **Priority:** Medium  
 **Status:** Not started  
@@ -262,6 +273,28 @@
 - URLs display in **Clips**, **Search**, and **Categories** aka treat it like a regular clip
 - URLs are **clickable/redeemable**: click opens the link in a new tab
 - Support sending URL clips to **Notes** (album/note attachment)
+
+---
+
+#### 27. Zero-Loss Sync + Durable Storage
+**Priority:** High  
+**Status:** In progress  
+**Requirements:**
+- Soft-delete + audit log for clips/categories/notes (no hard deletes)
+- Notes + attachments sync to Supabase with history snapshots
+- Device sync state + conflict merge by updatedAt
+- Tombstones for cross-device deletion consistency
+
+---
+
+#### 28. Restore Merge Mode (No Overwrite)
+**Priority:** High  
+**Status:** In progress  
+**Requirements:**
+- Restore should merge snapshot/backup into current data
+- Deduplicate by content/id; newest wins on conflicts
+- Applies to local restore, sync backup restore, and cloud restore
+- Keep settings/profile from current device unless missing
 
 ---
 
