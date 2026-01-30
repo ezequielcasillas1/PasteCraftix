@@ -247,16 +247,15 @@
 ---
 
 #### 21. Image-to-Text Analyzer (Snipping Tool OCR → Clip)
-**Priority:** Medium  
+**Priority:** High  
 **Status:** Not started  
 **Requirements:**
-- Icon lives in the **top-right mainframe widget** (above main widget)
-- Snipping-tool style: click + drag to capture a screen region (area of interest)
-- Send captured image to AI for text extraction (OCR) and save result as a clip
-- Works on any website (content-script overlay), respects privacy + clear user intent
-- Optional: auto-open preview before saving (confirm/cancel)
-- Popup/module option: allow **manual** Image → Text via **image upload** or **copy/paste image** (clipboard) for users not using the widget
-
+- Lives in a **full-width white top strip** (about ~1cm height, not bulky) that pushes page content down
+- Top strip includes **Spot + Image Picker** (single clean bar at top of webpage)
+- Snipping-tool style: click + drag to capture region; extract text into **editable/formable text**
+- Save result as a clip showing **image + extracted text** (Clips page is the main feed)
+- Hybrid OCR: **local OCR** → if mismatch, prompt “does the text match?” → retry local → **AI/vision OCR fallback on first redo**
+- Optional: preview before saving; popup/module supports manual Image → Text (upload or paste image)
 
 ---
 
@@ -345,6 +344,93 @@ state management.
 
 ---
 
+#### 29. Spot (Field Detection Widget + Preset Lists)
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Popup/module “Spot” page: preset categories (Tags, Address) + CRUD lists inside each category
+- On-page Spot UI lives in the **full-width white top strip** (~1cm height) that pushes page content down
+- Spot turns green when matching fields exist on page; shows menu items for detected category
+- Settings: matcher checkboxes (visible match default, focus match, manual scan gate, strict autocomplete) + actions (preview, fill, copy, batch fill, batch copy/join)
+- Per-item binding: clip joiner + clip settings preset (delimiter + dedupe/sort/uppercase)
+- Only user-initiated actions; never auto-fill without explicit click/confirm
+
+---
+
+#### 30. Copy Filter Presets (Apply + Copy)
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Presets transform selected/page text then copy result (dedupe/sort/case/delimiter + future rules)
+- Entry points: popup button, on-page widget button, context-menu option
+- Prefer highlighted selection; fallback to best-effort page extraction when no selection
+- Optional preview/confirm toggle
+
+---
+
+#### 31. Copy Attempt Indicator + AI Copy Signal
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Detect copy attempts (Ctrl+C/context menu/PasteCraft copy actions) and show indicator: Copied / Not copied
+- “Copied” is true if clipboard updated OR PasteCraft clip saved (either)
+- Optional AI hints: “needed/recommended to copy?” + up to 3 tips (premium-only), non-blocking UI
+- Privacy guardrails: cap text length + include pageUrl only
+
+---
+
+#### 32. Markup Language Support (Beyond Math)
+**Priority:** High  
+**Status:** Coming soon  
+**Requirements:**
+- Support safe rendering/display for: Markdown/CommonMark, HTML (sanitized), Mermaid, AsciiDoc, reStructuredText, Org-mode, BBCode/wiki markup (best effort)
+- Store/use copied `text/html` when available; fallback to plain text
+- Never break normal text clips; add “view raw” toggle for markup payloads
+
+---
+
+#### 33. Mini UI Polish (Tips Widget + Scrollbars + Icons)
+**Priority:** Low  
+**Status:** Not started  
+**Requirements:**
+- Tips widget: add **bottom-left resize handle** (match bottom-right behavior)
+- Blend tips widget scrollbar with widget UI; reduce visual contrast
+- Popup/module scrollbar uses PasteCraft **primary sky-blue** (consistent theme)
+- Notes icons: use **regular flat color** (no gradients)
+- Clips navbar: remove the subtle shaded background behind the search (magnifying glass) area
+
+---
+
+#### 34. AI Output Formatting Mode (Summaries + Breakdowns)
+**Priority:** Low  
+**Status:** Not started  
+**Requirements:**
+- Improve formatting consistency for summaries/breakdowns (clean headings, spacing, readable structure)
+- Remove distracting leading `//` formatting for code/math style outputs (when not needed)
+- Add optional **step mode** toggle: numbered steps (1,2,3,...) for both AI Summary + AI Breakdown
+- Consider model selection for cost/format quality (e.g., GPT-4.1 vs GPT-5) as a configurable option
+
+---
+
+#### 35. 3-Digit Passcode Copy + State Sync
+**Priority:** Low  
+**Status:** Not started  
+**Requirements:**
+- Rename login header: “Remember future sessions with 3 digit passcode”
+- Login checkbox state should reflect Settings state (single source of truth)
+- Rename setting text to: “Require a 3 digit passcode when starting a new session”
+- If session cache exists, remain signed in across browser restarts (until user signs out)
+
+---
+
+#### 36. Funky Animal Name Save/Render Fix
+**Priority:** Low  
+**Status:** Not started  
+**Requirements:**
+- Ensure renamed “funky animal name” persists and renders as the new name in the PasteCraft UI (top-left)
+
+---
+
 
 ## 🎯 **PRIORITY ROADMAP**
 
@@ -403,7 +489,6 @@ To request a new feature:
 
 ---
 
-**Status:** All MVP features complete. Extension ready for production deployment.  
 **Next Review:** After user feedback from MVP release.
 
 ---
