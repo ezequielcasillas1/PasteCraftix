@@ -13,40 +13,36 @@
 
 #### 1. Authorization & Subscription Enforcement
 **Priority:** HIGH (Required for monetization)  
-**Status:** Partial (gating exists, cloud sync enforcement needed)  
+**Status:** Deferred (implement after Stripe tiers are configured)  
 
 **Subscription Tiers:**
 - **FREE:** Unlimited clips via local storage (no cloud sync), no AI
+- **BASIC:** Cloud sync (no AI)
 - **PREMIUM:** Cloud sync + AI features (Breakdown/Summary/Image) + backup/restore
 
 **Requirements:**
-- Block cloud sync for FREE users (local-only mode)
+- Blocked by **#2** (Stripe tier configuration + price → tier mapping)
+- Enforce cloud sync entitlements server-side (FREE local-only; BASIC/PREMIUM allowed)
 - Keep AI premium gating + subscription validation (already exists)
-- Grace period handling for expired subscriptions
-- Weekly/monthly/yearly billing cycle consistency
+- Add grace period handling for expired/past_due subscriptions
 
----
+--- 
 
-#### 2. Payment Integration (Stripe)
+#### 2. Stripe Tier Subscription Sync (FREE / BASIC / PREMIUM)
 **Priority:** HIGH (Required for monetization)  
-**Status:** Partial (Edge Functions exist, deployment/verification needed)  
+**Status:** Next up  
 
 **Requirements:**
-- Deploy `create-checkout`, `stripe-webhook`, `create-portal-session` to Supabase
-- Fix webhook DB write (payments succeeding but not recorded)
-- Enable Manage/Cancel subscription via Stripe portal
-- End-to-end test payment → webhook → premium unlock
+- Update Stripe → DB sync to support **FREE / BASIC / PREMIUM** tiers (unblocks **#1**)
+- Map Stripe Price IDs → tier + features; persist tier on webhook events
+- Authenticate premium-gated endpoints (sync + AI) and enforce entitlements server-side
+- End-to-end test: upgrade/downgrade/cancel → webhook → tier update → feature gating
 
 ---
 
 #### 3. Subscription Description (Website + Upgrade Page)
 **Priority:** HIGH  
-**Status:** Coming soon  
-
-**Requirements:**
-- Add clear FREE vs PREMIUM descriptions on pricing + upgrade + home
-- Emphasize: FREE = unlimited local clips; PREMIUM = cloud sync + AI
-- Keep messaging consistent across pages
+**Status:** ✅ Completed  
 
 ---
 
@@ -230,6 +226,16 @@
 
 ---
 
+#### 18. Unsubscribe Portal Routing (pastecraft.com)
+**Priority:** Medium  
+**Status:** Not started  
+**Requirements:**
+- Unsubscribe portal should redirect to `pastecraft.com` unsubscribe form (if it exists)
+- If no dedicated form exists, route user to a PasteCraft unsubscribe routed page (e.g. `/unsubscribe`)
+- Ensure all unsubscribe links (emails/portal) use the same destination
+
+---
+
 #### 20. Right-Side Widget UI Polish (Transparency + Tight Fit)
 **Priority:** High  
 **Status:** Not started  
@@ -256,12 +262,52 @@
 
 #### 22. Quick Login Code (3-digit PIN lock)
 **Priority:** Medium  
-**Status:** Implemented (Extension)  
+**Status:** Partial (Needs multi-device + sync reliability fixes)  
 **Requirements:**
 - Opt-in “Remember login with 3-digit code” on Sign In
 - Require PIN to unlock the extension UI on open (keep Supabase session; don’t store passwords)
-- Settings: enable/disable + change/reset code
-- Store salted hash in browser sync; add lockout on repeated failures
+- Ensure Supabase login/session is recognized across multiple computers (sync ops work seamlessly after sign-in)
+- PIN unlock works across devices via browser sync storage (same account, same PIN hash)
+- Settings: enable/disable + change/reset code; add lockout on repeated failures
+
+**Bug:**
+- After setting a 3-digit PIN during sign-in, the extension later reports no PIN exists and prompts to create it again.
+- “Require 3-digit code on open” checkbox is unreliable (doesn’t consistently enforce lock/unlock on open)
+- “Change 3-digit code” and “Disable code” actions do not reliably apply/persist; review state/storage flow
+- Add confirm modal for **Disable code** (are you sure?)
+- Add confirm modal for **Change 3-digit code** (confirm new PIN / confirm changes)
+
+---
+
+#### 23. Quick Paste Settings Cleanup (Remove Theme)
+**Priority:** Low  
+**Status:** Coming soon  
+**Requirements:**
+- Remove Quick Paste “Theme” setting (redundant with global Dark Mode)
+- Quick Paste UI should follow the global theme from Profile/Settings (single source of truth):
+making sure that settings and profile have a dark mode setting, in which if one turns on the other in settings has to match which is called
+state management.
+- Keep only behavior settings here (auto-hide, timestamps, max clips)
+
+---
+
+#### 24. Image Copy Options (Image / URL / Both)
+**Priority:** Medium  
+**Status:** Coming soon  
+**Requirements:**
+- Add a third right-click option: **Copy both (Image + URL)**
+- Ensure “Copy Image” → image clip only, “Copy Image Link” → URL clip only, “Copy both” → saves both clip types
+
+---
+
+#### 25. Math Clip Rendering (LaTeX/MathML)
+**Priority:** Medium  
+**Status:** Coming soon  
+**Requirements:**
+- Math copies may arrive as **plain text**, **HTML** (MathML/KaTeX/MathJax), or **image** depending on source
+- When available, store/use the copied `text/html` payload for rendering (fallback to plain text)
+- Develop support for Math markup formats (MathML/KaTeX/MathJax) so math renders comfortably with high-quality output in Clips
+- Render math safely in Clips viewer (best effort) and never break normal text clips
 
 ---
 
@@ -273,6 +319,7 @@
 - URLs display in **Clips**, **Search**, and **Categories** aka treat it like a regular clip
 - URLs are **clickable/redeemable**: click opens the link in a new tab
 - Support sending URL clips to **Notes** (album/note attachment)
+
 
 ---
 

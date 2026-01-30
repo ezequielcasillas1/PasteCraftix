@@ -9,6 +9,8 @@
 
 - DEV4EVER coupon users are redirected to upgrade page after canceling paid subscription. Expected: coupon entitlement (`has_unlimited_ai`) should still allow premium AI features. Current: premium check sends user to buy subscription.
 
+- Image copy type mismatch: “Copy Image Link” should create a **URL clip only** (not an image clip). “Copy Image” should create an **image clip only** (not a URL clip).
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

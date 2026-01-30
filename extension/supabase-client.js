@@ -13,15 +13,8 @@ class PasteCraftSupabase {
     this.syncProgress = { current: 0, total: 0, percentage: 0 };
     this._subscriptionCacheKey = 'pc_subscription_cache_v1';
     this._sessionBridgeKey = 'pc_supabase_session_v1';
-    this._deviceIdKey = 'pc_device_id_v1';
-    this.deviceId = null;
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
-    // Avoid spamming set_config RPC across repeated calls.
-    this._lastUserContextId = null;
-    this._lastUserContextAt = 0;
-    this._userContextBackoffUntil = 0;
-    this._userContextInFlight = null;
     this.init();
     this.setupConnectionMonitor();
   }

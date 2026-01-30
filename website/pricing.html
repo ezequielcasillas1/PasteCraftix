@@ -483,8 +483,8 @@
         // Initialize Stripe with your publishable key
         const stripe = Stripe('pk_live_51QfDc3LOdeLTrjapSQ63f8r7lOVqtOo4f0BBL1SjAws6AH9ia4Dys0JxznKeFo3QooVYdVULajaDWDdfSN0GviI300GBctnQoj');
 
-        // Supabase anon key (public) - used as Bearer token for Edge Functions
-        // NOTE: Must match `config.js` (PASTECRAFT_CONFIG.supabase.anonKey)
+        // Database anon key (public) - used as Bearer token for Edge Functions
+        // NOTE: Must match `config.js` anonKey setting
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o';
 
         const PLAN_CONFIG = {

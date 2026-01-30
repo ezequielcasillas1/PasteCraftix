@@ -394,6 +394,10 @@ CREATE POLICY "Users can update their own clips"
     ON public.clips FOR UPDATE
     USING (auth.uid()::text = user_id);
 
+CREATE POLICY "Users can delete their own clips"
+    ON public.clips FOR DELETE
+    USING (auth.uid()::text = user_id);
+
 -- archived_clips policies
 CREATE POLICY "Users can view their own archived clips"
     ON public.archived_clips FOR SELECT
@@ -402,6 +406,10 @@ CREATE POLICY "Users can view their own archived clips"
 CREATE POLICY "Users can insert their own archived clips"
     ON public.archived_clips FOR INSERT
     WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can delete their own archived clips"
+    ON public.archived_clips FOR DELETE
+    USING (auth.uid()::text = user_id);
 
 -- categories policies
 CREATE POLICY "Users can view their own categories"
@@ -416,6 +424,10 @@ CREATE POLICY "Users can update their own categories"
     ON public.categories FOR UPDATE
     USING (auth.uid()::text = user_id);
 
+CREATE POLICY "Users can delete their own categories"
+    ON public.categories FOR DELETE
+    USING (auth.uid()::text = user_id);
+
 -- settings policies
 CREATE POLICY "Users can view their own settings"
     ON public.settings FOR SELECT
@@ -428,50 +440,6 @@ CREATE POLICY "Users can insert their own settings"
 CREATE POLICY "Users can update their own settings"
     ON public.settings FOR UPDATE
     USING (auth.uid()::text = user_id);
-
--- notes policies
-CREATE POLICY "Users can view their own notes"
-    ON public.notes FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can insert their own notes"
-    ON public.notes FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can update their own notes"
-    ON public.notes FOR UPDATE
-    USING (auth.uid()::text = user_id);
-
--- note_versions policies
-CREATE POLICY "Users can view their own note versions"
-    ON public.note_versions FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can insert their own note versions"
-    ON public.note_versions FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
-
--- device_sync_state policies
-CREATE POLICY "Users can view their own device sync state"
-    ON public.device_sync_state FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can upsert their own device sync state"
-    ON public.device_sync_state FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can update their own device sync state"
-    ON public.device_sync_state FOR UPDATE
-    USING (auth.uid()::text = user_id);
-
--- audit_log policies
-CREATE POLICY "Users can view their own audit log"
-    ON public.audit_log FOR SELECT
-    USING (auth.uid()::text = user_id);
-
-CREATE POLICY "Users can insert their own audit log"
-    ON public.audit_log FOR INSERT
-    WITH CHECK (auth.uid()::text = user_id);
 
 -- =====================================================
 -- REALTIME SUBSCRIPTIONS

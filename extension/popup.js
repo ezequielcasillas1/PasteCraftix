@@ -114,9 +114,15 @@ class PasteCraftPopup {
 
     // PIN lock (3-digit) state
     this._pinConfig = null; // { enabled, salt, hash, updatedAt }
-    this._pinUnlockSessionKey = 'pc_pin_unlocked_v1'; // sessionStorage
-    this._pinConfigKey = 'pc_pin_v1'; // chrome.storage.sync + local cache
-    this._pinAttemptsKey = 'pc_pin_attempts_v1'; // chrome.storage.local only
+    // sessionStorage is per-popup-document; use chrome.storage.session for whole-browser-session unlock.
+    this._pinUnlockSessionKey = 'pc_pin_unlocked_v2'; // chrome.storage.session + sessionStorage fallback
+    // NOTE: PIN storage is account-scoped for cross-device use (via browser sync).
+    // Legacy (pre-scope) key is still supported for migration.
+    this._pinConfigKey = 'pc_pin_v1'; // base key (scoped as `${base}:${userId}`) in chrome.storage.sync + local cache
+    this._pinAttemptsKey = 'pc_pin_attempts_v1'; // chrome.storage.local only (scoped as `${base}:${userId}`)
+
+    // Auth preferences (local-only; never store passwords)
+    this._authPrefsKey = 'pc_auth_prefs_v1';
 
     // Restore points (local snapshots)
     this._restorePointsKey = 'pc_restore_points_v1';
@@ -127,6 +133,101 @@ class PasteCraftPopup {
     this._lastAppliedRestore = null; // { point, appliedAt }
     
     this.init();
+  }
+
+  // =====================================================
+  // AUTH PREFS (local-only; never store passwords)
+  // =====================================================
+
+  async loadAuthPrefs() {
+    const defaults = { staySignedIn: true, rememberEmail: false, rememberedEmail: '' };
+    try {
+      const res = await chrome.storage.local.get([this._authPrefsKey]);
+      const raw = res?.[this._authPrefsKey] || null;
+      const staySignedIn = raw && typeof raw.staySignedIn === 'boolean' ? raw.staySignedIn : defaults.staySignedIn;
+      const rememberEmail = raw && typeof raw.rememberEmail === 'boolean' ? raw.rememberEmail : defaults.rememberEmail;
+      const rememberedEmail = (raw && typeof raw.rememberedEmail === 'string') ? raw.rememberedEmail : defaults.rememberedEmail;
+      return {
+        staySignedIn,
+        rememberEmail,
+        rememberedEmail: rememberedEmail.slice(0, 320)
+      };
+    } catch (_) {
+      return { ...defaults };
+    }
+  }
+
+  async saveAuthPrefs(next) {
+    try {
+      const current = await this.loadAuthPrefs();
+      const merged = {
+        ...current,
+        ...next
+      };
+      // Never store passwords; only store email if explicitly requested.
+      const rememberEmail = !!merged.rememberEmail;
+      const rememberedEmail = rememberEmail ? String(merged.rememberedEmail || '').slice(0, 320) : '';
+      const payload = {
+        staySignedIn: merged.staySignedIn !== false,
+        rememberEmail,
+        rememberedEmail,
+        updatedAt: Date.now()
+      };
+      await chrome.storage.local.set({ [this._authPrefsKey]: payload });
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async applyAuthPrefsToUi() {
+    const prefs = await this.loadAuthPrefs();
+
+    // Auth modal
+    try {
+      const stayEl = document.getElementById('staySignedIn');
+      if (stayEl) stayEl.checked = prefs.staySignedIn !== false;
+
+      const rememberEmailEl = document.getElementById('rememberEmail');
+      if (rememberEmailEl) rememberEmailEl.checked = !!prefs.rememberEmail;
+
+      const emailEl = document.getElementById('signinEmail');
+      if (emailEl && prefs.rememberEmail && prefs.rememberedEmail) {
+        if (!emailEl.value) emailEl.value = prefs.rememberedEmail;
+      }
+    } catch (_) {}
+
+    // Settings modal
+    try {
+      const stayEl = document.getElementById('staySignedInSetting');
+      if (stayEl) stayEl.checked = prefs.staySignedIn !== false;
+      const rememberEl = document.getElementById('rememberEmailSetting');
+      if (rememberEl) rememberEl.checked = !!prefs.rememberEmail;
+    } catch (_) {}
+
+    return prefs;
+  }
+
+  // =====================================================
+  // PIN STORAGE KEYS (account-scoped)
+  // =====================================================
+
+  async _getAuthedUserIdForPin() {
+    // Best-effort: avoid throwing; return '' if not signed in.
+    try {
+      if (this.currentUser?.id) return String(this.currentUser.id);
+    } catch (_) {}
+    try {
+      const u = await pasteCraftSupabase.getCurrentUser();
+      return u?.id ? String(u.id) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  _pinScopedKey(base, userId) {
+    const uid = String(userId || '').trim();
+    return uid ? `${String(base)}:${uid}` : String(base);
   }
 
   _clipIdKey(id) {
@@ -166,19 +267,6 @@ class PasteCraftPopup {
     return ordered;
   }
 
-  async appendDeletedItems(storageKey, items, limit = 2000) {
-    if (!storageKey || !Array.isArray(items) || items.length === 0) return;
-    try {
-      const res = await chrome.storage.local.get([storageKey]);
-      const existing = Array.isArray(res?.[storageKey]) ? res[storageKey] : [];
-      const merged = [...items, ...existing];
-      const trimmed = merged.slice(0, limit);
-      await chrome.storage.local.set({ [storageKey]: trimmed });
-    } catch (_) {
-      // ignore
-    }
-  }
-
   async deleteClipsByIdKeys(idKeys, {
     includeArchived = true,
     reason = 'delete:unknown',
@@ -191,15 +279,6 @@ class PasteCraftPopup {
 
     return this._queueClipOp(async () => {
       const idSet = new Set(ids);
-      const deletedAt = Date.now();
-      const deletedClips = (Array.isArray(this.clips) ? this.clips : [])
-        .filter(c => idSet.has(this._clipIdKey(c?.id)))
-        .map(c => ({ ...c, deletedAt, updatedAt: deletedAt }));
-      const deletedArchived = includeArchived
-        ? (Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips : [])
-          .filter(c => idSet.has(this._clipIdKey(c?.id)))
-          .map(c => ({ ...c, deletedAt, updatedAt: deletedAt }))
-        : [];
       const beforeActive = Array.isArray(this.clips) ? this.clips.length : 0;
       const beforeArchived = Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips.length : 0;
 
@@ -217,12 +296,6 @@ class PasteCraftPopup {
       // Update in-memory state
       this.clips = nextClips;
       this.searchOnlyClips = nextArchived;
-
-      // Persist deletions for soft-delete sync
-      await this.appendDeletedItems('pc_deleted_clips', deletedClips);
-      if (includeArchived) {
-        await this.appendDeletedItems('pc_deleted_archived_clips', deletedArchived);
-      }
 
       // Atomic write
       await chrome.storage.local.set({
@@ -263,16 +336,10 @@ class PasteCraftPopup {
       try {
         // Online: sync now; Offline/failure: queued for retry automatically.
         Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncDeletedClips', deletedClips, pasteCraftSupabase.syncDeletedClipsToSupabase))
-          .catch(() => {});
-        Promise.resolve()
           .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
           .catch(() => {});
 
         if (includeArchived) {
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncDeletedArchivedClips', deletedArchived, pasteCraftSupabase.syncDeletedArchivedClipsToSupabase))
-            .catch(() => {});
           Promise.resolve()
             .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
             .catch(() => {});
@@ -332,6 +399,15 @@ class PasteCraftPopup {
     
     // Check for OAuth callback tokens
     await this.checkOAuthCallback();
+
+    // Best-effort: restore database auth session from the session bridge.
+    // This prevents "blank sign-in" after browser restart when a refresh token exists.
+    try {
+      const prefs = await this.loadAuthPrefs();
+      if (prefs.staySignedIn !== false) {
+        await this.restoreSupabaseSessionFromBridge('startup');
+      }
+    } catch (_) {}
     
     // Check if user is authenticated
     const currentUser = await pasteCraftSupabase.getCurrentUser();
@@ -377,6 +453,11 @@ class PasteCraftPopup {
     await this.loadSettings();
     await this.loadUserProfile();
     await this.loadAnalysisHistory();
+
+    // Local restore points (best-effort): create today's snapshot early (before any cleanup/sync).
+    try {
+      await this.maybeCreateDailyRestorePoint('startup');
+    } catch (_) {}
 
     // Always update top bar name/image (even if no image saved yet)
     this.updateTopBarIdentity();
@@ -542,7 +623,7 @@ class PasteCraftPopup {
       ]);
 
       // Repair duplicate / missing clip ids in local storage BEFORE any syncing/backup.
-      // This prevents clip rows overwriting each other in Supabase and collapsing during merge.
+      // This prevents clip rows overwriting each other in database and collapsing during merge.
       const repaired = this.repairLocalClipIds(local.clips, local.searchOnlyClips);
       if (repaired.changed) {
         await chrome.storage.local.set({
@@ -942,7 +1023,7 @@ class PasteCraftPopup {
     try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
 
     const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nData will be automatically synced to cloud when online.\n\nProceed?'
+      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click “Sync restored data to cloud”.\n\nProceed?'
     );
     if (!ok) return false;
 
@@ -972,499 +1053,32 @@ class PasteCraftPopup {
     this.updateLastCapture();
     try { this.updateStorageStats(); } catch (_) {}
 
-    // Ensure the latest sync backup is updated (cross-device transfer)
+    // Ensure the latest sync backup is updated (cross-device transfer) but do not force cloud sync.
     try { await this.backupLocalToSync('restore:apply'); } catch (_) {}
 
     this._lastAppliedRestore = { point, appliedAt };
+    const btn = document.getElementById('syncRestoredToCloudBtn');
+    if (btn) btn.disabled = false;
 
-    // Auto-sync to cloud (non-blocking, fire-and-forget)
-    this.performBackgroundSync({ force: true, reason: 'restore:auto' })
-      .then(() => console.log('✅ Restored data synced to cloud'))
-      .catch(() => console.log('⚠️ Cloud sync skipped (offline or error)'));
-
-    this.showToast('✅ Restore complete');
+    this.showToast('✅ Restore complete (local only)');
     return true;
   }
 
-  async recoverFromSyncBackup() {
-    try {
-      const sync = await new Promise((resolve) => chrome.storage.sync.get(['pc_sync_backup_v1'], resolve));
-      const backup = sync?.pc_sync_backup_v1 || null;
-      const backupClips = Array.isArray(backup?.clips) ? backup.clips : [];
-      const backupArchived = Array.isArray(backup?.searchOnlyClips) ? backup.searchOnlyClips : [];
-      const backupCategories = Array.isArray(backup?.categories) ? backup.categories : [];
-      const backupNotes = Array.isArray(backup?.notes) ? backup.notes : [];
-      const backupHasAny = backupClips.length > 0 || backupArchived.length > 0 || backupNotes.length > 0;
-
-      if (!backupHasAny) {
-        this.showToast('⚠️ No sync backup found', 'error');
-        return false;
-      }
-
-      const ok = confirm(
-        'This will merge your browser sync backup into current Clips and Archive (deduped).\n\nProceed?'
-      );
-      if (!ok) return false;
-
-      const current = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes', 'settings', 'userProfile']);
-      const appliedAt = Date.now();
-      const mergedClips = this._mergeRestoreArrays(current.clips, backupClips, { kind: 'clip' });
-      const mergedArchived = this._mergeRestoreArrays(current.searchOnlyClips, backupArchived, { kind: 'archived' });
-      const mergedCategories = this._mergeRestoreArrays(current.categories, backupCategories, { kind: 'category' });
-      const mergedNotes = this._mergeRestoreArrays(current.notes, backupNotes, { kind: 'note' });
-      await chrome.storage.local.set({
-        clips: mergedClips.slice(0, 500),
-        searchOnlyClips: mergedArchived.slice(0, 1000),
-        categories: mergedCategories.slice(0, 300),
-        notes: mergedNotes.slice(0, 300),
-        notesViewMode: backup?.notesViewMode || 'notes',
-        notesPageIndex: typeof backup?.notesPageIndex === 'number' ? backup.notesPageIndex : 0,
-        notesAiEnabled: !!backup?.notesAiEnabled,
-        settings: current.settings || backup?.settings || {},
-        userProfile: current.userProfile || backup?.userProfile || null,
-        pc_local_updatedAt: appliedAt,
-        [this._lastRestoreAtKey]: appliedAt,
-        [this._lastRestorePointIdKey]: 'sync-backup'
-      });
-
-      await this.loadData();
-      await this.loadNotes();
-      await this.loadSettings();
-      await this.loadUserProfile();
-      this.renderChips();
-      this.renderCategories();
-      this.renderNotes();
-      this.updateCategoryFilter();
-      this.updateManualInputCategories();
-      this.updatePreview();
-      this.updateLastCapture();
-      this.updateTopBarIdentity();
-      try { this.updateStorageStats(); } catch (_) {}
-
-      try { await this.backupLocalToSync('restore:sync-backup'); } catch (_) {}
-
-      this._lastAppliedRestore = {
-        point: {
-          id: 'sync-backup',
-          kind: 'sync',
-          createdAt: typeof backup?.updatedAt === 'number' ? backup.updatedAt : appliedAt,
-          clips: backupClips,
-          searchOnlyClips: backupArchived,
-          categories: backupCategories,
-          notes: backupNotes
-        },
-        appliedAt
-      };
-
-      // Auto-sync to cloud (non-blocking)
-      this.performBackgroundSync({ force: true, reason: 'restore:sync-backup' })
-        .then(() => console.log('✅ Restored data synced to cloud'))
-        .catch(() => console.log('⚠️ Cloud sync skipped (offline or error)'));
-
-      this.showToast(`✅ Restored ${backupClips.length} clips from sync backup`);
-      return true;
-    } catch (error) {
-      this.showToast('⚠️ Sync backup recovery failed', 'error');
-      return false;
-    }
-  }
-
-  async recoverFromCloud() {
-    try {
-      const user = await pasteCraftSupabase.getCurrentUser();
-      if (!user) {
-        this.showToast('⚠️ Sign in to recover from cloud', 'error');
-        return false;
-      }
-
-      const local = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'settings', 'userProfile']);
-      const [remoteClips, remoteArchived, remoteCategories, remoteSettings, remoteProfile] = await Promise.all([
-        pasteCraftSupabase.syncClipsFromSupabase(),
-        pasteCraftSupabase.syncArchivedClipsFromSupabase(),
-        pasteCraftSupabase.syncCategoriesFromSupabase(),
-        pasteCraftSupabase.syncSettingsFromSupabase(),
-        pasteCraftSupabase.syncUserProfileFromSupabase()
-      ]);
-
-      const clips = Array.isArray(remoteClips) ? remoteClips : [];
-      const archived = Array.isArray(remoteArchived) ? remoteArchived : [];
-      const categories = Array.isArray(remoteCategories) ? remoteCategories : [];
-      const hasAny = clips.length > 0 || archived.length > 0;
-
-      if (!hasAny) {
-        this.showToast('⚠️ No cloud clips found', 'error');
-        return false;
-      }
-
-      const ok = confirm(
-        'This will merge cloud data into current Clips and Archive (deduped).\n\nProceed?'
-      );
-      if (!ok) return false;
-
-      const appliedAt = Date.now();
-      const mergedClips = this._mergeRestoreArrays(local.clips, clips, { kind: 'clip' });
-      const mergedArchived = this._mergeRestoreArrays(local.searchOnlyClips, archived, { kind: 'archived' });
-      const mergedCategories = this._mergeRestoreArrays(local.categories, categories, { kind: 'category' });
-      await chrome.storage.local.set({
-        clips: mergedClips.slice(0, 500),
-        searchOnlyClips: mergedArchived.slice(0, 1000),
-        categories: mergedCategories.slice(0, 300),
-        settings: remoteSettings || local.settings || {},
-        userProfile: remoteProfile || local.userProfile || null,
-        pc_local_updatedAt: appliedAt,
-        [this._lastRestoreAtKey]: appliedAt,
-        [this._lastRestorePointIdKey]: 'cloud-recovery'
-      });
-
-      await this.loadData();
-      await this.loadSettings();
-      await this.loadUserProfile();
-      this.renderChips();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.updateManualInputCategories();
-      this.updatePreview();
-      this.updateLastCapture();
-      this.updateTopBarIdentity();
-      try { this.updateStorageStats(); } catch (_) {}
-
-      try { await this.backupLocalToSync('restore:cloud'); } catch (_) {}
-
-      this._lastAppliedRestore = {
-        point: {
-          id: 'cloud-recovery',
-          kind: 'cloud',
-          createdAt: appliedAt,
-          clips,
-          searchOnlyClips: archived,
-          categories,
-          notes: []
-        },
-        appliedAt
-      };
-
-      // Cloud recovery already has cloud data, no need to sync back
-      this.showToast(`✅ Restored ${clips.length} clips from cloud`);
-      return true;
-    } catch (error) {
-      this.showToast('⚠️ Cloud recovery failed', 'error');
-      return false;
-    }
-  }
-
-  // =====================================================
-  // UNIFIED RESTORE UI (new dropdown-based interface)
-  // =====================================================
-
-  async updateRestorePreview() {
-    const restoreType = document.getElementById('restoreTypeSelect')?.value || 'clips';
-    const restoreSource = document.getElementById('restoreSourceSelect')?.value || 'local';
-    const restoreWindow = document.getElementById('restoreWindowSelect')?.value || '1week';
-    const previewEl = document.getElementById('restorePreviewText');
-
-    if (!previewEl) return;
-
-    try {
-      if (restoreSource === 'local') {
-        // Local snapshot preview
-        const points = await this._loadRestorePoints();
-        const { point, cutoffMs } = this._selectRestorePointForWindow(points, restoreWindow);
-        this._lastPreviewRestore = { point, cutoffMs, windowKey: restoreWindow, type: restoreType, source: restoreSource };
-
-        if (!point) {
-          previewEl.textContent = 'No local restore points found yet.';
-          return;
-        }
-
-        const when = new Date(point.createdAt).toLocaleString();
-        const counts = this._getRestoreTypeCounts(point, restoreType);
-        previewEl.textContent = `Local snapshot: ${when}. ${counts}`;
-
-      } else if (restoreSource === 'sync') {
-        // Browser sync backup preview
-        const sync = await new Promise((resolve) => chrome.storage.sync.get(['pc_sync_backup_v1'], resolve));
-        const backup = sync?.pc_sync_backup_v1 || null;
-        this._lastPreviewRestore = { backup, type: restoreType, source: restoreSource };
-
-        if (!backup) {
-          previewEl.textContent = 'No browser sync backup found.';
-          return;
-        }
-
-        const when = backup.updatedAt ? new Date(backup.updatedAt).toLocaleString() : 'Unknown';
-        const counts = this._getRestoreTypeCounts(backup, restoreType);
-        previewEl.textContent = `Sync backup: ${when}. ${counts}`;
-
-      } else if (restoreSource === 'cloud') {
-        // Cloud preview (requires sign-in)
-        const user = await pasteCraftSupabase.getCurrentUser();
-        if (!user) {
-          previewEl.textContent = 'Sign in to preview cloud data.';
-          this._lastPreviewRestore = { type: restoreType, source: restoreSource };
-          return;
-        }
-
-        previewEl.textContent = 'Cloud data available. Click Restore to fetch and apply.';
-        this._lastPreviewRestore = { type: restoreType, source: restoreSource };
-      }
-    } catch (error) {
-      console.error('Failed to update restore preview:', error);
-      previewEl.textContent = 'Failed to load preview.';
-    }
-  }
-
-  _getRestoreTypeCounts(data, type) {
-    const clips = Array.isArray(data?.clips) ? data.clips.length : 0;
-    const archived = Array.isArray(data?.searchOnlyClips) ? data.searchOnlyClips.length : 0;
-    const categories = Array.isArray(data?.categories) ? data.categories.length : 0;
-    const notes = Array.isArray(data?.notes) ? data.notes.length : 0;
-
-    switch (type) {
-      case 'clips':
-        return `Clips: ${clips} active, ${archived} archived.`;
-      case 'categories':
-        return `Categories: ${categories}.`;
-      case 'notes':
-        return `Notes: ${notes}.`;
-      case 'gallery':
-        return 'Gallery restore from cloud not yet supported.';
-      case 'all':
-        return `Clips: ${clips} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
-      default:
-        return '';
-    }
-  }
-
-  async performRestore() {
-    const preview = this._lastPreviewRestore;
-    if (!preview) {
-      this.showToast('⚠️ Click Preview first', 'error');
+  async syncRestoredDataToCloud() {
+    const applied = this._lastAppliedRestore;
+    if (!applied || !applied.point) {
+      this.showToast('⚠️ Restore first, then sync to cloud', 'error');
       return false;
     }
 
-    const { type, source } = preview;
-
-    if (source === 'local') {
-      return this._restoreFromLocal(preview);
-    } else if (source === 'sync') {
-      return this._restoreFromSync(preview);
-    } else if (source === 'cloud') {
-      return this._restoreFromCloudUnified(preview);
-    }
-
-    return false;
-  }
-
-  async _restoreFromLocal(preview) {
-    const { point, type } = preview;
-    if (!point) {
-      this.showToast('⚠️ No restore point available', 'error');
-      return false;
-    }
-
-    // Safety net: create a manual restore point before overwriting local storage.
-    try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
-
-    const typeLabel = type === 'all' ? 'all data' : type;
-    const ok = confirm(`Restore ${typeLabel} from local snapshot?\n\nThis will merge snapshot data into your current ${typeLabel} (deduped).\n\nProceed?`);
+    const ok = confirm(
+      'This will sync your CURRENT local state to the cloud.\n\nThis may overwrite cloud clips to match the restored snapshot.\n\nProceed?'
+    );
     if (!ok) return false;
 
-    const dataToSet = { pc_local_updatedAt: Date.now() };
-    const current = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes']);
-
-    if (type === 'clips' || type === 'all') {
-      const mergedClips = this._mergeRestoreArrays(current.clips, point.clips, { kind: 'clip' });
-      const mergedArchived = this._mergeRestoreArrays(current.searchOnlyClips, point.searchOnlyClips, { kind: 'archived' });
-      dataToSet.clips = mergedClips.slice(0, 500);
-      dataToSet.searchOnlyClips = mergedArchived.slice(0, 1000);
-    }
-    if (type === 'categories' || type === 'all') {
-      const mergedCategories = this._mergeRestoreArrays(current.categories, point.categories, { kind: 'category' });
-      dataToSet.categories = mergedCategories.slice(0, 300);
-    }
-    if (type === 'notes' || type === 'all') {
-      const mergedNotes = this._mergeRestoreArrays(current.notes, point.notes, { kind: 'note' });
-      dataToSet.notes = mergedNotes.slice(0, 300);
-    }
-
-    await chrome.storage.local.set(dataToSet);
-    await this._postRestoreRefresh(type);
-
-    // Auto-sync to cloud (non-blocking)
-    this.performBackgroundSync({ force: true, reason: 'restore:local' })
-      .then(() => console.log('✅ Restored data synced to cloud'))
-      .catch(() => console.log('⚠️ Cloud sync skipped (offline or error)'));
-
-    this.showToast(`✅ Restored ${typeLabel} from local snapshot`);
+    await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
+    this.showToast('✅ Synced restored data to cloud');
     return true;
-  }
-
-  async _restoreFromSync(preview) {
-    const { backup, type } = preview;
-    if (!backup) {
-      this.showToast('⚠️ No sync backup found', 'error');
-      return false;
-    }
-
-    const typeLabel = type === 'all' ? 'all data' : type;
-    const ok = confirm(`Restore ${typeLabel} from browser sync backup?\n\nThis will merge backup data into your current ${typeLabel} (deduped).\n\nProceed?`);
-    if (!ok) return false;
-
-    const dataToSet = { pc_local_updatedAt: Date.now() };
-    const current = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes']);
-
-    if (type === 'clips' || type === 'all') {
-      const mergedClips = this._mergeRestoreArrays(current.clips, backup.clips, { kind: 'clip' });
-      const mergedArchived = this._mergeRestoreArrays(current.searchOnlyClips, backup.searchOnlyClips, { kind: 'archived' });
-      dataToSet.clips = mergedClips.slice(0, 500);
-      dataToSet.searchOnlyClips = mergedArchived.slice(0, 1000);
-    }
-    if (type === 'categories' || type === 'all') {
-      const mergedCategories = this._mergeRestoreArrays(current.categories, backup.categories, { kind: 'category' });
-      dataToSet.categories = mergedCategories.slice(0, 300);
-    }
-    if (type === 'notes' || type === 'all') {
-      const mergedNotes = this._mergeRestoreArrays(current.notes, backup.notes, { kind: 'note' });
-      dataToSet.notes = mergedNotes.slice(0, 300);
-    }
-
-    await chrome.storage.local.set(dataToSet);
-    await this._postRestoreRefresh(type);
-
-    // Auto-sync to cloud (non-blocking)
-    this.performBackgroundSync({ force: true, reason: 'restore:sync' })
-      .then(() => console.log('✅ Restored data synced to cloud'))
-      .catch(() => console.log('⚠️ Cloud sync skipped (offline or error)'));
-
-    this.showToast(`✅ Restored ${typeLabel} from sync backup`);
-    return true;
-  }
-
-  async _restoreFromCloudUnified(preview) {
-    const { type } = preview;
-
-    const user = await pasteCraftSupabase.getCurrentUser();
-    if (!user) {
-      this.showToast('⚠️ Sign in to restore from cloud', 'error');
-      return false;
-    }
-
-    const typeLabel = type === 'all' ? 'all data' : type;
-    const ok = confirm(`Restore ${typeLabel} from cloud?\n\nThis will merge cloud data into your current ${typeLabel} (deduped).\n\nProceed?`);
-    if (!ok) return false;
-
-    try {
-      const dataToSet = { pc_local_updatedAt: Date.now() };
-      const current = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes']);
-
-      if (type === 'clips' || type === 'all') {
-        const [remoteClips, remoteArchived] = await Promise.all([
-          pasteCraftSupabase.syncClipsFromSupabase(),
-          pasteCraftSupabase.syncArchivedClipsFromSupabase()
-        ]);
-        const mergedClips = this._mergeRestoreArrays(current.clips, remoteClips, { kind: 'clip' });
-        const mergedArchived = this._mergeRestoreArrays(current.searchOnlyClips, remoteArchived, { kind: 'archived' });
-        dataToSet.clips = mergedClips.slice(0, 500);
-        dataToSet.searchOnlyClips = mergedArchived.slice(0, 1000);
-      }
-      if (type === 'categories' || type === 'all') {
-        const remoteCategories = await pasteCraftSupabase.syncCategoriesFromSupabase();
-        const mergedCategories = this._mergeRestoreArrays(current.categories, remoteCategories, { kind: 'category' });
-        dataToSet.categories = mergedCategories.slice(0, 300);
-      }
-      if (type === 'notes' || type === 'all') {
-        // Notes not stored in cloud yet
-      }
-      if (type === 'gallery') {
-        this.showToast('⚠️ Gallery restore from cloud not yet supported', 'error');
-        return false;
-      }
-
-      await chrome.storage.local.set(dataToSet);
-      await this._postRestoreRefresh(type);
-
-      // Backup to browser sync (non-blocking)
-      this.backupLocalToSync('restore:cloud').catch(() => {});
-
-      this.showToast(`✅ Restored ${typeLabel} from cloud`);
-      return true;
-    } catch (error) {
-      console.error('Cloud restore failed:', error);
-      this.showToast('⚠️ Cloud restore failed', 'error');
-      return false;
-    }
-  }
-
-  _mergeRestoreArrays(current, incoming, { kind } = {}) {
-    const out = new Map();
-    const toMs = (value) => {
-      if (typeof value === 'number') return value;
-      if (typeof value === 'string') {
-        const parsed = Date.parse(value);
-        return Number.isFinite(parsed) ? parsed : 0;
-      }
-      return 0;
-    };
-    const hashText = (t) => {
-      const s = String(t || '');
-      let h = 2166136261;
-      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-      return (h >>> 0).toString(36);
-    };
-    const stableKey = (item) => {
-      if (!item) return '';
-      if (typeof item === 'string') return `s:${item.slice(0, 80)}`;
-      if ((kind === 'clip' || kind === 'archived') && typeof item.text === 'string') {
-        const ts = toMs(item.timestamp ?? item.updatedAt ?? item.createdAt ?? item.updated_at);
-        const bucket = Math.floor((ts || 0) / 3000);
-        const cat = item.category != null ? String(item.category) : '';
-        return `clip:${hashText(item.text)}:${bucket}:${cat}`;
-      }
-      const id = item.id ?? item.clip_id ?? item.clipId ?? item.category_id ?? item.categoryId ?? item.note_id ?? item.noteId ?? null;
-      if (id != null) return `id:${String(id)}`;
-      if (kind === 'category' && typeof item.name === 'string') return `name:${item.name.toLowerCase()}`;
-      const t = item.text ?? item.url ?? item.name ?? item.title ?? '';
-      const ts = toMs(item.timestamp ?? item.updatedAt ?? item.createdAt ?? item.updated_at);
-      return `h:${String(t).slice(0, 80)}:${ts}`;
-    };
-    const getTs = (item) => {
-      if (!item || typeof item !== 'object') return 0;
-      return toMs(item.updatedAt ?? item.timestamp ?? item.createdAt ?? item.updated_at);
-    };
-    const add = (item) => {
-      const key = stableKey(item);
-      if (!key) return;
-      const prev = out.get(key);
-      const ts = getTs(item);
-      const prevTs = getTs(prev);
-      if (!prev || ts >= prevTs) out.set(key, item);
-    };
-    (Array.isArray(current) ? current : []).forEach(add);
-    (Array.isArray(incoming) ? incoming : []).forEach(add);
-    return Array.from(out.values());
-  }
-
-  async _postRestoreRefresh(type) {
-    // Reload data based on type
-    if (type === 'clips' || type === 'all') {
-      await this.loadData();
-      this.renderChips();
-      this.updatePreview();
-      this.updateLastCapture();
-    }
-    if (type === 'categories' || type === 'all') {
-      await this.loadData();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.updateManualInputCategories();
-    }
-    if (type === 'notes' || type === 'all') {
-      await this.loadNotes();
-      this.renderNotes();
-    }
-
-    try { this.updateStorageStats(); } catch (_) {}
-    this.updateTopBarIdentity();
   }
 
   repairLocalClipIds(clipsRaw, searchOnlyRaw) {
@@ -1560,7 +1174,7 @@ class PasteCraftPopup {
         } catch (_) {}
       }
 
-      console.log('🔄 Starting background sync with Supabase...', { reason, force });
+      console.log('🔄 Starting background sync with database...', { reason, force });
       const syncResult = await pasteCraftSupabase.performFullSync();
       
       if (syncResult.success) {
@@ -1575,7 +1189,7 @@ class PasteCraftPopup {
         // 🔄 RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
         await this.loadUserProfile();
         if (this.userProfile?.profileImageUrl) {
-          console.log('✅ Profile image restored from Supabase after sync');
+          console.log('✅ Profile image restored from database after sync');
           this.displayImageTopLeft(this.userProfile.profileImageUrl);
         }
       } else {
@@ -2491,54 +2105,42 @@ class PasteCraftPopup {
       this.saveSettings();
     });
 
-    // Restore data (unified UI)
-    const restoreTypeSelect = document.getElementById('restoreTypeSelect');
-    const restoreSourceSelect = document.getElementById('restoreSourceSelect');
+    // Restore clips (local snapshots)
     const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-    const restoreWindowGroup = document.getElementById('restoreWindowGroup');
     const previewRestoreBtn = document.getElementById('previewRestoreBtn');
     const restoreNowBtn = document.getElementById('restoreNowBtn');
-
-    // Show/hide restore window based on source
-    const updateRestoreWindowVisibility = () => {
-      if (restoreWindowGroup) {
-        restoreWindowGroup.style.display = restoreSourceSelect?.value === 'local' ? 'flex' : 'none';
-      }
-    };
-
-    if (restoreSourceSelect) {
-      restoreSourceSelect.addEventListener('change', () => {
-        updateRestoreWindowVisibility();
-        // Update preview on source change
-        this.updateRestorePreview().catch(() => {});
-      });
-    }
-
-    if (restoreTypeSelect) {
-      restoreTypeSelect.addEventListener('change', () => {
-        // Update preview on type change
-        this.updateRestorePreview().catch(() => {});
-      });
-    }
+    const syncRestoredToCloudBtn = document.getElementById('syncRestoredToCloudBtn');
 
     if (restoreWindowSelect) {
       restoreWindowSelect.addEventListener('change', async () => {
         // Update preview automatically on selection change (best-effort).
-        try { await this.updateRestorePreview(); } catch (_) {}
+        try { await this.previewRestore(restoreWindowSelect.value); } catch (_) {}
       });
     }
-
     if (previewRestoreBtn) {
       previewRestoreBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        try { await this.updateRestorePreview(); } catch (_) {}
+        try {
+          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
+          await this.previewRestore(key);
+        } catch (_) {}
       });
     }
-
     if (restoreNowBtn) {
       restoreNowBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        await this.performRestore();
+        // Ensure preview is up to date
+        try {
+          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
+          await this.previewRestore(key);
+        } catch (_) {}
+        await this.applyRestoreFromPreview();
+      });
+    }
+    if (syncRestoredToCloudBtn) {
+      syncRestoredToCloudBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await this.syncRestoredDataToCloud();
       });
     }
     
@@ -3218,7 +2820,7 @@ class PasteCraftPopup {
         });
         
         if (type === 'recovery') {
-          console.log('🔑 Type is "recovery" - setting Supabase session...');
+          console.log('🔑 Type is "recovery" - setting database session...');
           
           // Set session with recovery tokens
           const { error } = await pasteCraftSupabase.client.auth.setSession({
@@ -3277,6 +2879,8 @@ class PasteCraftPopup {
   
   showAuthModal() {
     console.log('🔐 Showing auth modal...');
+    // Keep auth modal controls synced to settings.
+    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
     this.hideLoadingOverlay();
     document.getElementById('authModal').style.display = 'flex';
   }
@@ -3289,24 +2893,33 @@ class PasteCraftPopup {
   // PIN LOCK (3-digit) - local UI unlock
   // =====================================================
 
-  _pinIsSessionUnlocked() {
+  async _pinIsSessionUnlocked() {
+    const key = this._pinUnlockSessionKey;
+    // Fast local check (works within same popup document)
     try {
-      return sessionStorage.getItem(this._pinUnlockSessionKey) === '1';
+      if (sessionStorage.getItem(key) === '1') return true;
+    } catch (_) {}
+
+    // Shared for the whole browser session (survives popup close/open)
+    try {
+      const res = await new Promise((resolve) => chrome.storage.session.get([key], resolve));
+      const ok = res && res[key] === '1';
+      return !!ok;
     } catch (_) {
       return false;
     }
   }
 
-  _pinSetSessionUnlocked() {
-    try {
-      sessionStorage.setItem(this._pinUnlockSessionKey, '1');
-    } catch (_) {}
+  async _pinSetSessionUnlocked() {
+    const key = this._pinUnlockSessionKey;
+    try { sessionStorage.setItem(key, '1'); } catch (_) {}
+    try { await new Promise((resolve) => chrome.storage.session.set({ [key]: '1' }, resolve)); } catch (_) {}
   }
 
-  _pinClearSessionUnlocked() {
-    try {
-      sessionStorage.removeItem(this._pinUnlockSessionKey);
-    } catch (_) {}
+  async _pinClearSessionUnlocked() {
+    const key = this._pinUnlockSessionKey;
+    try { sessionStorage.removeItem(key); } catch (_) {}
+    try { await new Promise((resolve) => chrome.storage.session.remove([key], resolve)); } catch (_) {}
   }
 
   _pinNormalize(raw) {
@@ -3339,7 +2952,9 @@ class PasteCraftPopup {
 
   async loadPinConfig() {
     // Source of truth: chrome.storage.sync, fallback: chrome.storage.local cache.
-    const key = this._pinConfigKey;
+    const legacyKey = this._pinConfigKey;
+    const userId = await this._getAuthedUserIdForPin();
+    const key = this._pinScopedKey(this._pinConfigKey, userId);
     let cfg = null;
 
     try {
@@ -3349,10 +2964,23 @@ class PasteCraftPopup {
       cfg = null;
     }
 
+    // Migration: if scoped key is missing but legacy exists, promote legacy → scoped.
+    if (!cfg && userId) {
+      try {
+        const legacyRes = await new Promise((resolve) => chrome.storage.sync.get([legacyKey], resolve));
+        const legacyCfg = legacyRes && legacyRes[legacyKey] ? legacyRes[legacyKey] : null;
+        if (legacyCfg && typeof legacyCfg === 'object') {
+          cfg = legacyCfg;
+          try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
+          try { await new Promise((resolve) => chrome.storage.local.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
     if (!cfg) {
       try {
-        const localRes = await new Promise((resolve) => chrome.storage.local.get([key], resolve));
-        cfg = localRes && localRes[key] ? localRes[key] : null;
+        const localRes = await new Promise((resolve) => chrome.storage.local.get([key, legacyKey], resolve));
+        cfg = (localRes && localRes[key]) ? localRes[key] : ((localRes && localRes[legacyKey]) ? localRes[legacyKey] : null);
       } catch (_) {
         cfg = null;
       }
@@ -3377,15 +3005,17 @@ class PasteCraftPopup {
     return this._pinConfig;
   }
 
-  async _savePinConfig(cfg) {
-    const key = this._pinConfigKey;
+  async _savePinConfig(cfg, userIdOverride = '') {
+    const userId = userIdOverride ? String(userIdOverride) : await this._getAuthedUserIdForPin();
+    const key = this._pinScopedKey(this._pinConfigKey, userId);
     this._pinConfig = cfg;
     try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: cfg }, resolve)); } catch (_) {}
     try { await new Promise((resolve) => chrome.storage.local.set({ [key]: cfg }, resolve)); } catch (_) {}
   }
 
   async _getPinAttempts() {
-    const key = this._pinAttemptsKey;
+    const userId = await this._getAuthedUserIdForPin();
+    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
     try {
       const res = await new Promise((resolve) => chrome.storage.local.get([key], resolve));
       const v = res && res[key] ? res[key] : null;
@@ -3398,7 +3028,8 @@ class PasteCraftPopup {
   }
 
   async _setPinAttempts(next) {
-    const key = this._pinAttemptsKey;
+    const userId = await this._getAuthedUserIdForPin();
+    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
     try {
       await new Promise((resolve) => chrome.storage.local.set({ [key]: next }, resolve));
     } catch (_) {}
@@ -3449,7 +3080,7 @@ class PasteCraftPopup {
     const cfg = this._pinConfig;
     if (!cfg || !cfg.enabled || !cfg.salt || !cfg.hash) {
       // If config is missing, don't block.
-      this._pinSetSessionUnlocked();
+      await this._pinSetSessionUnlocked();
       this.hidePinModal();
       return true;
     }
@@ -3474,7 +3105,7 @@ class PasteCraftPopup {
     const computed = await this._hashPin(pin, cfg.salt);
     if (computed === cfg.hash) {
       await this._setPinAttempts({ attempts: 0, lockedUntil: 0 });
-      this._pinSetSessionUnlocked();
+      await this._pinSetSessionUnlocked();
       this.hidePinModal();
       return true;
     }
@@ -3495,8 +3126,8 @@ class PasteCraftPopup {
   }
 
   async maybeRequirePinUnlock() {
-    if (this._pinIsSessionUnlocked()) return true;
     await this.loadPinConfig();
+    if (await this._pinIsSessionUnlocked()) return true;
     const cfg = this._pinConfig;
     if (!cfg || !cfg.enabled) return true;
     if (!cfg.salt || !cfg.hash) return true;
@@ -3554,7 +3185,7 @@ class PasteCraftPopup {
 
     signInAgainLink && signInAgainLink.addEventListener('click', async (e) => {
       e.preventDefault();
-      this._pinClearSessionUnlocked();
+      await this._pinClearSessionUnlocked();
       this.hidePinModal();
       try { await pasteCraftSupabase.signOutFast(); } catch (_) {}
       window.location.reload();
@@ -3563,15 +3194,20 @@ class PasteCraftPopup {
     const changeBtn = document.getElementById('changePinBtn');
     changeBtn && changeBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      const ok = confirm('Change your 3-digit code? You will need the new code next time you open PasteCraft.');
+      if (!ok) return;
       this.showPinSetupModal({ title: 'Change 3-digit code' });
     });
 
     const disableBtn = document.getElementById('disablePinBtn');
     disableBtn && disableBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      const ok = confirm('Disable the 3-digit code? PasteCraft will open without a code on this browser profile.');
+      if (!ok) return;
       await this.setPinEnabled(false);
       const toggle = document.getElementById('pinLockEnabled');
       if (toggle) toggle.checked = false;
+      try { await this._setPinAttempts({ attempts: 0, lockedUntil: 0 }); } catch (_) {}
       this.showToast('✅ Code disabled');
     });
 
@@ -3601,19 +3237,132 @@ class PasteCraftPopup {
         this.showToast(`❌ ${result.error || 'Could not save code'}`, 'error');
         return;
       }
-      this._pinSetSessionUnlocked();
+      await this._pinSetSessionUnlocked();
       const toggle = document.getElementById('pinLockEnabled');
       if (toggle) toggle.checked = true;
+      // Capture callback BEFORE hide clears it.
+      const onComplete = this._pinSetupOnComplete;
       this.hidePinSetupModal();
       this.showToast('✅ Code saved');
       try {
-        if (this._pinSetupOnComplete) this._pinSetupOnComplete();
+        if (typeof onComplete === 'function') onComplete();
       } catch (_) {}
     });
+  }
+
+  // =====================================================
+  // AUTH SESSION RESTORE (from chrome.storage.local bridge)
+  // =====================================================
+
+  async _getSessionBridgePayload() {
+    try {
+      const res = await chrome.storage.local.get(['pc_supabase_session_v1']);
+      const p = res?.pc_supabase_session_v1 || null;
+      return {
+        access_token: p?.access_token ? String(p.access_token) : '',
+        refresh_token: p?.refresh_token ? String(p.refresh_token) : '',
+        expires_at: p?.expires_at ?? null,
+        user_id: p?.user_id ? String(p.user_id) : '',
+      };
+    } catch (_) {
+      return { access_token: '', refresh_token: '', expires_at: null, user_id: '' };
+    }
+  }
+
+  async _refreshSupabaseTokenViaBackground(refreshToken) {
+    try {
+      const supabaseUrl = String(PASTECRAFT_CONFIG?.supabase?.url || '');
+      const anonKey = String(PASTECRAFT_CONFIG?.supabase?.anonKey || '');
+      const rt = String(refreshToken || '');
+      if (!supabaseUrl || !anonKey || !rt) return null;
+
+      const result = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'pcRefreshSupabaseToken',
+          supabaseUrl,
+          anonKey,
+          refreshToken: rt
+        }, (resp) => {
+          const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
+          if (err) return resolve({ success: false, ok: false, status: 0, error: err });
+          resolve(resp || null);
+        });
+      });
+
+      if (!result || result.success !== true || !result.ok) return null;
+      const data = result.data || {};
+      const nextAccess = data?.access_token ? String(data.access_token) : '';
+      const nextRefresh = data?.refresh_token ? String(data.refresh_token) : rt;
+      const nextExpiresIn = Number(data?.expires_in || 0);
+      const nextExpiresAt = nextExpiresIn ? Math.floor(Date.now() / 1000) + nextExpiresIn : null;
+      const nextUserId = data?.user?.id ? String(data.user.id) : '';
+      if (!nextAccess) return null;
+
+      return { access_token: nextAccess, refresh_token: nextRefresh, expires_at: nextExpiresAt, user_id: nextUserId };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async restoreSupabaseSessionFromBridge(reason = 'unknown') {
+    try {
+      if (!pasteCraftSupabase?.client?.auth?.getSession || !pasteCraftSupabase?.client?.auth?.setSession) return false;
+
+      // If we already have a session, do nothing.
+      try {
+        const existing = await pasteCraftSupabase.client.auth.getSession();
+        const sess = existing?.data?.session || null;
+        if (sess?.user?.id) return true;
+      } catch (_) {}
+
+      const bridge = await this._getSessionBridgePayload();
+      const refreshToken = String(bridge?.refresh_token || '');
+      if (!refreshToken) return false;
+
+      let accessToken = String(bridge?.access_token || '');
+      let expiresAt = bridge?.expires_at;
+
+      const expSec = (typeof expiresAt === 'number') ? expiresAt : Number(expiresAt);
+      const needsRefresh = !accessToken || !Number.isFinite(expSec) || ((expSec * 1000) - Date.now()) < 60000;
+      if (needsRefresh) {
+        const refreshed = await this._refreshSupabaseTokenViaBackground(refreshToken);
+        if (refreshed?.access_token) {
+          accessToken = String(refreshed.access_token);
+          expiresAt = refreshed.expires_at ?? expiresAt;
+          // Update bridge with refreshed tokens so other contexts benefit.
+          try {
+            await chrome.storage.local.set({
+              pc_supabase_session_v1: {
+                access_token: accessToken,
+                refresh_token: refreshed.refresh_token || refreshToken,
+                expires_at: refreshed.expires_at ?? null,
+                user_id: refreshed.user_id || bridge.user_id || null,
+                updated_at: Date.now()
+              }
+            });
+          } catch (_) {}
+        }
+      }
+
+      if (!accessToken) return false;
+
+      const { error } = await pasteCraftSupabase.client.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+
+      if (error) return false;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
   
   setupAuthModalEvents() {
     console.log('🔧 Setting up auth modal event listeners...');
+    // Sync auth modal defaults (non-blocking)
+    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
+
     // Tab switching - support both old and new tab classes
     document.querySelectorAll('.auth-tab, .auth-tab-new').forEach(tab => {
       tab.addEventListener('click', (e) => {
@@ -3661,6 +3410,8 @@ class PasteCraftPopup {
       console.log('🔐 Sign In triggered');
       const email = document.getElementById('signinEmail').value;
       const password = document.getElementById('signinPassword').value;
+      const staySignedIn = !!document.getElementById('staySignedIn')?.checked;
+      const rememberEmail = !!document.getElementById('rememberEmail')?.checked;
       
       if (!email || !password) {
         this.showToast('⚠️ Please fill in all fields', 'error');
@@ -3670,10 +3421,31 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithEmail(email, password);
       
       if (result.success) {
+        // Persist user preferences (no password storage)
+        await this.saveAuthPrefs({
+          staySignedIn,
+          rememberEmail,
+          rememberedEmail: rememberEmail ? email : ''
+        });
+
         this.showToast('✅ Welcome back!', 'success');
         const rememberPin = !!document.getElementById('rememberLoginWithPin')?.checked;
         if (rememberPin) {
+          // If a PIN already exists, do NOT force re-creation.
+          try { await this.loadPinConfig(); } catch (_) {}
+          const cfg = this._pinConfig;
+          const hasExistingPin = !!(cfg && cfg.salt && cfg.hash);
+
           this.hideAuthModal();
+
+          if (hasExistingPin) {
+            // Ensure the feature is enabled and proceed.
+            try { await this.setPinEnabled(true); } catch (_) {}
+            await this._pinSetSessionUnlocked();
+            window.location.reload();
+            return;
+          }
+
           this.showPinSetupModal({
             title: 'Set 3-digit code',
             onComplete: () => window.location.reload()
@@ -3682,7 +3454,7 @@ class PasteCraftPopup {
         }
 
         // A successful email+password sign-in should count as unlocked for this session.
-        this._pinSetSessionUnlocked();
+        await this._pinSetSessionUnlocked();
         this.hideAuthModal();
         // Reload page to initialize with authenticated user
         window.location.reload();
@@ -3692,7 +3464,7 @@ class PasteCraftPopup {
         
         if (result.error.toLowerCase().includes('email not confirmed') || 
             result.error.toLowerCase().includes('email_not_confirmed')) {
-          errorMessage = '📧 Email Not Verified!\n\nYou must verify your email before signing in.\n\nCheck your inbox for the verification email from Supabase and click the link.\n\nCheck spam if needed.';
+          errorMessage = '📧 Email Not Verified!\n\nYou must verify your email before signing in.\n\nCheck your inbox for the verification email and click the link.\n\nCheck spam if needed.';
           alert(errorMessage);
         } else if (result.error.toLowerCase().includes('invalid') || 
                    result.error.toLowerCase().includes('credentials')) {
@@ -3754,7 +3526,7 @@ class PasteCraftPopup {
       
       if (result.success) {
         // Show detailed verification instructions
-        alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email from Supabase\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
+        alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
         this.showToast('✅ Check your email to verify your account!', 'success');
         // Switch to sign in tab
         document.querySelector('[data-auth-tab="signin"]').click();
@@ -5256,7 +5028,7 @@ class PasteCraftPopup {
       this.populateCategoryOptions();
     }
 
-    // 🔄 AUTO-SYNC TO SUPABASE (background)
+    // 🔄 AUTO-SYNC TO DATABASE (background)
     let cleared = false;
     const clearLoading = () => {
       if (cleared) return;
@@ -5269,10 +5041,10 @@ class PasteCraftPopup {
     Promise.resolve()
       .then(() => pasteCraftSupabase.syncCategoriesToSupabase(this.categories))
       .then(() => {
-        console.log('✅ Category creation synced to Supabase');
+        console.log('✅ Category creation synced to database');
       })
       .catch((error) => {
-        console.error('⚠️ Failed to sync category creation to Supabase:', error);
+        console.error('⚠️ Failed to sync category creation to database:', error);
       })
       .finally(() => {
         clearTimeout(fallbackTimer);
@@ -5303,13 +5075,13 @@ class PasteCraftPopup {
         pc_local_updatedAt: Date.now()
       });
       
-      // 🔄 AUTO-SYNC TO SUPABASE
+      // 🔄 AUTO-SYNC TO DATABASE
       try {
         await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
         await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        console.log('✅ Category edit synced to Supabase');
+        console.log('✅ Category edit synced to database');
       } catch (error) {
-        console.error('⚠️ Failed to sync category edit to Supabase:', error);
+        console.error('⚠️ Failed to sync category edit to database:', error);
       }
       
       this.renderCategories();
@@ -5357,10 +5129,10 @@ class PasteCraftPopup {
       this.updateCategoryFilter();
       this.renderChips();
 
-      // 🔄 AUTO-SYNC TO SUPABASE (background)
+      // 🔄 AUTO-SYNC TO DATABASE (background)
       Promise.resolve()
         .then(async () => {
-          // Remove the category from Supabase so realtime merge doesn't resurrect it
+          // Remove the category from database so realtime merge doesn't resurrect it
           try {
             await pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? ''));
           } catch (_) {}
@@ -5373,10 +5145,10 @@ class PasteCraftPopup {
           await pasteCraftSupabase.syncClipsToSupabase(this.clips);
         })
         .then(() => {
-          console.log('✅ Category deletion synced to Supabase');
+          console.log('✅ Category deletion synced to database');
         })
         .catch((error) => {
-          console.error('⚠️ Failed to sync category deletion to Supabase:', error);
+          console.error('⚠️ Failed to sync category deletion to database:', error);
         });
     }
   }
@@ -6126,13 +5898,13 @@ class PasteCraftPopup {
       });
       await this.backupLocalToSync('category:saveTextWithCategory');
       
-      // 🔄 AUTO-SYNC TO SUPABASE
+      // 🔄 AUTO-SYNC TO DATABASE
       try {
         await pasteCraftSupabase.syncClipsToSupabase(this.clips);
         await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-        console.log('✅ Clip category update synced to Supabase');
+        console.log('✅ Clip category update synced to database');
       } catch (error) {
-        console.error('⚠️ Failed to sync category update to Supabase:', error);
+        console.error('⚠️ Failed to sync category update to database:', error);
       }
       
       this.renderChips();
@@ -6171,13 +5943,13 @@ class PasteCraftPopup {
       });
       await this.backupLocalToSync('save:saveTextWithCategory');
       
-      // 🔄 AUTO-SYNC TO SUPABASE
+      // 🔄 AUTO-SYNC TO DATABASE
       try {
         await pasteCraftSupabase.syncClipsToSupabase(this.clips);
         await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-        console.log('✅ New clip synced to Supabase');
+        console.log('✅ New clip synced to database');
       } catch (error) {
-        console.error('⚠️ Failed to sync new clip to Supabase:', error);
+        console.error('⚠️ Failed to sync new clip to database:', error);
         // Don't block user - local save already succeeded
       }
       
@@ -6259,8 +6031,24 @@ class PasteCraftPopup {
       quickPasteSettings: this.quickPasteSettings,
       albumAttachmentOpenMode: this.albumAttachmentOpenMode
     });
+    
+    // 🔄 AUTO-SYNC TO DATABASE
+    try {
+      const settingsData = {
+        autoDeletePeriod: newAutoDeletePeriod,
+        quickPasteSettings: this.quickPasteSettings,
+        albumAttachmentOpenMode: this.albumAttachmentOpenMode
+      };
+      
+      await pasteCraftSupabase.syncSettingsToSupabase(settingsData);
+      console.log('✅ Settings synced to database');
+      this.showToast('✅ Settings saved and synced!');
+    } catch (error) {
+      console.error('⚠️ Failed to sync settings to database:', error);
+      this.showToast('✅ Settings saved locally');
+    }
 
-    // PIN lock setting (do NOT sync to Supabase)
+    // PIN lock setting (do NOT sync to database)
     try {
       await this.loadPinConfig();
       const pinToggleEl = document.getElementById('pinLockEnabled');
@@ -6278,7 +6066,41 @@ class PasteCraftPopup {
       } else {
         if (this._pinConfig?.enabled) {
           await this.setPinEnabled(false);
-          this._pinClearSessionUnlocked();
+          await this._pinClearSessionUnlocked();
+        }
+      }
+    } catch (_) {}
+
+    // Auth preferences (local-only; can override login screen defaults)
+    try {
+      const stayEl = document.getElementById('staySignedInSetting');
+      const rememberEl = document.getElementById('rememberEmailSetting');
+      const nextStaySignedIn = stayEl ? !!stayEl.checked : true;
+      const nextRememberEmail = rememberEl ? !!rememberEl.checked : false;
+
+      const currentPrefs = await this.loadAuthPrefs();
+
+      let rememberedEmail = currentPrefs.rememberedEmail || '';
+      if (!nextRememberEmail) rememberedEmail = '';
+
+      await this.saveAuthPrefs({
+        staySignedIn: nextStaySignedIn,
+        rememberEmail: nextRememberEmail,
+        rememberedEmail
+      });
+
+      // If the user turns off "stay signed in", sign out immediately to enforce it.
+      if (currentPrefs.staySignedIn !== false && nextStaySignedIn === false) {
+        const ok = confirm('This will sign you out and require login next time. Continue?');
+        if (ok) {
+          try { await pasteCraftSupabase.signOutFast(); } catch (_) {}
+          try { await chrome.storage.local.remove(['pc_supabase_session_v1']); } catch (_) {}
+          window.location.reload();
+          return;
+        } else {
+          // Revert UI checkbox if user cancels.
+          try { if (stayEl) stayEl.checked = true; } catch (_) {}
+          await this.saveAuthPrefs({ staySignedIn: true });
         }
       }
     } catch (_) {}
@@ -6344,28 +6166,23 @@ class PasteCraftPopup {
       if (disableBtn) disableBtn.disabled = !this._pinConfig?.enabled;
     } catch (_) {}
 
-    // Restore UI initialization
-    try {
-      const restoreTypeSelect = document.getElementById('restoreTypeSelect');
-      const restoreSourceSelect = document.getElementById('restoreSourceSelect');
-      const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-      const restoreWindowGroup = document.getElementById('restoreWindowGroup');
+    // Auth prefs UI
+    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
 
-      // Set defaults if not set
-      if (restoreTypeSelect && !restoreTypeSelect.value) restoreTypeSelect.value = 'clips';
-      if (restoreSourceSelect && !restoreSourceSelect.value) restoreSourceSelect.value = 'local';
+    // Restore UI (preview + button state)
+    try {
+      const restoreWindowSelect = document.getElementById('restoreWindowSelect');
       if (restoreWindowSelect && !restoreWindowSelect.value) restoreWindowSelect.value = '1week';
 
-      // Show/hide restore window based on source
-      if (restoreWindowGroup) {
-        restoreWindowGroup.style.display = restoreSourceSelect?.value === 'local' ? 'flex' : 'none';
-      }
-
       const previewEl = document.getElementById('restorePreviewText');
-      if (previewEl) previewEl.textContent = 'Select options and click Preview to see what will be restored.';
+      if (previewEl) previewEl.textContent = 'Select a window to preview what will be restored.';
+
+      const syncBtn = document.getElementById('syncRestoredToCloudBtn');
+      if (syncBtn) syncBtn.disabled = !(this._lastAppliedRestore && this._lastAppliedRestore.point);
 
       // Best-effort initial preview (keeps UI informative)
-      Promise.resolve().then(() => this.updateRestorePreview()).catch(() => {});
+      const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
+      Promise.resolve().then(() => this.previewRestore(key)).catch(() => {});
     } catch (_) {}
     
     document.getElementById('settingsModal').style.display = 'flex';
@@ -6930,12 +6747,12 @@ class PasteCraftPopup {
     await chrome.storage.local.set({ searchOnlyClips });
     console.log(`📦 Moved ${overflowClips.length} clips to search-only storage`);
     
-    // 🔄 AUTO-SYNC TO SUPABASE
+    // 🔄 AUTO-SYNC TO DATABASE
     try {
       await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-      console.log('✅ Archived clips synced to Supabase');
+      console.log('✅ Archived clips synced to database');
     } catch (error) {
-      console.error('⚠️ Failed to sync archived clips to Supabase:', error);
+      console.error('⚠️ Failed to sync archived clips to database:', error);
     }
   }
 
@@ -7054,12 +6871,12 @@ class PasteCraftPopup {
         console.error('⚠️ WARNING: Profile saved but verification failed!');
       }
       
-      // 🔄 AUTO-SYNC TO SUPABASE
+      // 🔄 AUTO-SYNC TO DATABASE
       try {
         await pasteCraftSupabase.syncUserProfileToSupabase(this.userProfile);
-        console.log('✅ User profile synced to Supabase');
+        console.log('✅ User profile synced to database');
       } catch (syncError) {
-        console.error('⚠️ Failed to sync profile to Supabase:', syncError);
+        console.error('⚠️ Failed to sync profile to database:', syncError);
         // Don't fail the whole save if sync fails
       }
 
@@ -7371,12 +7188,6 @@ class PasteCraftPopup {
           this.showToast('❌ Failed to read image file', 'error');
           return;
         }
-
-        // #region agent log
-        try {
-          fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H1',location:'popup.js:handleProfileImageUpload:reader.onload',message:'FileReader onload produced data URL',data:{isDataUrl:imageUrl.startsWith('data:image/'),urlLen:imageUrl.length},timestamp:Date.now()})}).catch(()=>{});
-        } catch (_) {}
-        // #endregion agent log
         
         // Display image
         document.getElementById('profileImage').src = imageUrl;
@@ -7401,25 +7212,9 @@ class PasteCraftPopup {
           }
         } catch (_) {}
 
-        // #region agent log
-        try {
-          const u = String(finalUrl || '');
-          const isData = u.startsWith('data:image/');
-          let host = '';
-          try { if (u && !isData) host = (new URL(u)).hostname || ''; } catch (_) {}
-          fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H2',location:'popup.js:handleProfileImageUpload:afterConvert',message:'convertToPermanentProfileImageUrl completed',data:{finalIsDataUrl:isData,finalHost:host,finalLen:u.length,hasCurrentUser:!!this.currentUser},timestamp:Date.now()})}).catch(()=>{});
-        } catch (_) {}
-        // #endregion agent log
-
         this.userProfile.profileImageUrl = finalUrl;
         
         await this.saveUserProfile();
-
-        // #region agent log
-        try {
-          fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H3',location:'popup.js:handleProfileImageUpload:afterSave',message:'saveUserProfile resolved',data:{profileUrlIsDataUrl:String(this.userProfile?.profileImageUrl||'').startsWith('data:image/'),profileUrlLen:String(this.userProfile?.profileImageUrl||'').length,base64Len:typeof this.userProfile?.profileImageBase64==='string'?this.userProfile.profileImageBase64.length:0},timestamp:Date.now()})}).catch(()=>{});
-        } catch (_) {}
-        // #endregion agent log
 
         // Keep top-left in sync immediately.
         this.displayImageTopLeft(finalUrl || imageUrl);
@@ -7429,14 +7224,6 @@ class PasteCraftPopup {
           await this.addToGallery(finalUrl || imageUrl, 'upload');
           this.loadAIGallery();
         } catch (_) {}
-
-        // #region agent log
-        try {
-          const grid = document.getElementById('aiGalleryGrid');
-          const section = document.getElementById('aiGallerySection');
-          fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H4',location:'popup.js:handleProfileImageUpload:afterGalleryOps',message:'Called addToGallery + loadAIGallery',data:{hasGrid:!!grid,gridChildCount:grid?grid.children.length:null,aiSectionActive:!!section&&section.classList.contains('active')},timestamp:Date.now()})}).catch(()=>{});
-        } catch (_) {}
-        // #endregion agent log
         
         // Update AI Generate button state (enable it now)
         this.updateAIGenerateButtonState();
@@ -8278,27 +8065,12 @@ class PasteCraftPopup {
       
       if (index >= 0 && index < gallery.length) {
         const imageUrl = gallery[index].url;
-
-        // #region agent log
-        try {
-          const u = String(imageUrl || '');
-          const isData = u.startsWith('data:image/');
-          let host = '';
-          try { if (u && !isData) host = (new URL(u)).hostname || ''; } catch (_) {}
-          const cur = String(this.userProfile?.profileImageUrl || '');
-          fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H6',location:'popup.js:setAsProfile:entry',message:'setAsProfile starting',data:{index,selIsDataUrl:isData,selHost:host,selLen:u.length,curIsDataUrl:cur.startsWith('data:image/'),curLen:cur.length,galleryLen:Array.isArray(gallery)?gallery.length:null},timestamp:Date.now()})}).catch(()=>{});
-        } catch (_) {}
-        // #endregion agent log
-
-        const _pcT0 = Date.now();
         // Avoid slow network work in getSyncUserId() (it can do remote migrations/ensure profile row).
         // For image upload naming, any stable-ish id is fine.
         const userIdForUpload = (this.currentUser && this.currentUser.id)
           ? this.currentUser.id
           : await pasteCraftSupabase.getChromeUserId();
-        const _pcT1 = Date.now();
         const finalUrl = await pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
-        const _pcT2 = Date.now();
         
         if (!this.userProfile) {
           this.userProfile = {};

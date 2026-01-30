@@ -78,15 +78,5 @@
 **Files:** extension/content-script.js
 **Result:** Tips widget now auto-detects “clean” space (avoids nav/interactive UI) and falls back to an in-page popup window; users can force popup via settings.
 
-### Jan 25, 2026 - Zero-Loss Sync + Durable Storage
-**Status:** SUCCESS
-**Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js, instructions/request.md
-**Result:** Added soft-delete/tombstones, notes cloud sync, audit/device sync tracking for durable multi-device retention.
-
-### Jan 25, 2026 - Restore Merge Mode (No Overwrite)
-**Status:** SUCCESS
-**Files:** extension/popup.js, instructions/request.md
-**Result:** Restores now merge snapshot/backup/cloud data into current state with dedupe; settings/profile stay local unless missing.
-
 
 

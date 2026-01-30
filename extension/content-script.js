@@ -2450,7 +2450,9 @@ class QuickPasteInterface {
       console.log(`✅ Deleted clip ${id}`);
 
       // Notify other tabs about the change
-      safeRuntimeSendMessage({ action: 'clipsUpdated' });
+      try {
+        chrome.runtime.sendMessage({ action: 'clipsUpdated' });
+      } catch (_) {}
     });
   }
 
@@ -2479,7 +2481,6 @@ class PasteCraftFloatingWidget {
     this.aiHelperDebounce = null;
     this.aiHelperLastAiAt = 0;
     this._aiHelperConfigCache = null;
-    this._settingsLoaded = false;
     this.isExpanded = false;
     this.position = { top: 50 }; // Percentage from top (50 = center)
     this.settings = {
@@ -2499,11 +2500,7 @@ class PasteCraftFloatingWidget {
       // Always start top-right; user can drag to reposition.
       aiHelperPlacement: 'top-right',
       aiHelperUserPositioned: false,
-      aiHelperUserPosition: null,
-      aiHelperUserPositionHost: null,
-      aiHelperUserPositionViewport: null,
-      aiHelperUserSize: null,
-      aiHelperUserSizeHost: null
+      aiHelperUserPosition: null
     };
 
     // Click & Drag capture UI state
@@ -2677,6 +2674,9 @@ class PasteCraftFloatingWidget {
     
     // Append to body
     document.body.appendChild(this.widget);
+
+    // Create the top-right helper widget
+    this.createAiHelperWidget();
     
     // Debug: Test if ANY clicks work on the widget
     this.widget.addEventListener('click', (e) => {
@@ -2889,10 +2889,8 @@ class PasteCraftFloatingWidget {
       #pastecraft-ai-helper {
         position: fixed;
         top: 14px;
-        right: 14px;
+        right: calc(var(--pastecraft-panel-width, 0px) + 14px);
         width: 320px;
-        min-width: 260px;
-        min-height: 140px;
         max-width: 44vw;
         max-height: 42vh;
         z-index: 2147483647;
@@ -2995,7 +2993,6 @@ class PasteCraftFloatingWidget {
 
       #pastecraft-ai-helper .ai-helper-body {
         padding: 10px 12px 12px 12px;
-        flex: 1 1 auto;
         overflow: auto;
       }
 
@@ -3047,21 +3044,6 @@ class PasteCraftFloatingWidget {
         border: 1px solid rgba(96, 165, 250, 0.25);
         color: rgba(224, 242, 254, 0.9);
       }
-
-      #pastecraft-ai-helper .ai-helper-resize-handle {
-        position: absolute;
-        right: 6px;
-        bottom: 6px;
-        width: 14px;
-        height: 14px;
-        cursor: nwse-resize;
-        opacity: 0.75;
-        border-right: 2px solid rgba(224, 242, 254, 0.55);
-        border-bottom: 2px solid rgba(224, 242, 254, 0.55);
-        border-radius: 2px;
-        user-select: none;
-        touch-action: none;
-      }
     `;
     
     document.head.appendChild(styles);
@@ -3091,7 +3073,6 @@ class PasteCraftFloatingWidget {
         </div>
       </div>
       <div class="ai-helper-body" id="pastecraft-ai-helper-body"></div>
-      <div class="ai-helper-resize-handle" id="pastecraft-ai-helper-resize" aria-label="Resize"></div>
     `;
 
     document.body.appendChild(this.aiHelperEl);
@@ -3130,6 +3111,8 @@ class PasteCraftFloatingWidget {
       this.maybeRefreshDailyTrends();
     });
 
+    this.updateAiHelperUI();
+
     // Draggable helper card (user-positioned override)
     this.setupAiHelperDrag();
 
@@ -3138,10 +3121,6 @@ class PasteCraftFloatingWidget {
       this._aiHelperResizeBound = true;
       window.addEventListener('resize', () => this.clampAiHelperToViewport(), { passive: true });
     }
-
-    // Resizable helper card (per-site)
-    this.applyAiHelperUserSize();
-    this.setupAiHelperResize();
   }
 
   scheduleAiHelperInitialPlacementAfterLoad() {
@@ -3172,13 +3151,9 @@ class PasteCraftFloatingWidget {
   }
 
   updateAiHelperUI() {
-    if (!this._settingsLoaded) return;
-    const enabled = !!this.settings.aiHelperEnabled;
-    if (enabled && !this.aiHelperEl) {
-      this.createAiHelperWidget();
-    }
     if (!this.aiHelperEl) return;
 
+    const enabled = !!this.settings.aiHelperEnabled;
     this.aiHelperEl.classList.toggle('hidden', !enabled);
     if (!enabled) {
       this.setAiHelperPopupMode(false);
@@ -3199,7 +3174,6 @@ class PasteCraftFloatingWidget {
     }
 
     this.applyAiHelperPlacement();
-    this.scheduleAiHelperInitialPlacementAfterLoad();
   }
 
   applyAiHelperPlacement() {
@@ -3208,23 +3182,12 @@ class PasteCraftFloatingWidget {
 
     // Always inline + top-right, unless the user dragged it somewhere.
     this.setAiHelperPopupMode(false);
-
-    this.applyAiHelperUserSize();
-
-    const hostOk = (this.settings?.aiHelperUserPositionHost && this.settings.aiHelperUserPositionHost === this._getAiHelperHostKey());
-    const vpOk = this._isSimilarViewport(this.settings?.aiHelperUserPositionViewport);
-    if (this.settings?.aiHelperUserPositioned && this.settings?.aiHelperUserPosition && hostOk && vpOk) {
+    if (this.settings?.aiHelperUserPositioned && this.settings?.aiHelperUserPosition) {
       this.applyAiHelperUserPosition();
       return;
     }
 
-    const panelOffsetPx = (this.openStates?.popup || this.openStates?.settings || this.openStates?.quickView)
-      ? this.getActivePanelWidthPx()
-      : 0;
-
-    const inset = this._getTopUiInsetPx();
-    const topPx = Math.max(14, Math.round(inset + 6));
-    this.setAiHelperInlineAnchors({ top: topPx, right: 14 }, { panelOffsetPx });
+    this.setAiHelperInlineAnchors({ top: 14, right: 14 });
   }
 
   applyAiHelperUserPosition() {
@@ -3310,8 +3273,6 @@ class PasteCraftFloatingWidget {
       const rect = this.aiHelperEl.getBoundingClientRect();
       this.settings.aiHelperUserPositioned = true;
       this.settings.aiHelperUserPosition = { left: rect.left, top: rect.top };
-      this.settings.aiHelperUserPositionHost = this._getAiHelperHostKey();
-      this.settings.aiHelperUserPositionViewport = { w: window.innerWidth || 0, h: window.innerHeight || 0 };
       this.settings.aiHelperPlacement = 'top-right';
       await this.saveSettings();
     };
@@ -3382,7 +3343,7 @@ class PasteCraftFloatingWidget {
     }
   }
 
-  setAiHelperInlineAnchors(anchors, opts = {}) {
+  setAiHelperInlineAnchors(anchors) {
     if (!this.aiHelperEl) return;
 
     const a = anchors || {};
@@ -3390,193 +3351,235 @@ class PasteCraftFloatingWidget {
     const hasBottom = typeof a.bottom === 'number';
     const hasLeft = typeof a.left === 'number';
     const hasRight = typeof a.right === 'number';
-    const panelOffsetPx = Number.isFinite(opts?.panelOffsetPx) ? Math.max(0, Math.round(opts.panelOffsetPx)) : 0;
 
     // Clear transform from popup mode
     this.aiHelperEl.classList.remove('pastecraft-ai-helper-popup');
     this.aiHelperEl.style.transform = '';
 
-    // Apply anchors (right includes panel offset to avoid slide-in panels)
+    // Apply anchors (right uses panel-width offset to avoid slide-in panels)
     this.aiHelperEl.style.top = hasTop ? `${Math.round(a.top)}px` : '';
     this.aiHelperEl.style.bottom = hasBottom ? `${Math.round(a.bottom)}px` : '';
     this.aiHelperEl.style.left = hasLeft ? `${Math.round(a.left)}px` : '';
-    this.aiHelperEl.style.right = hasRight ? `${Math.round(panelOffsetPx + a.right)}px` : '';
+    this.aiHelperEl.style.right = hasRight
+      ? `calc(var(--pastecraft-panel-width, 0px) + ${Math.round(a.right)}px)`
+      : '';
   }
 
-  _getAiHelperHostKey() {
-    try {
-      return String(window.location?.hostname || '').toLowerCase();
-    } catch (_) {
-      return '';
-    }
-  }
+  findBestAiHelperPlacement() {
+    if (!this.aiHelperEl) return null;
 
-  _isSimilarViewport(vp) {
-    const w = Number(vp?.w);
-    const h = Number(vp?.h);
-    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return false;
-    const curW = Number(window.innerWidth || 0);
-    const curH = Number(window.innerHeight || 0);
-    if (!Number.isFinite(curW) || !Number.isFinite(curH) || curW <= 0 || curH <= 0) return false;
-    const threshold = 120;
-    return (Math.abs(curW - w) <= threshold) && (Math.abs(curH - h) <= threshold);
-  }
-
-  _getTopUiInsetPx() {
+    const margin = 14;
     const vw = Math.max(0, window.innerWidth || 0);
     const vh = Math.max(0, window.innerHeight || 0);
-    if (vw < 200 || vh < 160) return 0;
+    if (vw < 200 || vh < 160) return null;
 
-    const sampleY = 10;
-    const sampleXs = [
-      Math.max(10, Math.round(vw * 0.15)),
-      Math.max(10, Math.round(vw * 0.5)),
-      Math.max(10, Math.round(vw * 0.85))
+    const panelOffsetPx = (this.openStates?.popup || this.openStates?.settings || this.openStates?.quickView)
+      ? this.getActivePanelWidthPx()
+      : 0;
+
+    // Measure helper size (without flashing)
+    const prevVis = this.aiHelperEl.style.visibility;
+    const prevDisp = this.aiHelperEl.style.display;
+    const wasHidden = this.aiHelperEl.classList.contains('hidden');
+    if (wasHidden) this.aiHelperEl.classList.remove('hidden');
+    this.aiHelperEl.style.visibility = 'hidden';
+    this.aiHelperEl.style.display = 'flex';
+    // force layout
+    const rect = this.aiHelperEl.getBoundingClientRect();
+    const w = Math.max(220, Math.round(rect.width || 320));
+    const h = Math.max(140, Math.round(rect.height || 240));
+    this.aiHelperEl.style.visibility = prevVis || '';
+    this.aiHelperEl.style.display = prevDisp || '';
+    if (wasHidden) this.aiHelperEl.classList.add('hidden');
+
+    // Avoid overlapping our main widget
+    const widgetRect = this.widget?.getBoundingClientRect?.();
+
+    const candidates = [
+      { name: 'top-right', top: margin, right: margin },
+      { name: 'top-left', top: margin, left: margin },
+      { name: 'bottom-right', bottom: margin, right: margin },
+      { name: 'bottom-left', bottom: margin, left: margin }
     ];
 
-    let bestBottom = 0;
+    let best = null;
+    let bestScore = -Infinity;
 
-    for (const x of sampleXs) {
-      let els = [];
-      try {
-        els = document.elementsFromPoint(x, sampleY) || [];
-      } catch (_) {
-        els = [];
+    for (const c of candidates) {
+      const testRect = this._resolveAnchorsToRect({ ...c, w, h, vw, vh, margin, panelOffsetPx });
+      if (!testRect) continue;
+
+      // Must be fully on-screen
+      if (testRect.x < 0 || testRect.y < 0 || (testRect.x + testRect.w) > vw || (testRect.y + testRect.h) > vh) continue;
+
+      // Avoid overlapping the main widget on the right edge
+      if (widgetRect && this._rectsIntersect(testRect, {
+        x: widgetRect.left,
+        y: widgetRect.top,
+        w: widgetRect.width,
+        h: widgetRect.height
+      })) {
+        continue;
       }
-      for (const el of els) {
-        if (!el || el === document.documentElement || el === document.body) continue;
-        if (this.aiHelperEl && this.aiHelperEl.contains(el)) continue;
-        if (this.widget && this.widget.contains(el)) continue;
 
-        let cur = el;
-        let guard = 0;
-        while (cur && guard++ < 6) {
-          try {
-            const cs = window.getComputedStyle(cur);
-            const pos = String(cs?.position || '').toLowerCase();
-            if (pos !== 'fixed' && pos !== 'sticky') {
-              cur = cur.parentElement;
-              continue;
-            }
-            const r = cur.getBoundingClientRect?.();
-            if (!r) break;
-            if (r.height < 30 || r.height > 220) {
-              cur = cur.parentElement;
-              continue;
-            }
-            if (r.top > 2) {
-              cur = cur.parentElement;
-              continue;
-            }
-            bestBottom = Math.max(bestBottom, Math.round(r.bottom));
-            break;
-          } catch (_) {
-            break;
-          }
-        }
+      const score = this._scoreViewportRect(testRect);
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
       }
     }
 
-    // Cap to a sane range (avoid huge overlays)
-    return Math.max(0, Math.min(bestBottom, 240));
+    // Require a minimum "cleanliness" score
+    if (bestScore < 40) return null;
+    return best;
   }
 
-  applyAiHelperUserSize() {
-    if (!this.aiHelperEl) return;
-    const host = this._getAiHelperHostKey();
-    if (!host) return;
+  _resolveAnchorsToRect({ top, bottom, left, right, w, h, vw, vh, margin, panelOffsetPx = 0 }) {
+    // NOTE: right anchor is relative to the viewport edge excluding any slide-in panel
+    // but for hit-testing "what's behind", we use the actual viewport coordinates.
+    let x = null;
+    let y = null;
 
-    const hostOk = (this.settings?.aiHelperUserSizeHost && this.settings.aiHelperUserSizeHost === host);
-    const s = this.settings?.aiHelperUserSize;
-    const w = Number(s?.w);
-    const h = Number(s?.h);
-    if (!hostOk || !Number.isFinite(w) || !Number.isFinite(h)) return;
+    if (typeof left === 'number') x = left;
+    if (typeof right === 'number') x = vw - right - panelOffsetPx - w;
+    if (typeof top === 'number') y = top;
+    if (typeof bottom === 'number') y = vh - bottom - h;
 
-    const vw = Math.max(0, window.innerWidth || 0);
-    const vh = Math.max(0, window.innerHeight || 0);
-    if (vw <= 0 || vh <= 0) return;
-
-    const minW = 260;
-    const minH = 140;
-    const maxW = Math.max(minW, Math.min(520, vw - 20));
-    const maxH = Math.max(minH, Math.min(620, vh - 20));
-
-    const nextW = Math.max(minW, Math.min(w, maxW));
-    const nextH = Math.max(minH, Math.min(h, maxH));
-
-    this.aiHelperEl.style.width = `${Math.round(nextW)}px`;
-    this.aiHelperEl.style.height = `${Math.round(nextH)}px`;
+    if (typeof x !== 'number' || typeof y !== 'number') return null;
+    return { x, y, w, h };
   }
 
-  setupAiHelperResize() {
-    if (!this.aiHelperEl) return;
-    if (this._aiHelperUserResizeBound) return;
-    this._aiHelperUserResizeBound = true;
+  _rectsIntersect(a, b) {
+    return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+  }
 
-    const handle = this.aiHelperEl.querySelector('#pastecraft-ai-helper-resize');
-    if (!handle) return;
+  _scoreViewportRect(r) {
+    const samplePoints = [
+      { dx: 0.2, dy: 0.2 },
+      { dx: 0.5, dy: 0.2 },
+      { dx: 0.8, dy: 0.2 },
+      { dx: 0.2, dy: 0.5 },
+      { dx: 0.5, dy: 0.5 },
+      { dx: 0.8, dy: 0.5 },
+      { dx: 0.2, dy: 0.8 },
+      { dx: 0.5, dy: 0.8 },
+      { dx: 0.8, dy: 0.8 }
+    ];
 
-    handle.style.touchAction = 'none';
+    let white = 0;
+    let blocked = 0;
+    let unknown = 0;
 
-    let resizing = false;
-    let startX = 0;
-    let startY = 0;
-    let startW = 0;
-    let startH = 0;
+    for (const p of samplePoints) {
+      const x = Math.round(r.x + r.w * p.dx);
+      const y = Math.round(r.y + r.h * p.dy);
+      const el = document.elementFromPoint(x, y);
+      if (!el) {
+        unknown++;
+        continue;
+      }
 
-    const onMove = (e) => {
-      if (!resizing) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      // Ignore our own UI
+      if (this.aiHelperEl && this.aiHelperEl.contains(el)) continue;
+      if (this.widget && this.widget.contains(el)) continue;
+      if (el.closest?.('#pastecraft-popup-overlay, #pastecraft-settings-panel, #pastecraft-quickview-panel')) {
+        blocked++;
+        continue;
+      }
 
-      const vw = Math.max(0, window.innerWidth || 0);
-      const vh = Math.max(0, window.innerHeight || 0);
-      const minW = 260;
-      const minH = 140;
-      const maxW = Math.max(minW, Math.min(520, vw - 20));
-      const maxH = Math.max(minH, Math.min(620, vh - 20));
+      if (this._isImportantUnderlyingElement(el)) {
+        blocked++;
+        continue;
+      }
 
-      const nextW = Math.max(minW, Math.min(startW + dx, maxW));
-      const nextH = Math.max(minH, Math.min(startH + dy, maxH));
+      const lum = this._getEffectiveBackgroundLuminance(el);
+      if (typeof lum !== 'number') {
+        unknown++;
+        continue;
+      }
+      if (lum >= 0.90) white++;
+    }
 
-      this.aiHelperEl.style.width = `${Math.round(nextW)}px`;
-      this.aiHelperEl.style.height = `${Math.round(nextH)}px`;
+    const total = samplePoints.length;
+    const whiteRatio = white / total;
+    const blockedRatio = blocked / total;
 
-      // Keep user-positioned element inside the viewport while resizing
-      this.clampAiHelperToViewport();
-    };
+    // Score: favor white space, heavily penalize important/interactive elements behind it
+    return (whiteRatio * 100) - (blockedRatio * 120) - (unknown * 4);
+  }
 
-    const onUp = async () => {
-      if (!resizing) return;
-      resizing = false;
-      document.body.style.userSelect = '';
+  _isImportantUnderlyingElement(el) {
+    const t = el;
+    const tag = (t?.tagName || '').toLowerCase();
+    if (tag === 'nav' || tag === 'header') return true;
+    if (t?.getAttribute?.('role') === 'navigation') return true;
 
-      const rect = this.aiHelperEl.getBoundingClientRect();
-      const host = this._getAiHelperHostKey();
-      if (!host) return;
+    // Common nav/header selectors
+    const navLike = t?.closest?.('nav, header, [role="navigation"], .navbar, .nav, .topbar, .site-header');
+    if (navLike) return true;
 
-      this.settings.aiHelperUserSizeHost = host;
-      this.settings.aiHelperUserSize = { w: rect.width, h: rect.height };
+    // Interactive elements (avoid covering)
+    const interactive = t?.closest?.('a, button, input, textarea, select, summary, [role="button"], [role="link"], [contenteditable="true"]');
+    if (interactive) return true;
 
-      await this.saveSettings();
-    };
+    return false;
+  }
 
-    handle.addEventListener('pointerdown', (e) => {
-      if (this.aiHelperEl.classList.contains('hidden')) return;
-      resizing = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      const rect = this.aiHelperEl.getBoundingClientRect();
-      startW = rect.width;
-      startH = rect.height;
-      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-      e.preventDefault();
-      document.body.style.userSelect = 'none';
-    });
+  _getEffectiveBackgroundLuminance(el) {
+    const color = this._findOpaqueBackgroundColor(el);
+    if (!color) return null;
+    const rgb = this._parseCssColorToRgb(color);
+    if (!rgb) return null;
+    // Relative luminance approximation (sRGB)
+    return (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  }
 
-    handle.addEventListener('pointermove', onMove);
-    handle.addEventListener('pointerup', () => onUp());
-    handle.addEventListener('pointercancel', () => onUp());
+  _findOpaqueBackgroundColor(el) {
+    let cur = el;
+    let guard = 0;
+    while (cur && guard++ < 16) {
+      try {
+        const cs = window.getComputedStyle(cur);
+        const bg = cs?.backgroundColor;
+        if (bg && !/rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/i.test(bg) && bg !== 'transparent') {
+          return bg;
+        }
+      } catch (_) {}
+      cur = cur.parentElement;
+    }
+    try {
+      const bodyBg = window.getComputedStyle(document.body)?.backgroundColor;
+      if (bodyBg && bodyBg !== 'transparent') return bodyBg;
+    } catch (_) {}
+    return null;
+  }
+
+  _parseCssColorToRgb(s) {
+    const str = String(s || '').trim();
+    const m = str.match(/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (m) {
+      const r = Number(m[1]); const g = Number(m[2]); const b = Number(m[3]);
+      const a = (m[4] !== undefined) ? Number(m[4]) : 1;
+      if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b) || !Number.isFinite(a)) return null;
+      if (a <= 0.05) return null;
+      return { r: Math.max(0, Math.min(255, r)), g: Math.max(0, Math.min(255, g)), b: Math.max(0, Math.min(255, b)) };
+    }
+    // hex (#fff or #ffffff)
+    const hx = str.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hx) {
+      const h = hx[1];
+      if (h.length === 3) {
+        const r = parseInt(h[0] + h[0], 16);
+        const g = parseInt(h[1] + h[1], 16);
+        const b = parseInt(h[2] + h[2], 16);
+        return { r, g, b };
+      }
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return { r, g, b };
+    }
+    return null;
   }
 
   renderAiHelperTips() {
@@ -3657,12 +3660,14 @@ class PasteCraftFloatingWidget {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
         if (String(this.settings?.appOpenMode || 'inPage') === 'edgePopup') {
-          safeRuntimeSendMessage({
-            action: 'pcOpenPopupWindow',
-            page: 'popup.html',
-            width: 520,
-            height: 760
-          });
+          try {
+            chrome.runtime.sendMessage({
+              action: 'pcOpenPopupWindow',
+              page: 'popup.html',
+              width: 520,
+              height: 760
+            });
+          } catch (_) {}
           return;
         }
         if (this.openStates.popup) {
@@ -3768,14 +3773,12 @@ class PasteCraftFloatingWidget {
     if (!shouldPush) {
       root.classList.remove('pastecraft-page-pushed');
       root.style.removeProperty('--pastecraft-panel-width');
-      this.applyAiHelperPlacement();
       return;
     }
 
     const widthPx = this.getActivePanelWidthPx();
     root.style.setProperty('--pastecraft-panel-width', `${Math.round(widthPx)}px`);
     root.classList.add('pastecraft-page-pushed');
-    this.applyAiHelperPlacement();
   }
 
   openPopupOverlay() {
@@ -4705,7 +4708,7 @@ class PasteCraftFloatingWidget {
 
   async getPasteCraftConfigFromFile() {
     // Content scripts don’t automatically have access to PASTECRAFT_CONFIG.
-    // We safely extract the Supabase URL + anonKey from extension/config.js using regex (no eval).
+    // We safely extract the database URL + anonKey from extension/config.js using regex (no eval).
     if (this._aiHelperConfigCache) return this._aiHelperConfigCache;
     try {
       const url = chrome.runtime.getURL('config.js');
@@ -5562,7 +5565,7 @@ class PasteCraftFloatingWidget {
         capturedAt
       };
 
-      await safeRuntimeSendMessage({
+      await chrome.runtime.sendMessage({
         action: 'saveClip',
         text: this._pcSafeTrim(imageUrl, MAX_TEXT),
         meta,
@@ -5583,7 +5586,7 @@ class PasteCraftFloatingWidget {
         capturedAt
       };
 
-      await safeRuntimeSendMessage({
+      await chrome.runtime.sendMessage({
         action: 'saveClip',
         text: this._pcSafeTrim(textCandidate, MAX_TEXT),
         meta,
@@ -5606,7 +5609,7 @@ class PasteCraftFloatingWidget {
         capturedAt
       };
 
-      await safeRuntimeSendMessage({
+      await chrome.runtime.sendMessage({
         action: 'saveClip',
         text: this._pcSafeTrim(url, MAX_TEXT),
         meta,
@@ -5627,7 +5630,7 @@ class PasteCraftFloatingWidget {
         capturedAt
       };
 
-      await safeRuntimeSendMessage({
+      await chrome.runtime.sendMessage({
         action: 'saveClip',
         text: this._pcSafeTrim(textCandidate, MAX_TEXT),
         meta,
@@ -5805,6 +5808,21 @@ class PasteCraftFloatingWidget {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
           }
+          .quickview-btn.placeholder {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .quickview-btn.placeholder .placeholder-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.55);
+            box-shadow:
+              inset 0 0 0 1px rgba(30, 64, 175, 0.25),
+              0 1px 2px rgba(0, 0, 0, 0.12);
+            display: inline-block;
+          }
           .quickview-content {
             flex: 1;
             overflow-y: auto;
@@ -5905,6 +5923,8 @@ class PasteCraftFloatingWidget {
             <span class="clip-count" id="clip-count">0 clips</span>
           </div>
           <div class="quickview-controls">
+            <button class="quickview-btn placeholder" onclick="openMiniWindow()" title="Open mini Quick View (window)"><span class="placeholder-box" aria-hidden="true"></span></button>
+            <button class="quickview-btn placeholder" onclick="dockMiniBottomRight()" title="Open mini Quick View (bottom-right)"><span class="placeholder-box" aria-hidden="true"></span></button>
             <button class="quickview-btn" onclick="refreshClips()" title="Refresh">🔄</button>
             <button class="quickview-btn" onclick="openSettings()" title="Settings">⚙️</button>
           </div>
@@ -5928,6 +5948,14 @@ class PasteCraftFloatingWidget {
           
           function openSettings() {
             window.parent.postMessage({ type: 'quickview-open-settings' }, '*');
+          }
+
+          function openMiniWindow() {
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, '*');
+          }
+
+          function dockMiniBottomRight() {
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, '*');
           }
           
           function copyClip(text, index) {
@@ -6163,7 +6191,7 @@ class PasteCraftFloatingWidget {
               if (iframe.contentWindow) {
                 iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
               }
-              safeRuntimeSendMessage({ action: 'clipsUpdated' });
+              chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }).catch(() => {});
           });
         });
@@ -6171,6 +6199,9 @@ class PasteCraftFloatingWidget {
         // Open settings from quick view
         this.closeQuickView();
         setTimeout(() => this.openSettings(), 100);
+      } else if (e.data.type === 'quickview-open-mini') {
+        const mode = String(e.data.mode || 'window');
+        this.openMiniQuickView(mode === 'corner' ? 'corner' : 'window');
       }
     };
     
@@ -6242,6 +6273,86 @@ class PasteCraftFloatingWidget {
           width: 100%;
         }
       }
+
+      /* Mini Quick View (placeholder) */
+      .pastecraft-mini-quickview {
+        position: fixed;
+        width: 360px;
+        height: 460px;
+        max-width: 92vw;
+        max-height: 85vh;
+        background: white;
+        border: 1px solid rgba(148, 163, 184, 0.55);
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+        z-index: 2147483647;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .pastecraft-mini-quickview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+        color: white;
+        cursor: grab;
+        user-select: none;
+      }
+
+      .pastecraft-mini-quickview-header:active {
+        cursor: grabbing;
+      }
+
+      .pastecraft-mini-quickview-title {
+        font-size: 14px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .pastecraft-mini-quickview-controls {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .pastecraft-mini-quickview-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 8px;
+        width: 28px;
+        height: 28px;
+        color: white;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+      }
+
+      .pastecraft-mini-quickview-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+      }
+
+      .pastecraft-mini-quickview-body {
+        flex: 1;
+        background: rgba(241, 245, 249, 0.65);
+      }
+
+      .pastecraft-mini-quickview.docked {
+        right: 20px;
+        bottom: 20px;
+      }
     `;
     
     document.head.appendChild(styles);
@@ -6296,6 +6407,98 @@ class PasteCraftFloatingWidget {
       this.syncPageDocking();
       
       console.log('✅ Quick View panel closed');
+    }
+  }
+
+  openMiniQuickView(mode = 'window') {
+    try {
+      // Ensure base styles exist
+      this.addQuickViewStyles();
+
+      const existing = document.getElementById('pastecraft-mini-quickview');
+      if (existing) {
+        existing.classList.toggle('docked', mode === 'corner');
+        // Bring to front
+        existing.style.zIndex = '2147483647';
+        return;
+      }
+
+      const el = document.createElement('div');
+      el.id = 'pastecraft-mini-quickview';
+      el.className = `pastecraft-mini-quickview${mode === 'corner' ? ' docked' : ''}`;
+
+      const header = document.createElement('div');
+      header.className = 'pastecraft-mini-quickview-header';
+
+      const title = document.createElement('div');
+      title.className = 'pastecraft-mini-quickview-title';
+      title.textContent = 'Quick View (Mini)';
+
+      const controls = document.createElement('div');
+      controls.className = 'pastecraft-mini-quickview-controls';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'pastecraft-mini-quickview-btn';
+      closeBtn.type = 'button';
+      closeBtn.title = 'Close';
+      closeBtn.textContent = '×';
+      closeBtn.addEventListener('click', () => el.remove());
+
+      controls.appendChild(closeBtn);
+      header.appendChild(title);
+      header.appendChild(controls);
+
+      const body = document.createElement('div');
+      body.className = 'pastecraft-mini-quickview-body';
+      el.appendChild(header);
+      el.appendChild(body);
+      document.body.appendChild(el);
+
+      // Initial position (window mode): place it slightly left of the Quick View panel.
+      if (mode !== 'corner') {
+        const w = el.getBoundingClientRect().width || 360;
+        const viewportW = Math.max(320, window.innerWidth || 0);
+        const left = Math.max(12, viewportW - 476 - w - 16);
+        el.style.left = `${left}px`;
+        el.style.top = '90px';
+      }
+
+      // Draggable header
+      const dragState = { dragging: false, dx: 0, dy: 0 };
+      const onPointerMove = (e) => {
+        if (!dragState.dragging) return;
+        const nextLeft = Math.max(0, (e.clientX - dragState.dx));
+        const nextTop = Math.max(0, (e.clientY - dragState.dy));
+        el.style.left = `${nextLeft}px`;
+        el.style.top = `${nextTop}px`;
+      };
+      const onPointerUp = () => {
+        dragState.dragging = false;
+        try { header.releasePointerCapture?.(dragState.pointerId); } catch (_) {}
+        window.removeEventListener('pointermove', onPointerMove, true);
+        window.removeEventListener('pointerup', onPointerUp, true);
+      };
+
+      header.addEventListener('pointerdown', (e) => {
+        if (!e || e.button !== 0) return;
+        // Convert docked (bottom/right) into absolute left/top for smooth drag.
+        const rect = el.getBoundingClientRect();
+        el.classList.remove('docked');
+        el.style.right = '';
+        el.style.bottom = '';
+        el.style.left = `${rect.left}px`;
+        el.style.top = `${rect.top}px`;
+
+        dragState.dragging = true;
+        dragState.pointerId = e.pointerId;
+        dragState.dx = e.clientX - rect.left;
+        dragState.dy = e.clientY - rect.top;
+        try { header.setPointerCapture?.(e.pointerId); } catch (_) {}
+        window.addEventListener('pointermove', onPointerMove, true);
+        window.addEventListener('pointerup', onPointerUp, true);
+      });
+    } catch (err) {
+      console.error('❌ Error opening mini Quick View:', err);
     }
   }
   

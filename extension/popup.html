@@ -6066,7 +6066,25 @@ Multiple clips are separated by:
                         </div>
                         <div class="settings-note">
                             <span class="note-icon">ℹ️</span>
-                            <span>This only locks the extension UI. Your account session stays signed in.</span>
+                            <span>This only locks the extension UI. Your account session can stay signed in, and your 3-digit code can sync across devices when browser sync is enabled.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>🔑 Sign-in Preferences</h4>
+                        <p class="settings-description">Control whether PasteCraft stays signed in and whether your email is remembered on this device.</p>
+                        <div class="quick-settings-checkboxes">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="staySignedInSetting">
+                                Stay signed in on this browser
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="rememberEmailSetting">
+                                Remember email on this device
+                            </label>
+                        </div>
+                        <div class="settings-note">
+                            <span class="note-icon">ℹ️</span>
+                            <span>We do not store your password. To use the same 3-digit code on another computer, sign in there once and keep “Stay signed in on this browser” enabled (browser sync must be enabled for PIN sync).</span>
                         </div>
                     </div>
                     <div class="settings-section">
@@ -6087,30 +6105,10 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>🕒 Restore Data</h4>
-                        <p class="settings-description">Restore your data from local snapshots, browser sync, or cloud backup. Data is automatically synced when online.</p>
+                        <h4>🕒 Restore Clips</h4>
+                        <p class="settings-description">Restore your local clips from a previous point in time. Cloud data is not changed unless you click “Sync restored data to cloud”.</p>
 
                         <div class="quick-setting">
-                            <label>What to restore:</label>
-                            <select id="restoreTypeSelect" class="settings-select">
-                                <option value="clips">Clips (all file types)</option>
-                                <option value="categories">Categories</option>
-                                <option value="notes">Notes</option>
-                                <option value="gallery">Gallery (AI images)</option>
-                                <option value="all">Everything</option>
-                            </select>
-                        </div>
-
-                        <div class="quick-setting">
-                            <label>Restore from:</label>
-                            <select id="restoreSourceSelect" class="settings-select">
-                                <option value="local">Local Snapshot</option>
-                                <option value="sync">Browser Sync Backup</option>
-                                <option value="cloud">Cloud (Supabase)</option>
-                            </select>
-                        </div>
-
-                        <div class="quick-setting" id="restoreWindowGroup">
                             <label>Restore window:</label>
                             <select id="restoreWindowSelect" class="settings-select">
                                 <option value="1day">1 Day ago</option>
@@ -6122,21 +6120,18 @@ Multiple clips are separated by:
 
                         <div class="settings-note" style="margin-top: 10px;">
                             <span class="note-icon">ℹ️</span>
-                            <span id="restorePreviewText">Select options and click Preview to see what will be restored.</span>
+                            <span id="restorePreviewText">Select a window to preview what will be restored.</span>
                         </div>
 
                         <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
                             <button class="btn-secondary" id="previewRestoreBtn" type="button">Preview</button>
-                            <button class="btn-primary" id="restoreNowBtn" type="button">Restore now</button>
+                            <button class="btn-secondary" id="restoreNowBtn" type="button">Restore now</button>
+                            <button class="btn-secondary" id="syncRestoredToCloudBtn" type="button" disabled>Sync restored data to cloud</button>
                         </div>
 
                         <div class="settings-note" style="margin-top: 10px;">
                             <span class="note-icon">⚠️</span>
-                            <span>Restore replaces selected local data with the backup.</span>
-                        </div>
-                        <div class="settings-note" style="margin-top: 10px;">
-                            <span class="note-icon">ℹ️</span>
-                            <span>Removing the extension clears local restore points.</span>
+                            <span>Restore replaces local Clips and Archive with the snapshot.</span>
                         </div>
                     </div>
                     <div class="modal-actions">
@@ -7020,6 +7015,22 @@ Multiple clips are separated by:
                     </button>
 
                     <label class="auth-checkbox-new" style="margin-top: -6px;">
+                        <input type="checkbox" id="staySignedIn">
+                        <span class="checkbox-mark"></span>
+                        <span class="checkbox-text">
+                            Stay signed in on this browser
+                        </span>
+                    </label>
+
+                    <label class="auth-checkbox-new" style="margin-top: -6px;">
+                        <input type="checkbox" id="rememberEmail">
+                        <span class="checkbox-mark"></span>
+                        <span class="checkbox-text">
+                            Remember email on this device
+                        </span>
+                    </label>
+
+                    <label class="auth-checkbox-new" style="margin-top: -6px;">
                         <input type="checkbox" id="rememberLoginWithPin">
                         <span class="checkbox-mark"></span>
                         <span class="checkbox-text">
@@ -7524,7 +7535,7 @@ alice@email.com</div>
     </div>
 
 
-    <!-- Supabase Client (Local) -->
+    <!-- Database Client (Local) -->
     <script src="supabase.js"></script>
     <!-- Image Expanded View Modal -->
     <div class="image-viewer-modal" id="imageViewerModal">
@@ -7534,7 +7545,7 @@ alice@email.com</div>
         </div>
     </div>
 
-    <!-- Config and Supabase Client -->
+    <!-- Config and Database Client -->
     <script src="config.js"></script>
     <script src="supabase-client.js"></script>
     <!-- Main Popup Script -->

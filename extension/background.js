@@ -1,37 +1,5 @@
 // PasteCraft Background Script
 
-const PASTECRAFT_LOGS_ENABLED = (() => {
-  try {
-    if (typeof globalThis !== 'undefined' && globalThis.PASTECRAFT_DEBUG === true) {
-      return true;
-    }
-  } catch (_) {
-    // Ignore access errors.
-  }
-  return false;
-})();
-
-if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
-  const pastecraftNoop = () => {};
-  console.log = pastecraftNoop;
-  console.debug = pastecraftNoop;
-  console.info = pastecraftNoop;
-}
-
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-async function safeTabsSendMessage(tabId, message) {
-  if (!Number.isFinite(tabId)) return false;
-  try {
-    await chrome.tabs.sendMessage(tabId, message);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
 function isRepoLoaderBuild() {
   try {
     const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
@@ -150,7 +118,6 @@ createContextMenus();
 // Handle extension icon click - open slide-in panel instead of popup
 chrome.action.onClicked.addListener(async (tab) => {
   try {
-    const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
     const mode = await getAppOpenMode();
     if (mode === 'edgePopup') {
       console.log('🎨 Extension icon clicked, opening popup window');
@@ -159,9 +126,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     }
 
     console.log('🎨 Extension icon clicked, opening slide-in panel');
-    if (tabId == null) throw new Error('tab_unavailable');
-    const ok = await safeTabsSendMessage(tabId, { action: 'openPopupPanel' });
-    if (!ok) throw new Error('content_script_unavailable');
+    await chrome.tabs.sendMessage(tab.id, { action: 'openPopupPanel' });
   } catch (error) {
     console.error('❌ Could not open PasteCraft UI:', error);
     // Fallback: open separate window if in-page injection is blocked (e.g. browser internal pages)
@@ -468,10 +433,8 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
   try {
     // Notify all tabs (content scripts)
     chrome.tabs.query({}, (tabs) => {
-      normalizeArray(tabs).forEach(tab => {
-        const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
-        if (tabId == null) return;
-        safeTabsSendMessage(tabId, {
+      tabs.forEach(tab => {
+        chrome.tabs.sendMessage(tab.id, {
           action: 'clipSaved',
           clip: newClip,
           autoShow: autoShow // Pass the autoShow flag
