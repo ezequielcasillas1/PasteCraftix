@@ -4249,7 +4249,7 @@ class PasteCraftPopup {
         <button class="chip-open-btn" title="Open">🔎</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="chip-notes-btn" title="Send to Notes">
-          <img src="assets/note-icons/send.svg" alt="" class="pc-icon pc-icon-14">
+          <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-14">
         </button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="chip-remove" title="Remove clip">×</button>
@@ -4820,7 +4820,7 @@ class PasteCraftPopup {
         <button class="chip-open-btn" title="Open">🔎</button>
         <button class="chip-summary-btn" title="AI Summary">📝</button>
         <button class="search-notes-btn" title="Send to Notes">
-          <img src="assets/note-icons/send.svg" alt="" class="pc-icon pc-icon-14">
+          <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-14">
         </button>
         <button class="chip-category-btn" title="Add to category">📁</button>
         <button class="btn-copy" title="Copy to clipboard">📋</button>
@@ -6274,7 +6274,7 @@ class PasteCraftPopup {
             <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open">🔎</button>
             <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary">📝</button>
             <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes">
-              <img src="assets/note-icons/send.svg" alt="" class="pc-icon pc-icon-14">
+              <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-14">
             </button>
             <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy">📋</button>
           </div>
@@ -8745,7 +8745,7 @@ class PasteCraftPopup {
       const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
 
       const sendToAlbumBtn = note.type !== 'album'
-        ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><img src="assets/note-icons/send.svg" alt="" class="pc-icon pc-icon-20"></button>`
+        ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-20"></button>`
         : '';
       
       return `
@@ -8753,9 +8753,9 @@ class PasteCraftPopup {
           <div class="note-card-header">
             <span class="note-card-type"><img src="${typeIconSrc}" alt="" class="pc-icon pc-icon-18"></span>
             <div class="note-card-actions">
-              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><img src="assets/note-icons/write.svg" alt="" class="pc-icon pc-icon-20"></button>
+              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><img src="assets/note-icons/Edit.svg" alt="" class="pc-icon pc-icon-20"></button>
               ${sendToAlbumBtn}
-              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export"><img src="assets/note-icons/upload.svg" alt="" class="pc-icon pc-icon-20"></button>
+              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export"><img src="assets/note-icons/export.svg" alt="" class="pc-icon pc-icon-20"></button>
               <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><img src="assets/note-icons/delete.svg" alt="" class="pc-icon pc-icon-20"></button>
             </div>
           </div>

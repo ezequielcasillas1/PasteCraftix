@@ -431,6 +431,15 @@ state management.
 
 ---
 
+#### 37. Note Card Icon Alignment
+**Priority:** Low  
+**Status:** Not started  
+**Requirements:**
+- Note card action icons (edit, delete, export, etc.) not proportionally leveled
+- Fix vertical alignment to ensure consistent spacing/positioning
+
+---
+
 
 ## 🎯 **PRIORITY ROADMAP**
 
