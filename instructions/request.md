@@ -26,6 +26,9 @@
 - Keep AI premium gating + subscription validation (already exists)
 - Add grace period handling for expired/past_due subscriptions
 
+Dont write md files explaining steps 1 and 2. just guide me via chat
+
+
 --- 
 
 #### 2. Stripe Tier Subscription Sync (FREE / BASIC / PREMIUM)
@@ -259,7 +262,7 @@
 
 ---
 
-#### 22. Quick Login Code (3-digit PIN lock)
+#### 22. 3-Digit Passcode Login & Session Management
 **Priority:** Medium  
 **Status:** Partial (Needs multi-device + sync reliability fixes)  
 **Requirements:**
@@ -267,9 +270,24 @@
 - Require PIN to unlock the extension UI on open (keep Supabase session; don’t store passwords)
 - Ensure Supabase login/session is recognized across multiple computers (sync ops work seamlessly after sign-in)
 - PIN unlock works across devices via browser sync storage (same account, same PIN hash)
-- Settings: enable/disable + change/reset code; add lockout on repeated failures
+**Setup & Authentication:**
+- Opt-in checkbox on Sign In: "Remember future sessions with 3 digit passcode"
+- Require PIN to unlock the extension UI on open (keep Supabase session; don't store passwords)
+- Ensure Supabase login/session is recognized across multiple computers (sync ops work seamlessly after sign-in)
+- PIN unlock works across devices via browser sync storage (same account, same PIN hash)
 
-**Bug:**
+**Session Cache Behavior:**
+- 3-digit login acts as one-time during browser session (no re-prompt until session ends)
+- After browser session ends, 3-digit login commences again on next session (unless "Unlimited session" enabled)
+
+**Settings Controls:**
+- "Require a 3 digit passcode when starting a new session" (default: enabled)
+- "Unlimited session" toggle (persists across browser restarts, no 3-digit login on reopen)
+- Login checkbox state reflects Settings state (single source of truth)
+- Enable/disable passcode + change/reset code options
+- Add lockout on repeated PIN failures
+
+**Bug Fixes:**
 - After setting a 3-digit PIN during sign-in, the extension later reports no PIN exists and prompts to create it again.
 - “Require 3-digit code on open” checkbox is unreliable (doesn’t consistently enforce lock/unlock on open)
 - “Change 3-digit code” and “Disable code” actions do not reliably apply/persist; review state/storage flow
@@ -412,18 +430,16 @@ state management.
 
 ---
 
-#### 35. 3-Digit Passcode Copy + State Sync
+#### 35. Funky Animal Name Save/Render Fix
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Rename login header: “Remember future sessions with 3 digit passcode”
-- Login checkbox state should reflect Settings state (single source of truth)
-- Rename setting text to: “Require a 3 digit passcode when starting a new session”
-- If session cache exists, remain signed in across browser restarts (until user signs out)
+- Ensure renamed "funky animal name" persists and renders as the new name in the PasteCraft UI (top-left) “Remember future sessions with 3 digit passcode”
+ to: “Require a 3 digit passcode when starting a new session”
+, remain signed in across browser restarts (until user signs out)
 
 ---
 
-#### 36. Funky Animal Name Save/Render Fix
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
@@ -431,12 +447,15 @@ state management.
 
 ---
 
-#### 37. Note Card Icon Alignment
+#### 36. Note Card Icon Alignment
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
 - Note card action icons (edit, delete, export, etc.) not proportionally leveled
 - Fix vertical alignment to ensure consistent spacing/positioning
+
+---
+
 
 ---
 
