@@ -1360,6 +1360,14 @@ class PasteCraftSupabase {
     try {
       const _pcSyncStart = Date.now();
       const userId = await this.getSyncUserId();
+      
+      // Check cloud sync access (FREE tier = local only)
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) {
+        console.log('ℹ️ Cloud sync not available for free tier. Clips stored locally only.');
+        return false; // Silently fail - user stays on local storage
+      }
+      
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
 
@@ -3141,6 +3149,48 @@ class PasteCraftSupabase {
   }
 
   /**
+   * Check if user has cloud sync access (basic or premium tier)
+   * FREE tier = local storage only, no cloud sync
+   * BASIC/PREMIUM tiers = cloud sync allowed
+   */
+  async hasCloudSyncAccess(userId) {
+    const subscription = await this.getUserSubscription(userId);
+    if (!subscription) {
+      return false; // No subscription = free tier = no cloud sync
+    }
+    
+    const tier = subscription.subscription_tier?.toLowerCase();
+    const status = subscription.subscription_status?.toLowerCase();
+    
+    // Allow cloud sync for basic and premium tiers (active status)
+    // Also allow past_due (grace period) for better UX
+    const allowedTiers = ['basic', 'premium', 'admin'];
+    const allowedStatuses = ['active', 'past_due'];
+    
+    return allowedTiers.includes(tier) && allowedStatuses.includes(status);
+  }
+
+  /**
+   * Check cloud sync access and show upgrade prompt if not allowed
+   * @param {string} userId - User ID to check
+   * @returns {boolean} - True if user has cloud sync access
+   */
+  async checkCloudSyncAccess(userId) {
+    const hasAccess = await this.hasCloudSyncAccess(userId);
+    
+    if (!hasAccess) {
+      // Show upgrade prompt for cloud sync
+      const upgradeUrl = `https://pastecraft.com/pricing.html`;
+      if (confirm('Cloud sync requires a Basic or Enhanced subscription. Upgrade now?')) {
+        window.open(upgradeUrl, '_blank');
+      }
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * Check premium access and redirect to upgrade page if not premium
    * @param {string} userId - User ID to check
    * @param {string} featureName - Feature being accessed (breakdown, summary, image, avatar, cartoon, name)
@@ -3196,6 +3246,18 @@ class PasteCraftSupabase {
     }
 
     try {
+      const userId = await this.getSyncUserId();
+      
+      // Check cloud sync access (FREE tier = local only)
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) {
+        console.log('ℹ️ Cloud sync not available for free tier. Using local storage only.');
+        return {
+          success: false,
+          message: 'Cloud sync requires Basic or Enhanced subscription'
+        };
+      }
+      
       console.log('🔄 Starting full bidirectional sync...');
 
       // Get local data from Chrome storage

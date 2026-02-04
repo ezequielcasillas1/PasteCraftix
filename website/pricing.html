@@ -363,14 +363,15 @@
     <div class="pricing-container">
         <!-- Free Plan -->
         <div class="pricing-card">
-            <div class="plan-name">Free</div>
+            <div class="plan-name">Freemium</div>
             <div class="plan-price">$0<span>/forever</span></div>
-            <div class="plan-description">All Basic features (no AI) • 1,000 clips</div>
+            <div class="plan-description">Unlimited clips (local storage only)</div>
             
             <ul class="plan-features">
-                <li><span class="check">✓</span> Up to 1,000 clips</li>
-                <li><span class="check">✓</span> Basic categories</li>
-                <li><span class="check">✓</span> Cloud sync</li>
+                <li><span class="check">✓</span> Unlimited clips</li>
+                <li><span class="check">✓</span> Unlimited notes</li>
+                <li><span class="check">✓</span> Unlimited categories</li>
+                <li><span class="cross">✗</span> Cloud sync</li>
                 <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
                 <li><span class="cross">✗</span> AI Image Generation</li>
                 <li><span class="cross">✗</span> Lowest support</li>
@@ -379,6 +380,7 @@
             <a href="https://microsoftedge.microsoft.com/addons" class="btn btn-secondary" style="text-decoration: none; border: none;">
                 Get Started Free
             </a>
+            <div class="checkout-note" style="margin-top: 10px; font-size: 13px; color: #718096;">Clips stay on your device</div>
         </div>
 
         <!-- Basic Plan (Popular) -->
@@ -386,7 +388,7 @@
             <div class="popular-badge">🌟 Most Popular</div>
             <div class="plan-name">Basic</div>
             <div class="plan-price" id="price-basic">$1.99<span>/month</span></div>
-            <div class="plan-description">Unlimited clips (no AI)</div>
+            <div class="plan-description">Everything Freemium + Cloud sync</div>
 
             <div class="billing-toggle" role="tablist" aria-label="Basic billing interval">
                 <button type="button" class="active" data-plan="basic" data-interval="monthly">Monthly</button>
@@ -396,7 +398,8 @@
 
             <ul class="plan-features">
                 <li><span class="check">✓</span> Unlimited clips</li>
-                <li><span class="check">✓</span> Basic categories</li>
+                <li><span class="check">✓</span> Unlimited notes</li>
+                <li><span class="check">✓</span> Unlimited categories</li>
                 <li><span class="check">✓</span> Cloud sync</li>
                 <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
                 <li><span class="cross">✗</span> AI Image Generation</li>
@@ -413,7 +416,7 @@
         <div class="pricing-card" id="card-enhanced" data-plan="enhanced">
             <div class="plan-name">Enhanced</div>
             <div class="plan-price" id="price-enhanced">$4.99<span>/month</span></div>
-            <div class="plan-description">AI tools + unlimited clips</div>
+            <div class="plan-description">Everything Basic + Enhanced AI access</div>
 
             <div class="billing-toggle" role="tablist" aria-label="Enhanced billing interval">
                 <button type="button" class="active" data-plan="enhanced" data-interval="monthly">Monthly</button>
@@ -423,10 +426,12 @@
 
             <ul class="plan-features">
                 <li><span class="check">✓</span> Unlimited clips</li>
+                <li><span class="check">✓</span> Unlimited notes</li>
+                <li><span class="check">✓</span> Unlimited categories</li>
+                <li><span class="check">✓</span> Cloud sync</li>
                 <li><span class="check">✓</span> AI Breakdown & Summaries</li>
                 <li><span class="check">✓</span> AI Image Generation</li>
-                <li><span class="check">✓</span> Basic categories</li>
-                <li><span class="check">✓</span> Cloud sync</li>
+                <li><span class="check">✓</span> Enhanced AI accessibility</li>
                 <li><span class="check">✓</span> Standard support</li>
             </ul>
 
@@ -490,16 +495,16 @@
         const PLAN_CONFIG = {
             basic: {
                 prices: {
-                    weekly: { amount: 0.99, suffix: '/week', priceId: 'TODO_STRIPE_PRICE_BASIC_WEEKLY' },
-                    monthly: { amount: 1.99, suffix: '/month', priceId: 'TODO_STRIPE_PRICE_BASIC_MONTHLY' },
-                    yearly: { amount: 9.99, suffix: '/year', priceId: 'TODO_STRIPE_PRICE_BASIC_YEARLY' },
+                    weekly: { amount: 0.99, suffix: '/week', priceId: 'price_1SsbbHLOdeLTrjapgaZzEbBt' },
+                    monthly: { amount: 1.99, suffix: '/month', priceId: 'price_1SsbTZLOdeLTrjap9UnXhu0M' },
+                    yearly: { amount: 9.99, suffix: '/year', priceId: 'price_1SsbBDLOdeLTrjapHTq7yxng' },
                 }
             },
             enhanced: {
                 prices: {
-                    weekly: { amount: 1.99, suffix: '/week', priceId: 'TODO_STRIPE_PRICE_ENHANCED_WEEKLY' },
-                    monthly: { amount: 4.99, suffix: '/month', priceId: 'TODO_STRIPE_PRICE_ENHANCED_MONTHLY' },
-                    yearly: { amount: 49.99, suffix: '/year', priceId: 'TODO_STRIPE_PRICE_ENHANCED_YEARLY' },
+                    weekly: { amount: 1.99, suffix: '/week', priceId: 'price_1SaMM0LOdeLTrjapKLTHBByC' },
+                    monthly: { amount: 4.99, suffix: '/month', priceId: 'price_1SUYs3LOdeLTrjapCFFDe7td' },
+                    yearly: { amount: 49.99, suffix: '/year', priceId: 'price_1SaMNJLOdeLTrjapjJ8iCoP7' },
                 }
             }
         };

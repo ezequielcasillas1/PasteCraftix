@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
-    subscription_tier TEXT NOT NULL DEFAULT 'free', -- 'free', 'premium', 'admin'
+    subscription_tier TEXT NOT NULL DEFAULT 'free', -- 'free', 'basic', 'premium', 'admin'
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
     subscription_status TEXT DEFAULT 'active', -- 'active', 'canceled', 'past_due'
