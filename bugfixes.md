@@ -67,3 +67,8 @@
 **Status:** SUCCESS
 **Files:** extension/background.js
 **Result:** Added image right-click actions (Copy Image / Copy Image Link) that save the image URL to clips reliably (browser native copy does not trigger auto-copy).
+
+### Feb 4, 2026 - Auto-Copy Clips Not Appearing
+**Status:** SUCCESS
+**Files:** extension/background.js, extension/content-script.js, extension/popup.js
+**Result:** Fixed undefined `normalizeArray` in background clip save path so auto-copied clips persist and show; instrumentation removed after verification.

@@ -48,6 +48,11 @@
 **Files:** extension/background.js, extension/popup.js
 **Result:** Added “Copy Image to PasteCraft” / “Copy Image Link to PasteCraft” to reliably save image URLs into Clips. (Commit: bafc2cd)
 
+### Feb 4, 2026 - Auto-Copy Clips Not Appearing
+**Status:** ✅ SUCCESS
+**Files:** extension/background.js, extension/content-script.js, extension/popup.js
+**Result:** Fixed undefined `normalizeArray` in background clip save path so auto-copied clips persist and show. (Commit: N/A)
+
 ### Dec 20, 2025 - Production Deployment Complete
 
 **Status:** ✅ SUCCESS - System Production Ready

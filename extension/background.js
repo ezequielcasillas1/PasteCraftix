@@ -21,6 +21,12 @@ function getExtensionPageUrl(pagePath) {
   return chrome.runtime.getURL(path);
 }
 
+function normalizeArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null) return [];
+  return [value];
+}
+
 async function getAppOpenMode() {
   try {
     const { widgetSettings = {} } = await chrome.storage.local.get(['widgetSettings']);
@@ -362,10 +368,17 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
     console.log('⚠️ Attempted to save empty/undefined text - ABORTED');
     return;
   }
-  
+
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-  const clips = normalizeArray(result?.clips);
-  const searchOnlyClips = normalizeArray(result?.searchOnlyClips);
+
+  let clips;
+  let searchOnlyClips;
+  try {
+    clips = normalizeArray(result?.clips);
+    searchOnlyClips = normalizeArray(result?.searchOnlyClips);
+  } catch (error) {
+    throw error;
+  }
   
   const safeMeta = sanitizeClipMeta(meta);
   const newClip = {
@@ -426,7 +439,12 @@ async function saveTextDirectly(text, category = 'Uncategorized', autoShow = tru
     console.log(`📦 Pagination: Moved ${overflowClips.length} clips beyond limit (${maxClips}) to searchOnlyClips`);
   }
   
-  await chrome.storage.local.set({ clips, searchOnlyClips, pc_local_updatedAt: Date.now() });
+  try {
+    await chrome.storage.local.set({ clips, searchOnlyClips, pc_local_updatedAt: Date.now() });
+  } catch (error) {
+    throw error;
+  }
+
   console.log('✅ Saved to local storage:', { active: clips.length, archived: searchOnlyClips.length });
   
   // Notify content scripts and popup about new clip

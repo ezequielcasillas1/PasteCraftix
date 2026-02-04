@@ -35,3 +35,8 @@ Keep local-only for privacy; syncing it across devices is surprising.
 Keep local-only: it’s about this device’s session persistence, not the account.
 “Storage information”
 Should not be a checkbox or stored preference. It should be computed from synced data (clips/categories/archive) and therefore naturally “account-wide”.
+
+### 2026-02-04 - Auto-Copy Clip Save Path Guard
+**Status:** SUCCESS
+**Files:** extension/background.js, extension/content-script.js, extension/popup.js
+**Result:** Added missing array normalization in background save flow so auto-copy persists; verification complete. (Commit: pending)
