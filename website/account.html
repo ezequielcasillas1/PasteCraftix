@@ -383,6 +383,41 @@
             margin-bottom: 20px;
             display: none;
         }
+
+        .coupon-notification {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .coupon-notification.show {
+            display: block;
+        }
+
+        .coupon-notification h4 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .coupon-notification p {
+            margin: 0;
+            opacity: 0.95;
+            font-size: 14px;
+        }
+
+        .coupon-code-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+            margin-left: 8px;
+        }
         
         @media (max-width: 768px) {
             .auth-container {
@@ -487,8 +522,21 @@
             <div class="action-cards">
                 <div class="action-card">
                     <h3>🚀 Subscription</h3>
+                    
+                    <!-- Coupon Code Notification (shown only if user has coupon) -->
+                    <div class="coupon-notification" id="couponNotification">
+                        <h4>🎟️ Active Coupon Code</h4>
+                        <p>
+                            You have <strong>Lifetime Unlimited</strong> AI access via coupon code 
+                            <span class="coupon-code-badge" id="couponCodeBadge">DEV4EVER</span>
+                        </p>
+                        <p style="margin-top: 8px; font-size: 13px;">
+                            All premium AI features are unlocked forever! ✨
+                        </p>
+                    </div>
+                    
                     <p id="subscriptionStatus">You are currently on the Free plan.</p>
-                    <button class="btn-secondary" onclick="window.location.href='pricing.html'">Upgrade to Premium</button>
+                    <button class="btn-secondary" id="upgradeButton" onclick="window.location.href='pricing.html'">Upgrade to Premium</button>
                 </div>
                 
                 <div class="action-card">
@@ -621,7 +669,72 @@
                     badge.textContent = tier;
                     badge.className = `subscription-badge ${tier.toLowerCase()}`;
                     
-                    if (tier === 'PREMIUM') {
+                    // Check for coupon code (unlimited AI access)
+                    const hasUnlimitedAI = subscription.has_unlimited_ai === true;
+                    const expiresAt = subscription.ai_access_expires_at;
+                    const hasCouponAccess = hasUnlimitedAI || (expiresAt && new Date(expiresAt) > new Date());
+                    
+                    if (hasCouponAccess) {
+                        // Get coupon code name from coupon_redemptions
+                        let couponCode = 'ACTIVE';
+                        try {
+                            // First get redemption to get coupon_code_id
+                            const { data: redemption } = await sb
+                                .from('coupon_redemptions')
+                                .select('coupon_code_id')
+                                .eq('user_id', user.id)
+                                .limit(1)
+                                .single();
+                            
+                            if (redemption && redemption.coupon_code_id) {
+                                // Then get the coupon code
+                                const { data: coupon } = await sb
+                                    .from('coupon_codes')
+                                    .select('code')
+                                    .eq('id', redemption.coupon_code_id)
+                                    .single();
+                                
+                                if (coupon && coupon.code) {
+                                    couponCode = coupon.code;
+                                }
+                            }
+                            
+                            // Show coupon notification
+                            const couponNotif = document.getElementById('couponNotification');
+                            const couponBadge = document.getElementById('couponCodeBadge');
+                            const upgradeBtn = document.getElementById('upgradeButton');
+                            
+                            if (couponNotif && couponBadge) {
+                                couponBadge.textContent = couponCode;
+                                couponNotif.classList.add('show');
+                                
+                                // Hide upgrade button if lifetime unlimited
+                                if (hasUnlimitedAI && upgradeBtn) {
+                                    upgradeBtn.style.display = 'none';
+                                }
+                                
+                                // Update subscription status
+                                document.getElementById('subscriptionStatus').textContent = 
+                                    hasUnlimitedAI 
+                                        ? 'You have Lifetime Unlimited AI access! 🎉'
+                                        : `You have AI access until ${new Date(expiresAt).toLocaleDateString()}`;
+                            }
+                        } catch (redemptionError) {
+                            console.error('Error fetching coupon redemption:', redemptionError);
+                            // Still show notification if has_unlimited_ai is true
+                            if (hasUnlimitedAI) {
+                                const couponNotif = document.getElementById('couponNotification');
+                                const upgradeBtn = document.getElementById('upgradeButton');
+                                if (couponNotif) {
+                                    document.getElementById('couponCodeBadge').textContent = 'ACTIVE';
+                                    couponNotif.classList.add('show');
+                                    if (upgradeBtn) upgradeBtn.style.display = 'none';
+                                    document.getElementById('subscriptionStatus').textContent = 
+                                        'You have Lifetime Unlimited AI access! 🎉';
+                                }
+                            }
+                        }
+                    } else if (tier === 'PREMIUM') {
                         document.getElementById('subscriptionStatus').textContent = 
                             'You have full access to all premium features! 🎉';
                     }
