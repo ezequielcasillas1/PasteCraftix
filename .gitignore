@@ -48,7 +48,6 @@ supabase/.temp/
 
 # Local configs/docs (ignore)
 config.toml
-netlify.toml
 PRODUCTION_*.md
 
 
