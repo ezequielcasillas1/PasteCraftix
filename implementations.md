@@ -56,7 +56,7 @@
 ### Jan 18, 2026 - Profile Funky Animal Name Remix
 **Status:** PARTIAL
 **Files:** extension/popup.html, extension/popup.js, supabase/functions/ai-name/index.ts
-**Result:** Renamed “Funky Name” → “Funky Animal Name” and updated AI name prompt to remix the user’s typed name while ending with a valid animal.
+**Result:** Renamed "Funky Name" → "Funky Animal Name" and updated AI name prompt to remix the user's typed name while ending with a valid animal.
 
 ### Jan 19, 2026 - Profile Name Save Buttons
 **Status:** SUCCESS
@@ -76,12 +76,12 @@
 ### Jan 22, 2026 - Tips Widget Auto Placement + Popup Fallback
 **Status:** SUCCESS
 **Files:** extension/content-script.js
-**Result:** Tips widget now auto-detects “clean” space (avoids nav/interactive UI) and falls back to an in-page popup window; users can force popup via settings.
+**Result:** Tips widget now auto-detects "clean" space (avoids nav/interactive UI) and falls back to an in-page popup window; users can force popup via settings.
 
 ### Feb 5, 2026 - Settings Dark Mode Coming Soon
 **Status:** SUCCESS
 **Files:** extension/popup.html, extension/popup.js, extension/styles.css
-**Result:** Dark Mode toggles are disabled + labeled “Coming soon”; theme is forced to light to prevent accidental dark-mode saves.
+**Result:** Dark Mode toggles are disabled + labeled "Coming soon"; theme is forced to light to prevent accidental dark-mode saves.
 
 ### Feb 6, 2026 - AI Lab Credits + Image Credit Enforcement
 **Status:** PARTIAL
@@ -91,7 +91,9 @@
 ### Feb 6, 2026 - AI Lab Credit Pills (Image + Text)
 **Status:** PARTIAL
 **Files:** extension/popup.html, extension/popup.js
-**Result:** Renamed “Credits” to “Image credits” and added a right-side “AI text credits” pill (currently unlimited unless text credit caps are added).
+**Result:** Renamed "Credits" to "Image credits" and added a right-side "AI text credits" pill (currently unlimited unless text credit caps are added).
 
-
-
+### Feb 5, 2026 - AI Provider + GPT-5 Workflow Override
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, extension/content-script.js, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,name,hint,trends,vision,image}/index.ts
+**Result:** Added AI workflow override toggle + provider/workflow dropdowns in AI Lab. Presets: Default (4o), Cheapest (GPT-5 Nano/Mini), Latest (GPT-5.2). Config persists in chrome.storage.sync/local. All AI requests pass workflow config; edge functions resolve models via allowlisted presets with safe fallbacks.
