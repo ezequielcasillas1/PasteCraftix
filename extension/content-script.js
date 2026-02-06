@@ -2472,6 +2472,7 @@ class PasteCraftFloatingWidget {
     console.log('🎨 PasteCraftFloatingWidget constructor called');
     this.widget = null;
     this.aiHelperEl = null;
+    this._settingsLoaded = false;
     this.aiHelperTips = [];
     this.aiHelperAiTips = [];
     this.aiHelperMode = 'clipboard'; // 'clipboard' | 'trends'
@@ -3152,6 +3153,10 @@ class PasteCraftFloatingWidget {
 
   updateAiHelperUI() {
     if (!this.aiHelperEl) return;
+    if (!this._settingsLoaded) {
+      this.aiHelperEl.classList.add('hidden');
+      return;
+    }
 
     const enabled = !!this.settings.aiHelperEnabled;
     this.aiHelperEl.classList.toggle('hidden', !enabled);

@@ -1,3 +1,13 @@
+### Feb 5, 2026 - Tips Widget Flicker on New Pages
+**Status:** SUCCESS
+**Files:** extension/content-script.js
+**Result:** Prevented pre-settings render so the tips widget no longer flashes before stored settings apply.
+
+### Feb 4, 2026 - 3-Digit PIN Persistence & Session Management
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup.html
+**Result:** Fixed PIN not persisting after sign-in (currentUser set before save), added unlimited session mode, synced checkbox states, updated text consistency.
+
 ### Jan 25, 2026 - Messaging Errors (Missing Receiver/Tab)
 **Status:** SUCCESS
 **Files:** extension/background.js, extension/content-script.js

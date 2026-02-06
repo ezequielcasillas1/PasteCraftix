@@ -6055,10 +6055,18 @@ Multiple clips are separated by:
                         <h4>🔐 Quick Login Code</h4>
                         <p class="settings-description">Require a 3-digit code to open PasteCraft on this browser profile.</p>
                         <div class="quick-settings-checkboxes">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="pinLockEnabled">
-                                Require 3-digit code on open
+                            <label class="checkbox-label" style="margin-top: 8px;">
+                                <input type="checkbox" id="pinAskEachBrowserOpen" title="If enabled, you'll be asked again after a full browser restart. Choosing this will turn off Unlimited session.">
+                                Ask for 3-digit code every time a new browser is open
                             </label>
+                            <label class="checkbox-label" style="margin-top: 8px;">
+                                <input type="checkbox" id="pinUnlimitedSession" title="Overrides “new browser” prompts. If enabled, PasteCraft won't ask again after your first unlock.">
+                                Unlimited session (never require code after initial unlock)
+                            </label>
+                        </div>
+                        <div class="settings-note" style="margin-top: 8px;">
+                            <span class="note-icon">ℹ️</span>
+                            <span><strong>Unlimited session overrides</strong> the “new browser” prompt. Selecting “new browser” will automatically turn Unlimited session off.</span>
                         </div>
                         <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
                             <button class="btn-secondary" id="changePinBtn" type="button">Change 3-digit code</button>

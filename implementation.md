@@ -1,3 +1,8 @@
+### 2026-02-05 - Tips Widget Flicker Fix
+**Status:** SUCCESS
+**Files:** extension/content-script.js
+**Result:** Prevented pre-settings render so the tips widget no longer flashes during page load.
+
 ### 2026-01-30 - Account-wide State Management + 3-Digit PIN (Model A/B)
 **Status:** PARTIAL
 **Files:** extension/popup.js, extension/popup.html, extension/content-script.js, extension/supabase-client.js
@@ -40,3 +45,8 @@ Should not be a checkbox or stored preference. It should be computed from synced
 **Status:** SUCCESS
 **Files:** extension/background.js, extension/content-script.js, extension/popup.js
 **Result:** Added missing array normalization in background save flow so auto-copy persists; verification complete. (Commit: pending)
+
+### 2026-02-04 - 3-Digit Passcode Enhancement
+**Status:** SUCCESS  
+**Files:** extension/popup.js, extension/popup.html  
+**Result:** Fixed PIN persistence bug (sets currentUser before PIN save), added unlimited session toggle, updated sign-in checkbox text to match settings, synced checkbox states across UI, confirm modals already present.

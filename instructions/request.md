@@ -403,7 +403,7 @@ state management.
 **Requirements:**
 - Support safe rendering/display for: Markdown/CommonMark, HTML (sanitized), Mermaid, AsciiDoc, reStructuredText, Org-mode, BBCode/wiki markup (best effort)
 - Store/use copied `text/html` when available; fallback to plain text
-- Never break normal text clips; add “view raw” toggle for markup payloads
+- Never break normal text clips; add "view raw" toggle for markup payloads
 
 ---
 
@@ -416,6 +416,19 @@ state management.
 - Popup/module scrollbar uses PasteCraft **primary sky-blue** (consistent theme)
 - Notes icons: use **regular flat color** (no gradients)
 - Clips navbar: remove the subtle shaded background behind the search (magnifying glass) area
+
+---
+
+#### 37. Tips & Tricks Top Nav Bar (All Pages)
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Current: Top-right "PasteCraft Tips" widget shows Clipboard Coach tips from copy events + optional Daily Trends
+- Current: Settings toggles for enable, rule-based tips, AI tips, and show-after-copy; widget is draggable
+- New: Move tips into a full-width top nav bar strip (left-to-right rectangular area)
+- New: Top nav bar persists and is inherited across all webpages
+- New: Two themes in settings: standard color + transparent (match current widget transparency)
+- New: Top bar must remain readable, accessible, and high-contrast in both themes
 
 ---
 

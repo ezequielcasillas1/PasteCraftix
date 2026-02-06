@@ -3205,8 +3205,12 @@ class PasteCraftPopup {
       const ok = confirm('Disable the 3-digit code? PasteCraft will open without a code on this browser profile.');
       if (!ok) return;
       await this.setPinEnabled(false);
-      const toggle = document.getElementById('pinLockEnabled');
-      if (toggle) toggle.checked = false;
+      try { await this.setPinUnlimitedSession(false); } catch (_) {}
+      try { await this._pinClearSessionUnlocked(); } catch (_) {}
+      const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
+      if (browserScopeEl) browserScopeEl.checked = false;
+      const unlimitedToggle = document.getElementById('pinUnlimitedSession');
+      if (unlimitedToggle) unlimitedToggle.checked = false;
       try { await this._setPinAttempts({ attempts: 0, lockedUntil: 0 }); } catch (_) {}
       this.showToast('✅ Code disabled');
     });
@@ -3238,8 +3242,14 @@ class PasteCraftPopup {
         return;
       }
       await this._pinSetSessionUnlocked();
-      const toggle = document.getElementById('pinLockEnabled');
-      if (toggle) toggle.checked = true;
+      // Reflect the selected mode checkboxes (browser prompt vs unlimited).
+      try {
+        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
+        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
+        const isUnlimited = !!this._pinConfig?.unlimitedSession;
+        if (unlimitedToggle) unlimitedToggle.checked = isUnlimited;
+        if (browserScopeEl) browserScopeEl.checked = !isUnlimited;
+      } catch (_) {}
       // Capture callback BEFORE hide clears it.
       const onComplete = this._pinSetupOnComplete;
       this.hidePinSetupModal();
@@ -3247,6 +3257,20 @@ class PasteCraftPopup {
       try {
         if (typeof onComplete === 'function') onComplete();
       } catch (_) {}
+    });
+
+    // Browser-start prompt and Unlimited session are mutually exclusive.
+    const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
+    const unlimitedEl = document.getElementById('pinUnlimitedSession');
+    browserScopeEl && browserScopeEl.addEventListener('change', (e) => {
+      if (e.target.checked && unlimitedEl && unlimitedEl.checked) {
+        unlimitedEl.checked = false;
+      }
+    });
+    unlimitedEl && unlimitedEl.addEventListener('change', (e) => {
+      if (e.target.checked && browserScopeEl && browserScopeEl.checked) {
+        browserScopeEl.checked = false;
+      }
     });
   }
 
@@ -7818,6 +7842,12 @@ class PasteCraftPopup {
     } else if (message.action === 'clipSaved') {
       // Clip was saved externally (e.g., via context menu)
       console.log('📢 Received clipSaved message - reloading data...');
+
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H3',location:'popup.js:handleMessage:clipSaved',message:'clipSaved message received',data:{hasClip:!!message.clip,tab:popup.currentTab,clipsLen:Array.isArray(popup.clips)?popup.clips.length:null},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
 
       // Fast-path: apply the clip immediately (optimistic), then reconcile from storage shortly after.
       const incoming = message.clip && typeof message.clip === 'object' ? message.clip : null;
