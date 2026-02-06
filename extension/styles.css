@@ -914,6 +914,11 @@ body {
   color: var(--text);
 }
 
+.toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .toggle-switch {
   width: 36px;
   height: 20px;

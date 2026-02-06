@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -88,7 +89,8 @@ serve(async (req) => {
       )
     }
 
-    const { kind, text, url, pageUrl, study } = await req.json().catch(() => ({}))
+    const body = await req.json().catch(() => ({}))
+    const { kind, text, url, pageUrl, study } = body || {}
     const t = String(text || '').trim()
     const u = String(url || '').trim()
     const p = String(pageUrl || '').trim()
@@ -118,30 +120,20 @@ serve(async (req) => {
       studyLine +
       `Copied:\n${t.slice(0, 5000)}`
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 220,
-        temperature: 0.4
-      })
-    })
+    const workflow = parseAiWorkflowFromBody(body)
+    const models = resolveModelsFromWorkflow(workflow)
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.error?.message || 'OpenAI API error')
+    const payload = {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      max_tokens: 220,
+      temperature: 0.4
     }
 
-    const data = await response.json().catch(() => ({}))
-    const raw = String(data.choices?.[0]?.message?.content || '').trim()
+    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
 
     let parsed: any = null
     try {

@@ -14,19 +14,39 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     subscription_tier TEXT NOT NULL DEFAULT 'free', -- 'free', 'basic', 'premium', 'admin'
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
+    stripe_price_id TEXT, -- Stripe Price ID for current plan
     subscription_status TEXT DEFAULT 'active', -- 'active', 'canceled', 'past_due'
     trial_ends_at TIMESTAMPTZ,
     has_unlimited_ai BOOLEAN DEFAULT FALSE, -- Special coupon code grants unlimited AI access (never expires)
     ai_access_expires_at TIMESTAMPTZ, -- Timestamp when AI access expires (NULL if unlimited or no coupon)
+    stripe_current_period_end TIMESTAMPTZ, -- Next billing period end (for credit reset)
+    ai_image_credits_limit INTEGER, -- Total image credits per period (NULL for non-premium)
+    ai_image_credits_used INTEGER DEFAULT 0, -- Used image credits in current period
+    ai_image_credits_reset_at TIMESTAMPTZ, -- When credits reset next
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id)
 );
 
+-- Backfill new columns for existing deployments
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_price_id TEXT;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS stripe_current_period_end TIMESTAMPTZ;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_image_credits_limit INTEGER;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_image_credits_used INTEGER DEFAULT 0;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_image_credits_reset_at TIMESTAMPTZ;
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_tier ON user_subscriptions(subscription_tier);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_email ON user_subscriptions(email);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_stripe_sub ON user_subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_period_end ON user_subscriptions(stripe_current_period_end) WHERE stripe_current_period_end IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_img_reset ON user_subscriptions(ai_image_credits_reset_at) WHERE ai_image_credits_reset_at IS NOT NULL;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;

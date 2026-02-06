@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { userName } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const { userName } = body || {}
 
     if (!userName) {
       throw new Error('User name is required')
@@ -29,18 +31,14 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured')
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a creative name generator. Generate ONE unique, funky animal name that REMIXES the user's real name.
+    const workflow = parseAiWorkflowFromBody(body)
+    const models = resolveModelsFromWorkflow(workflow)
+
+    const payload = {
+      messages: [
+        {
+          role: 'system',
+          content: `You are a creative name generator. Generate ONE unique, funky animal name that REMIXES the user's real name.
 
 Rules:
 - Output must be a SINGLE token (no spaces, no quotes, no punctuation).
@@ -50,24 +48,18 @@ Rules:
 
 Examples (for name "Ezekiel"): "EzeZestyFox", "ZekiBraveWolf".
 Return ONLY the generated name.`
-          },
-          {
-            role: 'user',
-            content: `Generate a funky AI name for: ${userName}`
-          }
-        ],
-        max_tokens: 50,
-        temperature: 0.9
-      })
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.message || 'OpenAI API error')
+        },
+        {
+          role: 'user',
+          content: `Generate a funky AI name for: ${userName}`
+        }
+      ],
+      max_tokens: 50,
+      temperature: 0.9
     }
 
-    const data = await response.json()
-    let aiName = String(data.choices?.[0]?.message?.content || '').trim()
+    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    let aiName = String(data?.choices?.[0]?.message?.content || '').trim()
 
     // Validate format (single token, ends with known Animal, and remixes userName)
     const cleaned = String(userName).replace(/[^a-zA-Z]/g, '')

@@ -1283,12 +1283,30 @@ class QuickPasteInterface {
 
       let settingsChanged = false;
 
+      // Quick paste specific settings
       if (changes.quickPasteSettings) {
         const next = changes.quickPasteSettings.newValue;
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
           settingsChanged = true;
         }
+      }
+
+      // Global theme (single source of truth)
+      if (changes.theme) {
+        const nextTheme = changes.theme.newValue;
+        if (nextTheme === 'dark' || nextTheme === 'light') {
+          this.settings.theme = nextTheme;
+          settingsChanged = true;
+        }
+      }
+
+      // General PasteCraft settings (autoDeletePeriod, albumAttachmentOpenMode)
+      // These affect the quick paste interface behavior
+      if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
+        settingsChanged = true;
+        // Reload settings to get latest values
+        this.loadSettings().catch(() => {});
       }
 
       if (changes.quickPastePosition) {
@@ -1549,9 +1567,15 @@ class QuickPasteInterface {
   // Settings Management
   async loadSettings() {
     try {
-      const result = await chrome.storage.local.get(['quickPasteSettings', 'quickPastePosition']);
+      const result = await chrome.storage.local.get(['quickPasteSettings', 'quickPastePosition', 'theme']);
       if (result.quickPasteSettings) {
         this.settings = { ...this.settings, ...result.quickPasteSettings };
+      }
+      // Single source of truth: global theme (Quick Paste follows this)
+      if (result.theme === 'dark' || result.theme === 'light') {
+        this.settings.theme = result.theme;
+      } else if (this.settings.theme !== 'dark') {
+        this.settings.theme = 'light';
       }
       if (result.quickPastePosition) {
         this.position = { ...this.position, ...result.quickPastePosition };
@@ -1574,8 +1598,10 @@ class QuickPasteInterface {
   
   async saveSettings() {
     try {
-      await chrome.storage.local.set({ quickPasteSettings: this.settings });
-      console.log('💾 Settings saved:', this.settings);
+      // Do not persist theme here (theme is global and controlled by the popup/profile).
+      const { theme, ...rest } = this.settings || {};
+      await chrome.storage.local.set({ quickPasteSettings: rest });
+      console.log('💾 Settings saved:', rest);
     } catch (error) {
       console.error('Failed to save settings:', error);
     }
@@ -1602,13 +1628,6 @@ class QuickPasteInterface {
           </div>
         </div>
         <div class="pastecraft-modal-body">
-          <div class="pastecraft-setting">
-              <label>Theme</label>
-            <select id="quickPasteTheme">
-              <option value="light" ${this.settings.theme === 'light' ? 'selected' : ''}>Light</option>
-              <option value="dark" ${this.settings.theme === 'dark' ? 'selected' : ''}>Dark</option>
-            </select>
-          </div>
           <div class="pastecraft-setting">
             <label>
               <input type="checkbox" id="quickPasteAutoHide" ${this.settings.autoHide ? 'checked' : ''}>
@@ -2138,7 +2157,6 @@ class QuickPasteInterface {
   async saveSettingsFromModal() {
     if (!this.settingsModal) return;
     
-    this.settings.theme = this.settingsModal.querySelector('#quickPasteTheme').value;
     this.settings.autoHide = this.settingsModal.querySelector('#quickPasteAutoHide').checked;
     this.settings.showTimestamps = this.settingsModal.querySelector('#quickPasteShowTimestamps').checked;
     this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector('#quickPasteMaxClips').value);
@@ -2502,6 +2520,9 @@ class PasteCraftFloatingWidget {
       aiHelperPlacement: 'top-right',
       aiHelperUserPositioned: false,
       aiHelperUserPosition: null
+      ,
+      // Widget icon preference (single flag; image comes from current profile image)
+      widgetIconUseProfileImage: false
     };
 
     // Click & Drag capture UI state
@@ -2536,6 +2557,8 @@ class PasteCraftFloatingWidget {
   
   async initAsync() {
     await this.loadSettings();
+    // Apply widget icon after settings load
+    try { await this.applyWidgetIcon(); } catch (_) {}
     await this.loadAutoCopyState();
     this.setupAutoCopyListener();
     this.updateAiHelperUI();
@@ -2549,16 +2572,56 @@ class PasteCraftFloatingWidget {
     this._storageSyncListener = (changes, area) => {
       if (area !== 'local') return;
 
+      let settingsRefreshNeeded = false;
+
+      // Widget-specific settings
       if (changes.widgetSettings) {
         const next = changes.widgetSettings.newValue;
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
         }
+        // Apply widget icon on any widgetSettings update
+        try { this.applyWidgetIcon(); } catch (_) {}
         if (this.settings && this.settings.clickAndDragEnabled === false) {
           this.hideClickAndDragDropBox(true);
         }
         // Keep helper UI in sync across tabs (visibility, placement, mode)
         this.updateAiHelperUI();
+        settingsRefreshNeeded = true;
+      }
+
+      // General PasteCraft settings (autoDeletePeriod, quickPasteSettings, albumAttachmentOpenMode)
+      if (changes.autoDeletePeriod || changes.quickPasteSettings || changes.albumAttachmentOpenMode) {
+        settingsRefreshNeeded = true;
+        // Reload settings if settings panel is open
+        if (this.openStates.settings) {
+          this.loadSettings().catch(() => {});
+        }
+      }
+
+      // Profile changes (if using profile image as widget icon)
+      if (changes.userProfile && this.settings && this.settings.widgetIconUseProfileImage) {
+        try { this.applyWidgetIcon(); } catch (_) {}
+      }
+
+      // Refresh quick view widget if clips changed and quick view is open
+      if ((changes.clips || changes.searchOnlyClips) && this.openStates.quickView) {
+        const quickViewIframe = this.widget?.querySelector('#pastecraft-quickview-iframe');
+        if (quickViewIframe && quickViewIframe.contentWindow) {
+          // Trigger refresh in quick view
+          chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
+            const allClips = [...(result.clips || []), ...(result.searchOnlyClips || [])];
+            const recentClips = allClips
+              .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+              .slice(0, 200);
+            if (quickViewIframe.contentWindow) {
+              quickViewIframe.contentWindow.postMessage(
+                { type: 'quickview-clips-data', clips: recentClips },
+                '*'
+              );
+            }
+          });
+        }
       }
 
       if (changes.widgetPosition) {
@@ -2595,9 +2658,61 @@ class PasteCraftFloatingWidget {
       if (autoCopyUiChanged) {
         this.updateAutoCopyUI();
       }
+
+      // Refresh settings UI if settings panel is open and settings changed
+      if (settingsRefreshNeeded && this.openStates.settings) {
+        // Settings will be refreshed via loadSettings() call above
+      }
     };
 
     chrome.storage.onChanged.addListener(this._storageSyncListener);
+  }
+
+  async _getProfileImageForWidget() {
+    try {
+      const res = await chrome.storage.local.get(['userProfile']);
+      const p = res ? res.userProfile : null;
+      const url = p && typeof p.profileImageUrl === 'string' ? p.profileImageUrl : '';
+      if (url) return url;
+      const b64 = p && typeof p.profileImageBase64 === 'string' ? p.profileImageBase64 : '';
+      if (b64 && b64.startsWith('data:image/') && b64.length <= 250000) return b64;
+      return '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async applyWidgetIcon() {
+    if (!this.widget) return;
+    const logoImg = this.widget.querySelector('.widget-logo');
+    if (!logoImg) return;
+
+    const defaultSrc = pastecraftGetURL('logo.svg');
+    const useProfile = !!(this.settings && this.settings.widgetIconUseProfileImage);
+
+    if (!useProfile) {
+      if (logoImg.src !== defaultSrc) logoImg.src = defaultSrc;
+      logoImg.classList.remove('is-profile-icon');
+      return;
+    }
+
+    const src = await this._getProfileImageForWidget();
+    if (!src) {
+      // Fallback to default logo if profile image is missing
+      logoImg.src = defaultSrc;
+      logoImg.classList.remove('is-profile-icon');
+      return;
+    }
+
+    // Set and fallback on error
+    logoImg.classList.add('is-profile-icon');
+    logoImg.onerror = () => {
+      try {
+        logoImg.src = defaultSrc;
+        logoImg.classList.remove('is-profile-icon');
+      } catch (_) {}
+    };
+    logoImg.src = src;
   }
 
   updateAutoCopyUI() {
@@ -2762,6 +2877,14 @@ class PasteCraftFloatingWidget {
         width: 36px;
         height: 36px;
         filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+      }
+
+      .widget-logo.is-profile-icon {
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: center;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.25);
       }
       
       /* Component 2: Settings Button */
@@ -4854,6 +4977,26 @@ class PasteCraftFloatingWidget {
     this.setAiHelperBadge('AI');
 
     try {
+      // Attach AI workflow override (if enabled)
+      let aiWorkflow = null;
+      try {
+        const key = 'pc_ai_workflow_v1';
+        const raw = await chrome.storage.local.get([key]).catch(() => ({}));
+        const wf = raw && raw[key] && typeof raw[key] === 'object' ? raw[key] : null;
+        if (wf && wf.enabled === true) {
+          const preset = String(wf.preset || 'default');
+          const allowed = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+          aiWorkflow = {
+            enabled: true,
+            provider: 'openai',
+            preset: allowed.has(preset) ? preset : 'default',
+            updatedAt: Number.isFinite(Number(wf.updatedAt)) ? Number(wf.updatedAt) : Date.now()
+          };
+        }
+      } catch (_) {
+        aiWorkflow = null;
+      }
+
       // Attach lightweight daily clipboard stats (no clipboard history)
       let stats = null;
       try {
@@ -4868,6 +5011,7 @@ class PasteCraftFloatingWidget {
           method: 'POST',
           accessToken,
           body: {
+            ...(aiWorkflow ? { aiWorkflow } : {}),
             kind: signal?.kind || 'text',
             text: String(signal?.text || '').slice(0, 5000),
             url: String(signal?.url || '').slice(0, 2000),
@@ -4949,13 +5093,33 @@ class PasteCraftFloatingWidget {
     this.setAiHelperBadge('AI');
 
     try {
+      // Attach AI workflow override (if enabled)
+      let aiWorkflow = null;
+      try {
+        const key = 'pc_ai_workflow_v1';
+        const raw = await chrome.storage.local.get([key]).catch(() => ({}));
+        const wf = raw && raw[key] && typeof raw[key] === 'object' ? raw[key] : null;
+        if (wf && wf.enabled === true) {
+          const preset = String(wf.preset || 'default');
+          const allowed = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+          aiWorkflow = {
+            enabled: true,
+            provider: 'openai',
+            preset: allowed.has(preset) ? preset : 'default',
+            updatedAt: Number.isFinite(Number(wf.updatedAt)) ? Number(wf.updatedAt) : Date.now()
+          };
+        }
+      } catch (_) {
+        aiWorkflow = null;
+      }
+
       const result = await new Promise((resolve) => {
         chrome.runtime.sendMessage({
           action: 'pcFetchEdgeFunction',
           url: `${supabaseUrl}/functions/v1/ai-trends`,
           method: 'POST',
           accessToken,
-          body: {}
+          body: aiWorkflow ? { aiWorkflow } : {}
         }, (resp) => {
           const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
           if (err) return resolve({ success: false, status: 0, error: err });

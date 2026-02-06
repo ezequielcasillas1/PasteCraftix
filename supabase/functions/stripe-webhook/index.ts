@@ -40,6 +40,89 @@ function getTierFromPriceId(priceId: string): 'free' | 'basic' | 'premium' {
   return 'free'
 }
 
+function getPriceIdFromSubscription(subscription: any): string | null {
+  try {
+    const items = subscription.items?.data || []
+    const priceId = items[0]?.price?.id
+    return priceId ? String(priceId) : null
+  } catch (_) {
+    return null
+  }
+}
+
+function getPeriodEndIso(subscription: any): string | null {
+  try {
+    const sec = subscription?.current_period_end
+    const n = typeof sec === 'number' ? sec : Number(sec)
+    if (!Number.isFinite(n) || n <= 0) return null
+    return new Date(n * 1000).toISOString()
+  } catch (_) {
+    return null
+  }
+}
+
+function getImageCreditsLimitFromPriceId(priceId: string | null): number | null {
+  if (!priceId) return null
+
+  // Enhanced tier credits (DALL·E 3 @ 1024 standard, ~50% cost coverage)
+  switch (priceId) {
+    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
+      return 24
+    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
+      return 62
+    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
+      return 624
+    default:
+      return null
+  }
+}
+
+async function updateSubscriptionByEmailOrStripeId(opts: {
+  supabase: any,
+  email: string,
+  stripeSubscriptionId?: string | null,
+  update: Record<string, any>,
+}) {
+  const { supabase, email, stripeSubscriptionId, update } = opts
+  const cleanEmail = String(email || '').trim()
+  if (!cleanEmail) return { ok: false, error: 'Missing email' }
+
+  // Prefer matching by stripe_subscription_id when available.
+  if (stripeSubscriptionId) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .update(update)
+      .eq('stripe_subscription_id', stripeSubscriptionId)
+      .select('id')
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return { ok: true }
+    }
+  }
+
+  // Fallback: match by email (pricing page checkout flow doesn't attach user_id).
+  const { data: row, error: findErr } = await supabase
+    .from('user_subscriptions')
+    .select('user_id, email')
+    .ilike('email', cleanEmail)
+    .limit(1)
+    .maybeSingle()
+
+  if (findErr || !row) {
+    return { ok: false, error: findErr || 'No user_subscriptions row found for email' }
+  }
+
+  const { error: updErr } = await supabase
+    .from('user_subscriptions')
+    .update(update)
+    .eq('user_id', row.user_id)
+
+  if (updErr) {
+    return { ok: false, error: updErr }
+  }
+  return { ok: true }
+}
+
 /**
  * Get subscription tier from Stripe subscription object
  */
@@ -116,24 +199,38 @@ serve(async (req) => {
             // Fetch subscription from Stripe to get price ID
             const subscription = await stripe.subscriptions.retrieve(subscriptionId)
             const tier = await getTierFromSubscription(subscription)
-            
-            const { error } = await supabase
-              .from('user_subscriptions')
-              .upsert({
-                email: customerEmail,
-                subscription_tier: tier,
-                subscription_status: 'active',
-                stripe_customer_id: session.customer as string,
-                stripe_subscription_id: subscriptionId,
-                updated_at: new Date().toISOString(),
-              }, {
-                onConflict: 'email'
-              })
+            const priceId = getPriceIdFromSubscription(subscription)
+            const periodEndIso = getPeriodEndIso(subscription)
 
-            if (error) {
-              console.error('Error updating subscription:', error)
+            const isPremium = tier === 'premium'
+            const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
+            const resetAt = isPremium ? (periodEndIso || null) : null
+            
+            const update = {
+              email: customerEmail,
+              subscription_tier: tier,
+              subscription_status: 'active',
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: subscriptionId,
+              stripe_price_id: priceId,
+              stripe_current_period_end: periodEndIso,
+              ai_image_credits_limit: imageCreditsLimit,
+              ai_image_credits_used: isPremium ? 0 : null,
+              ai_image_credits_reset_at: resetAt,
+              updated_at: new Date().toISOString(),
+            }
+
+            const res = await updateSubscriptionByEmailOrStripeId({
+              supabase,
+              email: customerEmail,
+              stripeSubscriptionId: subscriptionId,
+              update,
+            })
+
+            if (!res.ok) {
+              console.error('Error updating subscription:', res.error)
             } else {
-              console.log(`Subscription activated for ${customerEmail}: tier=${tier}`)
+              console.log(`Subscription activated for ${customerEmail}: tier=${tier}, price=${priceId}, period_end=${periodEndIso}`)
             }
           }
           break
@@ -156,20 +253,43 @@ serve(async (req) => {
             
             // If subscription is canceled, set tier to 'free'
             const finalTier = status === 'canceled' ? 'free' : tier
-            
-            const { error } = await supabase
-              .from('user_subscriptions')
-              .update({
-                subscription_tier: finalTier,
-                subscription_status: status,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('stripe_subscription_id', subscription.id)
 
-            if (error) {
-              console.error('Error updating subscription status:', error)
+            const priceId = getPriceIdFromSubscription(subscription)
+            const periodEndIso = getPeriodEndIso(subscription)
+            const isPremium = finalTier === 'premium'
+            const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
+            const resetAt = isPremium ? (periodEndIso || null) : null
+            
+            const update: any = {
+              subscription_tier: finalTier,
+              subscription_status: status,
+              stripe_price_id: priceId,
+              stripe_current_period_end: periodEndIso,
+              ai_image_credits_limit: imageCreditsLimit,
+              ai_image_credits_reset_at: resetAt,
+              updated_at: new Date().toISOString(),
+            }
+
+            // If (re)activated into premium, reset credits at the start of a new period.
+            if (isPremium && periodEndIso) {
+              update.ai_image_credits_used = 0
+            }
+            // If canceled/downgraded, clear image credits.
+            if (!isPremium) {
+              update.ai_image_credits_used = null
+            }
+
+            const res = await updateSubscriptionByEmailOrStripeId({
+              supabase,
+              email,
+              stripeSubscriptionId: subscription.id,
+              update,
+            })
+
+            if (!res.ok) {
+              console.error('Error updating subscription status:', res.error)
             } else {
-              console.log(`Subscription updated: tier=${finalTier}, status=${status}`)
+              console.log(`Subscription updated: tier=${finalTier}, status=${status}, price=${priceId}, period_end=${periodEndIso}`)
             }
           }
           break
@@ -179,17 +299,29 @@ serve(async (req) => {
           const subscription = event.data.object
           console.log('Subscription deleted:', subscription.id)
           
-          const { error } = await supabase
-            .from('user_subscriptions')
-            .update({
-              subscription_tier: 'free',
-              subscription_status: 'canceled',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('stripe_subscription_id', subscription.id)
+          const customer = await stripe.customers.retrieve(subscription.customer as string) as any
+          const email = customer?.email ? String(customer.email) : ''
 
-          if (error) {
-            console.error('Error canceling subscription:', error)
+          const update = {
+            subscription_tier: 'free',
+            subscription_status: 'canceled',
+            stripe_price_id: null,
+            stripe_current_period_end: null,
+            ai_image_credits_limit: null,
+            ai_image_credits_used: null,
+            ai_image_credits_reset_at: null,
+            updated_at: new Date().toISOString(),
+          }
+
+          const res = await updateSubscriptionByEmailOrStripeId({
+            supabase,
+            email,
+            stripeSubscriptionId: subscription.id,
+            update,
+          })
+
+          if (!res.ok) {
+            console.error('Error canceling subscription:', res.error)
           } else {
             console.log('Subscription canceled')
           }

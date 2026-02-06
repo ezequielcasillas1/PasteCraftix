@@ -140,3 +140,13 @@
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Album item click opens full source note (title/desc/body + clips/urls/images) with per-item copy; Back returns to album. (Commit: pending)
 
+### Feb 5, 2026 - Settings Dark Mode Coming Soon
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/styles.css
+**Result:** Disabled Dark Mode toggles and forced light theme to keep Dark Mode unreleased. (Commit: pending)
+
+### Feb 5, 2026 - AI Provider + GPT-5 Workflow Override
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, extension/content-script.js, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,name,hint,trends,vision,image}/index.ts
+**Result:** Added AI workflow override toggle + provider/workflow dropdowns in AI Lab. Presets: Default (4o), Cheapest (GPT-5 Nano/Mini), Latest (GPT-5.2). Config persists in chrome.storage.sync/local. All AI requests pass workflow config; edge functions resolve models via allowlisted presets with safe fallbacks. (Commit: pending)
+

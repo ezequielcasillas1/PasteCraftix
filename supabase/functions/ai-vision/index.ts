@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,7 +45,8 @@ serve(async (req) => {
       )
     }
 
-    const { imageBase64 } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const { imageBase64 } = body || {}
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       throw new Error('imageBase64 is required')
     }
@@ -54,40 +56,30 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured')
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Describe this person in detail for creating a cartoon avatar. Focus on: face shape, hair style and color, eye color, glasses/facial hair if any, skin tone, distinctive features, and overall vibe. Be specific and descriptive. Keep it under 100 words.'
-              },
-              {
-                type: 'image_url',
-                image_url: { url: imageBase64 }
-              }
-            ]
-          }
-        ],
-        max_tokens: 200
-      })
-    })
+    const workflow = parseAiWorkflowFromBody(body)
+    const models = resolveModelsFromWorkflow(workflow)
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.error?.message || 'Vision API error')
+    const payload = {
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Describe this person in detail for creating a cartoon avatar. Focus on: face shape, hair style and color, eye color, glasses/facial hair if any, skin tone, distinctive features, and overall vibe. Be specific and descriptive. Keep it under 100 words.'
+            },
+            {
+              type: 'image_url',
+              image_url: { url: imageBase64 }
+            }
+          ]
+        }
+      ],
+      max_tokens: 200
     }
 
-    const data = await response.json()
-    const description = String(data.choices?.[0]?.message?.content || '').trim()
+    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatVisionModel)
+    const description = String(data?.choices?.[0]?.message?.content || '').trim()
 
     return new Response(
       JSON.stringify({ description }),

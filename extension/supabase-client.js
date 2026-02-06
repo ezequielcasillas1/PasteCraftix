@@ -13,10 +13,72 @@ class PasteCraftSupabase {
     this.syncProgress = { current: 0, total: 0, percentage: 0 };
     this._subscriptionCacheKey = 'pc_subscription_cache_v1';
     this._sessionBridgeKey = 'pc_supabase_session_v1';
+    this._aiWorkflowKey = 'pc_ai_workflow_v1';
+    this._aiWorkflowCache = { value: null, at: 0 };
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
     this.init();
     this.setupConnectionMonitor();
+  }
+
+  // =====================================================
+  // AI WORKFLOW (provider + preset) - local-first read
+  // =====================================================
+
+  _normalizeAiWorkflow(raw) {
+    const obj = (raw && typeof raw === 'object') ? raw : {};
+    const enabled = obj.enabled === true;
+    const provider = String(obj.provider || 'openai') === 'openai' ? 'openai' : 'openai';
+    const preset = String(obj.preset || 'default');
+    const allowedPresets = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+    const safePreset = allowedPresets.has(preset) ? preset : 'default';
+    const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
+    return { enabled, provider, preset: safePreset, updatedAt };
+  }
+
+  async getAiWorkflowConfig() {
+    // Cache for a few seconds to avoid storage overhead on rapid calls.
+    try {
+      const now = Date.now();
+      if (this._aiWorkflowCache && (now - (this._aiWorkflowCache.at || 0)) < 5000) {
+        return this._aiWorkflowCache.value;
+      }
+
+      const key = this._aiWorkflowKey;
+      let local = null;
+      try {
+        local = await chrome.storage.local.get([key]);
+      } catch (_) {
+        local = null;
+      }
+
+      let cfg = this._normalizeAiWorkflow(local ? local[key] : null);
+      if (!cfg.enabled) {
+        // Fall back to sync only if local is missing/disabled (best-effort)
+        try {
+          const sync = await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
+          const fromSync = this._normalizeAiWorkflow(sync ? sync[key] : null);
+          if (fromSync.enabled && fromSync.updatedAt >= cfg.updatedAt) cfg = fromSync;
+        } catch (_) {}
+      }
+
+      const finalCfg = cfg && cfg.enabled ? { enabled: true, provider: cfg.provider, preset: cfg.preset, updatedAt: cfg.updatedAt } : null;
+      this._aiWorkflowCache = { value: finalCfg, at: now };
+      return finalCfg;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async _withAiWorkflow(body) {
+    try {
+      const base = (body && typeof body === 'object') ? body : {};
+      const cfg = await this.getAiWorkflowConfig();
+      if (!cfg) return base;
+      return { ...base, aiWorkflow: cfg };
+    } catch (_) {
+      return body;
+    }
   }
   
   // =====================================================
@@ -979,6 +1041,7 @@ class PasteCraftSupabase {
     try {
       const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
       const candidates = [`${baseUrl}/ai-name`, `${baseUrl}/generate-ai-name`];
+      const body = await this._withAiWorkflow({ userName });
 
       let response = null;
       for (const url of candidates) {
@@ -988,7 +1051,7 @@ class PasteCraftSupabase {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
           },
-          body: JSON.stringify({ userName })
+          body: JSON.stringify(body)
         }, 30000, 'AI name generation timed out');
 
         // Back-compat: some deployments use a different function name
@@ -1023,13 +1086,14 @@ class PasteCraftSupabase {
       }
 
       const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-vision`;
+      const body = await this._withAiWorkflow({ imageBase64 });
       const response = await this._fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
         },
-        body: JSON.stringify({ imageBase64 })
+        body: JSON.stringify(body)
       }, 30000, 'Vision analysis timed out');
 
       if (!response.ok) {
@@ -1051,14 +1115,24 @@ class PasteCraftSupabase {
     try {
       console.log(`🧠 Breaking down text at ${level} level...`);
 
-      const response = await fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/explain-at-level`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify({ text, level })
-      });
+      const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
+      const candidates = [`${baseUrl}/ai-breakdown`, `${baseUrl}/explain-at-level`];
+      const body = await this._withAiWorkflow({ text, level });
+
+      let response = null;
+      for (const url of candidates) {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        // Back-compat: some deployments use a different function name
+        if (response.status !== 404) break;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -1079,14 +1153,24 @@ class PasteCraftSupabase {
     try {
       console.log('🤔 Generating summary questions...');
 
-      const response = await fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/summarize-or-qa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify({ text: text.substring(0, 3000), generateQuestions: true })
-      });
+      const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
+      const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
+      const body = await this._withAiWorkflow({ text: text.substring(0, 3000), generateQuestions: true });
+
+      let response = null;
+      for (const url of candidates) {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        // Back-compat: some deployments use a different function name
+        if (response.status !== 404) break;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -1107,14 +1191,24 @@ class PasteCraftSupabase {
     try {
       console.log('📝 Generating summary for question:', question);
 
-      const response = await fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/summarize-or-qa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify({ text, question })
-      });
+      const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
+      const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
+      const body = await this._withAiWorkflow({ text, question });
+
+      let response = null;
+      for (const url of candidates) {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          },
+          body: JSON.stringify(body)
+        });
+
+        // Back-compat: some deployments use a different function name
+        if (response.status !== 404) break;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -1163,16 +1257,28 @@ class PasteCraftSupabase {
         throw new Error('No valid input provided for image generation. Please provide a description, photo, or AI name with animal.');
       }
 
+      requestBody = await this._withAiWorkflow(requestBody);
+
       const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
       const candidates = [`${baseUrl}/ai-image`, `${baseUrl}/avatar-generator`];
 
       let response = null;
       for (const url of candidates) {
+        // Use the authenticated user's JWT if available (server-side credit enforcement depends on it).
+        let accessToken = '';
+        try {
+          const s = await this.client?.auth?.getSession?.();
+          accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+        } catch (_) {}
+
         response = await this._fetchWithTimeout(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+            'apikey': `${PASTECRAFT_CONFIG.supabase.anonKey}`,
+            'Authorization': accessToken
+              ? `Bearer ${accessToken}`
+              : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
           },
           body: JSON.stringify(requestBody)
         }, 90000, 'Image generation timed out');
@@ -1195,7 +1301,12 @@ class PasteCraftSupabase {
       const userId = await this.getSyncUserId();
       const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
       
-      return permanentImageUrl;
+      return {
+        imageUrl: permanentImageUrl,
+        creditsRemaining: typeof data.creditsRemaining === 'number' ? data.creditsRemaining : null,
+        creditsResetAt: data.creditsResetAt || null,
+        creditsLimit: typeof data.creditsLimit === 'number' ? data.creditsLimit : null,
+      };
 
     } catch (error) {
       console.error('Failed to generate profile image:', error);
@@ -1959,6 +2070,12 @@ class PasteCraftSupabase {
   }
 
   async syncDeletedCategoriesToSupabase(deletedCategories) {
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:entry',message:'syncDeletedCategoriesToSupabase called',data:{hasClient:!!this.client,itemsCount:Array.isArray(deletedCategories)?deletedCategories.length:null},timestamp:Date.now()})}).catch(()=>{});
+    } catch (_) {}
+    // #endregion agent log
+
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping deleted categories sync');
       return false;
@@ -1970,6 +2087,13 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
+
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:beforeMap',message:'About to map categories',data:{userId:String(userId||''),deviceId:String(deviceId||''),hasDeviceId:!!deviceId,itemsCount:items.length},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
 
       const dbCategories = items.map(cat => {
         const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
@@ -2002,8 +2126,19 @@ class PasteCraftSupabase {
         device_id: deviceId || null
       })));
 
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:success',message:'syncDeletedCategoriesToSupabase completed',data:{success:true,itemsSynced:dbCategories.length},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
+
       return true;
     } catch (error) {
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:error',message:'syncDeletedCategoriesToSupabase failed',data:{error:String(error?.message||error||'unknown'),errorCode:String(error?.code||''),errorDetails:String(error?.details||'')},timestamp:Date.now()})}).catch(()=>{});
+      } catch (_) {}
+      // #endregion agent log
       console.error('❌ Failed to sync deleted categories to Supabase:', error);
       return false;
     }
@@ -2454,18 +2589,22 @@ class PasteCraftSupabase {
 
       console.log('📤 Syncing settings to Supabase...');
 
+      // Handle nested quickPasteSettings structure
+      const quickPaste = localSettings.quickPasteSettings || {};
       const dbSettings = {
         user_id: userId,
         auto_delete_period: localSettings.autoDeletePeriod || 'never',
-        theme: localSettings.theme || 'light',
-        auto_hide: localSettings.autoHide !== false,
-        show_timestamps: localSettings.showTimestamps !== false,
-        max_clips_display: localSettings.maxClipsDisplay || 20,
-        delimiter: localSettings.delimiter || 'comma',
-        custom_delimiter: localSettings.customDelimiter || ', ',
-        deduplicate: localSettings.deduplicate || false,
-        sort: localSettings.sort || false,
-        uppercase: localSettings.uppercase || false
+        // Single source of truth: global theme (Quick Paste follows this)
+        theme: localSettings.theme || quickPaste.theme || 'light',
+        auto_hide: quickPaste.autoHide !== undefined ? quickPaste.autoHide : (localSettings.autoHide !== false),
+        show_timestamps: quickPaste.showTimestamps !== undefined ? quickPaste.showTimestamps : (localSettings.showTimestamps !== false),
+        max_clips_display: quickPaste.maxClipsDisplay || localSettings.maxClipsDisplay || 20,
+        album_attachment_open_mode: localSettings.albumAttachmentOpenMode || 'edgePopup',
+        delimiter: quickPaste.delimiter || localSettings.delimiter || 'comma',
+        custom_delimiter: quickPaste.customDelimiter || localSettings.customDelimiter || ', ',
+        deduplicate: quickPaste.deduplicate || localSettings.deduplicate || false,
+        sort: quickPaste.sort || localSettings.sort || false,
+        uppercase: quickPaste.uppercase || localSettings.uppercase || false
       };
 
       const { data, error } = await this.client
@@ -2515,17 +2654,22 @@ class PasteCraftSupabase {
         throw error;
       }
 
+      // Return settings in nested structure matching popup.js expectations
+      // Handle missing fields gracefully (for older database schemas)
       const localSettings = {
-        autoDeletePeriod: data.auto_delete_period,
-        theme: data.theme,
-        autoHide: data.auto_hide,
-        showTimestamps: data.show_timestamps,
-        maxClipsDisplay: data.max_clips_display,
-        delimiter: data.delimiter,
-        customDelimiter: data.custom_delimiter,
-        deduplicate: data.deduplicate,
-        sort: data.sort,
-        uppercase: data.uppercase
+        autoDeletePeriod: data.auto_delete_period || 'never',
+        theme: data.theme || 'light',
+        quickPasteSettings: {
+          autoHide: data.auto_hide !== undefined ? data.auto_hide : true,
+          showTimestamps: data.show_timestamps !== undefined ? data.show_timestamps : true,
+          maxClipsDisplay: data.max_clips_display || 20,
+          delimiter: data.delimiter || 'comma',
+          customDelimiter: data.custom_delimiter || ', ',
+          deduplicate: data.deduplicate || false,
+          sort: data.sort || false,
+          uppercase: data.uppercase || false
+        },
+        albumAttachmentOpenMode: data.album_attachment_open_mode || 'edgePopup' // Falls back if field doesn't exist
       };
 
       console.log('✅ Fetched settings from Supabase');

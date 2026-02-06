@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const { text, question, generateQuestions } = await req.json()
+    const body = await req.json().catch(() => ({}))
+    const { text, question, generateQuestions } = body || {}
 
     if (!text) {
       throw new Error('Text is required')
@@ -39,30 +41,20 @@ serve(async (req) => {
       userPrompt = `Summarize this text:\n\n${text}`
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    })
+    const workflow = parseAiWorkflowFromBody(body)
+    const models = resolveModelsFromWorkflow(workflow)
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.message || 'OpenAI API error')
+    const payload = {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
     }
 
-    const data = await response.json()
-    const result = data.choices[0].message.content.trim()
+    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const result = String(data?.choices?.[0]?.message?.content || '').trim()
 
     if (generateQuestions) {
       const questions = result.split('\n').filter((q: string) => q.trim()).slice(0, 4)

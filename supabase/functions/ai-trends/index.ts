@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,6 +114,11 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured')
     }
 
+    // Read body early (for aiWorkflow only). Keep backward compatible with empty bodies.
+    const body = await req.json().catch(() => ({}))
+    const workflow = parseAiWorkflowFromBody(body)
+    const models = resolveModelsFromWorkflow(workflow)
+
     // Curated lightweight sources (can be expanded later)
     const sources = [
       'https://hnrss.org/frontpage',
@@ -143,30 +149,17 @@ serve(async (req) => {
         ? `Today headlines:\n- ${seed.join('\n- ')}`
         : 'No headlines available. Create 2-3 generally useful daily PasteCraft tips.'
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 260,
-        temperature: 0.5
-      })
-    })
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new Error(error.error?.message || 'OpenAI API error')
+    const payload = {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      max_tokens: 260,
+      temperature: 0.5
     }
 
-    const data = await response.json().catch(() => ({}))
-    const raw = String(data.choices?.[0]?.message?.content || '').trim()
+    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
 
     let parsed: any = null
     try { parsed = JSON.parse(raw) } catch (_) { parsed = null }

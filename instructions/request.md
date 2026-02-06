@@ -411,11 +411,9 @@ state management.
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Tips widget: add **bottom-left resize handle** (match bottom-right behavior)
-- Blend tips widget scrollbar with widget UI; reduce visual contrast
 - Popup/module scrollbar uses PasteCraft **primary sky-blue** (consistent theme)
-- Notes icons: use **regular flat color** (no gradients)
-- Clips navbar: remove the subtle shaded background behind the search (magnifying glass) area
+- Notes/custom icons: make **custom icons match standard icon sizing + weight** (Windows/Edge preset icons)
+- Clips navbar: remove the subtle shaded background fill behind the search (magnifying glass) area
 
 ---
 
@@ -436,10 +434,9 @@ state management.
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Improve formatting consistency for summaries/breakdowns (clean headings, spacing, readable structure)
-- Remove distracting leading `//` formatting for code/math style outputs (when not needed)
-- Add optional **step mode** toggle: numbered steps (1,2,3,...) for both AI Summary + AI Breakdown
-- Consider model selection for cost/format quality (e.g., GPT-4.1 vs GPT-5) as a configurable option
+- Improve formatting consistency for summaries/breakdowns (headings, spacing, readable structure)
+- Add optional **step mode** toggle (numbered steps) for AI Summary + AI Breakdown
+- Avoid unnecessary code-style prefixes (e.g. leading `//`) when not needed
 
 ---
 
@@ -447,16 +444,8 @@ state management.
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Ensure renamed "funky animal name" persists and renders as the new name in the PasteCraft UI (top-left) “Remember future sessions with 3 digit passcode”
- to: “Require a 3 digit passcode when starting a new session”
-, remain signed in across browser restarts (until user signs out)
-
----
-
-**Priority:** Low  
-**Status:** Not started  
-**Requirements:**
-- Ensure renamed “funky animal name” persists and renders as the new name in the PasteCraft UI (top-left)
+- Ensure renamed “funky animal name” **persists and renders consistently** across the PasteCraft UI
+- Ensure related UI copy/labels that reference the name stay consistent across sessions
 
 ---
 
@@ -464,8 +453,7 @@ state management.
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Note card action icons (edit, delete, export, etc.) not proportionally leveled
-- Fix vertical alignment to ensure consistent spacing/positioning
+- Fix vertical alignment for note card action icons (edit/delete/export/etc.) so spacing/positioning is consistent
 
 ---
 

@@ -613,24 +613,31 @@
         .chip-breakdown-btn,
         .chip-summary-btn,
         .chip-notes-btn,
-        .chip-category-btn {
+        .chip-category-btn,
+        .chip-open-btn,
+        .chip-share-btn {
             background: none;
             border: none;
             cursor: pointer;
             font-size: 16px;
-            padding: 2px 4px;
+            width: 24px;
+            height: 24px;
+            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
             opacity: 0.7;
             outline: none;
+            line-height: 1;
         }
         
         .chip-breakdown-btn:hover,
         .chip-summary-btn:hover,
         .chip-notes-btn:hover,
-        .chip-category-btn:hover {
+        .chip-category-btn:hover,
+        .chip-open-btn:hover,
+        .chip-share-btn:hover {
             opacity: 1;
             transform: scale(1.15);
         }
@@ -643,12 +650,29 @@
             display: inline-block;
             vertical-align: middle;
             flex-shrink: 0;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        img.pc-icon {
+            display: block;
+            object-fit: contain;
+            object-position: center;
         }
         
         .pc-icon-14 { width: 14px; height: 14px; }
         .pc-icon-16 { width: 16px; height: 16px; }
         .pc-icon-18 { width: 18px; height: 18px; }
         .pc-icon-20 { width: 20px; height: 20px; }
+
+        /* Make the custom Send/Create icon visually match default icons */
+        .chip-actions img[src*="sendcreate"],
+        .search-result-actions img[src*="sendcreate"],
+        .category-clip-actions img[src*="sendcreate"],
+        .note-card-actions img[src*="sendcreate"] {
+            transform: scale(1.15);
+            transform-origin: center;
+        }
         
         .chip-remove {
             background: none;
@@ -1570,11 +1594,13 @@
         }
         
         .note-card-type {
-            font-size: 20px;
+            display: flex;
+            align-items: center;
         }
         
         .note-card-actions {
             display: flex;
+            align-items: center;
             gap: 6px;
         }
         
@@ -1586,6 +1612,9 @@
             padding: 6px;
             border-radius: 4px;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .note-action-btn:hover {
@@ -1814,6 +1843,49 @@
         
         .category-clip.selected .category-clip-time {
             color: rgba(255, 255, 255, 0.8);
+        }
+
+        .category-clip-content {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-right: 8px;
+        }
+
+        .category-clip-text {
+            margin-right: 0;
+        }
+
+        .category-clip-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .category-clip-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+            outline: none;
+            color: inherit;
+            line-height: 1;
+        }
+
+        .category-clip-actions button:hover {
+            opacity: 1;
+            transform: scale(1.15);
         }
         
         .category-expand-icon {
@@ -4337,9 +4409,51 @@
         .ai-lab-title {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
             gap: 12px;
             margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .ai-lab-title-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ai-lab-credits {
+            flex: 0 0 auto;
+            min-width: 110px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            color: #111827;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            user-select: none;
+        }
+
+        .ai-lab-credits.is-muted {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .ai-lab-credits.is-low {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.10);
+        }
+
+        .ai-lab-credits.is-empty {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.10);
         }
         
         .ai-lab-icon {
@@ -4357,6 +4471,53 @@
             color: #6b7280;
             font-size: 14px;
             margin: 0;
+        }
+
+        /* AI Workflow Controls (Provider + Preset) */
+        .ai-workflow-controls {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .ai-workflow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ai-workflow-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #6b7280;
+            user-select: none;
+        }
+
+        .ai-workflow-select {
+            padding: 8px 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f8fafc;
+            font-size: 12px;
+            font-weight: 700;
+            color: #111827;
+            cursor: pointer;
+        }
+
+        .ai-workflow-select:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .ai-workflow-note {
+            margin: 0;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
         }
 
         /* AI Lab Internal Tabs */
@@ -5683,10 +5844,55 @@
                 <!-- AI Lab Header -->
                 <div class="ai-lab-header">
                     <div class="ai-lab-title">
-                        <span class="ai-lab-icon">🤖</span>
-                        <h2>AI Lab</h2>
+                        <div
+                            class="ai-lab-credits"
+                            id="aiCreditsPill"
+                            role="status"
+                            aria-live="polite"
+                            title="AI image credits remaining"
+                        >
+                            Image credits: —
+                        </div>
+                        <div class="ai-lab-title-main" aria-label="AI Lab">
+                            <span class="ai-lab-icon">🤖</span>
+                            <h2>AI Lab</h2>
+                        </div>
+                        <div
+                            class="ai-lab-credits"
+                            id="aiTextCreditsPill"
+                            role="status"
+                            aria-live="polite"
+                            title="AI text credits remaining"
+                        >
+                            AI text credits: —
+                        </div>
                     </div>
                     <p class="ai-lab-subtitle">Experimental AI features and tools</p>
+
+                    <!-- AI Workflow (Provider + Preset) -->
+                    <div class="ai-workflow-controls" id="aiWorkflowControls" aria-label="AI Workflow Controls">
+                        <div class="ai-workflow-row">
+                            <label class="toggle" style="margin: 0;" title="Override which AI models PasteCraft uses">
+                                <input type="checkbox" id="aiWorkflowOverrideToggle" aria-label="Enable AI workflow override">
+                                <div class="toggle-switch"></div>
+                                <span>AI Workflow Override</span>
+                            </label>
+                        </div>
+                        <div class="ai-workflow-row" aria-label="AI Workflow Selection">
+                            <label class="ai-workflow-label" for="aiProviderSelect">Provider</label>
+                            <select id="aiProviderSelect" class="ai-workflow-select" aria-label="AI provider">
+                                <option value="openai">OpenAI</option>
+                            </select>
+                            <label class="ai-workflow-label" for="aiWorkflowPresetSelect">Workflow</label>
+                            <select id="aiWorkflowPresetSelect" class="ai-workflow-select" aria-label="AI workflow preset">
+                                <option value="default">Default (4o)</option>
+                                <option value="cheapest">Cheapest (GPT‑5 Nano)</option>
+                                <option value="gpt5_mini">Cheapest (GPT‑5 Mini)</option>
+                                <option value="latest">Latest (GPT‑5.2)</option>
+                            </select>
+                        </div>
+                        <p class="ai-workflow-note" id="aiWorkflowNote">Applies to text, vision, and image generation.</p>
+                    </div>
                 </div>
 
                 <!-- AI Lab Internal Tabs -->
@@ -6015,15 +6221,21 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
+                        <h4>🌙 Appearance</h4>
+                        <p class="settings-description">Theme applies across PasteCraft (including Quick Paste).</p>
+                        <label class="toggle is-disabled" style="margin-top: 8px;" title="Coming soon">
+                            <input type="checkbox" id="darkModeToggle" disabled aria-disabled="true" aria-label="Dark Mode (Coming soon)">
+                            <div class="toggle-switch"></div>
+                            <span>🌙 Dark Mode (Coming soon)</span>
+                        </label>
+                        <div class="settings-note" style="margin-top: 8px;">
+                            <span class="note-icon">ℹ️</span>
+                            <span>Dark Mode is coming soon.</span>
+                        </div>
+                    </div>
+                    <div class="settings-section">
                         <h4>⚡ Quick Paste Interface</h4>
                         <p class="settings-description">Configure the on-page quick paste interface. Drag the interface header to move it anywhere on screen:</p>
-                        <div class="quick-setting">
-                            <label>Theme:</label>
-                            <select id="quickPasteThemePopup" class="settings-select-small">
-                                <option value="light">Light</option>
-                                <option value="dark">Dark</option>
-                            </select>
-                        </div>
                         <div class="quick-settings-checkboxes">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="quickPasteAutoHidePopup">
@@ -6142,9 +6354,19 @@ Multiple clips are separated by:
                             <span>Restore replaces local Clips and Archive with the snapshot.</span>
                         </div>
                     </div>
-                    <div class="modal-actions">
-                        <button class="btn-secondary" id="cancelSettings">Cancel</button>
-                        <button class="btn-primary" id="saveSettings">Save Settings</button>
+                    <div class="settings-section">
+                        <h4>📤 Export / Import</h4>
+                        <p class="settings-description">Export a backup file or import a JSON backup (merge mode).</p>
+                        <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0; flex-wrap: wrap;">
+                            <button class="btn-secondary" id="exportBackupJsonBtn" type="button">Export JSON backup</button>
+                            <button class="btn-secondary" id="exportClipsCsvBtn" type="button">Export Clips CSV</button>
+                            <button class="btn-secondary" id="importBackupJsonBtn" type="button">Import JSON (merge)</button>
+                            <input type="file" id="importBackupJsonFile" accept=".json,application/json" style="display: none;">
+                        </div>
+                        <div class="settings-note" style="margin-top: 10px;">
+                            <span class="note-icon">ℹ️</span>
+                            <span>Import will keep your existing data and add missing items. Large imports may be capped to storage limits.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6695,7 +6917,17 @@ Multiple clips are separated by:
                         <h4>⚙️ Preferences</h4>
                         <div class="profile-setting-item">
                             <span class="profile-setting-label">🌙 Dark Mode</span>
-                            <span class="profile-setting-status">Coming Soon</span>
+                            <label class="toggle" style="margin: 0;">
+                                <input type="checkbox" id="profileDarkModeToggle" aria-label="Dark Mode">
+                                <div class="toggle-switch"></div>
+                            </label>
+                        </div>
+                        <div class="profile-setting-item" style="margin-top: 10px;">
+                            <span class="profile-setting-label">🖼️ Set current profile image to widget icon</span>
+                            <label class="toggle" style="margin: 0;">
+                                <input type="checkbox" id="widgetIconUseProfileToggle" aria-label="Set current profile image to widget icon">
+                                <div class="toggle-switch"></div>
+                            </label>
                         </div>
                     </div>
 

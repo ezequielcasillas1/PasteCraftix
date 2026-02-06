@@ -78,5 +78,20 @@
 **Files:** extension/content-script.js
 **Result:** Tips widget now auto-detects “clean” space (avoids nav/interactive UI) and falls back to an in-page popup window; users can force popup via settings.
 
+### Feb 5, 2026 - Settings Dark Mode Coming Soon
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js, extension/styles.css
+**Result:** Dark Mode toggles are disabled + labeled “Coming soon”; theme is forced to light to prevent accidental dark-mode saves.
+
+### Feb 6, 2026 - AI Lab Credits + Image Credit Enforcement
+**Status:** PARTIAL
+**Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, supabase/functions/ai-image/index.ts, supabase/functions/stripe-webhook/index.ts, db/supabase-auth-schema.sql
+**Result:** AI Lab now shows credits remaining + next reset; image generation requires user JWT and decrements credits on success. Credit limits set to ~50% cost coverage (24/wk, 62/mo, 624/yr). Needs DB migration + deployed webhooks/functions to go live.
+
+### Feb 6, 2026 - AI Lab Credit Pills (Image + Text)
+**Status:** PARTIAL
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Renamed “Credits” to “Image credits” and added a right-side “AI text credits” pill (currently unlimited unless text credit caps are added).
+
 
 
