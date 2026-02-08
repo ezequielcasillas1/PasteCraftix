@@ -1,5 +1,7 @@
-export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest';
-export type AiWorkflowProvider = 'openai';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
+export type AiWorkflowProvider = 'openai' | 'google';
 
 export type AiWorkflowConfig = {
   enabled?: boolean;
@@ -14,13 +16,25 @@ export type ResolvedAiModels = {
   chatTextModel: string;
   chatVisionModel: string;
   imageGenerationModel: string;
+  apiBaseUrl: string;
+  apiKeyEnv: string;
 };
 
-const ALLOWED_PRESETS: Set<AiWorkflowPreset> = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set(['openai', 'google']);
+const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
+  openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest']),
+  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest']),
+};
 
-function normalizePreset(preset: unknown): AiWorkflowPreset {
+function normalizeProvider(provider: unknown): AiWorkflowProvider {
+  const p = String(provider || 'openai') as AiWorkflowProvider;
+  return ALLOWED_PROVIDERS.has(p) ? p : 'openai';
+}
+
+function normalizePreset(preset: unknown, provider: AiWorkflowProvider = 'openai'): AiWorkflowPreset {
   const p = String(preset || 'default') as AiWorkflowPreset;
-  return ALLOWED_PRESETS.has(p) ? p : 'default';
+  const allowed = PRESETS_BY_PROVIDER[provider] || PRESETS_BY_PROVIDER.openai;
+  return allowed.has(p) ? p : 'default';
 }
 
 export function parseAiWorkflowFromBody(body: any): { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null {
@@ -28,58 +42,61 @@ export function parseAiWorkflowFromBody(body: any): { provider: AiWorkflowProvid
     const wf = body && typeof body === 'object' ? body.aiWorkflow : null;
     if (!wf || typeof wf !== 'object') return null;
     if (wf.enabled !== true) return null;
-    const provider: AiWorkflowProvider = 'openai';
-    const preset = normalizePreset(wf.preset);
+    const provider = normalizeProvider(wf.provider);
+    const preset = normalizePreset(wf.preset, provider);
     return { provider, preset };
   } catch (_) {
     return null;
   }
 }
 
-export function resolveModelsFromWorkflow(workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null): ResolvedAiModels {
-  const preset = workflow ? workflow.preset : 'default';
-  const provider: AiWorkflowProvider = 'openai';
+// ── OpenAI model resolution ────────────────────────────
+function resolveOpenAi(preset: AiWorkflowPreset): ResolvedAiModels {
+  const base = { provider: 'openai' as const, apiBaseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY' };
 
-  // Defaults must preserve current behavior when override is off.
-  if (preset === 'default') {
-    return {
-      provider,
-      preset,
-      chatTextModel: 'gpt-4o-mini',
-      chatVisionModel: 'gpt-4o',
-      imageGenerationModel: 'dall-e-3',
-    };
-  }
-
-  // “Cheapest” = GPT‑5 nano for text; keep vision stable for reliability.
   if (preset === 'cheapest') {
-    return {
-      provider,
-      preset,
-      chatTextModel: 'gpt-5-nano',
-      chatVisionModel: 'gpt-5-nano',
-      imageGenerationModel: 'dall-e-3',
-    };
+    return { ...base, preset, chatTextModel: 'gpt-5-nano', chatVisionModel: 'gpt-5-nano', imageGenerationModel: 'dall-e-3' };
   }
-
   if (preset === 'gpt5_mini') {
-    return {
-      provider,
-      preset,
-      chatTextModel: 'gpt-5-mini',
-      chatVisionModel: 'gpt-5-mini',
-      imageGenerationModel: 'dall-e-3',
-    };
+    return { ...base, preset, chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini', imageGenerationModel: 'dall-e-3' };
   }
+  if (preset === 'latest') {
+    return { ...base, preset, chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2', imageGenerationModel: 'dall-e-3' };
+  }
+  // default
+  return { ...base, preset: 'default', chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o', imageGenerationModel: 'dall-e-3' };
+}
 
-  // Latest = GPT‑5.2
-  return {
-    provider,
-    preset: 'latest',
-    chatTextModel: 'gpt-5.2',
-    chatVisionModel: 'gpt-5.2',
-    imageGenerationModel: 'dall-e-3',
-  };
+// ── Google Gemini model resolution (OpenAI-compatible endpoint) ──
+function resolveGoogle(preset: AiWorkflowPreset): ResolvedAiModels {
+  const base = { provider: 'google' as const, apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GOOGLE_AI_KEY' };
+
+  if (preset === 'cheapest') {
+    return { ...base, preset, chatTextModel: 'gemini-2.0-flash-lite', chatVisionModel: 'gemini-2.0-flash-lite', imageGenerationModel: 'dall-e-3' };
+  }
+  if (preset === 'gemini_pro') {
+    return { ...base, preset, chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06', imageGenerationModel: 'dall-e-3' };
+  }
+  if (preset === 'latest') {
+    return { ...base, preset, chatTextModel: 'gemini-2.5-flash-preview-04-17', chatVisionModel: 'gemini-2.5-flash-preview-04-17', imageGenerationModel: 'dall-e-3' };
+  }
+  // default
+  return { ...base, preset: 'default', chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash', imageGenerationModel: 'dall-e-3' };
+}
+
+export function resolveModelsFromWorkflow(workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null): ResolvedAiModels {
+  const provider = workflow ? workflow.provider : 'openai';
+  const preset = workflow ? workflow.preset : 'default';
+
+  if (provider === 'google') return resolveGoogle(preset);
+  return resolveOpenAi(preset);
+}
+
+/** Resolve the API key from Deno env based on the resolved provider. Falls back to OPENAI_API_KEY. */
+export function getApiKeyForResolved(resolved: ResolvedAiModels): string {
+  const key = Deno.env.get(resolved.apiKeyEnv) || Deno.env.get('OPENAI_API_KEY') || '';
+  if (!key) throw new Error(`API key not configured (expected ${resolved.apiKeyEnv})`);
+  return key;
 }
 
 function looksLikeMissingModelError(msg: string) {
@@ -87,11 +104,19 @@ function looksLikeMissingModelError(msg: string) {
   return s.includes('model') && (s.includes('not found') || s.includes('does not exist') || s.includes('no such model'));
 }
 
-export function getChatModelFallbackChain(model: string): string[] {
+export function getChatModelFallbackChain(model: string, provider: AiWorkflowProvider = 'openai'): string[] {
   const m = String(model || '').trim();
-  if (!m) return ['gpt-4o-mini'];
 
-  // Keep fallback chains short and safe.
+  if (provider === 'google') {
+    if (!m) return ['gemini-2.0-flash'];
+    if (m.includes('2.5-pro')) return [m, 'gemini-2.0-flash'];
+    if (m.includes('2.5-flash')) return [m, 'gemini-2.0-flash'];
+    if (m.includes('flash-lite')) return [m, 'gemini-2.0-flash'];
+    return [m, 'gemini-2.0-flash'];
+  }
+
+  // OpenAI fallbacks
+  if (!m) return ['gpt-4o-mini'];
   if (m === 'gpt-5.2') return ['gpt-5.2', 'gpt-5', 'gpt-4o-mini'];
   if (m === 'gpt-5-mini') return ['gpt-5-mini', 'gpt-5', 'gpt-4o-mini'];
   if (m === 'gpt-5-nano') return ['gpt-5-nano', 'gpt-5-mini', 'gpt-4o-mini'];
@@ -101,16 +126,23 @@ export function getChatModelFallbackChain(model: string): string[] {
   return [m, 'gpt-4o-mini'];
 }
 
-export async function fetchChatCompletionsWithModelFallback(openaiKey: string, payload: any, model: string) {
-  const candidates = getChatModelFallbackChain(model);
+export async function fetchChatCompletionsWithModelFallback(
+  apiKey: string,
+  payload: any,
+  model: string,
+  resolved?: ResolvedAiModels
+) {
+  const baseUrl = resolved?.apiBaseUrl || 'https://api.openai.com/v1';
+  const provider = resolved?.provider || 'openai';
+  const candidates = getChatModelFallbackChain(model, provider);
   let lastErr: any = null;
 
   for (const m of candidates) {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         ...payload,
@@ -127,13 +159,240 @@ export async function fetchChatCompletionsWithModelFallback(openaiKey: string, p
     lastErr = err;
     const msg = String(err?.error?.message || err?.error || resp.statusText || '');
 
-    // Only retry on “model missing” class errors; otherwise fail fast.
+    // Only retry on "model missing" class errors; otherwise fail fast.
     if (!looksLikeMissingModelError(msg)) {
-      throw new Error(msg || 'OpenAI API error');
+      throw new Error(msg || `${provider} API error`);
     }
   }
 
-  const msg = String(lastErr?.error?.message || lastErr?.error || 'OpenAI API error');
+  const msg = String(lastErr?.error?.message || lastErr?.error || `${provider} API error`);
   throw new Error(msg);
 }
 
+// ── Text Credit Enforcement Helpers ────────────────────────────
+
+const TEXT_CREDITS_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+function parseBearerToken(authHeader: string | null): string {
+  const raw = String(authHeader || '');
+  const lower = raw.toLowerCase();
+  if (!lower.startsWith('bearer ')) return '';
+  return raw.slice(7).trim();
+}
+
+function computeTextCreditsLimitFallback(resetAtIso: string | null): number {
+  try {
+    if (!resetAtIso) return 250;
+    const resetMs = Date.parse(resetAtIso);
+    if (!Number.isFinite(resetMs)) return 250;
+    const diffDays = (resetMs - Date.now()) / 86400000;
+    if (diffDays <= 10) return 100;
+    if (diffDays <= 40) return 250;
+    return 2500;
+  } catch (_) {
+    return 250;
+  }
+}
+
+export type TextCreditGate = {
+  user: any;
+  userId: string;
+  supabase: any;
+  unlimited: boolean;
+  creditsUsed: number;
+  creditsLimit: number;
+  resetAtIso: string | null;
+};
+
+/**
+ * Authenticate user + check text credit balance.
+ * Returns a TextCreditGate on success, or a ready-to-return Response on failure.
+ */
+export async function requireTextCredits(req: Request): Promise<TextCreditGate | Response> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !serviceRoleKey) {
+    return new Response(
+      JSON.stringify({ error: 'Supabase env not configured' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 500 }
+    );
+  }
+
+  const token = parseBearerToken(req.headers.get('authorization'));
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 401 }
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  const user = userData?.user || null;
+  if (userErr || !user) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 401 }
+    );
+  }
+
+  const { data: sub, error: subErr } = await supabase
+    .from('user_subscriptions')
+    .select([
+      'user_id', 'subscription_tier', 'subscription_status',
+      'has_unlimited_ai', 'ai_access_expires_at',
+      'stripe_current_period_end',
+      'ai_text_credits_limit', 'ai_text_credits_used', 'ai_text_credits_reset_at',
+    ].join(','))
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (subErr || !sub) {
+    return new Response(
+      JSON.stringify({ error: 'Subscription not found' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 403 }
+    );
+  }
+
+  const tier = String(sub.subscription_tier || '').toLowerCase();
+  const status = String(sub.subscription_status || '').toLowerCase();
+  const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
+  const hasCouponAiAccess = !!(sub && (
+    sub.has_unlimited_ai === true ||
+    (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
+  ));
+  const isPaidPremium = (tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due');
+  const entitled = isPaidPremium || hasCouponAiAccess;
+
+  if (!entitled) {
+    return new Response(
+      JSON.stringify({ error: 'Upgrade required' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 403 }
+    );
+  }
+
+  const unlimited = sub.has_unlimited_ai === true || tier === 'admin';
+
+  const stripePeriodEndIso = sub.stripe_current_period_end
+    ? new Date(sub.stripe_current_period_end).toISOString()
+    : null;
+  let resetAtIso = sub.ai_text_credits_reset_at
+    ? new Date(sub.ai_text_credits_reset_at).toISOString()
+    : (stripePeriodEndIso || null);
+
+  if (!resetAtIso && hasCouponAiAccess && !unlimited) {
+    resetAtIso = new Date(Date.now() + 30 * 86400000).toISOString();
+  }
+
+  let creditsUsed = Number.isFinite(Number(sub.ai_text_credits_used)) ? Number(sub.ai_text_credits_used) : 0;
+  let creditsLimit = Number.isFinite(Number(sub.ai_text_credits_limit)) ? Number(sub.ai_text_credits_limit) : NaN;
+  if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
+    creditsLimit = unlimited ? Number.POSITIVE_INFINITY : computeTextCreditsLimitFallback(resetAtIso);
+  }
+
+  // Auto-reset if period passed
+  if (!unlimited) {
+    const nowMs = Date.now();
+    const resetMs = resetAtIso ? Date.parse(resetAtIso) : NaN;
+    const stripeMs = stripePeriodEndIso ? Date.parse(stripePeriodEndIso) : NaN;
+    const shouldResetForTime = Number.isFinite(resetMs) && nowMs >= resetMs;
+    const shouldResetForStripeShift = Number.isFinite(stripeMs) && Number.isFinite(resetMs) && (stripeMs > resetMs + 10 * 60 * 1000);
+
+    if (shouldResetForTime || shouldResetForStripeShift) {
+      creditsUsed = 0;
+      resetAtIso = (Number.isFinite(stripeMs) && stripeMs > nowMs)
+        ? new Date(stripeMs).toISOString()
+        : new Date(nowMs + 30 * 86400000).toISOString();
+
+      await supabase
+        .from('user_subscriptions')
+        .update({
+          ai_text_credits_used: 0,
+          ai_text_credits_limit: Number.isFinite(creditsLimit) ? creditsLimit : null,
+          ai_text_credits_reset_at: resetAtIso,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+    } else if (!sub.ai_text_credits_reset_at && resetAtIso) {
+      await supabase
+        .from('user_subscriptions')
+        .update({
+          ai_text_credits_limit: Number.isFinite(creditsLimit) ? creditsLimit : null,
+          ai_text_credits_reset_at: resetAtIso,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+    }
+  }
+
+  if (!unlimited) {
+    const remaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed));
+    if (remaining <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'No text credits remaining', creditsRemaining: 0, creditsLimit, creditsResetAt: resetAtIso }),
+        { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 402 }
+      );
+    }
+  }
+
+  return { user, userId: user.id, supabase, unlimited, creditsUsed, creditsLimit, resetAtIso };
+}
+
+/**
+ * Decrement text credits after a successful AI call (compare-and-set with retry).
+ * Returns { creditsRemaining, creditsLimit, creditsResetAt }.
+ */
+export async function decrementTextCredits(gate: TextCreditGate): Promise<{ creditsRemaining: number | null; creditsLimit: number | null; creditsResetAt: string | null }> {
+  if (gate.unlimited) {
+    return { creditsRemaining: null, creditsLimit: null, creditsResetAt: gate.resetAtIso };
+  }
+
+  let { creditsUsed, creditsLimit, resetAtIso, supabase, userId } = gate;
+  let creditsLimitOut: number | null = Number.isFinite(creditsLimit) ? creditsLimit : null;
+  let creditsResetAt: string | null = resetAtIso;
+
+  let updatedUsed: number | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const expectedUsed = creditsUsed;
+    const nextUsed = expectedUsed + 1;
+
+    const { data: updated, error: updErr } = await supabase
+      .from('user_subscriptions')
+      .update({
+        ai_text_credits_used: nextUsed,
+        ai_text_credits_limit: creditsLimitOut,
+        ai_text_credits_reset_at: resetAtIso,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('ai_text_credits_used', expectedUsed)
+      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at')
+      .maybeSingle();
+
+    if (!updErr && updated) {
+      updatedUsed = Number(updated.ai_text_credits_used);
+      creditsLimitOut = Number.isFinite(Number(updated.ai_text_credits_limit)) ? Number(updated.ai_text_credits_limit) : creditsLimitOut;
+      creditsResetAt = updated.ai_text_credits_reset_at ? new Date(updated.ai_text_credits_reset_at).toISOString() : creditsResetAt;
+      break;
+    }
+
+    const { data: refetched } = await supabase
+      .from('user_subscriptions')
+      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    creditsUsed = Number.isFinite(Number(refetched?.ai_text_credits_used)) ? Number(refetched?.ai_text_credits_used) : creditsUsed;
+    creditsLimit = Number.isFinite(Number(refetched?.ai_text_credits_limit)) ? Number(refetched?.ai_text_credits_limit) : creditsLimit;
+    resetAtIso = refetched?.ai_text_credits_reset_at ? new Date(refetched.ai_text_credits_reset_at).toISOString() : resetAtIso;
+  }
+
+  const finalUsed = updatedUsed ?? (creditsUsed + 1);
+  const finalLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit);
+  const creditsRemaining = Math.max(0, finalLimit - Math.max(0, finalUsed));
+
+  return { creditsRemaining, creditsLimit: creditsLimitOut, creditsResetAt };
+}

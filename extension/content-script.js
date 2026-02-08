@@ -4984,11 +4984,14 @@ class PasteCraftFloatingWidget {
         const raw = await chrome.storage.local.get([key]).catch(() => ({}));
         const wf = raw && raw[key] && typeof raw[key] === 'object' ? raw[key] : null;
         if (wf && wf.enabled === true) {
+          const _allowedProviders = new Set(['openai', 'google']);
+          const _presetsByProvider = { openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest']), google: new Set(['default', 'cheapest', 'gemini_pro', 'latest']) };
+          const provider = _allowedProviders.has(String(wf.provider || 'openai')) ? String(wf.provider || 'openai') : 'openai';
           const preset = String(wf.preset || 'default');
-          const allowed = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+          const allowed = _presetsByProvider[provider] || _presetsByProvider.openai;
           aiWorkflow = {
             enabled: true,
-            provider: 'openai',
+            provider,
             preset: allowed.has(preset) ? preset : 'default',
             updatedAt: Number.isFinite(Number(wf.updatedAt)) ? Number(wf.updatedAt) : Date.now()
           };
@@ -5100,11 +5103,14 @@ class PasteCraftFloatingWidget {
         const raw = await chrome.storage.local.get([key]).catch(() => ({}));
         const wf = raw && raw[key] && typeof raw[key] === 'object' ? raw[key] : null;
         if (wf && wf.enabled === true) {
+          const _allowedProviders = new Set(['openai', 'google']);
+          const _presetsByProvider = { openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest']), google: new Set(['default', 'cheapest', 'gemini_pro', 'latest']) };
+          const provider = _allowedProviders.has(String(wf.provider || 'openai')) ? String(wf.provider || 'openai') : 'openai';
           const preset = String(wf.preset || 'default');
-          const allowed = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+          const allowed = _presetsByProvider[provider] || _presetsByProvider.openai;
           aiWorkflow = {
             enabled: true,
-            provider: 'openai',
+            provider,
             preset: allowed.has(preset) ? preset : 'default',
             updatedAt: Number.isFinite(Number(wf.updatedAt)) ? Number(wf.updatedAt) : Date.now()
           };

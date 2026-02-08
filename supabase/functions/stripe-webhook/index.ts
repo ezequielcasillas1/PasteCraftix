@@ -77,6 +77,22 @@ function getImageCreditsLimitFromPriceId(priceId: string | null): number | null 
   }
 }
 
+function getTextCreditsLimitFromPriceId(priceId: string | null): number | null {
+  if (!priceId) return null
+
+  // Text AI credits (GPT-4o @ ~$0.005/call, ~50% cost coverage)
+  switch (priceId) {
+    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
+      return 100
+    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
+      return 250
+    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
+      return 2500
+    default:
+      return null
+  }
+}
+
 async function updateSubscriptionByEmailOrStripeId(opts: {
   supabase: any,
   email: string,
@@ -204,6 +220,7 @@ serve(async (req) => {
 
             const isPremium = tier === 'premium'
             const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
+            const textCreditsLimit = isPremium ? (getTextCreditsLimitFromPriceId(priceId) ?? null) : null
             const resetAt = isPremium ? (periodEndIso || null) : null
             
             const update = {
@@ -217,6 +234,9 @@ serve(async (req) => {
               ai_image_credits_limit: imageCreditsLimit,
               ai_image_credits_used: isPremium ? 0 : null,
               ai_image_credits_reset_at: resetAt,
+              ai_text_credits_limit: textCreditsLimit,
+              ai_text_credits_used: isPremium ? 0 : null,
+              ai_text_credits_reset_at: resetAt,
               updated_at: new Date().toISOString(),
             }
 
@@ -258,6 +278,7 @@ serve(async (req) => {
             const periodEndIso = getPeriodEndIso(subscription)
             const isPremium = finalTier === 'premium'
             const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
+            const textCreditsLimit = isPremium ? (getTextCreditsLimitFromPriceId(priceId) ?? null) : null
             const resetAt = isPremium ? (periodEndIso || null) : null
             
             const update: any = {
@@ -267,16 +288,20 @@ serve(async (req) => {
               stripe_current_period_end: periodEndIso,
               ai_image_credits_limit: imageCreditsLimit,
               ai_image_credits_reset_at: resetAt,
+              ai_text_credits_limit: textCreditsLimit,
+              ai_text_credits_reset_at: resetAt,
               updated_at: new Date().toISOString(),
             }
 
             // If (re)activated into premium, reset credits at the start of a new period.
             if (isPremium && periodEndIso) {
               update.ai_image_credits_used = 0
+              update.ai_text_credits_used = 0
             }
-            // If canceled/downgraded, clear image credits.
+            // If canceled/downgraded, clear credits.
             if (!isPremium) {
               update.ai_image_credits_used = null
+              update.ai_text_credits_used = null
             }
 
             const res = await updateSubscriptionByEmailOrStripeId({
@@ -310,6 +335,9 @@ serve(async (req) => {
             ai_image_credits_limit: null,
             ai_image_credits_used: null,
             ai_image_credits_reset_at: null,
+            ai_text_credits_limit: null,
+            ai_text_credits_used: null,
+            ai_text_credits_reset_at: null,
             updated_at: new Date().toISOString(),
           }
 

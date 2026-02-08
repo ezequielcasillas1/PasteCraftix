@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits } from "../_shared/ai_workflow.ts"
+import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,10 @@ serve(async (req) => {
   }
 
   try {
+    // Credit gate: authenticate + check text credits
+    const gate = await requireTextCredits(req)
+    if (gate instanceof Response) return gate
+
     const body = await req.json().catch(() => ({}))
     const { text, level } = body || {}
 
@@ -28,15 +33,11 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    const systemPrompt = levelPrompts[level] || levelPrompts['college']
-
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
+    const apiKey = getApiKeyForResolved(models)
+
+    const systemPrompt = levelPrompts[level] || levelPrompts['college']
 
     const payload = {
       messages: [
@@ -47,11 +48,14 @@ serve(async (req) => {
       temperature: 0.7
     }
 
-    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
     const breakdown = String(data?.choices?.[0]?.message?.content || '').trim()
 
+    // Decrement text credits after successful generation
+    const credits = await decrementTextCredits(gate)
+
     return new Response(
-      JSON.stringify({ breakdown }),
+      JSON.stringify({ breakdown, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {

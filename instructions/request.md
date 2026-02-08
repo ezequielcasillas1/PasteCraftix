@@ -317,7 +317,7 @@ state management.
 
 ---
 
-#### 25. Math Clip Rendering (LaTeX/MathML)
+#### 25. Math Clip Rendering (LaTeX/MathML) - DONE
 **Priority:** Medium  
 **Status:** Coming soon  
 **Requirements:**
@@ -397,13 +397,20 @@ state management.
 
 ---
 
-#### 32. Markup Language Support (Beyond Math)
+#### 32. Markup Language Support (Comprehensive Formattable Text)
 **Priority:** High  
 **Status:** Coming soon  
 **Requirements:**
-- Support safe rendering/display for: Markdown/CommonMark, HTML (sanitized), Mermaid, AsciiDoc, reStructuredText, Org-mode, BBCode/wiki markup (best effort)
-- Store/use copied `text/html` when available; fallback to plain text
-- Never break normal text clips; add "view raw" toggle for markup payloads
+- Detect & render copied markup in Clips, Search, Categories, and Notes (never break plain text)
+- **Document markup:** Markdown/CommonMark, GFM (tables/task lists/strikethrough), HTML (sanitized), AsciiDoc, reStructuredText, Org-mode, Textile, RTF
+- **Wiki/team markup:** BBCode, MediaWiki, Creole, JIRA/Confluence, Slack/Discord formatting
+- **Diagram markup:** Mermaid, PlantUML, Graphviz/DOT (render as inline SVG/image)
+- **Structured data:** JSON, YAML, TOML, XML, CSV/TSV (syntax-highlighted, collapsible)
+- **Code blocks:** Syntax-highlighted code for common languages (auto-detect or fenced block lang tag)
+- **Math:** Handled by Feature #25 (LaTeX/MathML/KaTeX/MathJax) — already done
+- Store/use copied `text/html` when available; fallback to plain text detection/heuristics
+- "View raw" toggle per clip for any markup payload; user can switch between rendered ↔ source
+- Best-effort approach: unknown/ambiguous markup renders as plain text (no errors)
 
 ---
 

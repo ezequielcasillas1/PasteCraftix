@@ -4455,6 +4455,63 @@
             border-color: #ef4444;
             background: rgba(239, 68, 68, 0.10);
         }
+
+        /* Delayed hover tooltip for credit pills */
+        .ai-lab-credits {
+            position: relative;
+            cursor: default;
+        }
+
+        .ai-lab-credits .credits-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 210px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #1e293b;
+            color: #f1f5f9;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.45;
+            text-align: left;
+            box-shadow: 0 4px 14px rgba(0,0,0,.18);
+            z-index: 900;
+            pointer-events: none;
+            transition: opacity .2s ease, visibility .2s ease;
+            transition-delay: 0s;
+        }
+
+        .ai-lab-credits .credits-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-bottom-color: #1e293b;
+        }
+
+        .ai-lab-credits:hover .credits-tooltip {
+            visibility: visible;
+            opacity: 1;
+            transition-delay: 1.5s;
+        }
+
+        .credits-tooltip strong {
+            color: #93c5fd;
+            font-weight: 700;
+        }
+
+        .credits-tooltip .tip-divider {
+            display: block;
+            height: 1px;
+            background: rgba(255,255,255,.12);
+            margin: 6px 0;
+        }
         
         .ai-lab-icon {
             font-size: 32px;
@@ -4511,6 +4568,11 @@
         .ai-workflow-select:disabled {
             cursor: not-allowed;
             opacity: 0.65;
+        }
+
+        .ai-workflow-select option:disabled {
+            color: #9ca3af;
+            font-style: italic;
         }
 
         .ai-workflow-note {
@@ -5849,9 +5911,15 @@
                             id="aiCreditsPill"
                             role="status"
                             aria-live="polite"
-                            title="AI image credits remaining"
                         >
                             Image credits: —
+                            <span class="credits-tooltip">
+                                <strong>Image Credits</strong>
+                                <span class="tip-divider"></span>
+                                Generate cartoon avatars, animal characters, and custom AI art with DALL-E.
+                                <span class="tip-divider"></span>
+                                Great for profile pics &amp; visual study aids.
+                            </span>
                         </div>
                         <div class="ai-lab-title-main" aria-label="AI Lab">
                             <span class="ai-lab-icon">🤖</span>
@@ -5862,9 +5930,15 @@
                             id="aiTextCreditsPill"
                             role="status"
                             aria-live="polite"
-                            title="AI text credits remaining"
                         >
                             AI text credits: —
+                            <span class="credits-tooltip">
+                                <strong>AI Text Credits</strong>
+                                <span class="tip-divider"></span>
+                                Powers <strong>Summary</strong> (condense notes), <strong>Breakdown</strong> (explain at any level), and <strong>AI Hints</strong> (smart tips on copied content).
+                                <span class="tip-divider"></span>
+                                Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits &amp; still explains clearly.
+                            </span>
                         </div>
                     </div>
                     <p class="ai-lab-subtitle">Experimental AI features and tools</p>
@@ -5882,13 +5956,13 @@
                             <label class="ai-workflow-label" for="aiProviderSelect">Provider</label>
                             <select id="aiProviderSelect" class="ai-workflow-select" aria-label="AI provider">
                                 <option value="openai">OpenAI</option>
+                                <option value="google">Google Gemini</option>
+                                <option value="anthropic" disabled>Anthropic (Soon)</option>
+                                <option value="groq" disabled>Groq (Soon)</option>
                             </select>
                             <label class="ai-workflow-label" for="aiWorkflowPresetSelect">Workflow</label>
                             <select id="aiWorkflowPresetSelect" class="ai-workflow-select" aria-label="AI workflow preset">
-                                <option value="default">Default (4o)</option>
-                                <option value="cheapest">Cheapest (GPT‑5 Nano)</option>
-                                <option value="gpt5_mini">Cheapest (GPT‑5 Mini)</option>
-                                <option value="latest">Latest (GPT‑5.2)</option>
+                                <!-- Populated dynamically by JS based on provider -->
                             </select>
                         </div>
                         <p class="ai-workflow-note" id="aiWorkflowNote">Applies to text, vision, and image generation.</p>

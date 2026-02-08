@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS user_subscriptions (
     ai_image_credits_limit INTEGER, -- Total image credits per period (NULL for non-premium)
     ai_image_credits_used INTEGER DEFAULT 0, -- Used image credits in current period
     ai_image_credits_reset_at TIMESTAMPTZ, -- When credits reset next
+    ai_text_credits_limit INTEGER, -- Total text credits per period (NULL for non-premium)
+    ai_text_credits_used INTEGER DEFAULT 0, -- Used text credits in current period
+    ai_text_credits_reset_at TIMESTAMPTZ, -- When text credits reset next
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id)
@@ -39,6 +42,12 @@ ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS ai_image_credits_used INTEGER DEFAULT 0;
 ALTER TABLE user_subscriptions
   ADD COLUMN IF NOT EXISTS ai_image_credits_reset_at TIMESTAMPTZ;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_text_credits_limit INTEGER;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_text_credits_used INTEGER DEFAULT 0;
+ALTER TABLE user_subscriptions
+  ADD COLUMN IF NOT EXISTS ai_text_credits_reset_at TIMESTAMPTZ;
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
@@ -47,6 +56,7 @@ CREATE INDEX IF NOT EXISTS idx_user_subscriptions_email ON user_subscriptions(em
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_stripe_sub ON user_subscriptions(stripe_subscription_id);
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_period_end ON user_subscriptions(stripe_current_period_end) WHERE stripe_current_period_end IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_user_subscriptions_img_reset ON user_subscriptions(ai_image_credits_reset_at) WHERE ai_image_credits_reset_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_txt_reset ON user_subscriptions(ai_text_credits_reset_at) WHERE ai_text_credits_reset_at IS NOT NULL;
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;

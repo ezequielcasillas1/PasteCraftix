@@ -662,13 +662,38 @@ class PasteCraftPopup {
   // AI WORKFLOW (provider + preset) - versioned storage
   // =====================================================
 
-  _normalizeAiWorkflow(raw) {
-    const allowedProviders = new Set(['openai']);
-    const allowedPresets = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
+  // Provider → preset options mapping (single source of truth)
+  static AI_PROVIDER_PRESETS = {
+    openai: [
+      { value: 'default',   label: 'Default (4o-mini)' },
+      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano)' },
+      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini)' },
+      { value: 'latest',    label: 'Latest (GPT-5.2)' },
+    ],
+    google: [
+      { value: 'default',        label: 'Default (Gemini 2.0 Flash)' },
+      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash‑Lite)' },
+      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro)' },
+      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash)' },
+    ],
+    anthropic: [
+      { value: 'default', label: 'Default (Coming Soon)' },
+    ],
+    groq: [
+      { value: 'default', label: 'Default (Coming Soon)' },
+    ],
+  };
 
+  static AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
+
+  _normalizeAiWorkflow(raw) {
     const obj = (raw && typeof raw === 'object') ? raw : {};
     const enabled = obj.enabled === true;
-    const provider = allowedProviders.has(String(obj.provider || 'openai')) ? String(obj.provider || 'openai') : 'openai';
+    const provider = PasteCraftPopup.AI_ALLOWED_PROVIDERS.has(String(obj.provider || 'openai'))
+      ? String(obj.provider || 'openai')
+      : 'openai';
+    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
+    const allowedPresets = new Set(presets.map(p => p.value));
     const preset = allowedPresets.has(String(obj.preset || 'default')) ? String(obj.preset || 'default') : 'default';
     const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
 
@@ -721,7 +746,19 @@ class PasteCraftPopup {
 
       if (toggle) toggle.checked = !!cfg.enabled;
       if (providerEl) providerEl.value = cfg.provider || 'openai';
-      if (presetEl) presetEl.value = cfg.preset || 'default';
+
+      // Rebuild preset options for the selected provider
+      if (presetEl) {
+        const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[cfg.provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
+        presetEl.innerHTML = '';
+        for (const p of presets) {
+          const opt = document.createElement('option');
+          opt.value = p.value;
+          opt.textContent = p.label;
+          presetEl.appendChild(opt);
+        }
+        presetEl.value = cfg.preset || 'default';
+      }
 
       const disabled = !cfg.enabled;
       if (providerEl) providerEl.disabled = disabled;
@@ -1105,7 +1142,7 @@ class PasteCraftPopup {
         await this.restoreSupabaseSessionFromBridge('startup');
       }
     } catch (_) {}
-    
+
     // Check if user is authenticated
     const currentUser = await pasteCraftSupabase.getCurrentUser();
     
@@ -1149,16 +1186,14 @@ class PasteCraftPopup {
     this.setupStorageSyncListener();
     this.setupLocalStorageListener();
 
-    await this.loadData();
-    await this.loadSettings();
-    await this.loadAiWorkflow();
-    await this.loadUserProfile();
-    await this.loadAnalysisHistory();
-
-    // Local restore points (best-effort): create today's snapshot early (before any cleanup/sync).
-    try {
-      await this.maybeCreateDailyRestorePoint('startup');
-    } catch (_) {}
+    // Parallelize independent storage reads for faster startup
+    await Promise.all([
+      this.loadData(),
+      this.loadSettings(),
+      this.loadAiWorkflow(),
+      this.loadUserProfile(),
+      this.loadAnalysisHistory(),
+    ]);
 
     // Always update top bar name/image (even if no image saved yet)
     this.updateTopBarIdentity();
@@ -2097,10 +2132,8 @@ class PasteCraftPopup {
         
         // 🔄 RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
         await this.loadUserProfile();
-        if (this.userProfile?.profileImageUrl) {
-          console.log('✅ Profile image restored from database after sync');
-          this.displayImageTopLeft(this.userProfile.profileImageUrl);
-        }
+        // Always refresh top bar identity (name + image) after sync
+        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
       } else {
         console.warn('⚠️ Background sync failed:', syncResult.message);
       }
@@ -2135,10 +2168,8 @@ class PasteCraftPopup {
         this.renderCategories();
         this.updateCategoryFilter();
         
-        // Update profile image if available
-        if (this.userProfile?.profileImageUrl) {
-          this.displayImageTopLeft(this.userProfile.profileImageUrl);
-        }
+        // Always refresh top bar identity (name + image) on visibility
+        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
         console.log('✅ Data reloaded successfully');
       }
     });
@@ -2201,9 +2232,8 @@ class PasteCraftPopup {
       this.updateCategoryFilter();
       this.renderSearchResults();
 
-      if (this.userProfile?.profileImageUrl) {
-        this.displayImageTopLeft(this.userProfile.profileImageUrl);
-      }
+      // Always refresh top bar identity (name + image) after sync
+      this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
     } finally {
       this._syncAutoRefreshInFlight = false;
     }
@@ -2234,9 +2264,8 @@ class PasteCraftPopup {
         await this.loadSettings();
       } else if (type === 'profile') {
         await this.loadUserProfile();
-        if (this.userProfile?.profileImageUrl) {
-          this.displayImageTopLeft(this.userProfile.profileImageUrl);
-        }
+        // Always refresh top bar identity (name + image) on profile change
+        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
       }
     });
   }
@@ -3473,8 +3502,17 @@ class PasteCraftPopup {
         this.saveAiWorkflowFromUi(true).catch(() => {});
       };
 
+      // When provider changes, rebuild presets then save
+      const onProviderChange = () => {
+        const selectedProvider = providerEl ? providerEl.value : 'openai';
+        this.aiWorkflow.provider = selectedProvider;
+        this.aiWorkflow.preset = 'default'; // reset preset on provider switch
+        this.applyAiWorkflowToUi();
+        this.saveAiWorkflowFromUi(true).catch(() => {});
+      };
+
       if (overrideToggle) overrideToggle.addEventListener('change', onChange);
-      if (providerEl) providerEl.addEventListener('change', onChange);
+      if (providerEl) providerEl.addEventListener('change', onProviderChange);
       if (presetEl) presetEl.addEventListener('change', onChange);
 
       // Initial UI state
@@ -7494,12 +7532,15 @@ class PasteCraftPopup {
     // PIN lock setting (do NOT sync to database) - skip during auto-save
     if (!skipPinAndAuth) {
       try {
-        await this.loadPinConfig();
+        // Read desired state from checkboxes FIRST (before loadPinConfig overwrites _pinConfig)
         const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
         const unlimitedEl = document.getElementById('pinUnlimitedSession');
         const askBrowserRequested = browserScopeEl ? !!browserScopeEl.checked : false;
         const unlimitedRequested = unlimitedEl ? !!unlimitedEl.checked : false;
         const enableRequested = askBrowserRequested || unlimitedRequested;
+
+        // Only load config to verify PIN hash exists (not to derive checkbox state)
+        await this.loadPinConfig();
 
         if (enableRequested) {
           if (!this._pinConfig?.salt || !this._pinConfig?.hash) {
@@ -7509,23 +7550,32 @@ class PasteCraftPopup {
               this.showPinSetupModal({ title: 'Set 3-digit code' });
             }
           } else {
-            // FIX: Ensure PIN is enabled first, then update unlimitedSession state
+            // Ensure PIN is enabled first, then update unlimitedSession state
             if (!this._pinConfig.enabled) {
               await this.setPinEnabled(true);
             }
             
-            // Update unlimitedSession to match checkbox state (CRITICAL: must happen after enabling)
-            const currentUnlimited = !!this._pinConfig.unlimitedSession;
-            if (unlimitedRequested !== currentUnlimited) {
-              await this.setPinUnlimitedSession(unlimitedRequested);
-            }
-            
+            // Update unlimitedSession to match checkbox state (uses user's requested value, not stale config)
+            await this.setPinUnlimitedSession(unlimitedRequested);
           }
         } else {
           if (this._pinConfig?.enabled) {
             await this.setPinEnabled(false);
             await this._pinClearSessionUnlocked();
           }
+        }
+
+        // Re-read saved config and sync checkboxes to confirm persistence
+        await this.loadPinConfig();
+        const savedEnabled = !!this._pinConfig?.enabled;
+        const savedUnlimited = savedEnabled && !!this._pinConfig?.unlimitedSession;
+        if (browserScopeEl) {
+          browserScopeEl.checked = savedEnabled && !savedUnlimited;
+          browserScopeEl.disabled = !savedEnabled;
+        }
+        if (unlimitedEl) {
+          unlimitedEl.checked = savedUnlimited;
+          unlimitedEl.disabled = !savedEnabled;
         }
       } catch (error) {
         console.error('❌ PIN save failed:', error);
@@ -7780,8 +7830,9 @@ class PasteCraftPopup {
     const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
     if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
 
-    // PIN lock UI - Use cached _pinConfig (will be refreshed in background)
+    // PIN lock UI - Refresh config from storage before reflecting checkbox state
     try {
+      await this.loadPinConfig();
       const enabled = !!this._pinConfig?.enabled;
       const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
       
@@ -8520,6 +8571,7 @@ class PasteCraftPopup {
 
     if (nameEl) {
       nameEl.textContent = displayName;
+      // Must be inline-block BEFORE measuring scrollWidth
       nameEl.style.display = displayName ? 'inline-block' : 'none';
     }
 
@@ -8530,18 +8582,21 @@ class PasteCraftPopup {
       nameSection.style.removeProperty('--pc-marquee-duration');
 
       if (displayName && nameEl) {
-        // Wait a tick so layout measurements are accurate
+        // Double-rAF: first rAF schedules layout, second rAF measures after paint.
+        // This fixes measurements returning 0 when topBar was just made visible.
         requestAnimationFrame(() => {
-          const available = nameSection.clientWidth;
-          const needed = nameEl.scrollWidth;
-          const distance = Math.max(0, needed - available);
-          if (distance > 6) {
-            // ~30px/sec, clamp duration to keep readable
-            const duration = Math.min(18, Math.max(8, distance / 30));
-            nameSection.style.setProperty('--pc-marquee-distance', String(distance));
-            nameSection.style.setProperty('--pc-marquee-duration', `${duration}s`);
-            nameSection.classList.add('is-marquee');
-          }
+          requestAnimationFrame(() => {
+            const available = nameSection.clientWidth;
+            const needed = nameEl.scrollWidth;
+            const distance = Math.max(0, needed - available);
+            if (distance > 6) {
+              // ~30px/sec, clamp duration to keep readable
+              const duration = Math.min(18, Math.max(8, distance / 30));
+              nameSection.style.setProperty('--pc-marquee-distance', String(distance));
+              nameSection.style.setProperty('--pc-marquee-duration', `${duration}s`);
+              nameSection.classList.add('is-marquee');
+            }
+          });
         });
       }
     }
@@ -9755,40 +9810,84 @@ class PasteCraftPopup {
   }
 
   async setAsProfile(index) {
-    try {
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      if (index >= 0 && index < gallery.length) {
-        const imageUrl = gallery[index].url;
-        // Avoid slow network work in getSyncUserId() (it can do remote migrations/ensure profile row).
-        // For image upload naming, any stable-ish id is fine.
-        const userIdForUpload = (this.currentUser && this.currentUser.id)
-          ? this.currentUser.id
-          : await pasteCraftSupabase.getChromeUserId();
-        const finalUrl = await pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
-        
-        if (!this.userProfile) {
-          this.userProfile = {};
-        }
-        
-        // If conversion produced a stable URL, update the gallery entry too (prevents re-selecting expiring/data URLs)
-        if (finalUrl && finalUrl !== imageUrl) {
-          gallery[index].url = finalUrl;
-          try { await chrome.storage.local.set({ aiGallery: gallery }); } catch (_) {}
-        }
+    // PRACTICE #1: VALIDATION - Verify gallery image exists and URL is valid
+    const result = await chrome.storage.local.get('aiGallery');
+    const gallery = result.aiGallery || [];
 
-        this.userProfile.profileImageUrl = finalUrl || imageUrl;
-        await this.saveUserProfile();
+    if (index < 0 || index >= gallery.length) {
+      this.showToast('❌ Invalid gallery image', 'error');
+      return;
+    }
 
-        this.displayImageTopLeft(finalUrl || imageUrl);
-        
+    const imageUrl = gallery[index].url;
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      this.showToast('❌ Gallery image has no URL', 'error');
+      return;
+    }
+
+    // PRACTICE #2: SNAPSHOT / ROLLBACK - Capture previous state before mutation
+    if (!this.userProfile) this.userProfile = {};
+    const previousImageUrl = this.userProfile.profileImageUrl || '';
+
+    const rollback = async () => {
+      try {
+        this.userProfile.profileImageUrl = previousImageUrl;
+        await chrome.storage.local.set({ userProfile: this.userProfile });
+        this.updateTopBarIdentity(previousImageUrl || undefined);
         this.renderAIGallery(gallery);
-        
-        this.showToast('✓ Profile image updated!', 'success');
+      } catch (_) {}
+    };
+
+    try {
+      // PRACTICE #5: OPTIMISTIC UI - Immediately show the image in top bar
+      this.displayImageTopLeft(imageUrl);
+      this.userProfile.profileImageUrl = imageUrl;
+
+      // Convert to permanent URL (with retry)
+      const userIdForUpload = (this.currentUser && this.currentUser.id)
+        ? this.currentUser.id
+        : await pasteCraftSupabase.getChromeUserId();
+
+      // PRACTICE #3: RETRY - Wrap URL conversion in retry logic
+      let finalUrl = imageUrl;
+      try {
+        finalUrl = await PasteCraftCRUD.retryOperation(async () => {
+          const converted = await pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
+          return converted || imageUrl;
+        }, 2, 500);
+      } catch (_) {
+        finalUrl = imageUrl; // Fallback to original URL on conversion failure
       }
+
+      // Update gallery entry with stable URL if it changed
+      if (finalUrl && finalUrl !== imageUrl) {
+        gallery[index].url = finalUrl;
+        try { await chrome.storage.local.set({ aiGallery: gallery }); } catch (_) {}
+      }
+
+      this.userProfile.profileImageUrl = finalUrl;
+
+      // PRACTICE #3: RETRY - Save profile with retry
+      await PasteCraftCRUD.retryOperation(async () => {
+        await this.saveUserProfile();
+      }, 2, 300);
+
+      // PRACTICE #4: VERIFICATION - Confirm the profile image persisted
+      const verification = await chrome.storage.local.get(['userProfile']);
+      if (!verification.userProfile || verification.userProfile.profileImageUrl !== finalUrl) {
+        console.error('Profile image verification failed, rolling back');
+        await rollback();
+        this.showToast('❌ Failed to save profile image', 'error');
+        return;
+      }
+
+      // Update UI with final stable URL
+      this.displayImageTopLeft(finalUrl);
+      this.renderAIGallery(gallery);
+      this.showToast('✓ Profile image updated!', 'success');
     } catch (error) {
       console.error('Failed to set profile image:', error);
+      await rollback();
       this.showToast('❌ Failed to set profile image', 'error');
     }
   }

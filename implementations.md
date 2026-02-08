@@ -88,6 +88,11 @@
 **Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, supabase/functions/ai-image/index.ts, supabase/functions/stripe-webhook/index.ts, db/supabase-auth-schema.sql
 **Result:** AI Lab now shows credits remaining + next reset; image generation requires user JWT and decrements credits on success. Credit limits set to ~50% cost coverage (24/wk, 62/mo, 624/yr). Needs DB migration + deployed webhooks/functions to go live.
 
+### Feb 8, 2026 - AI Text Credits (50% Limit) + 3 Bug Fixes
+**Status:** SUCCESS
+**Files:** db/supabase-auth-schema.sql, supabase/functions/stripe-webhook/index.ts, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,hint,vision,trends}/index.ts, extension/popup.js
+**Result:** Added text credit limits (100/wk, 250/mo, 2500/yr) with server-side enforcement. Fixed gallery-to-profile image (CRUD practices). Fixed PIN checkbox stale state. Fixed top-bar name marquee measurement.
+
 ### Feb 6, 2026 - AI Lab Credit Pills (Image + Text)
 **Status:** PARTIAL
 **Files:** extension/popup.html, extension/popup.js

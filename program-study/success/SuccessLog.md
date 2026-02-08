@@ -145,6 +145,16 @@
 **Files:** extension/popup.html, extension/popup.js, extension/styles.css
 **Result:** Disabled Dark Mode toggles and forced light theme to keep Dark Mode unreleased. (Commit: pending)
 
+### Feb 8, 2026 - AI Text Credits 50% Limit + 3 Bug Fixes
+**Status:** ✅ SUCCESS
+**Files:** db/supabase-auth-schema.sql, supabase/functions/stripe-webhook/index.ts, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,hint,vision,trends}/index.ts, extension/popup.js
+**Result:** Text credit enforcement (100/wk, 250/mo, 2500/yr). Gallery profile CRUD fix. PIN checkbox fix. Top-bar name marquee fix. (Commit: pending)
+
+### Feb 8, 2026 - Loading Screen Crash Fix (PopupManager ReferenceError)
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Fixed ReferenceError: `PopupManager` → `PasteCraftPopup` in `_normalizeAiWorkflow` and `applyAiWorkflowToUi`. Wrong class name crashed `loadAiWorkflow()` inside `Promise.all`, killing init and leaving loading overlay visible. (Commit: pending)
+
 ### Feb 5, 2026 - AI Provider + GPT-5 Workflow Override
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, extension/content-script.js, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,name,hint,trends,vision,image}/index.ts

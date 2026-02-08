@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,13 +26,9 @@ serve(async (req) => {
       'Octopus','Whale','Orca','Seal','Walrus','Seahorse','Stingray','Snake','Gecko','Chameleon','Turtle','Crocodile','Alligator','Griffin','Hydra','Pegasus','Kraken'
     ]
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
+    const apiKey = getApiKeyForResolved(models)
 
     const payload = {
       messages: [
@@ -58,7 +54,7 @@ Return ONLY the generated name.`
       temperature: 0.9
     }
 
-    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
     let aiName = String(data?.choices?.[0]?.message?.content || '').trim()
 
     // Validate format (single token, ends with known Animal, and remixes userName)

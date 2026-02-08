@@ -26,14 +26,19 @@ class PasteCraftSupabase {
   // =====================================================
 
   _normalizeAiWorkflow(raw) {
+    const allowedProviders = new Set(['openai', 'google']);
+    const presetsByProvider = {
+      openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest']),
+      google: new Set(['default', 'cheapest', 'gemini_pro', 'latest']),
+    };
+
     const obj = (raw && typeof raw === 'object') ? raw : {};
     const enabled = obj.enabled === true;
-    const provider = String(obj.provider || 'openai') === 'openai' ? 'openai' : 'openai';
-    const preset = String(obj.preset || 'default');
-    const allowedPresets = new Set(['default', 'cheapest', 'gpt5_mini', 'latest']);
-    const safePreset = allowedPresets.has(preset) ? preset : 'default';
+    const provider = allowedProviders.has(String(obj.provider || 'openai')) ? String(obj.provider || 'openai') : 'openai';
+    const allowedPresets = presetsByProvider[provider] || presetsByProvider.openai;
+    const preset = allowedPresets.has(String(obj.preset || 'default')) ? String(obj.preset || 'default') : 'default';
     const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
-    return { enabled, provider, preset: safePreset, updatedAt };
+    return { enabled, provider, preset, updatedAt };
   }
 
   async getAiWorkflowConfig() {

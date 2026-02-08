@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +47,7 @@ serve(async (req) => {
       throw new Error('Supabase env not configured')
     }
 
+    // OpenAI key always needed for DALL-E image generation
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
       throw new Error('OpenAI API key not configured')
@@ -190,6 +191,7 @@ serve(async (req) => {
     const { prompt, type, animalType, imageBase64 } = body || {}
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
+    const apiKey = getApiKeyForResolved(models)
 
     let finalPrompt: string
 
@@ -233,7 +235,7 @@ serve(async (req) => {
         max_tokens: 200
       }
 
-      const { data: visionData } = await fetchChatCompletionsWithModelFallback(openaiKey, visionPayload, models.chatVisionModel)
+      const { data: visionData } = await fetchChatCompletionsWithModelFallback(apiKey, visionPayload, models.chatVisionModel, models)
       const personDescription = String(visionData?.choices?.[0]?.message?.content || '').trim()
 
       finalPrompt = `Create a single funky cartoon avatar portrait of this person: ${personDescription}. Style: vibrant colors, bold black outlines, modern cartoon/animated character style, playful and fun. Show ONLY ONE person, centered, portrait orientation. Make it colorful and energetic while keeping their recognizable features.`

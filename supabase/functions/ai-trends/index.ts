@@ -1,70 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits } from "../_shared/ai_workflow.ts"
+import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-async function requireUser(req: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase env not configured')
-  }
-
-  const auth = req.headers.get('authorization') || ''
-  const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : ''
-  if (!token) return null
-
-  const res = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'apikey': supabaseAnonKey,
-      'Content-Type': 'application/json',
-    },
-  })
-
-  if (!res.ok) return null
-  return await res.json()
-}
-
-async function getSubscriptionForUser(userId: string) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Supabase service role not configured')
-  }
-
-  const url = `${supabaseUrl}/rest/v1/user_subscriptions?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`
-  const res = await fetch(url, {
-    headers: {
-      'apikey': serviceRoleKey,
-      'Authorization': `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-    },
-  })
-  if (!res.ok) return null
-  const rows = await res.json().catch(() => [])
-  return Array.isArray(rows) && rows.length ? rows[0] : null
-}
-
-function isPremium(subscription: any) {
-  try {
-    if (!subscription) return false
-    const tier = String(subscription.subscription_tier || '').toLowerCase()
-    const status = String(subscription.subscription_status || '').toLowerCase()
-    const isPaid = (tier === 'premium' || tier === 'admin') && status === 'active'
-
-    const expiresAtMs = subscription.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN
-    const hasCoupon =
-      subscription.has_unlimited_ai === true ||
-      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-
-    return !!(isPaid || hasCoupon)
-  } catch (_) {
-    return false
-  }
 }
 
 function extractRssTitles(xml: string, max = 12) {
@@ -93,31 +33,15 @@ serve(async (req) => {
   }
 
   try {
-    const user = await requireUser(req)
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      )
-    }
-
-    const subscription = await getSubscriptionForUser(String(user.id || ''))
-    if (!isPremium(subscription)) {
-      return new Response(
-        JSON.stringify({ error: 'Premium required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
-      )
-    }
-
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
+    // Credit gate: authenticate + check text credits
+    const gate = await requireTextCredits(req)
+    if (gate instanceof Response) return gate
 
     // Read body early (for aiWorkflow only). Keep backward compatible with empty bodies.
     const body = await req.json().catch(() => ({}))
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
+    const apiKey = getApiKeyForResolved(models)
 
     // Curated lightweight sources (can be expanded later)
     const sources = [
@@ -158,7 +82,7 @@ serve(async (req) => {
       temperature: 0.5
     }
 
-    const { data } = await fetchChatCompletionsWithModelFallback(openaiKey, payload, models.chatTextModel)
+    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
     const raw = String(data?.choices?.[0]?.message?.content || '').trim()
 
     let parsed: any = null
@@ -170,8 +94,11 @@ serve(async (req) => {
           .slice(0, 3)
       : []
 
+    // Decrement text credits after successful generation
+    const credits = await decrementTextCredits(gate)
+
     return new Response(
-      JSON.stringify({ tips, headlines: seed }),
+      JSON.stringify({ tips, headlines: seed, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
