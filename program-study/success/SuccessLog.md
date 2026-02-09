@@ -1,3 +1,13 @@
+### Feb 9, 2026 - Markup Language Rendering
+**Status:** ✅ SUCCESS
+**Files:** extension/markup-renderer.js, extension/popup.js, extension/popup.html, extension/content-script.js, extension/manifest.json, website/pricing.html
+**Result:** 20+ markup formats (Markdown, JSON, YAML, LaTeX, Mermaid, etc.) + 190+ code languages with auto-detection, syntax highlighting, badges, Clip Viewer rendering, View Raw toggle. (Commit: d102055)
+
+### Jan 26, 2026 - Restore Tips Widget Features
+**Status:** ✅ SUCCESS
+**Files:** extension/content-script.js
+**Result:** Restored Tips widget features - top-right below navbar, resize, scroll, hostname/viewport-aware positioning. (Commit: ac1e04f)
+
 ### Jan 25, 2026 - Zero-Loss Sync + Durable Storage
 **Status:** ✅ SUCCESS
 **Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js, instructions/request.md
