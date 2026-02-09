@@ -428,6 +428,201 @@
             cursor: pointer;
         }
         
+        /* ── Upgrade Banner (Freemium users) ── */
+        .upgrade-banner {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            transition: filter 0.2s;
+        }
+        .upgrade-banner:hover { filter: brightness(1.12); }
+        .upgrade-banner-icon { font-size: 18px; }
+        .upgrade-banner-text {
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .upgrade-banner-arrow {
+            color: rgba(255,255,255,.7);
+            font-size: 14px;
+            margin-left: auto;
+        }
+
+        /* ── Upgrade Modal ── */
+        .upgrade-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .upgrade-modal-overlay.active { display: flex; }
+        .upgrade-modal {
+            background: #fff;
+            border-radius: 18px;
+            width: 100%;
+            max-width: 380px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+            animation: upgradeSlideIn .25s ease;
+        }
+        @keyframes upgradeSlideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .upgrade-modal-header {
+            padding: 22px 22px 0;
+            text-align: center;
+        }
+        .upgrade-modal-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 6px;
+        }
+        .upgrade-modal-header p {
+            font-size: 13px;
+            color: #718096;
+        }
+        .upgrade-modal-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #a0aec0;
+            cursor: pointer;
+        }
+        .upgrade-modal-close:hover { color: #4a5568; }
+        .upgrade-modal-body {
+            padding: 18px 22px 22px;
+            position: relative;
+        }
+        .upgrade-plan-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 14px;
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .upgrade-plan-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 16px rgba(102,126,234,.15);
+        }
+        .upgrade-plan-card.popular-plan {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102,126,234,.04), rgba(118,75,162,.04));
+        }
+        .upgrade-plan-card .plan-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        .upgrade-plan-card h4 {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 2px;
+        }
+        .upgrade-plan-card .plan-price-tag {
+            font-size: 24px;
+            font-weight: 800;
+            color: #667eea;
+        }
+        .upgrade-plan-card .plan-price-tag span {
+            font-size: 13px;
+            color: #a0aec0;
+            font-weight: 500;
+        }
+        .upgrade-plan-card ul {
+            list-style: none;
+            margin: 12px 0 0;
+            padding: 0;
+        }
+        .upgrade-plan-card ul li {
+            font-size: 12.5px;
+            color: #4a5568;
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .upgrade-plan-card ul li .uc { color: #48bb78; font-weight: 700; }
+        .upgrade-plan-card .upgrade-plan-btn {
+            display: block;
+            width: 100%;
+            margin-top: 14px;
+            padding: 11px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .upgrade-plan-btn.btn-basic-up {
+            background: #f7fafc;
+            color: #667eea;
+            border: 2px solid #e2e8f0;
+        }
+        .upgrade-plan-btn.btn-basic-up:hover {
+            background: #edf2f7;
+            border-color: #667eea;
+        }
+        .upgrade-plan-btn.btn-enhanced-up {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(102,126,234,.35);
+        }
+        .upgrade-plan-btn.btn-enhanced-up:hover {
+            box-shadow: 0 6px 20px rgba(102,126,234,.5);
+            transform: translateY(-1px);
+        }
+        .upgrade-modal-footer {
+            text-align: center;
+            padding: 0 22px 18px;
+            font-size: 11.5px;
+            color: #a0aec0;
+        }
+
+        /* ── Upgrade button in Profile Account section ── */
+        .btn-upgrade-sub {
+            display: none;
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(102,126,234,.08), rgba(118,75,162,.08));
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            margin-bottom: 10px;
+        }
+        .btn-upgrade-sub:hover {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(102,126,234,.3);
+        }
+
         .chip-area {
             padding: 20px;
             min-height: 120px;
@@ -1691,6 +1886,229 @@
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             color: white;
             border-color: #2563eb;
+        }
+
+        /* Notes Info Box */
+        .notes-info-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #fef3c7 100%);
+            border: 2px solid #bae6fd;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            animation: slideDown 0.3s ease;
+        }
+
+        .notes-info-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .notes-info-left {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .notes-info-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .notes-info-text {
+            font-size: 12px;
+            color: #1e40af;
+            line-height: 1.6;
+        }
+
+        .notes-info-text strong {
+            font-size: 13px;
+            color: #1e3a8a;
+        }
+
+        .notes-info-expand-btn {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border: 2px solid #93c5fd;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .notes-info-expand-btn:hover {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        /* Notes Search Bar */
+        .notes-search-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            position: relative;
+        }
+
+        .notes-search-bar input {
+            flex: 1;
+            padding: 10px 36px 10px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 13px;
+            font-family: inherit;
+            color: #1f2937;
+            background: #f8fafc;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .notes-search-bar input:focus {
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .notes-search-bar input::placeholder {
+            color: #94a3b8;
+        }
+
+        .notes-search-clear {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 14px;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: none;
+            transition: all 0.2s ease;
+        }
+
+        .notes-search-clear.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notes-search-clear:hover {
+            color: #ef4444;
+            background: #fef2f2;
+        }
+
+        /* Notes Info Modal */
+        .notes-info-modal-content {
+            max-width: 480px;
+            width: 95%;
+        }
+
+        .notes-info-modal-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 18px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notes-info-modal-header h3 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .notes-info-modal-header .modal-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s ease;
+        }
+
+        .notes-info-modal-header .modal-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .notes-info-modal-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        .notes-info-section {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1.5px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s ease;
+        }
+
+        .notes-info-section:hover {
+            border-color: #93c5fd;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+        }
+
+        .notes-info-section-icon {
+            font-size: 28px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .notes-info-section-detail h4 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .notes-info-section-detail p {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .notes-info-section-detail ul {
+            margin: 0;
+            padding-left: 18px;
+            list-style: disc;
+        }
+
+        .notes-info-section-detail li {
+            font-size: 12.5px;
+            color: #475569;
+            line-height: 1.7;
+            margin-bottom: 2px;
         }
         
         /* Categories Tab Styles */
@@ -5728,6 +6146,13 @@
             </div>
         </header>
 
+        <!-- Upgrade Banner (Freemium users only) -->
+        <div class="upgrade-banner" id="upgradeBanner" role="button" tabindex="0" aria-label="Upgrade your membership">
+            <span class="upgrade-banner-icon">⚡</span>
+            <span class="upgrade-banner-text">Upgrade Membership — Cloud Sync, AI Tools & 20+ Markup Languages</span>
+            <span class="upgrade-banner-arrow">›</span>
+        </div>
+
         <!-- Manual Text Input Section -->
         <section class="manual-input-section" id="manualInputSection">
             <div class="manual-input-header">
@@ -5810,6 +6235,21 @@
 
         <!-- Notes Tab -->
         <section class="tab-content" id="notesTab">
+            <!-- Description Box -->
+            <div class="notes-info-box" id="notesInfoBox">
+                <div class="notes-info-content">
+                    <div class="notes-info-left">
+                        <span class="notes-info-icon">📝</span>
+                        <div class="notes-info-text">
+                            <strong>Notes & Albums</strong> — Create notes to jot down quick thoughts, save clips, and attach images or URLs. Use albums to group related notes into organized collections.
+                        </div>
+                    </div>
+                    <button class="notes-info-expand-btn" id="notesInfoExpandBtn" title="Learn more">
+                        <span>ℹ️</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="notes-header">
                 <div class="notes-actions">
                     <button class="create-note-btn" id="createNoteBtn">
@@ -5827,6 +6267,12 @@
                         <button class="view-toggle-btn" data-view="list" title="List view">☰</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Notes Search Bar -->
+            <div class="notes-search-bar" id="notesSearchBar">
+                <input type="text" id="notesSearchInput" placeholder="🔍 Search notes & albums..." />
+                <button class="notes-search-clear" id="notesSearchClear" title="Clear search">✕</button>
             </div>
             
             <div class="notes-container" id="notesContainer">
@@ -6615,13 +7061,20 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-body">
                     <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
-                    <div class="clip-viewer-body" id="clipViewerBody"></div>
+                    <div class="clip-viewer-body" id="clipViewerBody">
+                        <div class="pc-rendered-content" id="clipViewerRendered"></div>
+                        <pre class="clip-viewer-pre" id="clipViewerRaw" style="display:none;"></pre>
+                    </div>
                     <details class="clip-viewer-details" id="clipViewerHtmlDetails" style="display:none; margin-top: 12px;">
-                        <summary>Raw HTML</summary>
+                        <summary>Source HTML</summary>
                         <pre class="clip-viewer-pre" id="clipViewerHtml"></pre>
                     </details>
                 </div>
                 <div class="modal-actions">
+                    <button class="btn-secondary" id="clipViewerToggleRaw" title="Toggle between rendered and raw view" style="display:none;">
+                        <span>📄</span>
+                        <span>View Raw</span>
+                    </button>
                     <button class="btn-secondary" id="copyClipViewerBtn">
                         <span>📋</span>
                         <span>Copy</span>
@@ -6688,6 +7141,56 @@ Multiple clips are separated by:
             <span class="wand-icon">🪄</span>
             <span class="wand-text">Magic</span>
         </button>
+
+        <!-- Notes Info Modal -->
+        <div class="modal-overlay" id="notesInfoModal" style="display: none;">
+            <div class="modal-content notes-info-modal-content">
+                <div class="modal-header notes-info-modal-header">
+                    <h3>📝 Notes & Albums Guide</h3>
+                    <button class="modal-close" id="closeNotesInfoModal">✕</button>
+                </div>
+                <div class="modal-body notes-info-modal-body">
+                    <div class="notes-info-section">
+                        <div class="notes-info-section-icon">📝</div>
+                        <div class="notes-info-section-detail">
+                            <h4>Notes</h4>
+                            <p>Notes let you create rich text entries where you can attach copied clips, images, and URLs all in one place. Use notes to:</p>
+                            <ul>
+                                <li>Jot down quick thoughts alongside your clipboard content</li>
+                                <li>Bundle related clips, images, and links into a single document</li>
+                                <li>Add titles and descriptions to keep everything organized</li>
+                                <li>Export notes to PDF for sharing or offline reading</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="notes-info-section">
+                        <div class="notes-info-section-icon">📚</div>
+                        <div class="notes-info-section-detail">
+                            <h4>Albums</h4>
+                            <p>Albums are collections that group related notes together, helping you stay organized. Use albums to:</p>
+                            <ul>
+                                <li>Group notes by project, topic, or workflow</li>
+                                <li>Keep research and reference material in one folder</li>
+                                <li>Quickly browse through related notes without searching</li>
+                                <li>Send existing notes into an album for better organization</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="notes-info-section">
+                        <div class="notes-info-section-icon">💡</div>
+                        <div class="notes-info-section-detail">
+                            <h4>Tips</h4>
+                            <ul>
+                                <li>Click a note card to open and view its full content</li>
+                                <li>Use the search bar to quickly filter notes by title or description</li>
+                                <li>Switch between grid and list view for different layouts</li>
+                                <li>Send any note to an album using the folder icon on the card</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Help Modal -->
         <div class="modal-overlay" id="helpModal" style="display: none;">
@@ -6783,6 +7286,27 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     
+                    <div class="help-section">
+                        <h4>🖊️ Markup Language Support</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> PasteCraft automatically detects and renders all well-known markup languages with rich formatting, syntax highlighting, and live previews — directly inside your clips.
+                        </div>
+                        <div class="help-item">
+                            <strong>Supported formats (20+):</strong>
+                            <ul>
+                                <li><strong>Document:</strong> Markdown/GFM, HTML, AsciiDoc, reStructuredText, Org-mode, Textile</li>
+                                <li><strong>Data:</strong> JSON, YAML, TOML, XML, CSV, TSV</li>
+                                <li><strong>Code:</strong> 190+ programming languages with auto-detect syntax highlighting</li>
+                                <li><strong>Wiki/Team:</strong> MediaWiki, BBCode, JIRA/Confluence, Slack/Discord</li>
+                                <li><strong>Math:</strong> LaTeX equations rendered with KaTeX</li>
+                                <li><strong>Diagrams:</strong> Mermaid flowcharts, sequence diagrams, and more</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>How it works:</strong> When you copy text, PasteCraft auto-detects the format and shows a colored badge (e.g. MD, JSON, Code). Open the Clip Viewer to see the full rendered output. Toggle "View Raw" to switch between formatted and source views.
+                        </div>
+                    </div>
+
                     <div class="help-section">
                         <h4>📸 Profile Image Creation</h4>
                         <div class="help-item">
@@ -7008,12 +7532,69 @@ Multiple clips are separated by:
                     <!-- Account Actions -->
                     <div class="profile-section">
                         <h4>🔒 Account</h4>
+                        <button class="btn-upgrade-sub" id="upgradeSubBtn">
+                            ⚡ Upgrade Subscription — Cloud Sync, AI & 20+ Markup Languages
+                        </button>
                         <button class="btn-danger btn-block" id="unsubscribeBtn">
                             🚫 Unsubscribe from Platform
                         </button>
                         <p class="profile-note">This will delete all your data and remove you from the platform.</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div class="upgrade-modal-overlay" id="upgradeModal">
+        <div class="upgrade-modal">
+            <button class="upgrade-modal-close" id="upgradeModalClose">✕</button>
+            <div class="upgrade-modal-header">
+                <div style="font-size: 36px; margin-bottom: 8px;">🚀</div>
+                <h3>Upgrade Your Experience</h3>
+                <p>20+ markup languages, 190+ code languages, cloud sync & AI tools</p>
+            </div>
+            <div class="upgrade-modal-body">
+                <!-- Included in All Plans -->
+                <div style="text-align:center;margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(16,185,129,.06));border-radius:10px;border:1px solid rgba(99,102,241,.12);">
+                    <div style="font-size:11.5px;font-weight:600;color:#4a5568;margin-bottom:4px;">Included in All Plans</div>
+                    <div style="font-size:11px;color:#718096;line-height:1.5;">
+                        20+ markup languages · 190+ code languages with syntax highlighting<br>
+                        Markdown, JSON, HTML, YAML, XML, LaTeX, Mermaid diagrams & more
+                    </div>
+                </div>
+                <!-- Basic Plan -->
+                <div class="upgrade-plan-card popular-plan">
+                    <span class="plan-badge">Most Popular</span>
+                    <h4>Basic</h4>
+                    <div class="plan-price-tag">$1.99<span>/month</span></div>
+                    <ul>
+                        <li><span class="uc">✓</span> Everything in Freemium</li>
+                        <li><span class="uc">✓</span> Cloud sync across devices</li>
+                        <li><span class="uc">✓</span> Database storage (Supabase)</li>
+                        <li><span class="uc">✓</span> Standard support</li>
+                    </ul>
+                    <button class="upgrade-plan-btn btn-basic-up" id="upgradeBtnBasic">
+                        Start Basic
+                    </button>
+                </div>
+                <!-- Enhanced Plan -->
+                <div class="upgrade-plan-card">
+                    <h4>Enhanced</h4>
+                    <div class="plan-price-tag">$4.99<span>/month</span></div>
+                    <ul>
+                        <li><span class="uc">✓</span> Everything in Basic</li>
+                        <li><span class="uc">✓</span> AI Breakdown & Summaries</li>
+                        <li><span class="uc">✓</span> AI Image Generation</li>
+                        <li><span class="uc">✓</span> Enhanced AI accessibility</li>
+                    </ul>
+                    <button class="upgrade-plan-btn btn-enhanced-up" id="upgradeBtnEnhanced">
+                        Unlock Enhanced
+                    </button>
+                </div>
+            </div>
+            <div class="upgrade-modal-footer">
+                Cancel anytime · Secure checkout via Stripe
             </div>
         </div>
     </div>
@@ -7849,6 +8430,16 @@ alice@email.com</div>
     </div>
 
 
+    <!-- Markup Rendering Libraries -->
+    <link rel="stylesheet" href="lib/highlight-github.min.css">
+    <link rel="stylesheet" href="lib/katex.min.css">
+    <script src="lib/purify.min.js"></script>
+    <script src="lib/marked.min.js"></script>
+    <script src="lib/highlight.min.js"></script>
+    <script src="lib/katex.min.js"></script>
+    <script src="lib/mermaid.min.js"></script>
+    <script src="markup-renderer.js"></script>
+
     <!-- Database Client (Local) -->
     <script src="supabase.js"></script>
     <!-- Image Expanded View Modal -->
@@ -7862,6 +8453,8 @@ alice@email.com</div>
     <!-- Config and Database Client -->
     <script src="config.js"></script>
     <script src="supabase-client.js"></script>
+    <!-- Test: Markup sample clips (REMOVE after testing) -->
+    <script src="test-markup-clips.js"></script>
     <!-- Main Popup Script -->
     <script src="popup.js"></script>
 </body>

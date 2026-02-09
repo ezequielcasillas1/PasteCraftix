@@ -399,7 +399,7 @@ state management.
 
 #### 32. Markup Language Support (Comprehensive Formattable Text)
 **Priority:** High  
-**Status:** Coming soon  
+**Status:** Implemented  
 **Requirements:**
 - Detect & render copied markup in Clips, Search, Categories, and Notes (never break plain text)
 - **Document markup:** Markdown/CommonMark, GFM (tables/task lists/strikethrough), HTML (sanitized), AsciiDoc, reStructuredText, Org-mode, Textile, RTF

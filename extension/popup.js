@@ -1173,11 +1173,13 @@ class PasteCraftPopup {
     console.log('💎 Subscription tier (cached):', this.userSubscription?.subscription_tier);
     // Best-effort credits render from cached subscription snapshot.
     this.updateAiCreditsPills('cached');
+    this.updateUpgradeUI();
 
     pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
       this.userSubscription = sub;
       console.log('💎 Subscription tier (fresh):', this.userSubscription?.subscription_tier);
       this.updateAiCreditsPills('fresh');
+      this.updateUpgradeUI();
     }).catch(() => {});
     
     // Show top bar (with sign out button)
@@ -2154,7 +2156,44 @@ class PasteCraftPopup {
       }, 300);
     }
   }
-  
+
+  // ── Upgrade UI (Freemium → Basic/Enhanced) ──────────────────────────
+  _isFreemiumUser() {
+    const sub = this.userSubscription;
+    if (!sub) return true;
+    const tier = String(sub.subscription_tier || '').toLowerCase();
+    const status = String(sub.subscription_status || '').toLowerCase();
+    if (tier === 'admin') return false;
+    if ((tier === 'premium' || tier === 'basic') && (status === 'active' || status === 'past_due')) return false;
+    // Coupon-based AI access counts as paid
+    if (sub.has_unlimited_ai === true) return false;
+    const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
+    if (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) return false;
+    return true;
+  }
+
+  updateUpgradeUI() {
+    const isFree = this._isFreemiumUser();
+    const banner = document.getElementById('upgradeBanner');
+    const profileBtn = document.getElementById('upgradeSubBtn');
+    if (banner) banner.style.display = isFree ? 'flex' : 'none';
+    if (profileBtn) profileBtn.style.display = isFree ? 'block' : 'none';
+  }
+
+  openUpgradeModal() {
+    const modal = document.getElementById('upgradeModal');
+    if (modal) modal.classList.add('active');
+  }
+
+  closeUpgradeModal() {
+    const modal = document.getElementById('upgradeModal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  _openPricingPage() {
+    chrome.tabs.create({ url: 'https://pastecraft.com/pricing.html' });
+  }
+
   setupVisibilityListener() {
     // Reload data when popup is shown
     document.addEventListener('visibilitychange', async () => {
@@ -2325,8 +2364,32 @@ class PasteCraftPopup {
   async loadData() {
     const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
     
-    const { clips = [], categories = [], searchOnlyClips = [] } = result;
+    let { clips = [], categories = [], searchOnlyClips = [] } = result;
     let normalizedChanged = false;
+
+    // ── DEMO SEED: Sample clips & categories for pre-recording ──
+    if (clips.length === 0 && categories.length === 0) {
+      const now = Date.now();
+      categories = ['Work', 'Personal', 'Code Snippets', 'Research', 'Recipes'];
+      clips = [
+        { id: `demo_1`, text: 'const fetchData = async (url) => {\n  const res = await fetch(url);\n  return res.json();\n};', category: 'Code Snippets', timestamp: now - 600000 },
+        { id: `demo_2`, text: 'Action items from sprint review:\n- Fix auth token refresh bug\n- Deploy v2.1 to staging\n- Update API docs for /users endpoint', category: 'Work', timestamp: now - 540000 },
+        { id: `demo_3`, text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', category: 'Research', timestamp: now - 480000 },
+        { id: `demo_4`, text: 'Pasta Carbonara: 400g spaghetti, 200g guanciale, 4 egg yolks, 100g pecorino, black pepper. Cook pasta al dente, crisp guanciale, toss with egg mixture off heat.', category: 'Recipes', timestamp: now - 420000 },
+        { id: `demo_5`, text: 'Meeting with design team moved to Thursday 3pm. Bring mockups for the dashboard redesign and mobile nav prototype.', category: 'Work', timestamp: now - 360000 },
+        { id: `demo_6`, text: 'git stash && git pull origin main && git stash pop', category: 'Code Snippets', timestamp: now - 300000 },
+        { id: `demo_7`, text: 'Research: Clipboard API requires user gesture in all modern browsers. navigator.clipboard.writeText() returns a Promise. Fallback: document.execCommand("copy") for legacy support.', category: 'Research', timestamp: now - 240000 },
+        { id: `demo_8`, text: 'Packing list: Passport, phone charger, laptop + adapter, headphones, 3 shirts, jeans, jacket, toiletry bag, snacks, water bottle, travel pillow.', category: 'Personal', timestamp: now - 180000 },
+        { id: `demo_9`, text: 'Bug report: Session token expires after 24h but refresh token is not being sent on the /auth/refresh endpoint. Root cause: missing Authorization header in interceptor.', category: 'Work', timestamp: now - 120000 },
+        { id: `demo_10`, text: 'SELECT u.name, COUNT(o.id) AS order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.name\nORDER BY order_count DESC;', category: 'Code Snippets', timestamp: now - 60000 },
+        { id: `demo_11`, text: 'Color palette for redesign:\n- Primary: #3B82F6 (Blue)\n- Secondary: #8B5CF6 (Purple)\n- Accent: #F59E0B (Amber)\n- Success: #10B981 (Green)\n- Background: #F8FAFC', category: 'Personal', timestamp: now - 30000 },
+        { id: `demo_12`, text: 'Weekly grocery: eggs, milk, bread, chicken breast, spinach, tomatoes, garlic, olive oil, rice, onions, lemons, yogurt.', category: 'Recipes', timestamp: now - 15000 }
+      ];
+      await chrome.storage.local.set({ clips, categories, searchOnlyClips });
+      normalizedChanged = false;
+      console.log('🧪 Seeded 12 demo clips + 5 categories');
+    }
+    // ── END DEMO SEED ──
 
     const hashText = (t) => {
       const s = String(t || '');
@@ -2610,6 +2673,52 @@ class PasteCraftPopup {
     document.getElementById('createAlbumBtn').addEventListener('click', () => {
       this.openNoteEditor('album');
     });
+
+    // Notes info expand button → open modal
+    const notesInfoExpandBtn = document.getElementById('notesInfoExpandBtn');
+    if (notesInfoExpandBtn) {
+      notesInfoExpandBtn.addEventListener('click', () => {
+        const modal = document.getElementById('notesInfoModal');
+        if (modal) modal.style.display = 'flex';
+      });
+    }
+
+    // Close notes info modal
+    const closeNotesInfoModal = document.getElementById('closeNotesInfoModal');
+    if (closeNotesInfoModal) {
+      closeNotesInfoModal.addEventListener('click', () => {
+        const modal = document.getElementById('notesInfoModal');
+        if (modal) modal.style.display = 'none';
+      });
+    }
+
+    // Close notes info modal on overlay click
+    const notesInfoModal = document.getElementById('notesInfoModal');
+    if (notesInfoModal) {
+      notesInfoModal.addEventListener('click', (e) => {
+        if (e.target === notesInfoModal) notesInfoModal.style.display = 'none';
+      });
+    }
+
+    // Notes search bar
+    const notesSearchInput = document.getElementById('notesSearchInput');
+    const notesSearchClear = document.getElementById('notesSearchClear');
+    if (notesSearchInput) {
+      notesSearchInput.addEventListener('input', () => {
+        const val = notesSearchInput.value.trim();
+        if (notesSearchClear) notesSearchClear.classList.toggle('visible', val.length > 0);
+        this.notesPageIndex = 0;
+        this.renderNotes();
+      });
+    }
+    if (notesSearchClear) {
+      notesSearchClear.addEventListener('click', () => {
+        if (notesSearchInput) notesSearchInput.value = '';
+        notesSearchClear.classList.remove('visible');
+        this.notesPageIndex = 0;
+        this.renderNotes();
+      });
+    }
 
     const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
     if (viewAlbumsBtn) {
@@ -5426,15 +5535,22 @@ class PasteCraftPopup {
     const clipIdKey = this._clipIdKey(clip?.id != null ? clip.id : index);
     chip.dataset.clipId = clipIdKey;
     
-    const text = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
+    const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
     const timeAgo = this.getTimeAgo(clip.timestamp);
     
     const clipCategory = clip.category || 'Uncategorized';
     const isSelected = this.selectedChips.has(clipIdKey);
+    const clipMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+    const markupBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, clipMeta) : '';
+    const markupPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, clipMeta, 80) : '';
+    const chipTextContent = markupPreview
+      ? `<span class="pc-chip-preview">${markupPreview}</span>`
+      : this.escapeHtml(plainText);
     
     chip.innerHTML = `
       <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
-      <span class="chip-text" title="${clip.text}">${text}</span>
+      ${markupBadge}
+      <span class="chip-text" title="${this.escapeHtml(clip.text)}">${chipTextContent}</span>
       <span class="chip-time">${timeAgo}</span>
       <div class="chip-actions">
         <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
@@ -6001,11 +6117,17 @@ class PasteCraftPopup {
 
     const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
     const timeAgo = this.getTimeAgo(clip.timestamp);
+    const sMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+    const sBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
+    const sPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
+    const searchTextContent = sPreview
+      ? `<div class="pc-search-preview">${sPreview}</div>`
+      : `<div>${this.escapeHtml(truncatedText)}</div>`;
 
     item.innerHTML = `
       <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
       <div class="search-result-content">
-        <div class="search-result-text">${this.escapeHtml(truncatedText)}</div>
+        <div class="search-result-text">${sBadge}${searchTextContent}</div>
         <div class="search-result-meta">
           <span class="search-result-category">${clip.category}</span>
           <span>${timeAgo}</span>
@@ -7989,12 +8111,18 @@ class PasteCraftPopup {
       const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
       const timeAgo = this.getTimeAgo(clip.timestamp);
       const isSelected = this.selectedCategoryClips.has(this._clipIdKey(clip.id));
+      const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+      const cBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
+      const cPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
+      const catTextContent = cPreview
+        ? `<div class="pc-cat-preview">${cPreview}</div>`
+        : this.escapeHtml(truncatedText);
       
       const html = `
         <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}">
           <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
           <div class="category-clip-content">
-            <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
+            <div class="category-clip-text">${cBadge}${catTextContent}</div>
             <div class="category-clip-time">${timeAgo}</div>
           </div>
           <div class="category-clip-actions">
@@ -8787,6 +8915,33 @@ class PasteCraftPopup {
     
     const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
     unsubscribeBtn.replaceWith(newUnsubscribeBtn);
+
+    // ── Upgrade banner + modal event listeners ──
+    const upgradeBanner = document.getElementById('upgradeBanner');
+    if (upgradeBanner) upgradeBanner.addEventListener('click', () => this.openUpgradeModal());
+
+    const upgradeSubBtn = document.getElementById('upgradeSubBtn');
+    if (upgradeSubBtn) upgradeSubBtn.addEventListener('click', () => this.openUpgradeModal());
+
+    const upgradeModalClose = document.getElementById('upgradeModalClose');
+    if (upgradeModalClose) upgradeModalClose.addEventListener('click', () => this.closeUpgradeModal());
+
+    const upgradeModal = document.getElementById('upgradeModal');
+    if (upgradeModal) upgradeModal.addEventListener('click', (e) => {
+      if (e.target === upgradeModal) this.closeUpgradeModal();
+    });
+
+    const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
+    if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
+      this.closeUpgradeModal();
+      this._openPricingPage();
+    });
+
+    const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
+    if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
+      this.closeUpgradeModal();
+      this._openPricingPage();
+    });
 
     // ✅ FIX: Clone and replace headers to remove stacked event listeners
     const newNameRegHeader = nameRegHeader.cloneNode(true);
@@ -10170,15 +10325,22 @@ class PasteCraftPopup {
     const titleEl = document.getElementById('clipViewerTitle');
     const metaEl = document.getElementById('clipViewerMeta');
     const bodyEl = document.getElementById('clipViewerBody');
+    const renderedEl = document.getElementById('clipViewerRendered');
+    const rawEl = document.getElementById('clipViewerRaw');
     const htmlDetails = document.getElementById('clipViewerHtmlDetails');
     const htmlPre = document.getElementById('clipViewerHtml');
+    const toggleBtn = document.getElementById('clipViewerToggleRaw');
 
     if (!modal || !titleEl || !bodyEl) return;
 
     this.currentClipViewerClip = clip || null;
+    this._clipViewerShowingRaw = false;
 
     const text = (clip && clip.text != null) ? String(clip.text) : '';
     const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+
+    // Detect markup type
+    const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
 
     titleEl.textContent = meta && meta.kind === 'image'
       ? '🖼️ Clip Viewer'
@@ -10190,6 +10352,7 @@ class PasteCraftPopup {
     if (metaEl) {
       const bits = [];
       if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
+      if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
       if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
       if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
 
@@ -10204,32 +10367,28 @@ class PasteCraftPopup {
 
     // Body
     const safeText = this.escapeHtml(text);
-    let html = '';
+    let srcHtml = '';
     let url = '';
     let imgSrc = '';
 
     if (meta) {
-      if (typeof meta.html === 'string' && meta.html.trim()) html = meta.html;
+      if (typeof meta.html === 'string' && meta.html.trim()) srcHtml = meta.html;
       if (typeof meta.url === 'string' && meta.url.trim()) url = meta.url.trim();
       if (meta.image && typeof meta.image === 'object') {
         imgSrc = (meta.image.dataUrl || meta.image.srcUrl || '').trim();
       }
     }
 
-    const parts = [];
+    const headerParts = [];
 
-    // If meta.url is missing but the clip text itself is a URL, treat it as linkable.
-    // This helps legacy "image link" clips where the URL was saved as plain text.
+    // URL link section
     if (!url) {
       const raw = String(text || '').trim();
-      if (/^https?:\/\/\S+$/i.test(raw)) {
-        url = raw;
-      }
+      if (/^https?:\/\/\S+$/i.test(raw)) url = raw;
     }
-
     if (url) {
       const safeUrl = this.escapeHtml(url);
-      parts.push(`
+      headerParts.push(`
         <div style="display:flex; flex-direction:column; gap:8px; margin-bottom: 12px;">
           <div style="font-weight:700; color:#111827;">Link</div>
           <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
@@ -10237,28 +10396,78 @@ class PasteCraftPopup {
       `);
     }
 
-    const isRenderableImageSrc =
+    // Image section
+    const isRenderableImageSrc = imgSrc && (
       imgSrc.startsWith('data:image/') ||
       imgSrc.startsWith('http://') ||
-      imgSrc.startsWith('https://');
+      imgSrc.startsWith('https://'));
 
     if (imgSrc && !isRenderableImageSrc) {
-      parts.push(`<div style="margin-bottom:10px; color:#6b7280; font-size:12px;">Image preview unavailable (non-renderable source).</div>`);
+      headerParts.push(`<div style="margin-bottom:10px; color:#6b7280; font-size:12px;">Image preview unavailable (non-renderable source).</div>`);
     } else if (imgSrc && isRenderableImageSrc) {
-      parts.push(`<img src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
+      headerParts.push(`<img src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
       if (meta && meta.image && meta.image.tooLarge) {
-        parts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image payload too large to embed; showing what’s available.</div>`);
+        headerParts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image payload too large to embed; showing what's available.</div>`);
       }
       if (meta && meta.image && meta.image.exportFailed) {
-        parts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image export blocked by the page (canvas/security restrictions).</div>`);
+        headerParts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image export blocked by the page (canvas/security restrictions).</div>`);
       }
     }
 
-    parts.push(`<pre class="clip-viewer-pre">${safeText}</pre>`);
+    // Render markup content
+    const hasMarkup = markupType !== 'text' && typeof PCMarkup !== 'undefined';
 
-    bodyEl.innerHTML = parts.join('');
+    if (renderedEl) {
+      if (hasMarkup) {
+        const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
+        if (rendered && typeof rendered.then === 'function') {
+          renderedEl.innerHTML = headerParts.join('') + '<div style="color:#9ca3af;font-size:12px;">Rendering diagram...</div>';
+          rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
+            .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
+        } else {
+          renderedEl.innerHTML = headerParts.join('') + rendered;
+        }
+        renderedEl.style.display = 'block';
+      } else {
+        renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`;
+        renderedEl.style.display = 'block';
+      }
+    }
 
-    // Ensure link opens in a new TAB (not a new window) from the extension popup.
+    // Raw view
+    if (rawEl) {
+      rawEl.textContent = text;
+      rawEl.style.display = 'none';
+    }
+
+    // Toggle button (View Raw / View Rendered)
+    if (toggleBtn) {
+      if (hasMarkup) {
+        toggleBtn.style.display = '';
+        toggleBtn.querySelector('span:last-child').textContent = 'View Raw';
+        const newBtn = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+        newBtn.addEventListener('click', () => {
+          this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
+          const rEl = document.getElementById('clipViewerRendered');
+          const rwEl = document.getElementById('clipViewerRaw');
+          const tBtn = document.getElementById('clipViewerToggleRaw');
+          if (this._clipViewerShowingRaw) {
+            if (rEl) rEl.style.display = 'none';
+            if (rwEl) rwEl.style.display = 'block';
+            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Rendered';
+          } else {
+            if (rEl) rEl.style.display = 'block';
+            if (rwEl) rwEl.style.display = 'none';
+            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Raw';
+          }
+        });
+      } else {
+        toggleBtn.style.display = 'none';
+      }
+    }
+
+    // Ensure link opens in a new TAB
     try {
       if (!this._clipViewerLinkHandlerAttached) {
         bodyEl.addEventListener('click', (e) => {
@@ -10269,7 +10478,6 @@ class PasteCraftPopup {
           if (!targetUrl) return;
           chrome.tabs.create({ url: targetUrl, active: true }, () => {
             if (chrome.runtime.lastError) {
-              // Fallback if tab creation is blocked for some reason.
               window.open(targetUrl, '_blank', 'noopener,noreferrer');
             }
           });
@@ -10280,10 +10488,10 @@ class PasteCraftPopup {
       // Non-fatal
     }
 
-    // Raw HTML (collapsed)
+    // Source HTML (collapsed)
     if (htmlDetails && htmlPre) {
-      if (html) {
-        htmlPre.textContent = String(html);
+      if (srcHtml) {
+        htmlPre.textContent = String(srcHtml);
         htmlDetails.style.display = 'block';
       } else {
         htmlPre.textContent = '';
@@ -10445,12 +10653,163 @@ class PasteCraftPopup {
   // ==================== NOTES SYSTEM ====================
   
   async loadNotes() {
-    const {
+    let {
       notes = [],
       notesViewMode = 'notes',
       notesPageIndex = 0,
       notesAiEnabled = false
     } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
+
+    // ── DEMO SEED: 8 sample notes & albums with attachments for pre-recording ──
+    if (notes.length === 0) {
+      const now = Date.now();
+
+      // Note IDs (stable so albums can reference them)
+      const N1 = now - 800000;
+      const N2 = now - 700000;
+      const N3 = now - 600000;
+      const N4 = now - 500000;
+      const N5 = now - 400000;
+      // Album IDs
+      const A1 = now - 300000;
+      const A2 = now - 200000;
+      const A3 = now - 100000;
+
+      notes = [
+        // ── NOTE 1: Sprint Review Meeting ──
+        {
+          id: N1, type: 'note',
+          title: 'Sprint Review Meeting',
+          description: 'Key takeaways and action items from weekly standup',
+          body: 'Sprint velocity improved by 15%. Auth bug is top priority for next sprint. Design team will deliver dashboard mockups by Friday.',
+          clips: [
+            { type: 'clip', id: now - 799000, text: 'Action items from sprint review:\n- Fix auth token refresh bug\n- Deploy v2.1 to staging\n- Update API docs for /users endpoint', addedDate: now - 799000 },
+            { type: 'clip', id: now - 798000, text: 'Meeting with design team moved to Thursday 3pm. Bring mockups for the dashboard redesign and mobile nav prototype.', addedDate: now - 798000 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 797000, url: 'https://jira.example.com/board/sprint-42', title: 'Sprint 42 Board', addedDate: now - 797000 }
+          ],
+          createdAt: N1, updatedAt: N1
+        },
+        // ── NOTE 2: JavaScript Snippets ──
+        {
+          id: N2, type: 'note',
+          title: 'JavaScript Snippets',
+          description: 'Useful JS code snippets for daily development work',
+          body: 'Collection of reusable code patterns including async fetch, git shortcuts, and SQL queries.',
+          clips: [
+            { type: 'clip', id: now - 699000, text: 'const fetchData = async (url) => {\n  const res = await fetch(url);\n  return res.json();\n};', addedDate: now - 699000 },
+            { type: 'clip', id: now - 698000, text: 'git stash && git pull origin main && git stash pop', addedDate: now - 698000 },
+            { type: 'clip', id: now - 697000, text: 'SELECT u.name, COUNT(o.id) AS order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.name\nORDER BY order_count DESC;', addedDate: now - 697000 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 696000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', title: 'MDN - Promises', addedDate: now - 696000 }
+          ],
+          createdAt: N2, updatedAt: N2
+        },
+        // ── NOTE 3: Recipe - Pasta Carbonara ──
+        {
+          id: N3, type: 'note',
+          title: 'Recipe - Pasta Carbonara',
+          description: 'Classic Italian carbonara with tips and tricks',
+          body: 'Key rule: never add cream. Toss the egg mixture off heat so it emulsifies instead of scrambling. Use pecorino, not parmesan.',
+          clips: [
+            { type: 'clip', id: now - 599000, text: 'Pasta Carbonara: 400g spaghetti, 200g guanciale, 4 egg yolks, 100g pecorino, black pepper. Cook pasta al dente, crisp guanciale, toss with egg mixture off heat.', addedDate: now - 599000 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 598000, url: 'https://www.bonappetit.com/recipe/classic-carbonara', title: 'Bon Appetit - Carbonara', addedDate: now - 598000 }
+          ],
+          createdAt: N3, updatedAt: N3
+        },
+        // ── NOTE 4: Bug Fix Log - Auth Issue ──
+        {
+          id: N4, type: 'note',
+          title: 'Bug Fix Log - Auth Issue',
+          description: 'Tracking the session token expiry bug and resolution',
+          body: 'Root cause: refresh token was not being sent because the Authorization header was missing from the interceptor. Fixed by adding the header and setting a 23h refresh interval.',
+          clips: [
+            { type: 'clip', id: now - 499000, text: 'Bug report: Session token expires after 24h but refresh token is not being sent on the /auth/refresh endpoint. Root cause: missing Authorization header in interceptor.', addedDate: now - 499000 },
+            { type: 'clip', id: now - 498000, text: 'Research: Clipboard API requires user gesture in all modern browsers. navigator.clipboard.writeText() returns a Promise. Fallback: document.execCommand("copy") for legacy support.', addedDate: now - 498000 }
+          ],
+          images: [],
+          urls: [],
+          createdAt: N4, updatedAt: N4
+        },
+        // ── NOTE 5: Travel Packing List ──
+        {
+          id: N5, type: 'note',
+          title: 'Travel Packing List',
+          description: 'Essential items checklist for upcoming trip',
+          body: 'Remember to check weather forecast the day before. Leave copies of passport at home. Download offline maps.',
+          clips: [
+            { type: 'clip', id: now - 399000, text: 'Packing list: Passport, phone charger, laptop + adapter, headphones, 3 shirts, jeans, jacket, toiletry bag, snacks, water bottle, travel pillow.', addedDate: now - 399000 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 398000, url: 'https://www.google.com/maps', title: 'Google Maps - Offline Download', addedDate: now - 398000 },
+            { type: 'url', id: now - 397000, url: 'https://www.tripadvisor.com', title: 'TripAdvisor - Hotel Reviews', addedDate: now - 397000 }
+          ],
+          createdAt: N5, updatedAt: N5
+        },
+        // ── ALBUM 1: Work Projects ──
+        {
+          id: A1, type: 'album',
+          title: 'Work Projects',
+          description: 'Collection of notes related to active work projects',
+          body: '',
+          noteRefs: [N1, N4],
+          clips: [
+            { type: 'clip', id: now - 299000, text: '[From: Sprint Review Meeting]\n\nSprint velocity improved by 15%. Auth bug is top priority for next sprint.', addedDate: now - 299000, sourceNoteId: N1 },
+            { type: 'clip', id: now - 298000, text: '[From: Bug Fix Log - Auth Issue]\n\nRoot cause: refresh token was not being sent because the Authorization header was missing.', addedDate: now - 298000, sourceNoteId: N4 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 297000, url: 'https://jira.example.com/board/sprint-42', title: 'Sprint 42 Board', addedDate: now - 297000, sourceNoteId: N1 }
+          ],
+          sourceNoteIds: [N1, N4],
+          createdAt: A1, updatedAt: A1
+        },
+        // ── ALBUM 2: Study Resources ──
+        {
+          id: A2, type: 'album',
+          title: 'Study Resources',
+          description: 'Research, code references, and learning material',
+          body: '',
+          noteRefs: [N2],
+          clips: [
+            { type: 'clip', id: now - 199000, text: '[From: JavaScript Snippets]\n\nCollection of reusable code patterns including async fetch, git shortcuts, and SQL queries.', addedDate: now - 199000, sourceNoteId: N2 }
+          ],
+          images: [],
+          urls: [
+            { type: 'url', id: now - 198000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', title: 'MDN - Promises', addedDate: now - 198000, sourceNoteId: N2 }
+          ],
+          sourceNoteIds: [N2],
+          createdAt: A2, updatedAt: A2
+        },
+        // ── ALBUM 3: Design Inspiration ──
+        {
+          id: A3, type: 'album',
+          title: 'Design Inspiration',
+          description: 'UI mockups, color palettes, and visual references',
+          body: '',
+          noteRefs: [N5],
+          clips: [
+            { type: 'clip', id: now - 99000, text: 'Color palette for redesign:\n- Primary: #3B82F6 (Blue)\n- Secondary: #8B5CF6 (Purple)\n- Accent: #F59E0B (Amber)\n- Success: #10B981 (Green)\n- Background: #F8FAFC', addedDate: now - 99000 }
+          ],
+          images: [],
+          urls: [],
+          sourceNoteIds: [N5],
+          createdAt: A3, updatedAt: A3
+        }
+      ];
+      await chrome.storage.local.set({ notes });
+      console.log('🧪 Seeded 5 demo notes + 3 demo albums with attachments');
+    }
+    // ── END DEMO SEED ──
+
     this.notes = notes;
     this.notesViewMode = notesViewMode;
     this.notesPageIndex = typeof notesPageIndex === 'number' ? notesPageIndex : 0;
@@ -10506,22 +10865,41 @@ class PasteCraftPopup {
     const isListView = !!container?.classList?.contains('list-view');
     
     const allNotes = Array.isArray(this.notes) ? this.notes : [];
-    // Show notes + albums together (View Albums button removed; mixed catalog is the desired UX)
-    const filtered = allNotes;
+    // Filter by search query if present
+    const searchInput = document.getElementById('notesSearchInput');
+    const searchQuery = (searchInput ? searchInput.value.trim().toLowerCase() : '');
+    const filtered = searchQuery
+      ? allNotes.filter(n => {
+          const title = (n.title || '').toLowerCase();
+          const desc = (n.description || '').toLowerCase();
+          const type = (n.type || '').toLowerCase();
+          return title.includes(searchQuery) || desc.includes(searchQuery) || type.includes(searchQuery);
+        })
+      : allNotes;
 
     if (filtered.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📝</div>
-          <h3>No notes yet</h3>
-          <p>Create a note or album to bundle your clips, images, and URLs</p>
-          <div class="demo-hint">
-            <span class="demo-step">📝 Take notes</span>
-            <span class="demo-step">📚 Create albums</span>
-            <span class="demo-step">📤 Export to PDF</span>
+      if (searchQuery) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <h3>No results found</h3>
+            <p>No notes or albums match "<strong>${this.escapeHtml(searchQuery)}</strong>"</p>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📝</div>
+            <h3>No notes yet</h3>
+            <p>Create a note or album to bundle your clips, images, and URLs</p>
+            <div class="demo-hint">
+              <span class="demo-step">📝 Take notes</span>
+              <span class="demo-step">📚 Create albums</span>
+              <span class="demo-step">📤 Export to PDF</span>
+            </div>
+          </div>
+        `;
+      }
       if (paginationEl) paginationEl.style.display = 'none';
       return;
     }
@@ -11169,8 +11547,12 @@ class PasteCraftPopup {
     const isSelected = this.selectedPickerClips.has(clip.id);
     const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
 
+    const pMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+    const pBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, pMeta) : '';
+
     chip.innerHTML = `
       <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
+      ${pBadge}
       <span class="chip-text" title="${this.escapeHtml(normalized)}">${this.escapeHtml(truncatedText)}</span>
       <span class="chip-time">${timeAgo}</span>
       ${alreadyAdded ? '<span class="already-added-badge-sm">✓</span>' : ''}

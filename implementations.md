@@ -102,3 +102,33 @@
 **Status:** SUCCESS
 **Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, extension/content-script.js, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,name,hint,trends,vision,image}/index.ts
 **Result:** Added AI workflow override toggle + provider/workflow dropdowns in AI Lab. Presets: Default (4o), Cheapest (GPT-5 Nano/Mini), Latest (GPT-5.2). Config persists in chrome.storage.sync/local. All AI requests pass workflow config; edge functions resolve models via allowlisted presets with safe fallbacks.
+
+### Feb 9, 2026 - Freemium Tier Clarity + Database Storage Tooltip
+**Status:** SUCCESS
+**Files:** website/pricing.html, website/upgrade.html
+**Result:** Added "Database storage" line to all pricing tiers (crossed out for Freemium, checkmark+tooltip for Basic/Enhanced). Tooltip reads "We use Supabase". Fixed FAQ mentioning 20 clips → unlimited.
+
+### Feb 9, 2026 - Freemium Upgrade Banner + Modal + Profile Link
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Added upgrade banner below header for Freemium users, upgrade modal with Basic/Enhanced comparison, and "Upgrade Subscription" button in Profile Account section. All entry points open the modal; plan buttons redirect to pricing.html.
+
+### Feb 9, 2026 - MediaWiki, Textile, JIRA/Confluence Markup Support
+**Status:** SUCCESS
+**Files:** extension/markup-renderer.js, extension/content-script.js, extension/test-markup-clips.js
+**Result:** Added detection, rendering, badges, and preview for MediaWiki, Textile, and JIRA/Confluence markup. Now 20 markup types supported total. Test clips updated with 3 new samples.
+
+### Feb 9, 2026 - Notes Tab: Info Box, Details Modal & Search Bar
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Added description box between Notes heading and action buttons explaining notes/albums usage. Added expand button that opens a detailed guide modal. Added search bar below New Note/New Album buttons to filter notes by title, description, or type.
+
+### Feb 9, 2026 - Raw Unfenced Code Auto-Detection
+**Status:** SUCCESS
+**Files:** extension/markup-renderer.js, extension/content-script.js, extension/test-markup-clips.js
+**Result:** Added heuristic scoring to detect raw code (no ``` fences) for JS/TS, Python, Java, C/C++, Go, Rust, Ruby, PHP, Swift, SQL, Bash. highlight.js auto-detects language from ~190 supported. Test clips added for raw JS and Python.
+
+### Feb 9, 2026 - Final Markup Detection Audit & Bug Fixes
+**Status:** SUCCESS
+**Files:** extension/markup-renderer.js, extension/test-markup-clips.js
+**Result:** Fixed 2 detection bugs: (1) Textile/JIRA clips misdetected as Slack — reordered detection so Slack runs last among text markups. (2) JSX code clips misdetected as HTML — added code-keyword guard. Rewrote test-markup-clips.js v4 with 26 clips covering all 20 markup types + 6 raw code languages (JS, Python, C, Go, SQL, Bash).

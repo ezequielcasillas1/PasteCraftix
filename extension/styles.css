@@ -2953,3 +2953,267 @@ body {
   margin-bottom: 8px;
 }
 
+/* ============================================
+   Markup Rendering Styles (Feature #32)
+   ============================================ */
+
+/* Markup type badges */
+.pc-markup-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.3;
+  vertical-align: middle;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* Rendered content container (full - clip viewer) */
+.pc-rendered-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #111827;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Markdown rendered styles inside clip viewer */
+.pc-rendered-content h1 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.3em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.2em; }
+.pc-rendered-content h2 { font-size: 1.3em; font-weight: 700; margin: 0.5em 0 0.3em; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.15em; }
+.pc-rendered-content h3 { font-size: 1.15em; font-weight: 600; margin: 0.4em 0 0.2em; }
+.pc-rendered-content h4,
+.pc-rendered-content h5,
+.pc-rendered-content h6 { font-size: 1em; font-weight: 600; margin: 0.3em 0 0.2em; }
+.pc-rendered-content p { margin: 0.4em 0; }
+.pc-rendered-content ul,
+.pc-rendered-content ol { margin: 0.3em 0; padding-left: 1.5em; }
+.pc-rendered-content li { margin: 0.15em 0; }
+.pc-rendered-content blockquote {
+  border-left: 3px solid #3b82f6;
+  margin: 0.5em 0;
+  padding: 0.3em 0.8em;
+  background: #f8fafc;
+  border-radius: 0 6px 6px 0;
+  color: #475569;
+}
+.pc-rendered-content a { color: #2563eb; text-decoration: underline; }
+.pc-rendered-content a:hover { color: #1d4ed8; }
+.pc-rendered-content strong, .pc-rendered-content b { font-weight: 700; }
+.pc-rendered-content em, .pc-rendered-content i { font-style: italic; }
+.pc-rendered-content del, .pc-rendered-content s { text-decoration: line-through; color: #9ca3af; }
+.pc-rendered-content code {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  color: #0f172a;
+}
+.pc-rendered-content pre {
+  margin: 0.5em 0;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.pc-rendered-content pre code {
+  display: block;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+.pc-rendered-content hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.8em 0;
+}
+.pc-rendered-content img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.4em 0;
+}
+
+/* Tables */
+.pc-rendered-content table,
+.pc-csv-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pc-rendered-content th,
+.pc-rendered-content td,
+.pc-csv-table th,
+.pc-csv-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 10px;
+  text-align: left;
+}
+.pc-rendered-content th,
+.pc-csv-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #374151;
+}
+.pc-rendered-content tr:nth-child(even),
+.pc-csv-table tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+/* Code blocks (syntax highlighted) */
+.pc-code-block {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0.4em 0;
+  white-space: pre;
+  word-break: normal;
+}
+.pc-code-block code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Code preview (truncated) in chips/search */
+.pc-code-preview {
+  max-height: 2.5em;
+  overflow: hidden;
+}
+
+/* LaTeX rendered container */
+.pc-latex-rendered {
+  padding: 8px 0;
+}
+.pc-latex-rendered .katex-display {
+  margin: 0.5em 0;
+}
+
+/* Mermaid diagram container */
+.pc-mermaid-rendered {
+  text-align: center;
+  padding: 8px 0;
+}
+.pc-mermaid-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Plain text fallback */
+.pc-plain-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #111827;
+}
+
+/* Chip preview containers (constrained height with fade) */
+.pc-chip-preview,
+.pc-search-preview,
+.pc-cat-preview {
+  max-height: 2em;
+  overflow: hidden;
+  position: relative;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pc-chip-preview {
+  max-height: 1.4em;
+}
+.pc-search-preview {
+  max-height: 3em;
+}
+.pc-cat-preview {
+  max-height: 2em;
+}
+
+/* Ensure previews don't break chip layout */
+.pc-chip-preview *,
+.pc-search-preview *,
+.pc-cat-preview * {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+}
+.pc-chip-preview h1,
+.pc-chip-preview h2,
+.pc-chip-preview h3,
+.pc-chip-preview h4,
+.pc-chip-preview h5,
+.pc-chip-preview h6,
+.pc-search-preview h1,
+.pc-search-preview h2,
+.pc-search-preview h3,
+.pc-cat-preview h1,
+.pc-cat-preview h2,
+.pc-cat-preview h3 {
+  font-size: inherit !important;
+  font-weight: 700 !important;
+  display: inline !important;
+}
+.pc-chip-preview pre,
+.pc-chip-preview code,
+.pc-search-preview pre,
+.pc-search-preview code,
+.pc-cat-preview pre,
+.pc-cat-preview code {
+  font-size: 0.9em !important;
+  background: rgba(0,0,0,0.05) !important;
+  border-radius: 3px !important;
+  padding: 0 3px !important;
+}
+.pc-chip-preview table,
+.pc-search-preview table,
+.pc-cat-preview table {
+  font-size: 10px !important;
+}
+.pc-chip-preview .pc-code-block,
+.pc-search-preview .pc-code-block,
+.pc-cat-preview .pc-code-block {
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  max-height: 2em !important;
+  overflow: hidden !important;
+}
+
+/* Override chip-text for markup preview support */
+.chip-text .pc-chip-preview,
+.chip-text .pc-markup-badge {
+  display: inline;
+}
+
+/* highlight.js overrides for dark code blocks */
+.pc-code-block .hljs { background: transparent; color: #e2e8f0; }
+.pc-code-block .hljs-keyword { color: #c084fc; }
+.pc-code-block .hljs-string { color: #86efac; }
+.pc-code-block .hljs-number { color: #fbbf24; }
+.pc-code-block .hljs-comment { color: #64748b; font-style: italic; }
+.pc-code-block .hljs-built_in { color: #67e8f9; }
+.pc-code-block .hljs-attr { color: #93c5fd; }
+.pc-code-block .hljs-title { color: #fca5a5; }
+.pc-code-block .hljs-literal { color: #fbbf24; }
+.pc-code-block .hljs-type { color: #67e8f9; }
+.pc-code-block .hljs-params { color: #fdba74; }
+.pc-code-block .hljs-meta { color: #94a3b8; }
+.pc-code-block .hljs-tag { color: #f87171; }
+.pc-code-block .hljs-name { color: #f87171; }
+.pc-code-block .hljs-attribute { color: #a5b4fc; }
+.pc-code-block .hljs-selector-class { color: #86efac; }
+.pc-code-block .hljs-selector-id { color: #fca5a5; }
+.pc-code-block .hljs-property { color: #93c5fd; }
+.pc-code-block .hljs-punctuation { color: #94a3b8; }
+

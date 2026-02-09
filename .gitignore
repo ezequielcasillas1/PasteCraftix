@@ -37,6 +37,9 @@ temp/
 *.crx
 *.pem
 
+# Bundled libraries (too large for git — download locally)
+extension/lib/
+
 # Sensitive data
 secrets/
 credentials/
