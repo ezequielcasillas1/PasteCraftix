@@ -143,45 +143,47 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 40px;
-            perspective: 1000px;
         }
         
         .feature-card {
             text-align: center;
-            padding: 30px;
             border-radius: 16px;
-            background: #f7fafc;
-            transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
             position: relative;
             height: 280px;
-            transform-style: preserve-3d;
+            perspective: 800px;
+            transition: box-shadow 0.3s;
         }
         
         .feature-card:hover {
-            transform: translateY(-5px);
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
-        .feature-card.flipped {
-            transform: rotateY(180deg);
         }
         
         .feature-card-inner {
             position: relative;
             width: 100%;
             height: 100%;
-            transition: transform 0.6s;
+            transition: transform 0.6s ease;
             transform-style: preserve-3d;
+        }
+        
+        .feature-card:hover .feature-card-inner {
+            transform: translateY(-5px);
         }
         
         .feature-card.flipped .feature-card-inner {
             transform: rotateY(180deg);
         }
         
+        .feature-card.flipped:hover .feature-card-inner {
+            transform: rotateY(180deg) translateY(-5px);
+        }
+        
         .feature-card-front,
         .feature-card-back {
             position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             backface-visibility: hidden;
@@ -192,6 +194,10 @@
             justify-content: center;
             align-items: center;
             padding: 30px;
+        }
+        
+        .feature-card-front {
+            background: #f7fafc;
         }
         
         .feature-card-back {
@@ -220,6 +226,38 @@
             font-size: 12px;
             margin-top: 10px;
             font-weight: 500;
+        }
+        
+        /* Markup languages card */
+        .feature-card.markup-card {
+            height: 360px;
+        }
+        
+        .markup-back {
+            justify-content: flex-start !important;
+            padding-top: 22px !important;
+            padding-bottom: 16px !important;
+            overflow-y: auto;
+        }
+        
+        .markup-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin: 10px 0 6px;
+        }
+        
+        .ml-tag {
+            display: inline-block;
+            background: var(--tag-bg, #555);
+            color: #fff;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
         }
         
         .feature-icon {
@@ -419,16 +457,36 @@
                 </div>
             </div>
             
-            <div class="feature-card" onclick="this.classList.toggle('flipped')">
+            <div class="feature-card markup-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
                         <div class="feature-icon">📝</div>
                         <h3>Rich Format Support</h3>
                         <p>20+ markup formats & 190+ programming languages with syntax highlighting.</p>
                     </div>
-                    <div class="feature-card-back">
-                        <h4>Rich Format Support</h4>
-                        <p>Automatically detect and render 20+ markup formats (Markdown, JSON, YAML, LaTeX, etc.) and 190+ programming languages. Includes syntax highlighting, formatting, and code rendering.</p>
+                    <div class="feature-card-back markup-back">
+                        <h4>Supported Formats</h4>
+                        <div class="markup-list">
+                            <span class="ml-tag" style="--tag-bg:#3b82f6">Markdown</span>
+                            <span class="ml-tag" style="--tag-bg:#e34c26">HTML</span>
+                            <span class="ml-tag" style="--tag-bg:#f59e0b">JSON</span>
+                            <span class="ml-tag" style="--tag-bg:#cb171e">YAML</span>
+                            <span class="ml-tag" style="--tag-bg:#f97316">XML</span>
+                            <span class="ml-tag" style="--tag-bg:#9d4edd">TOML</span>
+                            <span class="ml-tag" style="--tag-bg:#10b981">CSV</span>
+                            <span class="ml-tag" style="--tag-bg:#10b981">TSV</span>
+                            <span class="ml-tag" style="--tag-bg:#008080">LaTeX</span>
+                            <span class="ml-tag" style="--tag-bg:#ff3670">Mermaid</span>
+                            <span class="ml-tag" style="--tag-bg:#6366f1">BBCode</span>
+                            <span class="ml-tag" style="--tag-bg:#4a154b">Slack</span>
+                            <span class="ml-tag" style="--tag-bg:#e40046">AsciiDoc</span>
+                            <span class="ml-tag" style="--tag-bg:#333">rST</span>
+                            <span class="ml-tag" style="--tag-bg:#77aa99">Org Mode</span>
+                            <span class="ml-tag" style="--tag-bg:#006699">MediaWiki</span>
+                            <span class="ml-tag" style="--tag-bg:#c7254e">Textile</span>
+                            <span class="ml-tag" style="--tag-bg:#0052cc">JIRA</span>
+                            <span class="ml-tag" style="--tag-bg:#1e293b;color:#10b981">Code (190+)</span>
+                        </div>
                         <span class="badge">All Tiers</span>
                     </div>
                 </div>
