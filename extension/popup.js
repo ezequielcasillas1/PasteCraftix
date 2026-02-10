@@ -554,6 +554,12 @@ class PasteCraftPopup {
     this.maxPages = 50;
     this.maxClips = this.clipsPerPage * this.maxPages; // 500 clips total
     
+    // Magic preview state
+    this._magicAnalysis = [];
+    this._magicSelected = new Set();
+    this._magicPage = 0;
+    this._magicUndoSnapshot = null;
+
     // Breakdown text cache
     this.currentBreakdownText = null;
     this.currentBreakdownLevel = null;
@@ -3529,9 +3535,78 @@ class PasteCraftPopup {
       this.copyToClipboard();
     });
     
-    // Magic wand
+    // Magic wand — opens preview modal
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
+    });
+
+    // Magic info button — opens info modal
+    const magicInfoBtn = document.getElementById('magicInfoBtn');
+    if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
+      document.getElementById('magicInfoModal').style.display = 'flex';
+    });
+    const closeMagicInfo = document.getElementById('closeMagicInfo');
+    if (closeMagicInfo) closeMagicInfo.addEventListener('click', () => {
+      document.getElementById('magicInfoModal').style.display = 'none';
+    });
+    const magicInfoDone = document.getElementById('magicInfoDone');
+    if (magicInfoDone) magicInfoDone.addEventListener('click', () => {
+      document.getElementById('magicInfoModal').style.display = 'none';
+    });
+    const magicInfoOverlay = document.getElementById('magicInfoModal');
+    if (magicInfoOverlay) magicInfoOverlay.addEventListener('click', (e) => {
+      if (e.target.id === 'magicInfoModal') magicInfoOverlay.style.display = 'none';
+    });
+
+    // Magic preview modal: close / cancel
+    const closeMagicPreview = document.getElementById('closeMagicPreview');
+    if (closeMagicPreview) closeMagicPreview.addEventListener('click', () => {
+      document.getElementById('magicPreviewModal').style.display = 'none';
+    });
+    const magicCancelBtn = document.getElementById('magicCancelBtn');
+    if (magicCancelBtn) magicCancelBtn.addEventListener('click', () => {
+      document.getElementById('magicPreviewModal').style.display = 'none';
+    });
+    const magicPreviewOverlay = document.getElementById('magicPreviewModal');
+    if (magicPreviewOverlay) magicPreviewOverlay.addEventListener('click', (e) => {
+      if (e.target.id === 'magicPreviewModal') magicPreviewOverlay.style.display = 'none';
+    });
+
+    // Magic preview: Craft the Magic (selected only)
+    const craftSelectedBtn = document.getElementById('magicCraftSelectedBtn');
+    if (craftSelectedBtn) craftSelectedBtn.addEventListener('click', async () => {
+      if (this._magicSelected.size === 0) return;
+      document.getElementById('magicPreviewModal').style.display = 'none';
+      const stats = await this._craftMagic([...this._magicSelected]);
+      this._showMagicResults(stats);
+    });
+
+    // Magic preview: Craft all Magic to clips
+    const craftAllBtn = document.getElementById('magicCraftAllBtn');
+    if (craftAllBtn) craftAllBtn.addEventListener('click', async () => {
+      document.getElementById('magicPreviewModal').style.display = 'none';
+      const stats = await this._craftAllMagic();
+      this._showMagicResults(stats);
+    });
+
+    // Magic preview: Undo
+    const magicUndoBtn = document.getElementById('magicUndoBtn');
+    if (magicUndoBtn) magicUndoBtn.addEventListener('click', () => {
+      this._undoMagic();
+    });
+
+    // Magic results modal: close
+    const closeMagicResults = document.getElementById('closeMagicResults');
+    if (closeMagicResults) closeMagicResults.addEventListener('click', () => {
+      document.getElementById('magicResultsModal').style.display = 'none';
+    });
+    const magicDoneBtn = document.getElementById('magicResultsDone');
+    if (magicDoneBtn) magicDoneBtn.addEventListener('click', () => {
+      document.getElementById('magicResultsModal').style.display = 'none';
+    });
+    const magicResultsOverlay = document.getElementById('magicResultsModal');
+    if (magicResultsOverlay) magicResultsOverlay.addEventListener('click', (e) => {
+      if (e.target.id === 'magicResultsModal') magicResultsOverlay.style.display = 'none';
     });
     
     // AI button and tab handlers
@@ -5967,33 +6042,474 @@ class PasteCraftPopup {
     }
   }
   
+  // ─── Magic Button: Content Type Detection ───
+  // Leverages PCMarkup.detectMarkupType for 20+ markup languages, plus non-markup types
+  _detectContentType(text, meta) {
+    if (!text || typeof text !== 'string') return 'text';
+    const trimmed = text.trim();
+
+    // URL (single-line)
+    if (/^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+/i.test(trimmed)) return 'url';
+
+    // Email (single-line)
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'email';
+
+    // Phone number (single-line)
+    if (/^[\+]?[\d\s\-\(\)\.]{7,20}$/.test(trimmed) && /\d{3,}/.test(trimmed)) return 'phone';
+
+    // Delegate to markup renderer for all 20+ markup/code types
+    if (window.PCMarkup && typeof window.PCMarkup.detectMarkupType === 'function') {
+      const markupType = window.PCMarkup.detectMarkupType(trimmed, meta);
+      if (markupType && markupType !== 'text') return markupType;
+    }
+
+    // Multi-line long text (likely notes/paragraphs)
+    if (trimmed.split('\n').length > 3 || trimmed.length > 300) return 'note';
+
+    return 'text';
+  }
+
+  // ─── Magic Button: Category Suggestion ───
+  // Maps all detected content types (including markup) to categories
+  _suggestCategory(contentType) {
+    const map = {
+      // Non-markup types
+      url:       { name: 'Links', icon: '🔗' },
+      email:     { name: 'Contacts', icon: '📧' },
+      phone:     { name: 'Contacts', icon: '📧' },
+      note:      { name: 'Notes', icon: '📝' },
+      text:      { name: 'Quick', icon: '⚡' },
+      // Code & data
+      code:      { name: 'Code', icon: '💻' },
+      json:      { name: 'Data', icon: '📊' },
+      yaml:      { name: 'Data', icon: '📊' },
+      toml:      { name: 'Data', icon: '📊' },
+      xml:       { name: 'Data', icon: '📊' },
+      csv:       { name: 'Data', icon: '📊' },
+      tsv:       { name: 'Data', icon: '📊' },
+      // Markup & documentation
+      markdown:  { name: 'Markup', icon: '📄' },
+      html:      { name: 'Markup', icon: '📄' },
+      latex:     { name: 'Markup', icon: '📄' },
+      bbcode:    { name: 'Markup', icon: '📄' },
+      asciidoc:  { name: 'Markup', icon: '📄' },
+      rst:       { name: 'Markup', icon: '📄' },
+      orgmode:   { name: 'Markup', icon: '📄' },
+      mediawiki: { name: 'Markup', icon: '📄' },
+      textile:   { name: 'Markup', icon: '📄' },
+      jira:      { name: 'Markup', icon: '📄' },
+      slack:     { name: 'Markup', icon: '📄' },
+      // Diagrams
+      mermaid:   { name: 'Diagrams', icon: '📐' },
+    };
+    return map[contentType] || map.text;
+  }
+
+  // ─── Magic Button: Content Enhancement ───
+  _enhanceContent(text, contentType) {
+    if (!text) return text;
+    let enhanced = text;
+
+    // Universal cleanup: trim, collapse excessive blank lines, strip trailing whitespace
+    enhanced = enhanced.replace(/\r\n/g, '\n');
+    enhanced = enhanced.replace(/\n{4,}/g, '\n\n\n');
+    enhanced = enhanced.replace(/[ \t]+$/gm, '');
+    enhanced = enhanced.trim();
+
+    // Type-specific enhancements
+    if (contentType === 'url') {
+      try {
+        const url = new URL(enhanced);
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'].forEach(p => url.searchParams.delete(p));
+        enhanced = url.toString();
+      } catch (_) { /* leave as-is */ }
+    }
+
+    if (contentType === 'json') {
+      try { enhanced = JSON.stringify(JSON.parse(enhanced), null, 2); } catch (_) { /* leave as-is */ }
+    }
+
+    if (contentType === 'xml') {
+      // Normalize self-closing tags spacing
+      enhanced = enhanced.replace(/\s*\/>/g, ' />');
+    }
+
+    if (contentType === 'yaml' || contentType === 'toml') {
+      // Normalize trailing whitespace on value lines (already done above), ensure final newline
+      if (!enhanced.endsWith('\n')) enhanced += '\n';
+    }
+
+    if (contentType === 'csv' || contentType === 'tsv') {
+      // Remove fully empty rows
+      enhanced = enhanced.split('\n').filter(l => l.trim()).join('\n');
+    }
+
+    if (contentType === 'email') {
+      enhanced = enhanced.toLowerCase().trim();
+    }
+
+    if (contentType === 'markdown' || contentType === 'html' || contentType === 'asciidoc' ||
+        contentType === 'rst' || contentType === 'orgmode' || contentType === 'mediawiki' ||
+        contentType === 'textile' || contentType === 'jira' || contentType === 'bbcode' ||
+        contentType === 'slack' || contentType === 'latex') {
+      // Ensure consistent line endings (already done), no extra cleanup needed for markup
+    }
+
+    return enhanced;
+  }
+
+  // ─── Magic Button: Type Labels (shared) ───
+  _magicTypeLabels() {
+    return {
+      url: '🔗 Link', email: '📧 Email', phone: '📞 Phone', note: '📝 Note', text: '⚡ Text',
+      code: '💻 Code', json: '📊 JSON', yaml: '📊 YAML', toml: '📊 TOML', xml: '📊 XML', csv: '📊 CSV', tsv: '📊 TSV',
+      markdown: '📄 MD', html: '📄 HTML', latex: '📄 LaTeX', bbcode: '📄 BBCode',
+      asciidoc: '📄 ADoc', rst: '📄 rST', orgmode: '📄 Org', mediawiki: '📄 Wiki',
+      textile: '📄 Textile', jira: '📄 JIRA', slack: '📄 Slack', mermaid: '📐 Diagram'
+    };
+  }
+
+  // ─── Magic Button: Analyze All Clips ───
+  _analyzeMagicClips() {
+    const analysis = [];
+    // Build duplicate map (text → count)
+    const dupMap = new Map();
+    for (const clip of this.clips) {
+      const key = (clip.text || '').trim().toLowerCase();
+      if (!key) continue;
+      dupMap.set(key, (dupMap.get(key) || 0) + 1);
+    }
+
+    for (const clip of this.clips) {
+      const contentType = this._detectContentType(clip.text, clip.meta);
+      const issues = [];
+
+      // Uncategorized?
+      if (!clip.category || clip.category === 'Uncategorized') {
+        const suggested = this._suggestCategory(contentType);
+        issues.push({ tag: '📁 Uncategorized', detail: `→ ${suggested.name}`, color: 'amber' });
+      }
+
+      // Duplicate?
+      const key = (clip.text || '').trim().toLowerCase();
+      if (key && (dupMap.get(key) || 0) > 1) {
+        issues.push({ tag: '📋 Duplicate', detail: '', color: 'red' });
+      }
+
+      // Needs cleanup?
+      const enhanced = this._enhanceContent(clip.text, contentType);
+      if (enhanced !== clip.text) {
+        issues.push({ tag: '✨ Needs cleanup', detail: '', color: 'blue' });
+      }
+
+      if (issues.length === 0) {
+        issues.push({ tag: '✓ Already clean', detail: '', color: 'green' });
+      }
+
+      analysis.push({ clip, contentType, issues });
+    }
+    return analysis;
+  }
+
+  // ─── Magic Button: Open Preview Modal ───
   magicFormat() {
-    // Select all clips
-    this.selectedChips.clear();
-    this.clips.forEach((c) => {
-      const id = this._clipIdKey(c?.id);
-      if (id) this.selectedChips.add(id);
-    });
-    
-    // Enable all options
-    document.getElementById('deduplicateToggle').checked = true;
-    document.getElementById('sortToggle').checked = true;
-    this.options.deduplicate = true;
-    this.options.sort = true;
-    
-    // Set comma delimiter
-    document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector('[data-delimiter="comma"]').classList.add('active');
-    this.delimiter = 'comma';
-    this.renderChips();
-    this.updatePreview();
-    
-    // Magic wand animation
+    // Wand animation
     const wand = document.getElementById('magicWand');
     wand.style.transform = 'scale(1.2) rotate(360deg)';
-    setTimeout(() => {
-      wand.style.transform = '';
-    }, 500);
+    setTimeout(() => { wand.style.transform = ''; }, 500);
+
+    // Analyze all clips
+    this._magicAnalysis = this._analyzeMagicClips();
+    this._magicSelected = new Set();
+    this._magicPage = 0;
+
+    // Show/hide undo banner
+    const undoBanner = document.getElementById('magicUndoBanner');
+    if (undoBanner) {
+      undoBanner.style.display = this._magicUndoSnapshot ? 'flex' : 'none';
+    }
+
+    // Render first page and open modal
+    this._renderMagicPage(0);
+    this._renderMagicPagination();
+    this._updateMagicSelectedCount();
+
+    document.getElementById('magicPreviewModal').style.display = 'flex';
+  }
+
+  // ─── Magic Button: Render a Page of Clips in Modal ───
+  _renderMagicPage(page) {
+    this._magicPage = page;
+    const perPage = 10;
+    const start = page * perPage;
+    const end = Math.min(start + perPage, this._magicAnalysis.length);
+    const pageItems = this._magicAnalysis.slice(start, end);
+    const labels = this._magicTypeLabels();
+    const container = document.getElementById('magicClipList');
+
+    if (this._magicAnalysis.length === 0) {
+      container.innerHTML = '<div class="magic-clip-empty">No clips to analyze</div>';
+      return;
+    }
+
+    container.innerHTML = pageItems.map((item, idx) => {
+      const globalIdx = start + idx;
+      const clipId = String(item.clip.id);
+      const isSelected = this._magicSelected.has(clipId);
+      const preview = (item.clip.text || '').replace(/\n/g, ' ').slice(0, 80) + ((item.clip.text || '').length > 80 ? '…' : '');
+      const typeBadge = labels[item.contentType] || item.contentType;
+      const issueTags = item.issues.map(i =>
+        `<span class="magic-issue-tag magic-issue-${i.color}">${i.tag}${i.detail ? ' ' + i.detail : ''}</span>`
+      ).join('');
+
+      return `
+        <div class="magic-clip-row ${isSelected ? 'magic-clip-selected' : ''}" data-magic-idx="${globalIdx}" data-clip-id="${clipId}">
+          <input type="checkbox" class="magic-clip-check" ${isSelected ? 'checked' : ''}>
+          <div class="magic-clip-info">
+            <div class="magic-clip-text">${this._escHtml(preview)}</div>
+            <div class="magic-clip-meta">
+              <span class="magic-type-badge">${typeBadge}</span>
+              ${issueTags}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Attach click handlers to rows
+    container.querySelectorAll('.magic-clip-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        const clipId = row.dataset.clipId;
+        const checkbox = row.querySelector('.magic-clip-check');
+        if (this._magicSelected.has(clipId)) {
+          this._magicSelected.delete(clipId);
+          row.classList.remove('magic-clip-selected');
+          checkbox.checked = false;
+        } else {
+          this._magicSelected.add(clipId);
+          row.classList.add('magic-clip-selected');
+          checkbox.checked = true;
+        }
+        this._updateMagicSelectedCount();
+      });
+    });
+  }
+
+  // ─── Magic Button: Escape HTML helper ───
+  _escHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ─── Magic Button: Pagination Controls ───
+  _renderMagicPagination() {
+    const perPage = 10;
+    const totalPages = Math.max(1, Math.ceil(this._magicAnalysis.length / perPage));
+    const container = document.getElementById('magicPagination');
+
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let html = '';
+    // Previous
+    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage - 1}" ${this._magicPage === 0 ? 'disabled' : ''}>‹</button>`;
+
+    // Page numbers (show current ±2)
+    for (let i = 0; i < totalPages; i++) {
+      if (i === 0 || i === totalPages - 1 || Math.abs(i - this._magicPage) <= 2) {
+        html += `<button class="magic-page-btn ${i === this._magicPage ? 'active' : ''}" data-magic-page="${i}">${i + 1}</button>`;
+      } else if (i === 1 && this._magicPage > 3) {
+        html += '<span class="magic-page-dots">…</span>';
+      } else if (i === totalPages - 2 && this._magicPage < totalPages - 4) {
+        html += '<span class="magic-page-dots">…</span>';
+      }
+    }
+
+    // Next
+    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage + 1}" ${this._magicPage >= totalPages - 1 ? 'disabled' : ''}>›</button>`;
+    container.innerHTML = html;
+
+    // Attach page click handlers
+    container.querySelectorAll('.magic-page-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = parseInt(btn.dataset.magicPage);
+        if (!isNaN(p) && p >= 0 && p < totalPages) {
+          this._renderMagicPage(p);
+          this._renderMagicPagination();
+        }
+      });
+    });
+  }
+
+  // ─── Magic Button: Update Selected Count ───
+  _updateMagicSelectedCount() {
+    const countEl = document.getElementById('magicSelectedCount');
+    if (countEl) countEl.textContent = `${this._magicSelected.size} selected`;
+    const craftBtn = document.getElementById('magicCraftSelectedBtn');
+    if (craftBtn) craftBtn.disabled = this._magicSelected.size === 0;
+  }
+
+  // ─── Magic Button: Apply Magic to Specific Clips ───
+  async _craftMagic(clipIds) {
+    const targetSet = new Set(clipIds.map(String));
+    const stats = { categorized: 0, enhanced: 0, duplicatesFound: 0, typesFound: {} };
+    const categoryCreationQueue = new Map();
+
+    // Build duplicate map
+    const dupMap = new Map();
+    for (const clip of this.clips) {
+      const key = (clip.text || '').trim().toLowerCase();
+      if (key) dupMap.set(key, (dupMap.get(key) || 0) + 1);
+    }
+
+    for (const clip of this.clips) {
+      if (!targetSet.has(String(clip.id))) continue;
+
+      const contentType = this._detectContentType(clip.text, clip.meta);
+      stats.typesFound[contentType] = (stats.typesFound[contentType] || 0) + 1;
+
+      // Categorize
+      if (!clip.category || clip.category === 'Uncategorized') {
+        const suggested = this._suggestCategory(contentType);
+        const existingCat = this.categories.find(c => c.name.toLowerCase() === suggested.name.toLowerCase());
+        if (existingCat) {
+          const clipsInCat = this.clips.filter(c => c.category === existingCat.name);
+          if (clipsInCat.length < 150) {
+            clip.category = existingCat.name;
+            stats.categorized++;
+          }
+        } else {
+          if (!categoryCreationQueue.has(suggested.name)) {
+            categoryCreationQueue.set(suggested.name, suggested);
+          }
+          clip._pendingCategory = suggested.name;
+        }
+      }
+
+      // Enhance
+      const enhanced = this._enhanceContent(clip.text, contentType);
+      if (enhanced !== clip.text) {
+        clip.text = enhanced;
+        stats.enhanced++;
+      }
+
+      // Count dupes
+      const key = (clip.text || '').trim().toLowerCase();
+      if (key && (dupMap.get(key) || 0) > 1) stats.duplicatesFound++;
+    }
+
+    // Create missing categories
+    for (const [name, { icon }] of categoryCreationQueue) {
+      if (!this.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+        const now = Date.now();
+        this.categories.push({ id: now + Math.random(), name, icon, createdAt: now, updatedAt: now });
+      }
+    }
+
+    // Assign pending
+    for (const clip of this.clips) {
+      if (clip._pendingCategory) {
+        const cat = this.categories.find(c => c.name.toLowerCase() === clip._pendingCategory.toLowerCase());
+        if (cat && this.clips.filter(c => c.category === cat.name).length < 150) {
+          clip.category = cat.name;
+          stats.categorized++;
+        }
+        delete clip._pendingCategory;
+      }
+    }
+
+    // Persist
+    await chrome.storage.local.set({
+      clips: this.clips,
+      categories: this.categories,
+      searchOnlyClips: this.searchOnlyClips,
+      pc_local_updatedAt: Date.now()
+    });
+    try {
+      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+    } catch (_) { /* don't block */ }
+
+    // Refresh UI
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
+
+    return stats;
+  }
+
+  // ─── Magic Button: Craft All with Undo Snapshot ───
+  async _craftAllMagic() {
+    // Snapshot for undo BEFORE any changes
+    this._magicUndoSnapshot = {
+      clips: JSON.parse(JSON.stringify(this.clips)),
+      categories: JSON.parse(JSON.stringify(this.categories))
+    };
+
+    const allClipIds = this.clips.map(c => String(c.id));
+    const stats = await this._craftMagic(allClipIds);
+
+    this.showToast('🪄 All clips processed! Click Magic again to undo.');
+    return stats;
+  }
+
+  // ─── Magic Button: Undo Last Magic ───
+  async _undoMagic() {
+    if (!this._magicUndoSnapshot) {
+      this.showToast('⚠️ No magic to undo');
+      return;
+    }
+
+    this.clips = this._magicUndoSnapshot.clips;
+    this.categories = this._magicUndoSnapshot.categories;
+    this._magicUndoSnapshot = null;
+
+    await chrome.storage.local.set({
+      clips: this.clips,
+      categories: this.categories,
+      pc_local_updatedAt: Date.now()
+    });
+    try {
+      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+    } catch (_) { /* don't block */ }
+
+    this.renderChips();
+    this.renderCategories();
+    this.updateCategoryFilter();
+    this.updateManualInputCategories();
+
+    // Close modal and notify
+    document.getElementById('magicPreviewModal').style.display = 'none';
+    this.showToast('🪄 Magic undone! Clips restored.');
+  }
+
+  // ─── Magic Button: Show Results Modal ───
+  _showMagicResults(stats) {
+    const modal = document.getElementById('magicResultsModal');
+    if (!modal) {
+      const parts = [];
+      if (stats.categorized > 0) parts.push(`${stats.categorized} categorized`);
+      if (stats.enhanced > 0) parts.push(`${stats.enhanced} enhanced`);
+      if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
+      this.showToast(parts.length ? `🪄 ${parts.join(', ')}` : '🪄 Clips already organized!');
+      return;
+    }
+
+    const labels = this._magicTypeLabels();
+    const typeBreakdown = Object.entries(stats.typesFound)
+      .map(([type, count]) => `<span class="magic-type-tag">${labels[type] || type}: ${count}</span>`)
+      .join(' ');
+
+    document.getElementById('magicStatCategorized').textContent = stats.categorized;
+    document.getElementById('magicStatEnhanced').textContent = stats.enhanced;
+    document.getElementById('magicStatDupes').textContent = stats.duplicatesFound;
+    document.getElementById('magicTypeBreakdown').innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
+
+    modal.style.display = 'flex';
   }
   
   showConfetti() {

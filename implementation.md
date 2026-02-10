@@ -1,3 +1,8 @@
+### 2025-02-10 - Privacy Policy (Edge submission)
+**Status:** SUCCESS
+**Files:** website/privacy.html
+**Result:** Replaced placeholder with full policy: info we collect (account, clips, support, payments, local/sync), use, storage (Supabase, OpenAI, Replicate, Stripe, Resend/Netlify), retention/deletion, rights, security, children, changes, contact. Last updated Feb 10, 2025.
+
 ### 2026-02-05 - Tips Widget Flicker Fix
 **Status:** SUCCESS
 **Files:** extension/content-script.js

@@ -57,7 +57,7 @@ class QuickPasteInterface {
     this.settingsModal = null;
     this.position = { x: 0, y: null }; // Default position - left side, CSS handles vertical centering
     this.settings = {
-      theme: 'light',
+      theme: 'light', // Inherited from global theme, not user-configurable in Quick Paste
       autoHide: true,
       showTimestamps: true,
       maxClipsDisplay: 20,
@@ -1758,16 +1758,6 @@ class QuickPasteInterface {
           </div>
         </div>
         <div class="pastecraft-modal-body help-content">
-          <div class="help-section">
-            <h4>🎨 Theme Settings</h4>
-            <div class="help-item">
-              <strong>Light Theme:</strong> Clean, bright interface perfect for well-lit environments
-            </div>
-            <div class="help-item">
-              <strong>Dark Theme:</strong> Easy on the eyes, ideal for low-light conditions and extended use
-            </div>
-          </div>
-          
           <div class="help-section">
             <h4>⚡ Interface Behavior</h4>
             <div class="help-item">

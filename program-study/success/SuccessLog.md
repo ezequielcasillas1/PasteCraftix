@@ -170,3 +170,24 @@
 **Files:** extension/popup.html, extension/popup.js, extension/supabase-client.js, extension/content-script.js, supabase/functions/_shared/ai_workflow.ts, supabase/functions/ai-{summary,breakdown,name,hint,trends,vision,image}/index.ts
 **Result:** Added AI workflow override toggle + provider/workflow dropdowns in AI Lab. Presets: Default (4o), Cheapest (GPT-5 Nano/Mini), Latest (GPT-5.2). Config persists in chrome.storage.sync/local. All AI requests pass workflow config; edge functions resolve models via allowlisted presets with safe fallbacks. (Commit: pending)
 
+### Feb 9, 2026 - Markup Language Rendering (Feature #32)
+**Status:** SUCCESS
+**Commit:** d102055
+**Files:** markup-renderer.js, popup.html, popup.js, content-script.js, styles.css, test-markup-clips.js, .gitignore, implementations.md, request.md, manifest.json
+**Result:** Full 20+ markup detection/rendering engine with badges, Clip Viewer, View Raw toggle. Supports MD, JSON, HTML, YAML, XML, TOML, CSV, TSV, LaTeX, Mermaid, BBCode, Slack, AsciiDoc, rST, Org-mode, MediaWiki, Textile, JIRA, raw code (190+ langs). Updated subscription UI + help. 34 demo clips. Lib files gitignored.
+
+### Feb 10, 2026 - Magic Button Intelligent Processing + Full Markup Detection
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/popup.html, extension/styles.css
+**Result:** Replaced basic format shortcut with full intelligent processing. Delegates to PCMarkup.detectMarkupType for 20+ markup languages (MD, HTML, JSON, YAML, XML, TOML, CSV, TSV, LaTeX, Mermaid, BBCode, AsciiDoc, rST, Org-mode, MediaWiki, Textile, JIRA, Slack, code). Plus URL/email/phone detection. Auto-categorizes into Code, Data, Markup, Diagrams, Links, Contacts, Notes, Quick. Content enhancement per type. Duplicate removal. Results modal with stats.
+
+### Feb 10, 2026 - Magic Button Interactive Preview Modal
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/popup.html, extension/styles.css
+**Result:** Replaced auto-process magic with interactive preview modal. Shows paginated clip list (10/page) with per-clip analysis (type badge, issue tags: Uncategorized/Duplicate/Needs cleanup/Already clean). User selects clips then "Craft the Magic" or "Craft all Magic to clips" with undo snapshot. Undo banner appears on next magic click.### Feb 10, 2026 - Magic Modal Design Polish
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/popup.html, extension/styles.css
+**Result:** Elevated magic modal with PasteCraft aesthetic: blue/amber gradients, header gleam animation, enhanced shadows (0-20px), stagger fade-in clips, polished issue tags with borders/icons (📁📋✨✓), refined type badges, blue gradient pagination, amber/purple gradient buttons with hover lift, slide-down undo banner, 28px touch targets, smooth cubic-bezier transitions, modal fade-in scale animation.### Feb 10, 2026 - Quick Paste Help Text Cleanup
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/content-script.js
+**Result:** Removed obsolete Theme entry from Quick Paste help modals (popup + content-script). Updated Purpose to describe right-click context menu trigger. Updated settings description. Kept global theme runtime code intact.

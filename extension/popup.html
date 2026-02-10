@@ -6068,6 +6068,742 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* ─── Magic Preview Modal ─── */
+        .magic-preview-modal {
+            max-width: 440px;
+            width: 95%;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 85vh;
+            background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+            border: 1px solid rgba(59, 130, 246, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0,0,0,0.03);
+            animation: magicModalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .magic-preview-header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .magic-preview-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            animation: headerGleam 3s ease-in-out infinite;
+        }
+
+        .magic-preview-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            letter-spacing: 0.2px;
+        }
+
+        .magic-selected-count {
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.3);
+            padding: 4px 12px;
+            border-radius: 14px;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(4px);
+        }
+
+        .magic-preview-header .modal-close {
+            color: #fff;
+            background: rgba(255,255,255,0.25);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-preview-header .modal-close:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.1) rotate(90deg);
+        }
+
+        /* Undo banner */
+        .magic-undo-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-bottom: 2px solid #fcd34d;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #92400e;
+            box-shadow: 0 2px 8px rgba(252, 211, 77, 0.25);
+            animation: magicBannerSlideDown 0.3s ease-out;
+        }
+
+        .magic-undo-btn {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+            transition: all 0.2s ease;
+        }
+
+        .magic-undo-btn:hover {
+            background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.45);
+        }
+
+        /* Clip list body */
+        .magic-preview-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            min-height: 120px;
+            max-height: 380px;
+            background: #ffffff;
+        }
+
+        .magic-clip-empty {
+            padding: 48px 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Clip row */
+        .magic-clip-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 20px;
+            cursor: pointer;
+            background: #ffffff;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            animation: magicClipStagger 0.35s ease-out backwards;
+        }
+
+        .magic-clip-row::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: transparent;
+            border-radius: 0 3px 3px 0;
+            transition: all 0.2s ease;
+        }
+
+        .magic-clip-row:hover {
+            background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+        }
+
+        .magic-clip-row:hover::before {
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .magic-clip-row.magic-clip-selected {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #bfdbfe;
+            box-shadow: 0 2px 12px rgba(59, 130, 246, 0.12);
+        }
+
+        .magic-clip-row.magic-clip-selected::before {
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .magic-clip-check {
+            margin-top: 2px;
+            accent-color: #3b82f6;
+            flex-shrink: 0;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            transition: transform 0.15s ease;
+        }
+
+        .magic-clip-check:hover {
+            transform: scale(1.15);
+        }
+
+        .magic-clip-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .magic-clip-text {
+            font-size: 13px;
+            color: #1f2937;
+            line-height: 1.5;
+            word-break: break-word;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .magic-clip-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+        }
+
+        /* Type badge */
+        .magic-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #4b5563;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* Issue tags */
+        .magic-issue-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+
+        .magic-issue-amber {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+        }
+
+        .magic-issue-red {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        .magic-issue-blue {
+            background: #dbeafe;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+        }
+
+        .magic-issue-green {
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            color: #065f46;
+        }
+
+        /* Pagination */
+        .magic-preview-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 20px;
+            border-top: 1px solid #e5e7eb;
+            background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+        }
+
+        .magic-page-btn {
+            background: #ffffff;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #374151;
+            min-width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .magic-page-btn:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .magic-page-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        .magic-page-btn.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #fff;
+            border-color: #2563eb;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+        }
+
+        .magic-page-dots {
+            font-size: 13px;
+            color: #9ca3af;
+            padding: 0 4px;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .magic-preview-footer {
+            padding: 16px 20px;
+            display: flex;
+            gap: 10px;
+            border-top: 2px solid #e5e7eb;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
+        }
+
+        .magic-btn-secondary {
+            background: #ffffff;
+            border: 1.5px solid #d1d5db;
+            border-radius: 10px;
+            padding: 9px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #374151;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .magic-btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #9ca3af;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .magic-btn-craft {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .magic-btn-craft:disabled {
+            opacity: 0.5;
+            cursor: default;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .magic-btn-craft:hover:not(:disabled) {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.45);
+        }
+
+        .magic-btn-craft-all {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .magic-btn-craft-all:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.45);
+        }
+
+        /* Magic Preview Animations */
+        @keyframes magicModalFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        @keyframes magicBannerSlideDown {
+            from { opacity: 0; transform: translateY(-100%); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes magicClipStagger {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes headerGleam {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+            50% { transform: translate(-30%, -30%) scale(1.2); opacity: 1; }
+        }
+
+        /* Stagger animation delays for clip rows */
+        .magic-clip-row:nth-child(1) { animation-delay: 0s; }
+        .magic-clip-row:nth-child(2) { animation-delay: 0.04s; }
+        .magic-clip-row:nth-child(3) { animation-delay: 0.08s; }
+        .magic-clip-row:nth-child(4) { animation-delay: 0.12s; }
+        .magic-clip-row:nth-child(5) { animation-delay: 0.16s; }
+        .magic-clip-row:nth-child(6) { animation-delay: 0.2s; }
+        .magic-clip-row:nth-child(7) { animation-delay: 0.24s; }
+        .magic-clip-row:nth-child(8) { animation-delay: 0.28s; }
+        .magic-clip-row:nth-child(9) { animation-delay: 0.32s; }
+        .magic-clip-row:nth-child(10) { animation-delay: 0.36s; }
+
+        /* Magic Info Button (in header) */
+        .magic-info-btn {
+            background: rgba(255,255,255,0.25);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-info-btn:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.1);
+        }
+
+        /* ─── Magic Info Modal ─── */
+        .magic-info-modal {
+            max-width: 420px;
+            width: 95%;
+            border-radius: 16px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+            border: 1px solid rgba(59, 130, 246, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+            animation: magicModalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .magic-info-header {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .magic-info-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+            animation: headerGleam 3s ease-in-out infinite;
+        }
+
+        .magic-info-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-info-header .modal-close {
+            color: #fff;
+            background: rgba(255,255,255,0.25);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-info-header .modal-close:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.1) rotate(90deg);
+        }
+
+        .magic-info-body {
+            padding: 20px;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        .magic-info-section {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .magic-info-section:last-child {
+            border-bottom: none;
+        }
+
+        .magic-info-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        .magic-info-detail {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .magic-info-detail h4 {
+            margin: 0 0 4px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .magic-info-detail p {
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #6b7280;
+        }
+
+        .magic-info-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, #e5e7eb 50%, transparent 100%);
+            margin: 8px 0;
+            border-radius: 2px;
+        }
+
+        .magic-info-footer {
+            padding: 14px 20px;
+            text-align: right;
+            border-top: 2px solid #e5e7eb;
+            background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
+        }
+
+        /* ─── Magic Results Modal ─── */
+        .magic-results-modal {
+            max-width: 360px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+            border: 1px solid rgba(59, 130, 246, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+            animation: magicModalFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .magic-results-header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #fff;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .magic-results-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            animation: headerGleam 3s ease-in-out infinite;
+        }
+
+        .magic-results-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-results-header .modal-close {
+            color: #fff;
+            background: rgba(255,255,255,0.25);
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .magic-results-header .modal-close:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.1) rotate(90deg);
+        }
+
+        .magic-results-body {
+            padding: 20px;
+        }
+
+        .magic-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .magic-stat-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 8px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+
+        .magic-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #3b82f6;
+        }
+
+        .magic-stat-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .magic-type-section h4 {
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .magic-type-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .magic-type-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        .magic-results-footer {
+            padding: 14px 20px;
+            text-align: right;
+            border-top: 2px solid #e5e7eb;
+            background: linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%);
+        }
+
+        .magic-results-footer .btn-primary {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 28px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+            transition: all 0.2s ease;
+        }
+
+        .magic-results-footer .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45);
+        }
         
     </style>
 </head>
@@ -6755,7 +7491,7 @@ Multiple clips are separated by:
                     </div>
                     <div class="settings-section">
                         <h4>⚡ Quick Paste Interface</h4>
-                        <p class="settings-description">Configure the on-page quick paste interface. Drag the interface header to move it anywhere on screen:</p>
+                        <p class="settings-description">Configure the quick paste interface that appears via right-click context menu. Drag the header to reposition:</p>
                         <div class="quick-settings-checkboxes">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="quickPasteAutoHidePopup">
@@ -7137,10 +7873,134 @@ Multiple clips are separated by:
         </section>
 
         <!-- Magic Wand (only show for clips and search tabs) -->
-        <button class="magic-wand" id="magicWand" title="✨ Magic Format: Select all clips + dedupe + sort + format">
+        <button class="magic-wand" id="magicWand" title="🪄 Magic: Auto-categorize, enhance, dedupe & organize clips">
             <span class="wand-icon">🪄</span>
             <span class="wand-text">Magic</span>
         </button>
+
+        <!-- Magic Preview Modal -->
+        <div class="modal-overlay" id="magicPreviewModal" style="display: none;">
+            <div class="modal-content magic-preview-modal">
+                <div class="modal-header magic-preview-header">
+                    <h3>🪄 Magic Preview</h3>
+                    <span class="magic-selected-count" id="magicSelectedCount">0 selected</span>
+                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Magic do?">ℹ️</button>
+                    <button class="modal-close" id="closeMagicPreview">✕</button>
+                </div>
+                <!-- Undo banner (hidden by default) -->
+                <div class="magic-undo-banner" id="magicUndoBanner" style="display: none;">
+                    <span>Previous magic can be undone</span>
+                    <button class="magic-undo-btn" id="magicUndoBtn">↩️ Undo Last Magic</button>
+                </div>
+                <div class="modal-body magic-preview-body">
+                    <div class="magic-clip-list" id="magicClipList"></div>
+                </div>
+                <div class="magic-preview-pagination" id="magicPagination"></div>
+                <div class="modal-footer magic-preview-footer">
+                    <button class="magic-btn-secondary" id="magicCancelBtn">Cancel</button>
+                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled>🪄 Craft the Magic</button>
+                    <button class="magic-btn-craft-all" id="magicCraftAllBtn">✨ Craft all Magic to clips</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Magic Results Modal -->
+        <div class="modal-overlay" id="magicResultsModal" style="display: none;">
+            <div class="modal-content magic-results-modal">
+                <div class="modal-header magic-results-header">
+                    <h3>🪄 Magic Complete</h3>
+                    <button class="modal-close" id="closeMagicResults">✕</button>
+                </div>
+                <div class="modal-body magic-results-body">
+                    <div class="magic-stats-grid">
+                        <div class="magic-stat-card">
+                            <div class="magic-stat-number" id="magicStatCategorized">0</div>
+                            <div class="magic-stat-label">Categorized</div>
+                        </div>
+                        <div class="magic-stat-card">
+                            <div class="magic-stat-number" id="magicStatEnhanced">0</div>
+                            <div class="magic-stat-label">Enhanced</div>
+                        </div>
+                        <div class="magic-stat-card">
+                            <div class="magic-stat-number" id="magicStatDupes">0</div>
+                            <div class="magic-stat-label">Dupes Found</div>
+                        </div>
+                    </div>
+                    <div class="magic-type-section">
+                        <h4>Content Detected</h4>
+                        <div class="magic-type-tags" id="magicTypeBreakdown"></div>
+                    </div>
+                </div>
+                <div class="modal-footer magic-results-footer">
+                    <button class="btn-primary" id="magicResultsDone">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Magic Info Modal -->
+        <div class="modal-overlay" id="magicInfoModal" style="display: none;">
+            <div class="modal-content magic-info-modal">
+                <div class="modal-header magic-info-header">
+                    <h3>🪄 What Does Magic Do?</h3>
+                    <button class="modal-close" id="closeMagicInfo">✕</button>
+                </div>
+                <div class="modal-body magic-info-body">
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">📁</div>
+                        <div class="magic-info-detail">
+                            <h4>Smart Categorization</h4>
+                            <p>Automatically suggests and assigns categories to uncategorized clips based on content type. URLs go to Links, code to Code, JSON/YAML to Data, and more.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">✨</div>
+                        <div class="magic-info-detail">
+                            <h4>Content Enhancement</h4>
+                            <p>Cleans up copied text by trimming whitespace, collapsing blank lines, formatting JSON, removing URL tracking parameters, and normalizing content.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">📋</div>
+                        <div class="magic-info-detail">
+                            <h4>Duplicate Detection</h4>
+                            <p>Identifies duplicate clips across your collection and flags them so you know which content appears more than once.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">🔍</div>
+                        <div class="magic-info-detail">
+                            <h4>Context Awareness</h4>
+                            <p>Detects 20+ content types including code, Markdown, HTML, JSON, YAML, XML, LaTeX, URLs, emails, phone numbers, and more markup languages.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-divider"></div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">🪄</div>
+                        <div class="magic-info-detail">
+                            <h4>Craft the Magic</h4>
+                            <p>Select specific clips to process. Only the clips you choose will be categorized and enhanced.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">✨</div>
+                        <div class="magic-info-detail">
+                            <h4>Craft All Magic to Clips</h4>
+                            <p>Process every clip at once. A snapshot is saved so you can undo all changes by clicking Magic again.</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">↩️</div>
+                        <div class="magic-info-detail">
+                            <h4>Undo</h4>
+                            <p>After using "Craft all," click the Magic button again to see the undo banner and restore your clips to their previous state.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer magic-info-footer">
+                    <button class="magic-btn-craft" id="magicInfoDone">Got it!</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Notes Info Modal -->
         <div class="modal-overlay" id="notesInfoModal" style="display: none;">
@@ -7225,10 +8085,7 @@ Multiple clips are separated by:
                     <div class="help-section">
                         <h4>⚡ Quick Paste Interface</h4>
                         <div class="help-item">
-                            <strong>Purpose:</strong> A floating interface that appears on web pages for instant clipboard access without switching tabs.
-                        </div>
-                        <div class="help-item">
-                            <strong>Theme:</strong> Choose between light and dark appearance to match your preference and reduce eye strain.
+                            <strong>Purpose:</strong> A floating interface that appears when you right-click highlighted text and select the PasteCraft option from the context menu, giving you instant clipboard access without switching tabs.
                         </div>
                         <div class="help-item">
                             <strong>Auto-hide after paste:</strong> Automatically closes the Quick Paste interface after pasting a clip, keeping your screen clean and workflow uninterrupted.
