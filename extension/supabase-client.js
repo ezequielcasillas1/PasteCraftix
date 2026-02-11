@@ -75,6 +75,23 @@ class PasteCraftSupabase {
     }
   }
 
+  /**
+   * Directly set the in-memory AI workflow cache (bypasses storage read).
+   * Call this after saving workflow from the UI so the next AI call
+   * immediately reflects the user's selection.
+   */
+  setAiWorkflowConfigDirect(cfg) {
+    if (!cfg || typeof cfg !== 'object') {
+      this._aiWorkflowCache = { value: null, at: 0 };
+      return;
+    }
+    const normalized = this._normalizeAiWorkflow(cfg);
+    const finalCfg = normalized.enabled
+      ? { enabled: true, provider: normalized.provider, preset: normalized.preset, updatedAt: normalized.updatedAt }
+      : null;
+    this._aiWorkflowCache = { value: finalCfg, at: Date.now() };
+  }
+
   async _withAiWorkflow(body) {
     try {
       const base = (body && typeof body === 'object') ? body : {};

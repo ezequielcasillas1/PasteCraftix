@@ -1,3 +1,8 @@
+### Feb 10, 2025 - Privacy policy clips and AI disclosure
+**Status:** ✅ SUCCESS
+**Files:** website/privacy.html
+**Result:** Clips bullet updated: AI models, network contexts (AI Lab + AI buttons), AI Lab + Supabase as reflective models for summaries/breakdowns. (Commit: 618d7a5)
+
 ### Feb 9, 2026 - Markup Language Rendering
 **Status:** ✅ SUCCESS
 **Files:** extension/markup-renderer.js, extension/popup.js, extension/popup.html, extension/content-script.js, extension/manifest.json, website/pricing.html
@@ -191,3 +196,28 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.html, extension/content-script.js
 **Result:** Removed obsolete Theme entry from Quick Paste help modals (popup + content-script). Updated Purpose to describe right-click context menu trigger. Updated settings description. Kept global theme runtime code intact.
+
+### Feb 11, 2026 - Session Persistence Across All PC Features
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Full session persistence via chrome.storage.local. Active main tab, AI Lab sub-tab, AI Breakdown state (input, level, cache, threads), and AI Summary state (input, questions, result, threads) all survive popup close, browser restart, and sign-out/sign-in. Debounced saves on input, immediate saves on tab switch and AI result generation. Restored on init() before overlay hide.
+
+### Feb 11, 2026 - AI Output Minimal Formatting + Quick Save Markup Support
+**Status:** ✅ SUCCESS
+**Files:** ai-summary/index.ts, ai-breakdown/index.ts, popup.js, popup.html, styles.css, markup-renderer.js
+**Result:** AI responses no longer produce //, \\, *, or LaTeX notation. Prompts enforce plain-text step-based output. Client-side _formatAiOutput() strips residual formatting. Quick Save UI now includes 19-language markup selector with auto-detect default. Clips store markupHint in meta for reliable rendering.
+
+### Feb 11, 2026 - PC 1.0 Preset Example Data
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** 4 example clips (LaTeX, Mermaid, JS code, Markdown), 4 categories (proper objects), 4 notes — all labeled [Example] with delete prompts. Replaced old 12-clip/5-cat/8-note seed.
+
+### Feb 11, 2026 - AI Rich Markup Rendering (LaTeX, Diagrams, Tables)
+**Status:** ✅ SUCCESS
+**Files:** ai-summary/index.ts, ai-breakdown/index.ts, popup.js, popup.html
+**Result:** Connected all 19 markup renderers to AI responses. Summary & Breakdown now render LaTeX math, Mermaid diagrams, code blocks, tables, and formatted Markdown. Prompts updated from plain-text-only to rich markup. New `_renderAiResponse()` orchestrates Markdown+LaTeX+Mermaid pipeline.
+
+### Feb 11, 2026 - AI History Tab (Persistent Conversation Logs)
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js
+**Result:** Added AI History tab with persistent storage (pc_aiHistory_v1). Auto-saves summary/breakdown conversations with all threads. AI-generated titles via existing ai-summary endpoint. History viewer modal reuses breakdown modal pattern with pagination boxes, rich markup rendering, and copy support.

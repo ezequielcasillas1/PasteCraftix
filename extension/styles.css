@@ -439,6 +439,25 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.manual-input-markup {
+  flex: 0.8;
+  padding: 10px 12px;
+  border: 2px solid #bae6fd;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: white;
+  outline: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.manual-input-markup:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .manual-input-save-btn {
   padding: 10px 20px;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);

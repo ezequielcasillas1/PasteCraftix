@@ -140,6 +140,8 @@
             align-items: center;
             cursor: pointer;
             position: relative;
+            flex: 1;
+            min-width: 0;
         }
         
         .top-bar-profile img {
@@ -1395,6 +1397,7 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: auto auto;
+            /* 4 tabs top row, Notes + AI History share bottom row */
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -1430,8 +1433,9 @@
             vertical-align: middle;
         }
         
-        .tab-btn-notes {
-            grid-column: 1 / -1;
+        .tab-btn-notes,
+        .tab-btn-ai-history {
+            grid-column: span 2;
         }
         
         .tab-btn:hover {
@@ -4784,11 +4788,7 @@
             will-change: transform;
         }
 
-        /* Ensure name never overlaps support buttons */
-        .top-bar-profile {
-            flex: 1;
-            min-width: 0;
-        }
+        /* flex: 1 + min-width: 0 moved to primary .top-bar-profile rule */
 
         .top-bar-actions {
             flex-shrink: 0;
@@ -5235,15 +5235,212 @@
             font-size: 15px;
             line-height: 1.8;
             color: #1e293b;
-            white-space: pre-wrap;
             padding: 4px;
             transition: font-style 0.3s ease, font-family 0.3s ease;
+            overflow-x: auto;
         }
 
         .breakdown-result.italics {
             font-style: italic;
             font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
             letter-spacing: 0.02em;
+        }
+
+        /* ── Rich AI Response Content Styles ── */
+        .breakdown-result h1,
+        .breakdown-result h2,
+        .breakdown-result h3,
+        .breakdown-result h4,
+        .breakdown-result h5,
+        .breakdown-result h6,
+        .summary-result-content h1,
+        .summary-result-content h2,
+        .summary-result-content h3,
+        .summary-result-content h4,
+        .summary-result-content h5,
+        .summary-result-content h6 {
+            margin: 12px 0 6px 0;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.3;
+        }
+        .breakdown-result h1, .summary-result-content h1 { font-size: 1.4em; }
+        .breakdown-result h2, .summary-result-content h2 { font-size: 1.25em; }
+        .breakdown-result h3, .summary-result-content h3 { font-size: 1.1em; }
+        .breakdown-result h4, .summary-result-content h4 { font-size: 1em; }
+
+        .breakdown-result p,
+        .summary-result-content p {
+            margin: 8px 0;
+        }
+
+        .breakdown-result ul,
+        .breakdown-result ol,
+        .summary-result-content ul,
+        .summary-result-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .breakdown-result li,
+        .summary-result-content li {
+            margin: 4px 0;
+        }
+
+        .breakdown-result strong,
+        .summary-result-content strong {
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .breakdown-result em,
+        .summary-result-content em {
+            font-style: italic;
+            color: #334155;
+        }
+
+        .breakdown-result code,
+        .summary-result-content code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            color: #e11d48;
+        }
+
+        .breakdown-result pre,
+        .summary-result-content pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .breakdown-result pre code,
+        .summary-result-content pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+            font-size: inherit;
+        }
+
+        .breakdown-result blockquote,
+        .summary-result-content blockquote {
+            border-left: 4px solid #3b82f6;
+            margin: 10px 0;
+            padding: 8px 14px;
+            background: #eff6ff;
+            border-radius: 0 6px 6px 0;
+            color: #1e40af;
+        }
+
+        .breakdown-result table,
+        .summary-result-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .breakdown-result th,
+        .summary-result-content th {
+            background: #f1f5f9;
+            font-weight: 700;
+            text-align: left;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+
+        .breakdown-result td,
+        .summary-result-content td {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .breakdown-result tr:nth-child(even) td,
+        .summary-result-content tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        .breakdown-result hr,
+        .summary-result-content hr {
+            border: none;
+            border-top: 2px solid #e5e7eb;
+            margin: 12px 0;
+        }
+
+        .breakdown-result a,
+        .summary-result-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+
+        /* LaTeX rendered content */
+        .breakdown-result .katex-display,
+        .summary-result-content .katex-display {
+            margin: 12px 0;
+            overflow-x: auto;
+            padding: 8px 0;
+        }
+
+        .breakdown-result .katex,
+        .summary-result-content .katex {
+            font-size: 1.05em;
+        }
+
+        /* Mermaid diagram container */
+        .breakdown-result .pc-mermaid-rendered,
+        .summary-result-content .pc-mermaid-rendered {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 12px 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        .breakdown-result .pc-mermaid-rendered svg,
+        .summary-result-content .pc-mermaid-rendered svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Code block styling inside AI responses */
+        .breakdown-result .pc-code-block,
+        .summary-result-content .pc-code-block {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+
+        /* CSV table styling */
+        .breakdown-result .pc-csv-table,
+        .summary-result-content .pc-csv-table {
+            margin: 10px 0;
+        }
+
+        /* LaTeX block rendered content */
+        .breakdown-result .pc-latex-rendered,
+        .summary-result-content .pc-latex-rendered {
+            margin: 10px 0;
+            padding: 8px;
+        }
+
+        /* Image constraints inside AI responses */
+        .breakdown-result img,
+        .summary-result-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
         }
 
         .breakdown-italics-btn {
@@ -5641,7 +5838,7 @@
             font-size: 14px;
             line-height: 1.7;
             color: #1e293b;
-            white-space: pre-wrap;
+            overflow-x: auto;
         }
 
         .summary-result-actions {
@@ -6804,6 +7001,100 @@
             transform: translateY(-1px);
             box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45);
         }
+
+        /* ── AI History Tab ── */
+        .ai-history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+
+        .ai-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ai-history-entry {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .ai-history-entry:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(59,130,246,0.12);
+        }
+
+        .ai-history-entry-icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .ai-history-entry-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ai-history-entry-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ai-history-entry-meta {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .ai-history-entry-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .ai-history-entry-badge.summary {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .ai-history-entry-badge.breakdown {
+            background: #fce7f3;
+            color: #db2777;
+        }
+
+        .ai-history-entry-delete {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #94a3b8;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+
+        .ai-history-entry-delete:hover {
+            color: #ef4444;
+            background: #fef2f2;
+        }
         
     </style>
 </head>
@@ -6907,6 +7198,28 @@
                     <select class="manual-input-category" id="manualInputCategory">
                         <option value="Uncategorized">Uncategorized</option>
                     </select>
+                    <select class="manual-input-markup" id="manualInputMarkup" title="Markup format (auto-detect or choose)">
+                        <option value="auto">Auto-detect</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="html">HTML</option>
+                        <option value="json">JSON</option>
+                        <option value="yaml">YAML</option>
+                        <option value="xml">XML</option>
+                        <option value="toml">TOML</option>
+                        <option value="csv">CSV</option>
+                        <option value="tsv">TSV</option>
+                        <option value="latex">LaTeX</option>
+                        <option value="mermaid">Diagram (Mermaid)</option>
+                        <option value="bbcode">BBCode</option>
+                        <option value="slack">Slack / Discord</option>
+                        <option value="asciidoc">AsciiDoc</option>
+                        <option value="rst">reStructuredText</option>
+                        <option value="orgmode">Org-mode</option>
+                        <option value="mediawiki">MediaWiki</option>
+                        <option value="textile">Textile</option>
+                        <option value="jira">JIRA / Confluence</option>
+                        <option value="code">Code</option>
+                    </select>
                     <button class="manual-input-save-btn" id="manualInputSaveBtn">
                         <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
                         <span id="manualInputSaveIcon">💾</span>
@@ -6936,6 +7249,9 @@
             <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
                 <img src="assets/note-icons/notebook.svg" alt="Notes" class="tab-icon-img pc-icon pc-icon-20">
                 Notes
+            </button>
+            <button class="tab-btn tab-btn-ai-history" data-tab="aiHistory" title="View past AI conversations">
+                <span class="tab-icon">📜</span> AI History
             </button>
         </nav>
 
@@ -7025,6 +7341,35 @@
             </div>
 
             <div class="notes-pagination" id="notesPagination" style="display: none;"></div>
+        </section>
+
+        <!-- AI History Tab -->
+        <section class="tab-content" id="aiHistoryTab">
+            <div class="ai-history-header">
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">📜 AI Conversation History</h3>
+                <button class="btn-secondary" id="clearAiHistoryBtn" style="font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#f8fafc;color:#64748b;">Clear All</button>
+            </div>
+
+            <!-- AI History Search Bar -->
+            <div class="notes-search-bar" id="aiHistorySearchBar">
+                <input type="text" id="aiHistorySearchInput" placeholder="🔍 Search AI conversations..." />
+                <button class="notes-search-clear" id="aiHistorySearchClear" title="Clear search">✕</button>
+            </div>
+
+            <!-- Filter chips -->
+            <div class="ai-history-filters" style="display:flex;gap:6px;margin-bottom:10px;">
+                <button class="ai-history-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
+                <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">📝 Summary</button>
+                <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">🧠 Breakdown</button>
+            </div>
+
+            <div class="ai-history-list" id="aiHistoryList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📜</div>
+                    <h3>No history yet</h3>
+                    <p>Your AI Summary and Breakdown conversations will appear here</p>
+                </div>
+            </div>
         </section>
 
         <!-- Search Tab -->
@@ -7783,6 +8128,37 @@ Multiple clips are separated by:
                             <span>Copy Explanation</span>
                         </button>
                         <button class="btn-primary" id="closeBreakdownBtn">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI History Viewer Modal -->
+        <div class="modal-overlay" id="aiHistoryModal" style="display: none;">
+            <div class="modal-content breakdown-modal-content">
+                <div class="modal-header breakdown-modal-header">
+                    <div class="breakdown-header-content">
+                        <h3 id="aiHistoryModalTitle">📜 Conversation</h3>
+                        <p class="breakdown-header-subtitle" id="aiHistoryModalSubtitle"></p>
+                    </div>
+                    <div class="breakdown-header-actions">
+                        <button class="modal-close" id="closeAiHistoryModal">✕</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <!-- Thread Pagination -->
+                    <div class="thread-pagination" id="aiHistoryThreadPagination" style="display: none;"></div>
+
+                    <div class="breakdown-content">
+                        <div class="breakdown-result" id="aiHistoryResultContent"></div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="copyAiHistoryBtn">
+                            <span>📋</span>
+                            <span>Copy</span>
+                        </button>
+                        <button class="btn-primary" id="closeAiHistoryModalBtn">Done</button>
                     </div>
                 </div>
             </div>

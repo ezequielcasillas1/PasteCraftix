@@ -577,6 +577,10 @@ class PasteCraftPopup {
     this.currentBreakdownThreadIndex = 0;
     this.selectedFollowupLevel = null;
     
+    // Session persistence state
+    this._currentAiLabSubTab = 'generator';
+    this._currentSummarySection = 'input';
+    
     // Countdown timers
     this.aiGenerationTimerInterval = null;
     this.profileCollapseInterval = null;
@@ -589,6 +593,15 @@ class PasteCraftPopup {
     
     // Analysis history
     this.analysisHistory = [];
+
+    // AI History (persistent conversation logs)
+    this.aiHistoryEntries = [];
+    this.currentHistoryEntry = null;
+    this.currentHistoryThreadIndex = 0;
+    this._activeBreakdownHistoryId = null; // tracks active breakdown conversation
+    this._activeSummaryHistoryId = null;   // tracks active summary conversation
+    this._aiHistorySearchQuery = '';
+    this._aiHistoryFilterType = 'all';
     
     // Notes system
     this.notes = [];
@@ -822,6 +835,11 @@ class PasteCraftPopup {
       const verified = this._normalizeAiWorkflow(verification ? verification[key] : null);
       if (verified.updatedAt !== this.aiWorkflow.updatedAt || verified.preset !== this.aiWorkflow.preset || verified.enabled !== this.aiWorkflow.enabled) {
         throw new Error('Verification failed: AI workflow not persisted correctly');
+      }
+
+      // Immediately sync in-memory cache so next AI call uses the new config
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
+        pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
       }
 
       if (!silent) this.showToast('✅ AI workflow saved!');
@@ -1221,6 +1239,9 @@ class PasteCraftPopup {
     this.updatePreview();
     this.renderCategories();
     this.updateCategoryFilter();
+
+    // 🔄 RESTORE SESSION STATE (active tab, AI content, etc.)
+    await this._restoreSessionState();
     
     // 🎯 HIDE LOADING OVERLAY (local data loaded, ready to show)
     this.hideLoadingOverlay();
@@ -1314,7 +1335,7 @@ class PasteCraftPopup {
     const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
     return {
       state: 'ok',
-      text: `Image credits: ${remaining}${suffix}`,
+      text: `Image credits: ${remaining}/${limit}${suffix}`,
       css,
       title: `AI image credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
     };
@@ -1364,7 +1385,7 @@ class PasteCraftPopup {
     const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
     return {
       state: 'ok',
-      text: `AI text credits: ${remaining}${suffix}`,
+      text: `AI text credits: ${remaining}/${limit}${suffix}`,
       css,
       title: `AI text credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
     };
@@ -2373,27 +2394,25 @@ class PasteCraftPopup {
     let { clips = [], categories = [], searchOnlyClips = [] } = result;
     let normalizedChanged = false;
 
-    // ── DEMO SEED: Sample clips & categories for pre-recording ──
+    // ── DEMO SEED: Example clips & categories (PC 1.0 release) ──
+    // These are starter examples to showcase features. Users should delete them.
     if (clips.length === 0 && categories.length === 0) {
       const now = Date.now();
-      categories = ['Work', 'Personal', 'Code Snippets', 'Research', 'Recipes'];
+      categories = [
+        { id: now - 400000, name: '📐 Math & Science [Example]', icon: '📐', createdAt: now - 400000, updatedAt: now - 400000 },
+        { id: now - 300000, name: '🔀 Diagrams [Example]', icon: '🔀', createdAt: now - 300000, updatedAt: now - 300000 },
+        { id: now - 200000, name: '💻 Code Snippets [Example]', icon: '💻', createdAt: now - 200000, updatedAt: now - 200000 },
+        { id: now - 100000, name: '📝 Notes & Docs [Example]', icon: '📝', createdAt: now - 100000, updatedAt: now - 100000 }
+      ];
       clips = [
-        { id: `demo_1`, text: 'const fetchData = async (url) => {\n  const res = await fetch(url);\n  return res.json();\n};', category: 'Code Snippets', timestamp: now - 600000 },
-        { id: `demo_2`, text: 'Action items from sprint review:\n- Fix auth token refresh bug\n- Deploy v2.1 to staging\n- Update API docs for /users endpoint', category: 'Work', timestamp: now - 540000 },
-        { id: `demo_3`, text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', category: 'Research', timestamp: now - 480000 },
-        { id: `demo_4`, text: 'Pasta Carbonara: 400g spaghetti, 200g guanciale, 4 egg yolks, 100g pecorino, black pepper. Cook pasta al dente, crisp guanciale, toss with egg mixture off heat.', category: 'Recipes', timestamp: now - 420000 },
-        { id: `demo_5`, text: 'Meeting with design team moved to Thursday 3pm. Bring mockups for the dashboard redesign and mobile nav prototype.', category: 'Work', timestamp: now - 360000 },
-        { id: `demo_6`, text: 'git stash && git pull origin main && git stash pop', category: 'Code Snippets', timestamp: now - 300000 },
-        { id: `demo_7`, text: 'Research: Clipboard API requires user gesture in all modern browsers. navigator.clipboard.writeText() returns a Promise. Fallback: document.execCommand("copy") for legacy support.', category: 'Research', timestamp: now - 240000 },
-        { id: `demo_8`, text: 'Packing list: Passport, phone charger, laptop + adapter, headphones, 3 shirts, jeans, jacket, toiletry bag, snacks, water bottle, travel pillow.', category: 'Personal', timestamp: now - 180000 },
-        { id: `demo_9`, text: 'Bug report: Session token expires after 24h but refresh token is not being sent on the /auth/refresh endpoint. Root cause: missing Authorization header in interceptor.', category: 'Work', timestamp: now - 120000 },
-        { id: `demo_10`, text: 'SELECT u.name, COUNT(o.id) AS order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.name\nORDER BY order_count DESC;', category: 'Code Snippets', timestamp: now - 60000 },
-        { id: `demo_11`, text: 'Color palette for redesign:\n- Primary: #3B82F6 (Blue)\n- Secondary: #8B5CF6 (Purple)\n- Accent: #F59E0B (Amber)\n- Success: #10B981 (Green)\n- Background: #F8FAFC', category: 'Personal', timestamp: now - 30000 },
-        { id: `demo_12`, text: 'Weekly grocery: eggs, milk, bread, chicken breast, spinach, tomatoes, garlic, olive oil, rice, onions, lemons, yogurt.', category: 'Recipes', timestamp: now - 15000 }
+        { id: `demo_1`, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '📐 Math & Science [Example]', timestamp: now - 400000, meta: { markupHint: 'latex' } },
+        { id: `demo_2`, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '🔀 Diagrams [Example]', timestamp: now - 300000, meta: { markupHint: 'mermaid' } },
+        { id: `demo_3`, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '💻 Code Snippets [Example]', timestamp: now - 200000, meta: { markupHint: 'javascript' } },
+        { id: `demo_4`, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '📝 Notes & Docs [Example]', timestamp: now - 100000, meta: { markupHint: 'markdown' } }
       ];
       await chrome.storage.local.set({ clips, categories, searchOnlyClips });
       normalizedChanged = false;
-      console.log('🧪 Seeded 12 demo clips + 5 categories');
+      console.log('🧪 Seeded 4 example clips + 4 categories (PC 1.0)');
     }
     // ── END DEMO SEED ──
 
@@ -2513,6 +2532,9 @@ class PasteCraftPopup {
         this.currentTab = tabBtn.dataset.tab;
         document.getElementById(this.currentTab + 'Tab').classList.add('active');
         
+        // Persist active tab so it survives popup close
+        this._saveActiveTabState();
+        
         // Format controls, preview, and magic wand are always visible across all tabs
         
         // Auto-reload data when switching tabs to ensure fresh counts
@@ -2541,6 +2563,11 @@ class PasteCraftPopup {
           await this.loadNotes();
           this.renderNotes();
           console.log('✅ Notes loaded');
+        } else if (this.currentTab === 'aiHistory') {
+          console.log('🔄 AI History tab opened - loading history...');
+          await this.loadAiHistory();
+          this.renderAiHistoryList();
+          console.log('✅ AI History loaded');
         }
       }
     });
@@ -2573,6 +2600,8 @@ class PasteCraftPopup {
       if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving…' : 'Save Clip';
     };
 
+    const manualInputMarkup = document.getElementById('manualInputMarkup');
+
     if (manualInputSaveBtn && manualInputTextarea && manualInputCategory) {
       manualInputSaveBtn.addEventListener('click', async () => {
         if (this.manualClipSaveInProgress) return;
@@ -2596,6 +2625,12 @@ class PasteCraftPopup {
           }
         }
 
+        // Build meta with markup hint if user selected a specific format
+        const selectedMarkup = manualInputMarkup ? manualInputMarkup.value : 'auto';
+        const clipMeta = selectedMarkup && selectedMarkup !== 'auto'
+          ? { markupHint: selectedMarkup }
+          : null;
+
         try {
           setManualInputSavingState(true);
           this.manualClipSaveInProgress = true;
@@ -2604,7 +2639,8 @@ class PasteCraftPopup {
             id: Date.now() + Math.random(),
             text: text,
             category: category,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            ...(clipMeta ? { meta: clipMeta } : {})
           };
 
           this.clips.unshift(newClip);
@@ -3434,6 +3470,82 @@ class PasteCraftPopup {
       }
     });
 
+    // AI History modal events
+    const closeAiHistoryModal = document.getElementById('closeAiHistoryModal');
+    if (closeAiHistoryModal) {
+      closeAiHistoryModal.addEventListener('click', () => {
+        document.getElementById('aiHistoryModal').style.display = 'none';
+      });
+    }
+    const closeAiHistoryModalBtn = document.getElementById('closeAiHistoryModalBtn');
+    if (closeAiHistoryModalBtn) {
+      closeAiHistoryModalBtn.addEventListener('click', () => {
+        document.getElementById('aiHistoryModal').style.display = 'none';
+      });
+    }
+    const copyAiHistoryBtn = document.getElementById('copyAiHistoryBtn');
+    if (copyAiHistoryBtn) {
+      copyAiHistoryBtn.addEventListener('click', () => {
+        this.copyHistoryContent();
+      });
+    }
+    const aiHistoryModal = document.getElementById('aiHistoryModal');
+    if (aiHistoryModal) {
+      aiHistoryModal.addEventListener('click', (e) => {
+        if (e.target.id === 'aiHistoryModal') {
+          aiHistoryModal.style.display = 'none';
+        }
+      });
+    }
+    // Clear all AI history button
+    const clearAiHistoryBtn = document.getElementById('clearAiHistoryBtn');
+    if (clearAiHistoryBtn) {
+      clearAiHistoryBtn.addEventListener('click', () => {
+        this.clearAllAiHistory();
+      });
+    }
+
+    // AI History search bar
+    const aiHistorySearchInput = document.getElementById('aiHistorySearchInput');
+    const aiHistorySearchClear = document.getElementById('aiHistorySearchClear');
+    if (aiHistorySearchInput) {
+      aiHistorySearchInput.addEventListener('input', () => {
+        this._aiHistorySearchQuery = aiHistorySearchInput.value.trim().toLowerCase();
+        this.renderAiHistoryList();
+      });
+    }
+    if (aiHistorySearchClear) {
+      aiHistorySearchClear.addEventListener('click', () => {
+        if (aiHistorySearchInput) aiHistorySearchInput.value = '';
+        this._aiHistorySearchQuery = '';
+        this.renderAiHistoryList();
+      });
+    }
+
+    // AI History filter chips
+    document.querySelectorAll('.ai-history-filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.ai-history-filter-chip').forEach(c => {
+          c.classList.remove('active');
+          c.style.background = '#f8fafc';
+          c.style.color = '#64748b';
+          c.style.borderColor = '#e5e7eb';
+        });
+        chip.classList.add('active');
+        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+        chip.style.color = 'white';
+        chip.style.borderColor = '#3b82f6';
+        this._aiHistoryFilterType = chip.dataset.filter;
+        this.renderAiHistoryList();
+      });
+      // Style the initial active chip
+      if (chip.classList.contains('active')) {
+        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+        chip.style.color = 'white';
+        chip.style.borderColor = '#3b82f6';
+      }
+    });
+
     // Clip Viewer modal events
     const closeClipViewerModal = document.getElementById('closeClipViewerModal');
     if (closeClipViewerModal) {
@@ -3625,6 +3737,9 @@ class PasteCraftPopup {
         this.currentTab = 'ai';
         document.getElementById('aiTab').classList.add('active');
 
+        // Persist active tab
+        this._saveActiveTabState();
+
         // Refresh credits view when entering AI Lab.
         this.updateAiCreditsPills('ai-tab');
         
@@ -3649,6 +3764,9 @@ class PasteCraftPopup {
           
           // Show corresponding section
           const tabName = clickedTab.dataset.aiTab;
+          this._currentAiLabSubTab = tabName;
+          this._saveActiveTabState();
+
           if (tabName === 'generator') {
             document.getElementById('aiGeneratorSection').classList.add('active');
           } else if (tabName === 'gallery') {
@@ -3672,6 +3790,8 @@ class PasteCraftPopup {
         
         // Show breakdown section
         document.getElementById('aiBreakdownSection').classList.add('active');
+        this._currentAiLabSubTab = 'breakdown';
+        this._saveActiveTabState();
       });
     }
 
@@ -3682,6 +3802,8 @@ class PasteCraftPopup {
       const presetEl = document.getElementById('aiWorkflowPresetSelect');
 
       const onChange = () => {
+        // Clear stale AI result caches when model/preset changes
+        this.breakdownCache = {};
         // Save quietly, then ensure UI enabled/disabled state is correct.
         this.saveAiWorkflowFromUi(true).catch(() => {});
       };
@@ -3691,7 +3813,13 @@ class PasteCraftPopup {
         const selectedProvider = providerEl ? providerEl.value : 'openai';
         this.aiWorkflow.provider = selectedProvider;
         this.aiWorkflow.preset = 'default'; // reset preset on provider switch
+        // Clear stale AI result caches when provider changes
+        this.breakdownCache = {};
         this.applyAiWorkflowToUi();
+        // Immediately sync cache so any in-flight AI call uses new provider
+        if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
+          pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
+        }
         this.saveAiWorkflowFromUi(true).catch(() => {});
       };
 
@@ -3735,11 +3863,16 @@ class PasteCraftPopup {
         }
         
         breakdownInput.focus();
+        // Persist cleared state
+        this._saveBreakdownPageState();
       });
     }
 
     // Character counter and level chip enabler
     if (breakdownInput && charCounter) {
+      // Debounce timer for persisting breakdown input
+      let _bdInputSaveTimer = null;
+
       breakdownInput.addEventListener('input', () => {
         const text = breakdownInput.value.trim();
         const length = breakdownInput.value.length;
@@ -3770,6 +3903,10 @@ class PasteCraftPopup {
           levelChips.forEach(chip => chip.classList.remove('selected'));
           if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
         }
+
+        // Persist breakdown input (debounced)
+        clearTimeout(_bdInputSaveTimer);
+        _bdInputSaveTimer = setTimeout(() => this._saveBreakdownPageState(), 400);
       });
     }
 
@@ -3792,6 +3929,9 @@ class PasteCraftPopup {
             const levelName = chip.querySelector('strong').textContent;
             levelSelectionHint.textContent = `${levelName} level selected - Click analyze button below`;
           }
+
+          // Persist selected level
+          this._saveBreakdownPageState();
         }
       });
     });
@@ -3819,6 +3959,9 @@ class PasteCraftPopup {
     const copySummaryBtn = document.getElementById('copySummaryBtn');
 
     // Summary input character counter
+    // Debounce timer for persisting summary input
+    let _sumInputSaveTimer = null;
+
     if (summaryInput && summaryCharCounter) {
       summaryInput.addEventListener('input', () => {
         const length = summaryInput.value.length;
@@ -3829,6 +3972,13 @@ class PasteCraftPopup {
         if (generateQuestionsBtn) {
           generateQuestionsBtn.disabled = wordCount < 5;
         }
+
+        // Persist summary input (debounced)
+        clearTimeout(_sumInputSaveTimer);
+        _sumInputSaveTimer = setTimeout(() => {
+          this._currentSummarySection = 'input';
+          this._saveSummaryState();
+        }, 400);
       });
     }
 
@@ -3839,6 +3989,9 @@ class PasteCraftPopup {
         if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
         if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
         summaryInput.focus();
+        // Persist cleared state
+        this._currentSummarySection = 'input';
+        this._saveSummaryState();
       });
     }
 
@@ -3883,6 +4036,8 @@ class PasteCraftPopup {
         this.showSummarySection('input');
         this.currentSummaryText = null;
         this.generatedQuestions = [];
+        this._currentSummarySection = 'input';
+        this._saveSummaryState();
       });
     }
 
@@ -3890,6 +4045,8 @@ class PasteCraftPopup {
     if (newQuestionBtn) {
       newQuestionBtn.addEventListener('click', () => {
         this.showSummarySection('questions');
+        this._currentSummarySection = 'questions';
+        this._saveSummaryState();
       });
     }
 
@@ -3900,6 +4057,7 @@ class PasteCraftPopup {
         this.currentSummaryText = null;
         this.generatedQuestions = [];
         this.currentSummaryQuestion = null;
+        this._activeSummaryHistoryId = null; // New summary conversation
         // Reset threads
         this.summaryThreads = [];
         this.currentSummaryThreadIndex = 0;
@@ -3911,6 +4069,8 @@ class PasteCraftPopup {
         if (summaryInput) summaryInput.value = '';
         if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
         if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
+        this._currentSummarySection = 'input';
+        this._saveSummaryState();
       });
     }
 
@@ -4178,6 +4338,16 @@ class PasteCraftPopup {
     console.log('🔐 Showing auth modal...');
     // Keep auth modal controls synced to settings.
     Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
+    // Pre-check "remember login with PIN" if a PIN already exists
+    Promise.resolve().then(async () => {
+      try {
+        await this.loadPinConfig();
+        const el = document.getElementById('rememberLoginWithPin');
+        if (el && this._pinConfig?.salt && this._pinConfig?.hash) {
+          el.checked = true;
+        }
+      } catch (_) {}
+    }).catch(() => {});
     this.hideLoadingOverlay();
     document.getElementById('authModal').style.display = 'flex';
   }
@@ -7230,6 +7400,7 @@ class PasteCraftPopup {
     this.currentBreakdownText = text;
     this.currentBreakdownLevel = level;
     this.breakdownCache = {}; // Cache explanations to avoid re-generating
+    this._activeBreakdownHistoryId = null; // New breakdown conversation
     
     // Set original text
     document.getElementById('breakdownOriginalText').textContent = text;
@@ -7239,7 +7410,7 @@ class PasteCraftPopup {
     document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
     
     // Clear previous result
-    document.getElementById('breakdownResult').textContent = '';
+    document.getElementById('breakdownResult').innerHTML = '';
     
     // Set active tab to the selected level
     document.querySelectorAll('.breakdown-tab').forEach(tab => {
@@ -7319,7 +7490,8 @@ class PasteCraftPopup {
 
     // Check cache first
     if (this.breakdownCache[level]) {
-      document.getElementById('breakdownResult').textContent = this.breakdownCache[level];
+      const resultEl = document.getElementById('breakdownResult');
+      resultEl.innerHTML = await this._renderAiResponse(this.breakdownCache[level]);
       return;
     }
 
@@ -7329,20 +7501,20 @@ class PasteCraftPopup {
     try {
       // Show loading
       loadingEl.style.display = 'flex';
-      resultEl.textContent = '';
+      resultEl.innerHTML = '';
 
       // Generate explanation
       const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
 
-      // Cache the result
+      // Cache the raw result (for copy + persistence)
       const formatted = this._formatAiOutput(explanation);
       this.breakdownCache[level] = formatted;
 
-      // Show result
-      resultEl.textContent = formatted;
+      // Render as rich HTML and display
+      resultEl.innerHTML = await this._renderAiResponse(formatted);
       loadingEl.style.display = 'none';
 
-      // Add to threads
+      // Add to threads (store raw text)
       this.breakdownThreads.push({
         question: `Breakdown at ${level} level`,
         answer: formatted,
@@ -7362,9 +7534,15 @@ class PasteCraftPopup {
         this.renderThreadPagination('breakdown');
       }
 
+      // Persist breakdown modal state (results + threads)
+      this._saveBreakdownModalState();
+
+      // Save to AI history
+      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
+
     } catch (error) {
       console.error('Failed to generate breakdown:', error);
-      resultEl.textContent = '❌ Failed to generate explanation. Please check your OpenAI API key configuration.';
+      resultEl.innerHTML = '❌ Failed to generate explanation. Please check your OpenAI API key configuration.';
       loadingEl.style.display = 'none';
       this.showToast('Failed to generate explanation');
     }
@@ -7442,6 +7620,10 @@ class PasteCraftPopup {
         document.getElementById('customQuestionBtn').disabled = true;
       }
 
+      // Persist questions state
+      this._currentSummarySection = 'questions';
+      this._saveSummaryState();
+
     } catch (error) {
       console.error('Failed to generate questions:', error);
       this.showToast('Failed to generate questions. Please check your API key.');
@@ -7462,7 +7644,7 @@ class PasteCraftPopup {
 
       // Show loading
       if (summaryLoading) summaryLoading.style.display = 'flex';
-      if (summaryContent) summaryContent.textContent = '';
+      if (summaryContent) summaryContent.innerHTML = '';
 
       // Generate summary using AI
       const summary = await pasteCraftSupabase.generateSummary(text, question);
@@ -7471,12 +7653,15 @@ class PasteCraftPopup {
       // Hide loading
       if (summaryLoading) summaryLoading.style.display = 'none';
 
-      // Display summary
+      // Render as rich HTML and display
       if (summaryContent) {
-        summaryContent.textContent = formatted;
+        summaryContent.innerHTML = await this._renderAiResponse(formatted);
       }
 
-      // Add to threads
+      // Store raw text for current summary (for copy/persistence)
+      this._currentRawSummary = formatted;
+
+      // Add to threads (store raw text)
       this.summaryThreads.push({
         question,
         answer: formatted,
@@ -7495,11 +7680,18 @@ class PasteCraftPopup {
         this.renderThreadPagination('summary');
       }
 
+      // Persist summary result state
+      this._currentSummarySection = 'result';
+      this._saveSummaryState();
+
+      // Save to AI history
+      await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads);
+
     } catch (error) {
       console.error('Failed to generate summary:', error);
       const summaryContent = document.getElementById('summaryResultContent');
       if (summaryContent) {
-        summaryContent.textContent = '❌ Failed to generate summary. Please check your OpenAI API key configuration.';
+        summaryContent.innerHTML = '❌ Failed to generate summary. Please check your OpenAI API key configuration.';
       }
       document.getElementById('summaryLoading').style.display = 'none';
       this.showToast('Failed to generate summary');
@@ -7507,24 +7699,27 @@ class PasteCraftPopup {
   }
 
   _formatAiOutput(raw) {
+    // Minimal cleanup: only strip decorative artifacts, preserve all formatting
     const s = String(raw ?? '');
     if (!s.trim()) return '';
 
-    // Remove leading code-style comment markers when they appear as a prefix style.
-    // Example: lines starting with "// " for non-code outputs.
     const lines = s.split(/\r?\n/);
-    const stripped = lines.map(line => {
-      const m = line.match(/^\s*\/\/\s?(.*)$/);
-      if (!m) return line;
-      // Keep URLs like https://
-      if (/^\s*\/\/\s*https?:\/\//i.test(line)) return line;
-      return m[1] ?? '';
+    const cleaned = lines.map(line => {
+      // Remove leading // comment markers (keep URLs like https://)
+      if (/^\s*\/\/\s?/.test(line) && !/^\s*\/\/\s*https?:\/\//i.test(line)) {
+        line = line.replace(/^\s*\/\/\s?/, '');
+      }
+      // Remove leading \\ backslash prefixes (decorative only)
+      line = line.replace(/^\s*\\\\+\s?/, '');
+      // Strip trailing whitespace
+      line = line.replace(/[ \t]+$/, '');
+      return line;
     });
 
-    // Normalize excessive blank lines
+    // Normalize excessive blank lines (max 2 consecutive)
     const out = [];
     let blankRun = 0;
-    for (const line of stripped) {
+    for (const line of cleaned) {
       const isBlank = !String(line).trim();
       if (isBlank) {
         blankRun += 1;
@@ -7532,9 +7727,99 @@ class PasteCraftPopup {
         continue;
       }
       blankRun = 0;
-      out.push(line.replace(/[ \t]+$/g, ''));
+      out.push(line);
     }
     return out.join('\n').trim();
+  }
+
+  /**
+   * Render AI response text as rich HTML using the markup renderer.
+   * Handles Markdown with embedded LaTeX ($...$, $$...$$) and Mermaid diagrams.
+   * @param {string} rawText - Raw AI response text
+   * @returns {string|Promise<string>} Rendered HTML
+   */
+  async _renderAiResponse(rawText) {
+    if (!rawText || typeof rawText !== 'string') return '';
+    const text = rawText.trim();
+    if (!text) return '';
+
+    // Check if PCMarkup is available
+    if (typeof PCMarkup === 'undefined') return PCMarkup?.escapeHtml?.(text) || text;
+
+    // Step 1: Extract mermaid code blocks and render them separately
+    const mermaidBlocks = [];
+    let processed = text.replace(/```mermaid\s*\n([\s\S]*?)```/gi, (_, code) => {
+      const placeholder = `%%MERMAID_BLOCK_${mermaidBlocks.length}%%`;
+      mermaidBlocks.push(code.trim());
+      return placeholder;
+    });
+
+    // Step 2: Extract LaTeX blocks and protect them from Markdown parsing
+    const latexBlocks = [];
+    // Display math $$...$$
+    processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
+      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
+      latexBlocks.push({ expr: expr.trim(), display: true });
+      return placeholder;
+    });
+    // Display math \[...\]
+    processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
+      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
+      latexBlocks.push({ expr: expr.trim(), display: true });
+      return placeholder;
+    });
+    // Inline math $...$
+    processed = processed.replace(/\$([^$\n]+?)\$/g, (_, expr) => {
+      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
+      latexBlocks.push({ expr: expr.trim(), display: false });
+      return placeholder;
+    });
+    // Inline math \(...\)
+    processed = processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
+      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
+      latexBlocks.push({ expr: expr.trim(), display: false });
+      return placeholder;
+    });
+
+    // Step 3: Render as Markdown
+    let html = PCMarkup.renderMarkup(processed, null, { type: 'markdown' });
+
+    // Step 4: Replace LaTeX placeholders with KaTeX rendered HTML
+    if (typeof katex !== 'undefined') {
+      for (let i = 0; i < latexBlocks.length; i++) {
+        const block = latexBlocks[i];
+        const displayPlaceholder = `%%LATEX_DISPLAY_${i}%%`;
+        const inlinePlaceholder = `%%LATEX_INLINE_${i}%%`;
+        try {
+          const rendered = katex.renderToString(block.expr, {
+            displayMode: block.display,
+            throwOnError: false
+          });
+          html = html.replace(displayPlaceholder, rendered);
+          html = html.replace(inlinePlaceholder, rendered);
+        } catch (_) {
+          const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
+          html = html.replace(displayPlaceholder, fallback);
+          html = html.replace(inlinePlaceholder, fallback);
+        }
+      }
+    }
+
+    // Step 5: Replace Mermaid placeholders with rendered diagrams
+    for (let i = 0; i < mermaidBlocks.length; i++) {
+      const placeholder = `%%MERMAID_BLOCK_${i}%%`;
+      // Check if placeholder survived markdown rendering (might be inside <p> tags)
+      if (html.includes(placeholder)) {
+        try {
+          const mermaidHtml = await PCMarkup.renderMarkup(mermaidBlocks[i], null, { type: 'mermaid' });
+          html = html.replace(placeholder, mermaidHtml);
+        } catch (_) {
+          html = html.replace(placeholder, `<pre class="pc-code-block"><code>${PCMarkup.escapeHtml(mermaidBlocks[i])}</code></pre>`);
+        }
+      }
+    }
+
+    return html;
   }
 
   // Handle Summary Follow-up
@@ -7581,7 +7866,7 @@ class PasteCraftPopup {
     try {
       // Show loading
       if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.textContent = '';
+      if (resultEl) resultEl.innerHTML = '';
 
       let answer;
       
@@ -7597,18 +7882,21 @@ class PasteCraftPopup {
         answer = await pasteCraftSupabase.generateSummary(this.currentBreakdownText, contextPrompt);
       }
 
+      // Clean up the raw answer
+      const formatted = this._formatAiOutput(answer);
+
       // Hide loading
       if (loadingEl) loadingEl.style.display = 'none';
 
-      // Display answer
+      // Render as rich HTML and display
       if (resultEl) {
-        resultEl.textContent = answer;
+        resultEl.innerHTML = await this._renderAiResponse(formatted);
       }
 
-      // Add to threads
+      // Add to threads (store raw text)
       this.breakdownThreads.push({
         question: followupQuestion,
-        answer,
+        answer: formatted,
         level: this.selectedFollowupLevel || 'standard',
         timestamp: Date.now()
       });
@@ -7623,10 +7911,16 @@ class PasteCraftPopup {
       this.selectedFollowupLevel = null;
       document.querySelectorAll('.followup-level-tab').forEach(t => t.classList.remove('selected'));
 
+      // Persist breakdown modal state after follow-up
+      this._saveBreakdownModalState();
+
+      // Update AI history with new thread
+      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
+
     } catch (error) {
       console.error('Failed to generate follow-up:', error);
       if (resultEl) {
-        resultEl.textContent = '❌ Failed to generate follow-up response.';
+        resultEl.innerHTML = '❌ Failed to generate follow-up response.';
       }
       if (loadingEl) loadingEl.style.display = 'none';
       this.showToast('Failed to generate follow-up');
@@ -7720,7 +8014,7 @@ class PasteCraftPopup {
   }
 
   // Navigate to specific thread
-  navigateToThread(type, index) {
+  async navigateToThread(type, index) {
     const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
     if (index < 0 || index >= threads.length) return;
 
@@ -7728,7 +8022,7 @@ class PasteCraftPopup {
     const contentEl = document.getElementById(type === 'summary' ? 'summaryResultContent' : 'breakdownResult');
 
     if (contentEl) {
-      contentEl.textContent = thread.answer;
+      contentEl.innerHTML = await this._renderAiResponse(thread.answer);
     }
 
     // Update current index
@@ -8531,27 +8825,10 @@ class PasteCraftPopup {
       
       if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
 
-      // Update PIN checkboxes with fresh config
-      try {
-        const enabled = !!this._pinConfig?.enabled;
-        const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-        
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-        
-        if (browserScopeEl) {
-          browserScopeEl.checked = enabled && !isUnlimited;
-          browserScopeEl.disabled = !enabled;
-        }
-        if (unlimitedToggle) {
-          unlimitedToggle.checked = isUnlimited;
-          unlimitedToggle.disabled = !enabled;
-        }
-
-        const disableBtn = document.getElementById('disablePinBtn');
-        if (disableBtn) disableBtn.disabled = !enabled;
-        
-      } catch (_) {}
+      // NOTE: PIN checkboxes are NOT refreshed here. The initial blocking
+      // loadPinConfig() above already set them correctly. Re-setting them in
+      // this background callback would overwrite any user interaction that
+      // occurred between modal-show and this callback firing (race condition).
     }).catch(() => {});
   }
 
@@ -9219,29 +9496,44 @@ class PasteCraftPopup {
       nameEl.style.display = displayName ? 'inline-block' : 'none';
     }
 
-    // Enable marquee only if name overflows
+    // Enable marquee only if name overflows.
+    // IDEMPOTENT: skip teardown if marquee is already running with the same name
+    // to prevent repeated storage-change calls from resetting the CSS animation.
     if (nameSection) {
-      nameSection.classList.remove('is-marquee');
-      nameSection.style.removeProperty('--pc-marquee-distance');
-      nameSection.style.removeProperty('--pc-marquee-duration');
+      const prevMarqueeName = nameSection.dataset.pcMarqueeName || '';
+      if (nameSection.classList.contains('is-marquee') && displayName && prevMarqueeName === displayName) {
+        // Already animating this name — do nothing.
+      } else {
+        nameSection.classList.remove('is-marquee');
+        nameSection.style.removeProperty('--pc-marquee-distance');
+        nameSection.style.removeProperty('--pc-marquee-duration');
+        nameSection.dataset.pcMarqueeName = '';
 
-      if (displayName && nameEl) {
-        // Double-rAF: first rAF schedules layout, second rAF measures after paint.
-        // This fixes measurements returning 0 when topBar was just made visible.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
+        if (displayName && nameEl) {
+          // Measure and optionally enable marquee. Retries once if layout
+          // hasn't settled (available === 0) which can happen when topBar
+          // transitions from display:none → flex.
+          const applyMarquee = (retryCount = 0) => {
             const available = nameSection.clientWidth;
             const needed = nameEl.scrollWidth;
+            if (available === 0 && retryCount < 2) {
+              setTimeout(() => applyMarquee(retryCount + 1), 120);
+              return;
+            }
             const distance = Math.max(0, needed - available);
             if (distance > 6) {
-              // ~30px/sec, clamp duration to keep readable
               const duration = Math.min(18, Math.max(8, distance / 30));
               nameSection.style.setProperty('--pc-marquee-distance', String(distance));
               nameSection.style.setProperty('--pc-marquee-duration', `${duration}s`);
               nameSection.classList.add('is-marquee');
+              nameSection.dataset.pcMarqueeName = displayName;
             }
+          };
+          // Double-rAF: first rAF schedules layout, second rAF measures after paint.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => applyMarquee(0));
           });
-        });
+        }
       }
     }
   }
@@ -10555,6 +10847,16 @@ class PasteCraftPopup {
       // Update UI with final stable URL
       this.displayImageTopLeft(finalUrl);
       this.renderAIGallery(gallery);
+
+      // PRACTICE #5: SYNC ALL UI CONSUMERS - update profile modal image too
+      const profileImg = document.getElementById('profileImage');
+      const profilePlaceholder = document.getElementById('profileImagePlaceholder');
+      if (profileImg) {
+        profileImg.src = finalUrl;
+        profileImg.style.display = 'block';
+      }
+      if (profilePlaceholder) profilePlaceholder.style.display = 'none';
+
       this.showToast('✓ Profile image updated!', 'success');
     } catch (error) {
       console.error('Failed to set profile image:', error);
@@ -10790,6 +11092,11 @@ class PasteCraftPopup {
       
       // Save to history
       this.saveToAnalysisHistory(text, 'breakdown-initiated');
+
+      // Persist breakdown page state (input prefilled from clip)
+      this._saveBreakdownPageState();
+      this._currentAiLabSubTab = 'breakdown';
+      this._saveActiveTabState();
     }
   }
   
@@ -10830,6 +11137,12 @@ class PasteCraftPopup {
       
       // Save to history
       this.saveToAnalysisHistory(text, 'summary-initiated');
+
+      // Persist summary state (input prefilled from clip)
+      this._currentSummarySection = 'input';
+      this._saveSummaryState();
+      this._currentAiLabSubTab = 'summary';
+      this._saveActiveTabState();
       
       // Clear selections and hide buttons
       this.clearAllSelections();
@@ -11093,6 +11406,237 @@ class PasteCraftPopup {
     this.showBreakdownModal(text);
   }
   
+  // ==================== SESSION PERSISTENCE ====================
+  // Persist UI state (active tab, AI breakdown/summary content, etc.)
+  // so everything survives popup close, browser restart, sign-out/sign-in.
+
+  /** Save active main tab + AI Lab sub-tab to storage */
+  async _saveActiveTabState() {
+    try {
+      await chrome.storage.local.set({
+        pc_activeTab_v1: this.currentTab || 'clips',
+        pc_aiLabSubTab_v1: this._currentAiLabSubTab || 'generator'
+      });
+    } catch (_) {}
+  }
+
+  /** Save AI Breakdown page state (input text, selected level, NOT the modal) */
+  async _saveBreakdownPageState() {
+    try {
+      const breakdownInput = document.getElementById('breakdownInput');
+      const state = {
+        inputText: breakdownInput ? breakdownInput.value : '',
+        selectedLevel: this.selectedBreakdownLevel || null
+      };
+      await chrome.storage.local.set({ pc_breakdownPageState_v1: state });
+    } catch (_) {}
+  }
+
+  /** Save AI Breakdown modal state (results, threads, cache) */
+  async _saveBreakdownModalState() {
+    try {
+      const state = {
+        originalText: this.currentBreakdownText || null,
+        activeLevel: this.currentBreakdownLevel || null,
+        cache: this.breakdownCache || {},
+        threads: (this.breakdownThreads || []).slice(0, 20),
+        threadIndex: this.currentBreakdownThreadIndex || 0,
+        timestamp: Date.now()
+      };
+      await chrome.storage.local.set({ pc_breakdownModalState_v1: state });
+    } catch (_) {}
+  }
+
+  /** Save AI Summary state (input text, questions, result, threads) */
+  async _saveSummaryState() {
+    try {
+      const summaryInput = document.getElementById('summaryInput');
+      // Use raw text from current thread for persistence (not rendered HTML)
+      const currentThread = this.summaryThreads?.[this.currentSummaryThreadIndex];
+      const rawResult = currentThread?.answer || this._currentRawSummary || '';
+      const state = {
+        inputText: summaryInput ? summaryInput.value : '',
+        currentSummaryText: this.currentSummaryText || null,
+        generatedQuestions: (this.generatedQuestions || []).slice(0, 20),
+        currentQuestion: this.currentSummaryQuestion || null,
+        resultContent: rawResult,
+        threads: (this.summaryThreads || []).slice(0, 20),
+        threadIndex: this.currentSummaryThreadIndex || 0,
+        activeSection: this._currentSummarySection || 'input',
+        timestamp: Date.now()
+      };
+      await chrome.storage.local.set({ pc_summaryState_v1: state });
+    } catch (_) {}
+  }
+
+  /** Restore all persisted UI state on popup open */
+  async _restoreSessionState() {
+    try {
+      const keys = [
+        'pc_activeTab_v1',
+        'pc_aiLabSubTab_v1',
+        'pc_breakdownPageState_v1',
+        'pc_breakdownModalState_v1',
+        'pc_summaryState_v1'
+      ];
+      const stored = await chrome.storage.local.get(keys);
+
+      // 1. Restore active main tab
+      const savedTab = stored.pc_activeTab_v1;
+      if (savedTab && savedTab !== 'clips') {
+        const tabBtn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
+        if (tabBtn) {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          tabBtn.classList.add('active');
+          this.currentTab = savedTab;
+          const tabEl = document.getElementById(savedTab + 'Tab');
+          if (tabEl) tabEl.classList.add('active');
+
+          // Trigger tab-specific loads
+          if (savedTab === 'categories') {
+            this.renderCategories();
+            this.updateCategoryBulkActions();
+          } else if (savedTab === 'search') {
+            this.renderSearchResults();
+            this.updateSearchBulkActions();
+          } else if (savedTab === 'ai') {
+            this.loadAIGallery();
+            this.migrateProfileImageToGallery();
+          } else if (savedTab === 'notes') {
+            await this.loadNotes();
+            this.renderNotes();
+          }
+        }
+      }
+
+      // 2. Restore AI Lab sub-tab
+      const savedAiSubTab = stored.pc_aiLabSubTab_v1;
+      if (savedAiSubTab && savedAiSubTab !== 'generator') {
+        this._currentAiLabSubTab = savedAiSubTab;
+        const subTabBtn = document.querySelector(`.ai-lab-tab[data-ai-tab="${savedAiSubTab}"]`);
+        if (subTabBtn) {
+          document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
+          subTabBtn.classList.add('active');
+
+          if (savedAiSubTab === 'generator') {
+            const el = document.getElementById('aiGeneratorSection');
+            if (el) el.classList.add('active');
+          } else if (savedAiSubTab === 'gallery') {
+            const el = document.getElementById('aiGallerySection');
+            if (el) el.classList.add('active');
+          } else if (savedAiSubTab === 'summary') {
+            const el = document.getElementById('aiSummarySection');
+            if (el) el.classList.add('active');
+          } else if (savedAiSubTab === 'breakdown') {
+            const el = document.getElementById('aiBreakdownSection');
+            if (el) el.classList.add('active');
+          }
+        }
+      }
+
+      // 3. Restore AI Breakdown page state (input + level)
+      const bdPage = stored.pc_breakdownPageState_v1;
+      if (bdPage) {
+        const breakdownInput = document.getElementById('breakdownInput');
+        if (breakdownInput && bdPage.inputText) {
+          breakdownInput.value = bdPage.inputText;
+          breakdownInput.dispatchEvent(new Event('input'));
+        }
+        if (bdPage.selectedLevel) {
+          this.selectedBreakdownLevel = bdPage.selectedLevel;
+          const chip = document.querySelector(`.level-chip[data-level="${bdPage.selectedLevel}"]`);
+          if (chip) {
+            document.querySelectorAll('.level-chip').forEach(c => c.classList.remove('selected'));
+            chip.classList.add('selected');
+          }
+          const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
+          if (analyzeLevelBtn && bdPage.inputText) analyzeLevelBtn.disabled = false;
+        }
+      }
+
+      // 4. Restore AI Breakdown modal state (last conversation)
+      const bdModal = stored.pc_breakdownModalState_v1;
+      if (bdModal && bdModal.originalText && bdModal.threads && bdModal.threads.length > 0) {
+        // Restore in-memory state (don't re-open modal, but data is ready)
+        this.currentBreakdownText = bdModal.originalText;
+        this.currentBreakdownLevel = bdModal.activeLevel;
+        this.breakdownCache = bdModal.cache || {};
+        this.breakdownThreads = bdModal.threads || [];
+        this.currentBreakdownThreadIndex = bdModal.threadIndex || 0;
+      }
+
+      // 5. Restore AI Summary state
+      const sum = stored.pc_summaryState_v1;
+      if (sum) {
+        // Restore input text
+        const summaryInput = document.getElementById('summaryInput');
+        if (summaryInput && sum.inputText) {
+          summaryInput.value = sum.inputText;
+          summaryInput.dispatchEvent(new Event('input'));
+        }
+
+        // Restore in-memory state
+        if (sum.currentSummaryText) this.currentSummaryText = sum.currentSummaryText;
+        if (sum.generatedQuestions) this.generatedQuestions = sum.generatedQuestions;
+        if (sum.currentQuestion) this.currentSummaryQuestion = sum.currentQuestion;
+        if (sum.threads) this.summaryThreads = sum.threads;
+        if (sum.threadIndex != null) this.currentSummaryThreadIndex = sum.threadIndex;
+
+        // Restore the visible section (input → questions → result)
+        if (sum.activeSection && sum.activeSection !== 'input') {
+          if (sum.activeSection === 'questions' && sum.generatedQuestions && sum.generatedQuestions.length > 0) {
+            this.showSummarySection('questions');
+            const questionsList = document.getElementById('questionsList');
+            if (questionsList) {
+              questionsList.innerHTML = '';
+              sum.generatedQuestions.forEach(question => {
+                const chip = document.createElement('button');
+                chip.className = 'question-chip';
+                chip.textContent = question;
+                chip.addEventListener('click', () => {
+                  this.currentSummaryQuestion = question;
+                  this.generateSummary(this.currentSummaryText || sum.inputText, question);
+                });
+                questionsList.appendChild(chip);
+              });
+            }
+          } else if (sum.activeSection === 'result' && sum.resultContent) {
+            this.showSummarySection('result');
+            const summaryContent = document.getElementById('summaryResultContent');
+            if (summaryContent) {
+              this._renderAiResponse(sum.resultContent).then(html => {
+                summaryContent.innerHTML = html;
+              });
+            }
+
+            // Restore follow-up container visibility
+            const followupContainer = document.getElementById('summaryFollowupContainer');
+            if (followupContainer && sum.threads && sum.threads.length > 0) {
+              followupContainer.style.display = 'block';
+            }
+
+            // Restore thread pagination
+            if (sum.threads && sum.threads.length >= 2) {
+              this.renderThreadPagination('summary');
+            }
+          }
+        }
+      }
+
+      console.log('✅ Session state restored:', {
+        tab: savedTab || 'clips',
+        aiSubTab: savedAiSubTab || 'generator',
+        hasBreakdownPage: !!bdPage?.inputText,
+        hasBreakdownModal: !!bdModal?.originalText,
+        hasSummary: !!sum?.inputText
+      });
+    } catch (err) {
+      console.warn('⚠️ Failed to restore session state:', err);
+    }
+  }
+
   // Analysis History Functions
   async saveToAnalysisHistory(text, type, level = null, result = null) {
     const historyEntry = {
@@ -11166,6 +11710,318 @@ class PasteCraftPopup {
     }).join('');
   }
 
+  // ==================== AI HISTORY SYSTEM ====================
+
+  /** Load AI history entries from chrome.storage.local */
+  async loadAiHistory() {
+    try {
+      const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
+      this.aiHistoryEntries = pc_aiHistory_v1;
+      return pc_aiHistory_v1;
+    } catch (_) {
+      this.aiHistoryEntries = [];
+      return [];
+    }
+  }
+
+  /** Persist AI history entries to chrome.storage.local */
+  async _persistAiHistory() {
+    try {
+      // Keep max 50 entries
+      if (this.aiHistoryEntries.length > 50) {
+        this.aiHistoryEntries.splice(50);
+      }
+      await chrome.storage.local.set({ pc_aiHistory_v1: this.aiHistoryEntries });
+    } catch (_) {}
+  }
+
+  /**
+   * Save or update an AI conversation in history.
+   * Creates new entry on first call, updates existing on follow-ups.
+   */
+  async saveAiHistory(type, originalText, threads) {
+    try {
+      if (!threads || threads.length === 0) {
+        console.warn('saveAiHistory: no threads to save');
+        return;
+      }
+
+      await this.loadAiHistory();
+
+      // Use separate active IDs for breakdown vs summary
+      const activeId = type === 'breakdown' ? this._activeBreakdownHistoryId : this._activeSummaryHistoryId;
+
+      // Check if we should update an existing entry (active conversation)
+      if (activeId) {
+        const idx = this.aiHistoryEntries.findIndex(e => e.id === activeId);
+        if (idx !== -1) {
+          // Update existing entry with latest threads
+          this.aiHistoryEntries[idx].threads = threads.map(t => ({
+            question: t.question || '',
+            answer: t.answer || '',
+            level: t.level || null,
+            timestamp: t.timestamp || Date.now()
+          }));
+          this.aiHistoryEntries[idx].updatedAt = Date.now();
+          await this._persistAiHistory();
+          console.log('📜 AI History updated:', activeId, 'threads:', threads.length);
+          return this.aiHistoryEntries[idx];
+        }
+      }
+
+      // Create new entry with placeholder title
+      const placeholderTitle = (originalText || '').substring(0, 40).replace(/\n/g, ' ').trim() || 'Untitled';
+      const entry = {
+        id: Date.now(),
+        type,
+        title: placeholderTitle + '...',
+        originalText: (originalText || '').substring(0, 2000),
+        threads: threads.map(t => ({
+          question: t.question || '',
+          answer: t.answer || '',
+          level: t.level || null,
+          timestamp: t.timestamp || Date.now()
+        })),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      // Add to front of list
+      this.aiHistoryEntries.unshift(entry);
+
+      // Track active conversation per type
+      if (type === 'breakdown') {
+        this._activeBreakdownHistoryId = entry.id;
+      } else {
+        this._activeSummaryHistoryId = entry.id;
+      }
+
+      await this._persistAiHistory();
+      console.log('📜 AI History saved new entry:', entry.id, type, 'threads:', threads.length);
+
+      // Fire async AI title generation (non-blocking)
+      this._generateAiHistoryTitle(entry.id, originalText);
+
+      return entry;
+    } catch (err) {
+      console.error('saveAiHistory failed:', err);
+    }
+  }
+
+  /** Async: generate an AI title for a history entry */
+  async _generateAiHistoryTitle(entryId, originalText) {
+    try {
+      const snippet = (originalText || '').substring(0, 300);
+      const title = await pasteCraftSupabase.generateSummary(
+        snippet,
+        'Generate a concise 3-5 word title for this text. Return ONLY the title text, nothing else. No quotes, no punctuation at the end.'
+      );
+      if (title && typeof title === 'string' && title.trim()) {
+        const cleanTitle = title.trim().replace(/^["']|["']$/g, '').substring(0, 60);
+        // Update the entry in the array
+        const idx = this.aiHistoryEntries.findIndex(e => e.id === entryId);
+        if (idx !== -1) {
+          this.aiHistoryEntries[idx].title = cleanTitle;
+          await this._persistAiHistory();
+          // Re-render list if the AI History tab is active
+          if (this.currentTab === 'aiHistory') {
+            this.renderAiHistoryList();
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('AI history title generation failed:', err);
+    }
+  }
+
+  /** Render the AI History list in the tab */
+  renderAiHistoryList() {
+    const container = document.getElementById('aiHistoryList');
+    if (!container) return;
+
+    let entries = this.aiHistoryEntries || [];
+
+    // Apply type filter
+    const filterType = this._aiHistoryFilterType || 'all';
+    if (filterType !== 'all') {
+      entries = entries.filter(e => e.type === filterType);
+    }
+
+    // Apply search query
+    const query = (this._aiHistorySearchQuery || '').toLowerCase();
+    if (query) {
+      entries = entries.filter(e => {
+        const title = (e.title || '').toLowerCase();
+        const text = (e.originalText || '').toLowerCase();
+        const answers = (e.threads || []).map(t => (t.answer || '').toLowerCase()).join(' ');
+        return title.includes(query) || text.includes(query) || answers.includes(query);
+      });
+    }
+
+    if (!entries || entries.length === 0) {
+      const msg = query ? 'No results match your search' : 'Your AI Summary and Breakdown conversations will appear here';
+      const heading = query ? 'No matches' : 'No history yet';
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📜</div>
+          <h3>${heading}</h3>
+          <p>${msg}</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = entries.map(entry => {
+      const icon = entry.type === 'breakdown' ? '🧠' : '📝';
+      const badgeClass = entry.type === 'breakdown' ? 'breakdown' : 'summary';
+      const badgeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
+      const threadCount = (entry.threads || []).length;
+      const timeStr = this.getTimeAgo ? this.getTimeAgo(entry.createdAt) : new Date(entry.createdAt).toLocaleDateString();
+
+      return `
+        <div class="ai-history-entry" data-history-id="${entry.id}">
+          <span class="ai-history-entry-icon">${icon}</span>
+          <div class="ai-history-entry-info">
+            <div class="ai-history-entry-title">${this.escapeHtml ? this.escapeHtml(entry.title || 'Untitled') : (entry.title || 'Untitled')}</div>
+            <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
+          </div>
+          <span class="ai-history-entry-badge ${badgeClass}">${badgeLabel}</span>
+          <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete">🗑️</button>
+        </div>`;
+    }).join('');
+
+    // Attach click handlers
+    container.querySelectorAll('.ai-history-entry').forEach(el => {
+      el.addEventListener('click', (e) => {
+        // Don't open modal if delete button clicked
+        if (e.target.closest('.ai-history-entry-delete')) return;
+        const id = parseInt(el.dataset.historyId);
+        const entry = this.aiHistoryEntries.find(e => e.id === id);
+        if (entry) this.openAiHistoryModal(entry);
+      });
+    });
+
+    // Attach delete handlers
+    container.querySelectorAll('.ai-history-entry-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.deleteId);
+        this.aiHistoryEntries = this.aiHistoryEntries.filter(e => e.id !== id);
+        await this._persistAiHistory();
+        this.renderAiHistoryList();
+        this.showToast('History entry deleted');
+      });
+    });
+  }
+
+  /** Open the AI History viewer modal for a specific entry */
+  async openAiHistoryModal(entry) {
+    if (!entry) return;
+    this.currentHistoryEntry = entry;
+    this.currentHistoryThreadIndex = 0;
+
+    const modal = document.getElementById('aiHistoryModal');
+    const titleEl = document.getElementById('aiHistoryModalTitle');
+    const subtitleEl = document.getElementById('aiHistoryModalSubtitle');
+    const resultEl = document.getElementById('aiHistoryResultContent');
+    const paginationEl = document.getElementById('aiHistoryThreadPagination');
+
+    if (!modal) return;
+
+    // Set title and subtitle
+    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
+    const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
+    if (titleEl) titleEl.textContent = `${typeIcon} ${entry.title || 'Untitled'}`;
+    if (subtitleEl) subtitleEl.textContent = `${typeLabel} — ${(entry.threads || []).length} response(s)`;
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Render first thread
+    if (entry.threads && entry.threads.length > 0) {
+      if (resultEl) {
+        resultEl.innerHTML = await this._renderAiResponse(entry.threads[0].answer);
+      }
+    } else {
+      if (resultEl) resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
+    }
+
+    // Render pagination
+    this._renderHistoryPagination();
+  }
+
+  /** Render pagination boxes for the AI History viewer modal */
+  _renderHistoryPagination() {
+    const entry = this.currentHistoryEntry;
+    const paginationEl = document.getElementById('aiHistoryThreadPagination');
+    if (!paginationEl || !entry) return;
+
+    const threads = entry.threads || [];
+    if (threads.length < 2) {
+      paginationEl.style.display = 'none';
+      return;
+    }
+
+    paginationEl.style.display = 'flex';
+    paginationEl.style.gap = '8px';
+    paginationEl.innerHTML = '';
+
+    threads.forEach((thread, index) => {
+      const box = document.createElement('div');
+      box.className = `thread-box ${index === this.currentHistoryThreadIndex ? 'active' : ''}`;
+      box.textContent = index + 1;
+      box.style.cssText = `
+        width: 32px; height: 32px; border-radius: 6px;
+        background: ${index === this.currentHistoryThreadIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
+        border: 2px solid ${index === this.currentHistoryThreadIndex ? '#2563eb' : '#cbd5e1'};
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700;
+        color: ${index === this.currentHistoryThreadIndex ? 'white' : '#64748b'};
+        transition: all 0.25s ease;
+      `;
+
+      const question = thread.question || 'Response';
+      const tipText = question.length > 30 ? question.substring(0, 30) + '...' : question;
+      box.title = `${index + 1}. ${tipText}`;
+
+      box.addEventListener('click', () => this.navigateHistoryThread(index));
+      paginationEl.appendChild(box);
+    });
+  }
+
+  /** Navigate to a specific thread in the history viewer */
+  async navigateHistoryThread(index) {
+    const entry = this.currentHistoryEntry;
+    if (!entry || !entry.threads || index < 0 || index >= entry.threads.length) return;
+
+    this.currentHistoryThreadIndex = index;
+    const resultEl = document.getElementById('aiHistoryResultContent');
+    if (resultEl) {
+      resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
+    }
+    this._renderHistoryPagination();
+  }
+
+  /** Copy the current thread's answer from the history viewer */
+  copyHistoryContent() {
+    const entry = this.currentHistoryEntry;
+    if (!entry || !entry.threads) return;
+    const thread = entry.threads[this.currentHistoryThreadIndex];
+    if (thread && thread.answer) {
+      navigator.clipboard.writeText(thread.answer);
+      this.showToast('Copied to clipboard!');
+    }
+  }
+
+  /** Delete all AI history entries */
+  async clearAllAiHistory() {
+    this.aiHistoryEntries = [];
+    this._activeBreakdownHistoryId = null;
+    this._activeSummaryHistoryId = null;
+    await this._persistAiHistory();
+    this.renderAiHistoryList();
+    this.showToast('AI history cleared');
+  }
+
   // ==================== NOTES SYSTEM ====================
   
   async loadNotes() {
@@ -11176,153 +12032,75 @@ class PasteCraftPopup {
       notesAiEnabled = false
     } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
 
-    // ── DEMO SEED: 8 sample notes & albums with attachments for pre-recording ──
+    // ── DEMO SEED: 4 example notes (PC 1.0 release) ──
+    // Starter examples to showcase Notes features. Users should delete them.
     if (notes.length === 0) {
       const now = Date.now();
-
-      // Note IDs (stable so albums can reference them)
-      const N1 = now - 800000;
-      const N2 = now - 700000;
-      const N3 = now - 600000;
-      const N4 = now - 500000;
-      const N5 = now - 400000;
-      // Album IDs
-      const A1 = now - 300000;
-      const A2 = now - 200000;
-      const A3 = now - 100000;
+      const N1 = now - 400000;
+      const N2 = now - 300000;
+      const N3 = now - 200000;
+      const N4 = now - 100000;
 
       notes = [
-        // ── NOTE 1: Sprint Review Meeting ──
+        // ── NOTE 1: LaTeX Formulas [Example] ──
         {
           id: N1, type: 'note',
-          title: 'Sprint Review Meeting',
-          description: 'Key takeaways and action items from weekly standup',
-          body: 'Sprint velocity improved by 15%. Auth bug is top priority for next sprint. Design team will deliver dashboard mockups by Friday.',
+          title: 'LaTeX Formulas [Example]',
+          description: 'Sample math formulas — delete this note anytime',
+          body: 'PasteCraft auto-detects LaTeX in your clips. Try pasting any math formula and it renders automatically!',
           clips: [
-            { type: 'clip', id: now - 799000, text: 'Action items from sprint review:\n- Fix auth token refresh bug\n- Deploy v2.1 to staging\n- Update API docs for /users endpoint', addedDate: now - 799000 },
-            { type: 'clip', id: now - 798000, text: 'Meeting with design team moved to Thursday 3pm. Bring mockups for the dashboard redesign and mobile nav prototype.', addedDate: now - 798000 }
+            { type: 'clip', id: now - 399000, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', addedDate: now - 399000 }
           ],
           images: [],
           urls: [
-            { type: 'url', id: now - 797000, url: 'https://jira.example.com/board/sprint-42', title: 'Sprint 42 Board', addedDate: now - 797000 }
+            { type: 'url', id: now - 398000, url: 'https://www.overleaf.com/learn/latex/Mathematical_expressions', title: 'Overleaf - LaTeX Math Guide', addedDate: now - 398000 }
           ],
           createdAt: N1, updatedAt: N1
         },
-        // ── NOTE 2: JavaScript Snippets ──
+        // ── NOTE 2: Mermaid Diagrams [Example] ──
         {
           id: N2, type: 'note',
-          title: 'JavaScript Snippets',
-          description: 'Useful JS code snippets for daily development work',
-          body: 'Collection of reusable code patterns including async fetch, git shortcuts, and SQL queries.',
+          title: 'Mermaid Diagrams [Example]',
+          description: 'Sample flowchart diagram — delete this note anytime',
+          body: 'Copy Mermaid diagram syntax and PasteCraft will detect and render the flowchart preview.',
           clips: [
-            { type: 'clip', id: now - 699000, text: 'const fetchData = async (url) => {\n  const res = await fetch(url);\n  return res.json();\n};', addedDate: now - 699000 },
-            { type: 'clip', id: now - 698000, text: 'git stash && git pull origin main && git stash pop', addedDate: now - 698000 },
-            { type: 'clip', id: now - 697000, text: 'SELECT u.name, COUNT(o.id) AS order_count\nFROM users u\nLEFT JOIN orders o ON u.id = o.user_id\nGROUP BY u.name\nORDER BY order_count DESC;', addedDate: now - 697000 }
+            { type: 'clip', id: now - 299000, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', addedDate: now - 299000 }
           ],
           images: [],
           urls: [
-            { type: 'url', id: now - 696000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', title: 'MDN - Promises', addedDate: now - 696000 }
+            { type: 'url', id: now - 298000, url: 'https://mermaid.js.org/intro/', title: 'Mermaid Docs', addedDate: now - 298000 }
           ],
           createdAt: N2, updatedAt: N2
         },
-        // ── NOTE 3: Recipe - Pasta Carbonara ──
+        // ── NOTE 3: Code Snippets [Example] ──
         {
           id: N3, type: 'note',
-          title: 'Recipe - Pasta Carbonara',
-          description: 'Classic Italian carbonara with tips and tricks',
-          body: 'Key rule: never add cream. Toss the egg mixture off heat so it emulsifies instead of scrambling. Use pecorino, not parmesan.',
+          title: 'Code Snippets [Example]',
+          description: 'Sample code with syntax highlighting — delete this note anytime',
+          body: 'Save reusable code snippets. PasteCraft detects 20+ languages and highlights syntax automatically.',
           clips: [
-            { type: 'clip', id: now - 599000, text: 'Pasta Carbonara: 400g spaghetti, 200g guanciale, 4 egg yolks, 100g pecorino, black pepper. Cook pasta al dente, crisp guanciale, toss with egg mixture off heat.', addedDate: now - 599000 }
+            { type: 'clip', id: now - 199000, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', addedDate: now - 199000 }
           ],
           images: [],
-          urls: [
-            { type: 'url', id: now - 598000, url: 'https://www.bonappetit.com/recipe/classic-carbonara', title: 'Bon Appetit - Carbonara', addedDate: now - 598000 }
-          ],
+          urls: [],
           createdAt: N3, updatedAt: N3
         },
-        // ── NOTE 4: Bug Fix Log - Auth Issue ──
+        // ── NOTE 4: Markdown Notes [Example] ──
         {
           id: N4, type: 'note',
-          title: 'Bug Fix Log - Auth Issue',
-          description: 'Tracking the session token expiry bug and resolution',
-          body: 'Root cause: refresh token was not being sent because the Authorization header was missing from the interceptor. Fixed by adding the header and setting a 23h refresh interval.',
+          title: 'Markdown Notes [Example]',
+          description: 'Sample markdown content — delete this note anytime',
+          body: 'Markdown clips render with headings, lists, and formatting. Great for quick task lists and documentation.',
           clips: [
-            { type: 'clip', id: now - 499000, text: 'Bug report: Session token expires after 24h but refresh token is not being sent on the /auth/refresh endpoint. Root cause: missing Authorization header in interceptor.', addedDate: now - 499000 },
-            { type: 'clip', id: now - 498000, text: 'Research: Clipboard API requires user gesture in all modern browsers. navigator.clipboard.writeText() returns a Promise. Fallback: document.execCommand("copy") for legacy support.', addedDate: now - 498000 }
+            { type: 'clip', id: now - 99000, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** These are examples — delete them anytime!', addedDate: now - 99000 }
           ],
           images: [],
           urls: [],
           createdAt: N4, updatedAt: N4
-        },
-        // ── NOTE 5: Travel Packing List ──
-        {
-          id: N5, type: 'note',
-          title: 'Travel Packing List',
-          description: 'Essential items checklist for upcoming trip',
-          body: 'Remember to check weather forecast the day before. Leave copies of passport at home. Download offline maps.',
-          clips: [
-            { type: 'clip', id: now - 399000, text: 'Packing list: Passport, phone charger, laptop + adapter, headphones, 3 shirts, jeans, jacket, toiletry bag, snacks, water bottle, travel pillow.', addedDate: now - 399000 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 398000, url: 'https://www.google.com/maps', title: 'Google Maps - Offline Download', addedDate: now - 398000 },
-            { type: 'url', id: now - 397000, url: 'https://www.tripadvisor.com', title: 'TripAdvisor - Hotel Reviews', addedDate: now - 397000 }
-          ],
-          createdAt: N5, updatedAt: N5
-        },
-        // ── ALBUM 1: Work Projects ──
-        {
-          id: A1, type: 'album',
-          title: 'Work Projects',
-          description: 'Collection of notes related to active work projects',
-          body: '',
-          noteRefs: [N1, N4],
-          clips: [
-            { type: 'clip', id: now - 299000, text: '[From: Sprint Review Meeting]\n\nSprint velocity improved by 15%. Auth bug is top priority for next sprint.', addedDate: now - 299000, sourceNoteId: N1 },
-            { type: 'clip', id: now - 298000, text: '[From: Bug Fix Log - Auth Issue]\n\nRoot cause: refresh token was not being sent because the Authorization header was missing.', addedDate: now - 298000, sourceNoteId: N4 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 297000, url: 'https://jira.example.com/board/sprint-42', title: 'Sprint 42 Board', addedDate: now - 297000, sourceNoteId: N1 }
-          ],
-          sourceNoteIds: [N1, N4],
-          createdAt: A1, updatedAt: A1
-        },
-        // ── ALBUM 2: Study Resources ──
-        {
-          id: A2, type: 'album',
-          title: 'Study Resources',
-          description: 'Research, code references, and learning material',
-          body: '',
-          noteRefs: [N2],
-          clips: [
-            { type: 'clip', id: now - 199000, text: '[From: JavaScript Snippets]\n\nCollection of reusable code patterns including async fetch, git shortcuts, and SQL queries.', addedDate: now - 199000, sourceNoteId: N2 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 198000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise', title: 'MDN - Promises', addedDate: now - 198000, sourceNoteId: N2 }
-          ],
-          sourceNoteIds: [N2],
-          createdAt: A2, updatedAt: A2
-        },
-        // ── ALBUM 3: Design Inspiration ──
-        {
-          id: A3, type: 'album',
-          title: 'Design Inspiration',
-          description: 'UI mockups, color palettes, and visual references',
-          body: '',
-          noteRefs: [N5],
-          clips: [
-            { type: 'clip', id: now - 99000, text: 'Color palette for redesign:\n- Primary: #3B82F6 (Blue)\n- Secondary: #8B5CF6 (Purple)\n- Accent: #F59E0B (Amber)\n- Success: #10B981 (Green)\n- Background: #F8FAFC', addedDate: now - 99000 }
-          ],
-          images: [],
-          urls: [],
-          sourceNoteIds: [N5],
-          createdAt: A3, updatedAt: A3
         }
       ];
       await chrome.storage.local.set({ notes });
-      console.log('🧪 Seeded 5 demo notes + 3 demo albums with attachments');
+      console.log('🧪 Seeded 4 example notes (PC 1.0)');
     }
     // ── END DEMO SEED ──
 

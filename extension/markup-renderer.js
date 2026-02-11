@@ -41,6 +41,12 @@
     const t = text.trim();
     if (!t) return 'text';
 
+    // 0. Explicit markup hint from Quick Save (user-selected format)
+    if (meta && meta.markupHint && typeof meta.markupHint === 'string') {
+      const hint = meta.markupHint.toLowerCase();
+      if (BADGE_MAP.hasOwnProperty(hint) && hint !== 'text') return hint;
+    }
+
     // 1. Explicit meta.kind shortcuts
     if (meta && meta.kind === 'image') return 'text';
     if (meta && meta.kind === 'url') return 'text';

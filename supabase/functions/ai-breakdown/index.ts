@@ -7,13 +7,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const formatRules = `
+
+FORMATTING RULES (strict):
+- Use Markdown formatting: headings (#, ##, ###), bold (**text**), italic (*text*), bullet lists (- item), numbered lists (1. item), tables, and code blocks.
+- For math/formulas use LaTeX notation: inline math with $...$, display math with $$...$$.  Example: $E = mc^2$ or $$\\frac{a}{b} = c$$
+- For diagrams or visual explanations, use Mermaid syntax inside a fenced code block tagged "mermaid". Example: \`\`\`mermaid\\ngraph TD\\nA-->B\\n\`\`\`
+- Use tables (Markdown pipe tables) for comparisons, data, or structured info.
+- Use code blocks (\`\`\`lang) for any code snippets, with the language tag.
+- Structure responses with clear headings and sub-sections.
+- Never use // or \\\\ as decorative line prefixes or separators.
+- Be detailed but minimal. Every sentence should add value.`
+
 const levelPrompts: Record<string, string> = {
-  'child': 'Explain this like I\'m 5 years old. Use very simple words, fun comparisons, and short sentences. Make it playful!',
-  'elementary': 'Explain this for an elementary school student (ages 8-10). Use simple vocabulary and relatable examples.',
-  'highschool': 'Explain this for a high school student. Use clear language with some technical terms, and provide context.',
-  'college': 'Explain this for a college student. Be thorough, use proper terminology, and include relevant details.',
-  'phd': 'Explain this at an expert/PhD level. Be precise, use technical jargon, and include nuanced details.',
-  'wiseman': 'Explain this like a wise sage or philosopher. Be profound, use metaphors, and provide deeper insights about life and meaning.'
+  'child': `Explain this like I'm 5 years old. Use very simple words, fun comparisons, and short sentences. Make it playful!${formatRules}`,
+  'elementary': `Explain this for an elementary school student (ages 8-10). Use simple vocabulary and relatable examples.${formatRules}`,
+  'highschool': `Explain this for a high school student. Use clear language with some technical terms, and provide context.${formatRules}`,
+  'college': `Explain this for a college student. Be thorough, use proper terminology, and include relevant details.${formatRules}`,
+  'phd': `Explain this at an expert/PhD level. Be precise, use technical jargon, and include nuanced details.${formatRules}`,
+  'wiseman': `Explain this like a wise sage or philosopher. Be profound, use metaphors, and provide deeper insights about life and meaning.${formatRules}`
 }
 
 serve(async (req) => {
@@ -44,7 +56,7 @@ serve(async (req) => {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Please explain this text:\n\n${text}` }
       ],
-      max_tokens: 1000,
+      max_tokens: 2000,
       temperature: 0.7
     }
 
