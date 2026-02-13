@@ -7,7 +7,7 @@
 CREATE TABLE IF NOT EXISTS coupon_codes (
     id BIGSERIAL PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
-    benefit_type TEXT NOT NULL, -- 'unlimited' or 'months_free'
+    benefit_type TEXT NOT NULL, -- 'unlimited', 'months_free', or 'basic_plan'
     benefit_value INTEGER, -- NULL for unlimited, or number of months (3, 6, 12, etc.)
     is_active BOOLEAN DEFAULT TRUE,
     description TEXT, -- Optional description of the coupon
@@ -80,6 +80,17 @@ ON CONFLICT (code) DO UPDATE
 SET max_redemptions = EXCLUDED.max_redemptions,
     redemption_count = EXCLUDED.redemption_count;
 
+-- FIVERRAI: 25 redemptions (Fiverr developer AI testing, 1 month free)
+INSERT INTO coupon_codes (code, benefit_type, benefit_value, is_active, description, max_redemptions, redemption_count)
+VALUES ('FIVERRAI', 'months_free', 1, TRUE, 'Fiverr developer testing coupon - 1 month free AI access', 25, 0)
+ON CONFLICT (code) DO UPDATE
+SET benefit_type = EXCLUDED.benefit_type,
+    benefit_value = EXCLUDED.benefit_value,
+    description = EXCLUDED.description,
+    is_active = EXCLUDED.is_active,
+    max_redemptions = EXCLUDED.max_redemptions,
+    redemption_count = EXCLUDED.redemption_count;
+
 -- PASTE3: 2 redemptions (3 months free)
 INSERT INTO coupon_codes (code, benefit_type, benefit_value, is_active, description, max_redemptions, redemption_count)
 VALUES ('PASTE3', 'months_free', 3, TRUE, '3 months free AI access', 2, 0)
@@ -101,11 +112,15 @@ ON CONFLICT (code) DO UPDATE
 SET max_redemptions = EXCLUDED.max_redemptions,
     redemption_count = EXCLUDED.redemption_count;
 
--- REDDIT100: 100 redemptions (12 months free) - Reddit launch promo
+-- REDDIT100: 100 redemptions (BASIC plan only, no AI) - Reddit launch promo
 INSERT INTO coupon_codes (code, benefit_type, benefit_value, is_active, description, max_redemptions, redemption_count, expires_at)
-VALUES ('REDDIT100', 'months_free', 12, TRUE, 'Reddit launch promo - 1 year free AI access for first 100 users', 100, 0, '2026-06-12T23:59:59Z')
+VALUES ('REDDIT100', 'basic_plan', NULL, TRUE, 'Reddit launch promo - Basic plan access (no AI) for first 100 users', 100, 0, '2026-06-12T23:59:59Z')
 ON CONFLICT (code) DO UPDATE 
-SET max_redemptions = EXCLUDED.max_redemptions,
+SET benefit_type = EXCLUDED.benefit_type,
+    benefit_value = EXCLUDED.benefit_value,
+    description = EXCLUDED.description,
+    is_active = EXCLUDED.is_active,
+    max_redemptions = EXCLUDED.max_redemptions,
     redemption_count = EXCLUDED.redemption_count,
     expires_at = EXCLUDED.expires_at;
 

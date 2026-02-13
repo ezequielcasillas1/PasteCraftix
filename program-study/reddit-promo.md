@@ -5,17 +5,19 @@
 | Detail | Value |
 |---|---|
 | **Code** | `REDDIT100` |
-| **Benefit** | 1 year free AI access (all premium AI features) |
-| **Type** | `months_free` (12 months) |
+| **Benefit** | Basic plan access only (cloud sync, no AI features) |
+| **Type** | `basic_plan` |
 | **Max Redemptions** | 100 users |
 | **Expires** | June 12, 2026 |
 | **Status** | Active |
+
+> Note: AI-enabled testing coupons are reserved for Fiverr developer testing only.
 
 ## How Users Redeem
 1. Install PasteCraft extension from Chrome Web Store
 2. Sign up (Google or email)
 3. Open PasteCraft → Settings → enter coupon code `REDDIT100`
-4. Done — 1 year free AI access activated
+4. Done — Basic plan access activated (no AI entitlement)
 
 ## Tracking
 - **Check redemptions:** Supabase Dashboard → Table Editor → `coupon_redemptions`

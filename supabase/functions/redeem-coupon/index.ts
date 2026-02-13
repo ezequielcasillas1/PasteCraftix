@@ -115,6 +115,19 @@ serve(async (req) => {
       
       const monthText = months === 1 ? 'month' : 'months'
       message = `Coupon code redeemed! You now have free AI access for ${months} ${monthText}! 🎉`
+    } else if (coupon.benefit_type === 'basic_plan') {
+      // Grant BASIC tier only (cloud sync yes, AI no)
+      updateData.has_unlimited_ai = false
+      updateData.ai_access_expires_at = null
+
+      const existingTier = (existingSubscription?.subscription_tier || '').toLowerCase()
+      const hasPaidPremium = existingTier === 'premium' || existingTier === 'admin'
+      if (!hasPaidPremium) {
+        updateData.subscription_tier = 'basic'
+        updateData.subscription_status = 'active'
+      }
+
+      message = 'Coupon code redeemed! You now have Basic plan access (cloud sync, no AI).'
     } else {
       throw new Error(`Unknown benefit type: ${coupon.benefit_type}`)
     }

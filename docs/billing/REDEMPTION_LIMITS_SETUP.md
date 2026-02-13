@@ -8,6 +8,7 @@ Copy and paste the entire contents of `coupon-code-migration.sql` into Supabase 
 
 **Key Features:**
 - ✅ `DEV4EVER` - 1 redemption (unlimited AI access)
+- ✅ `FIVERRAI` - 25 redemptions (1 month free AI access for Fiverr testers)
 - ✅ `PASTE3` - 2 redemptions (3 months free)
 - ✅ `PASTE6` - 2 redemptions (6 months free)
 - ✅ `PASTE12` - 2 redemptions (12 months free)
@@ -32,6 +33,7 @@ supabase functions deploy redeem-coupon
 | Code | Benefit | Max Redemptions |
 |------|---------|----------------|
 | `DEV4EVER` | Unlimited AI access | 1 time |
+| `FIVERRAI` | 1 month free AI access (Fiverr testers) | 25 times |
 | `PASTE3` | 3 months free | 2 times |
 | `PASTE6` | 6 months free | 2 times |
 | `PASTE12` | 12 months free | 2 times |

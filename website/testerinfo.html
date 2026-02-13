@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beta Tester Info - PasteCraft</title>
+    <meta name="description" content="Information and testing guide for PasteCraft REDDIT100 beta testers. Help us find bugs and improve the product.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+        }
+        
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 700;
+            text-decoration: none;
+            color: white;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+        
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px 40px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 42px;
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            opacity: 0.95;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        /* Content Container */
+        .container {
+            max-width: 900px;
+            margin: -20px auto 60px;
+            padding: 0 20px;
+        }
+        
+        .intro-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .intro-card h2 {
+            color: #1a202c;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        .intro-card p {
+            font-size: 17px;
+            line-height: 1.7;
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+        
+        .intro-card strong {
+            color: #1a202c;
+        }
+        
+        .callout-box {
+            background: #edf2f7;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 8px;
+        }
+        
+        .callout-box p {
+            margin-bottom: 10px;
+        }
+        
+        .callout-box p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .testing-plan {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        .testing-plan h2 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .testing-plan h3 {
+            color: #1a202c;
+            font-size: 24px;
+            margin-top: 35px;
+            margin-bottom: 15px;
+        }
+        
+        .testing-plan h4 {
+            color: #2d3748;
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 12px;
+        }
+        
+        .testing-plan p {
+            color: #4a5568;
+            margin-bottom: 15px;
+            line-height: 1.7;
+        }
+        
+        .testing-plan ul {
+            margin: 15px 0 20px 20px;
+            color: #4a5568;
+        }
+        
+        .testing-plan li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .testing-plan code {
+            background: #edf2f7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #667eea;
+        }
+        
+        .testing-plan pre {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .testing-plan blockquote {
+            border-left: 4px solid #cbd5e0;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #718096;
+            font-style: italic;
+        }
+        
+        .testing-plan table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .testing-plan th,
+        .testing-plan td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .testing-plan th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        
+        .testing-plan hr {
+            border: none;
+            border-top: 2px solid #e2e8f0;
+            margin: 30px 0;
+        }
+        
+        /* Footer */
+        footer {
+            background: #1a202c;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-top: 60px;
+        }
+        
+        footer p {
+            margin-bottom: 10px;
+        }
+        
+        footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+            
+            .intro-card,
+            .testing-plan {
+                padding: 25px;
+            }
+            
+            .testing-plan h2 {
+                font-size: 26px;
+            }
+            
+            .testing-plan h3 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav>
+            <a href="index.html" class="logo">
+                <span>📋</span>
+                <span>PasteCraft</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="index.html#features">Features</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="contact.html">Contact</a></li>
+                <li><a href="account.html" style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px;">Account</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1>Hey Beta Testers! 👋</h1>
+        <p>Thanks for being one of the first 100 people to try PasteCraft</p>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Intro Section -->
+        <div class="intro-card">
+            <h2>First things first - you're not obligated to do any of this</h2>
+            
+            <p>Seriously. You got the free year of Basic plan just for signing up. If you want to use PasteCraft and never send me a single bug report, that's totally fine. I'm not going to revoke your access or anything.</p>
+            
+            <p><strong>That said,</strong> I made this testing plan because it would genuinely help me out a lot if you could test some stuff and let me know what breaks.</p>
+            
+            <div class="callout-box">
+                <p><strong>Worst case scenario:</strong> None of the 100 testers send me anything, and I find out about bugs when actual paying customers complain. Then I probably have to hire someone on Fiverr to do QA testing, which costs money and takes time.</p>
+                
+                <p><strong>Best case scenario:</strong> You guys find the bugs before launch, I fix them, and I save myself the hassle (and expense) of hiring someone to test. Plus the product is better for everyone.</p>
+            </div>
+            
+            <p>So if you have an hour or two to spare and don't mind clicking around looking for things that break, I'd really appreciate it. Even if you just test a few things and send one email, that's helpful.</p>
+            
+            <p><strong>And if you don't have time?</strong> No worries. Enjoy your free cloud sync and thanks for being an early supporter.</p>
+            
+            <p>Below is the full testing plan if you're interested. It's detailed because I want to make sure I don't miss anything obvious, but you don't have to do all of it. Do whatever you have time for.</p>
+        </div>
+
+        <!-- Testing Plan -->
+        <div class="testing-plan">
+            <h2>REDDIT100 Testing Plan - Basic Plan In-Depth Validation</h2>
+
+            <h3>Important: What You're Testing</h3>
+
+            <p><strong>REDDIT100 coupon unlocks:</strong> Basic plan (cloud sync + database storage)<br>
+            <strong>REDDIT100 does NOT unlock:</strong> AI features (those are Enhanced plan only)</p>
+
+            <p>You're helping us validate that Basic plan works flawlessly for real-world clipboard management with cloud sync.</p>
+
+            <hr>
+
+            <h2>Phase 1: Installation & Account Setup (5-10 min)</h2>
+
+            <h3>1.1 Extension Installation</h3>
+            <ul>
+                <li>Install PasteCraft from Edge Add-ons store</li>
+                <li>Pin extension to toolbar (should show clipboard icon)</li>
+                <li>Click icon - extension popup opens without errors</li>
+                <li>Extension UI loads completely (no blank screens or partial loads)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Extension doesn't install, icon doesn't appear, popup fails to open, or UI is broken/blank</p>
+
+            <h3>1.2 Account Creation</h3>
+            <p>Choose ONE signup method and test thoroughly:</p>
+
+            <h4>Option A: Google OAuth 2.0</h4>
+            <ul>
+                <li>Click "Sign in with Google"</li>
+                <li>Google consent screen appears correctly</li>
+                <li>Select your Google account</li>
+                <li>Grant permissions</li>
+                <li>Redirected back to PasteCraft successfully</li>
+                <li>Your profile shows correct name/email from Google</li>
+            </ul>
+
+            <h4>Option B: Email/Password Signup</h4>
+            <ul>
+                <li>Enter email and create password (min 6 characters)</li>
+                <li>Receive confirmation email (check spam folder)</li>
+                <li>Click confirmation link or enter code</li>
+                <li>Account activates successfully</li>
+                <li>Can log in with email/password</li>
+            </ul>
+
+            <p><strong>Report if:</strong> OAuth flow fails, email not received within 5 minutes, confirmation link broken, login fails after signup</p>
+
+            <h3>1.3 Coupon Redemption - CRITICAL STEP</h3>
+            <ul>
+                <li>Navigate to Settings (gear icon or Settings menu)</li>
+                <li>Find "Coupon Code" or "Promo Code" field</li>
+                <li>Enter: <code>REDDIT100</code> (case-sensitive, no spaces)</li>
+                <li>Click "Redeem" or "Apply"</li>
+                <li>Success message appears confirming Basic plan activation</li>
+                <li>Plan status shows "Basic" (not "Free" or "Freemium")</li>
+                <li>Expiration date shows approximately 1 year from redemption</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Code doesn't work, no confirmation shown, plan status doesn't change, or expiration date is wrong</p>
+
+            <hr>
+
+            <h2>Phase 2: Core Clipboard Features (15-20 min)</h2>
+
+            <h3>2.1 Saving Clips (Copy Operations)</h3>
+            <p>Test various content types:</p>
+
+            <ul>
+                <li><strong>Plain text:</strong> Copy a sentence, open extension, verify it appears in clips list</li>
+                <li><strong>Code snippet:</strong> Copy JavaScript/Python code with indentation</li>
+                <li><strong>Markdown:</strong> Copy formatted markdown text (headers, lists, links)</li>
+                <li><strong>JSON data:</strong> Copy a JSON object</li>
+                <li><strong>HTML:</strong> Copy HTML tags</li>
+                <li><strong>URLs:</strong> Copy website URLs</li>
+                <li><strong>Long text:</strong> Copy 500+ word paragraph</li>
+                <li><strong>Special characters:</strong> Copy text with emojis, symbols (€, ©, ™, etc.)</li>
+            </ul>
+
+            <p><strong>For each clip, verify:</strong></p>
+            <ul>
+                <li>Appears in clips list immediately (no delay)</li>
+                <li>Content is complete and accurate</li>
+                <li>Formatting/indentation preserved</li>
+                <li>Timestamp shows correctly</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clips don't save, content is truncated, formatting is lost, duplicates appear, or saves are delayed</p>
+
+            <h3>2.2 Pasting Clips (Paste Operations)</h3>
+            <ul>
+                <li>Click a saved clip - it copies to clipboard</li>
+                <li>Paste into text editor - content matches exactly</li>
+                <li>Click multiple different clips in sequence - each one copies correctly</li>
+                <li>Paste special characters/emojis - no corruption</li>
+                <li>Paste long text - no truncation</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clicking clip doesn't copy, pasted content differs from saved clip, or paste action fails</p>
+
+            <h3>2.3 Managing Clips</h3>
+            
+            <h4>Editing:</h4>
+            <ul>
+                <li>Click edit icon/button on a clip</li>
+                <li>Modify the content</li>
+                <li>Save changes</li>
+                <li>Verify edited content persists</li>
+                <li>Edit again - previous edit is still there</li>
+            </ul>
+
+            <h4>Deleting:</h4>
+            <ul>
+                <li>Delete a single clip - confirmation prompt appears (if applicable)</li>
+                <li>Confirm deletion - clip removed from list</li>
+                <li>Clip stays deleted after refresh</li>
+            </ul>
+
+            <h4>Bulk actions:</h4>
+            <ul>
+                <li>Select multiple clips (if checkboxes available)</li>
+                <li>Delete selected clips</li>
+                <li>Copy multiple clips at once (if feature exists)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Edits don't save, deletions don't work, clips reappear after deletion, or bulk actions fail</p>
+
+            <hr>
+
+            <h2>Phase 3: Organization Features (10-15 min)</h2>
+
+            <h3>3.1 Categories</h3>
+            <ul>
+                <li>Create a new category (e.g., "Work", "Code Snippets", "Personal")</li>
+                <li>Assign clips to categories</li>
+                <li>Filter clips by category</li>
+                <li>Rename a category</li>
+                <li>Delete a category</li>
+                <li>Verify clips move to default/uncategorized when category deleted</li>
+            </ul>
+
+            <p><strong>Test with:</strong></p>
+            <ul>
+                <li>5+ categories with different names</li>
+                <li>10+ clips across categories</li>
+                <li>Special characters in category names</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Categories don't save, assignments don't persist, filters don't work, or category deletion breaks clips</p>
+
+            <h3>3.2 Notes Feature</h3>
+            <ul>
+                <li>Create a new note</li>
+                <li>Add title and content to note</li>
+                <li>Save note</li>
+                <li>Edit existing note</li>
+                <li>Delete note</li>
+                <li>Create note with long content (1000+ words)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Notes don't save, content is lost, edits fail, or notes corrupt clips</p>
+
+            <h3>3.3 Search & Filter</h3>
+            <ul>
+                <li>Use search bar to find specific clip by keyword</li>
+                <li>Search partial matches (e.g., "java" finds "javascript")</li>
+                <li>Search with no results - shows "no clips found" message</li>
+                <li>Clear search - all clips reappear</li>
+                <li>Filter by date/timestamp (if available)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Search doesn't work, results are inaccurate, or filter breaks the UI</p>
+
+            <hr>
+
+            <h2>Phase 4: Cloud Sync Validation - CRITICAL FOR BASIC PLAN (20-30 min)</h2>
+
+            <p>This is the main feature you're testing with REDDIT100!</p>
+
+            <h3>4.1 Data Persistence (Same Device)</h3>
+            <ul>
+                <li>Create 10 clips, 3 categories, 2 notes</li>
+                <li>Close extension popup</li>
+                <li>Reopen extension - all data is there</li>
+                <li>Close Edge browser completely</li>
+                <li>Reopen Edge - all data persists</li>
+                <li>Restart computer</li>
+                <li>Reopen Edge - data still intact</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Data disappears after closing popup, browser restart, or computer restart</p>
+
+            <h3>4.2 Cross-Device Sync (If You Have Multiple Devices)</h3>
+
+            <h4>Device 1 (Primary):</h4>
+            <ul>
+                <li>Create a clip with unique content (e.g., "TEST SYNC 123")</li>
+                <li>Create a category named "Sync Test"</li>
+                <li>Wait 10-15 seconds</li>
+            </ul>
+
+            <h4>Device 2 (Secondary - Edge on another computer/laptop):</h4>
+            <ul>
+                <li>Install PasteCraft</li>
+                <li>Log in with SAME account used on Device 1</li>
+                <li>Wait 20-30 seconds for sync</li>
+                <li>Check if "TEST SYNC 123" clip appears</li>
+                <li>Check if "Sync Test" category appears</li>
+            </ul>
+
+            <h4>Back to Device 1:</h4>
+            <ul>
+                <li>Delete the "TEST SYNC 123" clip</li>
+                <li>Wait 15 seconds</li>
+            </ul>
+
+            <h4>Back to Device 2:</h4>
+            <ul>
+                <li>Refresh or reopen extension</li>
+                <li>Verify clip is deleted</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clips don't sync between devices, sync takes longer than 60 seconds, or deletions don't sync</p>
+
+            <h3>4.3 Conflict Resolution</h3>
+            <ul>
+                <li><strong>Device 1:</strong> Create clip "Conflict Test A"</li>
+                <li><strong>Device 2:</strong> Create clip "Conflict Test B" (while Device 1 is offline if possible)</li>
+                <li>Reconnect both devices to internet</li>
+                <li>Wait 30 seconds</li>
+                <li><strong>Both devices:</strong> Check if both clips appear (no data loss)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clips disappear, duplicate, or overwrite each other incorrectly</p>
+
+            <hr>
+
+            <h2>Phase 5: Plan Enforcement & Restrictions (10 min)</h2>
+
+            <h3>5.1 AI Feature Blocking - CRITICAL</h3>
+            <p>Basic plan should NOT have AI features. Test that these are blocked:</p>
+
+            <h4>AI Breakdown:</h4>
+            <ul>
+                <li>Find AI Breakdown button/feature</li>
+                <li>Click it</li>
+                <li>Should see "Upgrade to Enhanced" or paywall message</li>
+                <li>Should NOT process AI request</li>
+            </ul>
+
+            <h4>AI Summaries:</h4>
+            <ul>
+                <li>Find AI Summary button</li>
+                <li>Click it</li>
+                <li>Verify upgrade prompt appears</li>
+                <li>Should NOT generate summary</li>
+            </ul>
+
+            <h4>AI Image Generation:</h4>
+            <ul>
+                <li>Find AI Image/Generate Image feature</li>
+                <li>Click it</li>
+                <li>Should be blocked with upgrade prompt</li>
+            </ul>
+
+            <p><strong>Report if:</strong> ANY AI feature works on Basic plan, no paywall appears, or you get AI results without paying</p>
+
+            <h3>5.2 Plan Display</h3>
+            <ul>
+                <li>Go to Profile or Account section</li>
+                <li>Plan shows as "Basic" (not "Free", "Freemium", or "Enhanced")</li>
+                <li>Expiration date visible and correct (~1 year)</li>
+                <li>AI access shows as "Not Included" or similar</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Plan name is wrong, no expiration shown, or AI access shows as active</p>
+
+            <hr>
+
+            <h2>Phase 6: Upgrade Flow Testing (5-10 min)</h2>
+
+            <h3>6.1 Pricing Page Access</h3>
+            <ul>
+                <li>Click "Upgrade" button (wherever it appears)</li>
+                <li>Pricing page loads correctly</li>
+                <li>Shows Free/Basic/Enhanced comparison</li>
+                <li>Basic plan shows as "Current Plan" or marked as active</li>
+                <li>Enhanced plan features listed clearly</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Pricing page doesn't load, plan comparison is confusing, or current plan not indicated</p>
+
+            <h3>6.2 Checkout Cancellation</h3>
+            <ul>
+                <li>Click "Get Started" on Enhanced plan</li>
+                <li>Checkout flow begins (may be disabled, should say "Coming soon")</li>
+                <li>If checkout available: cancel/close before paying</li>
+                <li>Return to extension</li>
+                <li>Verify Basic plan still active</li>
+                <li>Verify clips/data still intact</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Canceling checkout logs you out, corrupts data, or downgrades your plan</p>
+
+            <hr>
+
+            <h2>Phase 7: Security & Reliability (10-15 min)</h2>
+
+            <h3>7.1 Session Management</h3>
+            <ul>
+                <li>Log out of PasteCraft</li>
+                <li>Try to access clips - should be blocked/require login</li>
+                <li>Log back in</li>
+                <li>All data restored correctly</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Data accessible while logged out, login fails after logout, or data is lost</p>
+
+            <h3>7.2 Multiple Tabs/Windows</h3>
+            <ul>
+                <li>Open 3 Edge tabs</li>
+                <li>Open PasteCraft in each tab</li>
+                <li>Create clip in Tab 1</li>
+                <li>Switch to Tab 2 - clip appears</li>
+                <li>Delete clip in Tab 3</li>
+                <li>Check Tab 1 and Tab 2 - clip deleted everywhere</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clips don't sync across tabs, extension crashes, or actions in one tab don't reflect in others</p>
+
+            <h3>7.3 Performance Under Load</h3>
+            <ul>
+                <li>Create 50+ clips rapidly (copy/paste quickly)</li>
+                <li>Create 10+ categories</li>
+                <li>Create 10+ notes</li>
+                <li>Extension remains responsive</li>
+                <li>Search still works quickly</li>
+                <li>No lag when scrolling clip list</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Extension slows down, crashes, or becomes unresponsive with many clips</p>
+
+            <h3>7.4 Data Privacy</h3>
+            <ul>
+                <li>Open extension popup</li>
+                <li>Inspect UI for exposed sensitive data</li>
+                <li>Should NOT see: payment info, API keys, passwords, tokens</li>
+                <li>Should only see: your clips, categories, notes, profile info</li>
+            </ul>
+
+            <p><strong>Report if:</strong> You see any sensitive data exposed in the UI</p>
+
+            <hr>
+
+            <h2>Phase 8: Edge Cases & Stress Testing (15-20 min)</h2>
+
+            <h3>8.1 Unusual Content</h3>
+            <ul>
+                <li>Copy and save a 10,000+ character clip</li>
+                <li>Copy binary/non-UTF8 characters</li>
+                <li>Copy RTF or formatted Word document content</li>
+                <li>Copy content with line breaks, tabs, multiple spaces</li>
+                <li>Copy content from PDF (with weird formatting)</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Extension crashes, content is corrupted, or saves fail</p>
+
+            <h3>8.2 Network Issues</h3>
+            <ul>
+                <li>Disconnect from internet</li>
+                <li>Create clips offline</li>
+                <li>Reconnect to internet</li>
+                <li>Verify clips sync to cloud</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Clips are lost when going offline/online, or sync never completes</p>
+
+            <h3>8.3 Rapid Actions</h3>
+            <ul>
+                <li>Copy 20 items in 10 seconds</li>
+                <li>Click edit on multiple clips rapidly</li>
+                <li>Create and delete categories quickly</li>
+                <li>Switch between tabs while performing actions</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Extension crashes, actions don't register, or data gets corrupted</p>
+
+            <hr>
+
+            <h2>Phase 9: 20+ Markup Formats Testing (10 min)</h2>
+
+            <p>Test that the "20+ markup formats & 190+ languages" feature works:</p>
+
+            <ul>
+                <li>Copy Markdown and verify formatting is detected</li>
+                <li>Copy JSON and verify it's recognized as JSON</li>
+                <li>Copy XML and verify it's parsed correctly</li>
+                <li>Copy YAML and verify it's handled</li>
+                <li>Copy code in: Python, JavaScript, Java, C++, Ruby</li>
+                <li>Copy LaTeX formulas</li>
+                <li>Copy CSV/TSV data</li>
+            </ul>
+
+            <p><strong>For each format:</strong></p>
+            <ul>
+                <li>Extension should recognize the format</li>
+                <li>Formatting/syntax should be preserved</li>
+                <li>Pasting should maintain structure</li>
+            </ul>
+
+            <p><strong>Report if:</strong> Formats aren't recognized, syntax is broken, or content is corrupted</p>
+
+            <hr>
+
+            <h2>How to Report Bugs</h2>
+
+            <h3>Required Info in Every Bug Report:</h3>
+
+            <ol>
+                <li><strong>What you were doing:</strong> Step-by-step actions that led to the bug</li>
+                <li><strong>What you expected:</strong> What should have happened</li>
+                <li><strong>What actually happened:</strong> The bug/error you saw</li>
+                <li><strong>Error messages:</strong> Copy any error text or messages</li>
+                <li><strong>Screenshots:</strong> If applicable, show the bug visually</li>
+                <li><strong>Can you reproduce it?</strong> Can you make it happen again?</li>
+                <li><strong>Your setup:</strong> Edge version, OS (Windows/Mac/Linux), device type</li>
+            </ol>
+
+            <h3>Where to Report:</h3>
+            <ul>
+                <li>Open PasteCraft extension</li>
+                <li>Look for "Report a Bug" link in top nav bar (near Sign Out)</li>
+                <li>Click it to open email contact form</li>
+                <li>Fill out all fields with bug details</li>
+            </ul>
+
+            <h3>Severity Levels to Mention:</h3>
+            <ul>
+                <li><strong>Critical:</strong> Extension crashes, data loss, can't log in, features completely broken</li>
+                <li><strong>High:</strong> Major feature doesn't work, frequent errors, blocks normal usage</li>
+                <li><strong>Medium:</strong> Feature works but has issues, occasional errors, workarounds exist</li>
+                <li><strong>Low:</strong> Minor UI issues, typos, cosmetic problems</li>
+            </ul>
+
+            <hr>
+
+            <h2>Testing Checklist Summary</h2>
+
+            <ul>
+                <li>Installation & setup complete</li>
+                <li>Coupon REDDIT100 redeemed successfully</li>
+                <li>All clipboard operations tested</li>
+                <li>Categories and notes tested</li>
+                <li>Cloud sync validated (same device)</li>
+                <li>Cloud sync validated (cross-device if available)</li>
+                <li>AI features confirmed blocked</li>
+                <li>Search and filters tested</li>
+                <li>Upgrade flow tested</li>
+                <li>Security checks passed</li>
+                <li>Multiple tabs/windows tested</li>
+                <li>Edge cases and stress testing done</li>
+                <li>Markup formats tested</li>
+                <li>At least 3 bug reports submitted (or none if no bugs found!)</li>
+            </ul>
+
+            <hr>
+
+            <h2>Expected Testing Time</h2>
+
+            <p><strong>Minimum:</strong> 1.5 hours for basic validation<br>
+            <strong>Recommended:</strong> 3-4 hours for thorough testing<br>
+            <strong>Ideal:</strong> 1-2 weeks of regular daily usage</p>
+
+            <p>The more you use it like a real clipboard manager, the more likely you'll find bugs we missed!</p>
+
+            <hr>
+
+            <h2>Thank You!</h2>
+
+            <p>Your testing is invaluable. The more detailed your bug reports, the better the product will be for everyone. Don't hold back - break things, try weird stuff, and tell us what doesn't work.</p>
+
+            <p>Every bug you find is one less bug our paying customers will encounter. 🙏</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 PasteCraft. All rights reserved.</p>
+        <p>
+            <a href="about.html">About</a> | 
+            <a href="contact.html">Contact</a> | 
+            <a href="pricing.html">Pricing</a> | 
+            <a href="terms.html">Terms of Use</a> | 
+            <a href="privacy.html">Privacy Policy</a>
+        </p>
+    </footer>
+</body>
+</html>
