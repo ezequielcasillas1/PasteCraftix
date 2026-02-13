@@ -2593,6 +2593,7 @@ class PasteCraftFloatingWidget {
     this.createWidget();
     console.log('✅ Widget created successfully');
     this.loadSavedPosition();
+    this.setupWidgetDrag();
     this.setupStorageSync();
     this.setupClickAndDragCapture();
     this.setupAiHelperCopyListener();
@@ -2834,6 +2835,9 @@ class PasteCraftFloatingWidget {
     // Add styles
     this.addStyles();
     
+    // Hide widget until saved position is loaded (prevents flash at default position)
+    this.widget.style.visibility = 'hidden';
+    
     // Append to body
     document.body.appendChild(this.widget);
 
@@ -3051,6 +3055,18 @@ class PasteCraftFloatingWidget {
       
       .pastecraft-widget {
         animation: widget-fade-in 0.4s ease-out;
+        cursor: grab;
+      }
+
+      /* While dragging the widget */
+      .pastecraft-widget.pc-dragging {
+        cursor: grabbing;
+        transition: none !important;
+      }
+
+      /* Keep pointer cursor on interactive components */
+      .pastecraft-widget .widget-component {
+        cursor: pointer;
       }
 
       /* =====================================================
@@ -3895,7 +3911,72 @@ class PasteCraftFloatingWidget {
     
     console.log('🎯 All event listeners setup complete!');
   }
-  
+
+  /**
+   * Makes the widget draggable from its free space (gaps/padding between buttons).
+   * Clicking directly on a .widget-component still triggers that button's action.
+   */
+  setupWidgetDrag() {
+    if (!this.widget) return;
+    if (this._widgetDragBound) return;
+    this._widgetDragBound = true;
+
+    let dragging = false;
+    let pointerStartY = 0;
+    let startTopPct = 0;
+    const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
+    let moved = false;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      const dy = e.clientY - pointerStartY;
+      if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
+      moved = true;
+      this.widget.classList.add('pc-dragging');
+
+      // Convert dy pixels to viewport-height percentage
+      const vh = window.innerHeight || 1;
+      let nextPct = startTopPct + (dy / vh) * 100;
+      // Clamp so the widget stays fully visible
+      const widgetH = this.widget.offsetHeight || 0;
+      const minPct = (widgetH / 2 / vh) * 100;
+      const maxPct = 100 - minPct;
+      nextPct = Math.max(minPct, Math.min(nextPct, maxPct));
+
+      this.widget.style.top = nextPct + '%';
+      this.position.top = nextPct;
+    };
+
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      this.widget.classList.remove('pc-dragging');
+      document.body.style.userSelect = '';
+      if (moved) {
+        this.savePosition();
+      }
+    };
+
+    this.widget.addEventListener('pointerdown', (e) => {
+      // Only initiate drag from free space — skip if target is a button/component
+      if (e.target.closest('.widget-component')) return;
+      if (e.button !== 0) return; // left click only
+
+      dragging = true;
+      moved = false;
+      pointerStartY = e.clientY;
+      startTopPct = this.position.top ?? 50;
+
+      try { this.widget.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault();
+      document.body.style.userSelect = 'none';
+    });
+
+    this.widget.addEventListener('pointermove', onMove);
+    this.widget.addEventListener('pointerup', onUp);
+    this.widget.addEventListener('pointercancel', onUp);
+  }
+
   ensurePageDockStyles() {
     // Inject once per page/tab
     if (document.getElementById('pastecraft-page-dock-styles')) return;
@@ -3959,7 +4040,8 @@ class PasteCraftFloatingWidget {
     console.log('🎨 Opening popup overlay (slide-in from right)');
     
     // Check if overlay already exists
-    if (document.getElementById('pastecraft-popup-overlay')) {
+    const existingOverlay = document.getElementById('pastecraft-popup-overlay');
+    if (existingOverlay) {
       console.log('⚠️ Overlay already exists');
       return;
     }
@@ -6729,6 +6811,10 @@ class PasteCraftFloatingWidget {
         this.position = result.widgetPosition;
         this.widget.style.top = this.position.top + '%';
         console.log('📍 Widget position loaded:', this.position.top + '%');
+      }
+      // Show widget now that position is resolved (prevents flash at default spot)
+      if (this.widget) {
+        this.widget.style.visibility = 'visible';
       }
     });
   }

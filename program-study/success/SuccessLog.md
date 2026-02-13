@@ -212,6 +212,11 @@
 **Files:** extension/popup.js
 **Result:** 4 example clips (LaTeX, Mermaid, JS code, Markdown), 4 categories (proper objects), 4 notes — all labeled [Example] with delete prompts. Replaced old 12-clip/5-cat/8-note seed.
 
+### Feb 12, 2026 - Production Presets: Categories, Clips, Notes & Albums
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Replaced old 4-cat/4-clip/4-note seed with production-ready presets. 8 categories based on most-copied clipboard items (research-backed). 8 clips (4 markup + 4 common). 4 notes (2 notes + 2 albums) showcasing albums feature with noteRefs.
+
 ### Feb 11, 2026 - AI Rich Markup Rendering (LaTeX, Diagrams, Tables)
 **Status:** ✅ SUCCESS
 **Files:** ai-summary/index.ts, ai-breakdown/index.ts, popup.js, popup.html
@@ -221,3 +226,13 @@
 **Status:** ✅ SUCCESS
 **Files:** popup.html, popup.js
 **Result:** Added AI History tab with persistent storage (pc_aiHistory_v1). Auto-saves summary/breakdown conversations with all threads. AI-generated titles via existing ai-summary endpoint. History viewer modal reuses breakdown modal pattern with pagination boxes, rich markup rendering, and copy support.
+
+### Feb 12, 2026 - Skip to PasteCraft (Freemium Guest Mode)
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js, styles.css
+**Result:** "Skip to PasteCraft" button on auth screen enables freemium local-only mode. Guest state persists across sessions. Support forms show account-required notice for email priority. Guest flag auto-clears on sign-in/sign-out.
+
+### Feb 12, 2026 - DEV4EVER Subscription Hang Fix (Upgrade Banner + AI Blocked)
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** Supabase auth session was stuck/hanging, causing `getUserSubscription()` to never resolve. Added 3s timeout + direct REST fallback (`_getUserSubscriptionDirect`) using stored access token from chrome.storage. Matches existing guardrail pattern in `getCurrentUser()`. Banner now hides correctly and AI features work.

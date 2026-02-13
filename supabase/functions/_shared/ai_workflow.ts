@@ -169,6 +169,30 @@ export async function fetchChatCompletionsWithModelFallback(
   throw new Error(msg);
 }
 
+// ── Weighted Credit Costs Per Model ────────────────────────────
+// Cost is based on real API pricing (input + output per call).
+// Cheapest baseline ≈ 25 credits; scales with actual $/call ratio.
+
+const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
+  openai: {
+    default:   40,   // GPT-4o Mini
+    cheapest:  25,   // GPT-5 Nano
+    gpt5_mini: 200,  // GPT-5 Mini
+    latest:    500,  // GPT-5.2
+  },
+  google: {
+    default:    40,   // Gemini 2.0 Flash
+    cheapest:   25,   // Gemini 2.0 Flash Lite
+    gemini_pro: 350,  // Gemini 2.5 Pro
+    latest:     100,  // Gemini 2.5 Flash
+  },
+};
+
+/** Return the weighted credit cost for a single AI text call. */
+export function getTextCreditCost(provider: AiWorkflowProvider = 'openai', preset: AiWorkflowPreset = 'default'): number {
+  return CREDIT_COST[provider]?.[preset] ?? CREDIT_COST.openai.default;
+}
+
 // ── Text Credit Enforcement Helpers ────────────────────────────
 
 const TEXT_CREDITS_CORS = {
@@ -185,17 +209,20 @@ function parseBearerToken(authHeader: string | null): string {
 
 function computeTextCreditsLimitFallback(resetAtIso: string | null): number {
   try {
-    if (!resetAtIso) return 250;
+    if (!resetAtIso) return 10_000;
     const resetMs = Date.parse(resetAtIso);
-    if (!Number.isFinite(resetMs)) return 250;
+    if (!Number.isFinite(resetMs)) return 10_000;
     const diffDays = (resetMs - Date.now()) / 86400000;
-    if (diffDays <= 10) return 100;
-    if (diffDays <= 40) return 250;
-    return 2500;
+    if (diffDays <= 10) return 4_000;
+    if (diffDays <= 40) return 10_000;
+    return 100_000;
   } catch (_) {
-    return 250;
+    return 10_000;
   }
 }
+
+// Legacy flat-credit limits → weighted-credit limits (one-time migration)
+const LEGACY_LIMIT_MAP = new Map<number, number>([[100, 4_000], [250, 10_000], [2500, 100_000]]);
 
 export type TextCreditGate = {
   user: any;
@@ -328,6 +355,22 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     }
   }
 
+  // Migrate legacy flat-credit limits to weighted scale
+  if (!unlimited && LEGACY_LIMIT_MAP.has(creditsLimit)) {
+    const newLimit = LEGACY_LIMIT_MAP.get(creditsLimit)!;
+    const scaledUsed = Math.round(creditsUsed * 40);
+    creditsLimit = newLimit;
+    creditsUsed = scaledUsed;
+    await supabase
+      .from('user_subscriptions')
+      .update({
+        ai_text_credits_limit: newLimit,
+        ai_text_credits_used: scaledUsed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
+  }
+
   if (!unlimited) {
     const remaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed));
     if (remaining <= 0) {
@@ -343,13 +386,15 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
 
 /**
  * Decrement text credits after a successful AI call (compare-and-set with retry).
+ * @param cost Weighted credit cost for the model used (default 40).
  * Returns { creditsRemaining, creditsLimit, creditsResetAt }.
  */
-export async function decrementTextCredits(gate: TextCreditGate): Promise<{ creditsRemaining: number | null; creditsLimit: number | null; creditsResetAt: string | null }> {
+export async function decrementTextCredits(gate: TextCreditGate, cost: number = 40): Promise<{ creditsRemaining: number | null; creditsLimit: number | null; creditsResetAt: string | null }> {
   if (gate.unlimited) {
     return { creditsRemaining: null, creditsLimit: null, creditsResetAt: gate.resetAtIso };
   }
 
+  const safeCost = Math.max(1, Math.round(cost));
   let { creditsUsed, creditsLimit, resetAtIso, supabase, userId } = gate;
   let creditsLimitOut: number | null = Number.isFinite(creditsLimit) ? creditsLimit : null;
   let creditsResetAt: string | null = resetAtIso;
@@ -357,7 +402,7 @@ export async function decrementTextCredits(gate: TextCreditGate): Promise<{ cred
   let updatedUsed: number | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const expectedUsed = creditsUsed;
-    const nextUsed = expectedUsed + 1;
+    const nextUsed = expectedUsed + safeCost;
 
     const { data: updated, error: updErr } = await supabase
       .from('user_subscriptions')
@@ -390,7 +435,7 @@ export async function decrementTextCredits(gate: TextCreditGate): Promise<{ cred
     resetAtIso = refetched?.ai_text_credits_reset_at ? new Date(refetched.ai_text_credits_reset_at).toISOString() : resetAtIso;
   }
 
-  const finalUsed = updatedUsed ?? (creditsUsed + 1);
+  const finalUsed = updatedUsed ?? (creditsUsed + safeCost);
   const finalLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit);
   const creditsRemaining = Math.max(0, finalLimit - Math.max(0, finalUsed));
 

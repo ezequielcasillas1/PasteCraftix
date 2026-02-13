@@ -637,6 +637,9 @@ class PasteCraftPopup {
     // Auth preferences (local-only; never store passwords)
     this._authPrefsKey = 'pc_auth_prefs_v1';
 
+    // Freemium guest mode (skipped login)
+    this._isFreemiumGuest = false;
+
     // Restore points (local snapshots)
     this._restorePointsKey = 'pc_restore_points_v1';
     this._lastRestoreAtKey = 'pc_last_restore_at';
@@ -681,19 +684,25 @@ class PasteCraftPopup {
   // AI WORKFLOW (provider + preset) - versioned storage
   // =====================================================
 
+  // Weighted credit cost per AI text call (mirrors server CREDIT_COST map)
+  static AI_CREDIT_COSTS = {
+    openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500 },
+    google: { default: 40, cheapest: 25, gemini_pro: 350, latest: 100 },
+  };
+
   // Provider → preset options mapping (single source of truth)
   static AI_PROVIDER_PRESETS = {
     openai: [
-      { value: 'default',   label: 'Default (4o-mini)' },
-      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano)' },
-      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini)' },
-      { value: 'latest',    label: 'Latest (GPT-5.2)' },
+      { value: 'default',   label: 'Default (4o-mini) · 40 cr' },
+      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) · 25 cr' },
+      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) · 200 cr' },
+      { value: 'latest',    label: 'Latest (GPT-5.2) · 500 cr' },
     ],
     google: [
-      { value: 'default',        label: 'Default (Gemini 2.0 Flash)' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash‑Lite)' },
-      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro)' },
-      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash)' },
+      { value: 'default',        label: 'Default (Gemini 2.0 Flash) · 40 cr' },
+      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash‑Lite) · 25 cr' },
+      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) · 350 cr' },
+      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) · 100 cr' },
     ],
     anthropic: [
       { value: 'default', label: 'Default (Coming Soon)' },
@@ -1117,11 +1126,42 @@ class PasteCraftPopup {
     this.setupAuthModalEvents();
     this.setupPinModalEvents();
     
+    // ─── V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ───
+    let isLocalGuest = false;
+    try {
+      const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
+      isLocalGuest = !!pc_freemium_guest;
+    } catch (_) {}
+
+    if (isLocalGuest) {
+      // Actively clear any stale cloud auth state so it can't interfere later
+      try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
+      try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
+      // Go straight to local mode — no cloud auth calls at all
+      this._isFreemiumGuest = true;
+      this.currentUser = null;
+      this.userSubscription = null;
+      document.getElementById('topBar').style.display = 'flex';
+      await Promise.all([this.loadData(), this.loadSettings()]);
+      this.updateTopBarIdentity();
+      this.setupEventListeners();
+      this.renderChips();
+      this.updateLastCapture();
+      this.updatePreview();
+      this.renderCategories();
+      this.updateCategoryFilter();
+      this.hideLoadingOverlay();
+      this.setupVisibilityListener();
+      Promise.resolve().then(() => this.cleanupOldClips()).catch(() => {});
+      return;
+    }
+
+    // ─── CLOUD AUTH PATH (only reached when NOT in local mode) ───
+    
     // Check if this is a password reset callback from storage
     const resetCallback = await this.checkPasswordResetCallback();
     if (resetCallback) {
       console.log('🔑 Password reset callback detected from storage');
-      // Show new password modal
       this.hideLoadingOverlay();
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
@@ -1140,16 +1180,11 @@ class PasteCraftPopup {
     
     if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery') {
       console.log('🔑 Password reset callback detected from URL');
-      
-      // If tokens are in URL hash, set the session
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
-      
       if (accessToken) {
         await this.setPasswordResetSession(accessToken, refreshToken);
       }
-      
-      // Show new password modal
       this.hideLoadingOverlay();
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
@@ -1158,12 +1193,14 @@ class PasteCraftPopup {
     // Check for OAuth callback tokens
     await this.checkOAuthCallback();
 
-    // Best-effort: restore database auth session from the session bridge.
-    // This prevents "blank sign-in" after browser restart when a refresh token exists.
+    // Best-effort: restore database auth session from the session bridge (non-blocking).
+    // Runs in background so startup is not delayed; getCurrentUser uses bridge fast path.
     try {
       const prefs = await this.loadAuthPrefs();
       if (prefs.staySignedIn !== false) {
-        await this.restoreSupabaseSessionFromBridge('startup');
+        Promise.resolve()
+          .then(() => this.restoreSupabaseSessionFromBridge('startup'))
+          .catch(() => {});
       }
     } catch (_) {}
 
@@ -1171,7 +1208,7 @@ class PasteCraftPopup {
     const currentUser = await pasteCraftSupabase.getCurrentUser();
     
     if (!currentUser) {
-      // Show auth modal
+      // Show auth modal (no freemium fallback here — that's handled by the mode gate above)
       this.showAuthModal();
       return;
     }
@@ -1391,11 +1428,41 @@ class PasteCraftPopup {
     };
   }
 
+  /** Update the label text of a credit pill without destroying child elements (tooltips). */
+  _setPillLabel(el, text) {
+    // Find or create the first text node to hold the label.
+    const firstTextNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+    if (firstTextNode) {
+      firstTextNode.textContent = text + ' ';
+    } else {
+      el.insertBefore(document.createTextNode(text + ' '), el.firstChild);
+    }
+  }
+
+  /** Build provider-aware cost breakdown HTML for the text-credits tooltip. */
+  _buildCreditCostHtml() {
+    const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
+    const provider = cfg.provider || 'openai';
+    const costs = PasteCraftPopup.AI_CREDIT_COSTS[provider] || PasteCraftPopup.AI_CREDIT_COSTS.openai;
+    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
+    const providerName = provider === 'google' ? 'Google Gemini' : 'OpenAI';
+
+    const lines = presets
+      .filter(p => costs[p.value] !== undefined)
+      .map(p => {
+        // Strip the " · XX cr" suffix we added to labels to get the clean model name
+        const cleanLabel = p.label.replace(/\s*·\s*\d+\s*cr$/i, '');
+        return `${cleanLabel} · <strong>${costs[p.value]}</strong> cr`;
+      });
+
+    return `<strong>${providerName} — Cost per call:</strong><br>` + lines.join('<br>');
+  }
+
   updateAiCreditsPills(source = '') {
     const imgEl = document.getElementById('aiCreditsPill');
     if (imgEl) {
       const view = this._computeAiImageCreditsView(this.userSubscription);
-      imgEl.textContent = view.text;
+      this._setPillLabel(imgEl, view.text);
       imgEl.title = view.title || imgEl.title || '';
       imgEl.classList.remove('is-muted', 'is-low', 'is-empty');
       if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => imgEl.classList.add(c));
@@ -1404,10 +1471,16 @@ class PasteCraftPopup {
     const textEl = document.getElementById('aiTextCreditsPill');
     if (textEl) {
       const view = this._computeAiTextCreditsView(this.userSubscription);
-      textEl.textContent = view.text;
+      this._setPillLabel(textEl, view.text);
       textEl.title = view.title || textEl.title || '';
       textEl.classList.remove('is-muted', 'is-low', 'is-empty');
       if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => textEl.classList.add(c));
+
+      // Inject dynamic model-cost breakdown into the tooltip
+      const costsEl = document.getElementById('aiTextCreditsCosts');
+      if (costsEl) {
+        costsEl.innerHTML = this._buildCreditCostHtml();
+      }
     }
 
     if (source) {
@@ -2394,25 +2467,37 @@ class PasteCraftPopup {
     let { clips = [], categories = [], searchOnlyClips = [] } = result;
     let normalizedChanged = false;
 
-    // ── DEMO SEED: Example clips & categories (PC 1.0 release) ──
-    // These are starter examples to showcase features. Users should delete them.
+    // ── DEMO SEED: Preset categories + example clips (PC 1.0 release) ──
+    // Research-backed preset categories based on most commonly copied/pasted
+    // clipboard items: code, links, emails, AI prompts, reference info, math,
+    // diagrams, and docs. 4 markup demo clips + 4 common-use clips.
     if (clips.length === 0 && categories.length === 0) {
       const now = Date.now();
       categories = [
-        { id: now - 400000, name: '📐 Math & Science [Example]', icon: '📐', createdAt: now - 400000, updatedAt: now - 400000 },
-        { id: now - 300000, name: '🔀 Diagrams [Example]', icon: '🔀', createdAt: now - 300000, updatedAt: now - 300000 },
-        { id: now - 200000, name: '💻 Code Snippets [Example]', icon: '💻', createdAt: now - 200000, updatedAt: now - 200000 },
-        { id: now - 100000, name: '📝 Notes & Docs [Example]', icon: '📝', createdAt: now - 100000, updatedAt: now - 100000 }
+        { id: now - 800000, name: '💻 Code Snippets', icon: '💻', createdAt: now - 800000, updatedAt: now - 800000 },
+        { id: now - 700000, name: '🔗 Links & URLs', icon: '🔗', createdAt: now - 700000, updatedAt: now - 700000 },
+        { id: now - 600000, name: '📧 Email Templates', icon: '📧', createdAt: now - 600000, updatedAt: now - 600000 },
+        { id: now - 500000, name: '🤖 AI Prompts', icon: '🤖', createdAt: now - 500000, updatedAt: now - 500000 },
+        { id: now - 400000, name: '📋 Quick Reference', icon: '📋', createdAt: now - 400000, updatedAt: now - 400000 },
+        { id: now - 300000, name: '📐 Math & Formulas', icon: '📐', createdAt: now - 300000, updatedAt: now - 300000 },
+        { id: now - 200000, name: '🔀 Diagrams & Charts', icon: '🔀', createdAt: now - 200000, updatedAt: now - 200000 },
+        { id: now - 100000, name: '📝 Notes & Docs', icon: '📝', createdAt: now - 100000, updatedAt: now - 100000 }
       ];
       clips = [
-        { id: `demo_1`, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '📐 Math & Science [Example]', timestamp: now - 400000, meta: { markupHint: 'latex' } },
-        { id: `demo_2`, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '🔀 Diagrams [Example]', timestamp: now - 300000, meta: { markupHint: 'mermaid' } },
-        { id: `demo_3`, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '💻 Code Snippets [Example]', timestamp: now - 200000, meta: { markupHint: 'javascript' } },
-        { id: `demo_4`, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '📝 Notes & Docs [Example]', timestamp: now - 100000, meta: { markupHint: 'markdown' } }
+        // ── 4 MARKUP DEMO CLIPS (showcase rendering capabilities) ──
+        { id: 'demo_markup_1', text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '📐 Math & Formulas', timestamp: now - 800000, meta: { markupHint: 'latex' } },
+        { id: 'demo_markup_2', text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '🔀 Diagrams & Charts', timestamp: now - 700000, meta: { markupHint: 'mermaid' } },
+        { id: 'demo_markup_3', text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '💻 Code Snippets', timestamp: now - 600000, meta: { markupHint: 'javascript' } },
+        { id: 'demo_markup_4', text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '📝 Notes & Docs', timestamp: now - 500000, meta: { markupHint: 'markdown' } },
+        // ── 4 COMMON CLIPBOARD CLIPS (research-backed presets) ──
+        { id: 'demo_common_1', text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript\nhttps://stackoverflow.com/questions\nhttps://github.com/trending', category: '🔗 Links & URLs', timestamp: now - 400000 },
+        { id: 'demo_common_2', text: 'Hi [Name],\n\nThank you for reaching out. I wanted to follow up regarding [topic].\n\nPlease let me know if you have any questions.\n\nBest regards,\n[Your Name]', category: '📧 Email Templates', timestamp: now - 300000 },
+        { id: 'demo_common_3', text: 'Act as an expert [role]. I need you to [task]. The context is [context]. Format your response as [format]. Keep it concise and actionable.', category: '🤖 AI Prompts', timestamp: now - 200000 },
+        { id: 'demo_common_4', text: 'Company: PasteCraft Inc.\nSupport: support@pastecraft.com\nDocs: https://pastecraft.com/docs\nVersion: 1.0.0', category: '📋 Quick Reference', timestamp: now - 100000 }
       ];
       await chrome.storage.local.set({ clips, categories, searchOnlyClips });
       normalizedChanged = false;
-      console.log('🧪 Seeded 4 example clips + 4 categories (PC 1.0)');
+      console.log('🧪 Seeded 8 preset categories + 8 example clips (PC 1.0)');
     }
     // ── END DEMO SEED ──
 
@@ -2517,6 +2602,31 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
+    // Upgrade banner + modal (must run on init; banner is visible for freemium users)
+    const upgradeBanner = document.getElementById('upgradeBanner');
+    if (upgradeBanner) {
+      upgradeBanner.addEventListener('click', () => this.openUpgradeModal());
+      upgradeBanner.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openUpgradeModal(); } });
+    }
+    const upgradeSubBtn = document.getElementById('upgradeSubBtn');
+    if (upgradeSubBtn) upgradeSubBtn.addEventListener('click', () => this.openUpgradeModal());
+    const upgradeModalClose = document.getElementById('upgradeModalClose');
+    if (upgradeModalClose) upgradeModalClose.addEventListener('click', () => this.closeUpgradeModal());
+    const upgradeModal = document.getElementById('upgradeModal');
+    if (upgradeModal) upgradeModal.addEventListener('click', (e) => {
+      if (e.target === upgradeModal) this.closeUpgradeModal();
+    });
+    const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
+    if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
+      this.closeUpgradeModal();
+      this._openPricingPage();
+    });
+    const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
+    if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
+      this.closeUpgradeModal();
+      this._openPricingPage();
+    });
+
     // Tab navigation
     document.querySelector('.tab-nav').addEventListener('click', async (e) => {
       const target = e.target;
@@ -2704,6 +2814,9 @@ class PasteCraftPopup {
       });
     }
 
+    // PDF Upload functionality
+    this.initPdfExtraction();
+
     // Populate category dropdown
     this.updateManualInputCategories();
 
@@ -2865,12 +2978,8 @@ class PasteCraftPopup {
       this.closeAlbumPicker();
     });
 
-    document.getElementById('createNewNoteFromPicker').addEventListener('click', () => {
-      this.closeAlbumPicker();
-      this.openNoteEditor('note', null, true);
-    });
-
     document.getElementById('createNewAlbumFromPicker').addEventListener('click', () => {
+      this.createdFromPicker = true;
       this.closeAlbumPicker();
       this.openNoteEditor('album', null, true);
     });
@@ -3489,6 +3598,31 @@ class PasteCraftPopup {
         this.copyHistoryContent();
       });
     }
+    // Edit title button
+    const editAiHistoryTitleBtn = document.getElementById('editAiHistoryTitleBtn');
+    if (editAiHistoryTitleBtn) {
+      editAiHistoryTitleBtn.addEventListener('click', () => this._startEditHistoryTitle());
+    }
+    const aiHistoryTitleSaveBtn = document.getElementById('aiHistoryTitleSaveBtn');
+    if (aiHistoryTitleSaveBtn) {
+      aiHistoryTitleSaveBtn.addEventListener('click', () => this._saveEditHistoryTitle());
+    }
+    const aiHistoryTitleCancelBtn = document.getElementById('aiHistoryTitleCancelBtn');
+    if (aiHistoryTitleCancelBtn) {
+      aiHistoryTitleCancelBtn.addEventListener('click', () => this._cancelEditHistoryTitle());
+    }
+    const aiHistoryTitleInput = document.getElementById('aiHistoryTitleInput');
+    if (aiHistoryTitleInput) {
+      aiHistoryTitleInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this._saveEditHistoryTitle();
+        if (e.key === 'Escape') this._cancelEditHistoryTitle();
+      });
+    }
+    // Continue conversation button
+    const continueConversationBtn = document.getElementById('continueConversationBtn');
+    if (continueConversationBtn) {
+      continueConversationBtn.addEventListener('click', () => this.continueHistoryConversation());
+    }
     const aiHistoryModal = document.getElementById('aiHistoryModal');
     if (aiHistoryModal) {
       aiHistoryModal.addEventListener('click', (e) => {
@@ -3816,6 +3950,8 @@ class PasteCraftPopup {
         // Clear stale AI result caches when provider changes
         this.breakdownCache = {};
         this.applyAiWorkflowToUi();
+        // Refresh tooltip with new provider's credit costs
+        this.updateAiCreditsPills('provider-change');
         // Immediately sync cache so any in-flight AI call uses new provider
         if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
           pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
@@ -3862,6 +3998,13 @@ class PasteCraftPopup {
           levelSelectionHint.textContent = 'Type at least one sentence above to enable levels';
         }
         
+        // Hide inline results
+        const bdInlineResults = document.getElementById('bdInlineResults');
+        if (bdInlineResults) bdInlineResults.style.display = 'none';
+        this.inlineBreakdownCache = {};
+        this.inlineBreakdownThreads = [];
+        this.currentInlineBreakdownThreadIndex = 0;
+
         breakdownInput.focus();
         // Persist cleared state
         this._saveBreakdownPageState();
@@ -3936,16 +4079,61 @@ class PasteCraftPopup {
       });
     });
 
-    // Analyze button
+    // Analyze button - renders INLINE (not in modal) when from AI Lab page
     if (analyzeLevelBtn && breakdownInput) {
       analyzeLevelBtn.addEventListener('click', () => {
         const text = breakdownInput.value.trim();
         if (text && this.selectedBreakdownLevel) {
-          this.showBreakdownModalWithLevel(text, this.selectedBreakdownLevel);
+          this.startInlineBreakdown(text, this.selectedBreakdownLevel);
         }
       });
     }
-    
+
+    // Inline level tab clicks (switch levels inside inline results)
+    document.querySelectorAll('.bd-inline-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const level = tab.dataset.inlineLevel;
+        if (!level || !this.currentBreakdownText) return;
+
+        // Update active tab
+        document.querySelectorAll('.bd-inline-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Also update Step 2 chip selection
+        const levelChips = document.querySelectorAll('.level-chip');
+        levelChips.forEach(c => c.classList.remove('selected'));
+        const matchingChip = document.querySelector(`.level-chip[data-level="${level}"]`);
+        if (matchingChip) matchingChip.classList.add('selected');
+
+        this.selectedBreakdownLevel = level;
+        this.currentBreakdownLevel = level;
+
+        // Update badge
+        const badge = document.getElementById('bdInlineLevelBadge');
+        const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
+        if (badge) badge.textContent = levelNames[level] || level;
+
+        // Generate for this level
+        this.generateBreakdownInline(level);
+      });
+    });
+
+    // Inline follow-up button
+    const bdInlineFollowupBtn = document.getElementById('bdInlineFollowupBtn');
+    const bdInlineFollowupInput = document.getElementById('bdInlineFollowupInput');
+    if (bdInlineFollowupBtn && bdInlineFollowupInput) {
+      const sendInlineFollowup = () => {
+        const question = bdInlineFollowupInput.value.trim();
+        if (!question || !this.currentBreakdownText) return;
+        bdInlineFollowupInput.value = '';
+        this.sendInlineBreakdownFollowup(question);
+      };
+      bdInlineFollowupBtn.addEventListener('click', sendInlineFollowup);
+      bdInlineFollowupInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendInlineFollowup();
+      });
+    }
+
     // AI Summary page event listeners
     const summaryInput = document.getElementById('summaryInput');
     const summaryCharCounter = document.getElementById('summaryCharCounter');
@@ -4229,26 +4417,35 @@ class PasteCraftPopup {
         const { access_token, refresh_token } = result.oauth_callback;
         console.log('🔐 Found OAuth callback tokens, completing sign in...');
         
-        // Set session with tokens
-        const { error } = await pasteCraftSupabase.client.auth.setSession({
-          access_token,
-          refresh_token
-        });
-        
-        if (!error) {
-          console.log('✅ OAuth sign in completed!');
-          const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
+        // Set session with tokens (timeout to prevent hang)
+        try {
+          const { error } = await Promise.race([
+            pasteCraftSupabase.client.auth.setSession({ access_token, refresh_token }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('setSession timeout')), 3000))
+          ]);
           
-          // Create subscription for new user
-          if (user) {
-            await pasteCraftSupabase.createUserSubscription(user.id, user.email);
+          if (!error) {
+            console.log('✅ OAuth sign in completed!');
+            try {
+              const { data: { user } } = await Promise.race([
+                pasteCraftSupabase.client.auth.getUser(),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('getUser timeout')), 3000))
+              ]);
+              
+              // Create subscription for new user
+              if (user) {
+                await pasteCraftSupabase.createUserSubscription(user.id, user.email);
+              }
+            } catch (_) {}
+          } else {
+            console.error('❌ Failed to set session:', error);
           }
-          
-          // Clear the temporary tokens
-          await chrome.storage.local.remove('oauth_callback');
-        } else {
-          console.error('❌ Failed to set session:', error);
+        } catch (timeoutErr) {
+          console.warn('⚠️ setSession timed out, session bridge will handle auth');
         }
+        
+        // Clear the temporary tokens regardless
+        await chrome.storage.local.remove('oauth_callback');
       }
     } catch (error) {
       console.error('❌ Error checking OAuth callback:', error);
@@ -4351,7 +4548,7 @@ class PasteCraftPopup {
     this.hideLoadingOverlay();
     document.getElementById('authModal').style.display = 'flex';
   }
-  
+
   hideAuthModal() {
     document.getElementById('authModal').style.display = 'none';
   }
@@ -4854,16 +5051,19 @@ class PasteCraftPopup {
     try {
       if (!pasteCraftSupabase?.client?.auth?.getSession || !pasteCraftSupabase?.client?.auth?.setSession) return false;
 
-      // If we already have a session, do nothing.
-      try {
-        const existing = await pasteCraftSupabase.client.auth.getSession();
-        const sess = existing?.data?.session || null;
-        if (sess?.user?.id) return true;
-      } catch (_) {}
-
       const bridge = await this._getSessionBridgePayload();
       const refreshToken = String(bridge?.refresh_token || '');
       if (!refreshToken) return false;
+
+      // If we already have a session, do nothing.  3s timeout prevents hang.
+      try {
+        const existing = await Promise.race([
+          pasteCraftSupabase.client.auth.getSession(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+        ]);
+        const sess = existing?.data?.session || null;
+        if (sess?.user?.id) return true;
+      } catch (_) {}
 
       let accessToken = String(bridge?.access_token || '');
       let expiresAt = bridge?.expires_at;
@@ -4892,12 +5092,16 @@ class PasteCraftPopup {
 
       if (!accessToken) return false;
 
-      const { error } = await pasteCraftSupabase.client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
+      // 3s timeout on setSession to prevent hang
+      const result = await Promise.race([
+        pasteCraftSupabase.client.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+      ]);
 
-      if (error) return false;
+      if (result?.error) return false;
       return true;
     } catch (_) {
       return false;
@@ -4967,6 +5171,10 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithEmail(email, password);
       
       if (result.success) {
+        // Clear freemium guest flag on successful sign-in
+        this._isFreemiumGuest = false;
+        chrome.storage.local.remove('pc_freemium_guest');
+
         // Persist user preferences (no password storage)
         await this.saveAuthPrefs({
           staySignedIn,
@@ -5071,6 +5279,10 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signUpWithEmail(email, password);
       
       if (result.success) {
+        // Clear freemium guest flag — user is creating an account
+        this._isFreemiumGuest = false;
+        chrome.storage.local.remove('pc_freemium_guest');
+
         // Show detailed verification instructions
         alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
         this.showToast('✅ Check your email to verify your account!', 'success');
@@ -5109,13 +5321,15 @@ class PasteCraftPopup {
     // Google Sign In
     document.getElementById('googleSigninBtn').addEventListener('click', async () => {
       console.log('🔵 Google Sign In button clicked');
+      this._isFreemiumGuest = false;
+      chrome.storage.local.remove('pc_freemium_guest');
       this.showToast('🔵 Opening Google sign in...', 'info');
       
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        this.showToast('✅ Complete sign in in the new window!', 'success');
-        // Don't reload - user will close and reopen popup after OAuth
+        this.showToast('✅ Signed in with Google!', 'success');
+        window.location.reload(); // Session is set, reload to initialize
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }
@@ -5124,17 +5338,55 @@ class PasteCraftPopup {
     // Google Sign Up
     document.getElementById('googleSignupBtn').addEventListener('click', async () => {
       console.log('🔵 Google Sign Up button clicked');
+      this._isFreemiumGuest = false;
+      chrome.storage.local.remove('pc_freemium_guest');
       this.showToast('🔵 Opening Google sign up...', 'info');
       
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        this.showToast('✅ Complete sign up in the new window!', 'success');
-        // Don't reload - user will close and reopen popup after OAuth
+        this.showToast('✅ Signed in with Google!', 'success');
+        window.location.reload(); // Session is set, reload to initialize
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }
     });
+
+    // =====================================================
+    // SKIP TO FREEMIUM (guest mode)
+    // =====================================================
+    const skipBtn = document.getElementById('skipToFreemiumBtn');
+    if (skipBtn) {
+      skipBtn.addEventListener('click', async () => {
+        console.log('🚀 Skip to PasteCraft (freemium guest) clicked');
+        this._isFreemiumGuest = true;
+        // ─── V2: atomically set local flag + clear cloud state ───
+        await chrome.storage.local.set({ pc_freemium_guest: true });
+        try { await chrome.storage.local.remove(['pc_supabase_session_v1']); } catch (_) {}
+        try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
+        this.hideAuthModal();
+        this.currentUser = null;
+        this.userSubscription = null;
+
+        // Show top bar
+        document.getElementById('topBar').style.display = 'flex';
+
+        // Load local-only data
+        await Promise.all([
+          this.loadData(),
+          this.loadSettings(),
+        ]);
+        this.updateTopBarIdentity();
+        this.setupEventListeners();
+        this.renderChips();
+        this.updateLastCapture();
+        this.updatePreview();
+        this.renderCategories();
+        this.updateCategoryFilter();
+        this.hideLoadingOverlay();
+        this.showToast('🚀 Welcome to PasteCraft! Using free local mode.', 'success');
+      });
+    }
 
     // =====================================================
     // FORGOT PASSWORD FLOW
@@ -5284,65 +5536,6 @@ class PasteCraftPopup {
       }
     });
 
-    // Admin Sign In Link
-    document.getElementById('adminSignInLink').addEventListener('click', (e) => {
-      e.preventDefault();
-      document.getElementById('authModal').style.display = 'none';
-      document.getElementById('adminAuthModal').style.display = 'flex';
-    });
-
-    // Close Admin Modal
-    document.getElementById('closeAdminAuthModal').addEventListener('click', () => {
-      document.getElementById('adminAuthModal').style.display = 'none';
-      document.getElementById('authModal').style.display = 'flex';
-    });
-
-    // Back to User Auth
-    document.getElementById('backToUserAuth').addEventListener('click', () => {
-      document.getElementById('adminAuthModal').style.display = 'none';
-      document.getElementById('authModal').style.display = 'flex';
-    });
-
-    // Admin Sign In Handler Function
-    const handleAdminSignIn = async () => {
-      const email = document.getElementById('adminEmail').value;
-      const password = document.getElementById('adminPassword').value;
-      
-      if (!email || !password) {
-        this.showToast('⚠️ Please fill in all fields', 'error');
-        return;
-      }
-      
-      const result = await pasteCraftSupabase.signInAsAdmin(email, password);
-      
-      if (result.success && result.isAdmin) {
-        this.showToast('✅ Admin access granted!', 'success');
-        document.getElementById('adminAuthModal').style.display = 'none';
-        // Reload page to initialize with authenticated admin user
-        window.location.reload();
-      } else {
-        this.showToast(`❌ ${result.error || 'Admin access denied'}`, 'error');
-      }
-    };
-    
-    // Admin Sign In Button Click
-    document.getElementById('adminSigninBtn').addEventListener('click', handleAdminSignIn);
-    
-    // Admin Sign In with Enter Key
-    document.getElementById('adminEmail').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAdminSignIn();
-      }
-    });
-    
-    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleAdminSignIn();
-      }
-    });
-
     // Close App Button
     document.getElementById('closeAppBtn').addEventListener('click', () => {
       // If we're in an iframe (content-script overlay), send message to parent
@@ -5403,6 +5596,9 @@ class PasteCraftPopup {
 
         this.currentUser = null;
         this.userSubscription = null;
+        this._isFreemiumGuest = false;
+        // ─── V2: clear ALL auth state atomically ───
+        chrome.storage.local.remove(['pc_freemium_guest', 'pc_supabase_session_v1']);
         this.showAuthModal();
         this.showToast('Signed out.', 'success');
 
@@ -5480,8 +5676,34 @@ class PasteCraftPopup {
     const userEmail = this.currentUser?.email || '';
     if (infoEl) {
       infoEl.innerHTML = '';
+
+      // Freemium guest notice — prompt to create account for email support
+      if (this._isFreemiumGuest) {
+        const notice = document.createElement('div');
+        notice.className = 'freemium-account-notice';
+        notice.innerHTML = '<div class="notice-title">\u26A0\uFE0F Account Required for Email Support</div>'
+          + '<div class="notice-text">Create a free account to get email support priority.<br>Without an account, we cannot reply to your request.</div>'
+          + '<button class="notice-btn" id="freemiumCreateAccountBtn">Create Free Account</button>';
+        infoEl.appendChild(notice);
+        setTimeout(() => {
+          const btn = document.getElementById('freemiumCreateAccountBtn');
+          if (btn) {
+            btn.addEventListener('click', () => {
+              this.closeSupportForm();
+              this._isFreemiumGuest = false;
+              chrome.storage.local.remove('pc_freemium_guest');
+              this.showAuthModal();
+              const signupTab = document.querySelector('[data-auth-tab="signup"]');
+              if (signupTab) signupTab.click();
+            });
+          }
+        }, 0);
+      }
+
       const line1 = document.createElement('div');
-      line1.textContent = userEmail
+      line1.textContent = this._isFreemiumGuest
+        ? 'You are using PasteCraft without an account.'
+        : userEmail
         ? `From: ${userEmail} • We’ll reply to this email.`
         : `We’ll reply to your PasteCraft account email.`;
       infoEl.appendChild(line1);
@@ -6357,7 +6579,8 @@ class PasteCraftPopup {
       // Uncategorized?
       if (!clip.category || clip.category === 'Uncategorized') {
         const suggested = this._suggestCategory(contentType);
-        issues.push({ tag: '📁 Uncategorized', detail: `→ ${suggested.name}`, color: 'amber' });
+        const aiLabel = this._hasAiAccess() ? ' (AI)' : '';
+        issues.push({ tag: '📁 Uncategorized', detail: `→ Smart Categorize${aiLabel}`, color: 'amber' });
       }
 
       // Duplicate?
@@ -6366,10 +6589,16 @@ class PasteCraftPopup {
         issues.push({ tag: '📋 Duplicate', detail: '', color: 'red' });
       }
 
-      // Needs cleanup?
+      // AI Smart Format + Content Cleanup (show both when both apply)
       const enhanced = this._enhanceContent(clip.text, contentType);
-      if (enhanced !== clip.text) {
-        issues.push({ tag: '✨ Needs cleanup', detail: '', color: 'blue' });
+      const skipTypes = this._skipAiFormatTypes();
+      const canAiFormat = this._hasAiAccess() && !skipTypes.has(contentType) && (clip.text || '').trim().length > 5;
+      const needsCleanup = enhanced !== clip.text;
+      if (canAiFormat) {
+        issues.push({ tag: '✨ Smart Format (AI)', detail: '', color: 'blue' });
+      }
+      if (needsCleanup) {
+        issues.push({ tag: '🧹 Needs cleanup', detail: '', color: 'blue' });
       }
 
       if (issues.length === 0) {
@@ -6397,6 +6626,12 @@ class PasteCraftPopup {
     const undoBanner = document.getElementById('magicUndoBanner');
     if (undoBanner) {
       undoBanner.style.display = this._magicUndoSnapshot ? 'flex' : 'none';
+    }
+
+    // Show/hide AI credit notice for premium users
+    const creditNotice = document.getElementById('magicAiCreditNotice');
+    if (creditNotice) {
+      creditNotice.style.display = this._hasAiAccess() ? 'block' : 'none';
     }
 
     // Render first page and open modal
@@ -6521,28 +6756,103 @@ class PasteCraftPopup {
     if (craftBtn) craftBtn.disabled = this._magicSelected.size === 0;
   }
 
+  // ─── Magic Button: Check if user has AI (premium) access ───
+  _hasAiAccess() {
+    const sub = this.userSubscription;
+    if (!sub) return false;
+    const tier = String(sub.subscription_tier || '').toLowerCase();
+    const status = String(sub.subscription_status || '').toLowerCase();
+    const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
+    const hasCouponAi = !!(sub.has_unlimited_ai === true || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()));
+    const isPaidPremium = (tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due');
+    return isPaidPremium || hasCouponAi;
+  }
+
+  // ─── Magic Button: Content types that should skip AI formatting ───
+  _skipAiFormatTypes() {
+    return new Set(['url', 'email', 'phone', 'code', 'json', 'yaml', 'toml', 'xml', 'csv', 'tsv', 'html', 'latex', 'mermaid']);
+  }
+
   // ─── Magic Button: Apply Magic to Specific Clips ───
   async _craftMagic(clipIds) {
     const targetSet = new Set(clipIds.map(String));
-    const stats = { categorized: 0, enhanced: 0, duplicatesFound: 0, typesFound: {} };
+    const stats = { categorized: 0, enhanced: 0, duplicatesFound: 0, typesFound: {}, aiCategorized: false, aiFormatted: 0 };
     const categoryCreationQueue = new Map();
 
-    // Build duplicate map
-    const dupMap = new Map();
+    // Pre-compute content types for target clips
+    const clipTypeMap = new Map();
     for (const clip of this.clips) {
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key) dupMap.set(key, (dupMap.get(key) || 0) + 1);
+      if (!targetSet.has(String(clip.id))) continue;
+      clipTypeMap.set(String(clip.id), this._detectContentType(clip.text, clip.meta));
+    }
+
+    // Collect uncategorized target clips for potential AI batch
+    const uncategorizedTargets = [];
+    for (const clip of this.clips) {
+      if (!targetSet.has(String(clip.id))) continue;
+      if (!clip.category || clip.category === 'Uncategorized') {
+        uncategorizedTargets.push(clip);
+      }
+    }
+
+    // Collect formattable text clips for AI smart format
+    const skipTypes = this._skipAiFormatTypes();
+    const formatTargets = [];
+    for (const clip of this.clips) {
+      if (!targetSet.has(String(clip.id))) continue;
+      const ct = clipTypeMap.get(String(clip.id));
+      // Only format natural language text clips (note, text, markdown, etc.)
+      if (!skipTypes.has(ct) && (clip.text || '').trim().length > 5) {
+        formatTargets.push(clip);
+      }
+    }
+
+    const hasAi = this._hasAiAccess();
+
+    // ── AI Smart Categorization (premium users) ──
+    let aiCategoryMap = new Map();
+    if (uncategorizedTargets.length > 0 && hasAi) {
+      try {
+        const aiResults = await pasteCraftSupabase.aiCategorize(uncategorizedTargets);
+        if (Array.isArray(aiResults) && aiResults.length > 0) {
+          for (let i = 0; i < uncategorizedTargets.length && i < aiResults.length; i++) {
+            const catName = String(aiResults[i] || '').trim();
+            if (catName) aiCategoryMap.set(String(uncategorizedTargets[i].id), catName);
+          }
+          stats.aiCategorized = true;
+        }
+      } catch (_) { /* AI failed — fall back to rule-based */ }
+    }
+
+    // ── AI Smart Format (premium users) ──
+    let aiFormatMap = new Map();
+    if (formatTargets.length > 0 && hasAi) {
+      try {
+        const aiResults = await pasteCraftSupabase.aiFormat(formatTargets);
+        if (Array.isArray(aiResults) && aiResults.length > 0) {
+          for (let i = 0; i < formatTargets.length && i < aiResults.length; i++) {
+            const formatted = String(aiResults[i] || '').trim();
+            if (formatted && formatted !== (formatTargets[i].text || '').trim()) {
+              aiFormatMap.set(String(formatTargets[i].id), formatted);
+            }
+          }
+        }
+      } catch (_) { /* AI failed — fall back to rule-based enhance */ }
     }
 
     for (const clip of this.clips) {
       if (!targetSet.has(String(clip.id))) continue;
 
-      const contentType = this._detectContentType(clip.text, clip.meta);
+      const contentType = clipTypeMap.get(String(clip.id)) || 'text';
       stats.typesFound[contentType] = (stats.typesFound[contentType] || 0) + 1;
 
-      // Categorize
+      // Categorize: prefer AI category, fall back to rule-based
       if (!clip.category || clip.category === 'Uncategorized') {
-        const suggested = this._suggestCategory(contentType);
+        const aiCat = aiCategoryMap.get(String(clip.id));
+        const suggested = aiCat
+          ? { name: aiCat, icon: '🏷️' }
+          : this._suggestCategory(contentType);
+
         const existingCat = this.categories.find(c => c.name.toLowerCase() === suggested.name.toLowerCase());
         if (existingCat) {
           const clipsInCat = this.clips.filter(c => c.category === existingCat.name);
@@ -6558,14 +6868,29 @@ class PasteCraftPopup {
         }
       }
 
-      // Enhance
+      // ── Sequential pipeline: AI Format → Content Cleanup ──
+      // Step A: Apply AI grammar/punctuation polish if available
+      const aiFormatted = aiFormatMap.get(String(clip.id));
+      if (aiFormatted) {
+        clip.text = aiFormatted;
+        stats.aiFormatted++;
+      }
+      // Step B: ALWAYS run rule-based cleanup (whitespace, blank lines, UTM, JSON format, etc.)
       const enhanced = this._enhanceContent(clip.text, contentType);
       if (enhanced !== clip.text) {
         clip.text = enhanced;
         stats.enhanced++;
       }
+    }
 
-      // Count dupes
+    // ── Duplicate detection (second pass — after all text modifications) ──
+    const dupMap = new Map();
+    for (const clip of this.clips) {
+      const key = (clip.text || '').trim().toLowerCase();
+      if (key) dupMap.set(key, (dupMap.get(key) || 0) + 1);
+    }
+    for (const clip of this.clips) {
+      if (!targetSet.has(String(clip.id))) continue;
       const key = (clip.text || '').trim().toLowerCase();
       if (key && (dupMap.get(key) || 0) > 1) stats.duplicatesFound++;
     }
@@ -6601,6 +6926,11 @@ class PasteCraftPopup {
       await pasteCraftSupabase.syncClipsToSupabase(this.clips);
       await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
     } catch (_) { /* don't block */ }
+
+    // Refresh credit pills after AI calls
+    if (stats.aiCategorized || stats.aiFormatted > 0) {
+      this.updateAiCreditsPills('fresh');
+    }
 
     // Refresh UI
     this.renderChips();
@@ -6662,8 +6992,8 @@ class PasteCraftPopup {
     const modal = document.getElementById('magicResultsModal');
     if (!modal) {
       const parts = [];
-      if (stats.categorized > 0) parts.push(`${stats.categorized} categorized`);
-      if (stats.enhanced > 0) parts.push(`${stats.enhanced} enhanced`);
+      if (stats.categorized > 0) parts.push(`${stats.categorized} categorized${stats.aiCategorized ? ' (AI)' : ''}`);
+      if (stats.enhanced > 0) parts.push(`${stats.enhanced} enhanced${stats.aiFormatted > 0 ? ` (${stats.aiFormatted} AI formatted)` : ''}`);
       if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
       this.showToast(parts.length ? `🪄 ${parts.join(', ')}` : '🪄 Clips already organized!');
       return;
@@ -6676,6 +7006,7 @@ class PasteCraftPopup {
 
     document.getElementById('magicStatCategorized').textContent = stats.categorized;
     document.getElementById('magicStatEnhanced').textContent = stats.enhanced;
+    document.getElementById('magicStatAiFormatted').textContent = stats.aiFormatted || 0;
     document.getElementById('magicStatDupes').textContent = stats.duplicatesFound;
     document.getElementById('magicTypeBreakdown').innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
 
@@ -7262,6 +7593,333 @@ class PasteCraftPopup {
     }
   }
 
+  // ── PDF Extraction ──────────────────────────────────────────────
+  initPdfExtraction() {
+    const pdfBtn = document.getElementById('pdfUploadBtn');
+    const pdfInput = document.getElementById('pdfFileInput');
+    if (!pdfBtn || !pdfInput) return;
+
+    pdfBtn.addEventListener('click', () => pdfInput.click());
+
+    pdfInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      pdfInput.value = ''; // reset so same file can be re-selected
+      await this.openPdfExtractModal(file);
+    });
+
+    // Modal controls
+    const closeBtn = document.getElementById('pdfExtractCloseBtn');
+    const cancelBtn = document.getElementById('pdfExtractCancelBtn');
+    const saveBtn = document.getElementById('pdfExtractSaveBtn');
+    const modal = document.getElementById('pdfExtractModal');
+
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closePdfModal());
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closePdfModal());
+    if (modal) modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closePdfModal();
+    });
+    if (saveBtn) saveBtn.addEventListener('click', () => this.savePdfClips());
+
+    // Radio change: update save label + auto-switch to "All" tab when not in selectedPage mode
+    document.querySelectorAll('input[name="pdfSaveMode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        this._updatePdfSaveLabel();
+        const mode = radio.value;
+        if (mode !== 'selectedPage' && typeof this._pdfActiveTab !== 'number') return;
+        if (mode === 'selectedPage' && this._pdfActiveTab === 'all') {
+          // Nudge user to pick a page — switch to P1
+          if (this._pdfPages && this._pdfPages.length > 0) {
+            this.switchPdfTab(0);
+          }
+        }
+      });
+    });
+  }
+
+  async openPdfExtractModal(file) {
+    const modal = document.getElementById('pdfExtractModal');
+    const loading = document.getElementById('pdfExtractLoading');
+    const options = document.getElementById('pdfExtractOptions');
+    const preview = document.getElementById('pdfExtractPreview');
+    const saveBtn = document.getElementById('pdfExtractSaveBtn');
+    const fileNameEl = document.getElementById('pdfFileName');
+    const pageCountEl = document.getElementById('pdfPageCount');
+    const loadingText = document.getElementById('pdfLoadingText');
+
+    // Reset state
+    this._pdfPages = [];
+    this._pdfActiveTab = 'all';
+    if (fileNameEl) fileNameEl.textContent = file.name;
+    if (pageCountEl) pageCountEl.textContent = '…';
+    if (saveBtn) saveBtn.disabled = true;
+    if (loading) loading.style.display = 'flex';
+    if (options) options.style.display = 'none';
+    if (preview) preview.style.display = 'none';
+    if (modal) modal.style.display = 'flex';
+
+    // Populate category dropdown in modal
+    this.populatePdfCategoryDropdown();
+
+    try {
+      if (loadingText) loadingText.textContent = 'Reading PDF…';
+      const arrayBuffer = await file.arrayBuffer();
+
+      if (loadingText) loadingText.textContent = 'Extracting text…';
+      const pages = await this.extractPdfText(arrayBuffer);
+      this._pdfPages = pages;
+
+      if (pageCountEl) pageCountEl.textContent = `${pages.length} page${pages.length !== 1 ? 's' : ''}`;
+
+      // Build page tabs
+      this.buildPdfPageTabs(pages);
+
+      // Show all text by default
+      const textarea = document.getElementById('pdfPreviewTextarea');
+      if (textarea) textarea.value = pages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+
+      if (loading) loading.style.display = 'none';
+      if (options) options.style.display = 'flex';
+      if (preview) preview.style.display = 'flex';
+      if (saveBtn) saveBtn.disabled = false;
+    } catch (err) {
+      console.error('PDF extraction failed:', err);
+      if (loading) loading.style.display = 'none';
+      this.showToast('Failed to extract PDF text. The file may be scanned/image-only.');
+      this.closePdfModal();
+    }
+  }
+
+  async extractPdfText(arrayBuffer) {
+    // Configure pdf.js worker
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
+    }
+
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pages = [];
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(item => item.str);
+      pages.push(strings.join(' ').replace(/\s{2,}/g, ' ').trim());
+    }
+    return pages;
+  }
+
+  buildPdfPageTabs(pages) {
+    const container = document.getElementById('pdfPreviewTabs');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // "All" tab
+    const allTab = document.createElement('button');
+    allTab.className = 'pdf-page-tab active';
+    allTab.textContent = 'All';
+    allTab.dataset.page = 'all';
+    allTab.addEventListener('click', () => this.switchPdfTab('all'));
+    container.appendChild(allTab);
+
+    pages.forEach((_, idx) => {
+      const tab = document.createElement('button');
+      tab.className = 'pdf-page-tab';
+      tab.textContent = `P${idx + 1}`;
+      tab.dataset.page = String(idx);
+      tab.addEventListener('click', () => this.switchPdfTab(idx));
+      container.appendChild(tab);
+    });
+  }
+
+  switchPdfTab(pageIndex) {
+    this._pdfActiveTab = pageIndex;
+    const tabs = document.querySelectorAll('.pdf-page-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+
+    const textarea = document.getElementById('pdfPreviewTextarea');
+    if (!textarea) return;
+
+    if (pageIndex === 'all') {
+      textarea.value = this._pdfPages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+      tabs[0]?.classList.add('active');
+    } else {
+      textarea.value = this._pdfPages[pageIndex] || '';
+      tabs[pageIndex + 1]?.classList.add('active');
+
+      // If "Save selected page" mode is active, auto-switch radio to it when clicking a numbered page tab
+      const selectedPageRadio = document.querySelector('input[name="pdfSaveMode"][value="selectedPage"]');
+      if (selectedPageRadio) {
+        selectedPageRadio.checked = true;
+        this._updatePdfSaveLabel();
+      }
+    }
+  }
+
+  /** Update the Save button label to reflect current mode + selection */
+  _updatePdfSaveLabel() {
+    const label = document.getElementById('pdfSaveLabel');
+    if (!label) return;
+    const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
+    if (mode === 'selectedPage' && typeof this._pdfActiveTab === 'number') {
+      label.textContent = `Save Page ${this._pdfActiveTab + 1} to Clips`;
+    } else {
+      label.textContent = 'Save to Clips';
+    }
+  }
+
+  populatePdfCategoryDropdown() {
+    const select = document.getElementById('pdfExtractCategory');
+    if (!select) return;
+
+    const allClips = [...this.clips, ...this.searchOnlyClips];
+    const cats = [...new Set(allClips.map(c => c.category))];
+    if (!cats.includes('Uncategorized')) cats.unshift('Uncategorized');
+
+    select.innerHTML = '';
+    cats.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      select.appendChild(opt);
+    });
+    select.value = 'Uncategorized';
+  }
+
+  async savePdfClips() {
+    if (!this._pdfPages || this._pdfPages.length === 0) return;
+
+    const saveBtn = document.getElementById('pdfExtractSaveBtn');
+    const spinner = document.getElementById('pdfSaveSpinner');
+    const label = document.getElementById('pdfSaveLabel');
+    if (saveBtn) saveBtn.disabled = true;
+    if (spinner) spinner.style.display = 'inline-block';
+    if (label) label.textContent = 'Saving…';
+
+    try {
+      const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
+      const category = document.getElementById('pdfExtractCategory')?.value || 'Uncategorized';
+      const fileName = document.getElementById('pdfFileName')?.textContent || 'PDF';
+
+      let clipsToSave = [];
+
+      if (mode === 'single') {
+        const allText = this._pdfPages.join('\n\n');
+        if (allText.trim()) {
+          clipsToSave.push({
+            id: Date.now() + Math.random(),
+            text: allText.trim(),
+            category,
+            timestamp: Date.now(),
+            meta: { source: 'pdf', fileName }
+          });
+        }
+      } else if (mode === 'selectedPage') {
+        // Save only the currently selected page tab
+        const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
+        if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
+          this.showToast('Please select a specific page tab (P1, P2, …) first.');
+          if (saveBtn) saveBtn.disabled = false;
+          if (spinner) spinner.style.display = 'none';
+          if (label) label.textContent = 'Save to Clips';
+          return;
+        }
+        const pageText = this._pdfPages[pageIdx];
+        if (pageText && pageText.trim()) {
+          clipsToSave.push({
+            id: Date.now() + Math.random(),
+            text: pageText.trim(),
+            category,
+            timestamp: Date.now(),
+            meta: { source: 'pdf', fileName, page: pageIdx + 1 }
+          });
+        }
+      } else {
+        // per-page
+        this._pdfPages.forEach((pageText, idx) => {
+          if (pageText.trim()) {
+            clipsToSave.push({
+              id: Date.now() + Math.random() + idx,
+              text: pageText.trim(),
+              category,
+              timestamp: Date.now() - idx, // slightly stagger timestamps for ordering
+              meta: { source: 'pdf', fileName, page: idx + 1 }
+            });
+          }
+        });
+      }
+
+      if (clipsToSave.length === 0) {
+        this.showToast('No text found in PDF to save.');
+        return;
+      }
+
+      // Category limit check
+      if (category !== 'Uncategorized') {
+        const allClips = [...this.clips, ...this.searchOnlyClips];
+        const inCat = allClips.filter(c => c.category === category).length;
+        if (inCat + clipsToSave.length > 150) {
+          this.showToast(`Category "${category}" would exceed 150 clip limit.`);
+          return;
+        }
+      }
+
+      // Add clips to the front
+      this.clips.unshift(...clipsToSave);
+      await this.enforceClipLimit();
+
+      // Persist
+      await chrome.storage.local.set({
+        clips: this.clips,
+        searchOnlyClips: this.searchOnlyClips,
+        pc_local_updatedAt: Date.now()
+      });
+
+      // Notify content scripts
+      try {
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach(tab => {
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'clipSaved',
+              clip: clipsToSave[0],
+              autoShow: false
+            }).catch(() => {});
+          });
+        });
+      } catch (_) {}
+
+      // Refresh UI
+      this.renderChips();
+      this.renderCategories();
+      this.updateCategoryFilter();
+      this.updateManualInputCategories();
+      this.showToast(`Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`);
+
+      // Background sync
+      Promise.resolve()
+        .then(() => this.backupLocalToSync('save:pdfExtract'))
+        .catch(() => {});
+      Promise.resolve()
+        .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
+        .catch(() => {});
+      Promise.resolve()
+        .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
+        .catch(() => {});
+
+      this.closePdfModal();
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      if (spinner) spinner.style.display = 'none';
+      if (label) label.textContent = 'Save to Clips';
+    }
+  }
+
+  closePdfModal() {
+    const modal = document.getElementById('pdfExtractModal');
+    if (modal) modal.style.display = 'none';
+    this._pdfPages = [];
+    this._pdfActiveTab = 'all';
+  }
+
   // Utility Functions
   // getTimeAgo moved up to line ~1483 to avoid duplication
 
@@ -7554,6 +8212,185 @@ class PasteCraftPopup {
       navigator.clipboard.writeText(text);
       this.showToast('Explanation copied to clipboard!');
     }
+  }
+
+  // ==================== INLINE BREAKDOWN (AI Lab Page) ====================
+
+  startInlineBreakdown(text, level) {
+    this.currentBreakdownText = text;
+    this.currentBreakdownLevel = level;
+    this.inlineBreakdownCache = {};
+    this.inlineBreakdownThreads = [];
+    this.currentInlineBreakdownThreadIndex = 0;
+
+    // Show the results section
+    const resultsSection = document.getElementById('bdInlineResults');
+    if (resultsSection) {
+      resultsSection.style.display = 'block';
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Set active tab
+    document.querySelectorAll('.bd-inline-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.inlineLevel === level);
+    });
+
+    // Update badge
+    const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
+    const badge = document.getElementById('bdInlineLevelBadge');
+    if (badge) badge.textContent = levelNames[level] || level;
+
+    // Generate
+    this.generateBreakdownInline(level);
+  }
+
+  async generateBreakdownInline(level) {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
+      return;
+    }
+
+    const loadingEl = document.getElementById('bdInlineLoading');
+    const resultEl = document.getElementById('bdInlineResult');
+
+    // Check cache first
+    if (this.inlineBreakdownCache && this.inlineBreakdownCache[level]) {
+      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(this.inlineBreakdownCache[level]);
+      return;
+    }
+
+    try {
+      // Show loading
+      if (loadingEl) loadingEl.style.display = 'flex';
+      if (resultEl) resultEl.innerHTML = '';
+
+      // Generate explanation
+      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
+
+      // Cache
+      const formatted = this._formatAiOutput(explanation);
+      if (!this.inlineBreakdownCache) this.inlineBreakdownCache = {};
+      this.inlineBreakdownCache[level] = formatted;
+
+      // Render
+      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      // Add to threads
+      if (!this.inlineBreakdownThreads) this.inlineBreakdownThreads = [];
+      this.inlineBreakdownThreads.push({
+        question: `Breakdown at ${level} level`,
+        answer: formatted,
+        level,
+        timestamp: Date.now()
+      });
+      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
+
+      // Show follow-up
+      const followupContainer = document.getElementById('bdInlineFollowup');
+      if (followupContainer) followupContainer.style.display = 'block';
+
+      // Show thread pagination after 2+ threads
+      if (this.inlineBreakdownThreads.length >= 2) {
+        this.renderInlineBreakdownPagination();
+      }
+
+      // Also persist to breakdown modal state for session restore
+      this.breakdownCache = this.inlineBreakdownCache;
+      this.breakdownThreads = this.inlineBreakdownThreads;
+      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
+      this._saveBreakdownModalState();
+
+      // Save to AI history
+      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
+
+    } catch (error) {
+      console.error('Failed to generate inline breakdown:', error);
+      if (resultEl) resultEl.innerHTML = '❌ Failed to generate explanation. Please try again.';
+      if (loadingEl) loadingEl.style.display = 'none';
+      this.showToast('Failed to generate explanation');
+    }
+  }
+
+  async sendInlineBreakdownFollowup(question) {
+    // Premium check
+    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
+      return;
+    }
+
+    const loadingEl = document.getElementById('bdInlineLoading');
+    const resultEl = document.getElementById('bdInlineResult');
+
+    try {
+      if (loadingEl) loadingEl.style.display = 'flex';
+      if (resultEl) resultEl.innerHTML = '';
+
+      // Build context from previous thread
+      const prevThread = this.inlineBreakdownThreads[this.currentInlineBreakdownThreadIndex];
+      const contextPrompt = prevThread
+        ? `Previous explanation:\n${prevThread.answer}\n\nUser follow-up: ${question}`
+        : question;
+
+      const level = this.currentBreakdownLevel || 'college';
+      const explanation = await pasteCraftSupabase.breakdownText(contextPrompt, level);
+
+      const formatted = this._formatAiOutput(explanation);
+
+      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
+      if (loadingEl) loadingEl.style.display = 'none';
+
+      // Add to threads
+      this.inlineBreakdownThreads.push({
+        question,
+        answer: formatted,
+        level,
+        timestamp: Date.now()
+      });
+      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
+
+      // Update pagination
+      this.renderInlineBreakdownPagination();
+
+      // Persist
+      this.breakdownThreads = this.inlineBreakdownThreads;
+      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
+      this._saveBreakdownModalState();
+      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
+
+    } catch (error) {
+      console.error('Failed to send inline follow-up:', error);
+      if (resultEl) resultEl.innerHTML = '❌ Failed to generate response.';
+      if (loadingEl) loadingEl.style.display = 'none';
+      this.showToast('Failed to generate follow-up');
+    }
+  }
+
+  renderInlineBreakdownPagination() {
+    const container = document.getElementById('bdInlineThreadPagination');
+    if (!container || !this.inlineBreakdownThreads || this.inlineBreakdownThreads.length < 2) {
+      if (container) container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'flex';
+    container.innerHTML = '';
+
+    this.inlineBreakdownThreads.forEach((thread, idx) => {
+      const box = document.createElement('button');
+      box.className = 'thread-box' + (idx === this.currentInlineBreakdownThreadIndex ? ' active' : '');
+      box.textContent = idx + 1;
+      box.setAttribute('data-tooltip', thread.question || `Thread ${idx + 1}`);
+      box.addEventListener('click', async () => {
+        this.currentInlineBreakdownThreadIndex = idx;
+        const resultEl = document.getElementById('bdInlineResult');
+        if (resultEl) resultEl.innerHTML = await this._renderAiResponse(thread.answer);
+        // Update active box
+        container.querySelectorAll('.thread-box').forEach((b, i) => {
+          b.classList.toggle('active', i === idx);
+        });
+      });
+      container.appendChild(box);
+    });
   }
 
   // AI Summary Methods
@@ -8222,7 +9059,10 @@ class PasteCraftPopup {
     // First, try to fetch settings from Supabase (cloud sync)
     let cloudSettings = null;
     try {
-      cloudSettings = await pasteCraftSupabase.syncSettingsFromSupabase();
+      cloudSettings = await Promise.race([
+        pasteCraftSupabase.syncSettingsFromSupabase(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('syncSettingsFromSupabase timeout')), 500))
+      ]);
     } catch (error) {
       console.warn('⚠️ Could not fetch settings from Supabase, using local:', error);
     }
@@ -9488,7 +10328,7 @@ class PasteCraftPopup {
     const userName = typeof this.userProfile?.userName === 'string' ? this.userProfile.userName.trim() : '';
     const funkyName = typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '';
     const emailPrefix = typeof this.currentUser?.email === 'string' ? this.currentUser.email.split('@')[0] : '';
-    const displayName = funkyName || userName || emailPrefix || '';
+    const displayName = funkyName || userName || emailPrefix || (this._isFreemiumGuest ? 'Guest' : '');
 
     if (nameEl) {
       nameEl.textContent = displayName;
@@ -9723,33 +10563,6 @@ class PasteCraftPopup {
     
     const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
     unsubscribeBtn.replaceWith(newUnsubscribeBtn);
-
-    // ── Upgrade banner + modal event listeners ──
-    const upgradeBanner = document.getElementById('upgradeBanner');
-    if (upgradeBanner) upgradeBanner.addEventListener('click', () => this.openUpgradeModal());
-
-    const upgradeSubBtn = document.getElementById('upgradeSubBtn');
-    if (upgradeSubBtn) upgradeSubBtn.addEventListener('click', () => this.openUpgradeModal());
-
-    const upgradeModalClose = document.getElementById('upgradeModalClose');
-    if (upgradeModalClose) upgradeModalClose.addEventListener('click', () => this.closeUpgradeModal());
-
-    const upgradeModal = document.getElementById('upgradeModal');
-    if (upgradeModal) upgradeModal.addEventListener('click', (e) => {
-      if (e.target === upgradeModal) this.closeUpgradeModal();
-    });
-
-    const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
-    if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._openPricingPage();
-    });
-
-    const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
-    if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._openPricingPage();
-    });
 
     // ✅ FIX: Clone and replace headers to remove stacked event listeners
     const newNameRegHeader = nameRegHeader.cloneNode(true);
@@ -11927,6 +12740,9 @@ class PasteCraftPopup {
 
     if (!modal) return;
 
+    // Reset edit title state
+    this._cancelEditHistoryTitle();
+
     // Set title and subtitle
     const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
     const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
@@ -12012,6 +12828,190 @@ class PasteCraftPopup {
     }
   }
 
+  /** Start editing the AI history entry title */
+  _startEditHistoryTitle() {
+    const entry = this.currentHistoryEntry;
+    if (!entry) return;
+    const titleEl = document.getElementById('aiHistoryModalTitle');
+    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
+    const titleInput = document.getElementById('aiHistoryTitleInput');
+    const editBtn = document.getElementById('editAiHistoryTitleBtn');
+    if (!titleEl || !editContainer || !titleInput) return;
+    // Hide display title, show edit input
+    titleEl.style.display = 'none';
+    editContainer.style.display = 'flex';
+    if (editBtn) editBtn.style.display = 'none';
+    // Pre-fill with current title (strip icon prefix)
+    const rawTitle = entry.title || 'Untitled';
+    titleInput.value = rawTitle;
+    titleInput.focus();
+    titleInput.select();
+  }
+
+  /** Save the edited AI history entry title */
+  async _saveEditHistoryTitle() {
+    const entry = this.currentHistoryEntry;
+    const titleInput = document.getElementById('aiHistoryTitleInput');
+    if (!entry || !titleInput) return;
+    const newTitle = titleInput.value.trim().substring(0, 60);
+    if (!newTitle) {
+      this.showToast('Title cannot be empty');
+      return;
+    }
+    // Update entry in memory and persist
+    entry.title = newTitle;
+    const idx = this.aiHistoryEntries.findIndex(e => e.id === entry.id);
+    if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
+    await this._persistAiHistory();
+    // Update displayed title
+    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
+    const titleEl = document.getElementById('aiHistoryModalTitle');
+    if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
+    this._cancelEditHistoryTitle();
+    this.renderAiHistoryList();
+    this.showToast('Title updated');
+  }
+
+  /** Cancel editing the AI history entry title */
+  _cancelEditHistoryTitle() {
+    const titleEl = document.getElementById('aiHistoryModalTitle');
+    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
+    const editBtn = document.getElementById('editAiHistoryTitleBtn');
+    if (titleEl) titleEl.style.display = '';
+    if (editContainer) editContainer.style.display = 'none';
+    if (editBtn) editBtn.style.display = '';
+  }
+
+  /** Continue a conversation from AI history — restores state and navigates to AI Lab */
+  async continueHistoryConversation() {
+    const entry = this.currentHistoryEntry;
+    if (!entry || !entry.threads || entry.threads.length === 0) {
+      this.showToast('No conversation to continue');
+      return;
+    }
+
+    // Close the history modal
+    const modal = document.getElementById('aiHistoryModal');
+    if (modal) modal.style.display = 'none';
+
+    if (entry.type === 'summary') {
+      // Restore summary state
+      this.currentSummaryText = entry.originalText || '';
+      this.summaryThreads = entry.threads.map(t => ({
+        question: t.question || '',
+        answer: t.answer || '',
+        timestamp: t.timestamp || Date.now()
+      }));
+      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
+      this._activeSummaryHistoryId = entry.id;
+
+      // Navigate to AI Lab > Summary tab
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      const aiTab = document.querySelector('[data-tab="ai"]');
+      if (aiTab) aiTab.classList.add('active');
+      const aiTabEl = document.getElementById('aiTab');
+      if (aiTabEl) aiTabEl.classList.add('active');
+      this.currentTab = 'ai';
+
+      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
+      const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
+      if (summarySubTab) summarySubTab.classList.add('active');
+      const summarySection = document.getElementById('aiSummarySection');
+      if (summarySection) summarySection.classList.add('active');
+      this._currentAiLabSubTab = 'summary';
+
+      // Show result section with last thread
+      this.showSummarySection('result');
+      const lastThread = this.summaryThreads[this.currentSummaryThreadIndex];
+      const summaryContent = document.getElementById('summaryResultContent');
+      if (summaryContent && lastThread) {
+        summaryContent.innerHTML = await this._renderAiResponse(lastThread.answer);
+      }
+
+      // Show follow-up container
+      const followupContainer = document.getElementById('summaryFollowupContainer');
+      if (followupContainer) followupContainer.style.display = 'block';
+
+      // Render pagination if multiple threads
+      if (this.summaryThreads.length >= 2) {
+        this.renderThreadPagination('summary');
+      }
+
+      // Persist
+      this._currentSummarySection = 'result';
+      this._saveSummaryState();
+      this._saveActiveTabState();
+      this.showToast('Conversation restored — ask a follow-up!');
+
+    } else if (entry.type === 'breakdown') {
+      // Restore breakdown state
+      this.currentBreakdownText = entry.originalText || '';
+      this.breakdownThreads = entry.threads.map(t => ({
+        question: t.question || '',
+        answer: t.answer || '',
+        level: t.level || null,
+        timestamp: t.timestamp || Date.now()
+      }));
+      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
+      this._activeBreakdownHistoryId = entry.id;
+      this.currentBreakdownLevel = entry.threads[0]?.level || null;
+
+      // Navigate to AI Lab > Breakdown tab
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      const aiTab = document.querySelector('[data-tab="ai"]');
+      if (aiTab) aiTab.classList.add('active');
+      const aiTabEl = document.getElementById('aiTab');
+      if (aiTabEl) aiTabEl.classList.add('active');
+      this.currentTab = 'ai';
+
+      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
+      const breakdownSubTab = document.querySelector('[data-ai-tab="breakdown"]');
+      if (breakdownSubTab) breakdownSubTab.classList.add('active');
+      const breakdownSection = document.getElementById('aiBreakdownSection');
+      if (breakdownSection) breakdownSection.classList.add('active');
+      this._currentAiLabSubTab = 'breakdown';
+
+      // Open the breakdown modal with the last thread content
+      const breakdownModal = document.getElementById('breakdownModal');
+      if (breakdownModal) breakdownModal.style.display = 'flex';
+
+      // Populate the original text box (was missing — caused blank display)
+      const breakdownOriginalText = document.getElementById('breakdownOriginalText');
+      if (breakdownOriginalText) {
+        breakdownOriginalText.textContent = this.currentBreakdownText;
+      }
+      const breakdownTextLength = document.getElementById('breakdownTextLength');
+      if (breakdownTextLength && this.currentBreakdownText) {
+        const wordCount = this.currentBreakdownText.trim().split(/\s+/).length;
+        breakdownTextLength.textContent = `${wordCount} words`;
+      }
+
+      const resultEl = document.getElementById('breakdownResult');
+      const lastThread = this.breakdownThreads[this.currentBreakdownThreadIndex];
+      if (resultEl && lastThread) {
+        resultEl.innerHTML = await this._renderAiResponse(lastThread.answer);
+      }
+
+      // Show follow-up container
+      const followupContainer = document.getElementById('breakdownFollowupContainer');
+      if (followupContainer) followupContainer.style.display = 'block';
+
+      // Render pagination if multiple threads
+      if (this.breakdownThreads.length >= 2) {
+        this.renderThreadPagination('breakdown');
+      }
+
+      // Persist
+      this._saveBreakdownModalState();
+      this._saveActiveTabState();
+      this.showToast('Conversation restored — ask a follow-up!');
+    }
+  }
+
   /** Delete all AI history entries */
   async clearAllAiHistory() {
     this.aiHistoryEntries = [];
@@ -12032,75 +13032,83 @@ class PasteCraftPopup {
       notesAiEnabled = false
     } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
 
-    // ── DEMO SEED: 4 example notes (PC 1.0 release) ──
-    // Starter examples to showcase Notes features. Users should delete them.
+    // ── DEMO SEED: 2 notes + 2 albums (PC 1.0 release) ──
+    // Starter examples to showcase Notes & Albums. Users should delete them.
     if (notes.length === 0) {
       const now = Date.now();
       const N1 = now - 400000;
       const N2 = now - 300000;
-      const N3 = now - 200000;
-      const N4 = now - 100000;
+      const A1 = now - 200000;
+      const A2 = now - 100000;
 
       notes = [
-        // ── NOTE 1: LaTeX Formulas [Example] ──
+        // ── NOTE 1: Welcome to PasteCraft ──
         {
           id: N1, type: 'note',
-          title: 'LaTeX Formulas [Example]',
-          description: 'Sample math formulas — delete this note anytime',
-          body: 'PasteCraft auto-detects LaTeX in your clips. Try pasting any math formula and it renders automatically!',
+          title: 'Welcome to PasteCraft',
+          description: 'Getting started guide — delete anytime',
+          body: 'PasteCraft auto-detects 20+ markup languages including Markdown, LaTeX, Mermaid diagrams, and code with syntax highlighting. Copy anything and it renders automatically!\n\nTry the preset categories to organize your clips, or create your own.',
           clips: [
-            { type: 'clip', id: now - 399000, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', addedDate: now - 399000 }
+            { type: 'clip', id: now - 399000, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** These are examples — delete them anytime!', addedDate: now - 399000 }
           ],
           images: [],
           urls: [
-            { type: 'url', id: now - 398000, url: 'https://www.overleaf.com/learn/latex/Mathematical_expressions', title: 'Overleaf - LaTeX Math Guide', addedDate: now - 398000 }
+            { type: 'url', id: now - 398000, url: 'https://pastecraft.com/docs', title: 'PasteCraft Documentation', addedDate: now - 398000 }
           ],
           createdAt: N1, updatedAt: N1
         },
-        // ── NOTE 2: Mermaid Diagrams [Example] ──
+        // ── NOTE 2: Meeting Notes Template ──
         {
           id: N2, type: 'note',
-          title: 'Mermaid Diagrams [Example]',
-          description: 'Sample flowchart diagram — delete this note anytime',
-          body: 'Copy Mermaid diagram syntax and PasteCraft will detect and render the flowchart preview.',
+          title: 'Meeting Notes Template',
+          description: 'Reusable meeting template — delete anytime',
+          body: 'Use this as a starting point for meeting notes. Attach clips, links, and images to keep everything in one place.',
           clips: [
-            { type: 'clip', id: now - 299000, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', addedDate: now - 299000 }
+            { type: 'clip', id: now - 299000, text: '# Meeting Notes — [Date]\n\n**Attendees:** [names]\n**Agenda:**\n1. Status updates\n2. Blockers\n3. Action items\n\n## Notes\n- \n\n## Action Items\n- [ ] [Owner] — [Task] — Due: [Date]', addedDate: now - 299000 }
+          ],
+          images: [],
+          urls: [],
+          createdAt: N2, updatedAt: N2
+        },
+        // ── ALBUM 1: Developer Toolkit ──
+        {
+          id: A1, type: 'album',
+          title: 'Developer Toolkit',
+          description: 'Code snippets & diagram references — delete anytime',
+          body: 'A collection of useful developer clips. Albums group related notes together for quick access.',
+          clips: [
+            { type: 'clip', id: now - 199000, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', addedDate: now - 199000 },
+            { type: 'clip', id: now - 198000, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', addedDate: now - 198000 }
           ],
           images: [],
           urls: [
-            { type: 'url', id: now - 298000, url: 'https://mermaid.js.org/intro/', title: 'Mermaid Docs', addedDate: now - 298000 }
+            { type: 'url', id: now - 197000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript', title: 'MDN Web Docs', addedDate: now - 197000 }
           ],
-          createdAt: N2, updatedAt: N2
+          noteRefs: [N1],
+          sourceNoteIds: [N1],
+          createdAt: A1, updatedAt: A1
         },
-        // ── NOTE 3: Code Snippets [Example] ──
+        // ── ALBUM 2: Research & References ──
         {
-          id: N3, type: 'note',
-          title: 'Code Snippets [Example]',
-          description: 'Sample code with syntax highlighting — delete this note anytime',
-          body: 'Save reusable code snippets. PasteCraft detects 20+ languages and highlights syntax automatically.',
+          id: A2, type: 'album',
+          title: 'Research & References',
+          description: 'Formulas, links & templates — delete anytime',
+          body: 'Collect research materials in albums. Group notes, clips, and links for any project or topic.',
           clips: [
-            { type: 'clip', id: now - 199000, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', addedDate: now - 199000 }
+            { type: 'clip', id: now - 99000, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', addedDate: now - 99000 }
           ],
           images: [],
-          urls: [],
-          createdAt: N3, updatedAt: N3
-        },
-        // ── NOTE 4: Markdown Notes [Example] ──
-        {
-          id: N4, type: 'note',
-          title: 'Markdown Notes [Example]',
-          description: 'Sample markdown content — delete this note anytime',
-          body: 'Markdown clips render with headings, lists, and formatting. Great for quick task lists and documentation.',
-          clips: [
-            { type: 'clip', id: now - 99000, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** These are examples — delete them anytime!', addedDate: now - 99000 }
+          urls: [
+            { type: 'url', id: now - 98000, url: 'https://www.overleaf.com/learn/latex/Mathematical_expressions', title: 'Overleaf - LaTeX Math Guide', addedDate: now - 98000 },
+            { type: 'url', id: now - 97000, url: 'https://mermaid.js.org/intro/', title: 'Mermaid Docs', addedDate: now - 97000 }
           ],
-          images: [],
-          urls: [],
-          createdAt: N4, updatedAt: N4
+          noteRefs: [N2],
+          sourceNoteIds: [N2],
+          createdAt: A2, updatedAt: A2
         }
       ];
       await chrome.storage.local.set({ notes });
-      console.log('🧪 Seeded 4 example notes (PC 1.0)');
+      console.log('🧪 Seeded 2 notes + 2 albums (PC 1.0)');
     }
     // ── END DEMO SEED ──
 
@@ -12564,6 +13572,13 @@ class PasteCraftPopup {
     await this.saveNotesPrefs();
     this.renderNotes();
     this.closeNoteEditor();
+
+    // If album was created from the picker, re-open picker so user can continue
+    if (this.createdFromPicker) {
+      this.createdFromPicker = false;
+      this.showAlbumPicker();
+    }
+
     this.showToast(isUpdate ? 'Note updated!' : 'Note created!');
 
     try {

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
 import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -63,8 +63,8 @@ serve(async (req) => {
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
     const breakdown = String(data?.choices?.[0]?.message?.content || '').trim()
 
-    // Decrement text credits after successful generation
-    const credits = await decrementTextCredits(gate)
+    // Decrement weighted text credits after successful generation
+    const credits = await decrementTextCredits(gate, getTextCreditCost(models.provider, models.preset))
 
     return new Response(
       JSON.stringify({ breakdown, ...credits }),

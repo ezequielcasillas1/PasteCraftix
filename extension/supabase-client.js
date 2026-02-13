@@ -210,6 +210,10 @@ class PasteCraftSupabase {
 
     const writeSession = async (session) => {
       try {
+        // ─── V2 GUARD: never write bridge if local/freemium mode is active ───
+        const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
+        if (pc_freemium_guest) return; // local mode owns storage; do not touch
+
         if (!session || !session.access_token) {
           await chrome.storage.local.remove([this._sessionBridgeKey]);
           return;
@@ -862,28 +866,6 @@ class PasteCraftSupabase {
     
     try {
       console.log('📥 Downloading image from temporary URL:', imageUrl);
-
-      // #region agent log
-      try {
-        const u = String(imageUrl || '');
-        let host = '';
-        let hasSig = false;
-        let seMs = null;
-        let expired = null;
-        try {
-          const urlObj = new URL(u);
-          host = urlObj.hostname || '';
-          hasSig = urlObj.searchParams.has('sig');
-          const se = urlObj.searchParams.get('se');
-          if (se) {
-            const ms = Date.parse(se);
-            seMs = Number.isFinite(ms) ? ms : null;
-            expired = seMs != null ? (Date.now() > seMs) : null;
-          }
-        } catch (_) {}
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:entry',message:'downloadAndUploadImage starting',data:{host,hasSig,seMs,expired,hasUserId:!!userId},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
       
       // Download image as blob
       const response = await this._fetchWithTimeout(
@@ -898,13 +880,6 @@ class PasteCraftSupabase {
       
       const blob = await response.blob();
       console.log('✅ Image downloaded, size:', blob.size, 'bytes');
-
-      // #region agent log
-      try {
-        const ct = response?.headers ? (response.headers.get('content-type') || '') : '';
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:downloaded',message:'downloadAndUploadImage downloaded blob',data:{status:response.status,ok:!!response.ok,contentType:ct,blobSize:blob?.size??null,blobType:blob?.type??''},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
       
       // Generate unique filename
       const timestamp = Date.now();
@@ -939,12 +914,6 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('❌ Failed to convert temporary URL to permanent:', error);
       console.warn('⚠️ Returning original temporary URL as fallback');
-
-      // #region agent log
-      try {
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'upload-gallery-pre',hypothesisId:'H7',location:'supabase-client.js:downloadAndUploadImage:catch',message:'downloadAndUploadImage failed (fallback)',data:{error:String(error?.message||error||'')},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
 
       return imageUrl; // Return original URL as fallback
     }
@@ -1130,6 +1099,83 @@ class PasteCraftSupabase {
     } catch (error) {
       console.error('Failed to analyze photo:', error);
       throw error;
+    }
+  }
+
+  // ─── AI Smart Categorization (Magic Wand) ───
+  async aiCategorize(clips) {
+    try {
+      if (!Array.isArray(clips) || clips.length === 0) return [];
+
+      // Get access token for premium gating
+      let accessToken = '';
+      try {
+        const s = await this.client?.auth?.getSession?.();
+        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      } catch (_) {}
+
+      const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-categorize`;
+      const body = { clips: clips.map(c => ({ text: String(c.text || '').slice(0, 200) })) };
+
+      const response = await this._fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': accessToken
+            ? `Bearer ${accessToken}`
+            : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+        },
+        body: JSON.stringify(body)
+      }, 20000, 'AI categorization timed out');
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'AI categorization failed');
+      }
+
+      const data = await response.json();
+      return Array.isArray(data.categories) ? data.categories : [];
+    } catch (error) {
+      console.error('AI categorize failed:', error);
+      return [];
+    }
+  }
+
+  // ─── AI Smart Format (Magic Wand) ───
+  async aiFormat(clips) {
+    try {
+      if (!Array.isArray(clips) || clips.length === 0) return [];
+
+      let accessToken = '';
+      try {
+        const s = await this.client?.auth?.getSession?.();
+        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      } catch (_) {}
+
+      const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-format`;
+      const body = { clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })) };
+
+      const response = await this._fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': accessToken
+            ? `Bearer ${accessToken}`
+            : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+        },
+        body: JSON.stringify(body)
+      }, 25000, 'AI format timed out');
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'AI format failed');
+      }
+
+      const data = await response.json();
+      return Array.isArray(data.formatted) ? data.formatted : [];
+    } catch (error) {
+      console.error('AI format failed:', error);
+      return [];
     }
   }
 
@@ -2092,12 +2138,6 @@ class PasteCraftSupabase {
   }
 
   async syncDeletedCategoriesToSupabase(deletedCategories) {
-    // #region agent log
-    try {
-      fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:entry',message:'syncDeletedCategoriesToSupabase called',data:{hasClient:!!this.client,itemsCount:Array.isArray(deletedCategories)?deletedCategories.length:null},timestamp:Date.now()})}).catch(()=>{});
-    } catch (_) {}
-    // #endregion agent log
-
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping deleted categories sync');
       return false;
@@ -2110,12 +2150,6 @@ class PasteCraftSupabase {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
       const deviceId = await this.getDeviceId();
-
-      // #region agent log
-      try {
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:beforeMap',message:'About to map categories',data:{userId:String(userId||''),deviceId:String(deviceId||''),hasDeviceId:!!deviceId,itemsCount:items.length},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
 
       const dbCategories = items.map(cat => {
         const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
@@ -2148,19 +2182,8 @@ class PasteCraftSupabase {
         device_id: deviceId || null
       })));
 
-      // #region agent log
-      try {
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:success',message:'syncDeletedCategoriesToSupabase completed',data:{success:true,itemsSynced:dbCategories.length},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
-
       return true;
     } catch (error) {
-      // #region agent log
-      try {
-        fetch('http://127.0.0.1:7242/ingest/15ab9a3e-09c8-4bc0-8df7-e09b0dcf46b0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix',hypothesisId:'H4',location:'supabase-client.js:syncDeletedCategoriesToSupabase:error',message:'syncDeletedCategoriesToSupabase failed',data:{error:String(error?.message||error||'unknown'),errorCode:String(error?.code||''),errorDetails:String(error?.details||'')},timestamp:Date.now()})}).catch(()=>{});
-      } catch (_) {}
-      // #endregion agent log
       console.error('❌ Failed to sync deleted categories to Supabase:', error);
       return false;
     }
@@ -3046,15 +3069,16 @@ class PasteCraftSupabase {
     try {
       console.log('🔐 Initiating Google sign in...');
       
-      // For extensions, redirect to callback page
-      const callbackUrl = chrome.runtime.getURL('callback.html');
-      console.log('🔗 Callback URL:', callbackUrl);
+      // Use chrome.identity.launchWebAuthFlow for reliable OAuth in extensions.
+      // This handles the redirect within the extension process, avoiding browser blocks.
+      const redirectUrl = chrome.identity.getRedirectURL();
+      console.log('🔗 Identity redirect URL:', redirectUrl);
       
       const { data, error } = await this.client.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: callbackUrl,
-          skipBrowserRedirect: false,
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
@@ -3068,13 +3092,68 @@ class PasteCraftSupabase {
       }
 
       if (data?.url) {
-        console.log('✅ Opening Google OAuth...');
-        // Open in new window - user completes auth there
-        window.open(data.url, '_blank', 'width=500,height=600');
-        return { 
-          success: true, 
-          message: 'Complete sign in in the new window, then close this popup and reopen' 
-        };
+        console.log('✅ Launching auth flow...');
+        try {
+          // launchWebAuthFlow opens a browser popup, completes OAuth, returns the final URL with tokens
+          const responseUrl = await new Promise((resolve, reject) => {
+            chrome.identity.launchWebAuthFlow(
+              { url: data.url, interactive: true },
+              (callbackUrl) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(callbackUrl);
+                }
+              }
+            );
+          });
+
+          console.log('🔗 OAuth response URL received');
+
+          // Extract tokens from the response URL hash
+          const hashPart = responseUrl.split('#')[1];
+          if (hashPart) {
+            const params = new URLSearchParams(hashPart);
+            const access_token = params.get('access_token');
+            const refresh_token = params.get('refresh_token');
+            if (access_token) {
+              // Store tokens to bridge + storage so popup picks them up on reload.
+              // Skip setSession (it can hang); the popup's init will restore from bridge.
+              // Decode user_id from JWT so the bridge fast path in getCurrentUser works.
+              let userId = null;
+              let email = '';
+              let expiresAt = null;
+              try {
+                const payload = JSON.parse(atob(access_token.split('.')[1]));
+                userId = payload.sub || null;
+                email = payload.email || '';
+                expiresAt = payload.exp || null;
+              } catch (_) {}
+              try {
+                await chrome.storage.local.set({
+                  oauth_callback: { access_token, refresh_token: refresh_token || '', timestamp: Date.now() },
+                  [this._sessionBridgeKey]: {
+                    access_token,
+                    refresh_token: refresh_token || '',
+                    expires_at: expiresAt,
+                    user_id: userId,
+                    email: email,
+                    updated_at: Date.now()
+                  }
+                });
+                console.log('✅ Google OAuth tokens stored!');
+                return { success: true, message: 'Signed in with Google!' };
+              } catch (storeErr) {
+                return { success: false, error: String(storeErr) };
+              }
+            }
+          }
+          
+          return { success: false, error: 'No tokens in OAuth response' };
+        } catch (launchError) {
+          console.error('❌ launchWebAuthFlow failed:', launchError);
+          return { success: false, error: launchError.message };
+        }
       }
 
       return { success: false, error: 'No OAuth URL generated' };
@@ -3211,7 +3290,7 @@ class PasteCraftSupabase {
       } catch (_) {}
 
       // Guardrail: auth session resolution can hang (offline / browser issues). Never block popup indefinitely.
-      const timeoutMs = 5000;
+      const timeoutMs = 500;
       const sessionPromise = this.client.auth.getSession();
       const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: { session: null }, error: new Error('getSession timeout') }), timeoutMs));
       const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -3257,13 +3336,28 @@ class PasteCraftSupabase {
     if (!this.client) return null;
 
     try {
-      const { data, error } = await this.client
+      // Guardrail: Supabase auth session can hang (same issue as getCurrentUser).
+      // Race the query against a timeout, then fall back to direct REST call.
+      const queryPromise = this.client
         .from('user_subscriptions')
         .select('*')
         .eq('user_id', userId)
         .single();
 
-      if (error) throw error;
+      const timeoutMs = 3000;
+      const timeoutPromise = new Promise((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('getUserSubscription timeout') }), timeoutMs)
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (error) {
+        // On timeout, try direct REST fallback bypassing stuck auth client
+        if (error.message === 'getUserSubscription timeout') {
+          return await this._getUserSubscriptionDirect(userId);
+        }
+        throw error;
+      }
 
       // Best-effort cache write (avoids slow/failing future fetches)
       this.setCachedSubscription(userId, data);
@@ -3271,6 +3365,32 @@ class PasteCraftSupabase {
       return data;
     } catch (error) {
       console.error('❌ Failed to get subscription:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Direct REST fallback for getUserSubscription when Supabase auth client is stuck.
+   * Bypasses the Supabase JS client entirely, using the stored access token from chrome.storage.
+   */
+  async _getUserSubscriptionDirect(userId) {
+    try {
+      const accessToken = await this.getStoredAccessToken();
+      const headers = {
+        'apikey': PASTECRAFT_CONFIG.supabase.anonKey,
+        'Authorization': `Bearer ${accessToken || PASTECRAFT_CONFIG.supabase.anonKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.pgrst.object+json'
+      };
+      const url = `${PASTECRAFT_CONFIG.supabase.url}/rest/v1/user_subscriptions?user_id=eq.${userId}&select=*`;
+      const res = await fetch(url, { headers });
+
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data) this.setCachedSubscription(userId, data);
+      return data;
+    } catch (error) {
+      console.error('❌ Direct subscription fetch failed:', error);
       return null;
     }
   }

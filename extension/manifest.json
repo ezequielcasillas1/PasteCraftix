@@ -65,7 +65,9 @@
         "lib/katex.min.js",
         "lib/katex.min.css",
         "lib/katex-fonts/*",
-        "lib/mermaid.min.js"
+        "lib/mermaid.min.js",
+        "lib/pdf.min.js",
+        "lib/pdf.worker.min.js"
       ],
       "matches": ["<all_urls>"]
     }

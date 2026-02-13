@@ -4004,7 +4004,7 @@
             max-width: 480px;
             max-height: 90vh;
             width: 95%;
-            background: linear-gradient(135deg, #E8F4FF 0%, #F0F9FF 50%, #FEFCE8 100%);
+            background: linear-gradient(135deg, #E8F4FF 0%, #F0F9FF 50%, #ffffff 100%);
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
@@ -4628,36 +4628,6 @@
             color: #059669;
         }
 
-        /* Admin Link */
-        .auth-admin-link-new {
-            text-align: center;
-            margin-top: 24px;
-            padding-top: 24px;
-            border-top: 2px solid #F1F5F9;
-        }
-
-        .auth-admin-link-new a {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #64748B;
-            font-size: 14px;
-            text-decoration: none;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-
-        .auth-admin-link-new a:hover {
-            color: #3B82F6;
-            background: #F0F9FF;
-        }
-
-        .admin-icon {
-            font-size: 16px;
-        }
-
         /* Responsive Adjustments */
         @media (max-width: 500px) {
             .auth-modal-new {
@@ -4929,6 +4899,19 @@
             height: 1px;
             background: rgba(255,255,255,.12);
             margin: 6px 0;
+        }
+
+        .credits-tooltip .tip-costs {
+            display: block;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            letter-spacing: 0.01em;
+        }
+
+        .credits-tooltip .tip-costs strong {
+            color: #93c5fd;
+            font-size: 11px;
         }
         
         .ai-lab-icon {
@@ -7095,6 +7078,568 @@
             color: #ef4444;
             background: #fef2f2;
         }
+
+        /* ============================================
+           AI Breakdown Page V2 Styles
+           ============================================ */
+        .ai-breakdown-container-v2 {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* --- Hero Card --- */
+        .bd-hero-card {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 22px;
+            background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 40%, #3b82f6 100%);
+            border-radius: 18px;
+            overflow: hidden;
+            color: white;
+            box-shadow: 0 8px 32px rgba(30, 64, 175, 0.35);
+        }
+
+        .bd-hero-glow {
+            position: absolute;
+            top: -40%;
+            right: -20%;
+            width: 220px;
+            height: 220px;
+            background: radial-gradient(circle, rgba(96, 165, 250, 0.4) 0%, transparent 70%);
+            pointer-events: none;
+            animation: bdGlowPulse 4s ease-in-out infinite;
+        }
+
+        @keyframes bdGlowPulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.15); }
+        }
+
+        .bd-hero-content {
+            flex: 1;
+            z-index: 1;
+        }
+
+        .bd-hero-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            margin-bottom: 10px;
+            backdrop-filter: blur(4px);
+        }
+
+        .bd-hero-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+            color: white;
+        }
+
+        .bd-hero-desc {
+            font-size: 13px;
+            margin: 0;
+            opacity: 0.85;
+            line-height: 1.55;
+            max-width: 260px;
+        }
+
+        .bd-hero-visual {
+            z-index: 1;
+            flex-shrink: 0;
+            margin-left: 12px;
+        }
+
+        .bd-hero-orb {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+            animation: bdOrbFloat 3s ease-in-out infinite;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .bd-orb-icon {
+            font-size: 30px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        @keyframes bdOrbFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* --- Steps --- */
+        .bd-step {
+            background: white;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 18px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .bd-step:focus-within {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+        }
+
+        .bd-step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .bd-step-num {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 800;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+
+        .bd-step-info {
+            flex: 1;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .bd-step-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .bd-char-count {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 600;
+            background: #f1f5f9;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        .bd-step-hint {
+            font-size: 11px;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        /* --- Textarea --- */
+        .bd-input-wrap {
+            position: relative;
+        }
+
+        .bd-textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 110px;
+            background: #fafbfc;
+            color: #1e293b;
+            outline: none;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .bd-textarea:focus {
+            border-color: #3b82f6;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+        }
+
+        .bd-textarea::placeholder {
+            color: #a1a8b4;
+            font-size: 13px;
+        }
+
+        .bd-clear-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #f8fafc;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .bd-clear-btn:hover {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #dc2626;
+        }
+
+        /* --- Level Grid --- */
+        .bd-levels-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        @media (max-width: 400px) {
+            .bd-levels-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Per-level color themes */
+        .bd-levels-grid .level-chip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bd-levels-grid .level-chip:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .bd-levels-grid .level-chip:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            background: #fafbfc;
+        }
+
+        /* Rose - Child */
+        .bd-levels-grid .level-chip[data-color="rose"]:not(:disabled) { border-color: #fecdd3; background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); }
+        .bd-levels-grid .level-chip[data-color="rose"]:not(:disabled):hover { border-color: #fb7185; box-shadow: 0 6px 16px rgba(251, 113, 133, 0.25); }
+        .bd-levels-grid .level-chip[data-color="rose"].selected { background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); border-color: #e11d48; box-shadow: 0 6px 20px rgba(244, 63, 94, 0.45); }
+
+        /* Amber - Elementary */
+        .bd-levels-grid .level-chip[data-color="amber"]:not(:disabled) { border-color: #fed7aa; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); }
+        .bd-levels-grid .level-chip[data-color="amber"]:not(:disabled):hover { border-color: #f59e0b; box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25); }
+        .bd-levels-grid .level-chip[data-color="amber"].selected { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-color: #d97706; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45); }
+
+        /* Emerald - High School */
+        .bd-levels-grid .level-chip[data-color="emerald"]:not(:disabled) { border-color: #a7f3d0; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); }
+        .bd-levels-grid .level-chip[data-color="emerald"]:not(:disabled):hover { border-color: #10b981; box-shadow: 0 6px 16px rgba(16, 185, 129, 0.25); }
+        .bd-levels-grid .level-chip[data-color="emerald"].selected { background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-color: #059669; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45); }
+
+        /* Sky - College */
+        .bd-levels-grid .level-chip[data-color="sky"]:not(:disabled) { border-color: #bae6fd; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); }
+        .bd-levels-grid .level-chip[data-color="sky"]:not(:disabled):hover { border-color: #0ea5e9; box-shadow: 0 6px 16px rgba(14, 165, 233, 0.25); }
+        .bd-levels-grid .level-chip[data-color="sky"].selected { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-color: #0284c7; box-shadow: 0 6px 20px rgba(14, 165, 233, 0.45); }
+
+        /* Violet - PhD */
+        .bd-levels-grid .level-chip[data-color="violet"]:not(:disabled) { border-color: #ddd6fe; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); }
+        .bd-levels-grid .level-chip[data-color="violet"]:not(:disabled):hover { border-color: #8b5cf6; box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25); }
+        .bd-levels-grid .level-chip[data-color="violet"].selected { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border-color: #7c3aed; box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45); }
+
+        /* Indigo - Wise Man */
+        .bd-levels-grid .level-chip[data-color="indigo"]:not(:disabled) { border-color: #c7d2fe; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); }
+        .bd-levels-grid .level-chip[data-color="indigo"]:not(:disabled):hover { border-color: #6366f1; box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25); }
+        .bd-levels-grid .level-chip[data-color="indigo"].selected { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-color: #4f46e5; box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45); }
+
+        .bd-levels-grid .level-chip.selected .level-chip-content strong,
+        .bd-levels-grid .level-chip.selected .level-chip-content small {
+            color: white;
+        }
+
+        .bd-levels-grid .level-chip.selected { transform: translateY(-2px); }
+
+        .bd-levels-grid .level-chip-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            transition: transform 0.25s ease;
+        }
+
+        .bd-levels-grid .level-chip:not(:disabled):hover .level-chip-icon {
+            transform: scale(1.15);
+        }
+
+        .bd-levels-grid .level-chip-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+        }
+
+        .bd-levels-grid .level-chip-content strong {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bd-levels-grid .level-chip-content small {
+            font-size: 10.5px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+
+        /* --- Analyze Button --- */
+        .bd-analyze-action {
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .bd-analyze-btn {
+            padding: 13px 32px;
+            font-size: 15px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 280px;
+            justify-content: center;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bd-analyze-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .bd-analyze-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
+        }
+
+        .bd-analyze-btn:not(:disabled):hover::before {
+            left: 100%;
+        }
+
+        .bd-analyze-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .bd-analyze-icon {
+            font-size: 18px;
+        }
+
+        /* --- Quick Tip --- */
+        .bd-quick-tip {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1.5px solid #fde68a;
+            border-radius: 12px;
+        }
+
+        .bd-tip-icon-wrap {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .bd-tip-content {
+            flex: 1;
+        }
+
+        .bd-tip-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #92400e;
+            margin: 0 0 3px 0;
+        }
+
+        .bd-tip-desc {
+            font-size: 12px;
+            color: #78350f;
+            margin: 0;
+            line-height: 1.45;
+            opacity: 0.85;
+        }
+
+        .bd-tip-desc strong {
+            opacity: 1;
+        }
+
+        /* --- Inline Results (Step 3) --- */
+        .bd-results-step {
+            border-color: #93c5fd;
+            background: linear-gradient(135deg, #fafbff 0%, #f0f5ff 100%);
+            animation: bdResultSlideIn 0.35s ease-out;
+        }
+
+        @keyframes bdResultSlideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .bd-result-level-badge {
+            font-size: 11px;
+            font-weight: 700;
+            color: #1e40af;
+            background: #dbeafe;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+
+        /* Inline level tabs */
+        .bd-inline-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .bd-inline-tab {
+            flex: 1;
+            min-width: 54px;
+            padding: 8px 6px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .bd-inline-tab .tab-emoji { font-size: 16px; }
+        .bd-inline-tab .tab-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+        .bd-inline-tab:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+            transform: translateY(-1px);
+        }
+
+        .bd-inline-tab.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: 0 3px 10px rgba(59, 130, 246, 0.35);
+            transform: translateY(-1px);
+        }
+
+        /* Inline pagination */
+        .bd-inline-pagination {
+            justify-content: flex-start;
+            margin-bottom: 12px;
+        }
+
+        /* Loading */
+        .bd-inline-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            gap: 12px;
+        }
+
+        .bd-inline-loading p {
+            color: #475569;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .bd-inline-loading small {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        /* Result content */
+        .bd-inline-result {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #1e293b;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding: 4px;
+            min-height: 60px;
+        }
+
+        .bd-inline-result:empty::before {
+            content: '👆 Click a level tab above to switch explanations';
+            color: #94a3b8;
+            font-style: italic;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 20px;
+        }
+
+        /* Follow-up */
+        .bd-inline-followup {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1.5px solid #e5e7eb;
+        }
         
     </style>
 </head>
@@ -7194,6 +7739,8 @@
                     class="manual-input-textarea" 
                     id="manualInputTextarea" 
                     placeholder="Type or paste text here to save as a clip..."></textarea>
+                <!-- PDF Upload (hidden file input) -->
+                <input type="file" id="pdfFileInput" accept=".pdf,application/pdf" style="display:none;" />
                 <div class="manual-input-actions">
                     <select class="manual-input-category" id="manualInputCategory">
                         <option value="Uncategorized">Uncategorized</option>
@@ -7220,6 +7767,10 @@
                         <option value="jira">JIRA / Confluence</option>
                         <option value="code">Code</option>
                     </select>
+                    <button class="pdf-upload-btn" id="pdfUploadBtn" title="Extract text from PDF">
+                        <span>📄</span>
+                        <span>PDF</span>
+                    </button>
                     <button class="manual-input-save-btn" id="manualInputSaveBtn">
                         <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
                         <span id="manualInputSaveIcon">💾</span>
@@ -7459,12 +8010,18 @@
                             aria-live="polite"
                         >
                             AI text credits: —
-                            <span class="credits-tooltip">
+                            <span class="credits-tooltip" id="aiTextCreditsTooltip">
                                 <strong>AI Text Credits</strong>
                                 <span class="tip-divider"></span>
-                                Powers <strong>Summary</strong> (condense notes), <strong>Breakdown</strong> (explain at any level), and <strong>AI Hints</strong> (smart tips on copied content).
+                                Powers <strong>Summary</strong>, <strong>Breakdown</strong>, and <strong>AI Hints</strong>.
                                 <span class="tip-divider"></span>
-                                Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits &amp; still explains clearly.
+                                <span class="tip-costs" id="aiTextCreditsCosts">
+                                    <strong>Cost per call:</strong><br>
+                                    Cheap &middot; 25 cr &nbsp;|&nbsp; Default &middot; 40 cr<br>
+                                    Latest &middot; 100–500 cr &nbsp;|&nbsp; Pro &middot; 350 cr
+                                </span>
+                                <span class="tip-divider"></span>
+                                Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits.
                             </span>
                         </div>
                     </div>
@@ -7690,77 +8247,90 @@ Multiple clips are separated by:
 
                 <!-- AI Breakdown Section -->
                 <div class="ai-lab-section" id="aiBreakdownSection">
-                    <div class="ai-breakdown-container">
-                        <div class="ai-breakdown-hero">
-                            <h3 class="ai-section-title">📊 AI Text Breakdown</h3>
-                            <p class="ai-breakdown-description">Transform complex text into explanations at 6 different comprehension levels—from simple to expert.</p>
-                        </div>
-                        
-                        <div class="breakdown-input-section">
-                            <div class="input-header">
-                                <label for="breakdownInput" class="breakdown-label">
-                                    <span class="label-icon">✍️</span>
-                                    <span>Enter text to analyze</span>
-                                </label>
-                                <span class="char-counter" id="breakdownCharCounter">0 characters</span>
+                    <div class="ai-breakdown-container-v2">
+                        <!-- Hero Card -->
+                        <div class="bd-hero-card">
+                            <div class="bd-hero-glow"></div>
+                            <div class="bd-hero-content">
+                                <div class="bd-hero-badge">AI POWERED</div>
+                                <h3 class="bd-hero-title">Text Breakdown</h3>
+                                <p class="bd-hero-desc">Transform complex text into crystal-clear explanations at 6 comprehension levels.</p>
                             </div>
-                            <textarea 
-                                id="breakdownInput" 
-                                class="breakdown-textarea" 
-                                placeholder="Paste any text here—articles, quotes, definitions, concepts, code snippets, or anything you want to understand better..."
-                                rows="6"
-                            ></textarea>
-                            
-                            <div class="breakdown-input-actions">
-                                <button id="clearBreakdownInput" class="btn-secondary breakdown-clear-btn">
-                                    <span>🗑️</span>
-                                    <span>Clear All</span>
+                            <div class="bd-hero-visual">
+                                <div class="bd-hero-orb">
+                                    <span class="bd-orb-icon">🧠</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Input -->
+                        <div class="bd-step">
+                            <div class="bd-step-header">
+                                <span class="bd-step-num">1</span>
+                                <div class="bd-step-info">
+                                    <h4 class="bd-step-title">Paste your text</h4>
+                                    <span class="bd-char-count" id="breakdownCharCounter">0 characters</span>
+                                </div>
+                            </div>
+                            <div class="bd-input-wrap">
+                                <textarea 
+                                    id="breakdownInput" 
+                                    class="bd-textarea" 
+                                    placeholder="Paste any text here—articles, quotes, definitions, concepts, code snippets, or anything you want to understand better..."
+                                    rows="5"
+                                ></textarea>
+                                <button id="clearBreakdownInput" class="bd-clear-btn" title="Clear text">
+                                    <span>🗑️</span> Clear All
                                 </button>
                             </div>
                         </div>
 
-                        <div class="breakdown-examples">
-                            <div class="level-selection-header">
-                                <h4 class="examples-title">🎯 Step 2: Select Your Breakdown Level</h4>
-                                <p class="examples-subtitle" id="levelSelectionHint">Type at least one sentence above to enable levels</p>
+                        <!-- Step 2: Level Selection -->
+                        <div class="bd-step">
+                            <div class="bd-step-header">
+                                <span class="bd-step-num">2</span>
+                                <div class="bd-step-info">
+                                    <h4 class="bd-step-title">Choose comprehension level</h4>
+                                    <span class="bd-step-hint" id="levelSelectionHint">Type at least one sentence above to enable levels</span>
+                                </div>
                             </div>
-                            <div class="example-chips" id="levelChipsContainer">
-                                <button class="level-chip" data-level="eli5" disabled>
+                            <div class="bd-levels-grid" id="levelChipsContainer">
+                                <button class="level-chip" data-level="eli5" data-color="rose" disabled>
                                     <span class="level-chip-icon">🍼</span>
                                     <div class="level-chip-content">
                                         <strong>Child</strong>
                                         <small>Simple for anyone</small>
                                     </div>
                                 </button>
-                                <button class="level-chip" data-level="elementary" disabled>
+                                <button class="level-chip" data-level="elementary" data-color="amber" disabled>
                                     <span class="level-chip-icon">📚</span>
                                     <div class="level-chip-content">
                                         <strong>Elementary</strong>
                                         <small>Grades 3-5</small>
                                     </div>
                                 </button>
-                                <button class="level-chip" data-level="highschool" disabled>
+                                <button class="level-chip" data-level="highschool" data-color="emerald" disabled>
                                     <span class="level-chip-icon">🎓</span>
                                     <div class="level-chip-content">
                                         <strong>High School</strong>
                                         <small>Teen level</small>
                                     </div>
                                 </button>
-                                <button class="level-chip" data-level="college" disabled>
+                                <button class="level-chip" data-level="college" data-color="sky" disabled>
                                     <span class="level-chip-icon">🏛️</span>
                                     <div class="level-chip-content">
                                         <strong>College</strong>
                                         <small>Academic</small>
                                     </div>
                                 </button>
-                                <button class="level-chip" data-level="phd" disabled>
+                                <button class="level-chip" data-level="phd" data-color="violet" disabled>
                                     <span class="level-chip-icon">👨‍🔬</span>
                                     <div class="level-chip-content">
                                         <strong>PhD</strong>
                                         <small>Expert level</small>
                                     </div>
                                 </button>
-                                <button class="level-chip" data-level="wiseman" disabled>
+                                <button class="level-chip" data-level="wiseman" data-color="indigo" disabled>
                                     <span class="level-chip-icon">🧙</span>
                                     <div class="level-chip-content">
                                         <strong>Wise Man</strong>
@@ -7768,24 +8338,88 @@ Multiple clips are separated by:
                                     </div>
                                 </button>
                             </div>
-                            <div class="level-analyze-action">
-                                <button id="analyzeLevelBtn" class="btn-primary level-analyze-btn" disabled>
-                                    <span>🧠</span>
+                            <div class="bd-analyze-action">
+                                <button id="analyzeLevelBtn" class="bd-analyze-btn" disabled>
+                                    <span class="bd-analyze-icon">🧠</span>
                                     <span>Analyze with Selected Level</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div class="breakdown-quick-actions">
-                            <div class="quick-actions-header">
-                                <h4 class="quick-actions-title">📋 Quick Access from Clips</h4>
-                            </div>
-                            <div class="quick-actions-hint">
-                                <span class="hint-icon">🎯</span>
-                                <div class="hint-content">
-                                    <p class="hint-main">Click the <strong>🧠 icon</strong> on any clip to instantly analyze it</p>
-                                    <p class="hint-sub">Available on: Clips tab, Search results, and Category dropdowns</p>
+                        <!-- Step 3: Inline Results (shown after analyze) -->
+                        <div class="bd-step bd-results-step" id="bdInlineResults" style="display: none;">
+                            <div class="bd-step-header">
+                                <span class="bd-step-num">3</span>
+                                <div class="bd-step-info">
+                                    <h4 class="bd-step-title">Result</h4>
+                                    <span class="bd-result-level-badge" id="bdInlineLevelBadge"></span>
                                 </div>
+                            </div>
+
+                            <!-- Level tabs for switching -->
+                            <div class="bd-inline-tabs">
+                                <button class="bd-inline-tab" data-inline-level="eli5" title="Child">
+                                    <span class="tab-emoji">🍼</span><span class="tab-label">Child</span>
+                                </button>
+                                <button class="bd-inline-tab" data-inline-level="elementary" title="Elementary">
+                                    <span class="tab-emoji">📚</span><span class="tab-label">Elem</span>
+                                </button>
+                                <button class="bd-inline-tab" data-inline-level="highschool" title="High School">
+                                    <span class="tab-emoji">🎓</span><span class="tab-label">High</span>
+                                </button>
+                                <button class="bd-inline-tab" data-inline-level="college" title="College">
+                                    <span class="tab-emoji">🏛️</span><span class="tab-label">College</span>
+                                </button>
+                                <button class="bd-inline-tab" data-inline-level="phd" title="PhD">
+                                    <span class="tab-emoji">👨‍🔬</span><span class="tab-label">PhD</span>
+                                </button>
+                                <button class="bd-inline-tab" data-inline-level="wiseman" title="Wise Man">
+                                    <span class="tab-emoji">🧙</span><span class="tab-label">Wise</span>
+                                </button>
+                            </div>
+
+                            <!-- Thread Pagination -->
+                            <div class="thread-pagination bd-inline-pagination" id="bdInlineThreadPagination" style="display: none;"></div>
+
+                            <!-- Loading -->
+                            <div class="bd-inline-loading" id="bdInlineLoading" style="display: none;">
+                                <div class="loading-spinner"></div>
+                                <p>AI is analyzing your text...</p>
+                                <small>This may take a few seconds</small>
+                            </div>
+
+                            <!-- Result Content -->
+                            <div class="bd-inline-result" id="bdInlineResult"></div>
+
+                            <!-- Follow-up -->
+                            <div class="bd-inline-followup" id="bdInlineFollowup" style="display: none;">
+                                <div class="followup-label">
+                                    <span class="followup-icon">💬</span>
+                                    <span>Ask a follow-up question</span>
+                                </div>
+                                <div class="followup-input-group">
+                                    <input 
+                                        type="text" 
+                                        id="bdInlineFollowupInput" 
+                                        class="followup-input" 
+                                        placeholder="Ask anything about this explanation..."
+                                    />
+                                    <button id="bdInlineFollowupBtn" class="followup-send-btn" title="Send follow-up">
+                                        <span>Send</span>
+                                        <span class="send-icon">→</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Access Tip -->
+                        <div class="bd-quick-tip">
+                            <div class="bd-tip-icon-wrap">
+                                <span>⚡</span>
+                            </div>
+                            <div class="bd-tip-content">
+                                <p class="bd-tip-title">Quick Access from Clips</p>
+                                <p class="bd-tip-desc">Click the <strong>🧠</strong> icon on any clip to instantly analyze it. Available on Clips tab, Search results, and Category dropdowns.</p>
                             </div>
                         </div>
                     </div>
@@ -8138,10 +8772,16 @@ Multiple clips are separated by:
             <div class="modal-content breakdown-modal-content">
                 <div class="modal-header breakdown-modal-header">
                     <div class="breakdown-header-content">
-                        <h3 id="aiHistoryModalTitle">📜 Conversation</h3>
+                        <h3 id="aiHistoryModalTitle" class="ai-history-modal-title-display">📜 Conversation</h3>
+                        <div id="aiHistoryTitleEditContainer" class="ai-history-title-edit-container" style="display:none;">
+                            <input type="text" id="aiHistoryTitleInput" class="ai-history-title-input" maxlength="60" placeholder="Enter title..." />
+                            <button class="ai-history-title-save-btn" id="aiHistoryTitleSaveBtn" title="Save">✓</button>
+                            <button class="ai-history-title-cancel-btn" id="aiHistoryTitleCancelBtn" title="Cancel">✕</button>
+                        </div>
                         <p class="breakdown-header-subtitle" id="aiHistoryModalSubtitle"></p>
                     </div>
                     <div class="breakdown-header-actions">
+                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title">✏️</button>
                         <button class="modal-close" id="closeAiHistoryModal">✕</button>
                     </div>
                 </div>
@@ -8157,6 +8797,10 @@ Multiple clips are separated by:
                         <button class="btn-secondary" id="copyAiHistoryBtn">
                             <span>📋</span>
                             <span>Copy</span>
+                        </button>
+                        <button class="btn-secondary ai-history-continue-btn" id="continueConversationBtn">
+                            <span>💬</span>
+                            <span>Continue Conversation</span>
                         </button>
                         <button class="btn-primary" id="closeAiHistoryModalBtn">Done</button>
                     </div>
@@ -8272,6 +8916,9 @@ Multiple clips are separated by:
                     <div class="magic-clip-list" id="magicClipList"></div>
                 </div>
                 <div class="magic-preview-pagination" id="magicPagination"></div>
+                <div class="magic-ai-credit-notice" id="magicAiCreditNotice" style="display: none;">
+                    <span>💎 AI features use ~25 credits each: Smart Categorize + Smart Format</span>
+                </div>
                 <div class="modal-footer magic-preview-footer">
                     <button class="magic-btn-secondary" id="magicCancelBtn">Cancel</button>
                     <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled>🪄 Craft the Magic</button>
@@ -8296,6 +8943,10 @@ Multiple clips are separated by:
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatEnhanced">0</div>
                             <div class="magic-stat-label">Enhanced</div>
+                        </div>
+                        <div class="magic-stat-card">
+                            <div class="magic-stat-number" id="magicStatAiFormatted">0</div>
+                            <div class="magic-stat-label">AI Formatted</div>
                         </div>
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatDupes">0</div>
@@ -8325,14 +8976,23 @@ Multiple clips are separated by:
                         <div class="magic-info-icon">📁</div>
                         <div class="magic-info-detail">
                             <h4>Smart Categorization</h4>
-                            <p>Automatically suggests and assigns categories to uncategorized clips based on content type. URLs go to Links, code to Code, JSON/YAML to Data, and more.</p>
+                            <p>Automatically assigns categories to uncategorized clips. Premium users get <strong>AI-powered</strong> categorization with smart, reusable titles.</p>
+                            <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
                         <div class="magic-info-icon">✨</div>
                         <div class="magic-info-detail">
-                            <h4>Content Enhancement</h4>
-                            <p>Cleans up copied text by trimming whitespace, collapsing blank lines, formatting JSON, removing URL tracking parameters, and normalizing content.</p>
+                            <h4>Smart Format</h4>
+                            <p>AI polishes grammar, punctuation, and structure — without changing vocabulary or meaning. Skips code, URLs, and data clips automatically.</p>
+                            <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon">🧹</div>
+                        <div class="magic-info-detail">
+                            <h4>Content Cleanup</h4>
+                            <p>Trims whitespace, collapses blank lines, formats JSON, removes URL tracking parameters, and normalizes content. Free for all users.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
@@ -8953,10 +9613,6 @@ Multiple clips are separated by:
                 </div>
                 <div class="album-picker-list" id="albumPickerList"></div>
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
-                    <button class="btn-secondary create-new-from-picker" id="createNewNoteFromPicker" style="flex: 1;">
-                        <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 6px;">
-                        Create New Note
-                    </button>
                     <button class="btn-secondary create-new-from-picker" id="createNewAlbumFromPicker" style="flex: 1;">
                         <img src="assets/note-icons/album-folder.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 6px;">
                         Create New Album
@@ -9295,30 +9951,19 @@ Multiple clips are separated by:
                     </button>
                 </div>
                 
-                <!-- Admin Sign In -->
-                <div class="auth-admin-link-new">
-                    <a href="#" id="adminSignInLink">
-                        <span class="admin-icon">🔐</span>
-                        Admin Portal
-                    </a>
+                <!-- Skip to Freemium -->
+                <div class="auth-skip-section">
+                    <div class="auth-divider-new">
+                        <span>or</span>
+                    </div>
+                    <button class="btn-skip-freemium" id="skipToFreemiumBtn">
+                        <span class="skip-icon">🚀</span>
+                        <span class="skip-text">Skip to PasteCraft</span>
+                    </button>
+                    <p class="skip-disclaimer">Use PasteCraft free in local mode — no account needed.<br>
+                        <span class="skip-note">Go local if you don't want to connect right away; you can sign in later to sync your data. Once logged in (basic or enhanced), data saves to the database.</span>
+                    </p>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Admin Authentication Modal -->
-    <div class="modal-overlay" id="adminAuthModal" style="display: none;">
-        <div class="modal-content auth-modal">
-            <div class="modal-header">
-                <h3>🔐 Admin Portal</h3>
-                <button class="modal-close" id="closeAdminAuthModal">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="auth-subtitle">Restricted Access</p>
-                <input type="email" id="adminEmail" class="auth-input" placeholder="Admin email" required>
-                <input type="password" id="adminPassword" class="auth-input" placeholder="Admin password" required>
-                <button class="btn-primary" id="adminSigninBtn">Sign In as Admin</button>
-                <button class="btn-secondary" id="backToUserAuth">← Back to User Login</button>
             </div>
         </div>
     </div>
@@ -9663,6 +10308,57 @@ alice@email.com</div>
     </div>
 
 
+    <!-- PDF Extraction Modal -->
+    <div class="modal-overlay" id="pdfExtractModal" style="display: none;">
+        <div class="modal-content pdf-extract-modal-content">
+            <div class="modal-header">
+                <h3 id="pdfExtractTitle">📄 PDF Text Extraction</h3>
+                <button class="modal-close" id="pdfExtractCloseBtn">✕</button>
+            </div>
+            <div class="pdf-extract-body">
+                <div class="pdf-extract-info" id="pdfExtractInfo">
+                    <span class="pdf-info-name" id="pdfFileName">—</span>
+                    <span class="pdf-info-pages" id="pdfPageCount">0 pages</span>
+                </div>
+                <div class="pdf-extract-loading" id="pdfExtractLoading" style="display: none;">
+                    <div class="pdf-loading-spinner"></div>
+                    <span id="pdfLoadingText">Extracting text…</span>
+                </div>
+                <div class="pdf-extract-options" id="pdfExtractOptions">
+                    <label class="pdf-option">
+                        <input type="radio" name="pdfSaveMode" value="single" checked />
+                        <span>Save as single clip<br><small style="color:#6b7280;">(all pages)</small></span>
+                    </label>
+                    <label class="pdf-option">
+                        <input type="radio" name="pdfSaveMode" value="perPage" />
+                        <span>Save as separate clips<br><small style="color:#6b7280;">(one per page)</small></span>
+                    </label>
+                    <label class="pdf-option">
+                        <input type="radio" name="pdfSaveMode" value="selectedPage" />
+                        <span>Save selected page<br><small style="color:#6b7280;">(pick one below)</small></span>
+                    </label>
+                    <label class="pdf-option-select">
+                        <span>Category:</span>
+                        <select id="pdfExtractCategory" class="manual-input-category">
+                            <option value="Uncategorized">Uncategorized</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="pdf-extract-preview" id="pdfExtractPreview">
+                    <div class="pdf-preview-tabs" id="pdfPreviewTabs"></div>
+                    <textarea class="pdf-preview-textarea" id="pdfPreviewTextarea" readonly placeholder="Extracted text will appear here..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions pdf-extract-actions">
+                <button class="btn-secondary" id="pdfExtractCancelBtn">Cancel</button>
+                <button class="btn-primary" id="pdfExtractSaveBtn" disabled>
+                    <span class="btn-loading-spinner" id="pdfSaveSpinner" style="display: none;"></span>
+                    <span id="pdfSaveLabel">Save to Clips</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Markup Rendering Libraries -->
     <link rel="stylesheet" href="lib/highlight-github.min.css">
     <link rel="stylesheet" href="lib/katex.min.css">
@@ -9671,6 +10367,7 @@ alice@email.com</div>
     <script src="lib/highlight.min.js"></script>
     <script src="lib/katex.min.js"></script>
     <script src="lib/mermaid.min.js"></script>
+    <script src="lib/pdf.min.js"></script>
     <script src="markup-renderer.js"></script>
 
     <!-- Database Client (Local) -->

@@ -464,6 +464,18 @@ state management.
 
 ---
 
+#### 38. PDF Text Extraction to Clips
+**Priority:** Medium  
+**Status:** Completed  
+**Requirements:**
+- Upload PDF via popup Quick Save section
+- Extract text using pdf.js (page-by-page)
+- Preview extracted text with page tabs
+- Save as single clip or one clip per page
+- Category selection + source:pdf meta tag
+
+---
+
 
 ---
 

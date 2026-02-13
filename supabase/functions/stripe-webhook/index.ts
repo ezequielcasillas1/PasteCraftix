@@ -80,14 +80,14 @@ function getImageCreditsLimitFromPriceId(priceId: string | null): number | null 
 function getTextCreditsLimitFromPriceId(priceId: string | null): number | null {
   if (!priceId) return null
 
-  // Text AI credits (GPT-4o @ ~$0.005/call, ~50% cost coverage)
+  // Weighted text AI credits (model costs range 25–500 per call)
   switch (priceId) {
     case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
-      return 100
+      return 4_000
     case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
-      return 250
+      return 10_000
     case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
-      return 2500
+      return 100_000
     default:
       return null
   }
