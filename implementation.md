@@ -1,3 +1,8 @@
+### 2026-02-15 - AI Summary/Breakdown Tab-Scoped Fresh State
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup.html
+**Result:** AI Summary and Breakdown now refresh to empty when opening popup in a new tab or new browser session. Tab ID stored with saved state; restore only when current tab matches. Added "Open recent conversation" in empty Summary state (last 5 entries from AI History) so users can reopen without going to History tab.
+
 ### 2025-02-10 - Privacy Policy (Edge submission)
 **Status:** SUCCESS
 **Files:** website/privacy.html

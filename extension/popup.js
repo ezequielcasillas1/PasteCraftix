@@ -4241,23 +4241,7 @@ class PasteCraftPopup {
     // New summary button
     if (newSummaryBtn) {
       newSummaryBtn.addEventListener('click', () => {
-        this.showSummarySection('input');
-        this.currentSummaryText = null;
-        this.generatedQuestions = [];
-        this.currentSummaryQuestion = null;
-        this._activeSummaryHistoryId = null; // New summary conversation
-        // Reset threads
-        this.summaryThreads = [];
-        this.currentSummaryThreadIndex = 0;
-        // Hide follow-up and pagination
-        const followupContainer = document.getElementById('summaryFollowupContainer');
-        const paginationContainer = document.getElementById('summaryThreadPagination');
-        if (followupContainer) followupContainer.style.display = 'none';
-        if (paginationContainer) paginationContainer.style.display = 'none';
-        if (summaryInput) summaryInput.value = '';
-        if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
-        if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-        this._currentSummarySection = 'input';
+        this._resetSummaryToEmpty();
         this._saveSummaryState();
       });
     }
@@ -12233,13 +12217,25 @@ class PasteCraftPopup {
     } catch (_) {}
   }
 
+  /** Get current browser tab ID (for tab-scoped AI session) */
+  async _getCurrentTabId() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      return tabs?.[0]?.id ?? null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /** Save AI Breakdown page state (input text, selected level, NOT the modal) */
   async _saveBreakdownPageState() {
     try {
       const breakdownInput = document.getElementById('breakdownInput');
+      const tabId = await this._getCurrentTabId();
       const state = {
         inputText: breakdownInput ? breakdownInput.value : '',
-        selectedLevel: this.selectedBreakdownLevel || null
+        selectedLevel: this.selectedBreakdownLevel || null,
+        tabId
       };
       await chrome.storage.local.set({ pc_breakdownPageState_v1: state });
     } catch (_) {}
@@ -12248,13 +12244,15 @@ class PasteCraftPopup {
   /** Save AI Breakdown modal state (results, threads, cache) */
   async _saveBreakdownModalState() {
     try {
+      const tabId = await this._getCurrentTabId();
       const state = {
         originalText: this.currentBreakdownText || null,
         activeLevel: this.currentBreakdownLevel || null,
         cache: this.breakdownCache || {},
         threads: (this.breakdownThreads || []).slice(0, 20),
         threadIndex: this.currentBreakdownThreadIndex || 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        tabId
       };
       await chrome.storage.local.set({ pc_breakdownModalState_v1: state });
     } catch (_) {}
@@ -12264,6 +12262,7 @@ class PasteCraftPopup {
   async _saveSummaryState() {
     try {
       const summaryInput = document.getElementById('summaryInput');
+      const tabId = await this._getCurrentTabId();
       // Use raw text from current thread for persistence (not rendered HTML)
       const currentThread = this.summaryThreads?.[this.currentSummaryThreadIndex];
       const rawResult = currentThread?.answer || this._currentRawSummary || '';
@@ -12276,10 +12275,100 @@ class PasteCraftPopup {
         threads: (this.summaryThreads || []).slice(0, 20),
         threadIndex: this.currentSummaryThreadIndex || 0,
         activeSection: this._currentSummarySection || 'input',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        tabId
       };
       await chrome.storage.local.set({ pc_summaryState_v1: state });
     } catch (_) {}
+  }
+
+  /** Reset AI Summary to empty state (used when opening in new tab) */
+  _resetSummaryToEmpty() {
+    this.currentSummaryText = null;
+    this.generatedQuestions = [];
+    this.currentSummaryQuestion = null;
+    this._activeSummaryHistoryId = null;
+    this.summaryThreads = [];
+    this.currentSummaryThreadIndex = 0;
+    this._currentRawSummary = null;
+    this._currentSummarySection = 'input';
+    const summaryInput = document.getElementById('summaryInput');
+    const summaryCharCounter = document.getElementById('summaryCharCounter');
+    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
+    const followupContainer = document.getElementById('summaryFollowupContainer');
+    const paginationContainer = document.getElementById('summaryThreadPagination');
+    if (summaryInput) summaryInput.value = '';
+    if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
+    if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
+    if (followupContainer) followupContainer.style.display = 'none';
+    if (paginationContainer) paginationContainer.style.display = 'none';
+    this.showSummarySection('input');
+    this._renderOpenRecentConversation();
+  }
+
+  /** Reset AI Breakdown to empty state (used when opening in new tab) */
+  _resetBreakdownToEmpty() {
+    this.currentBreakdownText = null;
+    this.currentBreakdownLevel = null;
+    this.breakdownCache = {};
+    this.breakdownThreads = [];
+    this.currentBreakdownThreadIndex = 0;
+    this.selectedBreakdownLevel = null;
+    const breakdownInput = document.getElementById('breakdownInput');
+    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
+    const levelChips = document.querySelectorAll('.level-chip');
+    if (breakdownInput) {
+      breakdownInput.value = '';
+      breakdownInput.dispatchEvent(new Event('input'));
+    }
+    if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
+    levelChips.forEach(c => {
+      c.classList.remove('selected');
+      c.disabled = true;
+    });
+    const breakdownCharCounter = document.getElementById('breakdownCharCounter');
+    if (breakdownCharCounter) breakdownCharCounter.textContent = '0 characters';
+  }
+
+  /** Render "Open recent conversation" in empty Summary state */
+  async _renderOpenRecentConversation() {
+    const container = document.getElementById('openRecentConversationContainer');
+    if (!container) return;
+    const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
+    const recent = (pc_aiHistory_v1 || []).slice(0, 5);
+    if (recent.length === 0) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div class="open-recent-header">
+        <span class="open-recent-icon">📂</span>
+        <span>Open recent conversation</span>
+      </div>
+      <div class="open-recent-list">
+        ${recent.map(e => {
+          const icon = e.type === 'breakdown' ? '🧠' : '📝';
+          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
+          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '…' : '');
+          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
+          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
+            <span class="open-recent-item-icon">${icon}</span>
+            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
+            <span class="open-recent-item-meta">${label} · ${timeStr}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    `;
+    this.aiHistoryEntries = pc_aiHistory_v1;
+    container.querySelectorAll('.open-recent-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = parseInt(btn.dataset.historyId);
+        const entry = this.aiHistoryEntries?.find(e => e.id === id);
+        if (entry) this.openAiHistoryModal(entry);
+      });
+    });
   }
 
   /** Restore all persisted UI state on popup open */
@@ -12349,9 +12438,20 @@ class PasteCraftPopup {
         }
       }
 
-      // 3. Restore AI Breakdown page state (input + level)
+      // Tab-scoped AI session: only restore Summary/Breakdown when same tab
+      const currentTabId = await this._getCurrentTabId();
+      const shouldRestoreBreakdown = (stored) => {
+        const savedId = stored?.pc_breakdownPageState_v1?.tabId ?? stored?.pc_breakdownModalState_v1?.tabId;
+        return currentTabId != null && savedId != null && currentTabId === savedId;
+      };
+      const shouldRestoreSummary = (stored) => {
+        const savedId = stored?.pc_summaryState_v1?.tabId;
+        return currentTabId != null && savedId != null && currentTabId === savedId;
+      };
+
+      // 3. Restore AI Breakdown page state (input + level) — only if same tab
       const bdPage = stored.pc_breakdownPageState_v1;
-      if (bdPage) {
+      if (bdPage && shouldRestoreBreakdown(stored)) {
         const breakdownInput = document.getElementById('breakdownInput');
         if (breakdownInput && bdPage.inputText) {
           breakdownInput.value = bdPage.inputText;
@@ -12367,12 +12467,13 @@ class PasteCraftPopup {
           const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
           if (analyzeLevelBtn && bdPage.inputText) analyzeLevelBtn.disabled = false;
         }
+      } else if ((bdPage || stored.pc_breakdownModalState_v1) && !shouldRestoreBreakdown(stored)) {
+        this._resetBreakdownToEmpty();
       }
 
-      // 4. Restore AI Breakdown modal state (last conversation)
+      // 4. Restore AI Breakdown modal state (last conversation) — only if same tab
       const bdModal = stored.pc_breakdownModalState_v1;
-      if (bdModal && bdModal.originalText && bdModal.threads && bdModal.threads.length > 0) {
-        // Restore in-memory state (don't re-open modal, but data is ready)
+      if (bdModal && bdModal.originalText && bdModal.threads && bdModal.threads.length > 0 && shouldRestoreBreakdown(stored)) {
         this.currentBreakdownText = bdModal.originalText;
         this.currentBreakdownLevel = bdModal.activeLevel;
         this.breakdownCache = bdModal.cache || {};
@@ -12380,10 +12481,10 @@ class PasteCraftPopup {
         this.currentBreakdownThreadIndex = bdModal.threadIndex || 0;
       }
 
-      // 5. Restore AI Summary state
+      // 5. Restore AI Summary state — only if same tab; else start fresh
       const sum = stored.pc_summaryState_v1;
-      if (sum) {
-        // Restore input text
+      if (sum && shouldRestoreSummary(stored)) {
+        // Restore input text (same-tab restore)
         const summaryInput = document.getElementById('summaryInput');
         if (summaryInput && sum.inputText) {
           summaryInput.value = sum.inputText;
@@ -12436,6 +12537,9 @@ class PasteCraftPopup {
             }
           }
         }
+      } else {
+        // New tab or new session: start Summary fresh, show Open recent
+        this._resetSummaryToEmpty();
       }
 
       console.log('✅ Session state restored:', {
