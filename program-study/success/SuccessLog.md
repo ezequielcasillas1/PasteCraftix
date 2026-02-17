@@ -215,9 +215,7 @@
 ### Feb 12, 2026 - Production Presets: Categories, Clips, Notes & Albums
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js
-**Result:** Replaced old 4-cat/4-clip/4-note seed with production-ready presets. 8 categories based on most-copied clipboard items (research-backed). 8 clips (4 markup + 4 common). 4 notes (2 notes + 2 albums) showcasing albums feature with noteRefs.
-
-### Feb 11, 2026 - AI Rich Markup Rendering (LaTeX, Diagrams, Tables)
+**Result:** Replaced old 4-cat/4-clip/4-note seed with production-ready presets. 8 categories based on most-copied clipboard items (research-backed). 8 clips (4 markup + 4 common). 4 notes (2 notes + 2 albums) showcasing albums feature with noteRefs.### Feb 11, 2026 - AI Rich Markup Rendering (LaTeX, Diagrams, Tables)
 **Status:** ✅ SUCCESS
 **Files:** ai-summary/index.ts, ai-breakdown/index.ts, popup.js, popup.html
 **Result:** Connected all 19 markup renderers to AI responses. Summary & Breakdown now render LaTeX math, Mermaid diagrams, code blocks, tables, and formatted Markdown. Prompts updated from plain-text-only to rich markup. New `_renderAiResponse()` orchestrates Markdown+LaTeX+Mermaid pipeline.
