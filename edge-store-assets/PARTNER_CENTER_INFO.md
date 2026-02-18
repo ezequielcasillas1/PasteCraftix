@@ -43,7 +43,7 @@ Smart clipboard manager with search, categories, Quick View, and AI. Break down 
 
 ## Full Description (Store Listing)
 
-PasteCraft helps you save, organize, and reuse everything you copy—so you never lose important snippets again. Ideal for students, researchers, and anyone who collects text, code, or images while browsing.
+PasteCraft helps you save, organize, and reuse everything you copy—so you never lose important snippets again. Freemium model: start free, upgrade to Basic (cloud sync) or Enhanced (AI tools). Use clipboard managing as an effective learning style: break down complex text, summarize research, and organize study materials in one place. Ideal for students, researchers, and anyone who collects text, code, or images while browsing.
 
 ### Core Features (FREE)
 - Clipboard history saved locally
@@ -56,12 +56,15 @@ PasteCraft helps you save, organize, and reuse everything you copy—so you neve
 - 20+ markup formats (Markdown, LaTeX, code, MediaWiki, JIRA, etc.)
 - Raw code detection for 190+ languages
 
-### Premium (Cloud Sync + AI)
-- Cloud sync across devices
-- AI Breakdown (ELI5 to PhD-level explanations)
-- Smart Summary (summarize, Q&A)
-- AI Image generation (avatars, images from prompts)
-- AI History timeline (prompts, outputs, usage)
+### Freemium Model (Subscription Tiers)
+- **Freemium (free)** — Unlimited local clips, search, categories, Notes + Albums, Quick View, markup support. Try before you upgrade.
+- **Basic** — Everything Freemium + cloud sync + database storage (access clips across devices).
+- **Enhanced** — Everything Basic + full AI access: AI Breakdown, Smart Summary, AI Image generation, Magic Wand, AI History, AI hints.
+
+### Subscription Summary
+- **Freemium:** Local clips + organization + search + Quick View + markup support
+- **Basic:** Freemium + cloud sync
+- **Enhanced:** Basic + all AI tools
 
 ### Study Tool Use
 - **Break down complex text** — Copy lecture notes or articles; get ELI5, high school, college, or PhD-level explanations
@@ -70,11 +73,24 @@ PasteCraft helps you save, organize, and reuse everything you copy—so you neve
 - **Code snippets** — Save and search code with syntax highlighting; join clips for study guides
 - **AI hints** — Get step-by-step hints for problem-solving without full answers
 
+### Innovative UI Widgets
+- **Highlight & drag** — Select text on any page and drag it into the Quick View box to save instantly—no copy needed
+- **Screenpage widget view** — Currently in use; improved widget experience coming in future releases
+- One-click copy/paste, right-click context menu, and floating Quick View for fast access
+
+### Version & Roadmap
+- **You're viewing v1.0** — Full clipboard manager with AI, search, and study tools
+- **v2.0 coming soon** — Enhanced widget experience and more innovations
+
 ### Links
 - Website: https://pastecraft.com
 - Support: https://pastecraft.com/support
 - Privacy: https://pastecraft.com/privacy
 - Terms: https://pastecraft.com/terms
+
+### Follow for updates
+- Facebook: https://www.facebook.com/PasteCraftOfficial
+- Reddit: https://www.reddit.com/r/PasteCraft/
 
 ---
 
