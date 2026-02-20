@@ -499,30 +499,6 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   // Strict schema check
   const type = message && typeof message.type === 'string' ? message.type : '';
 
-  // Handle OAuth sign-in from website callback
-  if (type === 'oauth_signin') {
-    const accessToken = message && typeof message.access_token === 'string' ? message.access_token : '';
-    const refreshToken = message && typeof message.refresh_token === 'string' ? message.refresh_token : '';
-
-    if (!accessToken || accessToken.length > 4096 || (refreshToken && refreshToken.length > 4096)) {
-      sendResponse({ success: false, error: 'invalid_payload' });
-      return false;
-    }
-
-    // Store OAuth tokens for the popup to pick up on next open
-    chrome.storage.local.set({
-      oauth_callback: {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        timestamp: Date.now()
-      }
-    }, () => {
-      console.log('✅ OAuth tokens stored from website callback');
-      sendResponse({ success: true });
-    });
-    return true; // keep channel open for async sendResponse
-  }
-
   if (type === 'password_reset') {
     const accessToken = message && typeof message.access_token === 'string' ? message.access_token : '';
     const refreshToken = message && typeof message.refresh_token === 'string' ? message.refresh_token : '';

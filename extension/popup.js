@@ -2504,6 +2504,9 @@ class PasteCraftPopup {
   }
 
   async refreshCloudClipboardAndDevices() {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H5',location:'popup.js:refreshCloudClipboardAndDevices',message:'starting cloud clipboard/device refresh',data:{existingDeviceCount:Array.isArray(this.pastecraftDevices)?this.pastecraftDevices.length:0,existingClipboardCount:Array.isArray(this.cloudClipboardItems)?this.cloudClipboardItems.length:0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     try {
       await pasteCraftSupabase.upsertPastecraftDeviceSession();
     } catch (_) {}
@@ -2562,8 +2565,14 @@ class PasteCraftPopup {
     try {
       const devices = await pasteCraftSupabase.getPastecraftDevices();
       this.pastecraftDevices = Array.isArray(devices) ? devices : [];
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H5',location:'popup.js:loadPastecraftDevices',message:'devices loaded into popup state',data:{count:this.pastecraftDevices.length,deviceIds:this.pastecraftDevices.map((d)=>String(d?.deviceId||'')).slice(0,5)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     } catch (_) {
       this.pastecraftDevices = [];
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H5',location:'popup.js:loadPastecraftDevices',message:'device load failed and state cleared',data:{count:0},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     }
     this.renderPastecraftDevices();
   }
@@ -5497,8 +5506,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        // OAuth window opened - user completes auth there, tokens stored by callback.js
-        this.showToast('✅ Complete sign in in the new window, then reopen PasteCraft', 'success', 5000);
+        this.showToast('✅ Signed in with Google!', 'success');
+        window.location.reload();
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }
@@ -5514,8 +5523,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        // OAuth window opened - user completes auth there, tokens stored by callback.js
-        this.showToast('✅ Complete sign in in the new window, then reopen PasteCraft', 'success', 5000);
+        this.showToast('✅ Signed in with Google!', 'success');
+        window.location.reload();
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }

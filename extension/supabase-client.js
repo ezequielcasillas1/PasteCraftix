@@ -1523,6 +1523,9 @@ class PasteCraftSupabase {
       }
 
       await this.ensureUserProfileRow(authUserId);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from auth session',data:{source:'auth',userId:authUserId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return authUserId;
     }
 
@@ -1535,11 +1538,17 @@ class PasteCraftSupabase {
 
     if (syncStoredId) {
       await this.ensureUserProfileRow(syncStoredId);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from sync storage',data:{source:'syncStorage',userId:syncStoredId},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return syncStoredId;
     }
 
     const chromeUserId = await this.getChromeUserId();
     await this.ensureUserProfileRow(chromeUserId);
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from local legacy id',data:{source:'localLegacy',userId:chromeUserId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return chromeUserId;
   }
 
@@ -3141,16 +3150,15 @@ class PasteCraftSupabase {
     try {
       console.log('🔐 Initiating Google sign in...');
       
-      // Use hosted callback page - more reliable across browsers (Chrome, Edge, etc.)
-      // auth.pastecraft.com extracts tokens and sends them back to extension via external messaging
-      const callbackUrl = 'https://auth.pastecraft.com/';
+      // Use extension-owned identity callback to avoid website-to-extension relay failures.
+      const callbackUrl = chrome.identity.getRedirectURL();
       console.log('🔗 Callback URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: callbackUrl,
-          skipBrowserRedirect: false,
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account'
@@ -3165,12 +3173,53 @@ class PasteCraftSupabase {
 
       if (data?.url) {
         console.log('✅ Opening Google OAuth...');
-        // Open in new window - user completes auth there, tokens sent back via auth.pastecraft.com
-        window.open(data.url, '_blank', 'width=500,height=600');
-        return { 
-          success: true, 
-          message: 'Complete sign in in the new window, then reopen PasteCraft' 
-        };
+        try {
+          const responseUrl = await new Promise((resolve, reject) => {
+            chrome.identity.launchWebAuthFlow(
+              { url: data.url, interactive: true },
+              (finalUrl) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(finalUrl);
+                }
+              }
+            );
+          });
+
+          const hashPart = String(responseUrl || '').split('#')[1] || '';
+          const params = new URLSearchParams(hashPart);
+          const access_token = params.get('access_token');
+          const refresh_token = params.get('refresh_token');
+          if (!access_token) {
+            return { success: false, error: 'No tokens in OAuth response' };
+          }
+
+          let userId = null;
+          let email = '';
+          let expiresAt = null;
+          try {
+            const payload = JSON.parse(atob(access_token.split('.')[1]));
+            userId = payload.sub || null;
+            email = payload.email || '';
+            expiresAt = payload.exp || null;
+          } catch (_) {}
+
+          await chrome.storage.local.set({
+            oauth_callback: { access_token, refresh_token: refresh_token || '', timestamp: Date.now() },
+            [this._sessionBridgeKey]: {
+              access_token,
+              refresh_token: refresh_token || '',
+              expires_at: expiresAt,
+              user_id: userId,
+              email: email,
+              updated_at: Date.now()
+            }
+          });
+          return { success: true, message: 'Signed in with Google!' };
+        } catch (launchError) {
+          return { success: false, error: launchError.message };
+        }
       }
 
       return { success: false, error: 'No OAuth URL generated' };
@@ -3459,6 +3508,9 @@ class PasteCraftSupabase {
   async hasCloudSyncAccess(userId) {
     const subscription = await this.getUserSubscription(userId);
     if (!subscription) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H2',location:'supabase-client.js:hasCloudSyncAccess',message:'cloud sync denied due to missing subscription',data:{userId,hasSubscription:false},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return false; // No subscription = free tier = no cloud sync
     }
     
@@ -3469,8 +3521,11 @@ class PasteCraftSupabase {
     // Also allow past_due (grace period) for better UX
     const allowedTiers = ['basic', 'premium', 'admin'];
     const allowedStatuses = ['active', 'past_due'];
-    
-    return allowedTiers.includes(tier) && allowedStatuses.includes(status);
+    const hasAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H2',location:'supabase-client.js:hasCloudSyncAccess',message:'evaluated cloud sync entitlement',data:{userId,tier,status,hasAccess},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return hasAccess;
   }
 
   /**
@@ -3626,8 +3681,14 @@ class PasteCraftSupabase {
         .maybeSingle();
 
       if (error) throw error;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H3',location:'supabase-client.js:upsertPastecraftDeviceSession',message:'device heartbeat upsert succeeded',data:{userId,deviceId,lastSeenAt:nowIso,hasRow:!!data},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return data ? this.mapPastecraftDeviceRow(data) : null;
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H3',location:'supabase-client.js:upsertPastecraftDeviceSession',message:'device heartbeat upsert failed',data:{error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('❌ Failed to upsert pastecraft device session:', error);
       return null;
     }
@@ -3650,8 +3711,14 @@ class PasteCraftSupabase {
         .order('last_seen_at', { ascending: false });
 
       if (error) throw error;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H4',location:'supabase-client.js:getPastecraftDevices',message:'fetched pastecraft devices',data:{userId,count:Array.isArray(data)?data.length:0},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return Array.isArray(data) ? data.map((row) => this.mapPastecraftDeviceRow(row)).filter(Boolean) : [];
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H4',location:'supabase-client.js:getPastecraftDevices',message:'failed to fetch pastecraft devices',data:{error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error('❌ Failed to fetch pastecraft devices:', error);
       return [];
     }

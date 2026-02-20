@@ -1,3 +1,8 @@
+### Feb 20, 2026 - Extension popup, Supabase client, schema updates
+**Status:** ✅ SUCCESS
+**Files:** db/supabase-schema.sql, extension/popup.html, extension/popup.js, extension/supabase-client.js
+**Result:** Popup UI/JS, supabase-client, db schema updates. (Commit: 046c3ab)
+
 ### Feb 10, 2025 - Privacy policy clips and AI disclosure
 **Status:** ✅ SUCCESS
 **Files:** website/privacy.html
