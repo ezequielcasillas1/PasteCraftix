@@ -2584,10 +2584,33 @@ class PasteCraftPopup {
   async syncCloudClipboardHistory() {
     try {
       const renderedIds = Array.from(this.cloudClipboardItemIds);
-      const result = await pasteCraftSupabase.syncClipboardHistory(renderedIds, 50);
-      this.cloudClipboardItems = Array.isArray(result?.allRows) ? result.allRows : [];
+      const [historyResult, clipsResult] = await Promise.all([
+        pasteCraftSupabase.syncClipboardHistory(renderedIds, 50),
+        pasteCraftSupabase.syncClipsFromSupabase()
+      ]);
+
+      const historyRows = Array.isArray(historyResult?.allRows) ? historyResult.allRows : [];
+      const clipRows = Array.isArray(clipsResult) ? clipsResult.map(clip => ({
+        id: clip.id,
+        content: clip.text,
+        deviceId: clip.deviceId,
+        timestamp: clip.timestamp
+      })) : [];
+
+      // Merge and deduplicate by content
+      const merged = [...historyRows, ...clipRows];
+      const seenContent = new Set();
+      this.cloudClipboardItems = merged.filter(item => {
+        const content = String(item.content || '').trim();
+        if (!content || seenContent.has(content)) return false;
+        seenContent.add(content);
+        return true;
+      });
+
       this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 100); // Keep top 100 for sync view
       this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
+      
       this.renderCloudClipboardList();
       this.renderPastecraftDevices();
     } catch (_) {
@@ -2671,7 +2694,13 @@ class PasteCraftPopup {
       const lastSeen = device.lastSeenAt ? this.getTimeAgo(Date.parse(device.lastSeenAt) || Date.now()) : 'Unknown';
       
       // Filter clips for this device from the cloud clipboard items
-      const deviceClips = (this.cloudClipboardItems || []).filter(item => String(item.deviceId) === safeDeviceId);
+      let deviceClips = (this.cloudClipboardItems || []).filter(item => String(item.deviceId) === safeDeviceId);
+      
+      // Fallback: If this is NOT the current device and we have no clips for it, 
+      // but there are clips with NO deviceId, they might be from this device (e.g. legacy or failed tagging)
+      if (!isSelf && deviceClips.length === 0 && Array.isArray(this.cloudClipboardItems)) {
+        deviceClips = this.cloudClipboardItems.filter(item => !item.deviceId);
+      }
       
       return `
         <div class="pastecraft-device-row" data-device-id="${this.escapeHtml(safeDeviceId)}">
