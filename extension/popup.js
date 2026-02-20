@@ -2434,7 +2434,15 @@ class PasteCraftPopup {
     const viewDevicesBtn = document.getElementById('viewPastecraftDevicesBtn');
     const devicesPanel = document.getElementById('pastecraftDevicesPanel');
     const syncedClipContainer = document.getElementById('syncedClipContainer');
-    if (!viewDevicesBtn || !devicesPanel || !syncedClipContainer) return Promise.resolve();
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H8',location:'popup.js:setupCloudClipboardSync',message:'resolved cloud clipboard DOM nodes',data:{hasViewDevicesBtn:!!viewDevicesBtn,hasDevicesPanel:!!devicesPanel,hasSyncedClipContainer:!!syncedClipContainer},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (!viewDevicesBtn || !devicesPanel || !syncedClipContainer) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H8',location:'popup.js:setupCloudClipboardSync',message:'skipping cloud clipboard sync setup due to missing DOM nodes',data:{hasViewDevicesBtn:!!viewDevicesBtn,hasDevicesPanel:!!devicesPanel,hasSyncedClipContainer:!!syncedClipContainer},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return Promise.resolve();
+    }
 
     viewDevicesBtn.addEventListener('click', () => {
       this.pastecraftDevicesOpen = !this.pastecraftDevicesOpen;
@@ -2562,7 +2570,15 @@ class PasteCraftPopup {
 
   async loadPastecraftDevices() {
     const container = document.getElementById('pastecraftDevicesPanel');
-    if (!container) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H8',location:'popup.js:loadPastecraftDevices',message:'entered loadPastecraftDevices',data:{hasContainer:!!container},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    if (!container) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H8',location:'popup.js:loadPastecraftDevices',message:'aborting device load because panel container is missing',data:{hasContainer:false},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+      return;
+    }
     try {
       let hasAccess = this.cloudSyncAccess;
       if (typeof hasAccess !== 'boolean') {
