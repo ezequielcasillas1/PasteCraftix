@@ -2580,12 +2580,12 @@ class PasteCraftPopup {
       return;
     }
     try {
-      let hasAccess = this.cloudSyncAccess;
-      if (typeof hasAccess !== 'boolean') {
-        const userId = await pasteCraftSupabase.getSyncUserId();
-        hasAccess = await pasteCraftSupabase.hasCloudSyncAccess(userId);
-        this.cloudSyncAccess = !!hasAccess;
-      }
+      const userId = await pasteCraftSupabase.getSyncUserId();
+      const hasAccess = await pasteCraftSupabase.hasCloudSyncAccess(userId);
+      this.cloudSyncAccess = !!hasAccess;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H9',location:'popup.js:loadPastecraftDevices',message:'resolved cloud sync access (no cache)',data:{userId,hasAccess},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (!hasAccess) {
         this.pastecraftDevices = [];
         this.renderPastecraftDevices();
@@ -2593,9 +2593,15 @@ class PasteCraftPopup {
       }
       const devices = await pasteCraftSupabase.getPastecraftDevices();
       this.pastecraftDevices = Array.isArray(devices) ? devices : [];
-    } catch (_) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H9',location:'popup.js:loadPastecraftDevices',message:'devices fetched successfully',data:{count:this.pastecraftDevices.length},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    } catch (error) {
       this.pastecraftDevices = [];
       this.cloudSyncAccess = null;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'post-fix',hypothesisId:'H9',location:'popup.js:loadPastecraftDevices',message:'device load threw',data:{error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
     }
     this.renderPastecraftDevices();
   }
