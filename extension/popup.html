@@ -654,57 +654,116 @@
         .pastecraft-devices-panel {
             margin-top: 10px;
             display: none;
-            max-height: 180px;
-            overflow-y: auto;
+            max-height: 400px;
+            overflow-y: hidden;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
         }
 
         .pastecraft-devices-panel.open {
-            display: block;
+            display: flex;
         }
 
-        .pastecraft-device-row {
-            border: 1px solid #dbeafe;
-            border-radius: 10px;
-            padding: 8px;
+        .pastecraft-tabs-header {
+            display: flex;
+            overflow-x: auto;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 4px;
+            gap: 4px;
+            scrollbar-width: none;
+        }
+        
+        .pastecraft-tabs-header::-webkit-scrollbar {
+            display: none;
+        }
+
+        .pastecraft-device-tab {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .pastecraft-device-tab:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .pastecraft-device-tab.active {
             background: #ffffff;
-            margin-bottom: 8px;
+            color: #2563eb;
+            border-color: #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .pastecraft-tabs-content {
+            padding: 12px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .pastecraft-device-detail {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         .pastecraft-device-id {
-            font-size: 11px;
-            color: #1d4ed8;
-            margin-bottom: 6px;
+            font-size: 10px;
+            color: #94a3b8;
+            font-family: monospace;
             word-break: break-all;
         }
 
         .pastecraft-device-rename {
             display: flex;
             gap: 6px;
-            margin-bottom: 6px;
         }
 
         .pastecraft-device-rename input {
             flex: 1;
             border: 1px solid #cbd5e1;
             border-radius: 7px;
-            padding: 6px 8px;
+            padding: 6px 10px;
             font-size: 12px;
+            outline: none;
+        }
+        
+        .pastecraft-device-rename input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
         }
 
         .pastecraft-device-save-btn {
-            border: 1px solid #60a5fa;
-            border-radius: 7px;
-            background: #dbeafe;
-            color: #1e3a8a;
-            padding: 6px 8px;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: #ffffff;
+            padding: 6px 12px;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .pastecraft-device-save-btn:hover {
+            background: #2563eb;
         }
 
         .pastecraft-device-last-seen {
             font-size: 10px;
-            color: #475569;
+            color: #64748b;
+            margin-bottom: 4px;
         }
 
         .synced-clip-container {
@@ -8007,10 +8066,12 @@
                 <div class="pastecraft-devices-section">
                     <button class="pastecraft-devices-toggle" id="viewPastecraftDevicesBtn">View Pastecraft Devices to Sync</button>
                     <div class="pastecraft-devices-panel" id="pastecraftDevicesPanel">
-                        <div class="pastecraft-device-last-seen">No devices synced yet.</div>
+                        <div class="pastecraft-tabs-header" id="pastecraftTabsHeader"></div>
+                        <div class="pastecraft-tabs-content" id="pastecraftTabsContent">
+                            <div class="pastecraft-device-last-seen">No devices synced yet.</div>
+                        </div>
                     </div>
                 </div>
-                <div class="synced-clip-container" id="syncedClipContainer"></div>
                 <div class="chip-container" id="chipContainer">
                     <div class="empty-state">
                         <div class="empty-state-icon">✨</div>

@@ -2433,8 +2433,7 @@ class PasteCraftPopup {
   setupCloudClipboardSync() {
     const viewDevicesBtn = document.getElementById('viewPastecraftDevicesBtn');
     const devicesPanel = document.getElementById('pastecraftDevicesPanel');
-    const syncedClipContainer = document.getElementById('syncedClipContainer');
-    if (!viewDevicesBtn || !devicesPanel || !syncedClipContainer) return Promise.resolve();
+    if (!viewDevicesBtn || !devicesPanel) return Promise.resolve();
 
     viewDevicesBtn.addEventListener('click', () => {
       this.pastecraftDevicesOpen = !this.pastecraftDevicesOpen;
@@ -2445,12 +2444,17 @@ class PasteCraftPopup {
     });
 
     devicesPanel.addEventListener('click', async (event) => {
+      const tab = event.target.closest('.pastecraft-device-tab');
+      if (tab) {
+        this.activeDeviceId = String(tab.dataset.deviceId || '');
+        this.renderPastecraftDevices();
+        return;
+      }
+
       const saveBtn = event.target.closest('.pastecraft-device-save-btn');
       if (saveBtn) {
-        const row = saveBtn.closest('.pastecraft-device-row');
-        if (!row) return;
-        const deviceId = String(row.dataset.deviceId || '');
-        const input = row.querySelector('.pastecraft-device-name-input');
+        const deviceId = this.activeDeviceId;
+        const input = devicesPanel.querySelector('.pastecraft-device-name-input');
         const displayName = String(input?.value || '').trim();
         if (!deviceId || !displayName) {
           this.showToast('Enter a device name first.', 'error');
@@ -2490,28 +2494,6 @@ class PasteCraftPopup {
       }
     });
 
-    syncedClipContainer.addEventListener('click', async (event) => {
-      const copyBtn = event.target.closest('.synced-clip-copy-btn');
-      const queBtn = event.target.closest('.synced-clip-que-btn');
-      
-      if (!copyBtn && !queBtn) return;
-      
-      const clipId = String((copyBtn || queBtn).dataset.clipId || '');
-      const item = this.cloudClipboardItems.find((entry) => String(entry.id) === clipId);
-      if (!item) return;
-
-      if (copyBtn) {
-        try {
-          await navigator.clipboard.writeText(item.content);
-          this.showToast('Copied synced clip.', 'success');
-        } catch (error) {
-          this.showToast('Clipboard write failed.', 'error');
-        }
-      } else if (queBtn) {
-        await this.addSyncedClipToLocal(item);
-      }
-    });
-
     window.addEventListener('focus', () => {
       this.refreshCloudClipboardAndDevices().catch(() => {});
     });
@@ -2521,9 +2503,9 @@ class PasteCraftPopup {
       if (row && !this.cloudClipboardItemIds.has(String(row.id))) {
         this.cloudClipboardItems.unshift(row);
         this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 50);
+        this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500);
         this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
-        this.renderCloudClipboardList();
+        this.renderPastecraftDevices();
       } else {
         await this.syncCloudClipboardHistory();
       }
@@ -2608,48 +2590,15 @@ class PasteCraftPopup {
       });
 
       this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 100); // Keep top 100 for sync view
+      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500); // Keep top 500 to support unlimited devices
       this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
       
-      this.renderCloudClipboardList();
       this.renderPastecraftDevices();
     } catch (_) {
       this.cloudClipboardItems = [];
       this.cloudClipboardItemIds = new Set();
-      this.renderCloudClipboardList();
       this.renderPastecraftDevices();
     }
-  }
-
-  renderCloudClipboardList() {
-    const container = document.getElementById('syncedClipContainer');
-    if (!container) return;
-
-    if (!Array.isArray(this.cloudClipboardItems) || this.cloudClipboardItems.length === 0) {
-      container.innerHTML = '';
-      return;
-    }
-
-    const currentDeviceId = this._currentDeviceId || '';
-    container.innerHTML = this.cloudClipboardItems.map((item) => {
-      const fromOtherDevice = !!(item.deviceId && currentDeviceId && item.deviceId !== currentDeviceId);
-      const created = item.timestamp ? this.getTimeAgo(item.timestamp) : '';
-      return `
-        <div class="synced-clip-card">
-          <div class="synced-clip-content">${this.escapeHtml(item.content)}</div>
-          <div class="synced-clip-footer">
-            <div class="synced-clip-meta">
-              <span>${this.escapeHtml(created)}</span>
-              ${fromOtherDevice ? '<span class="synced-indicator">Synced</span>' : ''}
-            </div>
-            <div style="display: flex; gap: 4px;">
-              <button class="synced-clip-copy-btn" data-clip-id="${this.escapeHtml(String(item.id))}">Copy</button>
-              ${fromOtherDevice ? `<button class="synced-clip-que-btn" data-clip-id="${this.escapeHtml(String(item.id))}">Que</button>` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
   }
 
   async loadPastecraftDevices() {
@@ -2674,45 +2623,66 @@ class PasteCraftPopup {
   }
 
   renderPastecraftDevices() {
-    const container = document.getElementById('pastecraftDevicesPanel');
-    if (!container) return;
+    const header = document.getElementById('pastecraftTabsHeader');
+    const content = document.getElementById('pastecraftTabsContent');
+    if (!header || !content) return;
+
     if (this.cloudSyncAccess === false) {
-      container.innerHTML = '<div class="pastecraft-device-last-seen">Cloud sync requires Basic, Premium, or Admin plan.</div>';
+      header.innerHTML = '';
+      content.innerHTML = '<div class="pastecraft-device-last-seen">Cloud sync requires Basic, Premium, or Admin plan.</div>';
       return;
     }
     if (!Array.isArray(this.pastecraftDevices) || this.pastecraftDevices.length === 0) {
-      container.innerHTML = '<div class="pastecraft-device-last-seen">No devices synced yet.</div>';
+      header.innerHTML = '';
+      content.innerHTML = '<div class="pastecraft-device-last-seen">No devices synced yet.</div>';
       return;
     }
 
-    container.innerHTML = this.pastecraftDevices.map((device) => {
+    // Ensure we have an active device ID, default to first one
+    if (!this.activeDeviceId || !this.pastecraftDevices.some(d => String(d.deviceId) === this.activeDeviceId)) {
+      this.activeDeviceId = String(this.pastecraftDevices[0].deviceId || '');
+    }
+
+    // Render Tabs
+    header.innerHTML = this.pastecraftDevices.map((device) => {
       const safeDeviceId = String(device.deviceId || '');
-      const currentDeviceId = this._currentDeviceId || '';
-      const isSelf = safeDeviceId === currentDeviceId;
+      const isSelf = safeDeviceId === (this._currentDeviceId || '');
       const fallbackName = `Device ${safeDeviceId.slice(0, 8)}`;
       const displayName = String(device.displayName || fallbackName);
-      const lastSeen = device.lastSeenAt ? this.getTimeAgo(Date.parse(device.lastSeenAt) || Date.now()) : 'Unknown';
-      
-      // Filter clips for this device from the cloud clipboard items
-      let deviceClips = (this.cloudClipboardItems || []).filter(item => String(item.deviceId) === safeDeviceId);
-      
-      // Fallback: If this is NOT the current device and we have no clips for it, 
-      // but there are clips with NO deviceId, they might be from this device (e.g. legacy or failed tagging)
-      if (!isSelf && deviceClips.length === 0 && Array.isArray(this.cloudClipboardItems)) {
-        deviceClips = this.cloudClipboardItems.filter(item => !item.deviceId);
-      }
+      const isActive = safeDeviceId === this.activeDeviceId;
       
       return `
-        <div class="pastecraft-device-row" data-device-id="${this.escapeHtml(safeDeviceId)}">
+        <button class="pastecraft-device-tab ${isActive ? 'active' : ''}" data-device-id="${this.escapeHtml(safeDeviceId)}">
+          ${this.escapeHtml(displayName)} ${isSelf ? '🏠' : ''}
+        </button>
+      `;
+    }).join('');
+
+    // Render Active Device Content
+    const activeDevice = this.pastecraftDevices.find(d => String(d.deviceId) === this.activeDeviceId);
+    if (activeDevice) {
+      const safeDeviceId = String(activeDevice.deviceId || '');
+      const isSelf = safeDeviceId === (this._currentDeviceId || '');
+      const fallbackName = `Device ${safeDeviceId.slice(0, 8)}`;
+      const displayName = String(activeDevice.displayName || fallbackName);
+      const lastSeen = activeDevice.lastSeenAt ? this.getTimeAgo(Date.parse(activeDevice.lastSeenAt) || Date.now()) : 'Unknown';
+      
+      const deviceClips = (this.cloudClipboardItems || []).filter(item => String(item.deviceId) === safeDeviceId);
+      const displayedClips = deviceClips.slice(0, 20);
+      const hasMore = deviceClips.length > 20;
+
+      content.innerHTML = `
+        <div class="pastecraft-device-detail">
           <div class="pastecraft-device-id">ID: ${this.escapeHtml(safeDeviceId)} ${isSelf ? '(This Device)' : ''}</div>
-          <div class="pastecraft-device-rename">
-            <input class="pastecraft-device-name-input" type="text" value="${this.escapeHtml(displayName)}" />
-            <button class="pastecraft-device-save-btn">Save</button>
-          </div>
           <div class="pastecraft-device-last-seen">Last seen: ${this.escapeHtml(lastSeen)}</div>
           
+          <div class="pastecraft-device-rename">
+            <input class="pastecraft-device-name-input" type="text" value="${this.escapeHtml(displayName)}" placeholder="Name this device..." />
+            <button class="pastecraft-device-save-btn">Save</button>
+          </div>
+
           <div class="pastecraft-device-clips">
-            ${deviceClips.length > 0 ? deviceClips.map(clip => `
+            ${displayedClips.length > 0 ? displayedClips.map(clip => `
               <div class="synced-clip-card" style="margin-top: 8px;">
                 <div class="synced-clip-content">${this.escapeHtml(clip.content)}</div>
                 <div class="synced-clip-footer">
@@ -2726,10 +2696,11 @@ class PasteCraftPopup {
                 </div>
               </div>
             `).join('') : '<div class="pastecraft-device-last-seen" style="margin-top: 4px; font-style: italic;">No recent clips from this device</div>'}
+            ${hasMore ? `<div class="pastecraft-device-last-seen" style="margin-top: 8px; text-align: center;">...and ${deviceClips.length - 20} more clips</div>` : ''}
           </div>
         </div>
       `;
-    }).join('');
+    }
   }
   
   updateSyncIndicator(status, queueLength = 0) {

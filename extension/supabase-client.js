@@ -1622,6 +1622,7 @@ class PasteCraftSupabase {
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
 
+      const deviceId = await this.getDeviceId();
       const totalClips = Array.isArray(localClips) ? localClips.length : 0;
       console.log(`📤 Syncing ${totalClips} clips to Supabase...`);
 
@@ -1771,6 +1772,7 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
 
       const normalized = items.map(item => ({
         ...item,
@@ -1814,6 +1816,7 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
 
       const normalized = items.map(item => ({
         ...item,
@@ -3606,7 +3609,7 @@ class PasteCraftSupabase {
 
       const { data, error } = await this.client
         .from('clipboard_history')
-        .upsert(payload, { onConflict: 'user_id,content', ignoreDuplicates: true })
+        .upsert(payload, { onConflict: 'user_id,content', ignoreDuplicates: false })
         .select()
         .maybeSingle();
 
