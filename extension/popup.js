@@ -617,6 +617,11 @@ class PasteCraftPopup {
     this.notesPageIndex = 0; // starts at 0
     this.notesAiEnabled = false;
     this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
+    this.cloudClipboardItems = [];
+    this.cloudClipboardItemIds = new Set();
+    this.pastecraftDevices = [];
+    this.pastecraftDevicesOpen = false;
+    this._currentDeviceId = null;
 
     // (debug instrumentation removed)
 
@@ -1305,6 +1310,7 @@ class PasteCraftPopup {
     
     // Setup realtime data sync listeners
     this.setupRealtimeListeners();
+    this.setupCloudClipboardSync().catch(() => {});
     
     // Setup sync status listeners
     this.setupSyncStatusListeners();
@@ -2405,8 +2411,187 @@ class PasteCraftPopup {
         await this.loadUserProfile();
         // Always refresh top bar identity (name + image) on profile change
         this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
+      } else if (type === 'clipboardHistory') {
+        await this.syncCloudClipboardHistory();
+      } else if (type === 'pastecraftDevices') {
+        await this.loadPastecraftDevices();
       }
     });
+  }
+
+  async ensureCurrentDeviceId() {
+    if (this._currentDeviceId) return this._currentDeviceId;
+    try {
+      this._currentDeviceId = await pasteCraftSupabase.getDeviceId();
+    } catch (_) {
+      this._currentDeviceId = null;
+    }
+    return this._currentDeviceId;
+  }
+
+  setupCloudClipboardSync() {
+    const viewDevicesBtn = document.getElementById('viewPastecraftDevicesBtn');
+    const devicesPanel = document.getElementById('pastecraftDevicesPanel');
+    const syncedClipContainer = document.getElementById('syncedClipContainer');
+    if (!viewDevicesBtn || !devicesPanel || !syncedClipContainer) return Promise.resolve();
+
+    viewDevicesBtn.addEventListener('click', () => {
+      this.pastecraftDevicesOpen = !this.pastecraftDevicesOpen;
+      devicesPanel.classList.toggle('open', this.pastecraftDevicesOpen);
+      viewDevicesBtn.textContent = this.pastecraftDevicesOpen
+        ? 'Hide Pastecraft Devices to Sync'
+        : 'View Pastecraft Devices to Sync';
+    });
+
+    devicesPanel.addEventListener('click', async (event) => {
+      const saveBtn = event.target.closest('.pastecraft-device-save-btn');
+      if (!saveBtn) return;
+      const row = saveBtn.closest('.pastecraft-device-row');
+      if (!row) return;
+      const deviceId = String(row.dataset.deviceId || '');
+      const input = row.querySelector('.pastecraft-device-name-input');
+      const displayName = String(input?.value || '').trim();
+      if (!deviceId || !displayName) {
+        this.showToast('Enter a device name first.', 'error');
+        return;
+      }
+      const updated = await pasteCraftSupabase.renamePastecraftDevice(deviceId, displayName);
+      if (!updated) {
+        this.showToast('Failed to rename device.', 'error');
+        return;
+      }
+      this.showToast('Device name synced.', 'success');
+      await this.loadPastecraftDevices();
+    });
+
+    syncedClipContainer.addEventListener('click', async (event) => {
+      const copyBtn = event.target.closest('.synced-clip-copy-btn');
+      if (!copyBtn) return;
+      const clipId = String(copyBtn.dataset.clipId || '');
+      const item = this.cloudClipboardItems.find((entry) => String(entry.id) === clipId);
+      if (!item) return;
+      try {
+        await navigator.clipboard.writeText(item.content);
+        this.showToast('Copied synced clip.', 'success');
+      } catch (error) {
+        this.showToast('Clipboard write failed.', 'error');
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      this.refreshCloudClipboardAndDevices().catch(() => {});
+    });
+
+    window.addEventListener('clipboardHistoryChanged', async (event) => {
+      const row = event?.detail?.row || null;
+      if (row && !this.cloudClipboardItemIds.has(String(row.id))) {
+        this.cloudClipboardItems.unshift(row);
+        this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 50);
+        this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
+        this.renderCloudClipboardList();
+      } else {
+        await this.syncCloudClipboardHistory();
+      }
+    });
+
+    window.addEventListener('pastecraftDevicesChanged', () => {
+      this.loadPastecraftDevices().catch(() => {});
+    });
+
+    return this.ensureCurrentDeviceId()
+      .then(() => this.refreshCloudClipboardAndDevices());
+  }
+
+  async refreshCloudClipboardAndDevices() {
+    try {
+      await pasteCraftSupabase.upsertPastecraftDeviceSession();
+    } catch (_) {}
+    await Promise.all([
+      this.syncCloudClipboardHistory(),
+      this.loadPastecraftDevices()
+    ]);
+  }
+
+  async syncCloudClipboardHistory() {
+    try {
+      const renderedIds = Array.from(this.cloudClipboardItemIds);
+      const result = await pasteCraftSupabase.syncClipboardHistory(renderedIds, 50);
+      this.cloudClipboardItems = Array.isArray(result?.allRows) ? result.allRows : [];
+      this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
+      this.renderCloudClipboardList();
+    } catch (_) {
+      this.cloudClipboardItems = [];
+      this.cloudClipboardItemIds = new Set();
+      this.renderCloudClipboardList();
+    }
+  }
+
+  renderCloudClipboardList() {
+    const container = document.getElementById('syncedClipContainer');
+    if (!container) return;
+
+    if (!Array.isArray(this.cloudClipboardItems) || this.cloudClipboardItems.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const currentDeviceId = this._currentDeviceId || '';
+    container.innerHTML = this.cloudClipboardItems.map((item) => {
+      const fromOtherDevice = !!(item.deviceId && currentDeviceId && item.deviceId !== currentDeviceId);
+      const created = item.timestamp ? this.getTimeAgo(item.timestamp) : '';
+      return `
+        <div class="synced-clip-card">
+          <div class="synced-clip-content">${this.escapeHtml(item.content)}</div>
+          <div class="synced-clip-footer">
+            <div class="synced-clip-meta">
+              <span>${this.escapeHtml(created)}</span>
+              ${fromOtherDevice ? '<span class="synced-indicator">Synced</span>' : ''}
+            </div>
+            <button class="synced-clip-copy-btn" data-clip-id="${this.escapeHtml(String(item.id))}">Copy</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async loadPastecraftDevices() {
+    const container = document.getElementById('pastecraftDevicesPanel');
+    if (!container) return;
+    try {
+      const devices = await pasteCraftSupabase.getPastecraftDevices();
+      this.pastecraftDevices = Array.isArray(devices) ? devices : [];
+    } catch (_) {
+      this.pastecraftDevices = [];
+    }
+    this.renderPastecraftDevices();
+  }
+
+  renderPastecraftDevices() {
+    const container = document.getElementById('pastecraftDevicesPanel');
+    if (!container) return;
+    if (!Array.isArray(this.pastecraftDevices) || this.pastecraftDevices.length === 0) {
+      container.innerHTML = '<div class="pastecraft-device-last-seen">No devices synced yet.</div>';
+      return;
+    }
+
+    container.innerHTML = this.pastecraftDevices.map((device) => {
+      const safeDeviceId = String(device.deviceId || '');
+      const fallbackName = `Device ${safeDeviceId.slice(0, 8)}`;
+      const displayName = String(device.displayName || fallbackName);
+      const lastSeen = device.lastSeenAt ? this.getTimeAgo(Date.parse(device.lastSeenAt) || Date.now()) : 'Unknown';
+      return `
+        <div class="pastecraft-device-row" data-device-id="${this.escapeHtml(safeDeviceId)}">
+          <div class="pastecraft-device-id">ID: ${this.escapeHtml(safeDeviceId)}</div>
+          <div class="pastecraft-device-rename">
+            <input class="pastecraft-device-name-input" type="text" value="${this.escapeHtml(displayName)}" />
+            <button class="pastecraft-device-save-btn">Save</button>
+          </div>
+          <div class="pastecraft-device-last-seen">Last seen: ${this.escapeHtml(lastSeen)}</div>
+        </div>
+      `;
+    }).join('');
   }
   
   updateSyncIndicator(status, queueLength = 0) {
@@ -5312,8 +5497,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        this.showToast('✅ Signed in with Google!', 'success');
-        window.location.reload(); // Session is set, reload to initialize
+        // OAuth window opened - user completes auth there, tokens stored by callback.js
+        this.showToast('✅ Complete sign in in the new window, then reopen PasteCraft', 'success', 5000);
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }
@@ -5329,8 +5514,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
-        this.showToast('✅ Signed in with Google!', 'success');
-        window.location.reload(); // Session is set, reload to initialize
+        // OAuth window opened - user completes auth there, tokens stored by callback.js
+        this.showToast('✅ Complete sign in in the new window, then reopen PasteCraft', 'success', 5000);
       } else {
         this.showToast(`❌ ${result.error}`, 'error');
       }
@@ -8997,11 +9182,13 @@ class PasteCraftPopup {
       try {
         await pasteCraftSupabase.syncClipsToSupabase(this.clips);
         await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
+        await pasteCraftSupabase.saveClipboardHistoryItem(newClip.text);
         console.log('✅ New clip synced to database');
       } catch (error) {
         console.error('⚠️ Failed to sync new clip to database:', error);
         // Don't block user - local save already succeeded
       }
+      await this.syncCloudClipboardHistory().catch(() => {});
       
       // Notify content scripts about new clip (for Quick Paste updates)
       try {

@@ -160,6 +160,40 @@ CREATE TABLE IF NOT EXISTS public.device_sync_state (
 CREATE INDEX IF NOT EXISTS idx_device_sync_user_id ON public.device_sync_state(user_id);
 
 -- =====================================================
+-- TABLE: clipboard_history
+-- =====================================================
+-- Stores cross-device clipboard events for cloud clipboard UI sync
+CREATE TABLE IF NOT EXISTS public.clipboard_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, content)
+);
+
+CREATE INDEX IF NOT EXISTS idx_clipboard_history_user_id ON public.clipboard_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_clipboard_history_created_at ON public.clipboard_history(created_at DESC);
+
+-- =====================================================
+-- TABLE: pastecraft_devices
+-- =====================================================
+-- Registry of known user devices with globally synced display names
+CREATE TABLE IF NOT EXISTS public.pastecraft_devices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL,
+    display_name TEXT,
+    last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, device_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pastecraft_devices_user_id ON public.pastecraft_devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_pastecraft_devices_last_seen_at ON public.pastecraft_devices(last_seen_at DESC);
+
+-- =====================================================
 -- TABLE: audit_log
 -- =====================================================
 -- Append-only audit for user data mutations
@@ -284,6 +318,12 @@ CREATE TRIGGER update_notes_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Trigger for pastecraft_devices
+CREATE TRIGGER update_pastecraft_devices_updated_at
+    BEFORE UPDATE ON public.pastecraft_devices
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Function: auto_archive_old_clips
 -- Moves clips beyond position 20 to archived_clips
 CREATE OR REPLACE FUNCTION auto_archive_old_clips(p_user_id TEXT)
@@ -367,6 +407,8 @@ ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.note_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.device_sync_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.clipboard_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pastecraft_devices ENABLE ROW LEVEL SECURITY;
 
 -- user_profiles policies
 CREATE POLICY "Users can view their own profile"
@@ -441,6 +483,28 @@ CREATE POLICY "Users can update their own settings"
     ON public.settings FOR UPDATE
     USING (auth.uid()::text = user_id);
 
+-- clipboard_history policies
+CREATE POLICY "Users can view their own clipboard history"
+    ON public.clipboard_history FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own clipboard history"
+    ON public.clipboard_history FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+-- pastecraft_devices policies
+CREATE POLICY "Users can view their own pastecraft devices"
+    ON public.pastecraft_devices FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own pastecraft devices"
+    ON public.pastecraft_devices FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update their own pastecraft devices"
+    ON public.pastecraft_devices FOR UPDATE
+    USING (auth.uid()::text = user_id);
+
 -- =====================================================
 -- REALTIME SUBSCRIPTIONS
 -- =====================================================
@@ -453,6 +517,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.notes;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.note_versions;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.device_sync_state;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.clipboard_history;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.pastecraft_devices;
 
 -- =====================================================
 -- SAMPLE DATA (for testing)

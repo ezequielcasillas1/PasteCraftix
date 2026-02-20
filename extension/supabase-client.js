@@ -14,6 +14,7 @@ class PasteCraftSupabase {
     this._subscriptionCacheKey = 'pc_subscription_cache_v1';
     this._sessionBridgeKey = 'pc_supabase_session_v1';
     this._aiWorkflowKey = 'pc_ai_workflow_v1';
+    this._deviceIdKey = 'pc_device_id_v1';
     this._aiWorkflowCache = { value: null, at: 0 };
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
@@ -588,6 +589,32 @@ class PasteCraftSupabase {
           (payload) => this.handleProfileChange(payload)
         )
         .subscribe();
+
+      const clipboardHistoryChannel = this.client
+        .channel('clipboard-history-changes')
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'clipboard_history',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handleClipboardHistoryInsert(payload)
+        )
+        .subscribe();
+
+      const pastecraftDevicesChannel = this.client
+        .channel('pastecraft-devices-changes')
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'pastecraft_devices',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => this.handlePastecraftDevicesChange(payload)
+        )
+        .subscribe();
       
       this.realtimeChannels = [
         clipsChannel,
@@ -595,7 +622,9 @@ class PasteCraftSupabase {
         archivedChannel,
         notesChannel,
         settingsChannel,
-        profileChannel
+        profileChannel,
+        clipboardHistoryChannel,
+        pastecraftDevicesChannel
       ];
       
       console.log('✅ Realtime subscriptions active');
@@ -747,6 +776,49 @@ class PasteCraftSupabase {
       window.dispatchEvent(new CustomEvent('dataChanged', { 
         detail: { type: 'profile' } 
       }));
+    }
+  }
+
+  async handleClipboardHistoryInsert(payload) {
+    try {
+      const row = payload?.new || null;
+      if (!row) return;
+
+      const currentDeviceId = await this.getDeviceId();
+      if (row.device_id && currentDeviceId && row.device_id === currentDeviceId) {
+        return;
+      }
+
+      window.dispatchEvent(new CustomEvent('clipboardHistoryChanged', {
+        detail: {
+          type: 'insert',
+          row: this.mapClipboardHistoryRow(row),
+          fromRealtime: true
+        }
+      }));
+      window.dispatchEvent(new CustomEvent('dataChanged', {
+        detail: { type: 'clipboardHistory' }
+      }));
+    } catch (error) {
+      console.warn('⚠️ Failed to process clipboard_history realtime insert:', error?.message || error);
+    }
+  }
+
+  handlePastecraftDevicesChange(payload) {
+    try {
+      const row = payload?.new || payload?.old || null;
+      window.dispatchEvent(new CustomEvent('pastecraftDevicesChanged', {
+        detail: {
+          type: payload?.eventType || 'unknown',
+          row: row ? this.mapPastecraftDeviceRow(row) : null,
+          fromRealtime: true
+        }
+      }));
+      window.dispatchEvent(new CustomEvent('dataChanged', {
+        detail: { type: 'pastecraftDevices' }
+      }));
+    } catch (error) {
+      console.warn('⚠️ Failed to process pastecraft_devices realtime change:', error?.message || error);
     }
   }
   
@@ -3069,19 +3141,19 @@ class PasteCraftSupabase {
     try {
       console.log('🔐 Initiating Google sign in...');
       
-      // Use chrome.identity.launchWebAuthFlow for reliable OAuth in extensions.
-      // This handles the redirect within the extension process, avoiding browser blocks.
-      const redirectUrl = chrome.identity.getRedirectURL();
-      console.log('🔗 Identity redirect URL:', redirectUrl);
+      // Use hosted callback page - more reliable across browsers (Chrome, Edge, etc.)
+      // auth.pastecraft.com extracts tokens and sends them back to extension via external messaging
+      const callbackUrl = 'https://auth.pastecraft.com/';
+      console.log('🔗 Callback URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
+          redirectTo: callbackUrl,
+          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'select_account'
           }
         }
       });
@@ -3092,68 +3164,13 @@ class PasteCraftSupabase {
       }
 
       if (data?.url) {
-        console.log('✅ Launching auth flow...');
-        try {
-          // launchWebAuthFlow opens a browser popup, completes OAuth, returns the final URL with tokens
-          const responseUrl = await new Promise((resolve, reject) => {
-            chrome.identity.launchWebAuthFlow(
-              { url: data.url, interactive: true },
-              (callbackUrl) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                  resolve(callbackUrl);
-                }
-              }
-            );
-          });
-
-          console.log('🔗 OAuth response URL received');
-
-          // Extract tokens from the response URL hash
-          const hashPart = responseUrl.split('#')[1];
-          if (hashPart) {
-            const params = new URLSearchParams(hashPart);
-            const access_token = params.get('access_token');
-            const refresh_token = params.get('refresh_token');
-            if (access_token) {
-              // Store tokens to bridge + storage so popup picks them up on reload.
-              // Skip setSession (it can hang); the popup's init will restore from bridge.
-              // Decode user_id from JWT so the bridge fast path in getCurrentUser works.
-              let userId = null;
-              let email = '';
-              let expiresAt = null;
-              try {
-                const payload = JSON.parse(atob(access_token.split('.')[1]));
-                userId = payload.sub || null;
-                email = payload.email || '';
-                expiresAt = payload.exp || null;
-              } catch (_) {}
-              try {
-                await chrome.storage.local.set({
-                  oauth_callback: { access_token, refresh_token: refresh_token || '', timestamp: Date.now() },
-                  [this._sessionBridgeKey]: {
-                    access_token,
-                    refresh_token: refresh_token || '',
-                    expires_at: expiresAt,
-                    user_id: userId,
-                    email: email,
-                    updated_at: Date.now()
-                  }
-                });
-                console.log('✅ Google OAuth tokens stored!');
-                return { success: true, message: 'Signed in with Google!' };
-              } catch (storeErr) {
-                return { success: false, error: String(storeErr) };
-              }
-            }
-          }
-          
-          return { success: false, error: 'No tokens in OAuth response' };
-        } catch (launchError) {
-          console.error('❌ launchWebAuthFlow failed:', launchError);
-          return { success: false, error: launchError.message };
-        }
+        console.log('✅ Opening Google OAuth...');
+        // Open in new window - user completes auth there, tokens sent back via auth.pastecraft.com
+        window.open(data.url, '_blank', 'width=500,height=600');
+        return { 
+          success: true, 
+          message: 'Complete sign in in the new window, then reopen PasteCraft' 
+        };
       }
 
       return { success: false, error: 'No OAuth URL generated' };
@@ -3495,6 +3512,181 @@ class PasteCraftSupabase {
     return true;
   }
 
+  mapClipboardHistoryRow(row) {
+    if (!row) return null;
+    return {
+      id: String(row.id),
+      userId: String(row.user_id || ''),
+      content: String(row.content || ''),
+      deviceId: String(row.device_id || ''),
+      createdAt: row.created_at || new Date().toISOString(),
+      timestamp: Date.parse(row.created_at || '') || Date.now()
+    };
+  }
+
+  mapPastecraftDeviceRow(row) {
+    if (!row) return null;
+    const deviceId = String(row.device_id || '');
+    return {
+      id: String(row.id || ''),
+      userId: String(row.user_id || ''),
+      deviceId,
+      displayName: String(row.display_name || `Device ${deviceId.slice(0, 8)}`),
+      lastSeenAt: row.last_seen_at || null,
+      createdAt: row.created_at || null,
+      updatedAt: row.updated_at || null
+    };
+  }
+
+  async saveClipboardHistoryItem(text) {
+    if (!this.client) return null;
+    const content = String(text || '').trim();
+    if (!content) return null;
+
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return null;
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const deviceId = await this.getDeviceId();
+      const payload = {
+        user_id: userId,
+        content,
+        device_id: deviceId
+      };
+
+      const { data, error } = await this.client
+        .from('clipboard_history')
+        .upsert(payload, { onConflict: 'user_id,content', ignoreDuplicates: true })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) return null;
+      return this.mapClipboardHistoryRow(data);
+    } catch (error) {
+      console.error('❌ Failed to save clipboard history item:', error);
+      return null;
+    }
+  }
+
+  async syncClipboardHistory(renderedIds = [], limit = 50) {
+    if (!this.client) return { allRows: [], missingRows: [] };
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return { allRows: [], missingRows: [] };
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const { data, error } = await this.client
+        .from('clipboard_history')
+        .select('id,user_id,content,device_id,created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(Math.max(1, Number(limit) || 50));
+
+      if (error) throw error;
+
+      const existing = new Set(Array.isArray(renderedIds) ? renderedIds.map((id) => String(id)) : []);
+      const allRows = Array.isArray(data) ? data.map((row) => this.mapClipboardHistoryRow(row)).filter(Boolean) : [];
+      const missingRows = allRows.filter((row) => !existing.has(String(row.id)));
+      return { allRows, missingRows };
+    } catch (error) {
+      console.error('❌ Failed to sync clipboard history from Supabase:', error);
+      return { allRows: [], missingRows: [] };
+    }
+  }
+
+  async upsertPastecraftDeviceSession() {
+    if (!this.client) return null;
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return null;
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const deviceId = await this.getDeviceId();
+      const nowIso = new Date().toISOString();
+
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .upsert({
+          user_id: userId,
+          device_id: deviceId,
+          last_seen_at: nowIso
+        }, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? this.mapPastecraftDeviceRow(data) : null;
+    } catch (error) {
+      console.error('❌ Failed to upsert pastecraft device session:', error);
+      return null;
+    }
+  }
+
+  async getPastecraftDevices() {
+    if (!this.client) return [];
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return [];
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
+        .eq('user_id', userId)
+        .order('last_seen_at', { ascending: false });
+
+      if (error) throw error;
+      return Array.isArray(data) ? data.map((row) => this.mapPastecraftDeviceRow(row)).filter(Boolean) : [];
+    } catch (error) {
+      console.error('❌ Failed to fetch pastecraft devices:', error);
+      return [];
+    }
+  }
+
+  async renamePastecraftDevice(deviceId, displayName) {
+    if (!this.client) return null;
+    const safeDeviceId = String(deviceId || '').trim();
+    const safeDisplayName = String(displayName || '').trim();
+    if (!safeDeviceId || !safeDisplayName) return null;
+
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return null;
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .update({ display_name: safeDisplayName })
+        .eq('user_id', userId)
+        .eq('device_id', safeDeviceId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? this.mapPastecraftDeviceRow(data) : null;
+    } catch (error) {
+      console.error('❌ Failed to rename pastecraft device:', error);
+      return null;
+    }
+  }
+
   /**
    * Admin sign in (checks for admin tier)
    */
@@ -3685,6 +3877,12 @@ class PasteCraftSupabase {
           }, { onConflict: 'user_id,device_id', ignoreDuplicates: false });
       } catch (_) {
         // ignore device sync state failures
+      }
+
+      try {
+        await this.upsertPastecraftDeviceSession();
+      } catch (_) {
+        // ignore device registry failures
       }
 
       console.log('✅ Full sync complete!');
