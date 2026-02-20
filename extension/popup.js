@@ -620,6 +620,7 @@ class PasteCraftPopup {
     this.cloudClipboardItems = [];
     this.cloudClipboardItemIds = new Set();
     this.pastecraftDevices = [];
+    this.cloudSyncAccess = null;
     this.pastecraftDevicesOpen = false;
     this._currentDeviceId = null;
 
@@ -2563,16 +2564,22 @@ class PasteCraftPopup {
     const container = document.getElementById('pastecraftDevicesPanel');
     if (!container) return;
     try {
+      let hasAccess = this.cloudSyncAccess;
+      if (typeof hasAccess !== 'boolean') {
+        const userId = await pasteCraftSupabase.getSyncUserId();
+        hasAccess = await pasteCraftSupabase.hasCloudSyncAccess(userId);
+        this.cloudSyncAccess = !!hasAccess;
+      }
+      if (!hasAccess) {
+        this.pastecraftDevices = [];
+        this.renderPastecraftDevices();
+        return;
+      }
       const devices = await pasteCraftSupabase.getPastecraftDevices();
       this.pastecraftDevices = Array.isArray(devices) ? devices : [];
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H5',location:'popup.js:loadPastecraftDevices',message:'devices loaded into popup state',data:{count:this.pastecraftDevices.length,deviceIds:this.pastecraftDevices.map((d)=>String(d?.deviceId||'')).slice(0,5)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
     } catch (_) {
       this.pastecraftDevices = [];
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H5',location:'popup.js:loadPastecraftDevices',message:'device load failed and state cleared',data:{count:0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      this.cloudSyncAccess = null;
     }
     this.renderPastecraftDevices();
   }
@@ -2580,6 +2587,10 @@ class PasteCraftPopup {
   renderPastecraftDevices() {
     const container = document.getElementById('pastecraftDevicesPanel');
     if (!container) return;
+    if (this.cloudSyncAccess === false) {
+      container.innerHTML = '<div class="pastecraft-device-last-seen">Cloud sync requires Basic, Premium, or Admin plan.</div>';
+      return;
+    }
     if (!Array.isArray(this.pastecraftDevices) || this.pastecraftDevices.length === 0) {
       container.innerHTML = '<div class="pastecraft-device-last-seen">No devices synced yet.</div>';
       return;

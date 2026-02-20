@@ -1523,9 +1523,6 @@ class PasteCraftSupabase {
       }
 
       await this.ensureUserProfileRow(authUserId);
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from auth session',data:{source:'auth',userId:authUserId},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return authUserId;
     }
 
@@ -1538,17 +1535,11 @@ class PasteCraftSupabase {
 
     if (syncStoredId) {
       await this.ensureUserProfileRow(syncStoredId);
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from sync storage',data:{source:'syncStorage',userId:syncStoredId},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return syncStoredId;
     }
 
     const chromeUserId = await this.getChromeUserId();
     await this.ensureUserProfileRow(chromeUserId);
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H1',location:'supabase-client.js:getSyncUserId',message:'resolved sync user id from local legacy id',data:{source:'localLegacy',userId:chromeUserId},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return chromeUserId;
   }
 
@@ -3508,23 +3499,23 @@ class PasteCraftSupabase {
   async hasCloudSyncAccess(userId) {
     const subscription = await this.getUserSubscription(userId);
     if (!subscription) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H2',location:'supabase-client.js:hasCloudSyncAccess',message:'cloud sync denied due to missing subscription',data:{userId,hasSubscription:false},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return false; // No subscription = free tier = no cloud sync
     }
     
     const tier = subscription.subscription_tier?.toLowerCase();
     const status = subscription.subscription_status?.toLowerCase();
+    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
+    const hasCouponCloudAccess = !!(
+      subscription.has_unlimited_ai === true ||
+      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
+    );
     
     // Allow cloud sync for basic and premium tiers (active status)
     // Also allow past_due (grace period) for better UX
     const allowedTiers = ['basic', 'premium', 'admin'];
     const allowedStatuses = ['active', 'past_due'];
-    const hasAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H2',location:'supabase-client.js:hasCloudSyncAccess',message:'evaluated cloud sync entitlement',data:{userId,tier,status,hasAccess},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    const hasPaidTierAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
+    const hasAccess = hasPaidTierAccess || hasCouponCloudAccess;
     return hasAccess;
   }
 
@@ -3681,14 +3672,8 @@ class PasteCraftSupabase {
         .maybeSingle();
 
       if (error) throw error;
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H3',location:'supabase-client.js:upsertPastecraftDeviceSession',message:'device heartbeat upsert succeeded',data:{userId,deviceId,lastSeenAt:nowIso,hasRow:!!data},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return data ? this.mapPastecraftDeviceRow(data) : null;
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H3',location:'supabase-client.js:upsertPastecraftDeviceSession',message:'device heartbeat upsert failed',data:{error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('❌ Failed to upsert pastecraft device session:', error);
       return null;
     }
@@ -3711,14 +3696,8 @@ class PasteCraftSupabase {
         .order('last_seen_at', { ascending: false });
 
       if (error) throw error;
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H4',location:'supabase-client.js:getPastecraftDevices',message:'fetched pastecraft devices',data:{userId,count:Array.isArray(data)?data.length:0},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return Array.isArray(data) ? data.map((row) => this.mapPastecraftDeviceRow(row)).filter(Boolean) : [];
     } catch (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a2c0c5a6-e52e-4918-a7ab-d3413f0e7ab3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d98a9a'},body:JSON.stringify({sessionId:'d98a9a',runId:'initial',hypothesisId:'H4',location:'supabase-client.js:getPastecraftDevices',message:'failed to fetch pastecraft devices',data:{error:error?.message||String(error)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       console.error('❌ Failed to fetch pastecraft devices:', error);
       return [];
     }
