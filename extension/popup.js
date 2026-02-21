@@ -1264,16 +1264,27 @@ class PasteCraftPopup {
       this.loadAnalysisHistory(),
     ]);
 
+    // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
+    // Profile is identity data — not gated by cloud sync tier. Timeout to prevent hanging.
+    if (!this.userProfile?.userName && !this.userProfile?.aiGeneratedName && !this.userProfile?.profileImageUrl) {
+      try {
+        const remoteProfile = await Promise.race([
+          pasteCraftSupabase.syncUserProfileFromSupabase(),
+          new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+        ]);
+        if (remoteProfile) {
+          this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
+          await chrome.storage.local.set({ userProfile: this.userProfile });
+          console.log('✅ Profile hydrated from Supabase on fresh device');
+        }
+      } catch (_) {}
+    }
+
     // Always update top bar name/image (even if no image saved yet)
     this.updateTopBarIdentity();
     
-    // ✅ DISPLAY SAVED PROFILE IMAGE
-    console.log('🔍 Checking for saved profile image...');
     if (this.userProfile?.profileImageUrl) {
-      console.log('✅ Saved profile image found, displaying in top-left...');
       this.displayImageTopLeft(this.userProfile.profileImageUrl);
-    } else {
-      console.log('ℹ️ No saved profile image found');
     }
     
     this.setupEventListeners();
@@ -2572,25 +2583,25 @@ class PasteCraftPopup {
       ]);
 
       const historyRows = Array.isArray(historyResult?.allRows) ? historyResult.allRows : [];
-      const clipRows = Array.isArray(clipsResult) ? clipsResult.map(clip => ({
+      const clipRows = Array.isArray(clipsResult) ? clipsResult.filter(clip => clip.deviceId).map(clip => ({
         id: clip.id,
         content: clip.text,
-        deviceId: clip.deviceId,
+        deviceId: String(clip.deviceId),
         timestamp: clip.timestamp
       })) : [];
 
-      // Merge and deduplicate by content
       const merged = [...historyRows, ...clipRows];
       const seenContent = new Set();
       this.cloudClipboardItems = merged.filter(item => {
         const content = String(item.content || '').trim();
-        if (!content || seenContent.has(content)) return false;
+        const devId = String(item.deviceId || '');
+        if (!content || !devId || seenContent.has(content)) return false;
         seenContent.add(content);
         return true;
       });
 
       this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500); // Keep top 500 to support unlimited devices
+      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500);
       this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
       
       this.renderPastecraftDevices();

@@ -9,6 +9,8 @@
 
 - DEV4EVER coupon users are redirected to upgrade page after canceling paid subscription. Expected: coupon entitlement (`has_unlimited_ai`) should still allow premium AI features. Current: premium check sends user to buy subscription.
 
+- Device A empty profile after login: local storage empty on new device, Supabase profile fetch gated behind cloud-sync tier in performFullSync(). Fix: direct profile fetch when local profile is empty, bypasses tier gate.
+
 - Image copy type mismatch: “Copy Image Link” should create a **URL clip only** (not an image clip). “Copy Image” should create an **image clip only** (not a URL clip).
 
 }

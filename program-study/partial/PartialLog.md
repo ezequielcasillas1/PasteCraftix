@@ -56,3 +56,8 @@
 **What Works:** Clip persistence after refresh (updatedAt marker); deletion flow updates UI faster.
 **What's Missing:** Category deletion still unreliable after refresh/sync; needs deeper fix.
 **Next Steps:** Reproduce + trace sync/resurrection path; harden delete flow and sync ordering.
+
+### 2026-02-20 - Cross-Device Sync Panel Fix
+**Status:** ⚠️ PARTIAL
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Fixed 3 bugs: CSS duplicate `display:flex` hiding toggle, `overflow-y:hidden` blocking scroll, clips with null `device_id` breaking device filter. Needs live multi-device test to confirm end-to-end.
