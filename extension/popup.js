@@ -2578,27 +2578,45 @@ class PasteCraftPopup {
     try {
       const renderedIds = Array.from(this.cloudClipboardItemIds);
       const [historyResult, clipsResult] = await Promise.all([
-        pasteCraftSupabase.syncClipboardHistory(renderedIds, 50),
+        pasteCraftSupabase.syncClipboardHistory(renderedIds, 500),
         pasteCraftSupabase.syncClipsFromSupabase()
       ]);
 
-      const historyRows = Array.isArray(historyResult?.allRows) ? historyResult.allRows : [];
-      const clipRows = Array.isArray(clipsResult) ? clipsResult.filter(clip => clip.deviceId).map(clip => ({
-        id: clip.id,
-        content: clip.text,
-        deviceId: String(clip.deviceId),
-        timestamp: clip.timestamp
-      })) : [];
+      const normalizeDeviceId = (value) => String(value || '').trim();
+      const normalizeTimestamp = (value) => Number.isFinite(value) ? value : (Date.parse(value || '') || Date.now());
 
-      const merged = [...historyRows, ...clipRows];
-      const seenContent = new Set();
-      this.cloudClipboardItems = merged.filter(item => {
-        const content = String(item.content || '').trim();
-        const devId = String(item.deviceId || '');
-        if (!content || !devId || seenContent.has(content)) return false;
-        seenContent.add(content);
-        return true;
+      const historyRows = Array.isArray(historyResult?.allRows)
+        ? historyResult.allRows
+          .map((row) => ({
+            id: `hist:${String(row.id || '')}`,
+            content: String(row.content || ''),
+            deviceId: normalizeDeviceId(row.deviceId),
+            timestamp: normalizeTimestamp(row.timestamp || row.createdAt)
+          }))
+          .filter((row) => row.content.trim() && row.deviceId)
+        : [];
+
+      const clipRows = Array.isArray(clipsResult)
+        ? clipsResult
+          .map((clip) => ({
+            id: `clip:${String(clip.id || '')}`,
+            content: String(clip.text || ''),
+            deviceId: normalizeDeviceId(clip.deviceId || clip.device_id),
+            timestamp: normalizeTimestamp(clip.timestamp)
+          }))
+          .filter((row) => row.content.trim() && row.deviceId)
+        : [];
+
+      // Keep device-attributed rows from both sources; dedupe by stable row identity.
+      const byRowId = new Map();
+      [...historyRows, ...clipRows].forEach((row) => {
+        const key = String(row.id || `${row.deviceId}:${row.timestamp}:${row.content}`);
+        const prev = byRowId.get(key);
+        if (!prev || row.timestamp > prev.timestamp) {
+          byRowId.set(key, row);
+        }
       });
+      this.cloudClipboardItems = Array.from(byRowId.values());
 
       this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500);

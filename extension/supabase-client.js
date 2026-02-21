@@ -1735,7 +1735,13 @@ class PasteCraftSupabase {
         timestamp: Number.isFinite(ts) ? ts : Date.now(),
         updated_at: Number.isFinite(updatedAtMs) ? new Date(updatedAtMs).toISOString() : new Date().toISOString(),
         deleted_at: Number.isFinite(deletedAtMs) ? new Date(deletedAtMs).toISOString() : null,
-        device_id: deviceId || null,
+        device_id: (() => {
+          if (typeof clip === 'object' && clip) {
+            const incomingDeviceId = String(clip.deviceId ?? clip.device_id ?? '').trim();
+            if (incomingDeviceId) return incomingDeviceId;
+          }
+          return deviceId || null;
+        })(),
         content_hash: hash(text)
       };
 

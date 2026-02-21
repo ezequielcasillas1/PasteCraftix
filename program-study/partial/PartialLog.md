@@ -61,3 +61,8 @@
 **Status:** ⚠️ PARTIAL
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Fixed 3 bugs: CSS duplicate `display:flex` hiding toggle, `overflow-y:hidden` blocking scroll, clips with null `device_id` breaking device filter. Needs live multi-device test to confirm end-to-end.
+
+### 2026-02-20 - Cross-Device Ownership + Feed Merge
+**Status:** ⚠️ PARTIAL
+**Files:** extension/supabase-client.js, extension/popup.js
+**Result:** Preserved per-clip `device_id` during upserts and removed text-only dedupe in device feed so Device A clips stay attributable on Device B. Existing rows previously overwritten in Supabase need live validation/rewrite.
