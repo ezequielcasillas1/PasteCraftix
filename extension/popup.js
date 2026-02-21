@@ -617,12 +617,12 @@ class PasteCraftPopup {
     this.notesPageIndex = 0; // starts at 0
     this.notesAiEnabled = false;
     this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
-    this.cloudClipboardItems = [];
-    this.cloudClipboardItemIds = new Set();
+    this.remoteDeviceDiffClips = [];
     this.pastecraftDevices = [];
     this.cloudSyncAccess = null;
     this.pastecraftDevicesOpen = false;
     this._currentDeviceId = null;
+    this._remoteDiffLoading = false;
 
     // (debug instrumentation removed)
 
@@ -2413,6 +2413,7 @@ class PasteCraftPopup {
         this.renderChips();
         this.updateLastCapture();
         this.renderSearchResults();
+        this.refreshActiveDeviceDiffClips({ quiet: true }).catch(() => {});
       } else if (type === 'categories') {
         await this.loadData();
         this.renderCategories();
@@ -2424,9 +2425,10 @@ class PasteCraftPopup {
         // Always refresh top bar identity (name + image) on profile change
         this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
       } else if (type === 'clipboardHistory') {
-        await this.syncCloudClipboardHistory();
+        await this.refreshActiveDeviceDiffClips({ quiet: true });
       } else if (type === 'pastecraftDevices') {
         await this.loadPastecraftDevices();
+        await this.refreshActiveDeviceDiffClips({ quiet: true, force: true });
       }
     });
   }
@@ -2458,7 +2460,7 @@ class PasteCraftPopup {
       const tab = event.target.closest('.pastecraft-device-tab');
       if (tab) {
         this.activeDeviceId = String(tab.dataset.deviceId || '');
-        this.renderPastecraftDevices();
+        await this.refreshActiveDeviceDiffClips({ quiet: true, force: true });
         return;
       }
 
@@ -2484,10 +2486,10 @@ class PasteCraftPopup {
       const copyBtn = event.target.closest('.synced-clip-copy-btn');
       if (copyBtn) {
         const clipId = String(copyBtn.dataset.clipId || '');
-        const item = this.cloudClipboardItems.find((entry) => String(entry.id) === clipId);
+        const item = this.remoteDeviceDiffClips.find((entry) => String(entry.id) === clipId);
         if (!item) return;
         try {
-          await navigator.clipboard.writeText(item.content);
+          await navigator.clipboard.writeText(item.text);
           this.showToast('Copied synced clip.', 'success');
         } catch (error) {
           this.showToast('Clipboard write failed.', 'error');
@@ -2498,7 +2500,7 @@ class PasteCraftPopup {
       const queBtn = event.target.closest('.synced-clip-que-btn');
       if (queBtn) {
         const clipId = String(queBtn.dataset.clipId || '');
-        const item = this.cloudClipboardItems.find((entry) => String(entry.id) === clipId);
+        const item = this.remoteDeviceDiffClips.find((entry) => String(entry.id) === clipId);
         if (!item) return;
         await this.addSyncedClipToLocal(item);
         return;
@@ -2509,21 +2511,15 @@ class PasteCraftPopup {
       this.refreshCloudClipboardAndDevices().catch(() => {});
     });
 
-    window.addEventListener('clipboardHistoryChanged', async (event) => {
-      const row = event?.detail?.row || null;
-      if (row && !this.cloudClipboardItemIds.has(String(row.id))) {
-        this.cloudClipboardItems.unshift(row);
-        this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500);
-        this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
-        this.renderPastecraftDevices();
-      } else {
-        await this.syncCloudClipboardHistory();
-      }
+    window.addEventListener('clipboardHistoryChanged', async () => {
+      await this.refreshActiveDeviceDiffClips({ quiet: true });
     });
 
     window.addEventListener('pastecraftDevicesChanged', () => {
-      this.loadPastecraftDevices().catch(() => {});
+      Promise.resolve()
+        .then(() => this.loadPastecraftDevices())
+        .then(() => this.refreshActiveDeviceDiffClips({ quiet: true, force: true }))
+        .catch(() => {});
     });
 
     return this.ensureCurrentDeviceId()
@@ -2532,22 +2528,48 @@ class PasteCraftPopup {
 
   async refreshCloudClipboardAndDevices() {
     try {
-      await pasteCraftSupabase.upsertPastecraftDeviceSession();
+      await pasteCraftSupabase.ensureDeviceRegistered();
     } catch (_) {}
-    await Promise.all([
-      this.syncCloudClipboardHistory(),
-      this.loadPastecraftDevices()
-    ]);
+    await this.loadPastecraftDevices();
+    await this.refreshActiveDeviceDiffClips({ quiet: true, force: true });
   }
 
   async addSyncedClipToLocal(item) {
-    if (!item || !item.content) return;
-    
+    if (!item || !item.text) return;
+
+    const hashText = (value) => {
+      const s = String(value || '');
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(36);
+    };
+
+    const sourceText = String(item.text || '').trim();
+    if (!sourceText) return;
+    const sourceHash = String(item.contentHash || hashText(sourceText));
+
+    const hasAlready = [...(this.clips || []), ...(this.searchOnlyClips || [])].some((clip) => {
+      const clipText = String(clip?.text || '');
+      if (!clipText) return false;
+      const clipHash = String(clip?.contentHash || clip?.content_hash || hashText(clipText));
+      return clipHash === sourceHash;
+    });
+    if (hasAlready) {
+      this.showToast('Clip already exists on this device.', 'success');
+      return;
+    }
+
+    const now = Date.now();
     const newClip = {
-      id: Date.now() + Math.random(),
-      text: item.content,
+      id: `${now}_${sourceHash}`,
+      text: sourceText,
       category: 'Uncategorized',
-      timestamp: Date.now()
+      timestamp: now,
+      deviceId: this._currentDeviceId || null,
+      contentHash: sourceHash
     };
 
     this.clips.unshift(newClip);
@@ -2572,60 +2594,42 @@ class PasteCraftPopup {
     Promise.resolve()
       .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
       .catch(() => {});
+    await this.refreshActiveDeviceDiffClips({ quiet: true, force: true });
   }
 
   async syncCloudClipboardHistory() {
-    try {
-      const renderedIds = Array.from(this.cloudClipboardItemIds);
-      const [historyResult, clipsResult] = await Promise.all([
-        pasteCraftSupabase.syncClipboardHistory(renderedIds, 500),
-        pasteCraftSupabase.syncClipsFromSupabase()
-      ]);
+    return this.refreshActiveDeviceDiffClips({ quiet: true, force: true });
+  }
 
-      const normalizeDeviceId = (value) => String(value || '').trim();
-      const normalizeTimestamp = (value) => Number.isFinite(value) ? value : (Date.parse(value || '') || Date.now());
-
-      const historyRows = Array.isArray(historyResult?.allRows)
-        ? historyResult.allRows
-          .map((row) => ({
-            id: `hist:${String(row.id || '')}`,
-            content: String(row.content || ''),
-            deviceId: normalizeDeviceId(row.deviceId),
-            timestamp: normalizeTimestamp(row.timestamp || row.createdAt)
-          }))
-          .filter((row) => row.content.trim() && row.deviceId)
-        : [];
-
-      const clipRows = Array.isArray(clipsResult)
-        ? clipsResult
-          .map((clip) => ({
-            id: `clip:${String(clip.id || '')}`,
-            content: String(clip.text || ''),
-            deviceId: normalizeDeviceId(clip.deviceId || clip.device_id),
-            timestamp: normalizeTimestamp(clip.timestamp)
-          }))
-          .filter((row) => row.content.trim() && row.deviceId)
-        : [];
-
-      // Keep device-attributed rows from both sources; dedupe by stable row identity.
-      const byRowId = new Map();
-      [...historyRows, ...clipRows].forEach((row) => {
-        const key = String(row.id || `${row.deviceId}:${row.timestamp}:${row.content}`);
-        const prev = byRowId.get(key);
-        if (!prev || row.timestamp > prev.timestamp) {
-          byRowId.set(key, row);
-        }
-      });
-      this.cloudClipboardItems = Array.from(byRowId.values());
-
-      this.cloudClipboardItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      this.cloudClipboardItems = this.cloudClipboardItems.slice(0, 500);
-      this.cloudClipboardItemIds = new Set(this.cloudClipboardItems.map((entry) => String(entry.id)));
-      
+  async refreshActiveDeviceDiffClips({ quiet = false, force = false } = {}) {
+    if (!force && this._remoteDiffLoading) return;
+    if (this.cloudSyncAccess === false) {
+      this.remoteDeviceDiffClips = [];
       this.renderPastecraftDevices();
+      return;
+    }
+
+    const activeDeviceId = String(this.activeDeviceId || '').trim();
+    const currentDeviceId = String(this._currentDeviceId || '').trim();
+    if (!activeDeviceId || !currentDeviceId || activeDeviceId === currentDeviceId) {
+      this.remoteDeviceDiffClips = [];
+      this.renderPastecraftDevices();
+      return;
+    }
+
+    this._remoteDiffLoading = true;
+    this.renderPastecraftDevices();
+    try {
+      const rows = await pasteCraftSupabase.getUniqueClipsFromRemoteDevice(activeDeviceId, {
+        targetDeviceId: currentDeviceId,
+        limit: 500
+      });
+      this.remoteDeviceDiffClips = Array.isArray(rows) ? rows : [];
     } catch (_) {
-      this.cloudClipboardItems = [];
-      this.cloudClipboardItemIds = new Set();
+      this.remoteDeviceDiffClips = [];
+      if (!quiet) this.showToast('Failed to refresh remote sync list.', 'error');
+    } finally {
+      this._remoteDiffLoading = false;
       this.renderPastecraftDevices();
     }
   }
@@ -2639,13 +2643,20 @@ class PasteCraftPopup {
       this.cloudSyncAccess = !!hasAccess;
       if (!hasAccess) {
         this.pastecraftDevices = [];
+        this.remoteDeviceDiffClips = [];
         this.renderPastecraftDevices();
         return;
       }
       const devices = await pasteCraftSupabase.getPastecraftDevices();
-      this.pastecraftDevices = Array.isArray(devices) ? devices : [];
+      const allDevices = Array.isArray(devices) ? devices : [];
+      const currentDeviceId = String(this._currentDeviceId || '');
+      this.pastecraftDevices = allDevices.filter((device) => String(device?.deviceId || '') !== currentDeviceId);
+      if (!this.activeDeviceId || !this.pastecraftDevices.some((d) => String(d?.deviceId || '') === this.activeDeviceId)) {
+        this.activeDeviceId = this.pastecraftDevices[0]?.deviceId ? String(this.pastecraftDevices[0].deviceId) : '';
+      }
     } catch (_) {
       this.pastecraftDevices = [];
+      this.remoteDeviceDiffClips = [];
       this.cloudSyncAccess = null;
     }
     this.renderPastecraftDevices();
@@ -2663,7 +2674,7 @@ class PasteCraftPopup {
     }
     if (!Array.isArray(this.pastecraftDevices) || this.pastecraftDevices.length === 0) {
       header.innerHTML = '';
-      content.innerHTML = '<div class="pastecraft-device-last-seen">No devices synced yet.</div>';
+      content.innerHTML = '<div class="pastecraft-device-last-seen">No remote devices available yet.</div>';
       return;
     }
 
@@ -2695,8 +2706,7 @@ class PasteCraftPopup {
       const fallbackName = `Device ${safeDeviceId.slice(0, 8)}`;
       const displayName = String(activeDevice.displayName || fallbackName);
       const lastSeen = activeDevice.lastSeenAt ? this.getTimeAgo(Date.parse(activeDevice.lastSeenAt) || Date.now()) : 'Unknown';
-      
-      const deviceClips = (this.cloudClipboardItems || []).filter(item => String(item.deviceId) === safeDeviceId);
+      const deviceClips = Array.isArray(this.remoteDeviceDiffClips) ? this.remoteDeviceDiffClips : [];
       const displayedClips = deviceClips.slice(0, 20);
       const hasMore = deviceClips.length > 20;
 
@@ -2711,9 +2721,10 @@ class PasteCraftPopup {
           </div>
 
           <div class="pastecraft-device-clips">
-            ${displayedClips.length > 0 ? displayedClips.map(clip => `
+            ${this._remoteDiffLoading ? '<div class="pastecraft-device-last-seen" style="margin-top: 4px; font-style: italic;">Loading clips to sync...</div>' : ''}
+            ${!this._remoteDiffLoading && displayedClips.length > 0 ? displayedClips.map(clip => `
               <div class="synced-clip-card" style="margin-top: 8px;">
-                <div class="synced-clip-content">${this.escapeHtml(clip.content)}</div>
+                <div class="synced-clip-content">${this.escapeHtml(clip.text)}</div>
                 <div class="synced-clip-footer">
                   <div class="synced-clip-meta">
                     <span>${this.escapeHtml(this.getTimeAgo(clip.timestamp))}</span>
@@ -2724,7 +2735,8 @@ class PasteCraftPopup {
                   </div>
                 </div>
               </div>
-            `).join('') : '<div class="pastecraft-device-last-seen" style="margin-top: 4px; font-style: italic;">No recent clips from this device</div>'}
+            `).join('') : ''}
+            ${!this._remoteDiffLoading && displayedClips.length === 0 ? '<div class="pastecraft-device-last-seen" style="margin-top: 4px; font-style: italic;">No unique clips to sync from this device</div>' : ''}
             ${hasMore ? `<div class="pastecraft-device-last-seen" style="margin-top: 8px; text-align: center;">...and ${deviceClips.length - 20} more clips</div>` : ''}
           </div>
         </div>

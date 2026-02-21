@@ -260,6 +260,58 @@ CREATE INDEX IF NOT EXISTS idx_notes_deleted_at ON public.notes(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_note_versions_note_id ON public.note_versions(note_id);
 CREATE INDEX IF NOT EXISTS idx_device_sync_user_id ON public.device_sync_state(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON public.audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_clips_content_hash ON public.clips(content_hash);
+CREATE INDEX IF NOT EXISTS idx_clips_device_id ON public.clips(device_id);
+
+-- --- Cross-device diff RPC ---
+CREATE OR REPLACE FUNCTION public.get_device_diff_clips(
+  p_user_id TEXT,
+  p_source_device_id TEXT,
+  p_target_device_id TEXT,
+  p_limit INTEGER DEFAULT 200
+)
+RETURNS TABLE (
+  clip_id TEXT,
+  text TEXT,
+  category TEXT,
+  "timestamp" BIGINT,
+  updated_at TIMESTAMP WITH TIME ZONE,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  device_id TEXT,
+  content_hash TEXT
+) AS $$
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid()::text <> p_user_id THEN
+    RAISE EXCEPTION 'Unauthorized access to get_device_diff_clips';
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    src.clip_id,
+    src.text,
+    src.category,
+    src.timestamp,
+    src.updated_at,
+    src.deleted_at,
+    src.device_id,
+    src.content_hash
+  FROM public.clips src
+  WHERE src.user_id = p_user_id
+    AND src.device_id = p_source_device_id
+    AND src.deleted_at IS NULL
+    AND COALESCE(src.content_hash, '') <> ''
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.clips tgt
+      WHERE tgt.user_id = p_user_id
+        AND tgt.device_id = p_target_device_id
+        AND tgt.deleted_at IS NULL
+        AND tgt.content_hash = src.content_hash
+    )
+  ORDER BY src.timestamp DESC
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 200), 1), 500);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- =====================================================
 -- VERIFICATION QUERIES

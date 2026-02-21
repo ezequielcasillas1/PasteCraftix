@@ -1,3 +1,8 @@
+### 2026-02-20 - Cross-Device Diff Sync Architecture
+**Status:** SUCCESS
+**Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
+**Result:** Added content-hash/device indexes + secure diff RPC, then migrated the device sync panel to fetch only remote clips missing on current device with realtime refresh support.
+
 ### Jan 4, 2026 - Support Forms + Account Settings
 **Status:** SUCCESS
 **Files:** popup.html, popup.js, netlify/functions/support-ticket.js, website/account.html

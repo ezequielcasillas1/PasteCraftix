@@ -1,3 +1,8 @@
+### Feb 20, 2026 - Cross-device diff sync authority
+**Status:** ✅ SUCCESS
+**Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
+**Result:** Added secure `get_device_diff_clips` RPC + clip hash/device indexes, then switched sync panel to source→target diff-only fetch with realtime refresh. (Commit: pending)
+
 ### Feb 20, 2026 - Extension popup, Supabase client, schema updates
 **Status:** ✅ SUCCESS
 **Files:** db/supabase-schema.sql, extension/popup.html, extension/popup.js, extension/supabase-client.js

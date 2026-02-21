@@ -52,6 +52,8 @@ CREATE INDEX IF NOT EXISTS idx_clips_user_id ON public.clips(user_id);
 CREATE INDEX IF NOT EXISTS idx_clips_category ON public.clips(category);
 CREATE INDEX IF NOT EXISTS idx_clips_timestamp ON public.clips(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_clips_deleted_at ON public.clips(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_clips_content_hash ON public.clips(content_hash);
+CREATE INDEX IF NOT EXISTS idx_clips_device_id ON public.clips(device_id);
 
 -- =====================================================
 -- TABLE: archived_clips
@@ -281,6 +283,57 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Function: get_device_diff_clips
+-- Returns source device clips missing on target device by content_hash
+CREATE OR REPLACE FUNCTION public.get_device_diff_clips(
+    p_user_id TEXT,
+    p_source_device_id TEXT,
+    p_target_device_id TEXT,
+    p_limit INTEGER DEFAULT 200
+)
+RETURNS TABLE (
+    clip_id TEXT,
+    text TEXT,
+    category TEXT,
+    "timestamp" BIGINT,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    device_id TEXT,
+    content_hash TEXT
+) AS $$
+BEGIN
+    IF auth.uid() IS NULL OR auth.uid()::text <> p_user_id THEN
+        RAISE EXCEPTION 'Unauthorized access to get_device_diff_clips';
+    END IF;
+
+    RETURN QUERY
+    SELECT
+        src.clip_id,
+        src.text,
+        src.category,
+        src.timestamp,
+        src.updated_at,
+        src.deleted_at,
+        src.device_id,
+        src.content_hash
+    FROM public.clips src
+    WHERE src.user_id = p_user_id
+      AND src.device_id = p_source_device_id
+      AND src.deleted_at IS NULL
+      AND COALESCE(src.content_hash, '') <> ''
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.clips tgt
+        WHERE tgt.user_id = p_user_id
+          AND tgt.device_id = p_target_device_id
+          AND tgt.deleted_at IS NULL
+          AND tgt.content_hash = src.content_hash
+      )
+    ORDER BY src.timestamp DESC
+    LIMIT LEAST(GREATEST(COALESCE(p_limit, 200), 1), 500);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Trigger for user_profiles
 CREATE TRIGGER update_user_profiles_updated_at

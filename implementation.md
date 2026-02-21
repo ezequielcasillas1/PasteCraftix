@@ -1,3 +1,8 @@
+### 2026-02-20 - Cross-Device Diff Sync Architecture
+**Status:** SUCCESS
+**Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
+**Result:** Added indexed content-hash/device lookups + `get_device_diff_clips` RPC, switched popup sync panel to authoritative remote→current diff fetch, and wired realtime/device registration updates for targeted per-clip sync.
+
 ### 2026-02-15 - AI Summary/Breakdown Tab-Scoped Fresh State
 **Status:** SUCCESS
 **Files:** extension/popup.js, extension/popup.html

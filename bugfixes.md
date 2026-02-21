@@ -1,3 +1,8 @@
+### 2026-02-20 - Device Sync Panel Diff Authority Fix
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js, extension/popup.js
+**Result:** Replaced mixed clipboard-history/all-clips feed with one authoritative remote→target diff source (`getUniqueClipsFromRemoteDevice`), preventing stale or non-actionable sync rows.
+
 ### Feb 5, 2026 - Tips Widget Flicker on New Pages
 **Status:** SUCCESS
 **Files:** extension/content-script.js

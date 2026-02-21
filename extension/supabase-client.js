@@ -3657,7 +3657,7 @@ class PasteCraftSupabase {
     }
   }
 
-  async upsertPastecraftDeviceSession() {
+  async ensureDeviceRegistered() {
     if (!this.client) return null;
     try {
       const userId = await this.getSyncUserId();
@@ -3683,9 +3683,13 @@ class PasteCraftSupabase {
       if (error) throw error;
       return data ? this.mapPastecraftDeviceRow(data) : null;
     } catch (error) {
-      console.error('❌ Failed to upsert pastecraft device session:', error);
+      console.error('❌ Failed to ensure pastecraft device registration:', error);
       return null;
     }
+  }
+
+  async upsertPastecraftDeviceSession() {
+    return this.ensureDeviceRegistered();
   }
 
   async getPastecraftDevices() {
@@ -3708,6 +3712,62 @@ class PasteCraftSupabase {
       return Array.isArray(data) ? data.map((row) => this.mapPastecraftDeviceRow(row)).filter(Boolean) : [];
     } catch (error) {
       console.error('❌ Failed to fetch pastecraft devices:', error);
+      return [];
+    }
+  }
+
+  mapDeviceDiffClipRow(row) {
+    if (!row) return null;
+    const clipId = String(row.clip_id || '');
+    const text = String(row.text || '');
+    if (!text.trim()) return null;
+    const timestamp = Number.isFinite(row.timestamp) ? row.timestamp : (Date.parse(row.updated_at || '') || Date.now());
+    const contentHash = String(row.content_hash || '');
+    return {
+      id: clipId || `${contentHash || 'diff'}_${timestamp}`,
+      clipId,
+      text,
+      category: String(row.category || 'Uncategorized'),
+      timestamp,
+      updatedAt: row.updated_at ? Date.parse(row.updated_at) : timestamp,
+      deletedAt: row.deleted_at ? Date.parse(row.deleted_at) : null,
+      deviceId: String(row.device_id || ''),
+      contentHash
+    };
+  }
+
+  async getUniqueClipsFromRemoteDevice(remoteDeviceId, options = {}) {
+    if (!this.client) return [];
+    const sourceDeviceId = String(remoteDeviceId || '').trim();
+    if (!sourceDeviceId) return [];
+
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return [];
+
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+
+      const currentDeviceId = String(options?.targetDeviceId || await this.getDeviceId() || '').trim();
+      if (!currentDeviceId || currentDeviceId === sourceDeviceId) return [];
+
+      const rawLimit = Number(options?.limit);
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, rawLimit)) : 200;
+
+      const { data, error } = await this.client.rpc('get_device_diff_clips', {
+        p_user_id: userId,
+        p_source_device_id: sourceDeviceId,
+        p_target_device_id: currentDeviceId,
+        p_limit: limit
+      });
+
+      if (error) throw error;
+      return Array.isArray(data)
+        ? data.map((row) => this.mapDeviceDiffClipRow(row)).filter(Boolean)
+        : [];
+    } catch (error) {
+      console.error('❌ Failed to fetch unique clips from remote device:', error);
       return [];
     }
   }
@@ -3935,7 +3995,7 @@ class PasteCraftSupabase {
       }
 
       try {
-        await this.upsertPastecraftDeviceSession();
+        await this.ensureDeviceRegistered();
       } catch (_) {
         // ignore device registry failures
       }
