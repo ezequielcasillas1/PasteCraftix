@@ -16,10 +16,25 @@ class PasteCraftSupabase {
     this._aiWorkflowKey = 'pc_ai_workflow_v1';
     this._deviceIdKey = 'pc_device_id_v1';
     this._aiWorkflowCache = { value: null, at: 0 };
+    this._lastDeviceRegisterAt = 0;
+    this._deviceRegisterCooldownMs = 60 * 1000; // avoid repeated upserts during rapid sync bursts
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
     this.init();
     this.setupConnectionMonitor();
+  }
+
+  async _registerCurrentDeviceBestEffort(reason = '') {
+    if (!this.client || this._pauseSync) return null;
+    const now = Date.now();
+    const cooldown = Number(this._deviceRegisterCooldownMs) || 60000;
+    if (this._lastDeviceRegisterAt && (now - this._lastDeviceRegisterAt) < cooldown) return null;
+    this._lastDeviceRegisterAt = now;
+    try {
+      return await this.registerCurrentSyncDevice();
+    } catch (_) {
+      return null;
+    }
   }
 
   // =====================================================
@@ -396,6 +411,7 @@ class PasteCraftSupabase {
     
     console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
     this.updateSyncStatus('syncing');
+    await this._registerCurrentDeviceBestEffort('processSyncQueue');
     
     const queue = [...this.syncQueue];
     this.syncQueue = [];
@@ -478,6 +494,7 @@ class PasteCraftSupabase {
     
     try {
       // Online: sync immediately
+      await this._registerCurrentDeviceBestEffort(`syncWithQueue:${String(type || '')}`);
       this.updateSyncStatus('syncing');
       await syncMethod.call(this, data);
       this.updateSyncStatus('synced');

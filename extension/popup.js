@@ -1222,6 +1222,11 @@ class PasteCraftPopup {
     console.log('✅ User authenticated:', currentUser.email);
     this.currentUser = currentUser;
 
+    // Best-effort: ensure this device is discoverable for cross-device import.
+    Promise.resolve()
+      .then(() => pasteCraftSupabase.registerCurrentSyncDevice())
+      .catch(() => {});
+
     // If PIN lock is enabled, require unlock before proceeding.
     const pinOk = await this.maybeRequirePinUnlock();
     if (!pinOk) {
@@ -2797,7 +2802,9 @@ class PasteCraftPopup {
         };
       }
     });
-    
+    // Always sort newest first (IndexedDB returns key order, storage order can vary)
+    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
     // Load search-only clips (archived clips, only shown in search)
     this.searchOnlyClips = searchOnlyClips.map(clip => {
       if (typeof clip === 'string') {
@@ -3027,6 +3034,7 @@ class PasteCraftPopup {
           
           await this.enforceClipLimit();
 
+          this.currentPage = 0; // Jump to first page so new clip is visible
 
           // Persist immediately (fast path)
           await chrome.storage.local.set({
@@ -8122,6 +8130,8 @@ class PasteCraftPopup {
       this.clips.unshift(...clipsToSave);
       await this.enforceClipLimit();
 
+      this.currentPage = 0; // Jump to first page so new clips are visible
+
       // Persist
       await chrome.storage.local.set({
         clips: this.clips,
@@ -9256,6 +9266,8 @@ class PasteCraftPopup {
       
       // Enforce 500 clip limit with auto-archive
       await this.enforceClipLimit();
+
+      this.currentPage = 0; // Jump to first page so new clip is visible
 
       await chrome.storage.local.set({
         clips: this.clips,
@@ -11626,6 +11638,7 @@ class PasteCraftPopup {
         const exists = popup.clips && popup.clips.some(c => popup._clipIdKey(c?.id) === idKey);
         if (!exists) {
           popup.clips.unshift(incoming);
+          popup.currentPage = 0; // Jump to first page so new clip is visible
         }
       }
 

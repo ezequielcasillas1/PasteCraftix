@@ -1,3 +1,13 @@
+### 2026-02-20 - Device Sync Not Showing Remote Devices
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js, extension/popup.js
+**Result:** Root cause: devices were only registered when opening the device-sync modal, so device A never appeared to device B. Fix: auto-register device on authenticated popup init and before/while processing sync operations (throttled).
+
+### 2026-02-20 - Custom Clip Upload Shows on Wrong Page
+**Status:** SUCCESS
+**Files:** extension/popup.js
+**Result:** Root cause: loadData() used IndexedDB when available; IndexedDB getAll() returns key order (oldest first), so new clips appeared on last page. Fix: (1) Sort clips by timestamp descending after load. (2) Set currentPage = 0 on save (manual, PDF, category modal) and on clipSaved (context menu). New clips now appear on first page.
+
 ### 2026-02-20 - Device Sync Panel Diff Authority Fix
 **Status:** SUCCESS
 **Files:** extension/supabase-client.js, extension/popup.js
