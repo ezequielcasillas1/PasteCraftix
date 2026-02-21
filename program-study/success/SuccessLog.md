@@ -1,3 +1,8 @@
+### Feb 20, 2026 - Device sync fixes, clip sort, diff authority
+**Status:** ✅ SUCCESS
+**Files:** bugfixes.md, extension/popup.js, extension/supabase-client.js
+**Result:** Auto-register device on auth; sort clips desc; single diff source; bugfixes log. (Commit: 4142da2)
+
 ### Feb 20, 2026 - Cross-device diff sync authority
 **Status:** ✅ SUCCESS
 **Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
