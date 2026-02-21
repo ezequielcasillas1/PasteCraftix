@@ -3,6 +3,11 @@
 **Files:** extension/supabase-client.js, extension/popup.js
 **Result:** Replaced mixed clipboard-history/all-clips feed with one authoritative remote→target diff source (`getUniqueClipsFromRemoteDevice`), preventing stale or non-actionable sync rows.
 
+### 2026-02-20 - Subscription Access State Accuracy
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js, db/supabase-schema.sql, db/supabase-fixes.sql
+**Result:** Added server-side effective access evaluation (`get_effective_access_state`) so premium/cloud-sync gating consistently honors subscription state, DEV4EVER coupon fields, and owner-only override.
+
 ### Feb 5, 2026 - Tips Widget Flicker on New Pages
 **Status:** SUCCESS
 **Files:** extension/content-script.js

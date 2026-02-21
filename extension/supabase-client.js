@@ -590,41 +590,13 @@ class PasteCraftSupabase {
         )
         .subscribe();
 
-      const clipboardHistoryChannel = this.client
-        .channel('clipboard-history-changes')
-        .on('postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'clipboard_history',
-            filter: `user_id=eq.${userId}`
-          },
-          (payload) => this.handleClipboardHistoryInsert(payload)
-        )
-        .subscribe();
-
-      const pastecraftDevicesChannel = this.client
-        .channel('pastecraft-devices-changes')
-        .on('postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'pastecraft_devices',
-            filter: `user_id=eq.${userId}`
-          },
-          (payload) => this.handlePastecraftDevicesChange(payload)
-        )
-        .subscribe();
-      
       this.realtimeChannels = [
         clipsChannel,
         categoriesChannel,
         archivedChannel,
         notesChannel,
         settingsChannel,
-        profileChannel,
-        clipboardHistoryChannel,
-        pastecraftDevicesChannel
+        profileChannel
       ];
       
       console.log('✅ Realtime subscriptions active');
@@ -779,49 +751,6 @@ class PasteCraftSupabase {
     }
   }
 
-  async handleClipboardHistoryInsert(payload) {
-    try {
-      const row = payload?.new || null;
-      if (!row) return;
-
-      const currentDeviceId = await this.getDeviceId();
-      if (row.device_id && currentDeviceId && row.device_id === currentDeviceId) {
-        return;
-      }
-
-      window.dispatchEvent(new CustomEvent('clipboardHistoryChanged', {
-        detail: {
-          type: 'insert',
-          row: this.mapClipboardHistoryRow(row),
-          fromRealtime: true
-        }
-      }));
-      window.dispatchEvent(new CustomEvent('dataChanged', {
-        detail: { type: 'clipboardHistory' }
-      }));
-    } catch (error) {
-      console.warn('⚠️ Failed to process clipboard_history realtime insert:', error?.message || error);
-    }
-  }
-
-  handlePastecraftDevicesChange(payload) {
-    try {
-      const row = payload?.new || payload?.old || null;
-      window.dispatchEvent(new CustomEvent('pastecraftDevicesChanged', {
-        detail: {
-          type: payload?.eventType || 'unknown',
-          row: row ? this.mapPastecraftDeviceRow(row) : null,
-          fromRealtime: true
-        }
-      }));
-      window.dispatchEvent(new CustomEvent('dataChanged', {
-        detail: { type: 'pastecraftDevices' }
-      }));
-    } catch (error) {
-      console.warn('⚠️ Failed to process pastecraft_devices realtime change:', error?.message || error);
-    }
-  }
-  
   unsubscribeAll() {
     this.realtimeChannels.forEach(channel => {
       this.client.removeChannel(channel);
@@ -3465,6 +3394,11 @@ class PasteCraftSupabase {
    * Check if user has premium access
    */
   async isPremiumUser(userId) {
+    const effectiveAccess = await this.getEffectiveAccessState(userId);
+    if (effectiveAccess && typeof effectiveAccess.is_premium === 'boolean') {
+      return !!effectiveAccess.is_premium;
+    }
+
     // Fast path: cached subscription (avoid blocking UI on slow network)
     const cached = await this.getCachedSubscription(userId);
     if (cached) {
@@ -3506,6 +3440,11 @@ class PasteCraftSupabase {
    * BASIC/PREMIUM tiers = cloud sync allowed
    */
   async hasCloudSyncAccess(userId) {
+    const effectiveAccess = await this.getEffectiveAccessState(userId);
+    if (effectiveAccess && typeof effectiveAccess.has_cloud_sync === 'boolean') {
+      return !!effectiveAccess.has_cloud_sync;
+    }
+
     const subscription = await this.getUserSubscription(userId);
     if (!subscription) {
       return false; // No subscription = free tier = no cloud sync
@@ -3526,6 +3465,26 @@ class PasteCraftSupabase {
     const hasPaidTierAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
     const hasAccess = hasPaidTierAccess || hasCouponCloudAccess;
     return hasAccess;
+  }
+
+  async getEffectiveAccessState(userId) {
+    if (!this.client || !userId) return null;
+    try {
+      const { data, error } = await this.client.rpc('get_effective_access_state', {
+        p_user_id: String(userId)
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? (data[0] || null) : data;
+      if (!row) return null;
+      return {
+        is_owner: row.is_owner === true,
+        is_premium: row.is_premium === true,
+        has_cloud_sync: row.has_cloud_sync === true,
+        source: String(row.source || '')
+      };
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -3567,238 +3526,241 @@ class PasteCraftSupabase {
     return true;
   }
 
-  mapClipboardHistoryRow(row) {
-    if (!row) return null;
-    return {
-      id: String(row.id),
-      userId: String(row.user_id || ''),
-      content: String(row.content || ''),
-      deviceId: String(row.device_id || ''),
-      createdAt: row.created_at || new Date().toISOString(),
-      timestamp: Date.parse(row.created_at || '') || Date.now()
-    };
-  }
-
-  mapPastecraftDeviceRow(row) {
-    if (!row) return null;
-    const deviceId = String(row.device_id || '');
-    return {
-      id: String(row.id || ''),
-      userId: String(row.user_id || ''),
-      deviceId,
-      displayName: String(row.display_name || `Device ${deviceId.slice(0, 8)}`),
-      lastSeenAt: row.last_seen_at || null,
-      createdAt: row.created_at || null,
-      updatedAt: row.updated_at || null
-    };
-  }
-
-  async saveClipboardHistoryItem(text) {
-    if (!this.client) return null;
-    const content = String(text || '').trim();
-    if (!content) return null;
-
-    try {
-      const userId = await this.getSyncUserId();
-      const hasAccess = await this.hasCloudSyncAccess(userId);
-      if (!hasAccess) return null;
-
-      await this.setUserContext(userId);
-      await this.ensureUserProfileRow(userId);
-
-      const deviceId = await this.getDeviceId();
-      const payload = {
-        user_id: userId,
-        content,
-        device_id: deviceId
-      };
-
-      const { data, error } = await this.client
-        .from('clipboard_history')
-        .upsert(payload, { onConflict: 'user_id,content', ignoreDuplicates: false })
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) return null;
-      return this.mapClipboardHistoryRow(data);
-    } catch (error) {
-      console.error('❌ Failed to save clipboard history item:', error);
-      return null;
-    }
-  }
-
-  async syncClipboardHistory(renderedIds = [], limit = 50) {
-    if (!this.client) return { allRows: [], missingRows: [] };
-    try {
-      const userId = await this.getSyncUserId();
-      const hasAccess = await this.hasCloudSyncAccess(userId);
-      if (!hasAccess) return { allRows: [], missingRows: [] };
-
-      await this.setUserContext(userId);
-      await this.ensureUserProfileRow(userId);
-
-      const { data, error } = await this.client
-        .from('clipboard_history')
-        .select('id,user_id,content,device_id,created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(Math.max(1, Number(limit) || 50));
-
-      if (error) throw error;
-
-      const existing = new Set(Array.isArray(renderedIds) ? renderedIds.map((id) => String(id)) : []);
-      const allRows = Array.isArray(data) ? data.map((row) => this.mapClipboardHistoryRow(row)).filter(Boolean) : [];
-      const missingRows = allRows.filter((row) => !existing.has(String(row.id)));
-      return { allRows, missingRows };
-    } catch (error) {
-      console.error('❌ Failed to sync clipboard history from Supabase:', error);
-      return { allRows: [], missingRows: [] };
-    }
-  }
-
-  async ensureDeviceRegistered() {
+  async registerCurrentSyncDevice() {
     if (!this.client) return null;
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
       if (!hasAccess) return null;
-
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
-
       const deviceId = await this.getDeviceId();
-      const nowIso = new Date().toISOString();
-
+      const now = new Date().toISOString();
       const { data, error } = await this.client
         .from('pastecraft_devices')
         .upsert({
           user_id: userId,
           device_id: deviceId,
-          last_seen_at: nowIso
+          last_seen_at: now
         }, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      return data ? this.mapPastecraftDeviceRow(data) : null;
-    } catch (error) {
-      console.error('❌ Failed to ensure pastecraft device registration:', error);
-      return null;
-    }
-  }
-
-  async upsertPastecraftDeviceSession() {
-    return this.ensureDeviceRegistered();
-  }
-
-  async getPastecraftDevices() {
-    if (!this.client) return [];
-    try {
-      const userId = await this.getSyncUserId();
-      const hasAccess = await this.hasCloudSyncAccess(userId);
-      if (!hasAccess) return [];
-
-      await this.setUserContext(userId);
-      await this.ensureUserProfileRow(userId);
-
-      const { data, error } = await this.client
-        .from('pastecraft_devices')
         .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
-        .eq('user_id', userId)
-        .order('last_seen_at', { ascending: false });
-
+        .maybeSingle();
       if (error) throw error;
-      return Array.isArray(data) ? data.map((row) => this.mapPastecraftDeviceRow(row)).filter(Boolean) : [];
-    } catch (error) {
-      console.error('❌ Failed to fetch pastecraft devices:', error);
-      return [];
+      return data || null;
+    } catch (_) {
+      return null;
     }
   }
 
-  mapDeviceDiffClipRow(row) {
-    if (!row) return null;
-    const clipId = String(row.clip_id || '');
-    const text = String(row.text || '');
-    if (!text.trim()) return null;
-    const timestamp = Number.isFinite(row.timestamp) ? row.timestamp : (Date.parse(row.updated_at || '') || Date.now());
-    const contentHash = String(row.content_hash || '');
-    return {
-      id: clipId || `${contentHash || 'diff'}_${timestamp}`,
-      clipId,
-      text,
-      category: String(row.category || 'Uncategorized'),
-      timestamp,
-      updatedAt: row.updated_at ? Date.parse(row.updated_at) : timestamp,
-      deletedAt: row.deleted_at ? Date.parse(row.deleted_at) : null,
-      deviceId: String(row.device_id || ''),
-      contentHash
-    };
-  }
-
-  async getUniqueClipsFromRemoteDevice(remoteDeviceId, options = {}) {
+  async listSyncDevices() {
     if (!this.client) return [];
-    const sourceDeviceId = String(remoteDeviceId || '').trim();
-    if (!sourceDeviceId) return [];
-
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
       if (!hasAccess) return [];
-
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
-
-      const currentDeviceId = String(options?.targetDeviceId || await this.getDeviceId() || '').trim();
-      if (!currentDeviceId || currentDeviceId === sourceDeviceId) return [];
-
-      const rawLimit = Number(options?.limit);
-      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, rawLimit)) : 200;
-
-      const { data, error } = await this.client.rpc('get_device_diff_clips', {
-        p_user_id: userId,
-        p_source_device_id: sourceDeviceId,
-        p_target_device_id: currentDeviceId,
-        p_limit: limit
-      });
-
+      const currentDeviceId = await this.getDeviceId();
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .select('device_id,display_name,last_seen_at')
+        .eq('user_id', userId)
+        .neq('device_id', currentDeviceId)
+        .order('last_seen_at', { ascending: false })
+        .limit(9);
       if (error) throw error;
-      return Array.isArray(data)
-        ? data.map((row) => this.mapDeviceDiffClipRow(row)).filter(Boolean)
-        : [];
-    } catch (error) {
-      console.error('❌ Failed to fetch unique clips from remote device:', error);
+      return (Array.isArray(data) ? data : []).map((row) => ({
+        deviceId: String(row.device_id || ''),
+        displayName: String(row.display_name || ''),
+        lastSeenAt: row.last_seen_at || null
+      }));
+    } catch (_) {
       return [];
     }
   }
 
-  async renamePastecraftDevice(deviceId, displayName) {
-    if (!this.client) return null;
-    const safeDeviceId = String(deviceId || '').trim();
-    const safeDisplayName = String(displayName || '').trim();
-    if (!safeDeviceId || !safeDisplayName) return null;
-
+  async getDeviceSyncMetadata(remoteDeviceId) {
+    if (!this.client) return { clips: [], notes: [], categories: [] };
+    const sourceDeviceId = String(remoteDeviceId || '').trim();
+    if (!sourceDeviceId) return { clips: [], notes: [], categories: [] };
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
-      if (!hasAccess) return null;
+      if (!hasAccess) return { clips: [], notes: [], categories: [] };
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+      const [clipRes, noteRes, categoryRes] = await Promise.all([
+        this.client
+          .from('clips')
+          .select('clip_id,text,content_hash,updated_at,device_id')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(400),
+        this.client
+          .from('notes')
+          .select('note_id,title,description,content_hash,updated_at,device_id')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(400),
+        this.client
+          .from('categories')
+          .select('category_id,name,updated_at,device_id')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .is('deleted_at', null)
+          .order('updated_at', { ascending: false })
+          .limit(400)
+      ]);
+      if (clipRes.error) throw clipRes.error;
+      if (noteRes.error) throw noteRes.error;
+      if (categoryRes.error) throw categoryRes.error;
+      return {
+        clips: (clipRes.data || []).map((row) => ({
+          id: String(row.clip_id || ''),
+          preview: String(row.text || '').slice(0, 220),
+          content_hash: String(row.content_hash || ''),
+          origin_device_id: String(row.device_id || sourceDeviceId),
+          updated_at: row.updated_at || null
+        })),
+        notes: (noteRes.data || []).map((row) => ({
+          id: String(row.note_id || ''),
+          preview: String(row.title || row.description || '').slice(0, 220),
+          content_hash: String(row.content_hash || ''),
+          origin_device_id: String(row.device_id || sourceDeviceId),
+          updated_at: row.updated_at || null
+        })),
+        categories: (categoryRes.data || []).map((row) => ({
+          id: String(row.category_id || ''),
+          preview: String(row.name || '').slice(0, 220),
+          content_hash: '',
+          origin_device_id: String(row.device_id || sourceDeviceId),
+          updated_at: row.updated_at || null
+        }))
+      };
+    } catch (_) {
+      return { clips: [], notes: [], categories: [] };
+    }
+  }
 
+  async getDeviceSyncData(remoteDeviceId, itemRefs = []) {
+    if (!this.client) return { items: [] };
+    const sourceDeviceId = String(remoteDeviceId || '').trim();
+    if (!sourceDeviceId || !Array.isArray(itemRefs) || !itemRefs.length) return { items: [] };
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return { items: [] };
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
 
-      const { data, error } = await this.client
-        .from('pastecraft_devices')
-        .update({ display_name: safeDisplayName })
-        .eq('user_id', userId)
-        .eq('device_id', safeDeviceId)
-        .select()
-        .maybeSingle();
+      const grouped = itemRefs.reduce((acc, ref) => {
+        const type = String(ref?.itemType || '').trim();
+        const id = String(ref?.itemId || '').trim();
+        if (!type || !id) return acc;
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(id);
+        return acc;
+      }, {});
 
-      if (error) throw error;
-      return data ? this.mapPastecraftDeviceRow(data) : null;
-    } catch (error) {
-      console.error('❌ Failed to rename pastecraft device:', error);
-      return null;
+      const resultItems = [];
+
+      if (Array.isArray(grouped.clips) && grouped.clips.length > 0) {
+        const { data, error } = await this.client
+          .from('clips')
+          .select('clip_id,text,category,timestamp,content_hash,device_id,updated_at')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .in('clip_id', grouped.clips)
+          .is('deleted_at', null);
+        if (error) throw error;
+        for (const row of (data || [])) {
+          resultItems.push({
+            itemType: 'clips',
+            id: String(row.clip_id || ''),
+            origin_device_id: String(row.device_id || sourceDeviceId),
+            content_hash: String(row.content_hash || ''),
+            payload: {
+              id: String(row.clip_id || ''),
+              text: String(row.text || ''),
+              category: String(row.category || 'Uncategorized'),
+              timestamp: Number(row.timestamp || Date.now()),
+              updated_at: row.updated_at || null,
+              contentHash: String(row.content_hash || ''),
+              origin_device_id: String(row.device_id || sourceDeviceId)
+            }
+          });
+        }
+      }
+
+      if (Array.isArray(grouped.notes) && grouped.notes.length > 0) {
+        const { data, error } = await this.client
+          .from('notes')
+          .select('note_id,note_type,title,description,body,attachments,note_refs,source_note_ids,created_at,updated_at,content_hash,device_id')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .in('note_id', grouped.notes)
+          .is('deleted_at', null);
+        if (error) throw error;
+        for (const row of (data || [])) {
+          resultItems.push({
+            itemType: 'notes',
+            id: String(row.note_id || ''),
+            origin_device_id: String(row.device_id || sourceDeviceId),
+            content_hash: String(row.content_hash || ''),
+            payload: {
+              id: String(row.note_id || ''),
+              type: String(row.note_type || 'note'),
+              title: String(row.title || ''),
+              description: String(row.description || ''),
+              body: String(row.body || ''),
+              clips: Array.isArray(row.attachments) ? row.attachments.filter((x) => x && x.type === 'clip') : [],
+              images: Array.isArray(row.attachments) ? row.attachments.filter((x) => x && x.type === 'image') : [],
+              urls: Array.isArray(row.attachments) ? row.attachments.filter((x) => x && x.type === 'url') : [],
+              noteRefs: Array.isArray(row.note_refs) ? row.note_refs : [],
+              sourceNoteIds: Array.isArray(row.source_note_ids) ? row.source_note_ids : [],
+              createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
+              updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now(),
+              contentHash: String(row.content_hash || ''),
+              origin_device_id: String(row.device_id || sourceDeviceId)
+            }
+          });
+        }
+      }
+
+      if (Array.isArray(grouped.categories) && grouped.categories.length > 0) {
+        const { data, error } = await this.client
+          .from('categories')
+          .select('category_id,name,icon,created_at,updated_at,device_id')
+          .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
+          .in('category_id', grouped.categories)
+          .is('deleted_at', null);
+        if (error) throw error;
+        for (const row of (data || [])) {
+          resultItems.push({
+            itemType: 'categories',
+            id: String(row.category_id || ''),
+            origin_device_id: String(row.device_id || sourceDeviceId),
+            content_hash: '',
+            payload: {
+              id: String(row.category_id || ''),
+              name: String(row.name || ''),
+              icon: String(row.icon || '📁'),
+              createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
+              updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now(),
+              origin_device_id: String(row.device_id || sourceDeviceId)
+            }
+          });
+        }
+      }
+
+      return { items: resultItems };
+    } catch (_) {
+      return { items: [] };
     }
   }
 
@@ -3976,28 +3938,6 @@ class PasteCraftSupabase {
           chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
         });
         console.log('✅ User profile updated');
-      }
-
-      try {
-        const deviceId = await this.getDeviceId();
-        const userId = await this.getSyncUserId();
-        await this.client
-          .from('device_sync_state')
-          .upsert({
-            user_id: userId,
-            device_id: deviceId,
-            last_sync_at: new Date().toISOString(),
-            last_seen_at: new Date().toISOString(),
-            last_sync_ms: Date.now()
-          }, { onConflict: 'user_id,device_id', ignoreDuplicates: false });
-      } catch (_) {
-        // ignore device sync state failures
-      }
-
-      try {
-        await this.ensureDeviceRegistered();
-      } catch (_) {
-        // ignore device registry failures
       }
 
       console.log('✅ Full sync complete!');

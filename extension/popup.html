@@ -631,222 +631,106 @@
             background: #f8fafc;
         }
 
-        .pastecraft-devices-section {
-            margin-bottom: 14px;
-            border: 1px solid #dbeafe;
-            border-radius: 12px;
-            background: #eff6ff;
-            padding: 10px;
+        .device-sync-entry {
+            margin-bottom: 12px;
         }
 
-        .pastecraft-devices-toggle {
+        .device-sync-open-btn {
             width: 100%;
-            border: 1px solid #93c5fd;
+            border: 1px solid #bfdbfe;
             background: #ffffff;
             color: #1e3a8a;
             font-size: 12px;
             font-weight: 700;
-            border-radius: 9px;
-            padding: 8px 10px;
+            border-radius: 10px;
+            padding: 10px;
             cursor: pointer;
         }
 
-        .pastecraft-devices-panel {
-            margin-top: 10px;
+        .device-sync-open-btn:hover {
+            background: #eff6ff;
+        }
+
+        .device-sync-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
             display: none;
-            max-height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            background: #f8fafc;
-            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10040;
+            padding: 14px;
         }
 
-        .pastecraft-devices-panel.open {
-            display: flex;
-        }
-
-        .pastecraft-tabs-header {
-            display: flex;
-            overflow-x: auto;
-            background: #f1f5f9;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 4px;
-            gap: 4px;
-            scrollbar-width: none;
-        }
-        
-        .pastecraft-tabs-header::-webkit-scrollbar {
-            display: none;
-        }
-
-        .pastecraft-device-tab {
-            padding: 6px 12px;
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #64748b;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .pastecraft-device-tab:hover {
-            background: #e2e8f0;
-            color: #1e293b;
-        }
-
-        .pastecraft-device-tab.active {
+        .device-sync-modal-content {
+            width: min(780px, 96vw);
+            max-height: 84vh;
+            overflow: hidden;
             background: #ffffff;
-            color: #2563eb;
-            border-color: #e2e8f0;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        .pastecraft-tabs-content {
-            padding: 12px;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .pastecraft-device-detail {
+            border: 1px solid #dbeafe;
+            border-radius: 14px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
         }
 
-        .pastecraft-device-id {
-            font-size: 10px;
-            color: #94a3b8;
-            font-family: monospace;
-            word-break: break-all;
+        .device-sync-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
         }
 
-        .pastecraft-device-rename {
+        .device-sync-device-tabs {
             display: flex;
             gap: 6px;
+            padding: 10px 14px;
+            overflow-x: auto;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
         }
 
-        .pastecraft-device-rename input {
-            flex: 1;
+        .device-sync-tab {
             border: 1px solid #cbd5e1;
-            border-radius: 7px;
-            padding: 6px 10px;
-            font-size: 12px;
-            outline: none;
-        }
-        
-        .pastecraft-device-rename input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-
-        .pastecraft-device-save-btn {
-            border: 1px solid #3b82f6;
+            background: #ffffff;
             border-radius: 8px;
-            background: #3b82f6;
-            color: #ffffff;
-            padding: 6px 12px;
             font-size: 11px;
             font-weight: 600;
+            color: #334155;
+            padding: 6px 10px;
+            white-space: nowrap;
             cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .pastecraft-device-save-btn:hover {
-            background: #2563eb;
         }
 
-        .pastecraft-device-last-seen {
-            font-size: 10px;
-            color: #64748b;
-            margin-bottom: 4px;
+        .device-sync-tab.active {
+            border-color: #60a5fa;
+            color: #1d4ed8;
+            background: #eff6ff;
         }
 
-        .synced-clip-container {
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
+        .device-sync-items {
+            padding: 12px 14px;
+            overflow: auto;
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 8px;
         }
 
-        .synced-clip-card {
-            border: 1px solid #c7d2fe;
+        .device-sync-item {
+            border: 1px solid #e2e8f0;
             border-radius: 10px;
-            background: #eef2ff;
             padding: 8px;
-        }
-
-        .synced-clip-content {
-            font-size: 12px;
-            line-height: 1.4;
-            color: #1f2937;
-            white-space: pre-wrap;
-            margin-bottom: 7px;
-            max-height: 72px;
-            overflow: auto;
-        }
-
-        .synced-clip-footer {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 8px;
         }
 
-        .synced-clip-meta {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 10px;
+        .device-sync-item-meta {
+            font-size: 11px;
             color: #475569;
         }
 
-        .synced-indicator {
-            border-radius: 999px;
-            background: #bbf7d0;
-            color: #166534;
-            padding: 2px 7px;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .synced-clip-copy-btn {
-            border: 1px solid #7c3aed;
-            border-radius: 8px;
-            background: #8b5cf6;
-            color: #ffffff;
-            padding: 5px 9px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        
-        .synced-clip-que-btn {
-            border: 1px solid #059669;
-            border-radius: 8px;
-            background: #10b981;
-            color: #ffffff;
-            padding: 5px 9px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .synced-clip-que-btn:hover {
-            background: #059669;
-        }
-
-        .pastecraft-device-clips {
-            margin-top: 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            border-top: 1px dashed #cbd5e1;
-            padding-top: 8px;
-        }
-        
         .chip-container {
             max-height: 320px;
             overflow-y: auto;
@@ -8062,14 +7946,8 @@
         <!-- Clips Tab -->
         <section class="tab-content active" id="clipsTab">
             <div class="chip-area">
-                <div class="pastecraft-devices-section">
-                    <button class="pastecraft-devices-toggle" id="viewPastecraftDevicesBtn">View Pastecraft Devices to Sync</button>
-                    <div class="pastecraft-devices-panel" id="pastecraftDevicesPanel">
-                        <div class="pastecraft-tabs-header" id="pastecraftTabsHeader"></div>
-                        <div class="pastecraft-tabs-content" id="pastecraftTabsContent">
-                            <div class="pastecraft-device-last-seen">No devices synced yet.</div>
-                        </div>
-                    </div>
+                <div class="device-sync-entry">
+                    <button class="device-sync-open-btn" id="viewAvailableDevicesToSyncBtn">View Available Devices to Sync</button>
                 </div>
                 <div class="chip-container" id="chipContainer">
                     <div class="empty-state">
@@ -8097,6 +7975,19 @@
                 <div id="paginationControls"></div>
             </div>
         </section>
+
+        <div class="device-sync-modal" id="deviceSyncModal">
+            <div class="device-sync-modal-content">
+                <div class="device-sync-modal-header">
+                    <strong>Available Devices</strong>
+                    <button class="close-btn" id="deviceSyncModalClose">×</button>
+                </div>
+                <div class="device-sync-device-tabs" id="deviceSyncTabs"></div>
+                <div class="device-sync-items" id="deviceSyncItems">
+                    <div class="device-sync-item-meta">Select a device to view importable items.</div>
+                </div>
+            </div>
+        </div>
 
         <!-- Notes Tab -->
         <section class="tab-content" id="notesTab">
@@ -10646,6 +10537,7 @@ alice@email.com</div>
     <!-- Config and Database Client -->
     <script src="config.js"></script>
     <script src="supabase-client.js"></script>
+    <script src="indexeddb-store.js"></script>
     <!-- Test: Markup sample clips (REMOVE after testing) -->
     <script src="test-markup-clips.js"></script>
     <!-- Main Popup Script -->

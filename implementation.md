@@ -3,6 +3,11 @@
 **Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
 **Result:** Added indexed content-hash/device lookups + `get_device_diff_clips` RPC, switched popup sync panel to authoritative remote→current diff fetch, and wired realtime/device registration updates for targeted per-clip sync.
 
+### 2026-02-20 - IndexedDB Manual Device Sync Rebuild
+**Status:** PARTIAL
+**Files:** extension/indexeddb-store.js, extension/popup.js, extension/popup.html, extension/supabase-client.js, db/supabase-schema.sql, db/supabase-fixes.sql
+**Result:** Added IndexedDB primary entity layer + one-time migration, restored manual-only "View Available Devices to Sync" UI flow with selective import filtering, and added server-authoritative `get_effective_access_state` for DEV4EVER/owner-aware sync gating.
+
 ### 2026-02-15 - AI Summary/Breakdown Tab-Scoped Fresh State
 **Status:** SUCCESS
 **Files:** extension/popup.js, extension/popup.html
