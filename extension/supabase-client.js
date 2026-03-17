@@ -3521,13 +3521,22 @@ class PasteCraftSupabase {
       await this.ensureUserProfileRow(userId);
       const deviceId = await this.getDeviceId();
       const now = new Date().toISOString();
+      const displayName = this._generateDeviceDisplayName();
+      const { data: existing } = await this.client
+        .from('pastecraft_devices')
+        .select('display_name')
+        .eq('user_id', userId)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+      const upsertData = {
+        user_id: userId,
+        device_id: deviceId,
+        last_seen_at: now
+      };
+      if (!existing?.display_name) upsertData.display_name = displayName;
       const { data, error } = await this.client
         .from('pastecraft_devices')
-        .upsert({
-          user_id: userId,
-          device_id: deviceId,
-          last_seen_at: now
-        }, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
+        .upsert(upsertData, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
         .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
         .maybeSingle();
       if (error) throw error;
@@ -3535,6 +3544,23 @@ class PasteCraftSupabase {
     } catch (_) {
       return null;
     }
+  }
+
+  _generateDeviceDisplayName() {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+    let browser = 'Browser';
+    let os = 'Unknown';
+    if (/Edg\//i.test(ua)) browser = 'Edge';
+    else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+    else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+    else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+    if (/Windows NT 10/i.test(ua)) os = 'Windows';
+    else if (/Windows/i.test(ua)) os = 'Windows';
+    else if (/Mac OS X/i.test(ua)) os = 'macOS';
+    else if (/Linux/i.test(ua)) os = 'Linux';
+    else if (/Android/i.test(ua)) os = 'Android';
+    else if (/iPhone|iPad/i.test(ua)) os = 'iOS';
+    return `${browser} on ${os}`;
   }
 
   async listSyncDevices() {

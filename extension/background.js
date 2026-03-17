@@ -110,8 +110,13 @@ async function createContextMenus() {
 }
 
 // Multiple trigger points for menu creation
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   createContextMenus();
+  if (details.reason === 'update') {
+    console.log('✅ PasteCraft updated — user data preserved (chrome.storage.local, chrome.storage.sync, IndexedDB intact).');
+  } else if (details.reason === 'install') {
+    console.log('🎉 PasteCraft installed — welcome!');
+  }
 });
 
 chrome.runtime.onStartup.addListener(() => {

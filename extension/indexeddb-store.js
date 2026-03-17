@@ -81,11 +81,22 @@
       return new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
-        store.clear();
+        const newPks = new Set();
         for (const item of normalized) {
           const record = toRecord(item);
-          if (record && record.pk) store.put(record);
+          if (record && record.pk) {
+            newPks.add(record.pk);
+            store.put(record);
+          }
         }
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (cursor) {
+            if (!newPks.has(cursor.key)) cursor.delete();
+            cursor.continue();
+          }
+        };
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error || new Error(`Replace failed for ${storeName}`));
       });

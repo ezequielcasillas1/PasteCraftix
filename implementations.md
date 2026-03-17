@@ -142,3 +142,8 @@
 **Status:** SUCCESS
 **Files:** extension/supabase-client.js
 **Result:** Bug 1: Removed `.eq('device_id', sourceDeviceId)` from clips/notes/categories queries in `getDeviceSyncMetadata()` and `getDeviceSyncData()` — now queries by user_id + deleted_at only, client-side filtering via `refreshSyncCandidates()`. Bug 2: No-op'd `setUserContext()` to remove unnecessary `rpc('set_config')` call.
+
+### Mar 17, 2026 - Cross-Device Sync Full Implementation (Fiverr P1-P3)
+**Status:** SUCCESS
+**Files:** extension/indexeddb-store.js, extension/supabase-client.js, extension/popup.js, extension/background.js
+**Result:** P1: IndexedDB `replaceFromAppItems()` now uses upsert+delete in single transaction instead of clear-then-write. P2: Device display names auto-generated from userAgent (e.g., "Edge on Windows"). P2: Notes dedup by content hash, categories dedup by name+icon. Optional: Update safety log added to `onInstalled` handler.

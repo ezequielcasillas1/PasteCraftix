@@ -2694,7 +2694,14 @@ class PasteCraftPopup {
         await this.loadData();
         const incoming = row.payload;
         const incomingId = String(incoming.id || row.id || '').trim();
-        const exists = (this.categories || []).some((category) => String(category?.id || '') === incomingId || String(category?.name || '') === String(incoming?.name || ''));
+        const incomingName = String(incoming?.name || '').trim().toLowerCase();
+        const incomingIcon = String(incoming?.icon || '📁').trim();
+        const exists = (this.categories || []).some((category) => {
+          if (String(category?.id || '') === incomingId) return true;
+          const catName = String(category?.name || '').trim().toLowerCase();
+          const catIcon = String(category?.icon || '📁').trim();
+          return catName === incomingName && catIcon === incomingIcon;
+        });
         if (!exists) {
           this.categories.push({ ...incoming, origin_device_id: row.origin_device_id || incoming.origin_device_id || sourceDeviceId });
           await chrome.storage.local.set({ categories: this.categories, pc_local_updatedAt: Date.now() });
@@ -2705,9 +2712,20 @@ class PasteCraftPopup {
         await this.loadNotes();
         const incoming = row.payload;
         const incomingId = String(incoming.id || row.id || '').trim();
-        const exists = (this.notes || []).some((note) => String(note?.id || '') === incomingId);
+        const incomingHash = String(row.content_hash || incoming.contentHash || incoming.content_hash || '').trim();
+        const incomingContent = this._getNoteContentForHash(incoming);
+        const exists = (this.notes || []).some((note) => {
+          if (String(note?.id || '') === incomingId) return true;
+          const noteHash = String(note?.contentHash || note?.content_hash || '').trim();
+          if (incomingHash && noteHash && incomingHash === noteHash) return true;
+          if (!incomingHash && !noteHash) {
+            const noteContent = this._getNoteContentForHash(note);
+            return noteContent && noteContent === incomingContent;
+          }
+          return false;
+        });
         if (!exists) {
-          this.notes.unshift({ ...incoming, origin_device_id: row.origin_device_id || incoming.origin_device_id || sourceDeviceId });
+          this.notes.unshift({ ...incoming, origin_device_id: row.origin_device_id || incoming.origin_device_id || sourceDeviceId, contentHash: incomingHash || null });
           await this.saveNotes();
           this.renderNotes();
         }
@@ -13521,6 +13539,14 @@ class PasteCraftPopup {
 
     console.log(`📝 Loaded ${notes.length} notes`);
     return notes;
+  }
+
+  _getNoteContentForHash(note) {
+    if (!note) return '';
+    const title = String(note.title || '').trim();
+    const description = String(note.description || '').trim();
+    const body = String(note.body || '').trim();
+    return `${title}|${description}|${body}`.toLowerCase();
   }
 
   async saveNotes() {

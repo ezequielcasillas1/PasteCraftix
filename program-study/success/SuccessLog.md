@@ -254,3 +254,8 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/supabase-client.js
 **Result:** Fixed 2 bugs in cross-device sync: (1) Removed `.eq('device_id', sourceDeviceId)` from clips/notes/categories queries in `getDeviceSyncMetadata()` and `getDeviceSyncData()` - now queries by user_id + is('deleted_at', null) only, letting `refreshSyncCandidates()` handle client-side filtering. (2) No-op'd `setUserContext()` RPC call to remove `rpc('set_config')` overhead.
+
+### Mar 17, 2026 - Cross-Device Sync Full Implementation (Fiverr P1-P3)
+**Status:** ✅ SUCCESS
+**Files:** extension/indexeddb-store.js, extension/supabase-client.js, extension/popup.js, extension/background.js
+**Result:** P1: Fixed IndexedDB `replaceFromAppItems()` - replaced clear-then-write with upsert+delete in single transaction (no data loss on interrupt). P2: Added device display names from userAgent in `registerCurrentSyncDevice()`. P2: Added content hash dedup for notes + name+icon dedup for categories in `importRemoteItem()`. Optional: Added update safety log in `onInstalled` handler.
