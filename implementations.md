@@ -147,3 +147,8 @@
 **Status:** SUCCESS
 **Files:** extension/indexeddb-store.js, extension/supabase-client.js, extension/popup.js, extension/background.js
 **Result:** P1: IndexedDB `replaceFromAppItems()` now uses upsert+delete in single transaction instead of clear-then-write. P2: Device display names auto-generated from userAgent (e.g., "Edge on Windows"). P2: Notes dedup by content hash, categories dedup by name+icon. Optional: Update safety log added to `onInstalled` handler.
+
+### Mar 17, 2026 - AI History Cloud Persistence
+**Status:** SUCCESS
+**Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
+**Result:** AI history syncs to Supabase. Added `ai_history` table + RLS. View always allowed regardless of subscription. `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()` added. Follows no-architecture-ids pattern.

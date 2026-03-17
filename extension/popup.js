@@ -12930,19 +12930,32 @@ class PasteCraftPopup {
 
   // ==================== AI HISTORY SYSTEM ====================
 
-  /** Load AI history entries from chrome.storage.local */
+  /** Load AI history entries from local + cloud (merged) */
   async loadAiHistory() {
     try {
       const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-      this.aiHistoryEntries = pc_aiHistory_v1;
-      return pc_aiHistory_v1;
+      let localHistory = pc_aiHistory_v1;
+
+      // If user is authenticated, merge with cloud history
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
+        try {
+          const remoteHistory = await pasteCraftSupabase.fetchAiHistoryFromSupabase();
+          if (remoteHistory && remoteHistory.length > 0) {
+            localHistory = pasteCraftSupabase.mergeAiHistory(localHistory, remoteHistory);
+            await chrome.storage.local.set({ pc_aiHistory_v1: localHistory });
+          }
+        } catch (_) {}
+      }
+
+      this.aiHistoryEntries = localHistory;
+      return localHistory;
     } catch (_) {
       this.aiHistoryEntries = [];
       return [];
     }
   }
 
-  /** Persist AI history entries to chrome.storage.local */
+  /** Persist AI history entries to local + cloud */
   async _persistAiHistory() {
     try {
       // Keep max 50 entries
@@ -12950,6 +12963,11 @@ class PasteCraftPopup {
         this.aiHistoryEntries.splice(50);
       }
       await chrome.storage.local.set({ pc_aiHistory_v1: this.aiHistoryEntries });
+
+      // Sync to cloud if authenticated (non-blocking)
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
+        pasteCraftSupabase.syncAiHistoryToSupabase(this.aiHistoryEntries).catch(() => {});
+      }
     } catch (_) {}
   }
 

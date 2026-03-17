@@ -235,6 +235,28 @@ CREATE TABLE IF NOT EXISTS public.settings (
 );
 
 -- =====================================================
+-- AI_HISTORY TABLE
+-- =====================================================
+-- Stores AI conversation history (summaries, breakdowns)
+-- Content persists regardless of subscription status (view always allowed)
+CREATE TABLE IF NOT EXISTS public.ai_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    history_id BIGINT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('summary', 'breakdown')),
+    title TEXT,
+    threads JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    UNIQUE(user_id, history_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_history_user_id ON public.ai_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_history_type ON public.ai_history(type);
+CREATE INDEX IF NOT EXISTS idx_ai_history_deleted_at ON public.ai_history(deleted_at);
+
+-- =====================================================
 -- VIEWS
 -- =====================================================
 
@@ -465,6 +487,7 @@ ALTER TABLE public.device_sync_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clipboard_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pastecraft_devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_history ENABLE ROW LEVEL SECURITY;
 
 -- user_profiles policies
 CREATE POLICY "Users can view their own profile"
@@ -561,6 +584,23 @@ CREATE POLICY "Users can update their own pastecraft devices"
     ON public.pastecraft_devices FOR UPDATE
     USING (auth.uid()::text = user_id);
 
+-- ai_history policies (view always allowed regardless of subscription)
+CREATE POLICY "Users can view their own ai history"
+    ON public.ai_history FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can insert their own ai history"
+    ON public.ai_history FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can update their own ai history"
+    ON public.ai_history FOR UPDATE
+    USING (auth.uid()::text = user_id);
+
+CREATE POLICY "Users can delete their own ai history"
+    ON public.ai_history FOR DELETE
+    USING (auth.uid()::text = user_id);
+
 -- =====================================================
 -- REALTIME SUBSCRIPTIONS
 -- =====================================================
@@ -575,6 +615,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.note_versions;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.device_sync_state;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.clipboard_history;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.pastecraft_devices;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_history;
 
 -- =====================================================
 -- SAMPLE DATA (for testing)

@@ -259,3 +259,8 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/indexeddb-store.js, extension/supabase-client.js, extension/popup.js, extension/background.js
 **Result:** P1: Fixed IndexedDB `replaceFromAppItems()` - replaced clear-then-write with upsert+delete in single transaction (no data loss on interrupt). P2: Added device display names from userAgent in `registerCurrentSyncDevice()`. P2: Added content hash dedup for notes + name+icon dedup for categories in `importRemoteItem()`. Optional: Added update safety log in `onInstalled` handler.
+
+### Mar 17, 2026 - AI History Cloud Persistence
+**Status:** ✅ SUCCESS
+**Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
+**Result:** AI history now syncs to Supabase cloud. Users keep AI content regardless of subscription status (view always allowed). Added `ai_history` table with RLS policies, `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()`. Local-first with cloud backup pattern. Follows no-architecture-ids rule (query by user_id only, no device filtering).
