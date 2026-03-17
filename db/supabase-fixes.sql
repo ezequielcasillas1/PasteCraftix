@@ -347,3 +347,58 @@ WHERE tablename = 'objects' AND schemaname = 'storage';
 -- =====================================================
 
 
+-- =====================================================
+-- FIX #5: AI_HISTORY TABLE (Mar 17, 2026)
+-- =====================================================
+-- Creates ai_history table for cloud-persisted AI conversations
+-- Content viewable regardless of subscription status
+
+-- Create the table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.ai_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
+    history_id BIGINT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('summary', 'breakdown')),
+    title TEXT,
+    threads JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    UNIQUE(user_id, history_id)
+);
+
+-- Add deleted_at column if table already exists without it
+ALTER TABLE public.ai_history 
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_ai_history_user_id ON public.ai_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_history_type ON public.ai_history(type);
+CREATE INDEX IF NOT EXISTS idx_ai_history_deleted_at ON public.ai_history(deleted_at);
+
+-- Enable RLS
+ALTER TABLE public.ai_history ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies (drop first to avoid duplicates)
+DROP POLICY IF EXISTS "Users can view their own ai history" ON public.ai_history;
+CREATE POLICY "Users can view their own ai history"
+    ON public.ai_history FOR SELECT
+    USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own ai history" ON public.ai_history;
+CREATE POLICY "Users can insert their own ai history"
+    ON public.ai_history FOR INSERT
+    WITH CHECK (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own ai history" ON public.ai_history;
+CREATE POLICY "Users can update their own ai history"
+    ON public.ai_history FOR UPDATE
+    USING (auth.uid()::text = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own ai history" ON public.ai_history;
+CREATE POLICY "Users can delete their own ai history"
+    ON public.ai_history FOR DELETE
+    USING (auth.uid()::text = user_id);
+
+-- Realtime (ignore error if already added)
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.ai_history;
