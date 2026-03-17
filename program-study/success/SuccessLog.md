@@ -249,3 +249,8 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/supabase-client.js
 **Result:** Supabase auth session was stuck/hanging, causing `getUserSubscription()` to never resolve. Added 3s timeout + direct REST fallback (`_getUserSubscriptionDirect`) using stored access token from chrome.storage. Matches existing guardrail pattern in `getCurrentUser()`. Banner now hides correctly and AI features work.
+
+### Mar 17, 2026 - Cross-Device Sync Bug Fixes
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** Fixed 2 bugs in cross-device sync: (1) Removed `.eq('device_id', sourceDeviceId)` from clips/notes/categories queries in `getDeviceSyncMetadata()` and `getDeviceSyncData()` - now queries by user_id + is('deleted_at', null) only, letting `refreshSyncCandidates()` handle client-side filtering. (2) No-op'd `setUserContext()` RPC call to remove `rpc('set_config')` overhead.

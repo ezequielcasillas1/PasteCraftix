@@ -137,3 +137,8 @@
 **Status:** SUCCESS
 **Files:** extension/markup-renderer.js, extension/test-markup-clips.js
 **Result:** Fixed 2 detection bugs: (1) Textile/JIRA clips misdetected as Slack — reordered detection so Slack runs last among text markups. (2) JSX code clips misdetected as HTML — added code-keyword guard. Rewrote test-markup-clips.js v4 with 26 clips covering all 20 markup types + 6 raw code languages (JS, Python, C, Go, SQL, Bash).
+
+### Mar 17, 2026 - Cross-Device Sync Bug Fixes (Fiverr)
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** Bug 1: Removed `.eq('device_id', sourceDeviceId)` from clips/notes/categories queries in `getDeviceSyncMetadata()` and `getDeviceSyncData()` — now queries by user_id + deleted_at only, client-side filtering via `refreshSyncCandidates()`. Bug 2: No-op'd `setUserContext()` to remove unnecessary `rpc('set_config')` call.

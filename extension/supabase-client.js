@@ -1506,39 +1506,7 @@ class PasteCraftSupabase {
    */
   async setUserContext(userId) {
     if (!this.client) return;
-    
-    try {
-      if (!userId) return;
-      const now = Date.now();
-      if (this._userContextBackoffUntil && now < this._userContextBackoffUntil) return;
-
-      const recent = this._lastUserContextId === userId && (now - this._lastUserContextAt) < (5 * 60 * 1000);
-      if (recent) return;
-
-      if (this._userContextInFlight && this._userContextInFlight.userId === userId) {
-        await this._userContextInFlight.promise;
-        return;
-      }
-
-      const rpcPromise = this.client.rpc('set_config', {
-        setting: 'app.current_user_id',
-        value: userId
-      });
-      this._userContextInFlight = { userId, promise: rpcPromise };
-
-      await rpcPromise;
-      this._lastUserContextId = userId;
-      this._lastUserContextAt = Date.now();
-      this._userContextBackoffUntil = 0;
-      console.log('✅ User context set:', userId);
-    } catch (error) {
-      this._userContextBackoffUntil = Date.now() + 30000;
-      console.warn('⚠️ Could not set user context (RLS may not be configured):', error.message);
-    } finally {
-      if (this._userContextInFlight && this._userContextInFlight.userId === userId) {
-        this._userContextInFlight = null;
-      }
-    }
+    if (!userId) return;
   }
 
   // =====================================================
@@ -3611,7 +3579,6 @@ class PasteCraftSupabase {
           .from('clips')
           .select('clip_id,text,content_hash,updated_at,device_id')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400),
@@ -3619,7 +3586,6 @@ class PasteCraftSupabase {
           .from('notes')
           .select('note_id,title,description,content_hash,updated_at,device_id')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400),
@@ -3627,7 +3593,6 @@ class PasteCraftSupabase {
           .from('categories')
           .select('category_id,name,updated_at,device_id')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400)
@@ -3690,7 +3655,6 @@ class PasteCraftSupabase {
           .from('clips')
           .select('clip_id,text,category,timestamp,content_hash,device_id,updated_at')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .in('clip_id', grouped.clips)
           .is('deleted_at', null);
         if (error) throw error;
@@ -3718,7 +3682,6 @@ class PasteCraftSupabase {
           .from('notes')
           .select('note_id,note_type,title,description,body,attachments,note_refs,source_note_ids,created_at,updated_at,content_hash,device_id')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .in('note_id', grouped.notes)
           .is('deleted_at', null);
         if (error) throw error;
@@ -3753,7 +3716,6 @@ class PasteCraftSupabase {
           .from('categories')
           .select('category_id,name,icon,created_at,updated_at,device_id')
           .eq('user_id', userId)
-          .eq('device_id', sourceDeviceId)
           .in('category_id', grouped.categories)
           .is('deleted_at', null);
         if (error) throw error;
