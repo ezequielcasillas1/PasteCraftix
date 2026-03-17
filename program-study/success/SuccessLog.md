@@ -253,7 +253,7 @@
 ### Mar 17, 2026 - Cross-Device Sync Bug Fixes
 **Status:** ✅ SUCCESS
 **Files:** extension/supabase-client.js
-**Result:** Fixed 2 bugs in cross-device sync: (1) Removed `.eq('device_id', sourceDeviceId)` from clips/notes/categories queries in `getDeviceSyncMetadata()` and `getDeviceSyncData()` - now queries by user_id + is('deleted_at', null) only, letting `refreshSyncCandidates()` handle client-side filtering. (2) No-op'd `setUserContext()` RPC call to remove `rpc('set_config')` overhead.
+**Result:** Fixed 2 bugs: (1) Removed `device_id` filter from sync queries — was breaking cross-device sync when items uploaded from different devices. (2) No-op'd `setUserContext()` — was calling `rpc('set_config')` but no RLS policy read it. Now queries by user_id + deleted_at only, client-side handles device filtering.
 
 ### Mar 17, 2026 - Cross-Device Sync Full Implementation (Fiverr P1-P3)
 **Status:** ✅ SUCCESS
@@ -263,4 +263,4 @@
 ### Mar 17, 2026 - AI History Cloud Persistence
 **Status:** ✅ SUCCESS
 **Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
-**Result:** AI history now syncs to Supabase cloud. Users keep AI content regardless of subscription status (view always allowed). Added `ai_history` table with RLS policies, `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()`. Local-first with cloud backup pattern. Follows no-architecture-ids rule (query by user_id only, no device filtering).
+**Result:** AI history now syncs to Supabase cloud. Users keep AI content regardless of subscription status (view always allowed). Added `ai_history` table with RLS policies, `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()`. Local-first with cloud backup pattern. No custom RLS plumbing — queries by user_id, lets RLS handle auth.

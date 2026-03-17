@@ -2726,7 +2726,7 @@ class PasteCraftSupabase {
 
   /**
    * Sync AI history to Supabase (cloud backup)
-   * Following no-architecture-ids pattern: query by user_id only, no device filtering
+   * No custom RLS plumbing — queries by user_id, lets RLS handle auth
    */
   async syncAiHistoryToSupabase(localHistory) {
     if (!this.client) return false;

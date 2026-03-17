@@ -1,0 +1,43 @@
+---
+description: No custom RLS hacks or device_id filtering for cross-device sync
+alwaysApply: true
+---
+
+# No Custom RLS Plumbing
+
+**Do NOT:**
+- Invent custom user/device ID plumbing for RLS (no `set_config` hacks)
+- Drive cross-device sync off `device_id` filters in Supabase queries
+
+**DO:**
+- Query by `user_id` normally (this is expected and correct)
+- Let RLS enforce `auth.uid()` for auth
+- Handle device filtering client-side after fetching
+
+## Why This Exists
+
+We found two bugs where:
+1. `rpc('set_config', { setting: 'app.current_user_id', value: userId })` was called but no RLS policy read it — wasted calls, silent failures
+2. Cross-device sync queries filtered by `.eq('device_id', sourceDeviceId)` which broke sync when items were uploaded from different devices
+
+## Examples
+
+```javascript
+// ❌ BAD - Custom RLS plumbing that nothing reads
+await supabase.rpc('set_config', { setting: 'app.current_user_id', value: userId });
+
+// ❌ BAD - device_id filter breaks cross-device sync
+await supabase.from('clips').select('*').eq('device_id', sourceDeviceId);
+
+// ✅ GOOD - Query by user_id, filter deleted, let client handle device logic
+await supabase.from('clips').select('*').eq('user_id', userId).is('deleted_at', null);
+// Then filter by device_id in JavaScript if needed for UI display
+```
+
+## Cross-Device Sync Pattern
+
+1. Query by `user_id` and `is('deleted_at', null)` only
+2. Let `refreshSyncCandidates()` handle client-side device filtering and content hash dedup
+3. Trust RLS policies (`auth.uid()::text = user_id`) for auth enforcement
+
+Using `user_id` in normal membership, subscription, and coupon logic is fine — this rule only targets the specific anti-patterns above.
