@@ -6,6 +6,7 @@
     <title>Pricing - PasteCraft</title>
     <meta name="description" content="Choose the perfect PasteCraft plan for you. Flexible weekly, monthly, and yearly subscriptions.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <script src="../extension/config.js"></script>
     <script src="https://js.stripe.com/v3/"></script>
     <style>
         * {
@@ -533,11 +534,11 @@
 
     <script>
         // Initialize Stripe with your publishable key
-        const stripe = Stripe('pk_live_51QfDc3LOdeLTrjapSQ63f8r7lOVqtOo4f0BBL1SjAws6AH9ia4Dys0JxznKeFo3QooVYdVULajaDWDdfSN0GviI300GBctnQoj');
+        const stripe = Stripe(PASTECRAFT_CONFIG.stripe.publishableKey);
 
         // Database anon key (public) - used as Bearer token for Edge Functions
         // NOTE: Must match `config.js` anonKey setting
-        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o';
+        const supabaseAnonKey = PASTECRAFT_CONFIG.supabase.anonKey;
 
         const PLAN_CONFIG = {
             basic: {
@@ -616,7 +617,7 @@
             try {
                 const isLocal = window.location.origin.startsWith('http://127.0.0.1') || window.location.origin.startsWith('http://localhost');
 
-                const url = 'https://blpngeeqcegquiydreyu.supabase.co/functions/v1/create-checkout';
+                const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/create-checkout`;
 
                 const response = await fetch(url, {
                     method: 'POST',
