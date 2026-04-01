@@ -59,6 +59,8 @@
         "logo.svg",
         "icon.png",
         "assets/distribute-spacing-vertical.svg",
+        "assets/styles/tokens.css",
+        "content/widget.css",
         "lib/marked.min.js",
         "lib/purify.min.js",
         "lib/highlight.min.js",
