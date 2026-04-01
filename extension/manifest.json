@@ -40,7 +40,8 @@
   ],
   "action": {},
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/service-worker.js",
+    "type": "module"
   },
   "icons": {
     "16": "icon.png",
