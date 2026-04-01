@@ -1,0 +1,146 @@
+/* PasteCraft Design Tokens
+ * CSS custom properties for consistent theming across all UI components
+ * Reference: https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties
+ */
+
+:root {
+  /* ====== Brand Colors ====== */
+  --pc-primary: #0ea5e9;           /* Sky blue - main brand color */
+  --pc-primary-hover: #0284c7;     /* Darker sky blue for hover states */
+  --pc-primary-light: #e0f2fe;     /* Light sky blue for backgrounds */
+  --pc-primary-dark: #0369a1;      /* Dark sky blue for active states */
+  
+  /* ====== Semantic Colors ====== */
+  --pc-success: #22c55e;           /* Green - success states */
+  --pc-success-light: #dcfce7;
+  --pc-warning: #f59e0b;           /* Amber - warning states */
+  --pc-warning-light: #fef3c7;
+  --pc-error: #ef4444;             /* Red - error states */
+  --pc-error-light: #fee2e2;
+  --pc-info: #3b82f6;              /* Blue - info states */
+  --pc-info-light: #dbeafe;
+  
+  /* ====== Neutral Colors (Light Mode) ====== */
+  --pc-bg-primary: #ffffff;        /* Main background */
+  --pc-bg-secondary: #f8fafc;      /* Secondary background */
+  --pc-bg-tertiary: #f1f5f9;       /* Tertiary background */
+  --pc-bg-elevated: #ffffff;       /* Elevated surfaces (cards, modals) */
+  
+  --pc-text-primary: #0f172a;      /* Primary text */
+  --pc-text-secondary: #475569;    /* Secondary text */
+  --pc-text-tertiary: #94a3b8;     /* Tertiary/muted text */
+  --pc-text-inverse: #ffffff;      /* Text on dark backgrounds */
+  
+  --pc-border: #e2e8f0;            /* Default borders */
+  --pc-border-hover: #cbd5e1;      /* Border on hover */
+  --pc-divider: #f1f5f9;           /* Dividers/separators */
+  
+  /* ====== Shadows ====== */
+  --pc-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --pc-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --pc-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --pc-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* ====== Spacing ====== */
+  --pc-space-xs: 4px;
+  --pc-space-sm: 8px;
+  --pc-space-md: 12px;
+  --pc-space-lg: 16px;
+  --pc-space-xl: 24px;
+  --pc-space-2xl: 32px;
+  --pc-space-3xl: 48px;
+  
+  /* ====== Border Radius ====== */
+  --pc-radius-sm: 4px;
+  --pc-radius-md: 6px;
+  --pc-radius-lg: 8px;
+  --pc-radius-xl: 12px;
+  --pc-radius-2xl: 16px;
+  --pc-radius-full: 9999px;
+  
+  /* ====== Typography ====== */
+  --pc-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --pc-font-mono: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  
+  --pc-text-xs: 11px;
+  --pc-text-sm: 12px;
+  --pc-text-base: 14px;
+  --pc-text-lg: 16px;
+  --pc-text-xl: 18px;
+  --pc-text-2xl: 20px;
+  --pc-text-3xl: 24px;
+  
+  --pc-line-height-tight: 1.25;
+  --pc-line-height-normal: 1.5;
+  --pc-line-height-relaxed: 1.75;
+  
+  --pc-font-normal: 400;
+  --pc-font-medium: 500;
+  --pc-font-semibold: 600;
+  --pc-font-bold: 700;
+  
+  /* ====== Transitions ====== */
+  --pc-transition-fast: 100ms ease;
+  --pc-transition-base: 150ms ease;
+  --pc-transition-slow: 300ms ease;
+  
+  /* ====== Z-Index Scale ====== */
+  --pc-z-base: 1;
+  --pc-z-dropdown: 100;
+  --pc-z-sticky: 200;
+  --pc-z-modal: 300;
+  --pc-z-popover: 400;
+  --pc-z-toast: 500;
+  --pc-z-tooltip: 600;
+  --pc-z-max: 9999;
+  
+  /* ====== Component-Specific ====== */
+  --pc-widget-width: 380px;
+  --pc-widget-max-height: 600px;
+  --pc-panel-width: 420px;
+  --pc-toast-width: 320px;
+  --pc-input-height: 36px;
+  --pc-button-height: 32px;
+}
+
+/* ====== Dark Mode Overrides ====== */
+[data-theme="dark"],
+.dark-mode {
+  --pc-bg-primary: #0f172a;
+  --pc-bg-secondary: #1e293b;
+  --pc-bg-tertiary: #334155;
+  --pc-bg-elevated: #1e293b;
+  
+  --pc-text-primary: #f8fafc;
+  --pc-text-secondary: #cbd5e1;
+  --pc-text-tertiary: #64748b;
+  --pc-text-inverse: #0f172a;
+  
+  --pc-border: #334155;
+  --pc-border-hover: #475569;
+  --pc-divider: #1e293b;
+  
+  --pc-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --pc-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+  --pc-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  --pc-shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+}
+
+/* ====== Scrollbar Styling ====== */
+.pc-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.pc-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pc-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--pc-primary);
+  border-radius: var(--pc-radius-full);
+}
+
+.pc-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--pc-primary-hover);
+}
