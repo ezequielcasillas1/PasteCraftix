@@ -1846,6 +1846,8 @@ class PasteCraftSupabase {
 
   /**
    * Sync clips from Supabase to local storage (with batch support for large datasets)
+   * By default, only syncs clips from the CURRENT device to prevent automatic cross-device sync.
+   * Cross-device sync should be manual via "View available devices to sync" UI.
    */
   async syncClipsFromSupabase(userIdOverride = null) {
     if (!this.client) {
@@ -1856,14 +1858,16 @@ class PasteCraftSupabase {
     try {
       const userId = userIdOverride || await this.getSyncUserId();
       await this.setUserContext(userId);
+      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching clips from Supabase...');
+      console.log('📥 Fetching clips from Supabase (current device only)...');
 
-      // First, get total count
+      // First, get total count for current device only
       const { count, error: countError } = await this.client
         .from('clips')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('device_id', currentDeviceId);
 
       if (countError) throw countError;
 
@@ -1872,14 +1876,15 @@ class PasteCraftSupabase {
 
       // Use batch fetching for large datasets (>100 clips)
       if (totalClips > this.BATCH_SIZE) {
-        return await this.syncClipsFromSupabaseBatch(userId, totalClips);
+        return await this.syncClipsFromSupabaseBatch(userId, totalClips, currentDeviceId);
       }
 
-      // Standard fetch for small datasets
+      // Standard fetch for small datasets - current device only
       const { data, error } = await this.client
         .from('clips')
         .select('*')
         .eq('user_id', userId)
+        .eq('device_id', currentDeviceId)
         .order('timestamp', { ascending: false });
 
       if (error) throw error;
@@ -1895,7 +1900,7 @@ class PasteCraftSupabase {
         deviceId: clip.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localClips.length} clips from Supabase`);
+      console.log(`✅ Fetched ${localClips.length} clips from Supabase (current device)`);
       return localClips;
     } catch (error) {
       console.error('❌ Failed to fetch clips from Supabase:', error);
@@ -1905,8 +1910,9 @@ class PasteCraftSupabase {
 
   /**
    * Batch fetch clips from Supabase (for large datasets)
+   * Filters by deviceId to only sync current device's clips
    */
-  async syncClipsFromSupabaseBatch(userId, totalClips) {
+  async syncClipsFromSupabaseBatch(userId, totalClips, deviceId = null) {
     const batches = Math.ceil(totalClips / this.BATCH_SIZE);
     let allClips = [];
     let fetchedCount = 0;
@@ -1921,10 +1927,17 @@ class PasteCraftSupabase {
       const end = start + this.BATCH_SIZE - 1;
 
       try {
-        const { data, error } = await this.client
+        let query = this.client
           .from('clips')
           .select('*')
-          .eq('user_id', userId)
+          .eq('user_id', userId);
+        
+        // Filter by device_id if provided (for current-device-only sync)
+        if (deviceId) {
+          query = query.eq('device_id', deviceId);
+        }
+        
+        const { data, error } = await query
           .order('timestamp', { ascending: false })
           .range(start, end);
 
@@ -2220,7 +2233,8 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync categories from Supabase
+   * Sync categories from Supabase (current device only)
+   * Cross-device category sync should be manual via import UI.
    */
   async syncCategoriesFromSupabase() {
     if (!this.client) {
@@ -2231,13 +2245,15 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching categories from Supabase...');
+      console.log('📥 Fetching categories from Supabase (current device only)...');
 
       const { data, error } = await this.client
         .from('categories')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('device_id', currentDeviceId);
 
       if (error) throw error;
 
@@ -2250,7 +2266,7 @@ class PasteCraftSupabase {
         deviceId: cat.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localCategories.length} categories from Supabase`);
+      console.log(`✅ Fetched ${localCategories.length} categories from Supabase (current device)`);
       return localCategories;
     } catch (error) {
       console.error('❌ Failed to fetch categories from Supabase:', error);
@@ -2333,7 +2349,8 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync archived clips from Supabase to local storage
+   * Sync archived clips from Supabase to local storage (current device only)
+   * Cross-device sync should be manual via import UI.
    */
   async syncArchivedClipsFromSupabase() {
     if (!this.client) {
@@ -2344,16 +2361,18 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching archived clips from Supabase...');
+      console.log('📥 Fetching archived clips from Supabase (current device only)...');
 
-      // Fetch all archived clips (unlimited cloud storage)
+      // Fetch archived clips for current device only
       const { data, error } = await this.client
         .from('archived_clips')
         .select('*')
         .eq('user_id', userId)
+        .eq('device_id', currentDeviceId)
         .order('timestamp', { ascending: false })
-        .limit(100000); // Effectively unlimited - high limit for pagination
+        .limit(100000);
 
       if (error) throw error;
 
@@ -2368,7 +2387,7 @@ class PasteCraftSupabase {
         deviceId: clip.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase`);
+      console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase (current device)`);
       return localArchivedClips;
     } catch (error) {
       console.error('❌ Failed to fetch archived clips from Supabase:', error);
@@ -2509,6 +2528,10 @@ class PasteCraftSupabase {
     }
   }
 
+  /**
+   * Sync notes from Supabase (current device only)
+   * Cross-device sync should be manual via import UI.
+   */
   async syncNotesFromSupabase() {
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping notes sync');
@@ -2518,11 +2541,13 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
+      const currentDeviceId = await this.getDeviceId();
 
       const { data, error } = await this.client
         .from('notes')
         .select('*')
         .eq('user_id', userId)
+        .eq('device_id', currentDeviceId)
         .order('updated_at', { ascending: false });
       if (error) throw error;
 
@@ -2554,6 +2579,7 @@ class PasteCraftSupabase {
         };
       });
 
+      console.log(`✅ Fetched ${notes.length} notes from Supabase (current device)`);
       return notes;
     } catch (error) {
       console.error('❌ Failed to sync notes from Supabase:', error);
@@ -3594,20 +3620,34 @@ class PasteCraftSupabase {
 
   async getEffectiveAccessState(userId) {
     if (!this.client || !userId) return null;
+    // Cache result to avoid repeated 404 calls if RPC doesn't exist
+    const cacheKey = `_effectiveAccessCache_${userId}`;
+    const cached = this[cacheKey];
+    const now = Date.now();
+    if (cached && (now - cached.at) < 60000) { // 1 minute cache
+      return cached.value;
+    }
     try {
       const { data, error } = await this.client.rpc('get_effective_access_state', {
         p_user_id: String(userId)
       });
       if (error) throw error;
       const row = Array.isArray(data) ? (data[0] || null) : data;
-      if (!row) return null;
-      return {
+      if (!row) {
+        this[cacheKey] = { value: null, at: now };
+        return null;
+      }
+      const result = {
         is_owner: row.is_owner === true,
         is_premium: row.is_premium === true,
         has_cloud_sync: row.has_cloud_sync === true,
         source: String(row.source || '')
       };
+      this[cacheKey] = { value: result, at: now };
+      return result;
     } catch (error) {
+      // Cache null for failed calls (e.g., 404) to avoid repeated failures
+      this[cacheKey] = { value: null, at: now };
       return null;
     }
   }
