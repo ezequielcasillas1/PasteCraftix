@@ -20,6 +20,9 @@ class PasteCraftSupabase {
     this._deviceRegisterCooldownMs = 60 * 1000; // avoid repeated upserts during rapid sync bursts
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
+    // Throttle realtime handlers to avoid exceeding Chrome storage quota (120 writes/min)
+    this._realtimeThrottle = {};
+    this._realtimeThrottleMs = 5000; // minimum 5 seconds between handling same event type
     this.init();
     this.setupConnectionMonitor();
   }
@@ -622,7 +625,19 @@ class PasteCraftSupabase {
     }
   }
   
+  _shouldThrottleRealtime(eventType) {
+    const now = Date.now();
+    const lastAt = this._realtimeThrottle[eventType] || 0;
+    if (now - lastAt < this._realtimeThrottleMs) {
+      console.log(`⏳ Throttling realtime ${eventType} (${now - lastAt}ms since last)`);
+      return true;
+    }
+    this._realtimeThrottle[eventType] = now;
+    return false;
+  }
+
   async handleClipsChange(payload) {
+    if (this._shouldThrottleRealtime('clips')) return;
     console.log('🔔 Clips changed:', payload.eventType);
     
     // Refresh clips from Supabase
@@ -646,6 +661,7 @@ class PasteCraftSupabase {
   }
   
   async handleCategoriesChange(payload) {
+    if (this._shouldThrottleRealtime('categories')) return;
     console.log('🔔 Categories changed:', payload.eventType);
     
     const remoteCategories = await this.syncCategoriesFromSupabase();
@@ -665,6 +681,7 @@ class PasteCraftSupabase {
   }
   
   async handleArchivedClipsChange(payload) {
+    if (this._shouldThrottleRealtime('archivedClips')) return;
     console.log('🔔 Archived clips changed:', payload.eventType);
     
     const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
@@ -684,6 +701,7 @@ class PasteCraftSupabase {
   }
 
   async handleNotesChange(payload) {
+    if (this._shouldThrottleRealtime('notes')) return;
     console.log('🔔 Notes changed:', payload.eventType);
 
     const remoteNotes = await this.syncNotesFromSupabase();
@@ -703,6 +721,7 @@ class PasteCraftSupabase {
   }
   
   async handleSettingsChange(payload) {
+    if (this._shouldThrottleRealtime('settings')) return;
     console.log('🔔 Settings changed:', payload.eventType);
     
     const remoteSettings = await this.syncSettingsFromSupabase();
@@ -718,6 +737,7 @@ class PasteCraftSupabase {
   }
   
   async handleProfileChange(payload) {
+    if (this._shouldThrottleRealtime('profile')) return;
     console.log('🔔 Profile changed:', payload.eventType);
     
     const remoteProfile = await this.syncUserProfileFromSupabase();
@@ -3633,14 +3653,14 @@ class PasteCraftSupabase {
 
   async registerCurrentSyncDevice() {
     // #region agent log
-    const _rcsT0 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:entry',message:'registerCurrentSyncDevice called',data:{hasClient:!!this.client},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    const _rcsT0 = Date.now(); console.log('[DEBUG-58af45] registerCurrentSyncDevice:entry', {hasClient:!!this.client});
     // #endregion
     if (!this.client) return null;
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:after-access-check',message:'access check done',data:{userId,hasAccess,durationMs:Date.now()-_rcsT0},timestamp:Date.now(),hypothesisId:'B,D'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] registerCurrentSyncDevice:access-check', {userId,hasAccess,durationMs:Date.now()-_rcsT0});
       // #endregion
       if (!hasAccess) return null;
       await this.setUserContext(userId);
@@ -3649,7 +3669,7 @@ class PasteCraftSupabase {
       const now = new Date().toISOString();
       const displayName = this._generateDeviceDisplayName();
       // #region agent log
-      const _rcsT1 = Date.now();
+      const _rcsT1 = Date.now(); console.log('[DEBUG-58af45] registerCurrentSyncDevice:before-upsert', {userId,deviceId,displayName});
       // #endregion
       const { data: existing } = await this.client
         .from('pastecraft_devices')
@@ -3669,13 +3689,13 @@ class PasteCraftSupabase {
         .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
         .maybeSingle();
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:after-upsert',message:'upsert done',data:{deviceId,error:error?.message,durationMs:Date.now()-_rcsT1},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] registerCurrentSyncDevice:after-upsert', {deviceId,data,error:error?.message,durationMs:Date.now()-_rcsT1});
       // #endregion
       if (error) throw error;
       return data || null;
     } catch (err) {
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:catch',message:'registerCurrentSyncDevice error',data:{error:err?.message},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      console.error('[DEBUG-58af45] registerCurrentSyncDevice:error', {error:err?.message,stack:err?.stack});
       // #endregion
       return null;
     }
@@ -3853,30 +3873,30 @@ class PasteCraftSupabase {
 
   async listSyncDevices() {
     // #region agent log
-    const _t0 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:entry',message:'listSyncDevices called',data:{hasClient:!!this.client},timestamp:Date.now(),hypothesisId:'B,E'})}).catch(()=>{});
+    const _t0 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:entry', {hasClient:!!this.client});
     // #endregion
     if (!this.client) return [];
     try {
       // #region agent log
-      const _t1 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:before-getSyncUserId',message:'calling getSyncUserId',data:{},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      const _t1 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:calling-getSyncUserId');
       // #endregion
       const userId = await this.getSyncUserId();
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-getSyncUserId',message:'getSyncUserId done',data:{userId,durationMs:Date.now()-_t1},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] listSyncDevices:getSyncUserId-done', {userId,durationMs:Date.now()-_t1});
       // #endregion
       // #region agent log
       const _t2 = Date.now();
       // #endregion
       const hasAccess = await this.hasCloudSyncAccess(userId);
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-hasCloudSyncAccess',message:'hasCloudSyncAccess done',data:{hasAccess,durationMs:Date.now()-_t2},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] listSyncDevices:hasCloudSyncAccess-done', {hasAccess,durationMs:Date.now()-_t2});
       // #endregion
       if (!hasAccess) return [];
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
       const currentDeviceId = await this.getDeviceId();
       // #region agent log
-      const _t3 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:before-query',message:'querying pastecraft_devices',data:{userId,currentDeviceId},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
+      const _t3 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:before-query', {userId,currentDeviceId});
       // #endregion
       const { data, error } = await this.client
         .from('pastecraft_devices')
@@ -3887,7 +3907,7 @@ class PasteCraftSupabase {
         .order('device_number', { ascending: true })
         .limit(9);
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-query',message:'query done',data:{rowCount:data?.length,error:error?.message,durationMs:Date.now()-_t3,rows:data},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] listSyncDevices:query-done', {rowCount:data?.length,error:error?.message,durationMs:Date.now()-_t3,rows:data});
       // #endregion
       if (error) throw error;
       return (Array.isArray(data) ? data : []).map((row) => ({
@@ -3898,7 +3918,7 @@ class PasteCraftSupabase {
       }));
     } catch (err) {
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:catch',message:'listSyncDevices error',data:{error:err?.message},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      console.error('[DEBUG-58af45] listSyncDevices:error', {error:err?.message,stack:err?.stack});
       // #endregion
       return [];
     }

@@ -2788,29 +2788,29 @@ class PasteCraftPopup {
     tabs.innerHTML = '';
     items.innerHTML = '<div class="device-sync-item-meta">Loading devices...</div>';
     // #region agent log
-    const _rsdT0 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'popup.js:refreshSyncDevices:entry',message:'refreshSyncDevices started',data:{},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    const _rsdT0 = Date.now(); console.log('[DEBUG-58af45] refreshSyncDevices:entry', {timestamp:Date.now()});
     // #endregion
     try {
       // #region agent log
-      const _rsdT1 = Date.now();
+      const _rsdT1 = Date.now(); console.log('[DEBUG-58af45] calling registerCurrentSyncDevice...');
       // #endregion
       await pasteCraftSupabase.registerCurrentSyncDevice();
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'popup.js:refreshSyncDevices:after-register',message:'registerCurrentSyncDevice done',data:{durationMs:Date.now()-_rsdT1},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] registerCurrentSyncDevice done', {durationMs:Date.now()-_rsdT1});
       // #endregion
       // #region agent log
-      const _rsdT2 = Date.now();
+      const _rsdT2 = Date.now(); console.log('[DEBUG-58af45] calling listSyncDevices...');
       // #endregion
       const devices = await pasteCraftSupabase.listSyncDevices();
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'popup.js:refreshSyncDevices:after-list',message:'listSyncDevices done',data:{deviceCount:devices?.length,durationMs:Date.now()-_rsdT2,totalDurationMs:Date.now()-_rsdT0},timestamp:Date.now(),hypothesisId:'B,C'})}).catch(()=>{});
+      console.log('[DEBUG-58af45] listSyncDevices done', {deviceCount:devices?.length,devices,durationMs:Date.now()-_rsdT2,totalDurationMs:Date.now()-_rsdT0});
       // #endregion
       this.syncDevices = Array.isArray(devices) ? devices.slice(0, 9) : [];
       if (!this.syncDevices.length) {
         this.activeSyncDeviceId = '';
         items.innerHTML = '<div class="device-sync-item-meta">No remote devices available.</div>';
         // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'popup.js:refreshSyncDevices:no-devices',message:'No remote devices found',data:{totalDurationMs:Date.now()-_rsdT0},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+        console.log('[DEBUG-58af45] No remote devices found', {totalDurationMs:Date.now()-_rsdT0});
         // #endregion
         return;
       }
@@ -2829,7 +2829,7 @@ class PasteCraftPopup {
       await this.refreshSyncCandidates();
     } catch (error) {
       // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'popup.js:refreshSyncDevices:catch',message:'refreshSyncDevices error',data:{error:error?.message,totalDurationMs:Date.now()-_rsdT0},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      console.error('[DEBUG-58af45] refreshSyncDevices error', {error:error?.message,stack:error?.stack,totalDurationMs:Date.now()-_rsdT0});
       // #endregion
       items.innerHTML = '<div class="device-sync-item-meta">Unable to load devices right now.</div>';
     }

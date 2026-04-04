@@ -264,3 +264,8 @@
 **Status:** ✅ SUCCESS
 **Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
 **Result:** AI history now syncs to Supabase cloud. Users keep AI content regardless of subscription status (view always allowed). Added `ai_history` table with RLS policies, `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()`. Local-first with cloud backup pattern. No custom RLS plumbing — queries by user_id, lets RLS handle auth.
+
+### Apr 4, 2026 - Debug Instrumentation for Sync Flow
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js, PasteCraft_Consult.pdf, instructions/STRIPE_SANDBOX_SETUP.md
+**Result:** Added debug agent logging to device sync flow for troubleshooting. (Commit: 0452681)
