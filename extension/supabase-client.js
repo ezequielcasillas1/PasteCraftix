@@ -1615,12 +1615,19 @@ class PasteCraftSupabase {
     const dupCounter = new Map(); // baseId -> count
     let droppedNoText = 0;
     let droppedInvalid = 0;
+    let droppedImported = 0;
     let inferredIds = 0;
 
     for (let i = 0; i < arr.length; i++) {
       const clip = arr[i];
       const text = typeof clip === 'string' ? clip : (clip?.text ?? clip);
       if (!text) { droppedNoText++; continue; }
+
+      const originDeviceId = typeof clip === 'object' && clip ? String(clip.origin_device_id || '').trim() : '';
+      if (originDeviceId && originDeviceId !== deviceId) {
+        droppedImported++;
+        continue;
+      }
 
       const ts = typeof clip === 'object' && clip ? (clip.timestamp ?? null) : null;
       const updatedAtMs =
@@ -1666,7 +1673,7 @@ class PasteCraftSupabase {
     }
 
     const out = Array.from(seen.values());
-    out._pcStats = { inputCount: arr.length, outCount: out.length, droppedNoText, droppedInvalid, inferredIds };
+    out._pcStats = { inputCount: arr.length, outCount: out.length, droppedNoText, droppedInvalid, droppedImported, inferredIds };
     return out;
   }
 
@@ -2096,11 +2103,17 @@ class PasteCraftSupabase {
 
     try {
       const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
       await this.setUserContext(userId);
 
-      console.log(`📤 Syncing ${localCategories.length} categories to Supabase...`);
+      const filteredCategories = (localCategories || []).filter(cat => {
+        const originDeviceId = String(cat?.origin_device_id || '').trim();
+        return !originDeviceId || originDeviceId === deviceId;
+      });
 
-      const dbCategories = localCategories.map(cat => {
+      console.log(`📤 Syncing ${filteredCategories.length} categories to Supabase (skipped ${localCategories.length - filteredCategories.length} imported)...`);
+
+      const dbCategories = filteredCategories.map(cat => {
         const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
         const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : null;
         return {
@@ -2113,6 +2126,8 @@ class PasteCraftSupabase {
           device_id: deviceId || null
         };
       });
+
+      if (dbCategories.length === 0) return true;
 
       const { data, error } = await this.client
         .from('categories')
@@ -2346,7 +2361,11 @@ class PasteCraftSupabase {
   // =====================================================
 
   buildDbNotesForUpsert(localNotes, userId, deviceId) {
-    const notes = Array.isArray(localNotes) ? localNotes : [];
+    const allNotes = Array.isArray(localNotes) ? localNotes : [];
+    const notes = allNotes.filter(note => {
+      const originDeviceId = String(note?.origin_device_id || '').trim();
+      return !originDeviceId || originDeviceId === deviceId;
+    });
     const rows = [];
     const snapshots = [];
 
@@ -3664,6 +3683,159 @@ class PasteCraftSupabase {
     return `${browser} on ${os}`;
   }
 
+  async isDeviceRegistered() {
+    const deviceNumber = await this.getRegisteredDeviceNumber();
+    return deviceNumber !== null;
+  }
+
+  async getRegisteredDeviceNumber() {
+    if (!this.client) return null;
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return null;
+      await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .select('device_number')
+        .eq('user_id', userId)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.device_number || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async getAvailableDeviceSlots() {
+    if (!this.client) return [];
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return [];
+      await this.setUserContext(userId);
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .select('device_number,display_name')
+        .eq('user_id', userId)
+        .not('device_number', 'is', null);
+      if (error) throw error;
+      const takenSlots = new Map();
+      (data || []).forEach(row => {
+        if (row.device_number) takenSlots.set(row.device_number, row.display_name || '');
+      });
+      const slots = [];
+      for (let i = 1; i <= 10; i++) {
+        slots.push({
+          number: i,
+          available: !takenSlots.has(i),
+          deviceName: takenSlots.get(i) || null
+        });
+      }
+      return slots;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async registerDevice(slotNumber, deviceName) {
+    if (!this.client) return { success: false, error: 'Not connected' };
+    const slot = parseInt(slotNumber, 10);
+    if (isNaN(slot) || slot < 1 || slot > 10) {
+      return { success: false, error: 'Slot must be 1-10' };
+    }
+    const name = String(deviceName || '').trim();
+    if (!name) {
+      return { success: false, error: 'Device name is required' };
+    }
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return { success: false, error: 'Cloud sync not available' };
+      await this.setUserContext(userId);
+      await this.ensureUserProfileRow(userId);
+      const deviceId = await this.getDeviceId();
+      const now = new Date().toISOString();
+      const { data: existingSlot } = await this.client
+        .from('pastecraft_devices')
+        .select('device_id')
+        .eq('user_id', userId)
+        .eq('device_number', slot)
+        .maybeSingle();
+      if (existingSlot && existingSlot.device_id !== deviceId) {
+        return { success: false, error: `Slot #${slot} is already taken` };
+      }
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .upsert({
+          user_id: userId,
+          device_id: deviceId,
+          device_number: slot,
+          display_name: name,
+          last_seen_at: now
+        }, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
+        .select('device_number,display_name')
+        .maybeSingle();
+      if (error) throw error;
+      this._registeredDeviceNumber = slot;
+      return { success: true, deviceNumber: slot, deviceName: name };
+    } catch (err) {
+      return { success: false, error: err?.message || 'Registration failed' };
+    }
+  }
+
+  async renameDevice(newName) {
+    if (!this.client) return { success: false, error: 'Not connected' };
+    const name = String(newName || '').trim();
+    if (!name) return { success: false, error: 'Device name is required' };
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return { success: false, error: 'Cloud sync not available' };
+      await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .update({ display_name: name, last_seen_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('device_id', deviceId)
+        .select('device_number,display_name')
+        .maybeSingle();
+      if (error) throw error;
+      return { success: true, deviceName: name };
+    } catch (err) {
+      return { success: false, error: err?.message || 'Rename failed' };
+    }
+  }
+
+  async getCurrentDeviceInfo() {
+    if (!this.client) return null;
+    try {
+      const userId = await this.getSyncUserId();
+      const hasAccess = await this.hasCloudSyncAccess(userId);
+      if (!hasAccess) return null;
+      await this.setUserContext(userId);
+      const deviceId = await this.getDeviceId();
+      const { data, error } = await this.client
+        .from('pastecraft_devices')
+        .select('device_number,display_name,last_seen_at')
+        .eq('user_id', userId)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        deviceNumber: data.device_number || null,
+        deviceName: data.display_name || '',
+        lastSeenAt: data.last_seen_at || null
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   async listSyncDevices() {
     if (!this.client) return [];
     try {
@@ -3675,14 +3847,16 @@ class PasteCraftSupabase {
       const currentDeviceId = await this.getDeviceId();
       const { data, error } = await this.client
         .from('pastecraft_devices')
-        .select('device_id,display_name,last_seen_at')
+        .select('device_id,device_number,display_name,last_seen_at')
         .eq('user_id', userId)
         .neq('device_id', currentDeviceId)
-        .order('last_seen_at', { ascending: false })
+        .not('device_number', 'is', null)
+        .order('device_number', { ascending: true })
         .limit(9);
       if (error) throw error;
       return (Array.isArray(data) ? data : []).map((row) => ({
         deviceId: String(row.device_id || ''),
+        deviceNumber: row.device_number || null,
         displayName: String(row.display_name || ''),
         lastSeenAt: row.last_seen_at || null
       }));
@@ -3706,6 +3880,7 @@ class PasteCraftSupabase {
           .from('clips')
           .select('clip_id,text,content_hash,updated_at,device_id')
           .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400),
@@ -3713,6 +3888,7 @@ class PasteCraftSupabase {
           .from('notes')
           .select('note_id,title,description,content_hash,updated_at,device_id')
           .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400),
@@ -3720,6 +3896,7 @@ class PasteCraftSupabase {
           .from('categories')
           .select('category_id,name,updated_at,device_id')
           .eq('user_id', userId)
+          .eq('device_id', sourceDeviceId)
           .is('deleted_at', null)
           .order('updated_at', { ascending: false })
           .limit(400)

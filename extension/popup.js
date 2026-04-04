@@ -2526,6 +2526,11 @@ class PasteCraftPopup {
     if (!openBtn || !modal || !closeBtn) return;
 
     openBtn.addEventListener('click', async () => {
+      const isRegistered = await this.checkDeviceRegistration();
+      if (!isRegistered) {
+        await this.openDeviceRegistrationModal();
+        return;
+      }
       this.syncModalOpen = true;
       modal.style.display = 'flex';
       await this.refreshSyncDevices();
@@ -2562,6 +2567,218 @@ class PasteCraftPopup {
       if (!itemType || !itemId || !this.activeSyncDeviceId) return;
       await this.importRemoteItem({ itemType, itemId, sourceDeviceId: this.activeSyncDeviceId });
     });
+
+    const renameBtn = document.getElementById('deviceRenameBtn');
+    if (renameBtn) {
+      renameBtn.addEventListener('click', () => this.openDeviceRenameModal());
+    }
+
+    this.setupDeviceRegistration();
+  }
+
+  setupDeviceRegistration() {
+    const registerModal = document.getElementById('deviceRegisterModal');
+    const registerClose = document.getElementById('deviceRegisterClose');
+    const slotGrid = document.getElementById('deviceSlotGrid');
+    const slotNextBtn = document.getElementById('deviceSlotNextBtn');
+    const slotError = document.getElementById('deviceSlotError');
+    const step1 = document.getElementById('deviceRegisterStep1');
+    const step2 = document.getElementById('deviceRegisterStep2');
+    const nameInput = document.getElementById('deviceNameInput');
+    const nameBackBtn = document.getElementById('deviceNameBackBtn');
+    const registerBtn = document.getElementById('deviceRegisterBtn');
+    const nameError = document.getElementById('deviceNameError');
+
+    if (!registerModal) return;
+
+    this._selectedDeviceSlot = null;
+
+    if (registerClose) {
+      registerClose.addEventListener('click', () => {
+        registerModal.classList.remove('active');
+      });
+    }
+
+    registerModal.addEventListener('click', (e) => {
+      if (e.target === registerModal) {
+        registerModal.classList.remove('active');
+      }
+    });
+
+    if (slotGrid) {
+      slotGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.device-slot-btn');
+        if (!btn || btn.classList.contains('taken')) return;
+        slotGrid.querySelectorAll('.device-slot-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        this._selectedDeviceSlot = parseInt(btn.dataset.slot, 10);
+        if (slotNextBtn) slotNextBtn.disabled = false;
+        if (slotError) { slotError.textContent = ''; slotError.classList.remove('show'); }
+      });
+    }
+
+    if (slotNextBtn) {
+      slotNextBtn.addEventListener('click', () => {
+        if (!this._selectedDeviceSlot) return;
+        if (step1) step1.classList.remove('active');
+        if (step2) step2.classList.add('active');
+        if (nameInput) { nameInput.value = ''; nameInput.focus(); }
+        if (registerBtn) registerBtn.disabled = true;
+      });
+    }
+
+    if (nameInput) {
+      nameInput.addEventListener('input', () => {
+        const val = nameInput.value.trim();
+        if (registerBtn) registerBtn.disabled = !val;
+        if (nameError) { nameError.textContent = ''; nameError.classList.remove('show'); }
+      });
+    }
+
+    if (nameBackBtn) {
+      nameBackBtn.addEventListener('click', () => {
+        if (step2) step2.classList.remove('active');
+        if (step1) step1.classList.add('active');
+      });
+    }
+
+    if (registerBtn) {
+      registerBtn.addEventListener('click', async () => {
+        const slot = this._selectedDeviceSlot;
+        const name = nameInput ? nameInput.value.trim() : '';
+        if (!slot || !name) return;
+        registerBtn.disabled = true;
+        registerBtn.textContent = 'Registering...';
+        const result = await pasteCraftSupabase.registerDevice(slot, name);
+        if (result.success) {
+          registerModal.classList.remove('active');
+          this.showToast(`Device registered as #${slot} "${name}"`, 'success');
+          this._currentDeviceNumber = slot;
+          this._currentDeviceName = name;
+        } else {
+          if (nameError) {
+            nameError.textContent = result.error || 'Registration failed';
+            nameError.classList.add('show');
+          }
+        }
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Register';
+      });
+    }
+
+    const renameModal = document.getElementById('deviceRenameModal');
+    const renameClose = document.getElementById('deviceRenameClose');
+    const renameInput = document.getElementById('deviceRenameInput');
+    const renameSaveBtn = document.getElementById('deviceRenameSaveBtn');
+    const renameError = document.getElementById('deviceRenameError');
+
+    if (renameClose) {
+      renameClose.addEventListener('click', () => {
+        if (renameModal) renameModal.classList.remove('active');
+      });
+    }
+
+    if (renameModal) {
+      renameModal.addEventListener('click', (e) => {
+        if (e.target === renameModal) renameModal.classList.remove('active');
+      });
+    }
+
+    if (renameInput) {
+      renameInput.addEventListener('input', () => {
+        if (renameSaveBtn) renameSaveBtn.disabled = !renameInput.value.trim();
+        if (renameError) { renameError.textContent = ''; renameError.classList.remove('show'); }
+      });
+    }
+
+    if (renameSaveBtn) {
+      renameSaveBtn.addEventListener('click', async () => {
+        const name = renameInput ? renameInput.value.trim() : '';
+        if (!name) return;
+        renameSaveBtn.disabled = true;
+        renameSaveBtn.textContent = 'Saving...';
+        const result = await pasteCraftSupabase.renameDevice(name);
+        if (result.success) {
+          if (renameModal) renameModal.classList.remove('active');
+          this.showToast('Device renamed', 'success');
+          this._currentDeviceName = name;
+        } else {
+          if (renameError) {
+            renameError.textContent = result.error || 'Rename failed';
+            renameError.classList.add('show');
+          }
+        }
+        renameSaveBtn.disabled = false;
+        renameSaveBtn.textContent = 'Save';
+      });
+    }
+  }
+
+  async openDeviceRegistrationModal() {
+    const modal = document.getElementById('deviceRegisterModal');
+    const slotGrid = document.getElementById('deviceSlotGrid');
+    const step1 = document.getElementById('deviceRegisterStep1');
+    const step2 = document.getElementById('deviceRegisterStep2');
+    const slotNextBtn = document.getElementById('deviceSlotNextBtn');
+    const slotError = document.getElementById('deviceSlotError');
+
+    if (!modal || !slotGrid) return;
+
+    if (step1) step1.classList.add('active');
+    if (step2) step2.classList.remove('active');
+    if (slotNextBtn) slotNextBtn.disabled = true;
+    if (slotError) { slotError.textContent = ''; slotError.classList.remove('show'); }
+    this._selectedDeviceSlot = null;
+
+    slotGrid.innerHTML = '<div class="device-sync-item-meta">Loading slots...</div>';
+    modal.classList.add('active');
+
+    try {
+      const slots = await pasteCraftSupabase.getAvailableDeviceSlots();
+      slotGrid.innerHTML = slots.map(slot => {
+        const taken = !slot.available;
+        const label = slot.deviceName ? slot.deviceName : (taken ? 'Taken' : '');
+        return `
+          <button class="device-slot-btn ${taken ? 'taken' : ''}" data-slot="${slot.number}" ${taken ? 'disabled' : ''}>
+            <span>${slot.number}</span>
+            ${label ? `<span class="slot-label">${this.escapeHtml(label)}</span>` : ''}
+          </button>
+        `;
+      }).join('');
+    } catch (err) {
+      slotGrid.innerHTML = '<div class="device-sync-item-meta">Failed to load slots</div>';
+    }
+  }
+
+  openDeviceRenameModal() {
+    const modal = document.getElementById('deviceRenameModal');
+    const input = document.getElementById('deviceRenameInput');
+    const saveBtn = document.getElementById('deviceRenameSaveBtn');
+    const error = document.getElementById('deviceRenameError');
+
+    if (!modal) return;
+
+    if (input) {
+      input.value = this._currentDeviceName || '';
+      if (saveBtn) saveBtn.disabled = !input.value.trim();
+    }
+    if (error) { error.textContent = ''; error.classList.remove('show'); }
+    modal.classList.add('active');
+    if (input) input.focus();
+  }
+
+  async checkDeviceRegistration() {
+    try {
+      const info = await pasteCraftSupabase.getCurrentDeviceInfo();
+      if (info && info.deviceNumber) {
+        this._currentDeviceNumber = info.deviceNumber;
+        this._currentDeviceName = info.deviceName || '';
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   async refreshSyncDevices() {
@@ -2584,10 +2801,12 @@ class PasteCraftPopup {
       }
       tabs.innerHTML = this.syncDevices.map((device) => {
         const deviceId = String(device.deviceId || '');
-        const label = String(device.displayName || `Device ${deviceId.slice(0, 8)}`);
+        const deviceNum = device.deviceNumber || null;
+        const displayName = String(device.displayName || '');
+        const label = deviceNum ? `#${deviceNum} ${displayName}` : (displayName || `Device ${deviceId.slice(0, 8)}`);
         const lastSeenText = device.lastSeenAt ? this.getTimeAgo(Date.parse(device.lastSeenAt) || Date.now()) : 'offline';
         const active = deviceId === this.activeSyncDeviceId ? 'active' : '';
-        return `<button class="device-sync-tab ${active}" data-device-id="${this.escapeHtml(deviceId)}">${this.escapeHtml(label)} · ${this.escapeHtml(lastSeenText)}</button>`;
+        return `<button class="device-sync-tab ${active}" data-device-id="${this.escapeHtml(deviceId)}" data-device-number="${deviceNum || ''}">${this.escapeHtml(label)} · ${this.escapeHtml(lastSeenText)}</button>`;
       }).join('');
       await this.refreshSyncCandidates();
     } catch (error) {

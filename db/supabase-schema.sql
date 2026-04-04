@@ -181,19 +181,24 @@ CREATE INDEX IF NOT EXISTS idx_clipboard_history_created_at ON public.clipboard_
 -- TABLE: pastecraft_devices
 -- =====================================================
 -- Registry of known user devices with globally synced display names
+-- device_number: user-controlled slot 1-10 for cross-device sync
 CREATE TABLE IF NOT EXISTS public.pastecraft_devices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
     device_id TEXT NOT NULL,
+    device_number INTEGER,
     display_name TEXT,
     last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id, device_id)
+    UNIQUE(user_id, device_id),
+    UNIQUE(user_id, device_number),
+    CONSTRAINT device_number_range CHECK (device_number >= 1 AND device_number <= 10)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pastecraft_devices_user_id ON public.pastecraft_devices(user_id);
 CREATE INDEX IF NOT EXISTS idx_pastecraft_devices_last_seen_at ON public.pastecraft_devices(last_seen_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pastecraft_devices_device_number ON public.pastecraft_devices(device_number);
 
 -- =====================================================
 -- TABLE: audit_log
