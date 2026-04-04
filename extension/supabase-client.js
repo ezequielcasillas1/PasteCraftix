@@ -3632,16 +3632,25 @@ class PasteCraftSupabase {
   }
 
   async registerCurrentSyncDevice() {
+    // #region agent log
+    const _rcsT0 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:entry',message:'registerCurrentSyncDevice called',data:{hasClient:!!this.client},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (!this.client) return null;
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:after-access-check',message:'access check done',data:{userId,hasAccess,durationMs:Date.now()-_rcsT0},timestamp:Date.now(),hypothesisId:'B,D'})}).catch(()=>{});
+      // #endregion
       if (!hasAccess) return null;
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
       const deviceId = await this.getDeviceId();
       const now = new Date().toISOString();
       const displayName = this._generateDeviceDisplayName();
+      // #region agent log
+      const _rcsT1 = Date.now();
+      // #endregion
       const { data: existing } = await this.client
         .from('pastecraft_devices')
         .select('display_name')
@@ -3659,9 +3668,15 @@ class PasteCraftSupabase {
         .upsert(upsertData, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
         .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
         .maybeSingle();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:after-upsert',message:'upsert done',data:{deviceId,error:error?.message,durationMs:Date.now()-_rcsT1},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       if (error) throw error;
       return data || null;
-    } catch (_) {
+    } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:registerCurrentSyncDevice:catch',message:'registerCurrentSyncDevice error',data:{error:err?.message},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return null;
     }
   }
@@ -3837,14 +3852,32 @@ class PasteCraftSupabase {
   }
 
   async listSyncDevices() {
+    // #region agent log
+    const _t0 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:entry',message:'listSyncDevices called',data:{hasClient:!!this.client},timestamp:Date.now(),hypothesisId:'B,E'})}).catch(()=>{});
+    // #endregion
     if (!this.client) return [];
     try {
+      // #region agent log
+      const _t1 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:before-getSyncUserId',message:'calling getSyncUserId',data:{},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       const userId = await this.getSyncUserId();
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-getSyncUserId',message:'getSyncUserId done',data:{userId,durationMs:Date.now()-_t1},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      // #region agent log
+      const _t2 = Date.now();
+      // #endregion
       const hasAccess = await this.hasCloudSyncAccess(userId);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-hasCloudSyncAccess',message:'hasCloudSyncAccess done',data:{hasAccess,durationMs:Date.now()-_t2},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       if (!hasAccess) return [];
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
       const currentDeviceId = await this.getDeviceId();
+      // #region agent log
+      const _t3 = Date.now(); fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:before-query',message:'querying pastecraft_devices',data:{userId,currentDeviceId},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
+      // #endregion
       const { data, error } = await this.client
         .from('pastecraft_devices')
         .select('device_id,device_number,display_name,last_seen_at')
@@ -3853,6 +3886,9 @@ class PasteCraftSupabase {
         .not('device_number', 'is', null)
         .order('device_number', { ascending: true })
         .limit(9);
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:after-query',message:'query done',data:{rowCount:data?.length,error:error?.message,durationMs:Date.now()-_t3,rows:data},timestamp:Date.now(),hypothesisId:'C,E'})}).catch(()=>{});
+      // #endregion
       if (error) throw error;
       return (Array.isArray(data) ? data : []).map((row) => ({
         deviceId: String(row.device_id || ''),
@@ -3860,7 +3896,10 @@ class PasteCraftSupabase {
         displayName: String(row.display_name || ''),
         lastSeenAt: row.last_seen_at || null
       }));
-    } catch (_) {
+    } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/21d9bf7b-4c0b-4500-b862-adfda4b0053e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'58af45'},body:JSON.stringify({sessionId:'58af45',location:'supabase-client.js:listSyncDevices:catch',message:'listSyncDevices error',data:{error:err?.message},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       return [];
     }
   }
