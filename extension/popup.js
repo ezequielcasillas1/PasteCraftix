@@ -2787,31 +2787,13 @@ class PasteCraftPopup {
     if (!tabs || !items) return;
     tabs.innerHTML = '';
     items.innerHTML = '<div class="device-sync-item-meta">Loading devices...</div>';
-    // #region agent log
-    const _rsdT0 = Date.now(); console.log('[DEBUG-58af45] refreshSyncDevices:entry', {timestamp:Date.now()});
-    // #endregion
     try {
-      // #region agent log
-      const _rsdT1 = Date.now(); console.log('[DEBUG-58af45] calling registerCurrentSyncDevice...');
-      // #endregion
       await pasteCraftSupabase.registerCurrentSyncDevice();
-      // #region agent log
-      console.log('[DEBUG-58af45] registerCurrentSyncDevice done', {durationMs:Date.now()-_rsdT1});
-      // #endregion
-      // #region agent log
-      const _rsdT2 = Date.now(); console.log('[DEBUG-58af45] calling listSyncDevices...');
-      // #endregion
       const devices = await pasteCraftSupabase.listSyncDevices();
-      // #region agent log
-      console.log('[DEBUG-58af45] listSyncDevices done', {deviceCount:devices?.length,devices,durationMs:Date.now()-_rsdT2,totalDurationMs:Date.now()-_rsdT0});
-      // #endregion
       this.syncDevices = Array.isArray(devices) ? devices.slice(0, 9) : [];
       if (!this.syncDevices.length) {
         this.activeSyncDeviceId = '';
         items.innerHTML = '<div class="device-sync-item-meta">No remote devices available.</div>';
-        // #region agent log
-        console.log('[DEBUG-58af45] No remote devices found', {totalDurationMs:Date.now()-_rsdT0});
-        // #endregion
         return;
       }
       if (!this.activeSyncDeviceId || !this.syncDevices.some((d) => String(d.deviceId) === this.activeSyncDeviceId)) {
@@ -2828,9 +2810,6 @@ class PasteCraftPopup {
       }).join('');
       await this.refreshSyncCandidates();
     } catch (error) {
-      // #region agent log
-      console.error('[DEBUG-58af45] refreshSyncDevices error', {error:error?.message,stack:error?.stack,totalDurationMs:Date.now()-_rsdT0});
-      // #endregion
       items.innerHTML = '<div class="device-sync-item-meta">Unable to load devices right now.</div>';
     }
   }

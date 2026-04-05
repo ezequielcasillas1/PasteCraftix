@@ -1846,8 +1846,7 @@ class PasteCraftSupabase {
 
   /**
    * Sync clips from Supabase to local storage (with batch support for large datasets)
-   * By default, only syncs clips from the CURRENT device to prevent automatic cross-device sync.
-   * Cross-device sync should be manual via "View available devices to sync" UI.
+   * Fetches ALL clips for the user across ALL devices for automatic cross-device sync.
    */
   async syncClipsFromSupabase(userIdOverride = null) {
     if (!this.client) {
@@ -1858,16 +1857,14 @@ class PasteCraftSupabase {
     try {
       const userId = userIdOverride || await this.getSyncUserId();
       await this.setUserContext(userId);
-      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching clips from Supabase (current device only)...');
+      console.log('📥 Fetching clips from Supabase (all devices)...');
 
-      // First, get total count for current device only
+      // First, get total count
       const { count, error: countError } = await this.client
         .from('clips')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('device_id', currentDeviceId);
+        .eq('user_id', userId);
 
       if (countError) throw countError;
 
@@ -1876,15 +1873,14 @@ class PasteCraftSupabase {
 
       // Use batch fetching for large datasets (>100 clips)
       if (totalClips > this.BATCH_SIZE) {
-        return await this.syncClipsFromSupabaseBatch(userId, totalClips, currentDeviceId);
+        return await this.syncClipsFromSupabaseBatch(userId, totalClips);
       }
 
-      // Standard fetch for small datasets - current device only
+      // Standard fetch for small datasets - all devices
       const { data, error } = await this.client
         .from('clips')
         .select('*')
         .eq('user_id', userId)
-        .eq('device_id', currentDeviceId)
         .order('timestamp', { ascending: false });
 
       if (error) throw error;
@@ -1900,7 +1896,7 @@ class PasteCraftSupabase {
         deviceId: clip.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localClips.length} clips from Supabase (current device)`);
+      console.log(`✅ Fetched ${localClips.length} clips from Supabase (all devices)`);
       return localClips;
     } catch (error) {
       console.error('❌ Failed to fetch clips from Supabase:', error);
@@ -1910,9 +1906,9 @@ class PasteCraftSupabase {
 
   /**
    * Batch fetch clips from Supabase (for large datasets)
-   * Filters by deviceId to only sync current device's clips
+   * Fetches all clips for user across all devices
    */
-  async syncClipsFromSupabaseBatch(userId, totalClips, deviceId = null) {
+  async syncClipsFromSupabaseBatch(userId, totalClips) {
     const batches = Math.ceil(totalClips / this.BATCH_SIZE);
     let allClips = [];
     let fetchedCount = 0;
@@ -1927,17 +1923,10 @@ class PasteCraftSupabase {
       const end = start + this.BATCH_SIZE - 1;
 
       try {
-        let query = this.client
+        const { data, error } = await this.client
           .from('clips')
           .select('*')
-          .eq('user_id', userId);
-        
-        // Filter by device_id if provided (for current-device-only sync)
-        if (deviceId) {
-          query = query.eq('device_id', deviceId);
-        }
-        
-        const { data, error } = await query
+          .eq('user_id', userId)
           .order('timestamp', { ascending: false })
           .range(start, end);
 
@@ -2233,8 +2222,7 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync categories from Supabase (current device only)
-   * Cross-device category sync should be manual via import UI.
+   * Sync categories from Supabase (all devices for automatic cross-device sync)
    */
   async syncCategoriesFromSupabase() {
     if (!this.client) {
@@ -2245,15 +2233,13 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
-      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching categories from Supabase (current device only)...');
+      console.log('📥 Fetching categories from Supabase (all devices)...');
 
       const { data, error } = await this.client
         .from('categories')
         .select('*')
-        .eq('user_id', userId)
-        .eq('device_id', currentDeviceId);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -2266,7 +2252,7 @@ class PasteCraftSupabase {
         deviceId: cat.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localCategories.length} categories from Supabase (current device)`);
+      console.log(`✅ Fetched ${localCategories.length} categories from Supabase (all devices)`);
       return localCategories;
     } catch (error) {
       console.error('❌ Failed to fetch categories from Supabase:', error);
@@ -2349,8 +2335,7 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync archived clips from Supabase to local storage (current device only)
-   * Cross-device sync should be manual via import UI.
+   * Sync archived clips from Supabase to local storage (all devices for automatic cross-device sync)
    */
   async syncArchivedClipsFromSupabase() {
     if (!this.client) {
@@ -2361,16 +2346,14 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
-      const currentDeviceId = await this.getDeviceId();
 
-      console.log('📥 Fetching archived clips from Supabase (current device only)...');
+      console.log('📥 Fetching archived clips from Supabase (all devices)...');
 
-      // Fetch archived clips for current device only
+      // Fetch all archived clips across all devices
       const { data, error } = await this.client
         .from('archived_clips')
         .select('*')
         .eq('user_id', userId)
-        .eq('device_id', currentDeviceId)
         .order('timestamp', { ascending: false })
         .limit(100000);
 
@@ -2387,7 +2370,7 @@ class PasteCraftSupabase {
         deviceId: clip.device_id || null
       }));
 
-      console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase (current device)`);
+      console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase (all devices)`);
       return localArchivedClips;
     } catch (error) {
       console.error('❌ Failed to fetch archived clips from Supabase:', error);
@@ -2529,8 +2512,7 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Sync notes from Supabase (current device only)
-   * Cross-device sync should be manual via import UI.
+   * Sync notes from Supabase (all devices for automatic cross-device sync)
    */
   async syncNotesFromSupabase() {
     if (!this.client) {
@@ -2541,13 +2523,11 @@ class PasteCraftSupabase {
     try {
       const userId = await this.getSyncUserId();
       await this.setUserContext(userId);
-      const currentDeviceId = await this.getDeviceId();
 
       const { data, error } = await this.client
         .from('notes')
         .select('*')
         .eq('user_id', userId)
-        .eq('device_id', currentDeviceId)
         .order('updated_at', { ascending: false });
       if (error) throw error;
 
@@ -2579,7 +2559,7 @@ class PasteCraftSupabase {
         };
       });
 
-      console.log(`✅ Fetched ${notes.length} notes from Supabase (current device)`);
+      console.log(`✅ Fetched ${notes.length} notes from Supabase (all devices)`);
       return notes;
     } catch (error) {
       console.error('❌ Failed to sync notes from Supabase:', error);
@@ -3692,25 +3672,16 @@ class PasteCraftSupabase {
   }
 
   async registerCurrentSyncDevice() {
-    // #region agent log
-    const _rcsT0 = Date.now(); console.log('[DEBUG-58af45] registerCurrentSyncDevice:entry', {hasClient:!!this.client});
-    // #endregion
     if (!this.client) return null;
     try {
       const userId = await this.getSyncUserId();
       const hasAccess = await this.hasCloudSyncAccess(userId);
-      // #region agent log
-      console.log('[DEBUG-58af45] registerCurrentSyncDevice:access-check', {userId,hasAccess,durationMs:Date.now()-_rcsT0});
-      // #endregion
       if (!hasAccess) return null;
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
       const deviceId = await this.getDeviceId();
       const now = new Date().toISOString();
       const displayName = this._generateDeviceDisplayName();
-      // #region agent log
-      const _rcsT1 = Date.now(); console.log('[DEBUG-58af45] registerCurrentSyncDevice:before-upsert', {userId,deviceId,displayName});
-      // #endregion
       const { data: existing } = await this.client
         .from('pastecraft_devices')
         .select('display_name')
@@ -3728,15 +3699,9 @@ class PasteCraftSupabase {
         .upsert(upsertData, { onConflict: 'user_id,device_id', ignoreDuplicates: false })
         .select('id,user_id,device_id,display_name,last_seen_at,created_at,updated_at')
         .maybeSingle();
-      // #region agent log
-      console.log('[DEBUG-58af45] registerCurrentSyncDevice:after-upsert', {deviceId,data,error:error?.message,durationMs:Date.now()-_rcsT1});
-      // #endregion
       if (error) throw error;
       return data || null;
     } catch (err) {
-      // #region agent log
-      console.error('[DEBUG-58af45] registerCurrentSyncDevice:error', {error:err?.message,stack:err?.stack});
-      // #endregion
       return null;
     }
   }
@@ -3912,32 +3877,14 @@ class PasteCraftSupabase {
   }
 
   async listSyncDevices() {
-    // #region agent log
-    const _t0 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:entry', {hasClient:!!this.client});
-    // #endregion
     if (!this.client) return [];
     try {
-      // #region agent log
-      const _t1 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:calling-getSyncUserId');
-      // #endregion
       const userId = await this.getSyncUserId();
-      // #region agent log
-      console.log('[DEBUG-58af45] listSyncDevices:getSyncUserId-done', {userId,durationMs:Date.now()-_t1});
-      // #endregion
-      // #region agent log
-      const _t2 = Date.now();
-      // #endregion
       const hasAccess = await this.hasCloudSyncAccess(userId);
-      // #region agent log
-      console.log('[DEBUG-58af45] listSyncDevices:hasCloudSyncAccess-done', {hasAccess,durationMs:Date.now()-_t2});
-      // #endregion
       if (!hasAccess) return [];
       await this.setUserContext(userId);
       await this.ensureUserProfileRow(userId);
       const currentDeviceId = await this.getDeviceId();
-      // #region agent log
-      const _t3 = Date.now(); console.log('[DEBUG-58af45] listSyncDevices:before-query', {userId,currentDeviceId});
-      // #endregion
       const { data, error } = await this.client
         .from('pastecraft_devices')
         .select('device_id,device_number,display_name,last_seen_at')
@@ -3946,9 +3893,6 @@ class PasteCraftSupabase {
         .not('device_number', 'is', null)
         .order('device_number', { ascending: true })
         .limit(9);
-      // #region agent log
-      console.log('[DEBUG-58af45] listSyncDevices:query-done', {rowCount:data?.length,error:error?.message,durationMs:Date.now()-_t3,rows:data});
-      // #endregion
       if (error) throw error;
       return (Array.isArray(data) ? data : []).map((row) => ({
         deviceId: String(row.device_id || ''),
@@ -3957,9 +3901,6 @@ class PasteCraftSupabase {
         lastSeenAt: row.last_seen_at || null
       }));
     } catch (err) {
-      // #region agent log
-      console.error('[DEBUG-58af45] listSyncDevices:error', {error:err?.message,stack:err?.stack});
-      // #endregion
       return [];
     }
   }
