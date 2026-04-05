@@ -289,3 +289,8 @@
 **Status:** ✅ SUCCESS
 **Files:** popup.js, supabase-client.js
 **Result:** Fixed chrome.storage.sync quota error (pc_sync_backup_v1 exceeded 8KB limit), categories upsert duplicate error (string ID deduplication), removed non-existent RPC call, added safe storage setter with IDB fallback.
+
+### Apr 5, 2026 - Remove Device Sync Feature
+**Status:** ✅ SUCCESS
+**Files:** popup.html, popup.js, supabase-client.js
+**Result:** Removed "View Available Devices to Sync" feature, device registration/rename, sync backup functions. Cloud sync now uses Supabase only. 1247 lines deleted.
