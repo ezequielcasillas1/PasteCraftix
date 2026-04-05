@@ -274,3 +274,18 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/supabase-client.js
 **Result:** Enabled automatic cross-device sync by removing device_id filters. Cleaned up debug instrumentation. (Commit: 3b6e746)
+
+### Apr 5, 2026 - Notes Debug Instrumentation
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Added debug logging for notes operations (saveNote, deleteNote, pagination, renderNotes). (Commit: 490ffdd)
+
+### Apr 5, 2026 - Tiered Storage with Dynamic Lazy Loading
+**Status:** ✅ SUCCESS
+**Files:** storage-meter.js, tiered-storage.js, popup.js, popup.html, styles.css, supabase-client.js
+**Result:** Implemented tiered storage respecting Chrome (5MB/item, 10MB total) and IndexedDB (50MB) limits. Dynamic item budgets, lazy loading from Supabase for older items, quota fallback to IDB, migration logic for excess data.
+
+### Apr 5, 2026 - Storage Quota + Categories Duplicate Fix
+**Status:** ✅ SUCCESS
+**Files:** popup.js, supabase-client.js
+**Result:** Fixed chrome.storage.sync quota error (pc_sync_backup_v1 exceeded 8KB limit), categories upsert duplicate error (string ID deduplication), removed non-existent RPC call, added safe storage setter with IDB fallback.

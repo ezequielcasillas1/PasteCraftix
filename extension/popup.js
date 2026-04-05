@@ -106,14 +106,8 @@ class PasteCraftCRUD {
     errorMessage, // string or (error) => string
     showToast // (message, type) => void
   }) {
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation STARTED - entityType: ${entityType}, entityId: ${entityId} (type: ${typeof entityId}), entityName: ${entityName}`);
-    // #endregion
     // PRACTICE #1: VALIDATION
     if (!entityId) {
-      // #region agent log
-      console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - INVALID entityId`);
-      // #endregion
       const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot delete';
       showToast?.(msg, 'error');
       return { success: false, error: 'Invalid entity ID' };
@@ -199,13 +193,7 @@ class PasteCraftCRUD {
         }
         return false;
       });
-      // #region agent log
-      console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - stillExists check: ${stillExists}, entityId: ${entityId} (type: ${typeof entityId})`);
-      // #endregion
       if (stillExists) {
-        // #region agent log
-        console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - ENTITY STILL EXISTS after deletion! Throwing error.`);
-        // #endregion
         throw new Error(`${entityType} still exists after deletion operation`);
       }
 
@@ -229,13 +217,7 @@ class PasteCraftCRUD {
       // PRACTICE #5: VERIFICATION - Verify deletion persisted
       if (verifier) {
         const verification = await verifier(entityId);
-        // #region agent log
-        console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - verification result: ${verification}`);
-        // #endregion
         if (!verification) {
-          // #region agent log
-          console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - VERIFICATION FAILED! Entity still in storage.`);
-          // #endregion
           throw new Error(`Verification failed: ${entityType} still exists in storage`);
         }
       }
@@ -256,9 +238,6 @@ class PasteCraftCRUD {
 
       return { success: true, entity };
     } catch (error) {
-      // #region agent log
-      console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation CAUGHT ERROR:`, error);
-      // #endregion
       // Rollback on any failure
       console.error(`❌ ${entityType} deletion failed, rolling back:`, error);
       await rollback();
@@ -574,6 +553,15 @@ class PasteCraftPopup {
     this.clipsPerPage = 10;
     this.maxPages = 50;
     this.maxClips = this.clipsPerPage * this.maxPages; // 500 clips total
+    
+    // Tiered storage for lazy loading
+    this.tieredClipsStore = null;
+    this.tieredNotesStore = null;
+    this.tieredArchivedStore = null;
+    this.totalClipsCount = 0; // Total clips including remote
+    this.totalNotesCount = 0; // Total notes including remote
+    this.totalArchivedCount = 0; // Total archived including remote
+    this._isLazyLoading = false; // Flag for loading indicator
     
     // Magic preview state
     this._magicAnalysis = [];
@@ -1344,6 +1332,11 @@ class PasteCraftPopup {
     // 🔄 SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
     this.performBackgroundSync();
     
+    // 📦 TIERED STORAGE MIGRATION (move excess data to cloud if needed)
+    Promise.resolve()
+      .then(() => this._maybeMigrateTieredStorage())
+      .catch(e => console.warn('Tiered storage migration skipped:', e));
+    
     // Reload data whenever popup becomes visible
     this.setupVisibilityListener();
     
@@ -1899,6 +1892,12 @@ class PasteCraftPopup {
           userProfile: local.userProfile || backup?.userProfile || null
         };
 
+        // Check size before saving - chrome.storage.sync has 8KB per item limit
+        const payloadSize = JSON.stringify(payload).length;
+        if (payloadSize > 8000) {
+          // Data too large for sync storage, skip (Supabase handles cloud sync)
+          return;
+        }
         await new Promise((resolve) => chrome.storage.sync.set({ pc_sync_backup_v1: payload }, resolve));
       }
     } catch (e) {
@@ -1945,6 +1944,13 @@ class PasteCraftPopup {
         await chrome.storage.local.set({ pc_local_updatedAt: payload.updatedAt });
       } catch (_) {
         // ignore
+      }
+
+      // Check size before saving - chrome.storage.sync has 8KB per item limit
+      const payloadSize = JSON.stringify(payload).length;
+      if (payloadSize > 8000) {
+        // Data too large for sync storage, skip (Supabase handles cloud sync)
+        return;
       }
 
       let ok = true;
@@ -3105,6 +3111,67 @@ class PasteCraftPopup {
     // Enforce pagination clip limit
     await this.enforceClipLimit();
 
+    // Initialize tiered storage for lazy loading (non-blocking)
+    this._initializeTieredStorage().catch(e => {
+      console.warn('Tiered storage initialization failed (will use local only):', e);
+    });
+  }
+
+  /**
+   * Initialize tiered storage and get remote counts for lazy loading
+   * @private
+   */
+  async _initializeTieredStorage() {
+    // Only initialize if StorageMeter and TieredStorage are available
+    if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
+      return;
+    }
+
+    try {
+      // Initialize clips tiered storage
+      this.tieredClipsStore = tieredStorageManager.getStore('clips', {
+        pageSize: this.clipsPerPage,
+        localStorageKey: 'clips',
+        supabaseTable: 'clips',
+        timestampField: 'timestamp'
+      });
+      await this.tieredClipsStore.initialize();
+      this.tieredClipsStore.localCount = this.clips.length;
+
+      // Initialize archived clips tiered storage
+      this.tieredArchivedStore = tieredStorageManager.getStore('archived', {
+        pageSize: 20,
+        localStorageKey: 'searchOnlyClips',
+        supabaseTable: 'archived_clips',
+        timestampField: 'timestamp'
+      });
+      await this.tieredArchivedStore.initialize();
+      this.tieredArchivedStore.localCount = this.searchOnlyClips.length;
+
+      // Get remote counts if authenticated (for accurate pagination)
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+        const [clipsCount, archivedCount] = await Promise.all([
+          pasteCraftSupabase.getClipsCount().catch(() => 0),
+          pasteCraftSupabase.getArchivedClipsCount().catch(() => 0)
+        ]);
+        
+        this.totalClipsCount = Math.max(clipsCount, this.clips.length);
+        this.totalArchivedCount = Math.max(archivedCount, this.searchOnlyClips.length);
+        
+        this.tieredClipsStore.totalCount = this.totalClipsCount;
+        this.tieredArchivedStore.totalCount = this.totalArchivedCount;
+        
+        console.log(`📊 Tiered storage initialized: ${this.clips.length} local clips, ${this.totalClipsCount} total`);
+      } else {
+        // No Supabase - use local counts
+        this.totalClipsCount = this.clips.length;
+        this.totalArchivedCount = this.searchOnlyClips.length;
+      }
+    } catch (e) {
+      console.warn('Failed to initialize tiered storage:', e);
+      this.totalClipsCount = this.clips.length;
+      this.totalArchivedCount = this.searchOnlyClips.length;
+    }
   }
   
   async enforceClipLimit() {
@@ -3137,10 +3204,6 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
-    // #region agent log
-    this._setupEventListenersCallCount = (this._setupEventListenersCallCount || 0) + 1;
-    console.warn(`[DEBUG-45c3cf] H1: setupEventListeners called - count: ${this._setupEventListenersCallCount}`);
-    // #endregion
     // Upgrade banner + modal (must run on init; banner is visible for freemium users)
     const upgradeBanner = document.getElementById('upgradeBanner');
     if (upgradeBanner) {
@@ -3445,16 +3508,7 @@ class PasteCraftPopup {
     });
 
     document.getElementById('saveNote').addEventListener('click', () => {
-      // #region agent log
-      this._saveNoteClickCount = (this._saveNoteClickCount || 0) + 1;
-      const btn = document.getElementById('saveNote');
-      console.warn(`[DEBUG-45c3cf] H1/H2: Save Note CLICKED - click count: ${this._saveNoteClickCount}, setupCalls: ${this._setupEventListenersCallCount}, btnDisabled: ${btn?.disabled}, timestamp: ${Date.now()}`);
-      // #endregion
-      this.saveNote().catch(err => {
-        // #region agent log
-        console.error(`[DEBUG-45c3cf] H4: saveNote() UNCAUGHT ERROR:`, err);
-        // #endregion
-      });
+      this.saveNote();
     });
 
     document.getElementById('addClipToNote').addEventListener('click', () => {
@@ -6421,7 +6475,10 @@ class PasteCraftPopup {
   renderChips() {
     const container = document.getElementById('chipContainer');
     
-    if (this.clips.length === 0) {
+    // Use total count for empty check (includes remote clips)
+    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
+    
+    if (totalClips === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">✨</div>
@@ -6439,8 +6496,16 @@ class PasteCraftPopup {
     
     // Calculate pagination
     const startIndex = this.currentPage * this.clipsPerPage;
-    const endIndex = Math.min(startIndex + this.clipsPerPage, this.clips.length);
-    const pageClips = this.clips.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + this.clipsPerPage, totalClips);
+    
+    // Check if we need to lazy load (page is beyond local data)
+    if (startIndex >= this.clips.length && this.tieredClipsStore?.needsLazyLoading()) {
+      this._lazyLoadClipsPage(startIndex, this.clipsPerPage, container);
+      return;
+    }
+    
+    // Use local clips for this page
+    const pageClips = this.clips.slice(startIndex, Math.min(endIndex, this.clips.length));
     
     container.innerHTML = '';
     pageClips.forEach((clip, pageIndex) => {
@@ -6455,12 +6520,96 @@ class PasteCraftPopup {
     // Update quick copy button visibility
     this.updateQuickCopyButton();
   }
+
+  /**
+   * Lazy load a page of clips from Supabase
+   * @private
+   */
+  async _lazyLoadClipsPage(startIndex, pageSize, container) {
+    // Check if we're offline first
+    if (!navigator.onLine) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📡</div>
+          <h3>You're offline</h3>
+          <p>Connect to the internet to view older clips</p>
+          <button class="btn-secondary" onclick="window.pasteCraftPopup.currentPage = 0; window.pasteCraftPopup.renderChips();">
+            Go to first page
+          </button>
+        </div>
+      `;
+      this.renderPagination();
+      return;
+    }
+
+    // Show loading state
+    this._isLazyLoading = true;
+    container.innerHTML = `
+      <div class="lazy-load-indicator">
+        <div class="lazy-load-spinner"></div>
+        <p>Loading clips...</p>
+      </div>
+    `;
+    
+    // Render pagination while loading
+    this.renderPagination();
+
+    try {
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+        const remoteClips = await pasteCraftSupabase.fetchClipsPage(startIndex, pageSize);
+        
+        if (remoteClips && remoteClips.length > 0) {
+          container.innerHTML = '';
+          remoteClips.forEach((clip, pageIndex) => {
+            const actualIndex = startIndex + pageIndex;
+            const chip = this.createChip(clip, actualIndex);
+            container.appendChild(chip);
+          });
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <h3>No more clips</h3>
+              <p>You've reached the end of your clips</p>
+            </div>
+          `;
+        }
+      } else {
+        // No Supabase access - show message
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">☁️</div>
+            <h3>Sign in to view more</h3>
+            <p>Older clips are stored in the cloud</p>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.error('Failed to lazy load clips:', e);
+      // Check if it's a network error
+      const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
+          <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
+          <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
+          <button class="btn-secondary" onclick="window.pasteCraftPopup.renderChips();">
+            Retry
+          </button>
+        </div>
+      `;
+    } finally {
+      this._isLazyLoading = false;
+    }
+  }
   
   renderPagination() {
     const paginationContainer = document.getElementById('paginationControls');
     if (!paginationContainer) return;
     
-    const totalPages = Math.min(Math.ceil(this.clips.length / this.clipsPerPage), this.maxPages);
+    // Use total count (including remote) for pagination
+    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
+    const totalPages = Math.min(Math.ceil(totalClips / this.clipsPerPage), this.maxPages);
     
     if (totalPages <= 1) {
       paginationContainer.innerHTML = '';
@@ -7608,6 +7757,21 @@ class PasteCraftPopup {
       const resultItem = this.createSearchResultItem(clip);
       container.appendChild(resultItem);
     });
+
+    // Show cloud notice if there might be more clips in the cloud
+    if (this.totalArchivedCount > this.searchOnlyClips.length && 
+        this.tieredArchivedStore?.needsLazyLoading() &&
+        typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+      const cloudNotice = document.createElement('div');
+      cloudNotice.className = 'cloud-search-notice';
+      cloudNotice.innerHTML = `
+        <div class="cloud-notice-content">
+          <span class="cloud-notice-icon">☁️</span>
+          <span>More clips may be available in the cloud (${this.totalArchivedCount - this.searchOnlyClips.length} additional)</span>
+        </div>
+      `;
+      container.appendChild(cloudNotice);
+    }
 
     this.updateSearchBulkActions();
   }
@@ -13710,7 +13874,9 @@ class PasteCraftPopup {
     } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
     if (this._idbReady && this.idb) {
       const idbNotes = await this.idb.getAllPayloads('notes');
-      if (Array.isArray(idbNotes) && idbNotes.length > 0) {
+      // Prefer IDB if it has data (handles Chrome storage quota exceeded case)
+      // Use whichever source has more notes to handle partial saves
+      if (Array.isArray(idbNotes) && idbNotes.length >= (notes?.length || 0)) {
         notes = idbNotes;
       }
     }
@@ -13808,8 +13974,166 @@ class PasteCraftPopup {
     const notesAiToggle = document.getElementById('notesAiToggle');
     if (notesAiToggle) notesAiToggle.checked = this.notesAiEnabled;
 
+    // Initialize tiered storage for notes (non-blocking)
+    this._initializeTieredNotesStorage().catch(e => {
+      console.warn('Notes tiered storage initialization failed:', e);
+    });
+
     console.log(`📝 Loaded ${notes.length} notes`);
     return notes;
+  }
+
+  /**
+   * Initialize tiered storage for notes and get remote count
+   * @private
+   */
+  async _initializeTieredNotesStorage() {
+    if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
+      return;
+    }
+
+    try {
+      this.tieredNotesStore = tieredStorageManager.getStore('notes', {
+        pageSize: 6, // Grid view page size
+        localStorageKey: 'notes',
+        supabaseTable: 'notes',
+        timestampField: 'updated_at'
+      });
+      await this.tieredNotesStore.initialize();
+      this.tieredNotesStore.localCount = this.notes.length;
+
+      // Get remote count if authenticated
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+        const notesCount = await pasteCraftSupabase.getNotesCount().catch(() => 0);
+        this.totalNotesCount = Math.max(notesCount, this.notes.length);
+        this.tieredNotesStore.totalCount = this.totalNotesCount;
+        console.log(`📝 Notes tiered storage: ${this.notes.length} local, ${this.totalNotesCount} total`);
+      } else {
+        this.totalNotesCount = this.notes.length;
+      }
+    } catch (e) {
+      console.warn('Failed to initialize notes tiered storage:', e);
+      this.totalNotesCount = this.notes.length;
+    }
+  }
+
+  /**
+   * Migrate excess local data to Supabase if storage is near quota
+   * Only runs once per installation (tracked by flag)
+   * @private
+   */
+  async _maybeMigrateTieredStorage() {
+    // Check if StorageMeter is available
+    if (typeof StorageMeter === 'undefined') {
+      return;
+    }
+
+    // Check if already migrated
+    const { pc_tiered_storage_migrated_v1 } = await chrome.storage.local.get(['pc_tiered_storage_migrated_v1']);
+    if (pc_tiered_storage_migrated_v1) {
+      return;
+    }
+
+    // Check if user is authenticated (needed to push to cloud)
+    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.isAuthenticated?.()) {
+      return;
+    }
+
+    try {
+      // Get storage report
+      const report = await StorageMeter.getStorageReport();
+      
+      // Only migrate if storage is at 70%+ capacity
+      if (report.total.percentage < 0.7) {
+        // Mark as migrated (no migration needed)
+        await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
+        return;
+      }
+
+      console.log('📦 Starting tiered storage migration...');
+      console.log(`📊 Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
+
+      // Calculate budgets
+      const budgets = report.budgets;
+      let migrated = { clips: 0, notes: 0, archived: 0 };
+
+      // Migrate clips if over budget
+      if (this.clips.length > budgets.clips) {
+        const excessClips = this.clips.slice(budgets.clips);
+        console.log(`📤 Migrating ${excessClips.length} excess clips to cloud...`);
+        
+        // Push excess to Supabase
+        try {
+          await pasteCraftSupabase.syncClipsToSupabase(excessClips);
+          migrated.clips = excessClips.length;
+          
+          // Keep only budget amount locally
+          this.clips = this.clips.slice(0, budgets.clips);
+          await chrome.storage.local.set({ clips: this.clips });
+          if (this._idbReady && this.idb) {
+            await this.idb.syncEntityFromLocalStorage('clips', this.clips);
+          }
+        } catch (e) {
+          console.warn('Failed to migrate clips:', e);
+        }
+      }
+
+      // Migrate notes if over budget
+      if (this.notes.length > budgets.notes) {
+        const excessNotes = this.notes.slice(budgets.notes);
+        console.log(`📤 Migrating ${excessNotes.length} excess notes to cloud...`);
+        
+        try {
+          await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
+          migrated.notes = excessNotes.length;
+          
+          // Keep only budget amount locally
+          this.notes = this.notes.slice(0, budgets.notes);
+          await this.saveNotes();
+        } catch (e) {
+          console.warn('Failed to migrate notes:', e);
+        }
+      }
+
+      // Migrate archived clips if over budget
+      if (this.searchOnlyClips.length > budgets.archived) {
+        const excessArchived = this.searchOnlyClips.slice(budgets.archived);
+        console.log(`📤 Migrating ${excessArchived.length} excess archived clips to cloud...`);
+        
+        try {
+          await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
+          migrated.archived = excessArchived.length;
+          
+          // Keep only budget amount locally
+          this.searchOnlyClips = this.searchOnlyClips.slice(0, budgets.archived);
+          await chrome.storage.local.set({ searchOnlyClips: this.searchOnlyClips });
+        } catch (e) {
+          console.warn('Failed to migrate archived clips:', e);
+        }
+      }
+
+      // Mark migration as complete
+      await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
+
+      // Log results
+      const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
+      if (totalMigrated > 0) {
+        console.log(`✅ Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
+        
+        // Update total counts
+        this.totalClipsCount = this.clips.length + migrated.clips;
+        this.totalNotesCount = this.notes.length + migrated.notes;
+        this.totalArchivedCount = this.searchOnlyClips.length + migrated.archived;
+        
+        // Re-render to show updated pagination
+        this.renderChips();
+      } else {
+        console.log('✅ Tiered storage migration complete (no migration needed)');
+      }
+
+    } catch (e) {
+      console.error('Tiered storage migration failed:', e);
+    }
   }
 
   _getNoteContentForHash(note) {
@@ -13821,40 +14145,60 @@ class PasteCraftPopup {
   }
 
   async saveNotes() {
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H4: saveNotes() STARTED - notes count: ${this.notes?.length}`);
-    // #endregion
     // Use CRUD utility for reliable notes save with retry and verification
     const snapshot = PasteCraftCRUD.createSnapshot(this.notes);
+    let savedToIdbOnly = false;
     
     try {
-      // PRACTICE #3: RETRY LOGIC
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ notes: this.notes });
-      });
+      // Try Chrome storage first
+      try {
+        await PasteCraftCRUD.retryOperation(async () => {
+          await chrome.storage.local.set({ notes: this.notes });
+        });
+      } catch (storageError) {
+        // Check if quota exceeded - fallback to IDB only
+        const isQuotaError = storageError?.message?.includes('QUOTA') || 
+                            chrome.runtime.lastError?.message?.includes('QUOTA') ||
+                            storageError?.message?.includes('quota');
+        if (isQuotaError && this._idbReady && this.idb) {
+          console.warn('⚠️ Chrome storage quota exceeded, using IndexedDB only for notes');
+          savedToIdbOnly = true;
+        } else {
+          throw storageError;
+        }
+      }
+
+      // Always sync to IDB (primary storage for large data)
       if (this._idbReady && this.idb) {
         await this.idb.syncEntityFromLocalStorage('notes', this.notes);
       }
 
-      // PRACTICE #5: VERIFICATION
-      const verification = await chrome.storage.local.get(['notes']);
-      const verifiedNotes = Array.isArray(verification.notes) ? verification.notes : [];
-      if (verifiedNotes.length !== this.notes.length) {
-        throw new Error('Verification failed: notes count mismatch');
+      // Verification: check IDB if Chrome storage failed, otherwise check Chrome storage
+      if (savedToIdbOnly) {
+        if (this._idbReady && this.idb) {
+          const idbNotes = await this.idb.getAllPayloads('notes');
+          if (!Array.isArray(idbNotes) || idbNotes.length !== this.notes.length) {
+            throw new Error('Verification failed: IDB notes count mismatch');
+          }
+        }
+      } else {
+        const verification = await chrome.storage.local.get(['notes']);
+        const verifiedNotes = Array.isArray(verification.notes) ? verification.notes : [];
+        if (verifiedNotes.length !== this.notes.length) {
+          throw new Error('Verification failed: notes count mismatch');
+        }
       }
 
-      console.log(`💾 Saved ${this.notes.length} notes`);
-      // #region agent log
-      console.warn(`[DEBUG-45c3cf] H4: saveNotes() SUCCESS - verified ${verifiedNotes.length} notes`);
-      // #endregion
+      console.log(`💾 Saved ${this.notes.length} notes${savedToIdbOnly ? ' (IDB only - quota exceeded)' : ''}`);
     } catch (error) {
-      // #region agent log
-      console.error(`[DEBUG-45c3cf] H4: saveNotes() FAILED with error:`, error);
-      // #endregion
       // Rollback on failure
       console.error('❌ Notes save failed, rolling back:', error);
       this.notes = snapshot;
-      await chrome.storage.local.set({ notes: this.notes });
+      try {
+        await chrome.storage.local.set({ notes: this.notes });
+      } catch (_) {
+        // Ignore quota error on rollback, IDB has the data
+      }
       if (this._idbReady && this.idb) {
         await this.idb.syncEntityFromLocalStorage('notes', this.notes);
       }
@@ -13871,10 +14215,6 @@ class PasteCraftPopup {
   }
 
   renderNotes() {
-    // #region agent log
-    this._renderNotesCallCount = (this._renderNotesCallCount || 0) + 1;
-    console.warn(`[DEBUG-45c3cf] H7: renderNotes() CALLED - count: ${this._renderNotesCallCount}, notesCount: ${this.notes?.length}, pageIndex: ${this.notesPageIndex}`);
-    // #endregion
     const container = document.getElementById('notesContainer');
     const paginationEl = document.getElementById('notesPagination');
     const isListView = !!container?.classList?.contains('list-view');
@@ -13892,7 +14232,10 @@ class PasteCraftPopup {
         })
       : allNotes;
 
-    if (filtered.length === 0) {
+    // Use total count for pagination when not searching
+    const totalNotes = searchQuery ? filtered.length : Math.max(this.totalNotesCount || 0, filtered.length);
+
+    if (totalNotes === 0) {
       if (searchQuery) {
         container.innerHTML = `
           <div class="empty-state">
@@ -13921,11 +14264,18 @@ class PasteCraftPopup {
 
     // Pagination: list shows 3; grid shows 6 (2 columns × 3 rows)
     const pageSize = isListView ? 3 : 6;
-    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const pageCount = Math.max(1, Math.ceil(totalNotes / pageSize));
     if (this.notesPageIndex < 0) this.notesPageIndex = 0;
     if (this.notesPageIndex > pageCount - 1) this.notesPageIndex = pageCount - 1;
     const start = this.notesPageIndex * pageSize;
-    const pageItems = filtered.slice(start, start + pageSize);
+
+    // Check if we need lazy loading (beyond local data and not searching)
+    if (!searchQuery && start >= filtered.length && this.tieredNotesStore?.needsLazyLoading()) {
+      this._lazyLoadNotesPage(start, pageSize, container, paginationEl, pageCount);
+      return;
+    }
+
+    const pageItems = filtered.slice(start, Math.min(start + pageSize, filtered.length));
 
     container.innerHTML = pageItems.map(note => {
       const noteRefCount = note.type === 'album' ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0) : 0;
@@ -13985,22 +14335,10 @@ class PasteCraftPopup {
         paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
           btn.addEventListener('click', async () => {
             const nextPage = parseInt(btn.dataset.page, 10);
-            // #region agent log
-            console.warn(`[DEBUG-45c3cf] H7: Pagination CLICKED - nextPage: ${nextPage}, currentPage: ${this.notesPageIndex}, timestamp: ${Date.now()}`);
-            // #endregion
             if (!Number.isNaN(nextPage)) {
               this.notesPageIndex = nextPage;
-              // #region agent log
-              console.warn(`[DEBUG-45c3cf] H7: Pagination - saving prefs, new pageIndex: ${this.notesPageIndex}`);
-              // #endregion
               await this.saveNotesPrefs();
-              // #region agent log
-              console.warn(`[DEBUG-45c3cf] H7: Pagination - prefs saved, calling renderNotes()`);
-              // #endregion
               this.renderNotes();
-              // #region agent log
-              console.warn(`[DEBUG-45c3cf] H7: Pagination - renderNotes() completed`);
-              // #endregion
             }
           });
         });
@@ -14040,14 +14378,202 @@ class PasteCraftPopup {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const noteId = btn.dataset.noteId;
-        // #region agent log
-        console.warn(`[DEBUG-45c3cf] H6: Delete button CLICKED - noteId: ${noteId}, timestamp: ${Date.now()}`);
-        // #endregion
-        this.deleteNote(noteId).catch(err => {
-          // #region agent log
-          console.error(`[DEBUG-45c3cf] H6: deleteNote() UNCAUGHT ERROR:`, err);
-          // #endregion
+        this.deleteNote(noteId);
+      });
+    });
+
+    // Send to Album buttons
+    container.querySelectorAll('.send-to-album-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        const note = this.notes.find(n => n.id == noteId);
+        if (note) {
+          this.pendingNoteForAlbum = note;
+          await this.loadNotes();
+          this.showAlbumPickerForNote();
+        }
+      });
+    });
+  }
+
+  /**
+   * Lazy load a page of notes from Supabase
+   * @private
+   */
+  async _lazyLoadNotesPage(startIndex, pageSize, container, paginationEl, pageCount) {
+    // Check if we're offline first
+    if (!navigator.onLine) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📡</div>
+          <h3>You're offline</h3>
+          <p>Connect to the internet to view older notes</p>
+          <button class="btn-secondary" onclick="window.pasteCraftPopup.notesPageIndex = 0; window.pasteCraftPopup.renderNotes();">
+            Go to first page
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    // Show loading state
+    this._isLazyLoading = true;
+    container.innerHTML = `
+      <div class="lazy-load-indicator">
+        <div class="lazy-load-spinner"></div>
+        <p>Loading notes...</p>
+      </div>
+    `;
+    
+    // Render pagination while loading
+    if (paginationEl) {
+      paginationEl.style.display = 'flex';
+      paginationEl.innerHTML = Array.from({ length: pageCount }).map((_, idx) => {
+        const active = idx === this.notesPageIndex ? 'active' : '';
+        return `<button class="notes-page-btn ${active}" data-page="${idx}" title="Page ${idx}">${idx}</button>`;
+      }).join('');
+      
+      paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const nextPage = parseInt(btn.dataset.page, 10);
+          if (!Number.isNaN(nextPage)) {
+            this.notesPageIndex = nextPage;
+            await this.saveNotesPrefs();
+            this.renderNotes();
+          }
         });
+      });
+    }
+
+    try {
+      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+        const remoteNotes = await pasteCraftSupabase.fetchNotesPage(startIndex, pageSize);
+        
+        if (remoteNotes && remoteNotes.length > 0) {
+          // Render the remote notes using the same card template
+          const isListView = !!container?.classList?.contains('list-view');
+          container.innerHTML = remoteNotes.map(note => this._renderNoteCard(note)).join('');
+          
+          // Re-attach event listeners
+          this._attachNoteCardListeners(container);
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <h3>No more notes</h3>
+              <p>You've reached the end of your notes</p>
+            </div>
+          `;
+        }
+      } else {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">☁️</div>
+            <h3>Sign in to view more</h3>
+            <p>Older notes are stored in the cloud</p>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.error('Failed to lazy load notes:', e);
+      const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
+          <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
+          <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
+          <button class="btn-secondary" onclick="window.pasteCraftPopup.renderNotes();">
+            Retry
+          </button>
+        </div>
+      `;
+    } finally {
+      this._isLazyLoading = false;
+    }
+  }
+
+  /**
+   * Render a single note card HTML
+   * @private
+   */
+  _renderNoteCard(note) {
+    const noteRefCount = note.type === 'album' ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0) : 0;
+    const clipCount = note.type === 'album' ? 0 : (note.clips?.length || 0);
+    const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
+    const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
+    const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
+    const typeIconSrc = note.type === 'album' ? 'assets/note-icons/album-folder.svg' : 'assets/note-icons/notebook.svg';
+    const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
+    const date = new Date(note.createdAt).toLocaleDateString();
+    const safeTitle = (note.title || '').trim();
+    const safeDesc = (note.description || '').trim();
+    const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
+
+    const sendToAlbumBtn = note.type !== 'album'
+      ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-18"></button>`
+      : '';
+    
+    return `
+      <div class="${cardClass}" data-note-id="${note.id}">
+        <div class="note-card-header">
+          <span class="note-card-type"><img src="${typeIconSrc}" alt="" class="pc-icon pc-icon-18"></span>
+          <div class="note-card-actions">
+            <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><img src="assets/note-icons/Edit.svg" alt="" class="pc-icon pc-icon-18"></button>
+            <button class="note-action-btn export-note-pdf" data-note-id="${note.id}" title="Export to PDF"><img src="assets/note-icons/PDF.svg" alt="" class="pc-icon pc-icon-18"></button>
+            ${sendToAlbumBtn}
+            <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><img src="assets/note-icons/delete.svg" alt="" class="pc-icon pc-icon-18"></button>
+          </div>
+        </div>
+        <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
+        <p class="note-card-description">${safeDesc ? this.escapeHtml(safeDesc) : '<em>No description</em>'}</p>
+        <div class="note-card-footer">
+          <span class="note-card-date">${date}</span>
+          <span class="note-card-count">${totalItems} item${totalItems !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Attach event listeners to note cards
+   * @private
+   */
+  _attachNoteCardListeners(container) {
+    // Note card click -> open viewer
+    container.querySelectorAll('.note-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('.note-action-btn')) {
+          const noteId = card.dataset.noteId;
+          this.openNoteViewer(noteId);
+        }
+      });
+    });
+
+    // Edit buttons
+    container.querySelectorAll('.edit-note').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.openNoteEditor(noteId);
+      });
+    });
+
+    // Export to PDF buttons
+    container.querySelectorAll('.export-note-pdf').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.exportNoteToPDF(noteId);
+      });
+    });
+
+    // Delete buttons
+    container.querySelectorAll('.delete-note').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        this.deleteNote(noteId);
       });
     });
 
@@ -14216,14 +14742,7 @@ class PasteCraftPopup {
   }
 
   closeNoteEditor() {
-    // #region agent log
-    const modal = document.getElementById('noteEditorModal');
-    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() called - modal display BEFORE: "${modal?.style?.display}"`);
-    // #endregion
     document.getElementById('noteEditorModal').style.display = 'none';
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() - modal display AFTER: "${modal?.style?.display}"`);
-    // #endregion
     this.currentNoteId = null;
     this.currentNoteType = 'note';
     this.currentNoteAttachments = [];
@@ -14266,11 +14785,6 @@ class PasteCraftPopup {
   }
 
   async saveNote() {
-    // #region agent log
-    this._saveNoteExecCount = (this._saveNoteExecCount || 0) + 1;
-    const _debugRunId = `run_${Date.now()}`;
-    console.warn(`[DEBUG-45c3cf] H2/H4: saveNote() STARTED - exec count: ${this._saveNoteExecCount}, runId: ${_debugRunId}`);
-    // #endregion
     const isUpdate = !!this.currentNoteId;
     const title = document.getElementById('noteTitleInput').value.trim();
     const description = document.getElementById('noteDescriptionInput').value.trim();
@@ -14312,25 +14826,10 @@ class PasteCraftPopup {
       this.refreshAlbumsForNote(noteData);
     }
 
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H4: About to call saveNotes()`);
-    // #endregion
     await this.saveNotes();
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H4: saveNotes() COMPLETED`);
-    // #endregion
     await this.saveNotesPrefs();
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H4: saveNotesPrefs() COMPLETED`);
-    // #endregion
     this.renderNotes();
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H3: About to call closeNoteEditor()`);
-    // #endregion
     this.closeNoteEditor();
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() COMPLETED - modal should be hidden now`);
-    // #endregion
 
     // If album was created from the picker, re-open picker so user can continue
     if (this.createdFromPicker) {
@@ -14347,9 +14846,6 @@ class PasteCraftPopup {
     } catch (_) {
       // ignore
     }
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H2/H4: saveNote() FINISHED - total notes: ${this.notes.length}`);
-    // #endregion
   }
 
   refreshAlbumsForNote(sourceNote) {
@@ -14465,31 +14961,12 @@ class PasteCraftPopup {
   }
 
   async deleteNote(noteId) {
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H6: deleteNote() STARTED - noteId: ${noteId}, notesCount: ${this.notes?.length}`);
-    // #endregion
     const note = this.notes.find(n => n.id == noteId);
-    if (!note) {
-      // #region agent log
-      console.warn(`[DEBUG-45c3cf] H6: deleteNote() - NOTE NOT FOUND - noteId: ${noteId}`);
-      // #endregion
-      return;
-    }
+    if (!note) return;
 
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H6: deleteNote() - found note: "${note.title}", showing confirm dialog`);
-    // #endregion
     const confirmed = confirm(`Delete "${note.title}"?`);
-    if (!confirmed) {
-      // #region agent log
-      console.warn(`[DEBUG-45c3cf] H6: deleteNote() - user CANCELLED delete`);
-      // #endregion
-      return;
-    }
+    if (!confirmed) return;
 
-    // #region agent log
-    console.warn(`[DEBUG-45c3cf] H6: deleteNote() - user CONFIRMED, calling PasteCraftCRUD.deleteOperation`);
-    // #endregion
     return await PasteCraftCRUD.deleteOperation({
       entityId: noteId,
       entityName: note.title,
@@ -14535,18 +15012,8 @@ class PasteCraftPopup {
         }], pasteCraftSupabase.syncDeletedNotesToSupabase);
         await pasteCraftSupabase.syncWithQueue('syncNotes', this.notes, pasteCraftSupabase.syncNotesToSupabase);
       },
-      successMessage: (entity) => {
-        // #region agent log
-        console.warn(`[DEBUG-45c3cf] H6: deleteNote() SUCCESS - deleted: "${entity.name}"`);
-        // #endregion
-        return `✅ Note "${entity.name}" deleted`;
-      },
-      errorMessage: (error) => {
-        // #region agent log
-        console.error(`[DEBUG-45c3cf] H6: deleteNote() FAILED:`, error);
-        // #endregion
-        return `❌ Failed to delete note: ${error.message || 'Unknown error'}`;
-      },
+      successMessage: (entity) => `✅ Note "${entity.name}" deleted`,
+      errorMessage: (error) => `❌ Failed to delete note: ${error.message || 'Unknown error'}`,
       showToast: (msg, type) => this.showToast(msg, type)
     });
   }

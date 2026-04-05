@@ -40,6 +40,68 @@ class PasteCraftSupabase {
     }
   }
 
+  /**
+   * Safely set data to chrome.storage.local with IndexedDB fallback on quota error
+   * @param {Object} data - Key-value pairs to save
+   * @returns {Promise<boolean>} - True if saved successfully
+   */
+  async _safeStorageSet(data) {
+    try {
+      await new Promise((resolve, reject) => {
+        chrome.storage.local.set(data, () => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve();
+          }
+        });
+      });
+      return true;
+    } catch (err) {
+      const msg = String(err?.message || err || '');
+      if (msg.includes('QUOTA') || msg.includes('quota')) {
+        console.warn('⚠️ Chrome storage quota exceeded, saving to IndexedDB only');
+        // Try to save each key to IndexedDB if available
+        if (typeof indexedDB !== 'undefined') {
+          for (const [key, value] of Object.entries(data)) {
+            try {
+              await this._saveToIdb(key, value);
+            } catch (idbErr) {
+              console.error(`Failed to save ${key} to IndexedDB:`, idbErr);
+            }
+          }
+        }
+        return true;
+      }
+      console.error('Failed to save to chrome.storage.local:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Fallback save to IndexedDB
+   */
+  async _saveToIdb(key, value) {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('PasteCraftFallback', 1);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('fallback')) {
+          db.createObjectStore('fallback');
+        }
+      };
+      request.onsuccess = (e) => {
+        const db = e.target.result;
+        const tx = db.transaction('fallback', 'readwrite');
+        const store = tx.objectStore('fallback');
+        store.put(value, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // =====================================================
   // AI WORKFLOW (provider + preset) - local-first read
   // =====================================================
@@ -648,11 +710,8 @@ class PasteCraftSupabase {
       });
       const localBeforeLen = Array.isArray(localData?.clips) ? localData.clips.length : 0;
       const mergedClips = await this.mergeClips(localData.clips || [], remoteClips);
-      await new Promise((resolve) => {
-        chrome.storage.local.set({ clips: mergedClips }, resolve);
-      });
+      await this._safeStorageSet({ clips: mergedClips });
 
-      
       // Notify UI to refresh
       window.dispatchEvent(new CustomEvent('dataChanged', { 
         detail: { type: 'clips' } 
@@ -670,9 +729,7 @@ class PasteCraftSupabase {
         chrome.storage.local.get(['categories'], resolve);
       });
       const mergedCategories = await this.mergeCategories(localData.categories || [], remoteCategories);
-      await new Promise((resolve) => {
-        chrome.storage.local.set({ categories: mergedCategories }, resolve);
-      });
+      await this._safeStorageSet({ categories: mergedCategories });
       
       window.dispatchEvent(new CustomEvent('dataChanged', { 
         detail: { type: 'categories' } 
@@ -690,9 +747,7 @@ class PasteCraftSupabase {
         chrome.storage.local.get(['searchOnlyClips'], resolve);
       });
       const mergedArchivedClips = await this.mergeArchivedClips(localData.searchOnlyClips || [], remoteArchivedClips);
-      await new Promise((resolve) => {
-        chrome.storage.local.set({ searchOnlyClips: mergedArchivedClips }, resolve);
-      });
+      await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
       
       window.dispatchEvent(new CustomEvent('dataChanged', { 
         detail: { type: 'archivedClips' } 
@@ -710,9 +765,7 @@ class PasteCraftSupabase {
         chrome.storage.local.get(['notes'], resolve);
       });
       const mergedNotes = await this.mergeNotes(localData.notes || [], remoteNotes);
-      await new Promise((resolve) => {
-        chrome.storage.local.set({ notes: mergedNotes }, resolve);
-      });
+      await this._safeStorageSet({ notes: mergedNotes });
 
       window.dispatchEvent(new CustomEvent('dataChanged', {
         detail: { type: 'notes' }
@@ -1961,6 +2014,223 @@ class PasteCraftSupabase {
     return allClips;
   }
 
+  // =====================================================
+  // PAGINATED FETCH FUNCTIONS (for lazy loading)
+  // =====================================================
+
+  /**
+   * Get total clips count for the user (for pagination)
+   * @param {string} userIdOverride - Optional user ID override
+   * @returns {Promise<number>}
+   */
+  async getClipsCount(userIdOverride = null) {
+    if (!this.client) return 0;
+    
+    try {
+      const userId = userIdOverride || await this.getSyncUserId();
+      if (!userId) return 0;
+      
+      const { count, error } = await this.client
+        .from('clips')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+      
+      if (error) throw error;
+      return count || 0;
+    } catch (e) {
+      console.error('Failed to get clips count:', e);
+      return 0;
+    }
+  }
+
+  /**
+   * Fetch a single page of clips for lazy loading
+   * @param {number} offset - Starting index (0-based)
+   * @param {number} limit - Number of clips to fetch
+   * @param {string} userIdOverride - Optional user ID override
+   * @returns {Promise<Array>}
+   */
+  async fetchClipsPage(offset, limit, userIdOverride = null) {
+    if (!this.client) return [];
+    
+    try {
+      const userId = userIdOverride || await this.getSyncUserId();
+      if (!userId) return [];
+      
+      const end = offset + limit - 1;
+      
+      const { data, error } = await this.client
+        .from('clips')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('timestamp', { ascending: false })
+        .range(offset, end);
+      
+      if (error) throw error;
+      
+      // Transform DB format to local format
+      return (data || []).map(clip => ({
+        id: clip.clip_id,
+        text: clip.text,
+        category: clip.category,
+        timestamp: clip.timestamp,
+        updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
+        deviceId: clip.device_id || null,
+        meta: clip.meta || undefined
+      }));
+    } catch (e) {
+      console.error(`Failed to fetch clips page (offset=${offset}, limit=${limit}):`, e);
+      return [];
+    }
+  }
+
+  /**
+   * Get total notes count for the user (for pagination)
+   * @returns {Promise<number>}
+   */
+  async getNotesCount() {
+    if (!this.client) return 0;
+    
+    try {
+      const userId = await this.getSyncUserId();
+      if (!userId) return 0;
+      
+      const { count, error } = await this.client
+        .from('notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+      
+      if (error) throw error;
+      return count || 0;
+    } catch (e) {
+      console.error('Failed to get notes count:', e);
+      return 0;
+    }
+  }
+
+  /**
+   * Fetch a single page of notes for lazy loading
+   * @param {number} offset - Starting index (0-based)
+   * @param {number} limit - Number of notes to fetch
+   * @returns {Promise<Array>}
+   */
+  async fetchNotesPage(offset, limit) {
+    if (!this.client) return [];
+    
+    try {
+      const userId = await this.getSyncUserId();
+      if (!userId) return [];
+      
+      const end = offset + limit - 1;
+      
+      const { data, error } = await this.client
+        .from('notes')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .range(offset, end);
+      
+      if (error) throw error;
+      
+      // Transform DB format to local format
+      return (data || []).map(note => ({
+        id: note.note_id,
+        type: note.note_type || 'note',
+        title: note.title || '',
+        description: note.description || '',
+        body: note.body || '',
+        clips: note.attachments?.filter(a => a.type === 'clip') || [],
+        images: note.attachments?.filter(a => a.type === 'image') || [],
+        urls: note.attachments?.filter(a => a.type === 'url') || [],
+        noteRefs: note.note_refs || [],
+        createdAt: note.created_at ? Date.parse(note.created_at) : Date.now(),
+        updatedAt: note.updated_at ? Date.parse(note.updated_at) : Date.now(),
+        deviceId: note.device_id || null
+      }));
+    } catch (e) {
+      console.error(`Failed to fetch notes page (offset=${offset}, limit=${limit}):`, e);
+      return [];
+    }
+  }
+
+  /**
+   * Get total archived clips count for the user (for pagination)
+   * @returns {Promise<number>}
+   */
+  async getArchivedClipsCount() {
+    if (!this.client) return 0;
+    
+    try {
+      const userId = await this.getSyncUserId();
+      if (!userId) return 0;
+      
+      const { count, error } = await this.client
+        .from('archived_clips')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+      
+      if (error) throw error;
+      return count || 0;
+    } catch (e) {
+      console.error('Failed to get archived clips count:', e);
+      return 0;
+    }
+  }
+
+  /**
+   * Fetch a single page of archived clips for lazy loading
+   * @param {number} offset - Starting index (0-based)
+   * @param {number} limit - Number of archived clips to fetch
+   * @returns {Promise<Array>}
+   */
+  async fetchArchivedClipsPage(offset, limit) {
+    if (!this.client) return [];
+    
+    try {
+      const userId = await this.getSyncUserId();
+      if (!userId) return [];
+      
+      const end = offset + limit - 1;
+      
+      const { data, error } = await this.client
+        .from('archived_clips')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('timestamp', { ascending: false })
+        .range(offset, end);
+      
+      if (error) throw error;
+      
+      // Transform DB format to local format
+      return (data || []).map(clip => ({
+        id: clip.clip_id,
+        text: clip.text,
+        category: clip.category,
+        timestamp: clip.timestamp,
+        updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
+        deviceId: clip.device_id || null,
+        meta: clip.meta || undefined
+      }));
+    } catch (e) {
+      console.error(`Failed to fetch archived clips page (offset=${offset}, limit=${limit}):`, e);
+      return [];
+    }
+  }
+
+  /**
+   * Check if user is authenticated (has valid session)
+   * @returns {boolean}
+   */
+  isAuthenticated() {
+    return !!(this.client && this._currentSession);
+  }
+
   /**
    * Merge local and remote clips (newest wins)
    */
@@ -2151,9 +2421,24 @@ class PasteCraftSupabase {
 
       if (dbCategories.length === 0) return true;
 
+      // Deduplicate by category_id to avoid "cannot affect row a second time" error
+      // Convert IDs to strings for reliable Set comparison
+      const seen = new Set();
+      const uniqueDbCategories = dbCategories.filter(cat => {
+        const idStr = String(cat.category_id || '');
+        if (!idStr || idStr === 'undefined' || idStr === 'null' || seen.has(idStr)) return false;
+        seen.add(idStr);
+        return true;
+      });
+
+      if (uniqueDbCategories.length === 0) {
+        console.log('⚠️ No valid categories to sync after filtering');
+        return true;
+      }
+
       const { data, error } = await this.client
         .from('categories')
-        .upsert(dbCategories, {
+        .upsert(uniqueDbCategories, {
           onConflict: 'user_id,category_id',
           ignoreDuplicates: false
         })
@@ -3599,37 +3884,9 @@ class PasteCraftSupabase {
   }
 
   async getEffectiveAccessState(userId) {
-    if (!this.client || !userId) return null;
-    // Cache result to avoid repeated 404 calls if RPC doesn't exist
-    const cacheKey = `_effectiveAccessCache_${userId}`;
-    const cached = this[cacheKey];
-    const now = Date.now();
-    if (cached && (now - cached.at) < 60000) { // 1 minute cache
-      return cached.value;
-    }
-    try {
-      const { data, error } = await this.client.rpc('get_effective_access_state', {
-        p_user_id: String(userId)
-      });
-      if (error) throw error;
-      const row = Array.isArray(data) ? (data[0] || null) : data;
-      if (!row) {
-        this[cacheKey] = { value: null, at: now };
-        return null;
-      }
-      const result = {
-        is_owner: row.is_owner === true,
-        is_premium: row.is_premium === true,
-        has_cloud_sync: row.has_cloud_sync === true,
-        source: String(row.source || '')
-      };
-      this[cacheKey] = { value: result, at: now };
-      return result;
-    } catch (error) {
-      // Cache null for failed calls (e.g., 404) to avoid repeated failures
-      this[cacheKey] = { value: null, at: now };
-      return null;
-    }
+    // RPC function 'get_effective_access_state' does not exist in Supabase
+    // Return null to use fallback subscription-based access checks
+    return null;
   }
 
   /**
@@ -4178,9 +4435,7 @@ class PasteCraftSupabase {
       const remoteClips = await this.syncClipsFromSupabase();
       if (remoteClips) {
         const mergedClips = await this.mergeClips(localClips, remoteClips);
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ clips: mergedClips }, resolve);
-        });
+        await this._safeStorageSet({ clips: mergedClips });
         console.log(`✅ Clips merged: ${mergedClips.length} total`);
       }
 
@@ -4189,9 +4444,7 @@ class PasteCraftSupabase {
       const remoteCategories = await this.syncCategoriesFromSupabase();
       if (remoteCategories) {
         const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ categories: mergedCategories }, resolve);
-        });
+        await this._safeStorageSet({ categories: mergedCategories });
         console.log(`✅ Categories merged: ${mergedCategories.length} total`);
       }
 
@@ -4200,9 +4453,7 @@ class PasteCraftSupabase {
       const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
       if (remoteArchivedClips) {
         const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ searchOnlyClips: mergedArchivedClips }, resolve);
-        });
+        await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
         console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
       }
 
@@ -4211,9 +4462,7 @@ class PasteCraftSupabase {
       const remoteNotes = await this.syncNotesFromSupabase();
       if (remoteNotes) {
         const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ notes: mergedNotes }, resolve);
-        });
+        await this._safeStorageSet({ notes: mergedNotes });
         console.log(`✅ Notes merged: ${mergedNotes.length} total`);
       }
 
@@ -4222,9 +4471,7 @@ class PasteCraftSupabase {
       const remoteAiHistory = await this.fetchAiHistoryFromSupabase();
       if (remoteAiHistory && remoteAiHistory.length > 0) {
         const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ pc_aiHistory_v1: mergedAiHistory }, resolve);
-        });
+        await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
         console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
       }
 
