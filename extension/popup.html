@@ -8149,9 +8149,6 @@
         <!-- Clips Tab -->
         <section class="tab-content active" id="clipsTab">
             <div class="chip-area">
-                <div class="device-sync-entry">
-                    <button class="device-sync-open-btn" id="viewAvailableDevicesToSyncBtn">View Available Devices to Sync</button>
-                </div>
                 <div class="chip-container" id="chipContainer">
                     <div class="empty-state">
                         <div class="empty-state-icon">✨</div>
@@ -8178,71 +8175,6 @@
                 <div id="paginationControls"></div>
             </div>
         </section>
-
-        <div class="device-sync-modal" id="deviceSyncModal">
-            <div class="device-sync-modal-content">
-                <div class="device-sync-modal-header">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <strong>Available Devices</strong>
-                        <button class="device-sync-rename-btn" id="deviceRenameBtn" title="Rename this device">✏️</button>
-                    </div>
-                    <button class="close-btn" id="deviceSyncModalClose">×</button>
-                </div>
-                <div class="device-sync-device-tabs" id="deviceSyncTabs"></div>
-                <div class="device-sync-items" id="deviceSyncItems">
-                    <div class="device-sync-item-meta">Select a device to view importable items.</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Device Registration Modal -->
-        <div class="device-register-modal" id="deviceRegisterModal">
-            <div class="device-register-modal-content">
-                <div class="device-register-header">
-                    <h3>Register This Device</h3>
-                    <button class="close-btn" id="deviceRegisterClose">×</button>
-                </div>
-                <div class="device-register-body">
-                    <!-- Step 1: Pick Slot -->
-                    <div class="device-register-step active" id="deviceRegisterStep1">
-                        <p class="device-register-subtitle">Choose a device slot (1-10). Each slot can only be used by one device.</p>
-                        <div class="device-slot-grid" id="deviceSlotGrid"></div>
-                        <div class="device-register-error" id="deviceSlotError"></div>
-                        <div class="device-register-actions">
-                            <button class="btn-next" id="deviceSlotNextBtn" disabled>Next →</button>
-                        </div>
-                    </div>
-                    <!-- Step 2: Name Device -->
-                    <div class="device-register-step" id="deviceRegisterStep2">
-                        <p class="device-register-subtitle">Give this device a name to recognize it later.</p>
-                        <input type="text" class="device-name-input" id="deviceNameInput" placeholder="e.g., Work PC, Home Laptop" maxlength="30">
-                        <div class="device-register-error" id="deviceNameError"></div>
-                        <div class="device-register-actions">
-                            <button class="btn-back" id="deviceNameBackBtn">← Back</button>
-                            <button class="btn-register" id="deviceRegisterBtn" disabled>Register</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Device Rename Modal -->
-        <div class="device-register-modal" id="deviceRenameModal">
-            <div class="device-register-modal-content">
-                <div class="device-register-header">
-                    <h3>Rename Device</h3>
-                    <button class="close-btn" id="deviceRenameClose">×</button>
-                </div>
-                <div class="device-register-body">
-                    <p class="device-register-subtitle">Enter a new name for this device.</p>
-                    <input type="text" class="device-name-input" id="deviceRenameInput" placeholder="e.g., Work PC" maxlength="30">
-                    <div class="device-register-error" id="deviceRenameError"></div>
-                    <div class="device-register-actions">
-                        <button class="btn-register" id="deviceRenameSaveBtn">Save</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Notes Tab -->
         <section class="tab-content" id="notesTab">

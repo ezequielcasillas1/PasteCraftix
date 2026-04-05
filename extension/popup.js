@@ -628,11 +628,6 @@ class PasteCraftPopup {
     this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
     this.idb = (typeof window !== 'undefined' && window.pasteCraftIndexedDB) ? window.pasteCraftIndexedDB : null;
     this._idbReady = false;
-    this.syncDevices = [];
-    this.activeSyncDeviceId = '';
-    this.syncDeviceCandidates = [];
-    this.syncModalOpen = false;
-    // (debug instrumentation removed)
 
     // Serialize clip mutations to prevent races / double-click issues.
     this._clipOpQueue = Promise.resolve();
@@ -1107,9 +1102,6 @@ class PasteCraftPopup {
 
         // Background sync (non-blocking)
         Promise.resolve()
-          .then(() => this.backupLocalToSync(reason))
-          .catch(() => {});
-        Promise.resolve()
           .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
           .catch(() => {});
         if (includeArchived) {
@@ -1265,7 +1257,6 @@ class PasteCraftPopup {
     // Show top bar (with sign out button)
     document.getElementById('topBar').style.display = 'flex';
     
-    this.setupStorageSyncListener();
     this.setupLocalStorageListener();
     await this._ensureIndexedDbReadyAndMigrate();
 
@@ -1302,7 +1293,6 @@ class PasteCraftPopup {
     }
     
     this.setupEventListeners();
-    this.setupManualDeviceSync();
     this.renderChips();
     this.updateLastCapture();
     this.updatePreview();
@@ -1316,10 +1306,6 @@ class PasteCraftPopup {
     this.hideLoadingOverlay();
 
     // Run potentially heavy maintenance tasks in background (do not block popup render)
-    Promise.resolve()
-      .then(() => this.bootstrapStorageSyncTransfer())
-      .catch(() => {});
-
     Promise.resolve()
       .then(() => this.maybeCreateDailyRestorePoint('startup'))
       .catch(() => {});
@@ -1530,46 +1516,6 @@ class PasteCraftPopup {
     this.updateAiCreditsPills(source);
   }
 
-  setupStorageSyncListener() {
-    try {
-      // Debounce repeated sync change events (and avoid re-entrancy loops)
-      this._handlingSyncChange = false;
-      this._lastSyncChangeAt = 0;
-
-      chrome.storage.onChanged.addListener(async (changes, areaName) => {
-        if (areaName !== 'sync') return;
-        if (!changes || !changes.pc_sync_backup_v1) return;
-        if (this._handlingSyncChange) return;
-        const now = Date.now();
-        if (now - this._lastSyncChangeAt < 750) return;
-        this._lastSyncChangeAt = now;
-        this._handlingSyncChange = true;
-
-        const next = changes.pc_sync_backup_v1?.newValue || null;
-        const nextClips = next && Array.isArray(next.clips) ? next.clips.length : 0;
-        const nextNotes = next && Array.isArray(next.notes) ? next.notes.length : 0;
-        const nextUpdatedAt = next && typeof next.updatedAt === 'number' ? next.updatedAt : 0;
-
-
-        try {
-          await this.bootstrapStorageSyncTransfer();
-          await this.loadData();
-    await this.loadNotes();
-          this.renderChips();
-          this.renderCategories();
-          this.renderNotes();
-          this.updateCategoryFilter();
-          this.updateLastCapture();
-          this.updatePreview();
-        } finally {
-          this._handlingSyncChange = false;
-        }
-      });
-    } catch (_) {
-      // ignore
-    }
-  }
-
   setupLocalStorageListener() {
     try {
       // Debounce repeated local change events and avoid re-entrancy loops.
@@ -1722,251 +1668,6 @@ class PasteCraftPopup {
       }
     } catch (error) {
       console.warn('⚠️ Failed mirroring local entities to IndexedDB:', error?.message || error);
-    }
-  }
-
-  async bootstrapStorageSyncTransfer() {
-    try {
-      const local = await chrome.storage.local.get([
-        'clips',
-        'categories',
-        'searchOnlyClips',
-        'notes',
-        'pc_local_updatedAt',
-        'notesViewMode',
-        'notesPageIndex',
-        'notesAiEnabled',
-        'settings',
-        'userProfile'
-      ]);
-
-      // Repair duplicate / missing clip ids in local storage BEFORE any syncing/backup.
-      // This prevents clip rows overwriting each other in database and collapsing during merge.
-      const repaired = this.repairLocalClipIds(local.clips, local.searchOnlyClips);
-      if (repaired.changed) {
-        await chrome.storage.local.set({
-          clips: repaired.clips,
-          searchOnlyClips: repaired.searchOnlyClips
-        });
-        local.clips = repaired.clips;
-        local.searchOnlyClips = repaired.searchOnlyClips;
-      }
-
-      const sync = await new Promise((resolve) => chrome.storage.sync.get(['pc_sync_backup_v1'], resolve));
-      const backup = sync?.pc_sync_backup_v1 || null;
-
-      const localClipsCount = Array.isArray(local.clips) ? local.clips.length : 0;
-      const localNotesCount = Array.isArray(local.notes) ? local.notes.length : 0;
-
-      const backupClipsCount = backup && Array.isArray(backup.clips) ? backup.clips.length : 0;
-      const backupNotesCount = backup && Array.isArray(backup.notes) ? backup.notes.length : 0;
-
-      const backupUpdatedAt = backup && typeof backup.updatedAt === 'number' ? backup.updatedAt : 0;
-      let localUpdatedAt = typeof local.pc_local_updatedAt === 'number' ? local.pc_local_updatedAt : 0;
-
-      const localHasAny = localClipsCount > 0 || localNotesCount > 0;
-      const backupHasAny = backupClipsCount > 0 || backupNotesCount > 0;
-
-      // If local already has data but no updated marker yet, initialize it so we don't
-      // incorrectly restore an older sync backup over existing local state.
-      let localUpdatedAtInitialized = false;
-      if (localHasAny && localUpdatedAt === 0) {
-        localUpdatedAt = Date.now();
-        localUpdatedAtInitialized = true;
-        try {
-          await chrome.storage.local.set({ pc_local_updatedAt: localUpdatedAt });
-          local.pc_local_updatedAt = localUpdatedAt;
-        } catch (_) {
-          // ignore
-        }
-      }
-
-      // Merge helper (works for clips, archived clips, categories, notes)
-      const stableKey = (item) => {
-        if (!item) return '';
-        if (typeof item === 'string') return `s:${item.slice(0, 80)}`;
-        // Prefer content-based key for clip-like objects to avoid duplicates across sources with different ids.
-        if (typeof item.text === 'string' && typeof item.timestamp === 'number') {
-          const s = item.text;
-          let h = 2166136261;
-          for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-          const textHash = (h >>> 0).toString(36);
-          const bucket = Math.floor(item.timestamp / 3000); // 3s bucket to collapse accidental dupes
-          const cat = item.category != null ? String(item.category) : '';
-          return `clip:${textHash}:${bucket}:${cat}`;
-        }
-        const id = item.id ?? item.clip_id ?? item.clipId ?? item.category_id ?? item.categoryId ?? null;
-        if (id != null) return `id:${String(id)}`;
-        const t = item.text ?? item.url ?? item.name ?? '';
-        const ts = item.timestamp ?? item.createdAt ?? item.updatedAt ?? 0;
-        return `h:${String(t).slice(0, 80)}:${ts}`;
-      };
-
-      const mergeArrays = (a, b) => {
-        const out = new Map();
-        const add = (x) => {
-          const k = stableKey(x);
-          if (!k) return;
-          const prev = out.get(k);
-          const ts = (x && typeof x === 'object') ? (x.timestamp ?? x.updatedAt ?? x.createdAt ?? 0) : 0;
-          const prevTs = (prev && typeof prev === 'object') ? (prev.timestamp ?? prev.updatedAt ?? prev.createdAt ?? 0) : 0;
-          if (!prev || (ts || 0) >= (prevTs || 0)) out.set(k, x);
-        };
-        (Array.isArray(a) ? a : []).forEach(add);
-        (Array.isArray(b) ? b : []).forEach(add);
-        return Array.from(out.values());
-      };
-
-      const mergedClips = mergeArrays(local.clips, backup?.clips).slice(0, 500);
-      const mergedSearchOnlyClips = mergeArrays(local.searchOnlyClips, backup?.searchOnlyClips).slice(0, 1000);
-      const mergedCategories = mergeArrays(local.categories, backup?.categories).slice(0, 300);
-      const mergedNotes = mergeArrays(local.notes, backup?.notes).slice(0, 300);
-
-      // Prefer newest side by updatedAt, falling back to count-based heuristics when missing.
-      // This prevents deleted clips from being restored from an older sync backup.
-      const preferLocal = localHasAny && localUpdatedAt > 0 && (backupUpdatedAt === 0 || localUpdatedAt >= backupUpdatedAt);
-      const preferBackup = backupHasAny && backupUpdatedAt > 0 && (localUpdatedAt === 0 || backupUpdatedAt > localUpdatedAt);
-
-      // Decide which direction to sync.
-      const shouldWriteLocal =
-        preferBackup ||
-        (
-          !preferLocal &&
-          backupHasAny && (
-            backupClipsCount > localClipsCount ||
-            backupNotesCount > localNotesCount
-          )
-        );
-
-      const shouldWriteSync =
-        preferLocal ||
-        (
-          !preferBackup &&
-          localHasAny && (
-            !backupHasAny ||
-            localClipsCount > backupClipsCount ||
-            localNotesCount > backupNotesCount
-          )
-        );
-
-      // When we prefer one side by updatedAt, do not merge in the other side (merging would resurrect deleted clips).
-      const nextLocalClips = preferBackup ? (Array.isArray(backup?.clips) ? backup.clips : []) : mergedClips;
-      const nextLocalArchived = preferBackup ? (Array.isArray(backup?.searchOnlyClips) ? backup.searchOnlyClips : []) : mergedSearchOnlyClips;
-      const nextLocalCategories = preferBackup ? (Array.isArray(backup?.categories) ? backup.categories : []) : mergedCategories;
-      const nextLocalNotes = preferBackup ? (Array.isArray(backup?.notes) ? backup.notes : []) : mergedNotes;
-
-      const nextSyncClips = preferLocal ? (Array.isArray(local.clips) ? local.clips : []) : mergedClips;
-      const nextSyncArchived = preferLocal ? (Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : []) : mergedSearchOnlyClips;
-      const nextSyncCategories = preferLocal ? (Array.isArray(local.categories) ? local.categories : []) : mergedCategories;
-      const nextSyncNotes = preferLocal ? (Array.isArray(local.notes) ? local.notes : []) : mergedNotes;
-
-      const willWriteLocal = shouldWriteLocal && (nextLocalClips.length !== localClipsCount || nextLocalNotes.length !== localNotesCount);
-      const willWriteSync = shouldWriteSync && (nextSyncClips.length !== backupClipsCount || nextSyncNotes.length !== backupNotesCount);
-
-      if (willWriteLocal) {
-        await chrome.storage.local.set({
-          clips: nextLocalClips.slice(0, 500),
-          categories: nextLocalCategories.slice(0, 300),
-          searchOnlyClips: nextLocalArchived.slice(0, 1000),
-          notes: nextLocalNotes.slice(0, 300),
-          notesViewMode: backup?.notesViewMode || local.notesViewMode || 'notes',
-          notesPageIndex: typeof (backup?.notesPageIndex) === 'number' ? backup.notesPageIndex : (typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0),
-          notesAiEnabled: backup ? !!backup.notesAiEnabled : !!local.notesAiEnabled,
-          settings: backup?.settings || local.settings || {},
-          userProfile: backup?.userProfile || local.userProfile || null
-        });
-      }
-
-      if (willWriteSync) {
-        const payload = {
-          version: 1,
-          updatedAt: Date.now(),
-          clips: nextSyncClips.slice(0, 500),
-          categories: nextSyncCategories.slice(0, 300),
-          searchOnlyClips: nextSyncArchived.slice(0, 1000),
-          notes: nextSyncNotes.slice(0, 300),
-          notesViewMode: local.notesViewMode || backup?.notesViewMode || 'notes',
-          notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : (typeof backup?.notesPageIndex === 'number' ? backup.notesPageIndex : 0),
-          notesAiEnabled: !!local.notesAiEnabled,
-          settings: local.settings || backup?.settings || {},
-          userProfile: local.userProfile || backup?.userProfile || null
-        };
-
-        // Check size before saving - chrome.storage.sync has 8KB per item limit
-        const payloadSize = JSON.stringify(payload).length;
-        if (payloadSize > 8000) {
-          // Data too large for sync storage, skip (Supabase handles cloud sync)
-          return;
-        }
-        await new Promise((resolve) => chrome.storage.sync.set({ pc_sync_backup_v1: payload }, resolve));
-      }
-    } catch (e) {
-      // Ignore sync failures (quota / sync disabled)
-    }
-  }
-
-  async backupLocalToSync(reason = 'local-change') {
-    try {
-      const local = await chrome.storage.local.get([
-        'clips',
-        'categories',
-        'searchOnlyClips',
-        'notes',
-        'notesViewMode',
-        'notesPageIndex',
-        'notesAiEnabled',
-        'settings',
-        'userProfile'
-      ]);
-
-      // Best-effort: maintain 28-day local restore points.
-      // (local-only; does not affect cloud)
-      try {
-        await this.maybeCreateDailyRestorePoint(reason, local);
-      } catch (_) {}
-
-      const payload = {
-        version: 1,
-        updatedAt: Date.now(),
-        clips: Array.isArray(local.clips) ? local.clips : [],
-        categories: Array.isArray(local.categories) ? local.categories : [],
-        searchOnlyClips: Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : [],
-        notes: Array.isArray(local.notes) ? local.notes : [],
-        notesViewMode: local.notesViewMode || 'notes',
-        notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0,
-        notesAiEnabled: !!local.notesAiEnabled,
-        settings: local.settings || {},
-        userProfile: local.userProfile || null
-      };
-
-      // Persist local "last updated" marker so sync-transfer doesn't restore older backups over deletions.
-      try {
-        await chrome.storage.local.set({ pc_local_updatedAt: payload.updatedAt });
-      } catch (_) {
-        // ignore
-      }
-
-      // Check size before saving - chrome.storage.sync has 8KB per item limit
-      const payloadSize = JSON.stringify(payload).length;
-      if (payloadSize > 8000) {
-        // Data too large for sync storage, skip (Supabase handles cloud sync)
-        return;
-      }
-
-      let ok = true;
-      try {
-        await new Promise((resolve) => {
-          chrome.storage.sync.set({ pc_sync_backup_v1: payload }, () => {
-            if (chrome.runtime && chrome.runtime.lastError) ok = false;
-            resolve();
-          });
-        });
-      } catch (e) {
-        ok = false;
-      }
-
-    } catch (_) {
-      // ignore (quota / sync disabled)
     }
   }
 
@@ -2183,9 +1884,6 @@ class PasteCraftPopup {
     this.updatePreview();
     this.updateLastCapture();
     try { this.updateStorageStats(); } catch (_) {}
-
-    // Ensure the latest sync backup is updated (cross-device transfer) but do not force cloud sync.
-    try { await this.backupLocalToSync('restore:apply'); } catch (_) {}
 
     this._lastAppliedRestore = { point, appliedAt };
     const btn = document.getElementById('syncRestoredToCloudBtn');
@@ -2546,444 +2244,6 @@ class PasteCraftPopup {
     }
   }
 
-  setupManualDeviceSync() {
-    const openBtn = document.getElementById('viewAvailableDevicesToSyncBtn');
-    const modal = document.getElementById('deviceSyncModal');
-    const closeBtn = document.getElementById('deviceSyncModalClose');
-    if (!openBtn || !modal || !closeBtn) return;
-
-    openBtn.addEventListener('click', async () => {
-      const isRegistered = await this.checkDeviceRegistration();
-      if (!isRegistered) {
-        await this.openDeviceRegistrationModal();
-        return;
-      }
-      this.syncModalOpen = true;
-      modal.style.display = 'flex';
-      await this.refreshSyncDevices();
-    });
-
-    closeBtn.addEventListener('click', () => {
-      this.syncModalOpen = false;
-      modal.style.display = 'none';
-    });
-
-    modal.addEventListener('click', (event) => {
-      if (event.target === modal) {
-        this.syncModalOpen = false;
-        modal.style.display = 'none';
-      }
-    });
-
-    const tabs = document.getElementById('deviceSyncTabs');
-    const items = document.getElementById('deviceSyncItems');
-    if (!tabs || !items) return;
-
-    tabs.addEventListener('click', async (event) => {
-      const tab = event.target.closest('.device-sync-tab');
-      if (!tab) return;
-      this.activeSyncDeviceId = String(tab.dataset.deviceId || '');
-      await this.refreshSyncCandidates();
-    });
-
-    items.addEventListener('click', async (event) => {
-      const btn = event.target.closest('.device-sync-import-btn');
-      if (!btn) return;
-      const itemType = String(btn.dataset.itemType || '');
-      const itemId = String(btn.dataset.itemId || '');
-      if (!itemType || !itemId || !this.activeSyncDeviceId) return;
-      await this.importRemoteItem({ itemType, itemId, sourceDeviceId: this.activeSyncDeviceId });
-    });
-
-    const renameBtn = document.getElementById('deviceRenameBtn');
-    if (renameBtn) {
-      renameBtn.addEventListener('click', () => this.openDeviceRenameModal());
-    }
-
-    this.setupDeviceRegistration();
-  }
-
-  setupDeviceRegistration() {
-    const registerModal = document.getElementById('deviceRegisterModal');
-    const registerClose = document.getElementById('deviceRegisterClose');
-    const slotGrid = document.getElementById('deviceSlotGrid');
-    const slotNextBtn = document.getElementById('deviceSlotNextBtn');
-    const slotError = document.getElementById('deviceSlotError');
-    const step1 = document.getElementById('deviceRegisterStep1');
-    const step2 = document.getElementById('deviceRegisterStep2');
-    const nameInput = document.getElementById('deviceNameInput');
-    const nameBackBtn = document.getElementById('deviceNameBackBtn');
-    const registerBtn = document.getElementById('deviceRegisterBtn');
-    const nameError = document.getElementById('deviceNameError');
-
-    if (!registerModal) return;
-
-    this._selectedDeviceSlot = null;
-
-    if (registerClose) {
-      registerClose.addEventListener('click', () => {
-        registerModal.classList.remove('active');
-      });
-    }
-
-    registerModal.addEventListener('click', (e) => {
-      if (e.target === registerModal) {
-        registerModal.classList.remove('active');
-      }
-    });
-
-    if (slotGrid) {
-      slotGrid.addEventListener('click', (e) => {
-        const btn = e.target.closest('.device-slot-btn');
-        if (!btn || btn.classList.contains('taken')) return;
-        slotGrid.querySelectorAll('.device-slot-btn').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        this._selectedDeviceSlot = parseInt(btn.dataset.slot, 10);
-        if (slotNextBtn) slotNextBtn.disabled = false;
-        if (slotError) { slotError.textContent = ''; slotError.classList.remove('show'); }
-      });
-    }
-
-    if (slotNextBtn) {
-      slotNextBtn.addEventListener('click', () => {
-        if (!this._selectedDeviceSlot) return;
-        if (step1) step1.classList.remove('active');
-        if (step2) step2.classList.add('active');
-        if (nameInput) { nameInput.value = ''; nameInput.focus(); }
-        if (registerBtn) registerBtn.disabled = true;
-      });
-    }
-
-    if (nameInput) {
-      nameInput.addEventListener('input', () => {
-        const val = nameInput.value.trim();
-        if (registerBtn) registerBtn.disabled = !val;
-        if (nameError) { nameError.textContent = ''; nameError.classList.remove('show'); }
-      });
-    }
-
-    if (nameBackBtn) {
-      nameBackBtn.addEventListener('click', () => {
-        if (step2) step2.classList.remove('active');
-        if (step1) step1.classList.add('active');
-      });
-    }
-
-    if (registerBtn) {
-      registerBtn.addEventListener('click', async () => {
-        const slot = this._selectedDeviceSlot;
-        const name = nameInput ? nameInput.value.trim() : '';
-        if (!slot || !name) return;
-        registerBtn.disabled = true;
-        registerBtn.textContent = 'Registering...';
-        const result = await pasteCraftSupabase.registerDevice(slot, name);
-        if (result.success) {
-          registerModal.classList.remove('active');
-          this.showToast(`Device registered as #${slot} "${name}"`, 'success');
-          this._currentDeviceNumber = slot;
-          this._currentDeviceName = name;
-        } else {
-          if (nameError) {
-            nameError.textContent = result.error || 'Registration failed';
-            nameError.classList.add('show');
-          }
-        }
-        registerBtn.disabled = false;
-        registerBtn.textContent = 'Register';
-      });
-    }
-
-    const renameModal = document.getElementById('deviceRenameModal');
-    const renameClose = document.getElementById('deviceRenameClose');
-    const renameInput = document.getElementById('deviceRenameInput');
-    const renameSaveBtn = document.getElementById('deviceRenameSaveBtn');
-    const renameError = document.getElementById('deviceRenameError');
-
-    if (renameClose) {
-      renameClose.addEventListener('click', () => {
-        if (renameModal) renameModal.classList.remove('active');
-      });
-    }
-
-    if (renameModal) {
-      renameModal.addEventListener('click', (e) => {
-        if (e.target === renameModal) renameModal.classList.remove('active');
-      });
-    }
-
-    if (renameInput) {
-      renameInput.addEventListener('input', () => {
-        if (renameSaveBtn) renameSaveBtn.disabled = !renameInput.value.trim();
-        if (renameError) { renameError.textContent = ''; renameError.classList.remove('show'); }
-      });
-    }
-
-    if (renameSaveBtn) {
-      renameSaveBtn.addEventListener('click', async () => {
-        const name = renameInput ? renameInput.value.trim() : '';
-        if (!name) return;
-        renameSaveBtn.disabled = true;
-        renameSaveBtn.textContent = 'Saving...';
-        const result = await pasteCraftSupabase.renameDevice(name);
-        if (result.success) {
-          if (renameModal) renameModal.classList.remove('active');
-          this.showToast('Device renamed', 'success');
-          this._currentDeviceName = name;
-        } else {
-          if (renameError) {
-            renameError.textContent = result.error || 'Rename failed';
-            renameError.classList.add('show');
-          }
-        }
-        renameSaveBtn.disabled = false;
-        renameSaveBtn.textContent = 'Save';
-      });
-    }
-  }
-
-  async openDeviceRegistrationModal() {
-    const modal = document.getElementById('deviceRegisterModal');
-    const slotGrid = document.getElementById('deviceSlotGrid');
-    const step1 = document.getElementById('deviceRegisterStep1');
-    const step2 = document.getElementById('deviceRegisterStep2');
-    const slotNextBtn = document.getElementById('deviceSlotNextBtn');
-    const slotError = document.getElementById('deviceSlotError');
-
-    if (!modal || !slotGrid) return;
-
-    if (step1) step1.classList.add('active');
-    if (step2) step2.classList.remove('active');
-    if (slotNextBtn) slotNextBtn.disabled = true;
-    if (slotError) { slotError.textContent = ''; slotError.classList.remove('show'); }
-    this._selectedDeviceSlot = null;
-
-    slotGrid.innerHTML = '<div class="device-sync-item-meta">Loading slots...</div>';
-    modal.classList.add('active');
-
-    try {
-      const slots = await pasteCraftSupabase.getAvailableDeviceSlots();
-      slotGrid.innerHTML = slots.map(slot => {
-        const taken = !slot.available;
-        const label = slot.deviceName ? slot.deviceName : (taken ? 'Taken' : '');
-        return `
-          <button class="device-slot-btn ${taken ? 'taken' : ''}" data-slot="${slot.number}" ${taken ? 'disabled' : ''}>
-            <span>${slot.number}</span>
-            ${label ? `<span class="slot-label">${this.escapeHtml(label)}</span>` : ''}
-          </button>
-        `;
-      }).join('');
-    } catch (err) {
-      slotGrid.innerHTML = '<div class="device-sync-item-meta">Failed to load slots</div>';
-    }
-  }
-
-  openDeviceRenameModal() {
-    const modal = document.getElementById('deviceRenameModal');
-    const input = document.getElementById('deviceRenameInput');
-    const saveBtn = document.getElementById('deviceRenameSaveBtn');
-    const error = document.getElementById('deviceRenameError');
-
-    if (!modal) return;
-
-    if (input) {
-      input.value = this._currentDeviceName || '';
-      if (saveBtn) saveBtn.disabled = !input.value.trim();
-    }
-    if (error) { error.textContent = ''; error.classList.remove('show'); }
-    modal.classList.add('active');
-    if (input) input.focus();
-  }
-
-  async checkDeviceRegistration() {
-    try {
-      const info = await pasteCraftSupabase.getCurrentDeviceInfo();
-      if (info && info.deviceNumber) {
-        this._currentDeviceNumber = info.deviceNumber;
-        this._currentDeviceName = info.deviceName || '';
-        return true;
-      }
-      return false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  async refreshSyncDevices() {
-    const tabs = document.getElementById('deviceSyncTabs');
-    const items = document.getElementById('deviceSyncItems');
-    if (!tabs || !items) return;
-    tabs.innerHTML = '';
-    items.innerHTML = '<div class="device-sync-item-meta">Loading devices...</div>';
-    try {
-      await pasteCraftSupabase.registerCurrentSyncDevice();
-      const devices = await pasteCraftSupabase.listSyncDevices();
-      this.syncDevices = Array.isArray(devices) ? devices.slice(0, 9) : [];
-      if (!this.syncDevices.length) {
-        this.activeSyncDeviceId = '';
-        items.innerHTML = '<div class="device-sync-item-meta">No remote devices available.</div>';
-        return;
-      }
-      if (!this.activeSyncDeviceId || !this.syncDevices.some((d) => String(d.deviceId) === this.activeSyncDeviceId)) {
-        this.activeSyncDeviceId = String(this.syncDevices[0].deviceId || '');
-      }
-      tabs.innerHTML = this.syncDevices.map((device) => {
-        const deviceId = String(device.deviceId || '');
-        const deviceNum = device.deviceNumber || null;
-        const displayName = String(device.displayName || '');
-        const label = deviceNum ? `#${deviceNum} ${displayName}` : (displayName || `Device ${deviceId.slice(0, 8)}`);
-        const lastSeenText = device.lastSeenAt ? this.getTimeAgo(Date.parse(device.lastSeenAt) || Date.now()) : 'offline';
-        const active = deviceId === this.activeSyncDeviceId ? 'active' : '';
-        return `<button class="device-sync-tab ${active}" data-device-id="${this.escapeHtml(deviceId)}" data-device-number="${deviceNum || ''}">${this.escapeHtml(label)} · ${this.escapeHtml(lastSeenText)}</button>`;
-      }).join('');
-      await this.refreshSyncCandidates();
-    } catch (error) {
-      items.innerHTML = '<div class="device-sync-item-meta">Unable to load devices right now.</div>';
-    }
-  }
-
-  async refreshSyncCandidates() {
-    const tabs = document.getElementById('deviceSyncTabs');
-    const items = document.getElementById('deviceSyncItems');
-    if (!tabs || !items || !this.activeSyncDeviceId) return;
-    tabs.querySelectorAll('.device-sync-tab').forEach((node) => {
-      node.classList.toggle('active', String(node.dataset.deviceId || '') === this.activeSyncDeviceId);
-    });
-    items.innerHTML = '<div class="device-sync-item-meta">Loading importable items...</div>';
-    try {
-      const metadata = await pasteCraftSupabase.getDeviceSyncMetadata(this.activeSyncDeviceId);
-      const localHashSet = new Set();
-      const localOriginKeySet = new Set();
-      const appendLocal = (itemType, record) => {
-        const hash = String(record?.contentHash || record?.content_hash || '').trim();
-        if (hash) localHashSet.add(hash);
-        const originId = String(record?.origin_device_id || '').trim();
-        const id = String(record?.id ?? '').trim();
-        if (originId && id) localOriginKeySet.add(`${originId}:${id}`);
-        const itemTypeId = String(record?.id ?? '').trim();
-        if (itemTypeId) localOriginKeySet.add(`${itemType}:${itemTypeId}`);
-      };
-      (this.clips || []).forEach((clip) => appendLocal('clips', clip));
-      (this.categories || []).forEach((category) => appendLocal('categories', category));
-      (this.notes || []).forEach((note) => appendLocal('notes', note));
-
-      const allRows = [
-        ...(Array.isArray(metadata?.clips) ? metadata.clips.map((row) => ({ ...row, itemType: 'clips' })) : []),
-        ...(Array.isArray(metadata?.categories) ? metadata.categories.map((row) => ({ ...row, itemType: 'categories' })) : []),
-        ...(Array.isArray(metadata?.notes) ? metadata.notes.map((row) => ({ ...row, itemType: 'notes' })) : [])
-      ];
-
-      const filtered = allRows.filter((row) => {
-        const hash = String(row?.content_hash || '').trim();
-        if (hash && localHashSet.has(hash)) return false;
-        const itemId = String(row?.id ?? '').trim();
-        const origin = String(row?.origin_device_id || '').trim();
-        if (origin && itemId && localOriginKeySet.has(`${origin}:${itemId}`)) return false;
-        if (itemId && localOriginKeySet.has(`${row.itemType}:${itemId}`)) return false;
-        return true;
-      });
-
-      this.syncDeviceCandidates = filtered;
-      if (!filtered.length) {
-        items.innerHTML = '<div class="device-sync-item-meta">No new items available from this device.</div>';
-        return;
-      }
-
-      items.innerHTML = filtered.map((row) => {
-        const itemId = String(row.id || '');
-        const preview = String(row.preview || row.title || row.name || row.text || itemId).slice(0, 240);
-        const updated = row.updated_at ? this.getTimeAgo(Date.parse(row.updated_at) || Date.now()) : 'just now';
-        return `
-          <div class="device-sync-item">
-            <div>
-              <div><strong>${this.escapeHtml(row.itemType.slice(0, -1))}</strong> · ${this.escapeHtml(preview)}</div>
-              <div class="device-sync-item-meta">Updated ${this.escapeHtml(updated)}</div>
-            </div>
-            <button class="btn-secondary device-sync-import-btn" data-item-type="${this.escapeHtml(row.itemType)}" data-item-id="${this.escapeHtml(itemId)}">Import</button>
-          </div>
-        `;
-      }).join('');
-    } catch (error) {
-      items.innerHTML = '<div class="device-sync-item-meta">Failed to fetch importable metadata.</div>';
-    }
-  }
-
-  async importRemoteItem({ itemType, itemId, sourceDeviceId }) {
-    const items = document.getElementById('deviceSyncItems');
-    if (!items) return;
-    try {
-      const payload = await pasteCraftSupabase.getDeviceSyncData(sourceDeviceId, [{ itemType, itemId }]);
-      const rows = Array.isArray(payload?.items) ? payload.items : [];
-      const row = rows[0];
-      if (!row || !row.payload) {
-        this.showToast('Import failed: item not found.', 'error');
-        return;
-      }
-
-      if (itemType === 'clips') {
-        await this.loadData();
-        const incoming = row.payload;
-        const incomingHash = String(row.content_hash || incoming.contentHash || incoming.content_hash || '').trim();
-        const incomingOrigin = String(row.origin_device_id || incoming.origin_device_id || sourceDeviceId || '').trim();
-        const incomingId = String(incoming.id || row.id || '').trim();
-        const exists = (this.clips || []).some((clip) => {
-          const clipHash = String(clip?.contentHash || clip?.content_hash || '').trim();
-          if (incomingHash && clipHash && incomingHash === clipHash) return true;
-          return incomingOrigin && incomingId && String(clip?.origin_device_id || '') === incomingOrigin && String(clip?.id || '') === incomingId;
-        });
-        if (!exists) {
-          this.clips.unshift({ ...incoming, origin_device_id: incomingOrigin || sourceDeviceId, contentHash: incomingHash || null });
-          await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
-          if (this._idbReady && this.idb) await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-          this.renderChips();
-        }
-      } else if (itemType === 'categories') {
-        await this.loadData();
-        const incoming = row.payload;
-        const incomingId = String(incoming.id || row.id || '').trim();
-        const incomingName = String(incoming?.name || '').trim().toLowerCase();
-        const incomingIcon = String(incoming?.icon || '📁').trim();
-        const exists = (this.categories || []).some((category) => {
-          if (String(category?.id || '') === incomingId) return true;
-          const catName = String(category?.name || '').trim().toLowerCase();
-          const catIcon = String(category?.icon || '📁').trim();
-          return catName === incomingName && catIcon === incomingIcon;
-        });
-        if (!exists) {
-          this.categories.push({ ...incoming, origin_device_id: row.origin_device_id || incoming.origin_device_id || sourceDeviceId });
-          await chrome.storage.local.set({ categories: this.categories, pc_local_updatedAt: Date.now() });
-          if (this._idbReady && this.idb) await this.idb.syncEntityFromLocalStorage('categories', this.categories);
-          this.renderCategories();
-        }
-      } else if (itemType === 'notes') {
-        await this.loadNotes();
-        const incoming = row.payload;
-        const incomingId = String(incoming.id || row.id || '').trim();
-        const incomingHash = String(row.content_hash || incoming.contentHash || incoming.content_hash || '').trim();
-        const incomingContent = this._getNoteContentForHash(incoming);
-        const exists = (this.notes || []).some((note) => {
-          if (String(note?.id || '') === incomingId) return true;
-          const noteHash = String(note?.contentHash || note?.content_hash || '').trim();
-          if (incomingHash && noteHash && incomingHash === noteHash) return true;
-          if (!incomingHash && !noteHash) {
-            const noteContent = this._getNoteContentForHash(note);
-            return noteContent && noteContent === incomingContent;
-          }
-          return false;
-        });
-        if (!exists) {
-          this.notes.unshift({ ...incoming, origin_device_id: row.origin_device_id || incoming.origin_device_id || sourceDeviceId, contentHash: incomingHash || null });
-          await this.saveNotes();
-          this.renderNotes();
-        }
-      }
-
-      await this.refreshSyncCandidates();
-      this.showToast('Imported successfully.', 'success');
-    } catch (error) {
-      this.showToast('Import failed. Try again.', 'error');
-    }
-  }
-  
   async loadData() {
     await this._ensureIndexedDbReadyAndMigrate();
     const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
@@ -3393,10 +2653,6 @@ class PasteCraftPopup {
           manualInputTextarea.value = '';
 
           // Background sync (do NOT block UI on network)
-          Promise.resolve()
-            .then(() => this.backupLocalToSync('save:manualInput'))
-            .catch(() => {});
-
           Promise.resolve()
             .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
             .catch(() => {});
@@ -8596,9 +7852,6 @@ class PasteCraftPopup {
 
       // Background sync
       Promise.resolve()
-        .then(() => this.backupLocalToSync('save:pdfExtract'))
-        .catch(() => {});
-      Promise.resolve()
         .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
         .catch(() => {});
       Promise.resolve()
@@ -9662,7 +8915,6 @@ class PasteCraftPopup {
         searchOnlyClips: this.searchOnlyClips,
         pc_local_updatedAt: Date.now()
       });
-      await this.backupLocalToSync('category:saveTextWithCategory');
       
       // 🔄 AUTO-SYNC TO DATABASE
       try {
@@ -9709,7 +8961,6 @@ class PasteCraftPopup {
         searchOnlyClips: this.searchOnlyClips,
         pc_local_updatedAt: Date.now()
       });
-      await this.backupLocalToSync('save:saveTextWithCategory');
       
       // 🔄 AUTO-SYNC TO DATABASE
       try {
@@ -15661,7 +14912,6 @@ class PasteCraftPopup {
       this.renderChips();
       this.renderCategories();
       this.renderNotes();
-      try { await this.backupLocalToSync('import:merge'); } catch (_) {}
 
       this.showToast('✅ Import complete (merged)');
     } catch (e) {
