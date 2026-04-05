@@ -4147,6 +4147,7 @@ class PasteCraftSupabase {
           'notes',
           'settings',
           'userProfile',
+          'pc_aiHistory_v1',
           'pc_deleted_clips',
           'pc_deleted_archived_clips',
           'pc_deleted_categories',
@@ -4160,6 +4161,7 @@ class PasteCraftSupabase {
       const localNotes = localData.notes || [];
       const localSettings = localData.settings || {};
       const localProfile = localData.userProfile || {};
+      const localAiHistory = localData.pc_aiHistory_v1 || [];
       const deletedClips = localData.pc_deleted_clips || [];
       const deletedArchivedClips = localData.pc_deleted_archived_clips || [];
       const deletedCategories = localData.pc_deleted_categories || [];
@@ -4213,6 +4215,17 @@ class PasteCraftSupabase {
           chrome.storage.local.set({ notes: mergedNotes }, resolve);
         });
         console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+      }
+
+      // Sync AI history
+      await this.syncAiHistoryToSupabase(localAiHistory);
+      const remoteAiHistory = await this.fetchAiHistoryFromSupabase();
+      if (remoteAiHistory && remoteAiHistory.length > 0) {
+        const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ pc_aiHistory_v1: mergedAiHistory }, resolve);
+        });
+        console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
       }
 
       // Sync settings
@@ -4271,7 +4284,8 @@ class PasteCraftSupabase {
           clips: remoteClips?.length || 0,
           categories: remoteCategories?.length || 0,
           archivedClips: remoteArchivedClips?.length || 0,
-          notes: remoteNotes?.length || 0
+          notes: remoteNotes?.length || 0,
+          aiHistory: remoteAiHistory?.length || 0
         }
       };
 

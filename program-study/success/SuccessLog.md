@@ -269,3 +269,8 @@
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/supabase-client.js, PasteCraft_Consult.pdf, instructions/STRIPE_SANDBOX_SETUP.md
 **Result:** Added debug agent logging to device sync flow for troubleshooting. (Commit: 0452681)
+
+### Apr 5, 2026 - Cross-Device Sync + Debug Cleanup
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js
+**Result:** Enabled automatic cross-device sync by removing device_id filters. Cleaned up debug instrumentation. (Commit: 3b6e746)
