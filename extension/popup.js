@@ -106,8 +106,14 @@ class PasteCraftCRUD {
     errorMessage, // string or (error) => string
     showToast // (message, type) => void
   }) {
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation STARTED - entityType: ${entityType}, entityId: ${entityId} (type: ${typeof entityId}), entityName: ${entityName}`);
+    // #endregion
     // PRACTICE #1: VALIDATION
     if (!entityId) {
+      // #region agent log
+      console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - INVALID entityId`);
+      // #endregion
       const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot delete';
       showToast?.(msg, 'error');
       return { success: false, error: 'Invalid entity ID' };
@@ -193,7 +199,13 @@ class PasteCraftCRUD {
         }
         return false;
       });
+      // #region agent log
+      console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - stillExists check: ${stillExists}, entityId: ${entityId} (type: ${typeof entityId})`);
+      // #endregion
       if (stillExists) {
+        // #region agent log
+        console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - ENTITY STILL EXISTS after deletion! Throwing error.`);
+        // #endregion
         throw new Error(`${entityType} still exists after deletion operation`);
       }
 
@@ -217,7 +229,13 @@ class PasteCraftCRUD {
       // PRACTICE #5: VERIFICATION - Verify deletion persisted
       if (verifier) {
         const verification = await verifier(entityId);
+        // #region agent log
+        console.warn(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - verification result: ${verification}`);
+        // #endregion
         if (!verification) {
+          // #region agent log
+          console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation - VERIFICATION FAILED! Entity still in storage.`);
+          // #endregion
           throw new Error(`Verification failed: ${entityType} still exists in storage`);
         }
       }
@@ -238,6 +256,9 @@ class PasteCraftCRUD {
 
       return { success: true, entity };
     } catch (error) {
+      // #region agent log
+      console.error(`[DEBUG-45c3cf] H6: CRUD.deleteOperation CAUGHT ERROR:`, error);
+      // #endregion
       // Rollback on any failure
       console.error(`❌ ${entityType} deletion failed, rolling back:`, error);
       await rollback();
@@ -3116,6 +3137,10 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
+    // #region agent log
+    this._setupEventListenersCallCount = (this._setupEventListenersCallCount || 0) + 1;
+    console.warn(`[DEBUG-45c3cf] H1: setupEventListeners called - count: ${this._setupEventListenersCallCount}`);
+    // #endregion
     // Upgrade banner + modal (must run on init; banner is visible for freemium users)
     const upgradeBanner = document.getElementById('upgradeBanner');
     if (upgradeBanner) {
@@ -3420,7 +3445,16 @@ class PasteCraftPopup {
     });
 
     document.getElementById('saveNote').addEventListener('click', () => {
-      this.saveNote();
+      // #region agent log
+      this._saveNoteClickCount = (this._saveNoteClickCount || 0) + 1;
+      const btn = document.getElementById('saveNote');
+      console.warn(`[DEBUG-45c3cf] H1/H2: Save Note CLICKED - click count: ${this._saveNoteClickCount}, setupCalls: ${this._setupEventListenersCallCount}, btnDisabled: ${btn?.disabled}, timestamp: ${Date.now()}`);
+      // #endregion
+      this.saveNote().catch(err => {
+        // #region agent log
+        console.error(`[DEBUG-45c3cf] H4: saveNote() UNCAUGHT ERROR:`, err);
+        // #endregion
+      });
     });
 
     document.getElementById('addClipToNote').addEventListener('click', () => {
@@ -13787,6 +13821,9 @@ class PasteCraftPopup {
   }
 
   async saveNotes() {
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H4: saveNotes() STARTED - notes count: ${this.notes?.length}`);
+    // #endregion
     // Use CRUD utility for reliable notes save with retry and verification
     const snapshot = PasteCraftCRUD.createSnapshot(this.notes);
     
@@ -13807,7 +13844,13 @@ class PasteCraftPopup {
       }
 
       console.log(`💾 Saved ${this.notes.length} notes`);
+      // #region agent log
+      console.warn(`[DEBUG-45c3cf] H4: saveNotes() SUCCESS - verified ${verifiedNotes.length} notes`);
+      // #endregion
     } catch (error) {
+      // #region agent log
+      console.error(`[DEBUG-45c3cf] H4: saveNotes() FAILED with error:`, error);
+      // #endregion
       // Rollback on failure
       console.error('❌ Notes save failed, rolling back:', error);
       this.notes = snapshot;
@@ -13828,6 +13871,10 @@ class PasteCraftPopup {
   }
 
   renderNotes() {
+    // #region agent log
+    this._renderNotesCallCount = (this._renderNotesCallCount || 0) + 1;
+    console.warn(`[DEBUG-45c3cf] H7: renderNotes() CALLED - count: ${this._renderNotesCallCount}, notesCount: ${this.notes?.length}, pageIndex: ${this.notesPageIndex}`);
+    // #endregion
     const container = document.getElementById('notesContainer');
     const paginationEl = document.getElementById('notesPagination');
     const isListView = !!container?.classList?.contains('list-view');
@@ -13938,10 +13985,22 @@ class PasteCraftPopup {
         paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
           btn.addEventListener('click', async () => {
             const nextPage = parseInt(btn.dataset.page, 10);
+            // #region agent log
+            console.warn(`[DEBUG-45c3cf] H7: Pagination CLICKED - nextPage: ${nextPage}, currentPage: ${this.notesPageIndex}, timestamp: ${Date.now()}`);
+            // #endregion
             if (!Number.isNaN(nextPage)) {
               this.notesPageIndex = nextPage;
+              // #region agent log
+              console.warn(`[DEBUG-45c3cf] H7: Pagination - saving prefs, new pageIndex: ${this.notesPageIndex}`);
+              // #endregion
               await this.saveNotesPrefs();
+              // #region agent log
+              console.warn(`[DEBUG-45c3cf] H7: Pagination - prefs saved, calling renderNotes()`);
+              // #endregion
               this.renderNotes();
+              // #region agent log
+              console.warn(`[DEBUG-45c3cf] H7: Pagination - renderNotes() completed`);
+              // #endregion
             }
           });
         });
@@ -13981,7 +14040,14 @@ class PasteCraftPopup {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const noteId = btn.dataset.noteId;
-        this.deleteNote(noteId);
+        // #region agent log
+        console.warn(`[DEBUG-45c3cf] H6: Delete button CLICKED - noteId: ${noteId}, timestamp: ${Date.now()}`);
+        // #endregion
+        this.deleteNote(noteId).catch(err => {
+          // #region agent log
+          console.error(`[DEBUG-45c3cf] H6: deleteNote() UNCAUGHT ERROR:`, err);
+          // #endregion
+        });
       });
     });
 
@@ -14150,7 +14216,14 @@ class PasteCraftPopup {
   }
 
   closeNoteEditor() {
+    // #region agent log
+    const modal = document.getElementById('noteEditorModal');
+    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() called - modal display BEFORE: "${modal?.style?.display}"`);
+    // #endregion
     document.getElementById('noteEditorModal').style.display = 'none';
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() - modal display AFTER: "${modal?.style?.display}"`);
+    // #endregion
     this.currentNoteId = null;
     this.currentNoteType = 'note';
     this.currentNoteAttachments = [];
@@ -14193,6 +14266,11 @@ class PasteCraftPopup {
   }
 
   async saveNote() {
+    // #region agent log
+    this._saveNoteExecCount = (this._saveNoteExecCount || 0) + 1;
+    const _debugRunId = `run_${Date.now()}`;
+    console.warn(`[DEBUG-45c3cf] H2/H4: saveNote() STARTED - exec count: ${this._saveNoteExecCount}, runId: ${_debugRunId}`);
+    // #endregion
     const isUpdate = !!this.currentNoteId;
     const title = document.getElementById('noteTitleInput').value.trim();
     const description = document.getElementById('noteDescriptionInput').value.trim();
@@ -14234,10 +14312,25 @@ class PasteCraftPopup {
       this.refreshAlbumsForNote(noteData);
     }
 
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H4: About to call saveNotes()`);
+    // #endregion
     await this.saveNotes();
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H4: saveNotes() COMPLETED`);
+    // #endregion
     await this.saveNotesPrefs();
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H4: saveNotesPrefs() COMPLETED`);
+    // #endregion
     this.renderNotes();
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H3: About to call closeNoteEditor()`);
+    // #endregion
     this.closeNoteEditor();
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H3: closeNoteEditor() COMPLETED - modal should be hidden now`);
+    // #endregion
 
     // If album was created from the picker, re-open picker so user can continue
     if (this.createdFromPicker) {
@@ -14254,6 +14347,9 @@ class PasteCraftPopup {
     } catch (_) {
       // ignore
     }
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H2/H4: saveNote() FINISHED - total notes: ${this.notes.length}`);
+    // #endregion
   }
 
   refreshAlbumsForNote(sourceNote) {
@@ -14369,12 +14465,31 @@ class PasteCraftPopup {
   }
 
   async deleteNote(noteId) {
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H6: deleteNote() STARTED - noteId: ${noteId}, notesCount: ${this.notes?.length}`);
+    // #endregion
     const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
+    if (!note) {
+      // #region agent log
+      console.warn(`[DEBUG-45c3cf] H6: deleteNote() - NOTE NOT FOUND - noteId: ${noteId}`);
+      // #endregion
+      return;
+    }
 
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H6: deleteNote() - found note: "${note.title}", showing confirm dialog`);
+    // #endregion
     const confirmed = confirm(`Delete "${note.title}"?`);
-    if (!confirmed) return;
+    if (!confirmed) {
+      // #region agent log
+      console.warn(`[DEBUG-45c3cf] H6: deleteNote() - user CANCELLED delete`);
+      // #endregion
+      return;
+    }
 
+    // #region agent log
+    console.warn(`[DEBUG-45c3cf] H6: deleteNote() - user CONFIRMED, calling PasteCraftCRUD.deleteOperation`);
+    // #endregion
     return await PasteCraftCRUD.deleteOperation({
       entityId: noteId,
       entityName: note.title,
@@ -14420,8 +14535,18 @@ class PasteCraftPopup {
         }], pasteCraftSupabase.syncDeletedNotesToSupabase);
         await pasteCraftSupabase.syncWithQueue('syncNotes', this.notes, pasteCraftSupabase.syncNotesToSupabase);
       },
-      successMessage: (entity) => `✅ Note "${entity.name}" deleted`,
-      errorMessage: (error) => `❌ Failed to delete note: ${error.message || 'Unknown error'}`,
+      successMessage: (entity) => {
+        // #region agent log
+        console.warn(`[DEBUG-45c3cf] H6: deleteNote() SUCCESS - deleted: "${entity.name}"`);
+        // #endregion
+        return `✅ Note "${entity.name}" deleted`;
+      },
+      errorMessage: (error) => {
+        // #region agent log
+        console.error(`[DEBUG-45c3cf] H6: deleteNote() FAILED:`, error);
+        // #endregion
+        return `❌ Failed to delete note: ${error.message || 'Unknown error'}`;
+      },
       showToast: (msg, type) => this.showToast(msg, type)
     });
   }
