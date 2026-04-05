@@ -33,6 +33,10 @@ class PasteCraftSupabase {
    * @returns {Promise<boolean>} - True if saved successfully
    */
   async _safeStorageSet(data) {
+    // #region agent log
+    const keys = Object.keys(data || {});
+    console.warn('[SYNC-DEBUG] _safeStorageSet called', { keys });
+    // #endregion
     try {
       await new Promise((resolve, reject) => {
         chrome.storage.local.set(data, () => {
@@ -43,6 +47,9 @@ class PasteCraftSupabase {
           }
         });
       });
+      // #region agent log
+      console.warn('[SYNC-DEBUG] _safeStorageSet SUCCESS', { keys });
+      // #endregion
       return true;
     } catch (err) {
       const msg = String(err?.message || err || '');
@@ -463,7 +470,6 @@ class PasteCraftSupabase {
     
     console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
     this.updateSyncStatus('syncing');
-    await this._registerCurrentDeviceBestEffort('processSyncQueue');
     
     const queue = [...this.syncQueue];
     this.syncQueue = [];
@@ -546,7 +552,6 @@ class PasteCraftSupabase {
     
     try {
       // Online: sync immediately
-      await this._registerCurrentDeviceBestEffort(`syncWithQueue:${String(type || '')}`);
       this.updateSyncStatus('syncing');
       await syncMethod.call(this, data);
       this.updateSyncStatus('synced');
@@ -563,6 +568,9 @@ class PasteCraftSupabase {
   // =====================================================
   
   async setupRealtimeSubscriptions() {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] setupRealtimeSubscriptions called', { client: !!this.client, isOnline: this.isOnline, pauseSync: this._pauseSync });
+    // #endregion
     if (!this.client || !this.isOnline) {
       console.warn('⚠️ Skipping realtime subscriptions - offline or not initialized');
       return;
@@ -686,6 +694,9 @@ class PasteCraftSupabase {
   }
 
   async handleClipsChange(payload) {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] handleClipsChange fired', { eventType: payload?.eventType, table: payload?.table });
+    // #endregion
     if (this._shouldThrottleRealtime('clips')) return;
     console.log('🔔 Clips changed:', payload.eventType);
     
@@ -743,6 +754,9 @@ class PasteCraftSupabase {
   }
 
   async handleNotesChange(payload) {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] handleNotesChange fired', { eventType: payload?.eventType, table: payload?.table });
+    // #endregion
     if (this._shouldThrottleRealtime('notes')) return;
     console.log('🔔 Notes changed:', payload.eventType);
 
@@ -1577,6 +1591,9 @@ class PasteCraftSupabase {
    * Sync local clips to Supabase (with batch support for large datasets)
    */
   async syncClipsToSupabase(localClips) {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] syncClipsToSupabase called', { clipCount: localClips?.length || 0 });
+    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping clip sync');
       return false;
@@ -1889,6 +1906,9 @@ class PasteCraftSupabase {
    * Fetches ALL clips for the user across ALL devices for automatic cross-device sync.
    */
   async syncClipsFromSupabase(userIdOverride = null) {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] syncClipsFromSupabase called', { userIdOverride: !!userIdOverride });
+    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping clip sync');
       return null;
@@ -3943,6 +3963,9 @@ class PasteCraftSupabase {
    * Perform full bidirectional sync on extension startup
    */
   async performFullSync() {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] performFullSync called', { client: !!this.client, pauseSync: this._pauseSync });
+    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping full sync');
       return {

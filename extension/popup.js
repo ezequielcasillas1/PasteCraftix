@@ -1223,10 +1223,6 @@ class PasteCraftPopup {
     console.log('✅ User authenticated:', currentUser.email);
     this.currentUser = currentUser;
 
-    // Best-effort: ensure this device is discoverable for cross-device import.
-    Promise.resolve()
-      .then(() => pasteCraftSupabase.registerCurrentSyncDevice())
-      .catch(() => {});
 
     // If PIN lock is enabled, require unlock before proceeding.
     const pinOk = await this.maybeRequirePinUnlock();
@@ -1517,6 +1513,9 @@ class PasteCraftPopup {
   }
 
   setupLocalStorageListener() {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] setupLocalStorageListener called');
+    // #endregion
     try {
       // Debounce repeated local change events and avoid re-entrancy loops.
       this._handlingLocalChange = false;
@@ -1531,6 +1530,11 @@ class PasteCraftPopup {
       };
 
       chrome.storage.onChanged.addListener((changes, areaName) => {
+        // #region agent log
+        if (areaName === 'local' && changes) {
+          console.warn('[SYNC-DEBUG] storage.onChanged fired', { areaName, changedKeys: Object.keys(changes) });
+        }
+        // #endregion
         if (areaName !== 'local') return;
         if (!changes) return;
 
@@ -1990,6 +1994,9 @@ class PasteCraftPopup {
   }
   
   async performBackgroundSync({ force = false, reason = 'background-sync' } = {}) {
+    // #region agent log
+    console.warn('[SYNC-DEBUG] performBackgroundSync called', { force, reason });
+    // #endregion
     try {
       // Guardrail: after a local restore, don't auto-sync for a short window unless explicitly forced.
       if (!force) {
