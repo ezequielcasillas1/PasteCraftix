@@ -20,6 +20,9 @@ class PasteCraftSupabase {
     this._deviceRegisterCooldownMs = 60 * 1000; // avoid repeated upserts during rapid sync bursts
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
+    // Cache flag to avoid repeated ensureUserProfileRow calls (quota optimization)
+    this._profileRowEnsured = false;
+    this._profileRowEnsuredUserId = null;
     // Throttle realtime handlers to avoid exceeding Chrome storage quota (120 writes/min)
     this._realtimeThrottle = {};
     this._realtimeThrottleMs = 5000; // minimum 5 seconds between handling same event type
@@ -1565,11 +1568,16 @@ class PasteCraftSupabase {
 
   async ensureUserProfileRow(userId) {
     if (!this.client) return;
+    if (this._profileRowEnsured && this._profileRowEnsuredUserId === userId) {
+      return;
+    }
     try {
       await this.setUserContext(userId);
       await this.client
         .from('user_profiles')
-        .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: false });
+        .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+      this._profileRowEnsured = true;
+      this._profileRowEnsuredUserId = userId;
     } catch (_) {
       // Don't block sync if profile row can't be ensured
     }
@@ -1611,7 +1619,6 @@ class PasteCraftSupabase {
       }
       
       await this.setUserContext(userId);
-      await this.ensureUserProfileRow(userId);
 
       const deviceId = await this.getDeviceId();
       const totalClips = Array.isArray(localClips) ? localClips.length : 0;
@@ -1658,7 +1665,6 @@ class PasteCraftSupabase {
     if (!this.client) return false;
     try {
       await this.setUserContext(userId);
-      await this.ensureUserProfileRow(userId);
 
       const deviceId = await this.getDeviceId();
       const dbClips = this.buildDbClipsForUpsert(localClips, userId, deviceId);
@@ -3592,6 +3598,9 @@ class PasteCraftSupabase {
     try {
       console.log('👋 Signing out user...');
       
+      this._profileRowEnsured = false;
+      this._profileRowEnsuredUserId = null;
+      
       const { error } = await this.client.auth.signOut();
 
       if (error) throw error;
@@ -3649,6 +3658,8 @@ class PasteCraftSupabase {
 
     // Stop background work immediately.
     this._pauseSync = true;
+    this._profileRowEnsured = false;
+    this._profileRowEnsuredUserId = null;
     try { this.unsubscribeAll(); } catch (_) {}
     try { this.updateSyncStatus('offline'); } catch (_) {}
 

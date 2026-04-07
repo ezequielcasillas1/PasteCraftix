@@ -528,7 +528,7 @@ class PasteCraftPopup {
     // Global theme (single source of truth). Quick Paste follows this.
     this.theme = 'light'; // 'light' | 'dark'
     // Dark mode is enabled (single source of truth: `theme`).
-    this.darkModeComingSoon = false;
+    this.darkModeComingSoon = true;
     this._themeSyncing = false;
     this.searchOnlyClips = [];
     // These store stable clip id keys (String(clip.id)), not numbers.
@@ -9550,6 +9550,17 @@ class PasteCraftPopup {
       } else {
         darkModeToggle.disabled = false;
         darkModeToggle.checked = this.theme === 'dark';
+      }
+    }
+    // Profile dark mode toggle (coming soon)
+    const profileDarkModeToggle = document.getElementById('profileDarkModeToggle');
+    if (profileDarkModeToggle) {
+      if (this.darkModeComingSoon) {
+        profileDarkModeToggle.checked = false;
+        profileDarkModeToggle.disabled = true;
+      } else {
+        profileDarkModeToggle.disabled = false;
+        profileDarkModeToggle.checked = this.theme === 'dark';
       }
     }
     

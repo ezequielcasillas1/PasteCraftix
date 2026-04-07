@@ -1,3 +1,8 @@
+### Apr 7, 2026 - Fix Realtime Message Quota Drain
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js, db/migrations/20260407_add_profile_rate_limit.sql, tests/profile-rate-limit.test.js, package.json
+**Result:** Fixed 6M+ Realtime messages/month from user_profiles updates. Client: ignoreDuplicates=true, profile row caching, removed redundant calls. DB: 50/day rate limit trigger. Tests: 3/3 passed.
+
 ### Feb 20, 2026 - Device sync fixes, clip sort, diff authority
 **Status:** ✅ SUCCESS
 **Files:** bugfixes.md, extension/popup.js, extension/supabase-client.js
@@ -294,3 +299,9 @@
 **Status:** ✅ SUCCESS
 **Files:** popup.html, popup.js, supabase-client.js
 **Result:** Removed "View Available Devices to Sync" feature, device registration/rename, sync backup functions. Cloud sync now uses Supabase only. 1247 lines deleted.
+
+### Apr 5, 2026 - Sync Debug Instrumentation
+**Status:** ✅ SUCCESS
+**Commit:** 36ac916
+**Files:** popup.js, supabase-client.js
+**Result:** Added SYNC-DEBUG logging to key sync functions. Removed remaining device registration calls.

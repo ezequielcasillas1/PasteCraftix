@@ -5,7 +5,9 @@
   "author": "Ezequiel Casillas",
   "license": "MIT",
   "scripts": {
-    "test": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
+    "test": "node tests/profile-rate-limit.test.js",
+    "test:rate-limit": "node tests/profile-rate-limit.test.js",
+    "test:legacy": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
     "setup": "echo \"Follow START_HERE.md for setup instructions\" && exit 0",
     "docs": "echo \"Documentation available in .md files\" && exit 0",
     "feature-icons": "node scripts/convert-feature-icons.js 256",
@@ -24,6 +26,7 @@
     "url": "https://github.com/ezequielcasillas1/pastecraft-mobile"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.102.1",
     "sharp": "^0.33.5"
   }
 }
