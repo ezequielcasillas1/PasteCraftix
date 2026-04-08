@@ -2547,6 +2547,9 @@ class PasteCraftPopup {
           await this.loadAiHistory();
           this.renderAiHistoryList();
           console.log('✅ AI History loaded');
+        } else if (this.currentTab === 'activity') {
+          await this.loadActivityLog();
+          this.renderActivityList();
         }
       }
     });
@@ -4255,6 +4258,9 @@ class PasteCraftPopup {
     
     // Initialize delimiter example text
     this.updateDelimiterExample();
+
+    // Activity log event listeners
+    this.initActivityEventListeners();
   }
   
   // =====================================================
@@ -11209,31 +11215,33 @@ class PasteCraftPopup {
 
     let strength = 0;
     
-    // Check requirements
+    // Check all requirements (matching Supabase settings)
     const hasLength = password.length >= 8;
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
     
     // Update requirement indicators
     this.updateRequirement('req-length', hasLength);
+    this.updateRequirement('req-lowercase', hasLowercase);
+    this.updateRequirement('req-uppercase', hasUppercase);
     this.updateRequirement('req-number', hasNumber);
     this.updateRequirement('req-special', hasSpecial);
     
-    // Calculate strength
-    if (password.length >= 8) strength += 25;
-    if (password.length >= 12) strength += 25;
-    
-    // Complexity checks
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
-    if (hasNumber) strength += 12.5;
-    if (hasSpecial) strength += 12.5;
+    // Calculate strength (20% each requirement)
+    if (hasLength) strength += 20;
+    if (hasLowercase) strength += 20;
+    if (hasUppercase) strength += 20;
+    if (hasNumber) strength += 20;
+    if (hasSpecial) strength += 20;
     
     strengthBar.style.width = `${strength}%`;
     
     // Color based on strength
-    if (strength < 40) {
+    if (strength < 60) {
       strengthBar.style.background = '#EF4444'; // Red
-    } else if (strength < 70) {
+    } else if (strength < 100) {
       strengthBar.style.background = '#F59E0B'; // Orange
     } else {
       strengthBar.style.background = '#10B981'; // Green
@@ -11255,44 +11263,50 @@ class PasteCraftPopup {
     }
   }
 
-  // Validate password meets all requirements
+  // Validate password meets all requirements (matching Supabase settings)
   validatePassword(password) {
     const hasLength = password.length >= 8;
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
     
-    return hasLength && hasNumber && hasSpecial;
+    return hasLength && hasLowercase && hasUppercase && hasNumber && hasSpecial;
   }
 
-  // Update password strength for new password form
+  // Update password strength for new password form (matching Supabase settings)
   updateNewPasswordStrength(password) {
     const strengthBar = document.querySelector('#newPasswordStrength .strength-bar');
     if (!strengthBar) return;
 
     let strength = 0;
     
-    // Check requirements
+    // Check all requirements
     const hasLength = password.length >= 8;
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
     
     // Update requirement indicators
     this.updateRequirement('new-req-length', hasLength);
+    this.updateRequirement('new-req-lowercase', hasLowercase);
+    this.updateRequirement('new-req-uppercase', hasUppercase);
     this.updateRequirement('new-req-number', hasNumber);
     this.updateRequirement('new-req-special', hasSpecial);
     
-    // Calculate strength
-    if (password.length >= 8) strength += 25;
-    if (password.length >= 12) strength += 25;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
-    if (hasNumber) strength += 12.5;
-    if (hasSpecial) strength += 12.5;
+    // Calculate strength (20% each requirement)
+    if (hasLength) strength += 20;
+    if (hasLowercase) strength += 20;
+    if (hasUppercase) strength += 20;
+    if (hasNumber) strength += 20;
+    if (hasSpecial) strength += 20;
     
     strengthBar.style.width = `${strength}%`;
     
-    if (strength < 40) {
+    if (strength < 60) {
       strengthBar.style.background = '#EF4444';
-    } else if (strength < 70) {
+    } else if (strength < 100) {
       strengthBar.style.background = '#F59E0B';
     } else {
       strengthBar.style.background = '#10B981';
@@ -12395,6 +12409,12 @@ class PasteCraftPopup {
           } else if (savedTab === 'notes') {
             await this.loadNotes();
             this.renderNotes();
+          } else if (savedTab === 'activity') {
+            await this.loadActivityLog();
+            this.renderActivityList();
+          } else if (savedTab === 'aiHistory') {
+            await this.loadAiHistory();
+            this.renderAiHistoryList();
           }
         }
       }
@@ -15946,6 +15966,227 @@ class PasteCraftPopup {
     this.pendingNoteForAlbum = null;
     this.showToast(`Note added to album "${album.title}"`);
     this.renderNotes(); // Refresh to show updated counts
+  }
+
+  // ==================== ACTIVITY LOG SYSTEM ====================
+
+  /** Load activity log entries from change_audit_log table */
+  async loadActivityLog() {
+    try {
+      this.activityEntries = [];
+      this.activityOffset = 0;
+      this.activityFilter = 'all';
+      this.activityHasMore = true;
+
+      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) {
+        console.warn('⚠️ Supabase client not available for activity log');
+        return;
+      }
+
+      const supabase = pasteCraftSupabase.client;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('⚠️ User not logged in - activity log unavailable');
+        return;
+      }
+
+      await this.fetchActivityPage();
+    } catch (error) {
+      console.error('❌ Failed to load activity log:', error);
+    }
+  }
+
+  /** Fetch a page of activity entries */
+  async fetchActivityPage(append = false) {
+    try {
+      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) return;
+      const supabase = pasteCraftSupabase.client;
+
+      const pageSize = 20;
+      let query = supabase
+        .from('change_audit_log')
+        .select('id, occurred_at, table_name, operation, row_old, row_new')
+        .order('occurred_at', { ascending: false })
+        .range(this.activityOffset, this.activityOffset + pageSize - 1);
+
+      if (this.activityFilter && this.activityFilter !== 'all') {
+        query = query.eq('operation', this.activityFilter);
+      }
+
+      const dateFrom = document.getElementById('activityDateFrom')?.value;
+      const dateTo = document.getElementById('activityDateTo')?.value;
+      if (dateFrom) {
+        query = query.gte('occurred_at', dateFrom);
+      }
+      if (dateTo) {
+        query = query.lte('occurred_at', dateTo + 'T23:59:59');
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ Activity query error:', error);
+        return;
+      }
+
+      if (append) {
+        this.activityEntries = [...this.activityEntries, ...(data || [])];
+      } else {
+        this.activityEntries = data || [];
+      }
+
+      this.activityHasMore = (data?.length || 0) >= pageSize;
+      this.activityOffset += data?.length || 0;
+
+    } catch (error) {
+      console.error('❌ Failed to fetch activity page:', error);
+    }
+  }
+
+  /** Render activity list UI */
+  renderActivityList() {
+    const container = document.getElementById('activityList');
+    const loadMoreBtn = document.getElementById('loadMoreActivityBtn');
+    if (!container) return;
+
+    if (!this.activityEntries || this.activityEntries.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📊</div>
+          <h3>No cloud activity yet</h3>
+          <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
+        </div>
+      `;
+      if (loadMoreBtn) loadMoreBtn.style.display = 'none';
+      return;
+    }
+
+    container.innerHTML = this.activityEntries.map(entry => {
+      const icon = this.getActivityIcon(entry.operation);
+      const iconClass = entry.operation.toLowerCase();
+      const tableBadge = this.getTableBadge(entry.table_name);
+      const summary = this.getActivitySummary(entry);
+      const timeAgo = this.formatTimeAgo(new Date(entry.occurred_at));
+
+      return `
+        <div class="activity-entry" data-id="${entry.id}">
+          <div class="activity-entry-icon ${iconClass}">${icon}</div>
+          <div class="activity-entry-info">
+            <div class="activity-entry-title">${summary}</div>
+            <div class="activity-entry-meta">${timeAgo}</div>
+          </div>
+          <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+        </div>
+      `;
+    }).join('');
+
+    if (loadMoreBtn) {
+      loadMoreBtn.style.display = this.activityHasMore ? 'block' : 'none';
+    }
+  }
+
+  /** Get icon for operation type */
+  getActivityIcon(operation) {
+    switch (operation) {
+      case 'INSERT': return '➕';
+      case 'UPDATE': return '✏️';
+      case 'DELETE': return '🗑️';
+      default: return '📝';
+    }
+  }
+
+  /** Get badge label for table name */
+  getTableBadge(tableName) {
+    const badges = {
+      clips: 'Clip',
+      categories: 'Category',
+      notes: 'Note',
+      settings: 'Settings',
+      user_profiles: 'Profile',
+      archived_clips: 'Archive'
+    };
+    return badges[tableName] || tableName;
+  }
+
+  /** Generate human-readable summary of the activity */
+  getActivitySummary(entry) {
+    const action = entry.operation === 'INSERT' ? 'Created' :
+                   entry.operation === 'UPDATE' ? 'Updated' :
+                   entry.operation === 'DELETE' ? 'Deleted' : 'Modified';
+    
+    const table = this.getTableBadge(entry.table_name).toLowerCase();
+    
+    // Try to extract a meaningful identifier
+    let identifier = '';
+    const data = entry.row_new || entry.row_old;
+    if (data) {
+      if (data.text) {
+        identifier = `: "${data.text.substring(0, 30)}${data.text.length > 30 ? '...' : ''}"`;
+      } else if (data.name) {
+        identifier = `: "${data.name}"`;
+      } else if (data.title) {
+        identifier = `: "${data.title}"`;
+      }
+    }
+
+    return `${action} ${table}${identifier}`;
+  }
+
+  /** Format timestamp as relative time */
+  formatTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  }
+
+  /** Initialize activity tab event listeners */
+  initActivityEventListeners() {
+    // Refresh button
+    document.getElementById('refreshActivityBtn')?.addEventListener('click', async () => {
+      this.activityOffset = 0;
+      await this.fetchActivityPage();
+      this.renderActivityList();
+      this.showToast('Activity refreshed');
+    });
+
+    // Filter chips
+    document.querySelectorAll('.activity-filter-chip').forEach(chip => {
+      chip.addEventListener('click', async () => {
+        document.querySelectorAll('.activity-filter-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        this.activityFilter = chip.dataset.filter;
+        this.activityOffset = 0;
+        await this.fetchActivityPage();
+        this.renderActivityList();
+      });
+    });
+
+    // Date filters
+    document.getElementById('activityDateFrom')?.addEventListener('change', async () => {
+      this.activityOffset = 0;
+      await this.fetchActivityPage();
+      this.renderActivityList();
+    });
+
+    document.getElementById('activityDateTo')?.addEventListener('change', async () => {
+      this.activityOffset = 0;
+      await this.fetchActivityPage();
+      this.renderActivityList();
+    });
+
+    // Load more button
+    document.getElementById('loadMoreActivityBtn')?.addEventListener('click', async () => {
+      await this.fetchActivityPage(true);
+      this.renderActivityList();
+    });
   }
 }
 

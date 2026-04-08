@@ -476,6 +476,40 @@ state management.
 
 ---
 
+#### 39. Activity Log History UI
+**Priority:** Medium  
+**Status:** In progress  
+**Requirements:**
+- Add "Activity History" page/tab showing user's audit logs from `change_audit_log`
+- Display: action type, table affected, timestamp, summary of change
+- Filter by date range, action type (INSERT/UPDATE/DELETE)
+- Paginated list with newest first
+- RLS policy ensures users see only their own logs (Option A implemented)
+
+---
+
+#### 40. Password Validation UI (Match Supabase Settings)
+**Priority:** High  
+**Status:** In progress  
+**Requirements:**
+- **Min 8 characters** - show real-time character count indicator
+- **Complexity rules** - require: lowercase, uppercase, digit, symbol
+- **Visual feedback** - checkmarks/x for each requirement as user types
+- **Strength meter** - color-coded bar (red/yellow/green)
+- **Apply to:** Sign Up form, Change Password form, Reset Password form
+- **OTP display** - 6-digit input field with 1-hour expiry note
+
+---
+
+#### 41. Clip Rate Limiting + Admin Spam Control
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- **Rate limit:** Block inserts at 700 clips/day per user, resets after 24 hours
+- **Admin "Spammy Injection" section:** Show users who hit/exceeded limit
+- **Admin actions:** Ban user, delete user, send warning email
+- **Limit bypass:** Input field "Increase clip limit by ____" for trusted users
+- **DB trigger:** `check_clip_insert_limit()` with configurable per-user override column
 
 ---
 

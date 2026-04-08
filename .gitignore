@@ -33,6 +33,9 @@ tmp/
 temp/
 *.tmp
 
+# Browser test profiles
+tests/.browser-profiles/
+
 # Chrome Extension
 *.crx
 *.pem

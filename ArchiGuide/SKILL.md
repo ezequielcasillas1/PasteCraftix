@@ -1,0 +1,133 @@
+---
+name: core-conventions
+description: Naming, file structure, and JavaScript conventions for the browser extension. Load when writing or reviewing any JS, HTML, or CSS file.
+---
+
+# Core Conventions
+
+References:
+- https://developer.chrome.com/docs/extensions/mv3/
+- https://developer.chrome.com/docs/extensions/reference/manifest
+- https://www.patterns.dev/vanilla/observer-pattern/
+- https://www.grizzlypeaksoftware.com/library/vanilla-javascript-patterns-for-modern-browsers-9jkhhape
+
+## File Naming
+
+| File type | Convention | Example |
+|---|---|---|
+| JS modules | kebab-case | feature-a.js, ui-injector.js |
+| CSS files | kebab-case | popup.css, widget.css |
+| HTML pages | kebab-case | popup.html, options.html |
+| Handler files | name.handler.js | checkout.handler.js |
+| Migration files | YYYYMMDDHHmmss_description.sql | 20260331_create_profiles.sql |
+| Edge Functions | kebab-case dir + index.ts | stripe-webhook/index.ts |
+
+## Module Pattern (Vanilla JS)
+
+Every JS module exports named functions. No global variables.
+
+```js
+// shared/store.js
+// Observer-based state -- no framework needed.
+// Reference: https://www.patterns.dev/vanilla/observer-pattern/
+
+function createStore(initialState) {
+  let state = structuredClone(initialState)
+  const subscribers = new Set()
+
+  return {
+    getState() {
+      return structuredClone(state)
+    },
+    setState(updater) {
+      const prev = state
+      state = typeof updater === 'function'
+        ? { ...state, ...updater(state) }
+        : { ...state, ...updater }
+      subscribers.forEach(fn => fn(state, prev))
+    },
+    subscribe(fn) {
+      subscribers.add(fn)
+      return () => subscribers.delete(fn) // unsubscribe
+    },
+  }
+}
+
+export const appStore = createStore({
+  user: null,
+  subscription: 'free',
+})
+```
+
+## Constants File
+
+```js
+// shared/constants.js
+// All app-wide constants. No magic strings anywhere else.
+
+export const STORAGE_KEYS = {
+  SESSION: 'supabase-session',
+  SETTINGS: 'ext-settings',
+}
+
+export const MESSAGE_TYPES = {
+  CHECKOUT: 'checkout',
+  AUTH_SIGN_IN: 'auth:sign-in',
+  AUTH_SIGN_OUT: 'auth:sign-out',
+  AUTH_CALLBACK: 'auth:callback',
+}
+
+export const SUBSCRIPTION = {
+  FREE: 'free',
+  ACTIVE: 'active',
+  CANCELED: 'canceled',
+  PAST_DUE: 'past_due',
+}
+```
+
+## HTML Conventions
+
+- No inline event handlers (onclick, onsubmit). MV3 CSP forbids them.
+- Use data-action attributes for event delegation.
+- Use data-field attributes for DOM querying -- never fabricate id attributes.
+- Script tags at end of body, type="module".
+
+```html
+<!-- Good: data-action event delegation -->
+<button data-action="upgrade">Upgrade</button>
+<input data-field="email" type="email" />
+
+<!-- Bad: inline handlers (forbidden by MV3 CSP) -->
+<button onclick="upgrade()">Upgrade</button>
+```
+
+## Error Handling Pattern
+
+```js
+// All async functions should wrap errors with context
+async function fetchUserProfile(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error) throw new Error('fetchUserProfile: ' + error.message)
+    return data
+  } catch (err) {
+    console.error('[fetchUserProfile]', err)
+    throw err
+  }
+}
+```
+
+## What AI Must Never Do
+
+- Generate crypto.randomUUID() for entity IDs
+- Add id attributes to injected DOM elements (use data-* instead)
+- Write inline script or onclick handlers in HTML
+- Store auth tokens in localStorage (use chrome.storage.local)
+- Put Stripe or Supabase secret keys anywhere in the extension
+- Import across feature modules without going through the shared/ layer
+- Write persistent variables in the service worker (they reset on termination)

@@ -7,6 +7,12 @@
   "scripts": {
     "test": "node tests/profile-rate-limit.test.js",
     "test:rate-limit": "node tests/profile-rate-limit.test.js",
+    "test:browsers": "node tests/chromium-browser-test.js list",
+    "test:chrome": "node tests/chromium-browser-test.js launch chrome",
+    "test:edge": "node tests/chromium-browser-test.js launch edge",
+    "test:comet": "node tests/chromium-browser-test.js launch comet",
+    "test:brave": "node tests/chromium-browser-test.js launch brave",
+    "test:all-browsers": "node tests/chromium-browser-test.js all",
     "test:legacy": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
     "setup": "echo \"Follow START_HERE.md for setup instructions\" && exit 0",
     "docs": "echo \"Documentation available in .md files\" && exit 0",

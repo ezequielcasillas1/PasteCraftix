@@ -1699,8 +1699,8 @@
         .tab-nav {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: auto auto;
-            /* 4 tabs top row, Notes + AI History share bottom row */
+            grid-template-rows: auto auto auto;
+            /* Row 1: 4 tabs, Row 2: Notes + AI History, Row 3: Activity */
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -1739,6 +1739,10 @@
         .tab-btn-notes,
         .tab-btn-ai-history {
             grid-column: span 2;
+        }
+        
+        .tab-btn-activity {
+            grid-column: span 4;
         }
         
         .tab-btn:hover {
@@ -7419,6 +7423,95 @@
             background: #fef2f2;
         }
 
+        /* ── Activity Log Tab ── */
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+        }
+
+        .activity-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .activity-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .activity-entry:hover {
+            border-color: #22c55e;
+            background: #f0fdf4;
+        }
+
+        .activity-entry-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .activity-entry-icon.insert { background: #dcfce7; }
+        .activity-entry-icon.update { background: #dbeafe; }
+        .activity-entry-icon.delete { background: #fee2e2; }
+
+        .activity-entry-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .activity-entry-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .activity-entry-meta {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .activity-entry-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 6px;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .activity-entry-badge.clips { background: #dbeafe; color: #2563eb; }
+        .activity-entry-badge.categories { background: #fef3c7; color: #d97706; }
+        .activity-entry-badge.notes { background: #f3e8ff; color: #9333ea; }
+        .activity-entry-badge.settings { background: #e0e7ff; color: #4f46e5; }
+
+        .activity-filter-chip.active {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+            color: white !important;
+            border-color: #16a34a !important;
+        }
+
+        .load-more-btn:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
         /* ============================================
            AI Breakdown Page V2 Styles
            ============================================ */
@@ -8144,6 +8237,9 @@
             <button class="tab-btn tab-btn-ai-history" data-tab="aiHistory" title="View past AI conversations">
                 <span class="tab-icon">📜</span> AI History
             </button>
+            <button class="tab-btn tab-btn-activity" data-tab="activity" title="View your activity history">
+                <span class="tab-icon">📊</span> Activity
+            </button>
         </nav>
 
         <!-- Clips Tab -->
@@ -8261,6 +8357,42 @@
                     <p>Your AI Summary and Breakdown conversations will appear here</p>
                 </div>
             </div>
+        </section>
+
+        <!-- Activity Log Tab -->
+        <section class="tab-content" id="activityTab">
+            <div class="activity-header">
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">📊 Activity History</h3>
+                <button class="btn-secondary" id="refreshActivityBtn" style="font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#f8fafc;color:#64748b;">Refresh</button>
+            </div>
+            <p style="font-size:11px;color:#94a3b8;margin:4px 0 8px 0;">☁️ Shows cloud-synced activity only. Local-only clips appear after sync.</p>
+
+            <!-- Activity Filters -->
+            <div class="activity-filters" style="display:flex;gap:6px;margin:12px 0;">
+                <button class="activity-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
+                <button class="activity-filter-chip" data-filter="INSERT" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">➕ Created</button>
+                <button class="activity-filter-chip" data-filter="UPDATE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">✏️ Updated</button>
+                <button class="activity-filter-chip" data-filter="DELETE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">🗑️ Deleted</button>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="activity-date-filter" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+                <label style="font-size:12px;color:#64748b;">From:</label>
+                <input type="date" id="activityDateFrom" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;">
+                <label style="font-size:12px;color:#64748b;">To:</label>
+                <input type="date" id="activityDateTo" style="padding:4px 8px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;">
+            </div>
+
+            <div class="activity-list" id="activityList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📊</div>
+                    <h3>No activity yet</h3>
+                    <p>Your clips, categories, and notes activity will appear here</p>
+                </div>
+            </div>
+
+            <!-- Load More Button -->
+            <button id="loadMoreActivityBtn" class="load-more-btn" style="display:none;width:100%;padding:10px;margin-top:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;color:#64748b;font-size:13px;cursor:pointer;">Load More</button>
         </section>
 
         <!-- Search Tab -->
@@ -10235,13 +10367,21 @@ Multiple clips are separated by:
                                 <span class="requirement-icon">✗</span>
                                 <span>At least 8 characters long</span>
                             </div>
+                            <div class="requirement-item" id="req-lowercase">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains a lowercase letter (a-z)</span>
+                            </div>
+                            <div class="requirement-item" id="req-uppercase">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains an uppercase letter (A-Z)</span>
+                            </div>
                             <div class="requirement-item" id="req-number">
                                 <span class="requirement-icon">✗</span>
-                                <span>Contains at least one number (0-9)</span>
+                                <span>Contains a digit (0-9)</span>
                             </div>
                             <div class="requirement-item" id="req-special">
                                 <span class="requirement-icon">✗</span>
-                                <span>Contains at least one special character (!@#$%^&*)</span>
+                                <span>Contains a symbol (!@#$%^&*)</span>
                             </div>
                         </div>
                     </div>
@@ -10612,13 +10752,21 @@ alice@email.com</div>
                                 <span class="requirement-icon">✗</span>
                                 <span>At least 8 characters long</span>
                             </div>
+                            <div class="requirement-item" id="new-req-lowercase">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains a lowercase letter (a-z)</span>
+                            </div>
+                            <div class="requirement-item" id="new-req-uppercase">
+                                <span class="requirement-icon">✗</span>
+                                <span>Contains an uppercase letter (A-Z)</span>
+                            </div>
                             <div class="requirement-item" id="new-req-number">
                                 <span class="requirement-icon">✗</span>
-                                <span>Contains at least one number (0-9)</span>
+                                <span>Contains a digit (0-9)</span>
                             </div>
                             <div class="requirement-item" id="new-req-special">
                                 <span class="requirement-icon">✗</span>
-                                <span>Contains at least one special character (!@#$%^&*)</span>
+                                <span>Contains a symbol (!@#$%^&*)</span>
                             </div>
                         </div>
                     </div>
