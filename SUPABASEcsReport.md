@@ -143,8 +143,30 @@ Functions with mutable search_path (potential SQL injection vector):
 
 ## Status
 
-- [ ] Clips rate limiting migration
-- [ ] Notes rate limiting migration
-- [ ] Coupon attempt rate limiting
-- [ ] Storage bucket size limits
-- [ ] Audit log cleanup
+### Completed (2026-04-08)
+
+**RLS & Security:**
+- [x] Drop "Allow all" RLS policies — Replaced with user-scoped policies
+- [x] Add change_audit_log RLS policies — Users see only their own logs
+- [x] Fix function search paths — SQL injection prevention
+- [x] Enable leaked password protection — Via Supabase Dashboard
+
+**Rate Limiting (Daily):**
+- [x] Clips — 700/day limit
+- [x] Notes — 500/day limit
+- [x] Categories — 100/day limit
+
+**Burst Protection (Instant):**
+- [x] Clips — Block if 2+ inserts within 500ms
+- [x] Notes — Block if 2+ inserts within 500ms
+- [x] Categories — Block if 2+ inserts within 500ms
+
+**Other Protections:**
+- [x] Audit log cleanup — Auto-cleanup, keep last 10,000 entries per user
+- [x] Coupon codes randomized — PasteCRFT-XXXXX format (no predictable patterns)
+- [x] Coupon brute-force protection — 5 attempts per hour per user
+- [x] Storage bucket size limit — 5 MB max file size on profile-images
+
+---
+
+## All Vulnerabilities Resolved ✓

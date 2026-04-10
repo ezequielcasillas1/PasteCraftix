@@ -37,6 +37,36 @@ serve(async (req) => {
       throw new Error('Invalid authentication token')
     }
 
+    // Brute-force protection: Check recent attempts (5 per hour limit)
+    const { data: recentAttempts, error: attemptsError } = await supabase
+      .from('coupon_attempt_log')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('attempted_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+
+    if (!attemptsError && recentAttempts && recentAttempts.length >= 5) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Too many coupon attempts. Please try again in an hour.',
+          attemptsRemaining: 0,
+          resetIn: '1 hour'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      )
+    }
+
+    // Log this attempt (will be marked success/failure later)
+    const attemptId = crypto.randomUUID()
+    await supabase
+      .from('coupon_attempt_log')
+      .insert({
+        id: attemptId,
+        user_id: user.id,
+        coupon_code: couponCode.toUpperCase().trim(),
+        success: false
+      })
+
     // Look up coupon code in database
     const codeUpper = couponCode.toUpperCase().trim()
     const { data: coupon, error: couponError } = await supabase
@@ -199,6 +229,12 @@ serve(async (req) => {
       console.error('Failed to update redemption count:', countError)
       // Non-critical error, continue
     }
+
+    // Mark attempt as successful
+    await supabase
+      .from('coupon_attempt_log')
+      .update({ success: true })
+      .eq('id', attemptId)
 
     return new Response(
       JSON.stringify({ 
