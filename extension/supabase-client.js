@@ -336,49 +336,6 @@ class PasteCraftSupabase {
     }
   }
 
-  async getAiHintsForCopySignal(signal) {
-    // Premium-only helper: returns [{title, body}] or null.
-    try {
-      if (!this.client) return null;
-      const { data: { session } } = await this.client.auth.getSession();
-      const userId = session?.user?.id || null;
-      const accessToken = session?.access_token || '';
-      if (!userId || !accessToken) return null;
-
-      const isPremium = await this.isPremiumUser(userId);
-      if (!isPremium) return null;
-
-      const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-hint`;
-      const response = await this._fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({
-          kind: signal?.kind || 'text',
-          text: String(signal?.text || '').slice(0, 5000),
-          url: String(signal?.url || '').slice(0, 2000),
-          pageUrl: String(signal?.pageUrl || '').slice(0, 2000)
-        })
-      }, 20000, 'AI hint request timed out');
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.error || response.statusText || 'AI hint failed');
-      }
-
-      const data = await response.json().catch(() => ({}));
-      const tips = Array.isArray(data?.tips) ? data.tips : [];
-      return tips
-        .filter(t => t && typeof t.title === 'string' && typeof t.body === 'string')
-        .slice(0, 3);
-    } catch (error) {
-      console.error('Failed to get AI hints:', error);
-      return null;
-    }
-  }
-  
   // =====================================================
   // CONNECTION & OFFLINE MODE
   // =====================================================

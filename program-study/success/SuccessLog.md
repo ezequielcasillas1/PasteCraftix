@@ -1,3 +1,8 @@
+### Apr 9, 2026 - Remove PasteCraft Tips Safely
+**Status:** ✅ SUCCESS
+**Files:** extension/content-script.js, extension/background.js, extension/supabase-client.js
+**Result:** Removed the PasteCraft Tips subsystem, stripped old tips settings from storage, and kept the main right-side widget/settings working. (Commit: pending)
+
 ### Apr 7, 2026 - Fix Realtime Message Quota Drain
 **Status:** ✅ SUCCESS
 **Files:** extension/supabase-client.js, db/migrations/20260407_add_profile_rate_limit.sql, tests/profile-rate-limit.test.js, package.json

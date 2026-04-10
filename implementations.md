@@ -1,3 +1,8 @@
+### Apr 9, 2026 - Remove PasteCraft Tips Safely
+**Status:** SUCCESS
+**Files:** extension/content-script.js, extension/background.js, extension/supabase-client.js
+**Result:** Removed the PasteCraft Tips subsystem, stripped old tips settings from storage, and kept the main right-side widget/settings working.
+
 ### 2026-02-20 - Cross-Device Diff Sync Architecture
 **Status:** SUCCESS
 **Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js

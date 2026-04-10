@@ -582,47 +582,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
   
-  if (message.action === 'pcFetchEdgeFunction') {
-    // Proxy fetch to avoid page-level CORS/network issues in content scripts.
-    // Allowlist only Supabase Edge Functions we expect.
-    (async () => {
-      try {
-        const url = String(message.url || '');
-        const method = String(message.method || 'POST').toUpperCase();
-        const accessToken = String(message.accessToken || '');
-        const body = message.body ?? null;
-
-        if (!url || !/^https:\/\/.+\.supabase\.co\/functions\/v1\/(ai-hint|ai-trends)(\b|\/|$)/i.test(url)) {
-          sendResponse({ success: false, status: 400, error: 'Blocked URL' });
-          return;
-        }
-
-        const headers = {
-          'Content-Type': 'application/json',
-        };
-        if (accessToken) {
-          headers['Authorization'] = `Bearer ${accessToken}`;
-        }
-
-        const resp = await fetch(url, {
-          method,
-          headers,
-          body: body ? JSON.stringify(body) : undefined,
-        });
-
-        const status = resp.status;
-        const ok = resp.ok;
-        const data = await resp.json().catch(() => ({}));
-
-        sendResponse({ success: true, ok, status, data });
-      } catch (error) {
-        sendResponse({ success: false, status: 0, error: error?.message || String(error) });
-      }
-    })();
-
-    return true; // Keep message channel open for async response
-  }
-
   if (message.action === 'pcRefreshSupabaseToken') {
     (async () => {
       try {

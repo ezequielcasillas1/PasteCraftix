@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+REMEMBER to always let me/ask me if the implementation is SUCCESS, Before making a file that says that it is successful. 
+this needs to happen so that I can be sure that it captures it successfully otherwise please again ask me 'Ezequiel is the implementation successful' literally tell me that. then according to if I say yes or no, yes meaning you will write the SUCCESS FILE, if no then you will repeat the same steps until the I say 'YES' it is successful, meaning you will write the Success file. THIS GOES THE SAME WAY WITH PARTIAL, AND FAILURE LOGS. 
+
+REMEMBER Dont assume that I made the netlify and namecheap host connection until otherwise mentioned.
+
+REMEMBER, to make a landing page route in the website page interface with the rest of the feautures live, otherwise don't make it live.
+
+REMEMBER, never expose api keys only things needed to be exposed are url and anon keys. 

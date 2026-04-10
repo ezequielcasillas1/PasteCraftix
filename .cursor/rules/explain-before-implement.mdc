@@ -1,0 +1,133 @@
+---
+alwaysApply: false
+---
+
+# Explain Before Implement
+
+Before writing or modifying any code, provide a brief technical explanation.
+
+## Required Explanation Format
+
+For EVERY implementation, explain:
+
+### 1. What This Code Does
+- Plain English summary (2-3 sentences max)
+- Input → Output description
+
+### 2. Where It Connects
+- Which files/modules this touches
+- What imports or calls this code
+- What this code imports or calls
+
+### 3. Architecture Pattern
+- Name the pattern: Factory, Observer, Singleton, Module, Handler, etc.
+- Why this pattern fits the task
+
+### 4. Data Flow
+- Where data comes from
+- How it transforms
+- Where it goes
+
+### 5. Dependencies
+- What must exist first (DB tables, config, other modules)
+- What breaks if this fails
+
+## Example Explanation
+
+**Task:** Add Stripe checkout handler
+
+**Explanation:**
+1. **What:** Creates Edge Function that receives priceId, validates JWT, calls Stripe API, returns checkout URL
+2. **Connects:** `popup.js` → `service-worker.js` → `checkout.handler.js` → Edge Function → Stripe API
+3. **Pattern:** Handler pattern - isolates Stripe logic from extension code
+4. **Flow:** User click → message → handler → HTTP POST → Stripe session → URL returned → tab opens
+5. **Depends:** Stripe secret in Deno.env, valid Supabase JWT, profiles table exists
+
+## Example: Database Migration
+
+**Task:** Add `deleted_at` column for soft deletes
+
+**Explanation:**
+1. **What:** Adds nullable timestamp column to clips table, updates RLS policy to filter deleted rows
+2. **Connects:** Migration → Postgres schema → RLS policy → all queries via `is('deleted_at', null)`
+3. **Pattern:** Soft delete pattern - marks rows inactive instead of removing data
+4. **Flow:** Delete request → sets `deleted_at = now()` → RLS filters out → row hidden but recoverable
+5. **Depends:** clips table exists, RLS enabled, no existing `deleted_at` column
+
+## Example: Content Script Module
+
+**Task:** Create clipboard monitor module
+
+**Explanation:**
+1. **What:** Listens to paste events, captures clipboard content, sends to background for storage
+2. **Connects:** DOM paste event → `clipboard-monitor.js` → `sendToBackground()` → `clip.handler.js` → Supabase
+3. **Pattern:** Observer pattern - reacts to DOM events without polling
+4. **Flow:** User pastes → event fires → content extracted → message sent → handler stores → response confirms
+5. **Depends:** content.js loads module, messaging.js available, user authenticated
+
+## Why This Exists
+
+Learning requires understanding the "why" not just the "what". This rule ensures:
+- You understand each change before it happens
+- You can explain the code in interviews
+- You catch design mistakes before implementation
+- You build mental models of the architecture
+
+## Skip Explanations For
+
+Do NOT explain how these work (just do them):
+- **Git commits** - No explaining what git add/commit/push does
+- **Debug instrumentation** - No explaining console.log, breakpoints, or debugger tools
+- **File reads/searches** - No explaining how grep or file reading works
+
+## Testing: Always Explain First
+
+Before executing ANY tests, explain:
+
+### 1. Test Types Available
+| Type | Purpose | When to Use |
+|------|---------|-------------|
+| **Unit Tests** | Test single function in isolation | New utility functions, pure logic |
+| **Integration Tests** | Test modules working together | API handlers, DB operations |
+| **E2E Tests** | Test full user flows | Critical paths, checkout, auth |
+| **Smoke Tests** | Quick sanity check | After deploy, CI pipeline |
+| **Regression Tests** | Catch old bugs returning | After bug fixes |
+
+### 2. Recommended Test Strategy
+
+**For new features:**
+1. Write test first (TDD) → defines expected behavior
+2. Implement minimal code to pass
+3. Refactor while tests stay green
+
+**For bug fixes:**
+1. Write failing test that reproduces bug
+2. Fix the bug
+3. Test passes → bug won't return
+
+**For refactors:**
+1. Ensure existing tests pass
+2. Refactor code
+3. Tests still pass → behavior unchanged
+
+### 3. Before Running Tests, State:
+- Which test type you recommend
+- Why that type fits this task
+- What the test will verify
+
+## Example: Test Recommendation
+
+**Task:** Add input validation to email field
+
+**Test Strategy:**
+- **Type:** Unit test
+- **Why:** Pure function, no dependencies, isolated logic
+- **Verifies:** Valid emails pass, invalid emails rejected, edge cases handled
+- **TDD approach:** Write test cases first → `isValidEmail('test@example.com')` should return `true`
+
+## Keep It Brief
+
+Explanations should be 5-10 lines max. No essays. Just enough to understand:
+- What happens
+- Where it fits
+- Why it's built this way
