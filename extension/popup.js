@@ -871,76 +871,13 @@ class PasteCraftPopup {
   }
 
   // =====================================================
-  // AUTH PREFS (local-only; never store passwords)
+  // LEGACY AUTH PREFS CLEANUP
   // =====================================================
 
-  async loadAuthPrefs() {
-    const defaults = { staySignedIn: true, rememberEmail: false, rememberedEmail: '' };
+  async clearLegacyAuthPrefs() {
     try {
-      const res = await chrome.storage.local.get([this._authPrefsKey]);
-      const raw = res?.[this._authPrefsKey] || null;
-      const staySignedIn = raw && typeof raw.staySignedIn === 'boolean' ? raw.staySignedIn : defaults.staySignedIn;
-      const rememberEmail = raw && typeof raw.rememberEmail === 'boolean' ? raw.rememberEmail : defaults.rememberEmail;
-      const rememberedEmail = (raw && typeof raw.rememberedEmail === 'string') ? raw.rememberedEmail : defaults.rememberedEmail;
-      return {
-        staySignedIn,
-        rememberEmail,
-        rememberedEmail: rememberedEmail.slice(0, 320)
-      };
-    } catch (_) {
-      return { ...defaults };
-    }
-  }
-
-  async saveAuthPrefs(next) {
-    try {
-      const current = await this.loadAuthPrefs();
-      const merged = {
-        ...current,
-        ...next
-      };
-      // Never store passwords; only store email if explicitly requested.
-      const rememberEmail = !!merged.rememberEmail;
-      const rememberedEmail = rememberEmail ? String(merged.rememberedEmail || '').slice(0, 320) : '';
-      const payload = {
-        staySignedIn: merged.staySignedIn !== false,
-        rememberEmail,
-        rememberedEmail,
-        updatedAt: Date.now()
-      };
-      await chrome.storage.local.set({ [this._authPrefsKey]: payload });
-      return payload;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  async applyAuthPrefsToUi() {
-    const prefs = await this.loadAuthPrefs();
-
-    // Auth modal
-    try {
-      const stayEl = document.getElementById('staySignedIn');
-      if (stayEl) stayEl.checked = prefs.staySignedIn !== false;
-
-      const rememberEmailEl = document.getElementById('rememberEmail');
-      if (rememberEmailEl) rememberEmailEl.checked = !!prefs.rememberEmail;
-
-      const emailEl = document.getElementById('signinEmail');
-      if (emailEl && prefs.rememberEmail && prefs.rememberedEmail) {
-        if (!emailEl.value) emailEl.value = prefs.rememberedEmail;
-      }
+      await chrome.storage.local.remove([this._authPrefsKey]);
     } catch (_) {}
-
-    // Settings modal
-    try {
-      const stayEl = document.getElementById('staySignedInSetting');
-      if (stayEl) stayEl.checked = prefs.staySignedIn !== false;
-      const rememberEl = document.getElementById('rememberEmailSetting');
-      if (rememberEl) rememberEl.checked = !!prefs.rememberEmail;
-    } catch (_) {}
-
-    return prefs;
   }
 
   // =====================================================
@@ -1200,14 +1137,12 @@ class PasteCraftPopup {
     await this.checkOAuthCallback();
 
     // Best-effort: restore database auth session from the session bridge (non-blocking).
-    // Runs in background so startup is not delayed; getCurrentUser uses bridge fast path.
+    // Cached login is the default behavior now, so always attempt restore on startup.
     try {
-      const prefs = await this.loadAuthPrefs();
-      if (prefs.staySignedIn !== false) {
-        Promise.resolve()
-          .then(() => this.restoreSupabaseSessionFromBridge('startup'))
-          .catch(() => {});
-      }
+      await this.clearLegacyAuthPrefs();
+      Promise.resolve()
+        .then(() => this.restoreSupabaseSessionFromBridge('startup'))
+        .catch(() => {});
     } catch (_) {}
 
     // Check if user is authenticated
@@ -3262,31 +3197,6 @@ class PasteCraftPopup {
       });
     }
 
-    // Auto-save for auth preferences (with special handling for staySignedIn)
-    const rememberEmailEl = document.getElementById('rememberEmailSetting');
-    if (rememberEmailEl) {
-      rememberEmailEl.addEventListener('change', () => triggerAutoSave(false));
-    }
-
-    const staySignedInEl = document.getElementById('staySignedInSetting');
-    if (staySignedInEl) {
-      staySignedInEl.addEventListener('change', async () => {
-        // Special handling: if turning off "stay signed in", show confirmation
-        const nextStaySignedIn = staySignedInEl.checked;
-        if (!nextStaySignedIn) {
-          const currentPrefs = await this.loadAuthPrefs();
-          if (currentPrefs.staySignedIn !== false) {
-            const ok = confirm('This will sign you out and require login next time. Continue?');
-            if (!ok) {
-              staySignedInEl.checked = true;
-              return;
-            }
-          }
-        }
-        triggerAutoSave(false);
-      });
-    }
-
     // Restore clips (local snapshots)
     const restoreWindowSelect = document.getElementById('restoreWindowSelect');
     const previewRestoreBtn = document.getElementById('previewRestoreBtn');
@@ -4390,18 +4300,6 @@ class PasteCraftPopup {
   
   showAuthModal() {
     console.log('🔐 Showing auth modal...');
-    // Keep auth modal controls synced to settings.
-    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
-    // Pre-check "remember login with PIN" if a PIN already exists
-    Promise.resolve().then(async () => {
-      try {
-        await this.loadPinConfig();
-        const el = document.getElementById('rememberLoginWithPin');
-        if (el && this._pinConfig?.salt && this._pinConfig?.hash) {
-          el.checked = true;
-        }
-      } catch (_) {}
-    }).catch(() => {});
     this.hideLoadingOverlay();
     document.getElementById('authModal').style.display = 'flex';
   }
@@ -5017,8 +4915,6 @@ class PasteCraftPopup {
       console.log('🔐 Sign In triggered');
       const email = document.getElementById('signinEmail').value;
       const password = document.getElementById('signinPassword').value;
-      const staySignedIn = !!document.getElementById('staySignedIn')?.checked;
-      const rememberEmail = !!document.getElementById('rememberEmail')?.checked;
       
       if (!email || !password) {
         this.showToast('⚠️ Please fill in all fields', 'error');
@@ -5031,38 +4927,9 @@ class PasteCraftPopup {
         // Clear freemium guest flag on successful sign-in
         this._isFreemiumGuest = false;
         chrome.storage.local.remove('pc_freemium_guest');
-
-        // Persist user preferences (no password storage)
-        await this.saveAuthPrefs({
-          staySignedIn,
-          rememberEmail,
-          rememberedEmail: rememberEmail ? email : ''
-        });
+        await this.clearLegacyAuthPrefs();
 
         this.showToast('✅ Welcome back!', 'success');
-        const rememberPin = !!document.getElementById('rememberLoginWithPin')?.checked;
-        if (rememberPin) {
-          // If a PIN already exists, do NOT force re-creation.
-          try { await this.loadPinConfig(); } catch (_) {}
-          const cfg = this._pinConfig;
-          const hasExistingPin = !!(cfg && cfg.salt && cfg.hash);
-
-          this.hideAuthModal();
-
-          if (hasExistingPin) {
-            // Ensure the feature is enabled and proceed.
-            try { await this.setPinEnabled(true); } catch (_) {}
-            await this._pinSetSessionUnlocked();
-            window.location.reload();
-            return;
-          }
-
-          this.showPinSetupModal({
-            title: 'Set 3-digit code',
-            onComplete: () => window.location.reload()
-          });
-          return;
-        }
 
         // A successful email+password sign-in should count as unlocked for this session.
         await this._pinSetSessionUnlocked();
@@ -5185,6 +5052,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
+        await this.clearLegacyAuthPrefs();
+        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -5202,6 +5071,8 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.signInWithGoogle();
       
       if (result.success) {
+        await this.clearLegacyAuthPrefs();
+        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -9319,40 +9190,8 @@ class PasteCraftPopup {
       }
     }
 
-    // Auth preferences (local-only; can override login screen defaults) - skip during auto-save
     if (!skipPinAndAuth) {
-      try {
-        const stayEl = document.getElementById('staySignedInSetting');
-        const rememberEl = document.getElementById('rememberEmailSetting');
-        const nextStaySignedIn = stayEl ? !!stayEl.checked : true;
-        const nextRememberEmail = rememberEl ? !!rememberEl.checked : false;
-
-        const currentPrefs = await this.loadAuthPrefs();
-
-        let rememberedEmail = currentPrefs.rememberedEmail || '';
-        if (!nextRememberEmail) rememberedEmail = '';
-
-        await this.saveAuthPrefs({
-          staySignedIn: nextStaySignedIn,
-          rememberEmail: nextRememberEmail,
-          rememberedEmail
-        });
-
-        // If the user turns off "stay signed in", sign out immediately to enforce it.
-        if (currentPrefs.staySignedIn !== false && nextStaySignedIn === false) {
-          const ok = confirm('This will sign you out and require login next time. Continue?');
-          if (ok) {
-            try { await pasteCraftSupabase.signOutFast(); } catch (_) {}
-            try { await chrome.storage.local.remove(['pc_supabase_session_v1']); } catch (_) {}
-            window.location.reload();
-            return;
-          } else {
-            // Revert UI checkbox if user cancels.
-            try { if (stayEl) stayEl.checked = true; } catch (_) {}
-            await this.saveAuthPrefs({ staySignedIn: true });
-          }
-        }
-      } catch (_) {}
+      try { await this.clearLegacyAuthPrefs(); } catch (_) {}
     }
     
       // Show feedback and close modal only if not silent

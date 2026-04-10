@@ -1,3 +1,8 @@
+### Apr 10, 2026 - Cached Login Rewire (Remove 3 Sign-in Options)
+**Status:** SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Removed "Stay signed in", "Remember email", and "3-digit code" checkboxes. Cached session restore now always runs on startup; no opt-in needed.
+
 ### Apr 9, 2026 - Remove PasteCraft Tips Safely
 **Status:** SUCCESS
 **Files:** extension/content-script.js, extension/background.js, extension/supabase-client.js
