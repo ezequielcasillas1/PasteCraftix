@@ -1,5 +1,4 @@
 ---
-import BrandMark from './BrandMark.astro';
 import { navItems } from '../data/site.js';
 
 const { currentPath = '/' } = Astro.props;
@@ -8,7 +7,7 @@ const { currentPath = '/' } = Astro.props;
 <header class="site-header">
   <div class="container header-shell surface-card">
     <a href="/" class="brand" aria-label="PasteCraft home">
-      <BrandMark size={40} />
+      <img src="/logo.svg" alt="PasteCraft logo" width="42" height="42" class="brand-logo" />
       <span>
         <strong>PasteCraft</strong>
         <small>Clipboard clarity for modern work</small>
@@ -52,6 +51,11 @@ const { currentPath = '/' } = Astro.props;
     gap: 0.85rem;
     text-decoration: none;
     min-width: 0;
+  }
+
+  .brand-logo {
+    border-radius: 12px;
+    flex-shrink: 0;
   }
 
   .brand strong {

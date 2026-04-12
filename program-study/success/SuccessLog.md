@@ -321,3 +321,9 @@
 **Commit:** 3bd017d
 **Files:** SUPABASEcsReport.md, supabase/functions/redeem-coupon/index.ts, DB migrations
 **Result:** Full security hardening: burst protection (500ms) for clips/notes/categories, coupon brute-force protection (5/hour), storage bucket 5MB limit, daily rate limits, audit log cleanup. All vulnerabilities from security report resolved.
+
+### Apr 12, 2026 - Website Overhaul with Astro
+**Status:** ✅ SUCCESS
+**Commit:** 89da43f
+**Files:** website/src/*, website/astro.config.mjs, netlify.toml, tokens.css, base.css
+**Result:** Full website rebuild using Astro. Logo-derived brand system (navy, teal, gold), shared components, centralized tokens. Preserved Supabase auth and Stripe flows in account/pricing/upgrade pages.
