@@ -1,0 +1,74 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+---
+
+<BaseLayout
+  title="PasteCraft Privacy Policy"
+  description="Read the PasteCraft privacy policy covering account data, clip storage, AI processing, payments, and your data rights."
+  currentPath="/privacy"
+>
+  <div class="page-shell">
+    <SectionShell
+      eyebrow="Privacy policy"
+      title="Your data is yours."
+      copy="PasteCraft is built around the idea that copied information should stay useful without becoming mysterious. This policy explains what we collect, why we collect it, and where it may be processed."
+      narrow={true}
+    >
+      <article class="surface-card legal-card">
+        <p class="muted">Last updated: February 10, 2025</p>
+
+        <section>
+          <h2>Information we collect</h2>
+          <ul class="list-clean">
+            <li>Account data such as your email address and sign-in credentials.</li>
+            <li>Clipboard content, notes, and related metadata that you choose to save.</li>
+            <li>Support requests you send through product or email channels.</li>
+            <li>Subscription and billing status managed through Stripe.</li>
+            <li>Local browser extension preferences and storage data.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>How we use your information</h2>
+          <ul class="list-clean">
+            <li>Operate sign-in, sync, account, and subscription features.</li>
+            <li>Provide AI-powered features such as summaries and breakdowns when you use them.</li>
+            <li>Respond to support requests and improve service reliability.</li>
+            <li>Meet legal, security, and payment processing obligations.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Where data may be processed</h2>
+          <ul class="list-clean">
+            <li><strong>Supabase</strong> for authentication, account data, and synced clip storage.</li>
+            <li><strong>OpenAI and Replicate</strong> when you actively use AI-powered features.</li>
+            <li><strong>Stripe</strong> for subscription and payment processing.</li>
+            <li><strong>Your device</strong> for local extension storage and preferences.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Retention and deletion</h2>
+          <p>You may request access, correction, export, or deletion of your personal data by contacting <a href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>. We retain data only as long as needed to operate the service and comply with legal requirements.</p>
+        </section>
+
+        <section>
+          <h2>Security</h2>
+          <p>We use HTTPS, secure authentication, access controls, and third-party providers that support modern security practices. PasteCraft does not sell your personal information.</p>
+        </section>
+
+        <section>
+          <h2>Changes</h2>
+          <p>We may update this policy as the product evolves. When changes are material, we will update the policy date and post the revised version here.</p>
+        </section>
+
+        <section>
+          <h2>Contact</h2>
+          <p>If you have privacy questions or requests, email <a href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>.</p>
+        </section>
+      </article>
+    </SectionShell>
+  </div>
+</BaseLayout>

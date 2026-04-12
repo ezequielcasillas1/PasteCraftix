@@ -1,6 +1,7 @@
 [build]
   base = "website"
-  publish = "."
+  command = "npm run build"
+  publish = "dist"
 
 [functions]
   directory = "netlify/functions"
@@ -43,6 +44,11 @@
 [[redirects]]
   from = "/success"
   to = "/success.html"
+  status = 200
+
+[[redirects]]
+  from = "/testerinfo"
+  to = "/testerinfo.html"
   status = 200
 
 

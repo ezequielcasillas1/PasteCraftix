@@ -1,0 +1,466 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="PasteCraft Account"
+  description="Sign in to PasteCraft, review your plan, and manage account preferences from a redesigned dashboard."
+  currentPath="/account"
+>
+  <script slot="head" src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <div class="page-shell">
+    <section class="section">
+      <div class="container">
+        <div class="split">
+          <article class="surface-card panel stack intro-card">
+            <span class="eyebrow">Account</span>
+            <h1>Manage your PasteCraft plan and profile.</h1>
+            <p class="section-copy">Sign in to view your subscription tier, account settings, and product status in one cleaner dashboard.</p>
+            <div class="tag-row">
+              <span class="tag">Supabase auth</span>
+              <span class="tag">Plan visibility</span>
+              <span class="tag">Preference controls</span>
+            </div>
+          </article>
+
+          <article class="surface-card panel auth-card" id="authContainer">
+            <div class="stack">
+              <span class="eyebrow">Sign in</span>
+              <h2>Access your account</h2>
+              <p class="section-copy">Use the same email and password you use inside the extension.</p>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+
+            <form id="signInForm" class="stack form-shell">
+              <label class="field">
+                <span>Email</span>
+                <input type="email" id="email" required placeholder="you@example.com" />
+              </label>
+              <label class="field">
+                <span>Password</span>
+                <input type="password" id="password" required placeholder="••••••••" />
+              </label>
+              <button class="button" type="submit">Sign in</button>
+            </form>
+          </article>
+        </div>
+
+        <section class="dashboard" id="dashboard">
+          <article class="surface-card panel dashboard-header">
+            <div class="stack">
+              <span class="eyebrow">Dashboard</span>
+              <h2 id="userName">Welcome back!</h2>
+              <p class="section-copy" id="userEmail"></p>
+            </div>
+
+            <div class="dashboard-actions">
+              <span class="subscription-badge" id="subscriptionBadge">FREE</span>
+              <button class="ghost-button" id="signOutBtn" type="button">Sign out</button>
+            </div>
+          </article>
+
+          <div class="stats-row">
+            <article class="stat surface-card">
+              <strong id="totalClips">--</strong>
+              <span>Total clips</span>
+            </article>
+            <article class="stat surface-card">
+              <strong id="totalCategories">--</strong>
+              <span>Categories</span>
+            </article>
+            <article class="stat surface-card">
+              <strong id="totalArchived">--</strong>
+              <span>Archived</span>
+            </article>
+            <article class="stat surface-card">
+              <strong>Sync</strong>
+              <span>Subscription-aware account state</span>
+            </article>
+          </div>
+
+          <div class="card-grid two dashboard-grid">
+            <article class="surface-card panel stack">
+              <div class="coupon-notification" id="couponNotification">
+                <span class="coupon-label">Special access</span>
+                <span class="coupon-code-badge" id="couponCodeBadge">ACTIVE</span>
+              </div>
+
+              <h3>Subscription status</h3>
+              <p class="section-copy" id="subscriptionStatus">You are currently on the Free plan.</p>
+              <button class="button" id="upgradeButton" type="button" onclick="window.location.href='/pricing'">Upgrade to Premium</button>
+            </article>
+
+            <article class="surface-card panel stack">
+              <h3>Account settings</h3>
+              <p class="section-copy">Send a password reset email or save your email preference for updates.</p>
+              <label class="toggle">
+                <input type="checkbox" id="marketingOptIn" />
+                <span>Send me product and improvement updates</span>
+              </label>
+              <div class="button-row">
+                <button class="ghost-button" id="sendPasswordResetBtn" type="button">Send password reset email</button>
+                <button class="button" id="savePreferencesBtn" type="button">Save preferences</button>
+              </div>
+              <div class="settings-status" id="settingsStatus"></div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <script is:inline>
+    const sb = window.supabase.createClient(
+      'https://blpngeeqcegquiydreyu.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o'
+    );
+
+    window.addEventListener('load', async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        showDashboard(session.user);
+      }
+    });
+
+    document.getElementById('signInForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorMessage = document.getElementById('errorMessage');
+
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (errorMessage) errorMessage.style.display = 'none';
+        showDashboard(data.user);
+      } catch (error) {
+        errorMessage.textContent = error.message;
+        errorMessage.style.display = 'block';
+      }
+    });
+
+    async function showDashboard(user) {
+      document.getElementById('authContainer').style.display = 'none';
+      document.getElementById('dashboard').classList.add('active');
+      document.getElementById('userName').textContent = `Welcome back, ${user.email.split('@')[0]}!`;
+      document.getElementById('userEmail').textContent = user.email;
+
+      try {
+        const { data: { user: freshUser } } = await sb.auth.getUser();
+        const activeUser = freshUser || user;
+        const optIn = !!(activeUser.user_metadata && activeUser.user_metadata.marketing_opt_in);
+        const checkbox = document.getElementById('marketingOptIn');
+        if (checkbox) checkbox.checked = optIn;
+      } catch (_) {
+        // Ignore metadata refresh failures.
+      }
+
+      try {
+        const { data: subscription } = await sb
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (subscription) {
+          const tier = subscription.subscription_tier.toUpperCase();
+          const badge = document.getElementById('subscriptionBadge');
+          badge.textContent = tier;
+          badge.className = `subscription-badge ${tier.toLowerCase()}`;
+
+          const hasUnlimitedAI = subscription.has_unlimited_ai === true;
+          const expiresAt = subscription.ai_access_expires_at;
+          const hasCouponAccess = hasUnlimitedAI || (expiresAt && new Date(expiresAt) > new Date());
+
+          if (hasCouponAccess) {
+            let couponCode = 'ACTIVE';
+            try {
+              const { data: redemption } = await sb
+                .from('coupon_redemptions')
+                .select('coupon_code_id')
+                .eq('user_id', user.id)
+                .limit(1)
+                .single();
+
+              if (redemption && redemption.coupon_code_id) {
+                const { data: coupon } = await sb
+                  .from('coupon_codes')
+                  .select('code')
+                  .eq('id', redemption.coupon_code_id)
+                  .single();
+
+                if (coupon && coupon.code) {
+                  couponCode = coupon.code;
+                }
+              }
+
+              const couponNotif = document.getElementById('couponNotification');
+              const couponBadge = document.getElementById('couponCodeBadge');
+              const upgradeBtn = document.getElementById('upgradeButton');
+
+              if (couponNotif && couponBadge) {
+                couponBadge.textContent = couponCode;
+                couponNotif.classList.add('show');
+
+                if (hasUnlimitedAI && upgradeBtn) {
+                  upgradeBtn.style.display = 'none';
+                }
+
+                document.getElementById('subscriptionStatus').textContent =
+                  hasUnlimitedAI
+                    ? 'You have Lifetime Unlimited AI access!'
+                    : `You have AI access until ${new Date(expiresAt).toLocaleDateString()}`;
+              }
+            } catch (redemptionError) {
+              console.error('Error fetching coupon redemption:', redemptionError);
+            }
+          } else if (tier === 'PREMIUM') {
+            document.getElementById('subscriptionStatus').textContent =
+              'You have full access to all premium features.';
+          } else if (tier === 'BASIC') {
+            document.getElementById('subscriptionStatus').textContent =
+              'You have cloud sync and storage-backed access on the Basic plan.';
+          }
+        }
+
+        document.getElementById('totalClips').textContent = '0';
+        document.getElementById('totalCategories').textContent = '0';
+        document.getElementById('totalArchived').textContent = '0';
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+      }
+    }
+
+    function showSettingsStatus(message, type) {
+      const element = document.getElementById('settingsStatus');
+      if (!element) return;
+      element.style.display = 'block';
+      element.textContent = message;
+      if (type === 'success') element.style.color = '#68d391';
+      else if (type === 'error') element.style.color = '#feb2b2';
+      else element.style.color = 'var(--text-soft)';
+    }
+
+    document.getElementById('sendPasswordResetBtn')?.addEventListener('click', async () => {
+      try {
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user?.email) {
+          showSettingsStatus('Please sign in again.', 'error');
+          return;
+        }
+
+        showSettingsStatus('Sending password reset email...', 'info');
+        const { error } = await sb.auth.resetPasswordForEmail(user.email, {
+          redirectTo: 'https://auth.pastecraft.com'
+        });
+        if (error) throw error;
+
+        showSettingsStatus('Password reset email sent.', 'success');
+      } catch (error) {
+        showSettingsStatus(error?.message || 'Could not send reset email.', 'error');
+      }
+    });
+
+    document.getElementById('savePreferencesBtn')?.addEventListener('click', async () => {
+      try {
+        const checkbox = document.getElementById('marketingOptIn');
+        const optIn = !!checkbox?.checked;
+
+        showSettingsStatus('Saving preferences...', 'info');
+        const { error } = await sb.auth.updateUser({
+          data: { marketing_opt_in: optIn }
+        });
+        if (error) throw error;
+
+        showSettingsStatus('Preferences saved.', 'success');
+      } catch (error) {
+        showSettingsStatus(error?.message || 'Could not save preferences.', 'error');
+      }
+    });
+
+    async function signOut() {
+      try {
+        document.getElementById('dashboard')?.classList.remove('active');
+        document.getElementById('authContainer').style.display = 'grid';
+      } catch (_) {}
+
+      try {
+        await sb.auth.signOut({ scope: 'local' });
+      } catch (_) {
+        try {
+          await sb.auth.signOut();
+        } catch (_) {}
+      }
+
+      try {
+        const globalSignOut = sb.auth.signOut({ scope: 'global' });
+        await Promise.race([globalSignOut, new Promise((resolve) => setTimeout(resolve, 1500))]);
+      } catch (_) {}
+    }
+
+    document.getElementById('signOutBtn')?.addEventListener('click', signOut);
+    window.signOut = signOut;
+  </script>
+
+  <style>
+    .intro-card h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      line-height: 0.98;
+    }
+
+    .auth-card {
+      padding: 1.5rem;
+    }
+
+    .auth-card h2,
+    .dashboard-header h2 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .form-shell {
+      margin-top: 1rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.55rem;
+    }
+
+    .field span {
+      color: var(--text-soft);
+      font-size: 0.95rem;
+    }
+
+    .field input {
+      width: 100%;
+      min-height: 3.25rem;
+      padding: 0.9rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: rgba(162, 207, 212, 0.05);
+      color: var(--text);
+    }
+
+    .error-message {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(254, 178, 178, 0.28);
+      background: rgba(254, 178, 178, 0.08);
+      color: #feb2b2;
+    }
+
+    .dashboard {
+      display: none;
+      margin-top: 1.5rem;
+    }
+
+    .dashboard.active {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .dashboard-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .dashboard-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .subscription-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.5rem;
+      padding: 0.6rem 0.95rem;
+      border-radius: 999px;
+      background: rgba(162, 207, 212, 0.1);
+      border: 1px solid var(--border);
+      color: var(--brand-soft);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .subscription-badge.premium {
+      background: rgba(235, 180, 65, 0.14);
+      color: var(--accent);
+    }
+
+    .subscription-badge.basic {
+      background: rgba(53, 117, 160, 0.18);
+      color: #dff0f3;
+    }
+
+    .subscription-badge.free {
+      background: rgba(162, 207, 212, 0.08);
+      color: var(--brand-soft);
+    }
+
+    .dashboard-grid {
+      margin-top: 1rem;
+    }
+
+    .coupon-notification {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(235, 180, 65, 0.28);
+      background: rgba(235, 180, 65, 0.08);
+    }
+
+    .coupon-notification.show {
+      display: flex;
+    }
+
+    .coupon-label {
+      color: var(--text-soft);
+    }
+
+    .coupon-code-badge {
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      background: rgba(235, 180, 65, 0.18);
+      color: var(--accent);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+    }
+
+    .toggle {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      color: var(--text-soft);
+    }
+
+    .toggle input {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+
+    .settings-status {
+      display: none;
+      min-height: 1.5rem;
+      font-weight: 600;
+    }
+  </style>
+</BaseLayout>

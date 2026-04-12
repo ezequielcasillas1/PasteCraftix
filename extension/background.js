@@ -651,6 +651,60 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return false;
   }
+
+  if (message.action === 'pcCreateCheckout') {
+    (async () => {
+      try {
+        const priceId = String(message.priceId || '');
+        const accessToken = String(message.accessToken || '');
+        const supabaseUrl = String(message.supabaseUrl || '');
+        const anonKey = String(message.anonKey || '');
+
+        if (!priceId || !supabaseUrl || !anonKey) {
+          sendResponse({ success: false, error: 'Missing checkout params' });
+          return;
+        }
+
+        const url = `${supabaseUrl}/functions/v1/create-checkout`;
+        const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${anonKey}`;
+
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify({
+            priceId: priceId,
+            price_id: priceId,
+            successUrl: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
+            success_url: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
+            cancelUrl: 'https://pastecraft.com/pricing.html',
+            cancel_url: 'https://pastecraft.com/pricing.html',
+            mode: 'subscription',
+            quantity: 1
+          }),
+        });
+
+        const data = await resp.json().catch(() => ({}));
+        const sessionId = data?.sessionId || data?.session?.id;
+
+        if (!resp.ok || !sessionId) {
+          const errorMsg = data?.error || data?.message || `HTTP ${resp.status}`;
+          sendResponse({ success: false, error: errorMsg });
+          return;
+        }
+
+        const checkoutUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
+        chrome.tabs.create({ url: checkoutUrl });
+        sendResponse({ success: true, sessionId, checkoutUrl });
+      } catch (error) {
+        console.error('❌ Checkout error:', error);
+        sendResponse({ success: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
   
   return false;
 });

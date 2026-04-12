@@ -1,0 +1,71 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+
+const principles = [
+  'Readable interfaces beat crowded dashboards.',
+  'Clipboard history should stay useful after the copy moment passes.',
+  'AI should assist when it helps, not hijack the workflow.',
+  'Free users should still get a great product, not a crippled one.',
+];
+---
+
+<BaseLayout
+  title="About PasteCraft"
+  description="Learn why PasteCraft exists and how it approaches clipboard management, sync, and optional AI tools with a readability-first mindset."
+  currentPath="/about"
+>
+  <div class="page-shell">
+    <SectionShell
+      eyebrow="About PasteCraft"
+      title="Built for people who copy a lot and hate losing context."
+      copy="PasteCraft exists to make copied information feel durable. Instead of treating your clipboard like a temporary scratchpad, it turns those fragments into something you can organize, revisit, and actually use."
+    >
+      <div class="split">
+        <article class="surface-card panel stack">
+          <h3>Our story</h3>
+          <p class="section-copy">The idea came from a simple frustration: too many useful snippets vanish right after you copy them. Research notes, code fragments, messages, and study material all deserve a cleaner place to land.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Our mission</h3>
+          <p class="section-copy">Make clipboard management feel calm, powerful, and readable across free, synced, and AI-assisted workflows.</p>
+        </article>
+      </div>
+    </SectionShell>
+
+    <SectionShell
+      eyebrow="Principles"
+      title="How we think about the product"
+      copy="PasteCraft is shaped around a few product rules that keep the experience focused."
+    >
+      <div class="card-grid two">
+        {principles.map((principle) => (
+          <article class="surface-card panel">
+            <p class="section-copy">{principle}</p>
+          </article>
+        ))}
+      </div>
+    </SectionShell>
+
+    <SectionShell
+      eyebrow="What makes it different"
+      title="A better middle ground between simple clipboard history and bloated workspaces"
+      copy="PasteCraft keeps the workflow light but gives you room to grow into syncing, categorization, notes, and premium features without forcing complexity on day one."
+    >
+      <div class="card-grid three">
+        <article class="surface-card panel stack">
+          <h3>Useful at every tier</h3>
+          <p class="section-copy">The free experience is still strong enough to be worth using every day.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Sync when it matters</h3>
+          <p class="section-copy">Cloud-backed workflows stay available for users who need cross-device continuity.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>AI as an upgrade</h3>
+          <p class="section-copy">Breakdowns, summaries, and image tools sit on top of the core workflow instead of replacing it.</p>
+        </article>
+      </div>
+    </SectionShell>
+  </div>
+</BaseLayout>

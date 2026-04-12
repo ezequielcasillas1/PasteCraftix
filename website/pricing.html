@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pricing - PasteCraft</title>
     <meta name="description" content="Choose the perfect PasteCraft plan for you. Flexible weekly, monthly, and yearly subscriptions.">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
-    <script src="https://js.stripe.com/v3/"></script>
+    <link rel="icon" href="../extension/logo.svg" type="image/svg+xml">
     <style>
         * {
             margin: 0;
@@ -259,6 +258,65 @@
             border-color: #cbd5e0;
         }
 
+        /* Extension download links */
+        .extension-links {
+            margin-top: 20px;
+        }
+
+        .extension-cta {
+            font-size: 14px;
+            color: #4a5568;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .store-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-store {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            flex: 1;
+            max-width: 140px;
+        }
+
+        .btn-chrome {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+
+        .btn-chrome:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+        }
+
+        .btn-edge {
+            background: linear-gradient(135deg, #0078d4 0%, #00bcf2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+        }
+
+        .btn-edge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 120, 212, 0.4);
+        }
+
+        .btn-store svg {
+            flex-shrink: 0;
+        }
+
         /* Billing toggle */
         .billing-toggle {
             display: inline-flex;
@@ -379,7 +437,7 @@
     <header>
         <nav>
             <a href="index.html" class="logo">
-                <span>📋</span>
+                <img src="../extension/logo.svg" alt="PasteCraft" width="32" height="32">
                 <span>PasteCraft</span>
             </a>
             <ul class="nav-links">
@@ -419,10 +477,20 @@
                 <li><span class="cross">✗</span> Lowest support</li>
             </ul>
             
-            <a href="https://microsoftedge.microsoft.com/addons" class="btn btn-secondary" style="text-decoration: none; border: none;">
-                Get Started Free
-            </a>
-            <div class="checkout-note" style="margin-top: 10px; font-size: 13px; color: #718096;">Clips stay on your device</div>
+            <div class="extension-links">
+                <p class="extension-cta">Get the free extension:</p>
+                <div class="store-buttons">
+                    <a href="#chrome-store" class="btn btn-store btn-chrome" data-store="chrome">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-3.952 6.848c.404.03.812.047 1.224.047 6.627 0 12-5.373 12-12 0-1.472-.266-2.882-.751-4.185z"/></svg>
+                        Chrome
+                    </a>
+                    <a href="#edge-store" class="btn btn-store btn-edge" data-store="edge">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21.86 17.86q.14 0 .25.12.1.13.1.25t-.11.33l-.32.46-.43.53-.44.5q-.21.25-.38.42l-.22.23q-.58.53-1.34 1.04-.76.51-1.6.91-.86.4-1.74.64t-1.67.24q-.9 0-1.69-.28-.79-.28-1.48-.77-.68-.5-1.22-1.17-.53-.66-.92-1.44-.38-.77-.58-1.6-.2-.83-.2-1.67 0-1 .32-1.96.33-.97.87-1.8.55-.84 1.28-1.53.74-.7 1.6-1.18.85-.49 1.76-.78.92-.3 1.83-.3.36 0 .72.04.35.05.71.14.35.09.7.22t.65.3q.3.18.57.4.26.22.47.48.2.26.33.55.14.28.14.58 0 .31-.15.62-.14.32-.41.56-.27.23-.64.4-.37.18-.78.18-.35 0-.72-.1-.36-.1-.68-.27-.33-.18-.6-.42-.28-.24-.49-.54-.22-.3-.37-.64-.15-.35-.22-.72-.07-.36-.07-.73 0-.47.15-.9.15-.42.4-.78.27-.35.62-.62.36-.27.78-.42-.17.03-.32.05-.16.02-.32.02-.54 0-1.03.15-.48.15-.89.43-.4.27-.73.65-.33.38-.56.83-.23.45-.35.96-.12.5-.12 1.04 0 .37.07.74.08.36.22.7.14.35.34.66.21.32.47.58.27.27.58.47.32.2.68.35.36.14.74.22.39.07.79.07.4 0 .79-.07.38-.08.74-.22.37-.15.68-.35.32-.2.58-.47.26-.26.47-.58.2-.31.35-.66.14-.34.21-.7.08-.37.08-.74 0-.54-.13-1.04-.12-.5-.35-.96-.23-.45-.56-.83-.33-.38-.73-.65-.41-.28-.89-.43-.49-.15-1.03-.15-.16 0-.32-.02-.15-.02-.32-.05.42-.15.78-.42.35-.27.62-.62.25-.36.4-.78.15-.43.15-.9 0-.37-.07-.73-.07-.37-.22-.72-.15-.34-.37-.64-.21-.3-.49-.54-.27-.24-.6-.42-.32-.17-.68-.27-.37-.1-.72-.1-.41 0-.78.18-.37.17-.64.4-.27.24-.41.56-.15.31-.15.62 0 .3.14.58.13.29.33.55.21.26.47.48.27.22.57.4.3.17.65.3.35.13.7.22.36.09.71.14.36.04.72.04.91 0 1.83-.3.91-.29 1.76-.78.86-.48 1.6-1.18.73-.69 1.28-1.53.54-.83.87-1.8.32-.96.32-1.96 0-.84-.2-1.67-.2-.83-.58-1.6-.39-.78-.92-1.44-.54-.67-1.22-1.17-.69-.49-1.48-.77-.8-.28-1.69-.28-.79 0-1.67.24-.88.24-1.74.64-.84.4-1.6.91-.76.51-1.34 1.04l-.22.23q-.17.17-.38.42l-.44.5-.43.53-.32.46q-.11.2-.11.33t.1.25q.11.12.25.12h8.69z"/></svg>
+                        Edge
+                    </a>
+                </div>
+            </div>
+            <div class="checkout-note">Clips stay on your device</div>
         </div>
 
         <!-- Basic Plan (Popular) -->
@@ -450,10 +518,20 @@
                 <li><span class="check">✓</span> Standard support</li>
             </ul>
 
-            <button class="btn btn-primary" id="btn-basic" disabled>
-                Get Started
-            </button>
-            <div class="checkout-note" id="note-basic">Checkout coming soon.</div>
+            <div class="extension-links">
+                <p class="extension-cta">Get the extension to subscribe:</p>
+                <div class="store-buttons">
+                    <a href="#chrome-store" class="btn btn-store btn-chrome" data-store="chrome">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-3.952 6.848c.404.03.812.047 1.224.047 6.627 0 12-5.373 12-12 0-1.472-.266-2.882-.751-4.185z"/></svg>
+                        Chrome
+                    </a>
+                    <a href="#edge-store" class="btn btn-store btn-edge" data-store="edge">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21.86 17.86q.14 0 .25.12.1.13.1.25t-.11.33l-.32.46-.43.53-.44.5q-.21.25-.38.42l-.22.23q-.58.53-1.34 1.04-.76.51-1.6.91-.86.4-1.74.64t-1.67.24q-.9 0-1.69-.28-.79-.28-1.48-.77-.68-.5-1.22-1.17-.53-.66-.92-1.44-.38-.77-.58-1.6-.2-.83-.2-1.67 0-1 .32-1.96.33-.97.87-1.8.55-.84 1.28-1.53.74-.7 1.6-1.18.85-.49 1.76-.78.92-.3 1.83-.3.36 0 .72.04.35.05.71.14.35.09.7.22t.65.3q.3.18.57.4.26.22.47.48.2.26.33.55.14.28.14.58 0 .31-.15.62-.14.32-.41.56-.27.23-.64.4-.37.18-.78.18-.35 0-.72-.1-.36-.1-.68-.27-.33-.18-.6-.42-.28-.24-.49-.54-.22-.3-.37-.64-.15-.35-.22-.72-.07-.36-.07-.73 0-.47.15-.9.15-.42.4-.78.27-.35.62-.62.36-.27.78-.42-.17.03-.32.05-.16.02-.32.02-.54 0-1.03.15-.48.15-.89.43-.4.27-.73.65-.33.38-.56.83-.23.45-.35.96-.12.5-.12 1.04 0 .37.07.74.08.36.22.7.14.35.34.66.21.32.47.58.27.27.58.47.32.2.68.35.36.14.74.22.39.07.79.07.4 0 .79-.07.38-.08.74-.22.37-.15.68-.35.32-.2.58-.47.26-.26.47-.58.2-.31.35-.66.14-.34.21-.7.08-.37.08-.74 0-.54-.13-1.04-.12-.5-.35-.96-.23-.45-.56-.83-.33-.38-.73-.65-.41-.28-.89-.43-.49-.15-1.03-.15-.16 0-.32-.02-.15-.02-.32-.05.42-.15.78-.42.35-.27.62-.62.25-.36.4-.78.15-.43.15-.9 0-.37-.07-.73-.07-.37-.22-.72-.15-.34-.37-.64-.21-.3-.49-.54-.27-.24-.6-.42-.32-.17-.68-.27-.37-.1-.72-.1-.41 0-.78.18-.37.17-.64.4-.27.24-.41.56-.15.31-.15.62 0 .3.14.58.13.29.33.55.21.26.47.48.27.22.57.4.3.17.65.3.35.13.7.22.36.09.71.14.36.04.72.04.91 0 1.83-.3.91-.29 1.76-.78.86-.48 1.6-1.18.73-.69 1.28-1.53.54-.83.87-1.8.32-.96.32-1.96 0-.84-.2-1.67-.2-.83-.58-1.6-.39-.78-.92-1.44-.54-.67-1.22-1.17-.69-.49-1.48-.77-.8-.28-1.69-.28-.79 0-1.67.24-.88.24-1.74.64-.84.4-1.6.91-.76.51-1.34 1.04l-.22.23q-.17.17-.38.42l-.44.5-.43.53-.32.46q-.11.2-.11.33t.1.25q.11.12.25.12h8.69z"/></svg>
+                        Edge
+                    </a>
+                </div>
+            </div>
+            <div class="checkout-note" id="note-basic">Subscribe within the extension after install</div>
         </div>
 
         <!-- Enhanced Plan -->
@@ -481,10 +559,20 @@
                 <li><span class="check">✓</span> Standard support</li>
             </ul>
 
-            <button class="btn btn-secondary" id="btn-enhanced" disabled>
-                Get Started
-            </button>
-            <div class="checkout-note" id="note-enhanced">Checkout coming soon.</div>
+            <div class="extension-links">
+                <p class="extension-cta">Get the extension to subscribe:</p>
+                <div class="store-buttons">
+                    <a href="#chrome-store" class="btn btn-store btn-chrome" data-store="chrome">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.012 4.42 10.991 10.189 11.864l3.953-6.847a5.45 5.45 0 0 1-6.865-2.29zm13.342 2.166a5.446 5.446 0 0 1 1.45 7.09l.002.001h-.002l-3.952 6.848c.404.03.812.047 1.224.047 6.627 0 12-5.373 12-12 0-1.472-.266-2.882-.751-4.185z"/></svg>
+                        Chrome
+                    </a>
+                    <a href="#edge-store" class="btn btn-store btn-edge" data-store="edge">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21.86 17.86q.14 0 .25.12.1.13.1.25t-.11.33l-.32.46-.43.53-.44.5q-.21.25-.38.42l-.22.23q-.58.53-1.34 1.04-.76.51-1.6.91-.86.4-1.74.64t-1.67.24q-.9 0-1.69-.28-.79-.28-1.48-.77-.68-.5-1.22-1.17-.53-.66-.92-1.44-.38-.77-.58-1.6-.2-.83-.2-1.67 0-1 .32-1.96.33-.97.87-1.8.55-.84 1.28-1.53.74-.7 1.6-1.18.85-.49 1.76-.78.92-.3 1.83-.3.36 0 .72.04.35.05.71.14.35.09.7.22t.65.3q.3.18.57.4.26.22.47.48.2.26.33.55.14.28.14.58 0 .31-.15.62-.14.32-.41.56-.27.23-.64.4-.37.18-.78.18-.35 0-.72-.1-.36-.1-.68-.27-.33-.18-.6-.42-.28-.24-.49-.54-.22-.3-.37-.64-.15-.35-.22-.72-.07-.36-.07-.73 0-.47.15-.9.15-.42.4-.78.27-.35.62-.62.36-.27.78-.42-.17.03-.32.05-.16.02-.32.02-.54 0-1.03.15-.48.15-.89.43-.4.27-.73.65-.33.38-.56.83-.23.45-.35.96-.12.5-.12 1.04 0 .37.07.74.08.36.22.7.14.35.34.66.21.32.47.58.27.27.58.47.32.2.68.35.36.14.74.22.39.07.79.07.4 0 .79-.07.38-.08.74-.22.37-.15.68-.35.32-.2.58-.47.26-.26.47-.58.2-.31.35-.66.14-.34.21-.7.08-.37.08-.74 0-.54-.13-1.04-.12-.5-.35-.96-.23-.45-.56-.83-.33-.38-.73-.65-.41-.28-.89-.43-.49-.15-1.03-.15-.16 0-.32-.02-.15-.02-.32-.05.42-.15.78-.42.35-.27.62-.62.25-.36.4-.78.15-.43.15-.9 0-.37-.07-.73-.07-.37-.22-.72-.15-.34-.37-.64-.21-.3-.49-.54-.27-.24-.6-.42-.32-.17-.68-.27-.37-.1-.72-.1-.41 0-.78.18-.37.17-.64.4-.27.24-.41.56-.15.31-.15.62 0 .3.14.58.13.29.33.55.21.26.47.48.27.22.57.4.3.17.65.3.35.13.7.22.36.09.71.14.36.04.72.04.91 0 1.83-.3.91-.29 1.76-.78.86-.48 1.6-1.18.73-.69 1.28-1.53.54-.83.87-1.8.32-.96.32-1.96 0-.84-.2-1.67-.2-.83-.58-1.6-.39-.78-.92-1.44-.54-.67-1.22-1.17-.69-.49-1.48-.77-.8-.28-1.69-.28-.79 0-1.67.24-.88.24-1.74.64-.84.4-1.6.91-.76.51-1.34 1.04l-.22.23q-.17.17-.38.42l-.44.5-.43.53-.32.46q-.11.2-.11.33t.1.25q.11.12.25.12h8.69z"/></svg>
+                        Edge
+                    </a>
+                </div>
+            </div>
+            <div class="checkout-note" id="note-enhanced">Subscribe within the extension after install</div>
         </div>
     </div>
 
@@ -532,26 +620,19 @@
     </footer>
 
     <script>
-        // Initialize Stripe with your publishable key
-        const stripe = Stripe('pk_live_51QfDc3LOdeLTrjapSQ63f8r7lOVqtOo4f0BBL1SjAws6AH9ia4Dys0JxznKeFo3QooVYdVULajaDWDdfSN0GviI300GBctnQoj');
-
-        // Database anon key (public) - used as Bearer token for Edge Functions
-        // NOTE: Must match `config.js` anonKey setting
-        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o';
-
         const PLAN_CONFIG = {
             basic: {
                 prices: {
-                    weekly: { amount: 0.99, suffix: '/week', priceId: 'price_1SsbbHLOdeLTrjapgaZzEbBt' },
-                    monthly: { amount: 1.99, suffix: '/month', priceId: 'price_1SsbTZLOdeLTrjap9UnXhu0M' },
-                    yearly: { amount: 9.99, suffix: '/year', priceId: 'price_1SsbBDLOdeLTrjapHTq7yxng' },
+                    weekly: { amount: 0.99, suffix: '/week' },
+                    monthly: { amount: 1.99, suffix: '/month' },
+                    yearly: { amount: 9.99, suffix: '/year' },
                 }
             },
             enhanced: {
                 prices: {
-                    weekly: { amount: 1.99, suffix: '/week', priceId: 'price_1SaMM0LOdeLTrjapKLTHBByC' },
-                    monthly: { amount: 4.99, suffix: '/month', priceId: 'price_1SUYs3LOdeLTrjapCFFDe7td' },
-                    yearly: { amount: 49.99, suffix: '/year', priceId: 'price_1SaMNJLOdeLTrjapjJ8iCoP7' },
+                    weekly: { amount: 1.99, suffix: '/week' },
+                    monthly: { amount: 4.99, suffix: '/month' },
+                    yearly: { amount: 49.99, suffix: '/year' },
                 }
             }
         };
@@ -562,28 +643,13 @@
             return `$${amount.toFixed(2)}`;
         }
 
-        function isRealStripePriceId(priceId) {
-            return typeof priceId === 'string' && priceId.startsWith('price_');
-        }
-
         function setCardUi(plan) {
             const interval = selectedIntervalByPlan[plan];
             const cfg = PLAN_CONFIG[plan]?.prices?.[interval];
             if (!cfg) return;
 
             const priceEl = document.getElementById(`price-${plan}`);
-            const btnEl = document.getElementById(`btn-${plan}`);
-            const noteEl = document.getElementById(`note-${plan}`);
-
             if (priceEl) priceEl.innerHTML = `${formatUsd(cfg.amount)}<span>${cfg.suffix}</span>`;
-
-            const canCheckout = isRealStripePriceId(cfg.priceId);
-            if (btnEl) {
-                btnEl.disabled = !canCheckout;
-                btnEl.onclick = canCheckout ? () => createCheckout(cfg.priceId) : null;
-            }
-
-            if (noteEl) noteEl.textContent = canCheckout ? '' : 'Checkout coming soon.';
 
             document.querySelectorAll(`.billing-toggle button[data-plan="${plan}"]`).forEach((b) => {
                 b.classList.toggle('active', b.getAttribute('data-interval') === interval);
@@ -612,60 +678,21 @@
 
         initPricingCards();
 
-        async function createCheckout(priceId) {
-            try {
-                const isLocal = window.location.origin.startsWith('http://127.0.0.1') || window.location.origin.startsWith('http://localhost');
+        // Store links configuration (ready for future URLs)
+        const STORE_LINKS = {
+            chrome: '#chrome-store-coming-soon',
+            edge: '#edge-store-coming-soon'
+        };
 
-                const url = 'https://blpngeeqcegquiydreyu.supabase.co/functions/v1/create-checkout';
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        // IMPORTANT: Do NOT send `apikey` header (preflight disallows it in production)
-                        'Authorization': `Bearer ${supabaseAnonKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        // Send both camelCase and snake_case to match deployed function variant
-                        priceId: priceId,
-                        price_id: priceId,
-                        successUrl: window.location.origin + '/success.html?session_id={CHECKOUT_SESSION_ID}',
-                        success_url: window.location.origin + '/success.html?session_id={CHECKOUT_SESSION_ID}',
-                        cancelUrl: window.location.origin + '/pricing.html',
-                        cancel_url: window.location.origin + '/pricing.html',
-                        mode: 'subscription',
-                        quantity: 1
-                    })
-                });
-
-                const rawText = await response.text();
-
-                let parsed = null;
-                try { parsed = rawText ? JSON.parse(rawText) : null; } catch (_) {}
-
-                const sessionId = parsed?.sessionId || parsed?.session?.id;
-                const error = parsed?.error || parsed?.message;
-
-                if (!response.ok) {
-                    alert(error ? `Error: ${error}` : `Error: ${response.status}`);
-                    return;
+        document.querySelectorAll('.btn-store').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const store = btn.getAttribute('data-store');
+                if (STORE_LINKS[store] && STORE_LINKS[store].startsWith('#')) {
+                    e.preventDefault();
+                    alert(`${store.charAt(0).toUpperCase() + store.slice(1)} Web Store link coming soon!\n\nSubscription is available within the PasteCraft extension after install.`);
                 }
-
-                if (!sessionId) {
-                    alert('Something went wrong. Missing sessionId from server.');
-                    return;
-                }
-
-                const result = await stripe.redirectToCheckout({ sessionId });
-                if (result.error) {
-                    alert(result.error.message);
-                }
-            } catch (error) {
-                const isLocal = window.location.origin.startsWith('http://127.0.0.1') || window.location.origin.startsWith('http://localhost');
-                console.error('Error:', error);
-                alert('Something went wrong. Please try again or contact support.');
-            }
-        }
+            });
+        });
     </script>
 </body>
 </html>

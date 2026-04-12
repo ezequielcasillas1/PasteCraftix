@@ -1,0 +1,105 @@
+---
+import BrandMark from './BrandMark.astro';
+import { footerLinks, socialLinks } from '../data/site.js';
+---
+
+<footer class="site-footer">
+  <div class="container footer-shell surface-card">
+    <div class="footer-brand">
+      <BrandMark size={38} />
+      <div>
+        <strong>PasteCraft</strong>
+        <p>Save faster, understand more, and keep your clipboard history beautifully organized.</p>
+      </div>
+    </div>
+
+    <div class="footer-links">
+      <div>
+        <h3>Explore</h3>
+        <ul>
+          {footerLinks.map((item) => (
+            <li><a href={item.href}>{item.label}</a></li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <h3>Community</h3>
+        <ul>
+          {socialLinks.map((item) => (
+            <li><a href={item.href} target="_blank" rel="noopener">{item.label}</a></li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding: 0 0 2rem;
+  }
+
+  .footer-shell {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+
+  .footer-brand {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .footer-brand strong {
+    display: block;
+    margin-bottom: 0.6rem;
+    font-size: 1.05rem;
+  }
+
+  .footer-brand p {
+    margin: 0;
+    max-width: 44ch;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+
+  .footer-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .footer-links h3 {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+    color: var(--brand-soft);
+  }
+
+  .footer-links ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .footer-links a {
+    text-decoration: none;
+    color: var(--text-soft);
+  }
+
+  .footer-links a:hover,
+  .footer-links a:focus-visible {
+    color: var(--text);
+  }
+
+  @media (max-width: 800px) {
+    .footer-shell,
+    .footer-links {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

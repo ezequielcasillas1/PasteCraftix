@@ -1,0 +1,25 @@
+---
+const { size = 42 } = Astro.props;
+---
+
+<svg
+  aria-hidden="true"
+  width={size}
+  height={size}
+  viewBox="0 0 64 64"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <rect width="64" height="64" rx="18" fill="#010F1D" />
+  <rect x="10" y="10" width="44" height="44" rx="16" fill="url(#brandMarkGradient)" />
+  <path d="M21 24.5H43" stroke="#F7FBFC" stroke-width="5" stroke-linecap="round" />
+  <path d="M21 32.5H43" stroke="#A2CFD4" stroke-width="5" stroke-linecap="round" />
+  <path d="M21 40.5H34" stroke="#EBB441" stroke-width="5" stroke-linecap="round" />
+  <defs>
+    <linearGradient id="brandMarkGradient" x1="14" y1="12" x2="50" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A2CFD4" />
+      <stop offset="0.45" stop-color="#3575A0" />
+      <stop offset="1" stop-color="#17547C" />
+    </linearGradient>
+  </defs>
+</svg>

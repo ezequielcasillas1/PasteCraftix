@@ -2019,6 +2019,43 @@ class PasteCraftPopup {
     chrome.tabs.create({ url: 'https://pastecraft.com/pricing.html' });
   }
 
+  async _createCheckout(priceId) {
+    if (!this.currentUser) {
+      alert('Please sign in to subscribe');
+      return;
+    }
+
+    try {
+      const session = await pasteCraftSupabase.getSession();
+      const accessToken = session?.access_token || '';
+      const supabaseUrl = PASTECRAFT_CONFIG?.supabase?.url || '';
+      const anonKey = PASTECRAFT_CONFIG?.supabase?.anonKey || '';
+
+      if (!supabaseUrl || !anonKey) {
+        alert('Configuration error. Please try again later.');
+        return;
+      }
+
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({
+          action: 'pcCreateCheckout',
+          priceId,
+          accessToken,
+          supabaseUrl,
+          anonKey
+        }, resolve);
+      });
+
+      if (!response?.success) {
+        const errorMsg = response?.error || 'Failed to create checkout session';
+        alert(`Error: ${errorMsg}`);
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Something went wrong. Please try again.');
+    }
+  }
+
   setupVisibilityListener() {
     // Reload data when popup is shown
     document.addEventListener('visibilitychange', async () => {
@@ -2423,12 +2460,12 @@ class PasteCraftPopup {
     const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
     if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
       this.closeUpgradeModal();
-      this._openPricingPage();
+      this._createCheckout('price_1SsbTZLOdeLTrjap9UnXhu0M');
     });
     const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
     if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
       this.closeUpgradeModal();
-      this._openPricingPage();
+      this._createCheckout('price_1SUYs3LOdeLTrjapCFFDe7td');
     });
 
     // Tab navigation

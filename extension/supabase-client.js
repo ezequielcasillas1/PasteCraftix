@@ -3873,11 +3873,7 @@ class PasteCraftSupabase {
     const hasAccess = await this.hasCloudSyncAccess(userId);
     
     if (!hasAccess) {
-      // Show upgrade prompt for cloud sync
-      const upgradeUrl = `https://pastecraft.com/pricing.html`;
-      if (confirm('Cloud sync requires a Basic or Enhanced subscription. Upgrade now?')) {
-        window.open(upgradeUrl, '_blank');
-      }
+      alert('Cloud sync requires a Basic or Enhanced subscription.\n\nOpen PasteCraft from your browser toolbar and click "Upgrade Subscription" to subscribe.');
       return false;
     }
     
@@ -3894,9 +3890,7 @@ class PasteCraftSupabase {
     const isPremium = await this.isPremiumUser(userId);
     
     if (!isPremium) {
-      // Redirect to upgrade page with feature context
-      const upgradeUrl = `https://pastecraft.com/upgrade.html?feature=${encodeURIComponent(featureName)}`;
-      window.open(upgradeUrl, '_blank');
+      alert(`This feature requires a Premium subscription.\n\nOpen PasteCraft from your browser toolbar and click "Upgrade Subscription" to unlock ${featureName}.`);
       return false;
     }
     

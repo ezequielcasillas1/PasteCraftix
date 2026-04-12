@@ -315,3 +315,9 @@
 **Commit:** 36ac916
 **Files:** popup.js, supabase-client.js
 **Result:** Added SYNC-DEBUG logging to key sync functions. Removed remaining device registration calls.
+
+### Apr 8, 2026 - Security Hardening Complete
+**Status:** ✅ SUCCESS
+**Commit:** 3bd017d
+**Files:** SUPABASEcsReport.md, supabase/functions/redeem-coupon/index.ts, DB migrations
+**Result:** Full security hardening: burst protection (500ms) for clips/notes/categories, coupon brute-force protection (5/hour), storage bucket 5MB limit, daily rate limits, audit log cleanup. All vulnerabilities from security report resolved.

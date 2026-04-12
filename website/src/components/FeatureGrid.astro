@@ -1,0 +1,35 @@
+---
+const { items = [] } = Astro.props;
+---
+
+<div class="card-grid three">
+  {items.map((item) => (
+    <article class="feature-card surface-card panel">
+      <div class="icon">{item.icon}</div>
+      <h3>{item.title}</h3>
+      <p>{item.copy}</p>
+    </article>
+  ))}
+</div>
+
+<style>
+  .feature-card {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .icon {
+    font-size: 1.7rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.75;
+  }
+</style>

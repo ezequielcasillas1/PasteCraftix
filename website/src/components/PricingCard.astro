@@ -1,0 +1,152 @@
+---
+const {
+  id,
+  name,
+  tier,
+  price,
+  cadence,
+  note,
+  features = [],
+  popular = false,
+  billing,
+  dataPlan,
+} = Astro.props;
+---
+
+<article class:list={['pricing-card', 'surface-card', popular && 'popular']} id={id} data-plan={dataPlan}>
+  {popular && <span class="badge">Most popular</span>}
+  <div class="stack">
+    <span class="tier">{tier}</span>
+    <h3>{name}</h3>
+    <p class="price" id={dataPlan ? `price-${dataPlan}` : undefined}>
+      {price}<span>{cadence}</span>
+    </p>
+    <p class="note">{note}</p>
+  </div>
+
+  {billing && (
+    <div class="billing-toggle" role="tablist" aria-label={`${name} billing interval`}>
+      {Object.entries(billing).map(([key, value], index) => (
+        <button type="button" class:list={{ active: index === 1 }} data-plan={dataPlan} data-interval={key}>
+          {key[0].toUpperCase() + key.slice(1)}
+        </button>
+      ))}
+    </div>
+  )}
+
+  <ul class="feature-list">
+    {features.map((feature) => (
+      <li>{feature}</li>
+    ))}
+  </ul>
+
+  <slot />
+</article>
+
+<style>
+  .pricing-card {
+    position: relative;
+    padding: 1.5rem;
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .pricing-card.popular {
+    border-color: rgba(235, 180, 65, 0.45);
+    box-shadow: 0 24px 56px rgba(235, 180, 65, 0.14);
+  }
+
+  .badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(235, 180, 65, 0.16);
+    border: 1px solid rgba(235, 180, 65, 0.26);
+    color: var(--accent);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.7rem;
+  }
+
+  .tier {
+    color: var(--brand-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .price {
+    margin: 0;
+    font-size: 3rem;
+    line-height: 1;
+    font-weight: 800;
+  }
+
+  .price span {
+    margin-left: 0.35rem;
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .note {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.7;
+  }
+
+  .billing-toggle {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    padding: 0.35rem;
+    border-radius: 999px;
+    background: rgba(162, 207, 212, 0.06);
+    border: 1px solid var(--border);
+  }
+
+  .billing-toggle button {
+    min-height: 2.55rem;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .billing-toggle button.active {
+    background: rgba(162, 207, 212, 0.14);
+    color: var(--text);
+  }
+
+  .feature-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.8rem;
+    color: var(--text-soft);
+  }
+
+  .feature-list li {
+    position: relative;
+    padding-left: 1.4rem;
+    line-height: 1.6;
+  }
+
+  .feature-list li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--brand-soft);
+  }
+</style>

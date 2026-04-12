@@ -1,0 +1,22 @@
+---
+const { eyebrow, title, copy, narrow = false } = Astro.props;
+---
+
+<section class="section">
+  <div class:list={['container', narrow && 'narrow']}>
+    {(eyebrow || title || copy) && (
+      <div class="stack intro">
+        {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+        {title && <h2 class="section-title">{title}</h2>}
+        {copy && <p class="section-copy">{copy}</p>}
+      </div>
+    )}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .intro {
+    margin-bottom: 1.5rem;
+  }
+</style>

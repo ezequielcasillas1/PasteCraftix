@@ -1,0 +1,62 @@
+<section class="section">
+  <div class="container narrow">
+    <div class="stack">
+      <span class="eyebrow">Tester information</span>
+      <h1 class="section-title">Basic plan validation checklist</h1>
+      <p class="section-copy">Use this page as a focused guide for validating the Basic plan experience in PasteCraft. It is meant to keep testing structured, readable, and easy to share with new testers.</p>
+    </div>
+
+    <div class="stack tester-sections">
+      <article class="surface-card legal-card">
+        <h2>Phase 1: Sign in and setup</h2>
+        <ul class="list-clean">
+          <li>Install the extension and sign in with the assigned test account.</li>
+          <li>Confirm the dashboard loads and your session persists after reopening the browser.</li>
+          <li>Verify the plan tier displays as <strong>Basic</strong>.</li>
+        </ul>
+      </article>
+
+      <article class="surface-card legal-card">
+        <h2>Phase 2: CRUD workflow</h2>
+        <ul class="list-clean">
+          <li>Create clips, edit them, delete them, and verify changes persist after refresh.</li>
+          <li>Create notes and categories, then rename and remove them safely.</li>
+          <li>Check that search and filtering still behave correctly after multiple edits.</li>
+        </ul>
+      </article>
+
+      <article class="surface-card legal-card">
+        <h2>Phase 3: Cloud sync</h2>
+        <ul class="list-clean">
+          <li>Create clips on one device and verify they appear on another signed-in device.</li>
+          <li>Delete a clip on one device and verify that deletion propagates.</li>
+          <li>Watch for duplicate records, stale data, or sync delays longer than expected.</li>
+        </ul>
+      </article>
+
+      <article class="surface-card legal-card">
+        <h2>Phase 4: Plan enforcement</h2>
+        <ul class="list-clean">
+          <li>Confirm AI Breakdown, AI Summary, and AI Image Generation are blocked on Basic.</li>
+          <li>Verify upgrade prompts appear instead of premium AI responses.</li>
+          <li>Make sure the pricing and account screens clearly indicate the current plan.</li>
+        </ul>
+      </article>
+
+      <article class="surface-card legal-card">
+        <h2>Phase 5: Reliability and logout</h2>
+        <ul class="list-clean">
+          <li>Log out and confirm protected data is no longer accessible until sign-in resumes.</li>
+          <li>Test multiple browser tabs or windows for consistent state.</li>
+          <li>Report any data loss, ghost clips, stale sessions, or broken upgrade flows.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style>
+  .tester-sections {
+    margin-top: 1.5rem;
+  }
+</style>

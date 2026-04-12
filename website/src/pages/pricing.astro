@@ -1,0 +1,184 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+import PricingCard from '../components/PricingCard.astro';
+import { pricingPlans, storeLinks } from '../data/site.js';
+
+const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
+---
+
+<BaseLayout
+  title="PasteCraft Pricing"
+  description="Compare Freemium, Basic, and Enhanced PasteCraft plans with clearer visuals and flexible billing intervals."
+  currentPath="/pricing"
+>
+  <div class="page-shell">
+    <SectionShell
+      eyebrow="Pricing"
+      title="Simple plans, clearer tradeoffs"
+      copy="Choose local-only simplicity, synced storage, or the full enhanced AI workflow. Subscription starts from inside the extension after install."
+    >
+      <div class="card-grid three">
+        <PricingCard
+          id="card-freemium"
+          name={freemiumPlan.name}
+          tier={freemiumPlan.tier}
+          price={freemiumPlan.price}
+          cadence={freemiumPlan.cadence}
+          note={freemiumPlan.note}
+          features={freemiumPlan.features}
+        >
+          <div class="stack">
+            <p class="store-copy">Get the free extension first.</p>
+            <div class="button-row">
+              <a href={storeLinks.chrome} class="ghost-button btn-store" data-store="chrome">Chrome</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+            </div>
+            <span class="muted">Clips stay on your device.</span>
+          </div>
+        </PricingCard>
+
+        <PricingCard
+          id="card-basic"
+          name={basicPlan.name}
+          tier={basicPlan.tier}
+          price={basicPlan.price}
+          cadence={basicPlan.cadence}
+          note={basicPlan.note}
+          features={basicPlan.features}
+          popular={basicPlan.popular}
+          billing={basicPlan.billing}
+          dataPlan="basic"
+        >
+          <div class="stack">
+            <p class="store-copy">Subscribe within the extension after install.</p>
+            <div class="button-row">
+              <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+            </div>
+            <span class="muted" id="note-basic">Cloud sync with database storage.</span>
+          </div>
+        </PricingCard>
+
+        <PricingCard
+          id="card-enhanced"
+          name={enhancedPlan.name}
+          tier={enhancedPlan.tier}
+          price={enhancedPlan.price}
+          cadence={enhancedPlan.cadence}
+          note={enhancedPlan.note}
+          features={enhancedPlan.features}
+          billing={enhancedPlan.billing}
+          dataPlan="enhanced"
+        >
+          <div class="stack">
+            <p class="store-copy">Subscribe within the extension after install.</p>
+            <div class="button-row">
+              <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+            </div>
+            <span class="muted" id="note-enhanced">Enhanced AI access plus sync.</span>
+          </div>
+        </PricingCard>
+      </div>
+    </SectionShell>
+
+    <SectionShell
+      eyebrow="Questions"
+      title="Frequently asked before upgrading"
+      copy="The pricing experience is designed to set expectations clearly before you ever hit checkout."
+    >
+      <div class="card-grid two">
+        <article class="surface-card panel stack">
+          <h3>Can I cancel anytime?</h3>
+          <p class="section-copy">Yes. Your access continues until the current billing period ends.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Where do subscriptions happen?</h3>
+          <p class="section-copy">The current flow is designed to begin from the extension after install, keeping billing aligned with your signed-in account.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>What does Basic unlock?</h3>
+          <p class="section-copy">Basic adds cloud sync and storage-backed continuity without enabling premium AI tools.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>What does Enhanced unlock?</h3>
+          <p class="section-copy">Enhanced includes the AI tools on top of the full synced experience.</p>
+        </article>
+      </div>
+    </SectionShell>
+  </div>
+
+  <script is:inline>
+    const PLAN_CONFIG = {
+      basic: {
+        weekly: { amount: 0.99, suffix: '/week' },
+        monthly: { amount: 1.99, suffix: '/month' },
+        yearly: { amount: 9.99, suffix: '/year' },
+      },
+      enhanced: {
+        weekly: { amount: 1.99, suffix: '/week' },
+        monthly: { amount: 4.99, suffix: '/month' },
+        yearly: { amount: 49.99, suffix: '/year' },
+      },
+    };
+
+    const selectedIntervalByPlan = {
+      basic: 'monthly',
+      enhanced: 'monthly',
+    };
+
+    function formatUsd(amount) {
+      return `$${amount.toFixed(2)}`;
+    }
+
+    function setCardUi(plan) {
+      const interval = selectedIntervalByPlan[plan];
+      const cfg = PLAN_CONFIG[plan]?.[interval];
+      if (!cfg) return;
+
+      const priceEl = document.getElementById(`price-${plan}`);
+      if (priceEl) {
+        priceEl.innerHTML = `${formatUsd(cfg.amount)}<span>${cfg.suffix}</span>`;
+      }
+
+      document.querySelectorAll(`.billing-toggle button[data-plan="${plan}"]`).forEach((button) => {
+        button.classList.toggle('active', button.getAttribute('data-interval') === interval);
+      });
+    }
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const billingButton = target.closest('.billing-toggle button');
+      if (billingButton) {
+        const plan = billingButton.getAttribute('data-plan');
+        const interval = billingButton.getAttribute('data-interval');
+        if (plan && interval && selectedIntervalByPlan[plan]) {
+          selectedIntervalByPlan[plan] = interval;
+          setCardUi(plan);
+        }
+      }
+
+      const storeButton = target.closest('.btn-store');
+      if (storeButton instanceof HTMLElement) {
+        const store = storeButton.getAttribute('data-store');
+        if (store && storeButton.getAttribute('href')?.startsWith('#')) {
+          event.preventDefault();
+          alert(`${store.charAt(0).toUpperCase() + store.slice(1)} Web Store link coming soon!\n\nSubscription is available within the PasteCraft extension after install.`);
+        }
+      }
+    });
+
+    setCardUi('basic');
+    setCardUi('enhanced');
+  </script>
+
+  <style>
+    .store-copy {
+      margin: 0;
+      color: var(--text-soft);
+    }
+  </style>
+</BaseLayout>

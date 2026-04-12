@@ -1,0 +1,68 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+---
+
+<BaseLayout
+  title="PasteCraft Terms of Use"
+  description="Read the PasteCraft terms of use, including acceptable use, account responsibilities, and enforcement conditions."
+  currentPath="/terms"
+>
+  <div class="page-shell">
+    <SectionShell
+      eyebrow="Terms of use"
+      title="Use PasteCraft responsibly."
+      copy="These terms explain the expectations around lawful use, account security, prohibited conduct, and how we may enforce the rules when abuse occurs."
+      narrow={true}
+    >
+      <article class="surface-card legal-card">
+        <p class="muted">Last updated: February 12, 2026</p>
+
+        <section>
+          <h2>Acceptance</h2>
+          <p>By using PasteCraft, you agree to these Terms of Use and the PasteCraft Privacy Policy. If you do not agree, do not use the service.</p>
+        </section>
+
+        <section>
+          <h2>Purpose</h2>
+          <p>PasteCraft is a clipboard and productivity tool for organizing notes, clips, and study or work workflows. It is intended for lawful, constructive, and professional use.</p>
+        </section>
+
+        <section>
+          <h2>Account and security responsibilities</h2>
+          <ul class="list-clean">
+            <li>Do not attempt to access accounts or systems that are not yours.</li>
+            <li>Do not bypass authentication, exploit vulnerabilities, or interfere with service reliability.</li>
+            <li>Do not share stolen credentials, tokens, or unauthorized access methods.</li>
+          </ul>
+          <p>Violations may result in suspension or permanent account bans.</p>
+        </section>
+
+        <section>
+          <h2>Prohibited content and conduct</h2>
+          <ul class="list-clean">
+            <li>Pornographic or sexually explicit material.</li>
+            <li>Graphic violence or other extreme harmful content.</li>
+            <li>Material that promotes hate, terrorism, exploitation, or criminal behavior.</li>
+            <li>Harassment, threats, fraud, spam, phishing, or malware distribution.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Enforcement and termination</h2>
+          <p>We may investigate suspected violations and take action at our discretion, including content removal, account suspension, or permanent bans where appropriate and allowed by law.</p>
+        </section>
+
+        <section>
+          <h2>Changes</h2>
+          <p>We may update these terms from time to time. Continued use of PasteCraft after an update means you accept the revised terms.</p>
+        </section>
+
+        <section>
+          <h2>Contact</h2>
+          <p>Questions about the terms can be sent to <a href="mailto:legal@pastecraft.com">legal@pastecraft.com</a>.</p>
+        </section>
+      </article>
+    </SectionShell>
+  </div>
+</BaseLayout>

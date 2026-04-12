@@ -1,0 +1,21 @@
+{
+  "name": "pastecraft-website",
+  "version": "1.0.0",
+  "description": "PasteCraft marketing website rebuilt with Astro.",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "keywords": [
+    "astro",
+    "pastecraft",
+    "marketing-site"
+  ],
+  "author": "Ezequiel Casillas",
+  "license": "MIT",
+  "dependencies": {
+    "astro": "^6.1.5"
+  }
+}

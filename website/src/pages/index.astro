@@ -1,0 +1,217 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import SectionShell from '../components/SectionShell.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import PricingCard from '../components/PricingCard.astro';
+import { pricingPlans, trustPills } from '../data/site.js';
+
+const featureItems = [
+  {
+    icon: '🧭',
+    title: 'Clarity-first organization',
+    copy: 'Turn messy clipboard chaos into clean categories, searchable notes, and a workspace that feels intentional.',
+  },
+  {
+    icon: '☁️',
+    title: 'Cloud sync when you need it',
+    copy: 'Start local, then move up to synced storage across devices without changing the way you already work.',
+  },
+  {
+    icon: '✨',
+    title: 'Readable AI assistance',
+    copy: 'Use summaries, breakdowns, and image tools only when they help, with a product experience that stays calm and usable.',
+  },
+];
+---
+
+<BaseLayout
+  title="PasteCraft | Clipboard Clarity for Modern Work"
+  description="PasteCraft is a clipboard manager that brings structure, sync, and optional AI tooling to your everyday copy-and-paste workflow."
+  currentPath="/"
+>
+  <Hero
+    eyebrow="Designed from the PasteCraft mark"
+    title="A clipboard manager that finally feels premium."
+    description="PasteCraft helps you keep every clip readable, organized, and ready to reuse. Save locally, sync across devices, and unlock AI-powered assistance only when it actually improves your flow."
+    primaryHref="/pricing"
+    primaryLabel="Explore pricing"
+    secondaryHref="/about"
+    secondaryLabel="Why PasteCraft"
+  >
+    <div class="hero-stack">
+      <div class="hero-matrix">
+        <div class="hero-panel surface-card panel">
+          <span class="hero-label">Quick capture</span>
+          <strong>Save everything you copy.</strong>
+          <p>Keep plain text, notes, snippets, and research in a single polished system.</p>
+        </div>
+        <div class="hero-panel surface-card panel accent">
+          <span class="hero-label">Readable design</span>
+          <strong>Built around the PasteCraft palette.</strong>
+          <p>Deep navy, clean teal, and soft glass surfaces make dense information easier to scan.</p>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat">
+          <strong>190+</strong>
+          <span>Languages supported</span>
+        </div>
+        <div class="stat">
+          <strong>20+</strong>
+          <span>Markup formats</span>
+        </div>
+        <div class="stat">
+          <strong>3</strong>
+          <span>Flexible plan tiers</span>
+        </div>
+        <div class="stat">
+          <strong>0</strong>
+          <span>Friction in your default workflow</span>
+        </div>
+      </div>
+    </div>
+
+    <Fragment slot="meta">
+      <div class="tag-row">
+        {trustPills.map((pill) => (
+          <span class="tag">{pill}</span>
+        ))}
+      </div>
+    </Fragment>
+  </Hero>
+
+  <SectionShell
+    eyebrow="What changes"
+    title="The upgrade from copy-and-paste to pastecrafting"
+    copy="The product is designed to work for students, researchers, coders, and busy operators who need more from copied information than a temporary clipboard can offer."
+  >
+    <FeatureGrid items={featureItems} />
+  </SectionShell>
+
+  <SectionShell
+    eyebrow="Why it reads better"
+    title="Made to reduce friction, not add spectacle."
+    copy="The new visual system uses the logo’s own tones to create a calmer reading surface for dense content, settings, pricing, and support flows."
+  >
+    <div class="split">
+      <article class="surface-card panel stack">
+        <h3>Readable by default</h3>
+        <ul class="list-clean">
+          <li>Clearer typography scale with less visual noise.</li>
+          <li>Better spacing rhythm between actions, labels, and explanations.</li>
+          <li>Stronger contrast across navigation, cards, and legal content.</li>
+        </ul>
+      </article>
+
+      <article class="surface-card panel stack">
+        <h3>Built for reliability</h3>
+        <ul class="list-clean">
+          <li>Static-first marketing pages for fast delivery and easy maintenance.</li>
+          <li>Preserved pricing, upgrade, and account flows where behavior matters.</li>
+          <li>Cleaner shared components instead of page-by-page style duplication.</li>
+        </ul>
+      </article>
+    </div>
+  </SectionShell>
+
+  <SectionShell
+    eyebrow="Plans"
+    title="Choose the level that fits your workflow"
+    copy="Start free, move to synced storage, or unlock the full AI-assisted experience when your workload grows."
+  >
+    <div class="card-grid three">
+      {pricingPlans.map((plan) => (
+        <PricingCard
+          id={`${plan.id}-home`}
+          name={plan.name}
+          tier={plan.tier}
+          price={plan.price}
+          cadence={plan.cadence}
+          note={plan.note}
+          features={plan.features}
+          popular={plan.popular}
+        >
+          <a class={plan.popular ? 'button' : 'ghost-button'} href="/pricing">View details</a>
+        </PricingCard>
+      ))}
+    </div>
+  </SectionShell>
+
+  <SectionShell
+    eyebrow="Ready when you are"
+    title="Bring better structure to every copied idea"
+    copy="Whether you stay on the free plan or subscribe inside the extension, PasteCraft is built to keep your clipboard history more useful, more legible, and more durable."
+  >
+    <div class="surface-card panel cta-band">
+      <div class="stack">
+        <h3>See the plans, compare the tiers, and subscribe when it fits.</h3>
+        <p class="section-copy">You can explore everything from the pricing page and finish subscription flows inside the extension experience.</p>
+      </div>
+      <div class="button-row">
+        <a class="button" href="/pricing">Open pricing</a>
+        <a class="ghost-button" href="/account">Go to account</a>
+      </div>
+    </div>
+  </SectionShell>
+
+  <style>
+    .hero-stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .hero-matrix {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .hero-panel strong {
+      display: block;
+      margin: 0.45rem 0 0.75rem;
+      font-size: 1.2rem;
+    }
+
+    .hero-panel p {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.7;
+    }
+
+    .hero-label {
+      color: var(--brand-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .accent {
+      background:
+        linear-gradient(180deg, rgba(235, 180, 65, 0.18) 0%, rgba(7, 21, 35, 0) 100%),
+        var(--surface);
+    }
+
+    .cta-band {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .cta-band h3 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    @media (max-width: 980px) {
+      .hero-matrix,
+      .cta-band {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</BaseLayout>
