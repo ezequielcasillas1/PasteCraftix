@@ -4842,6 +4842,10 @@ class PasteCraftFloatingWidget {
           function dockMiniBottomRight() {
             window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, '*');
           }
+
+          function isFromExtension(e) {
+            return e && e.data && e.source === window.parent;
+          }
           
           function copyClip(text, index) {
             // Decode HTML entities
@@ -4859,7 +4863,7 @@ class PasteCraftFloatingWidget {
           
           function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, '*');
+              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, '*'); // parent origin varies per host page; e.source check in parent is the guard
             }
           }
           
@@ -5008,7 +5012,7 @@ class PasteCraftFloatingWidget {
       getQuickViewClips()
         .then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, 'null');
           }
         })
         .catch(() => {});
@@ -5026,7 +5030,7 @@ class PasteCraftFloatingWidget {
       if (e.data.type === 'quickview-get-clips') {
         getQuickViewClips().then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, 'null');
           }
         }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
@@ -5074,7 +5078,7 @@ class PasteCraftFloatingWidget {
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {
               if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
+                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, 'null');
               }
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }).catch(() => {});

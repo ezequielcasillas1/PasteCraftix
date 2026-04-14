@@ -27,6 +27,15 @@ function normalizeArray(value) {
   return [value];
 }
 
+async function safeTabsSendMessage(tabId, message) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function getAppOpenMode() {
   try {
     const { widgetSettings = {} } = await chrome.storage.local.get(['widgetSettings']);
@@ -556,14 +565,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'pcOpenPopupWindow') {
     try {
-      const url = message && typeof message.url === 'string' ? message.url : '';
+      const rawUrl = message && typeof message.url === 'string' ? message.url : '';
       const page = message && typeof message.page === 'string' ? message.page : '';
       const width = Number.isFinite(message?.width) ? Math.max(200, Math.round(message.width)) : 980;
       const height = Number.isFinite(message?.height) ? Math.max(200, Math.round(message.height)) : 720;
 
-      const finalUrl = url || (page ? getExtensionPageUrl(page) : '');
+      const extensionOrigin = chrome.runtime.getURL('');
+      const finalUrl = rawUrl || (page ? getExtensionPageUrl(page) : '');
+
       if (!finalUrl) {
         sendResponse({ success: false, error: 'missing_url' });
+        return false;
+      }
+
+      if (!finalUrl.startsWith(extensionOrigin)) {
+        sendResponse({ success: false, error: 'disallowed_url' });
         return false;
       }
 

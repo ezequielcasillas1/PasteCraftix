@@ -9,6 +9,7 @@
     "contextMenus",
     "storage",
     "activeTab",
+    "tabs",
     "scripting",
     "identity",
     "clipboardWrite"
@@ -19,7 +20,8 @@
     "https://api.replicate.com/*",
     "https://*.blob.core.windows.net/*",
     "https://accounts.google.com/*",
-    "http://127.0.0.1:7242/*"
+    "https://pastecraft.com/*",
+    "https://*.pastecraft.com/*"
   ],
   "oauth2": {
     "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",
@@ -29,7 +31,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://api.replicate.com https://*.blob.core.windows.net https://accounts.google.com http://127.0.0.1:7242"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://api.replicate.com https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
   },
   "content_scripts": [
     {

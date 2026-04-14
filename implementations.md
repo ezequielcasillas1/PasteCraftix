@@ -1,3 +1,8 @@
+### Apr 14, 2026 - Security Hardening Phase 1 + 2
+**Status:** SUCCESS
+**Files:** extension/background.js, extension/manifest.json, extension/popup.html, extension/callback.js, extension/content-script.js
+**Result:** Phase 1: safeTabsSendMessage defined, pcOpenPopupWindow allowlisted, test file removed, 127.0.0.1 swapped for pastecraft.com, token logging stripped. Phase 2: postMessage to srcdoc iframe changed from '*' to 'null'; tabs permission added to manifest.
+
 ### Apr 10, 2026 - Cached Login Rewire (Remove 3 Sign-in Options)
 **Status:** SUCCESS
 **Files:** extension/popup.html, extension/popup.js
