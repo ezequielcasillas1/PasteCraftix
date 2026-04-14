@@ -1,7 +1,7 @@
-### Apr 14, 2026 - Security Hardening Phase 1 + 2
+### Apr 14, 2026 - Security Hardening + Quick View Fix
 **Status:** ✅ SUCCESS
-**Files:** extension/background.js, extension/manifest.json, extension/popup.html, extension/callback.js, extension/content-script.js
-**Result:** Phase 1: safeTabsSendMessage defined, pcOpenPopupWindow allowlisted, test file removed, 127.0.0.1 swapped for pastecraft.com, token logging stripped. Phase 2: postMessage to srcdoc iframe tightened from '*' to 'null'; "tabs" permission added to manifest.
+**Files:** extension/background.js, extension/manifest.json, extension/popup.html, extension/callback.js, extension/content-script.js, extension/popup.js
+**Result:** Hardened messaging, popup URL handling, manifest permissions/CSP, token logging, and dynamic HTML escaping. Quick View regression was fixed by restoring srcdoc iframe delivery to `*` and validating `e.source === window.parent`, so recent clips now load correctly.
 
 ### Apr 10, 2026 - Cached Login Rewire (Remove 3 Sign-in Options)
 **Status:** ✅ SUCCESS

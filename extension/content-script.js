@@ -234,7 +234,7 @@ class QuickPasteInterface {
           <div class="pastecraft-clip-content">
             <div class="pastecraft-clip-text">${qpBadge}${qpFormatted}</div>
             <div class="pastecraft-clip-meta">
-              <span class="pastecraft-category">${category}</span>
+              <span class="pastecraft-category">${this.escapeHtml(category)}</span>
               ${timeAgo ? `<span class="pastecraft-time">${timeAgo}</span>` : ''}
             </div>
           </div>
@@ -4885,6 +4885,7 @@ class PasteCraftFloatingWidget {
           // Listen for clip data from parent
           window.addEventListener('message', (e) => {
             if (!e || !e.data) return;
+            if (e.source !== window.parent) return;
             if (e.data.type === 'quickview-clips-data') {
               renderClips(e.data.clips);
             }
@@ -5012,7 +5013,7 @@ class PasteCraftFloatingWidget {
       getQuickViewClips()
         .then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, 'null');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
           }
         })
         .catch(() => {});
@@ -5030,7 +5031,7 @@ class PasteCraftFloatingWidget {
       if (e.data.type === 'quickview-get-clips') {
         getQuickViewClips().then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, 'null');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
           }
         }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
@@ -5078,7 +5079,7 @@ class PasteCraftFloatingWidget {
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {
               if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, 'null');
+                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
               }
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }).catch(() => {});

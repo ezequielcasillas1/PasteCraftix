@@ -6522,9 +6522,11 @@ class PasteCraftPopup {
       const clipId = String(item.clip.id);
       const isSelected = this._magicSelected.has(clipId);
       const preview = (item.clip.text || '').replace(/\n/g, ' ').slice(0, 80) + ((item.clip.text || '').length > 80 ? '…' : '');
-      const typeBadge = labels[item.contentType] || item.contentType;
-      const issueTags = item.issues.map(i =>
-        `<span class="magic-issue-tag magic-issue-${i.color}">${i.tag}${i.detail ? ' ' + i.detail : ''}</span>`
+      const typeBadge = this._escHtml(labels[item.contentType] || item.contentType);
+      const issueTags = item.issues.map(i => {
+        const safeColor = String(i.color || 'neutral').replace(/[^a-z0-9_-]/gi, '') || 'neutral';
+        return `<span class="magic-issue-tag magic-issue-${safeColor}">${this._escHtml(i.tag)}${i.detail ? ' ' + this._escHtml(i.detail) : ''}</span>`;
+      }
       ).join('');
 
       return `
@@ -6861,7 +6863,7 @@ class PasteCraftPopup {
 
     const labels = this._magicTypeLabels();
     const typeBreakdown = Object.entries(stats.typesFound)
-      .map(([type, count]) => `<span class="magic-type-tag">${labels[type] || type}: ${count}</span>`)
+      .map(([type, count]) => `<span class="magic-type-tag">${this._escHtml(labels[type] || type)}: ${count}</span>`)
       .join(' ');
 
     document.getElementById('magicStatCategorized').textContent = stats.categorized;
@@ -7021,7 +7023,7 @@ class PasteCraftPopup {
       <div class="search-result-content">
         <div class="search-result-text">${sBadge}${searchTextContent}</div>
         <div class="search-result-meta">
-          <span class="search-result-category">${clip.category}</span>
+          <span class="search-result-category">${this.escapeHtml(clip.category || 'Uncategorized')}</span>
           <span>${timeAgo}</span>
         </div>
       </div>
@@ -11319,9 +11321,12 @@ class PasteCraftPopup {
     galleryGrid.innerHTML = currentPageImages.map((item, pageIndex) => {
       const actualIndex = startIndex + pageIndex;
       const isCurrentProfile = item.url === currentProfileUrl;
+      const safeImageUrl = /^(https?:\/\/|data:image\/)/i.test(String(item.url || ''))
+        ? this.escapeHtml(item.url || '')
+        : '';
       return `
       <div class="ai-gallery-item ${isCurrentProfile ? 'is-profile' : ''}" data-index="${actualIndex}">
-        <img src="${item.url}" alt="AI Generated ${actualIndex + 1}" />
+        <img src="${safeImageUrl}" alt="AI Generated ${actualIndex + 1}" />
         ${isCurrentProfile ? '<div class="ai-profile-badge">✓ Profile</div>' : ''}
         <div class="ai-gallery-item-actions">
           <button class="ai-gallery-action-btn set-profile" data-action="set-profile" data-index="${actualIndex}" title="Set as Profile Image">
