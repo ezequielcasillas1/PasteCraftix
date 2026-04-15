@@ -528,6 +528,55 @@ state management.
 
 ---
 
+#### 43. Website - Futures Page
+**Priority:** Medium  
+**Status:** Not started  
+**Requirements:**
+- Create `/futures` page on pastecraft.com
+- Display upcoming features and roadmap
+- Show feature voting/interest indicators
+- Link from main navigation
+
+---
+
+#### 44. Website - Documentation Page
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Create `/docs` page on pastecraft.com
+- Comprehensive guide on how to use PasteCraft
+- Sections: Getting Started, Features, Hotkeys, Settings, FAQ
+- Mobile-friendly layout with search
+
+---
+
+#### 45. Comprehensive Hotkey System
+**Priority:** High  
+**Status:** Not started  
+**Requirements:**
+- Define and implement keyboard shortcuts for core features
+- Add hotkey configuration in Settings
+- Display hotkey hints in UI tooltips
+
+**Proposed Hotkeys (5-10):**
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+V` | Open Quick View panel |
+| `Ctrl+Shift+C` | Copy selected clip to clipboard |
+| `Ctrl+Shift+S` | Quick save current selection as clip |
+| `Ctrl+Shift+F` | Open search in Quick View |
+| `Escape` | Close Quick View / Cancel action |
+| `Ctrl+Shift+N` | Create new note |
+| `Ctrl+Shift+A` | Toggle AI Summary on selected text |
+| `↑ / ↓` | Navigate clips in Quick View |
+| `Enter` | Select/copy highlighted clip |
+
+- Register shortcuts in `manifest.json` using `commands` API
+- Allow users to customize shortcuts in Settings
+- Show hotkey reference card in Documentation page
+
+---
+
 
 ## 🎯 **PRIORITY ROADMAP**
 
