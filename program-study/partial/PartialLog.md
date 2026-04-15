@@ -18,6 +18,13 @@
 
 ## Entries:
 
+### 2026-04-14 - Password Reset Return Flow
+**Commit:** 62edbc7
+**Files:** auth-site/index.html, extension/index.html, extension/callback-hosted.html, extension/popup.js, extension/background.js
+**What Works:** Extension recovery/session plumbing exists and popup can enter recovery mode when given the correct recovery hash or storage callback.
+**What's Missing:** Live `auth.pastecraft.com` flow still lands on the hosted auth page and does not reliably return users into the widget reset UI; the deployed auth page (`auth-site/index.html`) is still using the older website-first instructions.
+**Next Steps:** Tomorrow, move reset UX fully into the widget login screen: show “pending password reset” inside the PC login interface, open new-password UI there, and keep the email link page as a simple thank-you/confirmation page only.
+
 ### November 12, 2025 - Offline Mode & Realtime Cross-Device Sync
 **Status:** ⚠️ PARTIAL
 **Commit:** 4dd0fb6
@@ -61,6 +68,11 @@
 **Status:** ⚠️ PARTIAL
 **Files:** extension/popup.html, extension/popup.js
 **Result:** Fixed 3 bugs: CSS duplicate `display:flex` hiding toggle, `overflow-y:hidden` blocking scroll, clips with null `device_id` breaking device filter. Needs live multi-device test to confirm end-to-end.
+
+### 2026-04-15 - Auto-Ban + Security Layer + Admin Dashboard
+**Status:** ⚠️ PARTIAL
+**Files:** supabase/functions/_shared/security-gate.ts, ai_workflow.ts, redeem-coupon, create-checkout, ai-image, supabase/functions/admin-api/index.ts, admin/index.html, admin/admin.js, admin/admin.css, admin/config.js
+**Result:** DB migrations (security_events, admin_users, ban metadata, RLS ban gate, auto-ban trigger, coupon abuse flag, content scan) applied. All Edge Functions redeployed with ban gate. Admin dashboard built (localhost-only, gitignored): users table, security events feed, rate violations log, user detail panel, ban/unban/limit/delete actions. admin-api Edge Function deployed. Needs admin_users row inserted + live smoke test to confirm SUCCESS.
 
 ### 2026-02-20 - Cross-Device Ownership + Feed Merge
 **Status:** ⚠️ PARTIAL

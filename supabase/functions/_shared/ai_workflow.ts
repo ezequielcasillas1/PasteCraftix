@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireNotBanned } from './security-gate.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
 export type AiWorkflowProvider = 'openai' | 'google';
@@ -265,6 +266,9 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
       { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 401 }
     );
   }
+
+  const banResponse = await requireNotBanned(user.id, supabase);
+  if (banResponse) return banResponse;
 
   const { data: sub, error: subErr } = await supabase
     .from('user_subscriptions')

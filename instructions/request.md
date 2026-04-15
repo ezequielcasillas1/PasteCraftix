@@ -501,6 +501,21 @@ state management.
 
 ---
 
+#### 42. Admin Dashboard (Security + User Management)
+**Priority:** High
+**Status:** Not started — builds on auto-ban system (implemented Apr 2026)
+
+**Requirements:**
+- Protected page (admin_users table gates access via service role Edge Function)
+- **Users list:** email, tier, is_banned, warning_count, created_at, last_seen, clip count
+- **Security events feed:** event_type, severity, triggered_at, details, resolved status — filter by user, type, date
+- **Per-user panel:** view profile stats (no clipboard data), subscription info, security event history
+- **Actions:** ban (temp/permanent + reason), unban, adjust clip limit override, send warning email, delete account
+- **Rate limit violations log:** who hit limits, how often, on which tables
+- No access to user clipboard content, notes body, or personal data
+
+---
+
 #### 41. Clip Rate Limiting + Admin Spam Control
 **Priority:** High  
 **Status:** Not started  

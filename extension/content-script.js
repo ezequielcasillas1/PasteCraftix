@@ -3317,12 +3317,18 @@ class PasteCraftFloatingWidget {
     // Setup close handlers
     closeButton.addEventListener('click', () => this.closePopupOverlay());
     
-    // Listen for close messages from iframe
-    window.addEventListener('message', (event) => {
+    // Listen for close messages from the overlay iframe only
+    if (this._popupMessageHandler) {
+      window.removeEventListener('message', this._popupMessageHandler);
+      this._popupMessageHandler = null;
+    }
+    this._popupMessageHandler = (event) => {
+      if (event.source !== iframe.contentWindow) return;
       if (event.data && event.data.type === 'PASTECRAFT_CLOSE_POPUP') {
         this.closePopupOverlay();
       }
-    });
+    };
+    window.addEventListener('message', this._popupMessageHandler);
     
     // Close on outside click (without blocking page interaction) if setting allows
     if (this._popupOutsidePointerDown) {
@@ -3369,6 +3375,10 @@ class PasteCraftFloatingWidget {
     if (this._popupOutsidePointerDown) {
       document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
       this._popupOutsidePointerDown = null;
+    }
+    if (this._popupMessageHandler) {
+      window.removeEventListener('message', this._popupMessageHandler);
+      this._popupMessageHandler = null;
     }
     
     if (backdrop) backdrop.classList.remove('visible');

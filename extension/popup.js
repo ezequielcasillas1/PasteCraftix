@@ -1121,9 +1121,9 @@ class PasteCraftPopup {
       accessToken: hashParams.get('access_token') ? 'present' : 'missing'
     });
     
-    if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery') {
+    if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
       console.log('🔑 Password reset callback detected from URL');
-      const accessToken = hashParams.get('access_token');
+      const accessToken = hashParams.get('access_token') || hashParams.get('reset');
       const refreshToken = hashParams.get('refresh_token');
       if (accessToken) {
         await this.setPasswordResetSession(accessToken, refreshToken);

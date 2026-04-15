@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireNotBanned } from '../_shared/security-gate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,6 +37,10 @@ serve(async (req) => {
     if (userError || !user) {
       throw new Error('Invalid authentication token')
     }
+
+    // Ban gate
+    const banResponse = await requireNotBanned(user.id, supabase)
+    if (banResponse) return banResponse
 
     // Brute-force protection: Check recent attempts (5 per hour limit)
     const { data: recentAttempts, error: attemptsError } = await supabase

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved } from "../_shared/ai_workflow.ts"
+import { requireNotBanned } from "../_shared/security-gate.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,6 +71,9 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
+
+    const banResponse = await requireNotBanned(user.id, supabase)
+    if (banResponse) return banResponse
 
     // Pull subscription/credit state
     const { data: sub, error: subErr } = await supabase

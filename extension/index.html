@@ -238,19 +238,27 @@
     <script>
         const EXTENSION_ID = 'nkmpfhkinojohffdichlonlipfhgbobh';
         
-        // Get hash parameters from URL
+        // Get callback parameters from URL
+        const searchParams = new URLSearchParams(window.location.search);
         const hash = window.location.hash;
         const params = new URLSearchParams(hash.substring(1));
         const access_token = params.get('access_token');
         const refresh_token = params.get('refresh_token');
         const type = params.get('type');
         const error_description = params.get('error_description');
+        const state = searchParams.get('state') || params.get('state') || '';
         
         const spinner = document.getElementById('spinner');
         const status = document.getElementById('status');
         const content = document.getElementById('content');
         const title = document.getElementById('title');
         const subtitle = document.getElementById('subtitle');
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = String(value ?? '');
+            return div.innerHTML;
+        }
         
         console.log('🔐 PasteCraft Callback Page Loaded');
         console.log('📦 Parameters:', { type, has_token: !!access_token, error: error_description });
@@ -273,8 +281,9 @@
             spinner.style.display = 'none';
             title.textContent = '❌ Authentication Error';
             subtitle.textContent = 'Something went wrong';
+            const safeError = escapeHtml(error);
             content.innerHTML = `
-                <div class="error">${error}</div>
+                <div class="error">${safeError}</div>
                 <p class="status">Please try again or contact support if the issue persists.</p>
             `;
         }
@@ -286,6 +295,7 @@
             
             // Create a short reset code from the access token (first 50 chars for display)
             const resetCode = accessToken;
+            const safeResetCodePreview = escapeHtml(resetCode.substring(0, 60));
             
             content.innerHTML = `
                 <div class="success">✅ Reset link verified!</div>
@@ -303,7 +313,7 @@
                 <div style="margin: 25px 0;">
                     <p style="font-weight: 600; margin-bottom: 10px;">Your Reset Code:</p>
                     <div style="background: #f7fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 15px; margin: 10px 0; font-family: 'Courier New', monospace; font-size: 13px; word-break: break-all; color: #2d3748;">
-                        ${resetCode.substring(0, 60)}...
+                        ${safeResetCodePreview}...
                     </div>
                     <button class="btn" onclick="copyResetCode()" id="copyBtn">
                         📋 Copy Reset Code
@@ -321,21 +331,21 @@
                 </div>
             `;
             
-            // Store tokens in localStorage as backup
+            // Store tokens in sessionStorage as a temporary backup for this tab only
             try {
-                localStorage.setItem('pastecraft_reset_token', accessToken);
-                localStorage.setItem('pastecraft_reset_refresh', refreshToken);
-                localStorage.setItem('pastecraft_reset_time', Date.now().toString());
-                console.log('✅ Tokens stored in localStorage');
+                sessionStorage.setItem('pastecraft_reset_token', accessToken);
+                sessionStorage.setItem('pastecraft_reset_refresh', refreshToken);
+                sessionStorage.setItem('pastecraft_reset_time', Date.now().toString());
+                console.log('✅ Tokens stored in sessionStorage');
             } catch (e) {
-                console.warn('❌ Could not store in localStorage:', e);
+                console.warn('❌ Could not store in sessionStorage:', e);
             }
             
             // Try to communicate with extension automatically
-            attemptExtensionCommunication(accessToken, refreshToken);
+            attemptExtensionCommunication(accessToken, refreshToken, state);
         }
         
-        function attemptExtensionCommunication(accessToken, refreshToken) {
+        function attemptExtensionCommunication(accessToken, refreshToken, resetState) {
             // Try to send message to extension
             if (typeof chrome !== 'undefined' && chrome.runtime) {
                 try {
@@ -344,12 +354,15 @@
                         { 
                             type: 'password_reset', 
                             access_token: accessToken, 
-                            refresh_token: refreshToken 
+                            refresh_token: refreshToken,
+                            state: resetState
                         },
                         (response) => {
                             if (chrome.runtime.lastError) {
                                 console.log('Extension not reachable:', chrome.runtime.lastError);
-                                // Fallback to manual code approach (already shown)
+                                appendRecoveryOpenButton();
+                            } else if (response && response.error) {
+                                console.warn('Password reset bridge rejected:', response.error);
                             } else if (response && response.success) {
                                 console.log('✅ Token sent to extension successfully!');
                                 // Update UI to show success
@@ -358,16 +371,35 @@
                                     <div class="instructions">
                                         <strong>🎉 Success!</strong>
                                         <p style="margin-top: 15px;">Your reset code has been automatically sent to PasteCraft.</p>
-                                        <p style="margin-top: 10px;"><strong>Next step:</strong> Click the PasteCraft icon 📋 in your toolbar to set your new password.</p>
+                                        <p style="margin-top: 10px;"><strong>Next step:</strong> Click the button below to open PasteCraft directly into the new password flow.</p>
+                                        <button class="btn" style="margin-top:16px;" onclick="openExtensionRecovery()">
+                                            🚀 Open PasteCraft Reset
+                                        </button>
                                     </div>
                                 `;
+                                return;
                             }
+
+                            appendRecoveryOpenButton();
                         }
                     );
                 } catch (e) {
                     console.log('Failed to communicate with extension:', e);
+                    appendRecoveryOpenButton();
                 }
             }
+        }
+
+        function appendRecoveryOpenButton() {
+            if (document.getElementById('openResetBtn')) return;
+            content.innerHTML += `
+                <div style="margin-top: 24px;">
+                    <p style="margin-bottom: 12px;"><strong>Or open the reset form directly:</strong></p>
+                    <button class="btn" id="openResetBtn" onclick="openExtensionRecovery()">
+                        🚀 Open PasteCraft Reset
+                    </button>
+                </div>
+            `;
         }
         
         function handleOAuthSignIn(accessToken, refreshToken) {
@@ -426,7 +458,7 @@
         }
         
         function copyResetCode() {
-            const resetCode = localStorage.getItem('pastecraft_reset_token');
+            const resetCode = sessionStorage.getItem('pastecraft_reset_token');
             if (resetCode) {
                 navigator.clipboard.writeText(resetCode).then(() => {
                     const btn = document.getElementById('copyBtn');
@@ -463,6 +495,15 @@
             // Instead of navigating to extension URL (which gets blocked),
             // just show instructions to user
             alert('📋 To use PasteCraft:\n\n1. Click the PasteCraft icon 📋 in your browser toolbar\n2. Or right-click on any page and select PasteCraft options\n\n✨ The extension is already installed and ready to use!');
+        }
+
+        function openExtensionRecovery() {
+            const recoveryHash = new URLSearchParams({
+                type: 'recovery',
+                access_token: access_token || '',
+                refresh_token: refresh_token || ''
+            }).toString();
+            window.location.href = `chrome-extension://${EXTENSION_ID}/popup.html#${recoveryHash}`;
         }
     </script>
 </body>
