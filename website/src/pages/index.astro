@@ -140,56 +140,16 @@ const featureItems = [
   </SectionShell>
 
   <script is:inline>
-    // #region agent log
     try {
       var _hashParams = new URLSearchParams((window.location.hash || '').substring(1));
-      var _hashType = _hashParams.get('type') || null;
-      var _hasAccess = !!_hashParams.get('access_token');
-      var _hasErr = !!_hashParams.get('error_description');
-
-      console.log('[PC RESET] homepage loaded', {
-        href: window.location.href,
-        hostname: window.location.hostname,
-        pathname: window.location.pathname,
-        hash: window.location.hash || '(empty)',
-        hashType: _hashType,
-        hasAccessToken: _hasAccess,
-        hasErrorDescription: _hasErr,
-      });
-
-      if (_hashType === 'recovery' || _hasAccess || _hasErr) {
-        console.warn('[PC RESET] recovery hash landed on HOMEPAGE instead of /reset-password. Forwarding now.');
-        var banner = document.createElement('div');
-        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;padding:14px 18px;background:#ef4444;color:#fff;font:600 14px/1.4 system-ui;text-align:center;';
-        banner.textContent = 'Recovery link landed on homepage. Forwarding to /reset-password...';
-        document.body && document.body.appendChild(banner);
-        try {
-          window.location.replace('/reset-password' + (window.location.hash || ''));
-        } catch (_e) {}
+      if (
+        _hashParams.get('type') === 'recovery' ||
+        _hashParams.get('access_token') ||
+        _hashParams.get('error_description')
+      ) {
+        window.location.replace('/reset-password' + (window.location.hash || ''));
       }
-
-      fetch('http://127.0.0.1:7689/ingest/30c67e61-a7ae-4adf-8b55-d5ffbb7a839d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a829fd' },
-        body: JSON.stringify({
-          sessionId: 'a829fd',
-          hypothesisId: 'H1_H2',
-          location: 'website/src/pages/index.astro:script',
-          message: 'homepage loaded',
-          data: {
-            href: window.location.href,
-            hostname: window.location.hostname,
-            pathname: window.location.pathname,
-            hasHash: !!window.location.hash,
-            hashType: _hashType,
-            hasAccessToken: _hasAccess,
-            hasErrorDesc: _hasErr,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(function () {});
     } catch (_) {}
-    // #endregion
   </script>
 
   <SectionShell
