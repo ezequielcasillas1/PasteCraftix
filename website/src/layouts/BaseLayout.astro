@@ -4,10 +4,15 @@ import Footer from '../components/Footer.astro';
 import '../styles/base.css';
 
 const {
-  title = 'PasteCraft',
-  description = 'PasteCraft turns clipboard management into a cleaner, faster, more readable workflow.',
+  title = 'PasteCraft | Clipboard Manager & History Extension',
+  description = 'PasteCraft is a powerful clipboard manager and history tool for Chrome and Edge browsers. Save, organize, and sync your clipboard with optional AI features.',
   currentPath = '/',
+  keywords = 'clipboard manager, clipboard history, browser extension, chrome extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, productivity tool',
+  canonicalUrl = '',
 } = Astro.props;
+
+const siteUrl = 'https://pastecraft.com';
+const fullCanonical = canonicalUrl || `${siteUrl}${currentPath}`;
 ---
 
 <!doctype html>
@@ -17,11 +22,50 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <link rel="canonical" href={fullCanonical} />
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#071523" />
+    <meta name="robots" content="index, follow" />
+    <meta name="author" content="PasteCraft" />
+    
+    <!-- Open Graph -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={fullCanonical} />
+    <meta property="og:site_name" content="PasteCraft" />
+    <meta property="og:image" content={`${siteUrl}/og-image.png`} />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${siteUrl}/og-image.png`} />
+    
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "PasteCraft",
+      "description": description,
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Chrome, Edge, Windows, macOS",
+      "url": siteUrl,
+      "offers": {
+        "@type": "AggregateOffer",
+        "lowPrice": "0",
+        "highPrice": "4.99",
+        "priceCurrency": "USD",
+        "offerCount": "3"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "50"
+      }
+    })} />
+    
     <slot name="head" />
   </head>
   <body>

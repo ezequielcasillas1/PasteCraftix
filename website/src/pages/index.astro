@@ -26,8 +26,9 @@ const featureItems = [
 ---
 
 <BaseLayout
-  title="PasteCraft | Clipboard Clarity for Modern Work"
-  description="PasteCraft is a clipboard manager that brings structure, sync, and optional AI tooling to your everyday copy-and-paste workflow."
+  title="PasteCraft | Best Clipboard Manager & History Extension for Chrome & Edge"
+  description="PasteCraft is the best clipboard manager and history tool for Chrome and Edge. Save unlimited clips, organize with categories, sync across devices, and unlock AI-powered features. Free to start."
+  keywords="clipboard manager, clipboard history, chrome extension, edge extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, AI clipboard, productivity tool, best clipboard manager"
   currentPath="/"
 >
   <Hero
@@ -137,6 +138,33 @@ const featureItems = [
       ))}
     </div>
   </SectionShell>
+
+  <script is:inline>
+    // #region agent log
+    try {
+      var _hashParams = new URLSearchParams((window.location.hash || '').substring(1));
+      fetch('http://127.0.0.1:7689/ingest/30c67e61-a7ae-4adf-8b55-d5ffbb7a839d', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a829fd' },
+        body: JSON.stringify({
+          sessionId: 'a829fd',
+          hypothesisId: 'H1_H2',
+          location: 'website/src/pages/index.astro:script',
+          message: 'homepage loaded',
+          data: {
+            href: window.location.href,
+            pathname: window.location.pathname,
+            hasHash: !!window.location.hash,
+            hashType: _hashParams.get('type') || null,
+            hasAccessToken: !!_hashParams.get('access_token'),
+            hasErrorDesc: !!_hashParams.get('error_description'),
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(function () {});
+    } catch (_) {}
+    // #endregion
+  </script>
 
   <SectionShell
     eyebrow="Ready when you are"

@@ -94,7 +94,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
             <article class="surface-card panel stack">
               <h3>Account settings</h3>
-              <p class="section-copy">Send a password reset email or save your email preference for updates.</p>
+              <p class="section-copy">Send a password reset email, complete the password change on the PasteCraft website, or save your email preference for updates.</p>
               <label class="toggle">
                 <input type="checkbox" id="marketingOptIn" />
                 <span>Send me product and improvement updates</span>
@@ -254,11 +254,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         showSettingsStatus('Sending password reset email...', 'info');
         const { error } = await sb.auth.resetPasswordForEmail(user.email, {
-          redirectTo: 'https://auth.pastecraft.com'
+          redirectTo: 'https://pastecraft.com/reset-password'
         });
         if (error) throw error;
 
-        showSettingsStatus('Password reset email sent.', 'success');
+        showSettingsStatus('Password reset email sent. Open the link in your email to set a new password on the PasteCraft website.', 'success');
       } catch (error) {
         showSettingsStatus(error?.message || 'Could not send reset email.', 'error');
       }

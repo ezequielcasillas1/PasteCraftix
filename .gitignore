@@ -2,6 +2,13 @@
 .env
 config.js
 
+# Visual Studio
+.vs/
+*.vsidx
+*.wsuo
+*.db-shm
+*.db-wal
+
 # Node modules
 node_modules/
 npm-debug.log*

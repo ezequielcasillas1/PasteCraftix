@@ -5197,7 +5197,7 @@ class PasteCraftPopup {
       const result = await pasteCraftSupabase.resetPassword(email);
       
       if (result.success) {
-        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ Follow instructions on pastecraft.com\n3️⃣ Return here to set your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
+        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ Set your new password on the PasteCraft website\n3️⃣ Return here and sign in with your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
         this.showToast('✅ Reset email sent! Check your inbox.', 'success');
         
         // Hide reset modal, show sign in

@@ -3367,25 +3367,8 @@ class PasteCraftSupabase {
 
     try {
       console.log('🔑 Requesting password reset for:', email);
-      
-      // Use auth.pastecraft.com - the hosted callback page
-      // Include a one-time state value so the extension can validate the token handoff.
-      let state = '';
-      try {
-        const bytes = new Uint8Array(16);
-        crypto.getRandomValues(bytes);
-        state = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-      } catch (_) {
-        state = String(Date.now()) + String(Math.random()).slice(2);
-      }
 
-      try {
-        await new Promise((resolve) => chrome.storage.local.set({
-          pc_password_reset_state_v1: { state, createdAt: Date.now() }
-        }, resolve));
-      } catch (_) {}
-
-      const callbackUrl = `https://auth.pastecraft.com/?state=${encodeURIComponent(state)}`;
+      const callbackUrl = 'https://pastecraft.com/reset-password';
       console.log('🔗 Reset redirect URL:', callbackUrl);
       
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {

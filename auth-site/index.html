@@ -253,16 +253,22 @@
         const content = document.getElementById('content');
         const title = document.getElementById('title');
         const subtitle = document.getElementById('subtitle');
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = String(value ?? '');
+            return div.innerHTML;
+        }
         
         console.log('🔐 PasteCraft Callback Page Loaded');
         console.log('📦 Parameters:', { type, has_token: !!access_token, error: error_description });
         
-        if (error_description) {
+        if (type === 'recovery' && access_token) {
+            const nextUrl = `https://pastecraft.com/reset-password${window.location.hash}`;
+            window.location.replace(nextUrl);
+        } else if (error_description) {
             // Error in callback
             handleError(error_description);
-        } else if (type === 'recovery' && access_token) {
-            // Password reset flow
-            handlePasswordReset(access_token, refresh_token);
         } else if (access_token) {
             // OAuth sign-in flow
             handleOAuthSignIn(access_token, refresh_token);
@@ -276,7 +282,7 @@
             title.textContent = '❌ Authentication Error';
             subtitle.textContent = 'Something went wrong';
             content.innerHTML = `
-                <div class="error">${error}</div>
+                <div class="error">${escapeHtml(error)}</div>
                 <p class="status">Please try again or contact support if the issue persists.</p>
             `;
         }

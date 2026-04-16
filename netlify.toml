@@ -51,6 +51,11 @@
   to = "/testerinfo.html"
   status = 200
 
+[[redirects]]
+  from = "/reset-password"
+  to = "/reset-password.html"
+  status = 200
+
 
 
 
