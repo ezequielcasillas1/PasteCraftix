@@ -3370,6 +3370,26 @@ class PasteCraftSupabase {
 
       const callbackUrl = 'https://pastecraft.com/reset-password';
       console.log('🔗 Reset redirect URL:', callbackUrl);
+
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7689/ingest/30c67e61-a7ae-4adf-8b55-d5ffbb7a839d', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a829fd' },
+          body: JSON.stringify({
+            sessionId: 'a829fd',
+            hypothesisId: 'H4',
+            location: 'extension/supabase-client.js:resetPassword',
+            message: 'extension sending reset request',
+            data: {
+              callbackUrl,
+              emailProvided: !!email,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+      } catch (_) {}
+      // #endregion
       
       const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
         redirectTo: callbackUrl

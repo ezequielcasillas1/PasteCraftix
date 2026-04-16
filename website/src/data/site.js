@@ -52,7 +52,7 @@ export const pricingPlans = [
     features: [
       'Everything in Freemium',
       'Cloud sync',
-      'Supabase-backed storage',
+      'Cloud-backed storage',
       'Cross-device continuity',
       'Standard support',
     ],
@@ -87,7 +87,7 @@ export const pricingPlans = [
 
 export const trustPills = [
   'Chromium-friendly browser extension',
-  'Supabase-backed sync',
+  'Cloud-backed sync',
   'Stripe-powered billing',
   'AI features when you want them',
 ];
