@@ -193,7 +193,26 @@ exports.handler = async (event) => {
   });
 
   if (!sendRes.ok) {
-    return json(502, { ok: false, error: 'Email send failed' });
+    // #region agent log
+    console.log('[DBG-7f9a14] Resend rejected send', JSON.stringify({
+      status: sendRes.status,
+      parsed: sendRes.parsed,
+      rawPreview: String(sendRes.raw || '').slice(0, 400),
+      fromLen: String(resendFrom || '').length,
+      fromPreview: String(resendFrom || '').slice(0, 80),
+      to,
+    }));
+    return json(502, {
+      ok: false,
+      error: 'Email send failed',
+      debug: {
+        resendStatus: sendRes.status,
+        resendError: sendRes.parsed || String(sendRes.raw || '').slice(0, 400),
+        fromPreview: String(resendFrom || '').slice(0, 80),
+        to,
+      },
+    });
+    // #endregion
   }
 
   lastSentByUser.set(userId, now);
