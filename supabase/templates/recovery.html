@@ -3,97 +3,130 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your Password - PasteCraft</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Reset Your PasteCraft Password</title>
+  <!--[if mso]>
+  <style type="text/css">
+    table,td,div,p,a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
 </head>
-<body style="margin:0; padding:0; background-color:#f5f7fa; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif; -webkit-font-smoothing:antialiased;">
-  
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f7fa;">
+<body style="margin:0; padding:0; background-color:#071523; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif; -webkit-font-smoothing:antialiased; color:#f3f9fb;">
+
+  <!-- Preview text (hidden) -->
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#071523;">
+    Reset your PasteCraft password. This secure link expires in 1 hour.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#071523;">
     <tr>
-      <td align="center" style="padding:40px 20px;">
-        
-        <!-- Main Container -->
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%; background-color:#ffffff; border-radius:16px; box-shadow:0 4px 24px rgba(102,126,234,0.12);">
-          
-          <!-- Header -->
+      <td align="center" style="padding:40px 16px;">
+
+        <!-- Main Card -->
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; width:100%; background-color:#0c1f31; border:1px solid rgba(162,207,212,0.16); border-radius:22px; box-shadow:0 28px 80px rgba(1,15,29,0.45); overflow:hidden;">
+
+          <!-- Header with brand gradient -->
           <tr>
-            <td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); padding:40px 32px; text-align:center; border-radius:16px 16px 0 0;">
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <td style="background:linear-gradient(135deg,#a2cfd4 0%,#3575a0 38%,#17547c 100%); padding:44px 32px 40px; text-align:center;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="center">
-                    <div style="font-size:48px; margin-bottom:12px;">🔑</div>
-                    <h1 style="margin:0; color:#ffffff; font-size:32px; font-weight:700; letter-spacing:-0.5px;">PasteCraft</h1>
+                    <!-- Lock glyph in circle -->
+                    <div style="width:64px; height:64px; line-height:64px; margin:0 auto 18px; background-color:rgba(7,21,35,0.35); border:1px solid rgba(255,255,255,0.22); border-radius:18px; text-align:center; font-size:30px;">
+                      &#128274;
+                    </div>
+                    <h1 style="margin:0 0 4px; color:#ffffff; font-size:28px; font-weight:700; letter-spacing:-0.4px;">PasteCraft</h1>
+                    <p style="margin:0; color:rgba(243,249,251,0.82); font-size:14px; font-weight:500; letter-spacing:0.6px; text-transform:uppercase;">Password Reset</p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
           <!-- Body -->
           <tr>
-            <td style="padding:48px 40px;">
-              <h2 style="margin:0 0 16px; color:#1a202c; font-size:24px; font-weight:700;">Reset Your Password</h2>
-              <p style="margin:0 0 8px; color:#4a5568; font-size:16px; line-height:1.7;">
-                We received a request to reset the password for your PasteCraft account associated with:
+            <td style="padding:44px 40px 16px; background-color:#0c1f31;">
+              <h2 style="margin:0 0 14px; color:#f3f9fb; font-size:22px; font-weight:700; letter-spacing:-0.2px;">Let's get you back in.</h2>
+              <p style="margin:0 0 12px; color:rgba(243,249,251,0.78); font-size:15px; line-height:1.7;">
+                We received a request to reset the password for the PasteCraft account linked to:
               </p>
-              <p style="margin:0 0 24px; padding:12px 16px; background-color:#edf2f7; border-radius:8px; color:#2d3748; font-size:15px; font-weight:500;">
+              <p style="margin:0 0 24px; padding:12px 16px; background-color:rgba(162,207,212,0.08); border:1px solid rgba(162,207,212,0.16); border-radius:12px; color:#a2cfd4; font-size:14px; font-weight:600; font-family:Consolas,Menlo,monospace; word-break:break-all;">
                 {{ .Email }}
               </p>
-              <p style="margin:0 0 24px; color:#4a5568; font-size:16px; line-height:1.7;">
-                Click the button below to create a new password. This link will expire in 1 hour.
+              <p style="margin:0 0 28px; color:rgba(243,249,251,0.78); font-size:15px; line-height:1.7;">
+                Tap the button below to create a new password. For your security, this link will expire in <strong style="color:#ebb441;">1 hour</strong>.
               </p>
-              
+
               <!-- CTA Button -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td align="center" style="padding:16px 0 32px;">
-                    <a href="{{ .ConfirmationURL }}" style="display:inline-block; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#ffffff; padding:16px 40px; border-radius:10px; text-decoration:none; font-weight:600; font-size:16px; box-shadow:0 4px 16px rgba(102,126,234,0.35);">
-                      Reset Password
+                  <td align="center" style="padding:4px 0 28px;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:52px;v-text-anchor:middle;width:260px;" arcsize="20%" stroke="f" fillcolor="#ebb441">
+                      <w:anchorlock/>
+                      <center style="color:#071523;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">Reset My Password</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-- -->
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display:inline-block; background:linear-gradient(135deg,#ebb441 0%,#d99a1f 100%); color:#071523; padding:15px 38px; border-radius:12px; text-decoration:none; font-weight:700; font-size:15px; letter-spacing:0.2px; box-shadow:0 10px 24px rgba(235,180,65,0.28); border:1px solid rgba(235,180,65,0.55);">
+                      Reset My Password
                     </a>
+                    <!--<![endif]-->
                   </td>
                 </tr>
               </table>
-              
-              <!-- Alt Link -->
-              <p style="margin:0 0 8px; color:#718096; font-size:14px;">
-                Or copy this link into your browser:
+
+              <!-- Alt link -->
+              <p style="margin:0 0 8px; color:rgba(223,240,243,0.58); font-size:13px;">
+                Button not working? Paste this link into your browser:
               </p>
-              <p style="margin:0; padding:12px 16px; background-color:#f7fafc; border-radius:8px; word-break:break-all; font-size:13px; color:#667eea; font-family:monospace;">
+              <p style="margin:0 0 32px; padding:12px 14px; background-color:rgba(23,84,124,0.22); border:1px solid rgba(162,207,212,0.16); border-radius:10px; word-break:break-all; font-size:12px; color:#a2cfd4; font-family:Consolas,Menlo,monospace; line-height:1.5;">
                 {{ .ConfirmationURL }}
               </p>
-              
+
               <!-- Security Notice -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="padding:16px 20px; background-color:#fed7d7; border-radius:8px; border-left:4px solid #fc8181;">
-                    <p style="margin:0; color:#742a2a; font-size:14px; line-height:1.6;">
-                      <strong>Didn't request this?</strong> If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+                  <td style="padding:14px 18px; background-color:rgba(235,180,65,0.08); border:1px solid rgba(235,180,65,0.28); border-left:3px solid #ebb441; border-radius:10px;">
+                    <p style="margin:0; color:rgba(243,249,251,0.85); font-size:13px; line-height:1.65;">
+                      <strong style="color:#ebb441;">Didn't request this?</strong> You can safely ignore this email &mdash; your password won't change until someone follows the link above and sets a new one.
                     </p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="height:1px; background:linear-gradient(90deg, rgba(162,207,212,0) 0%, rgba(162,207,212,0.24) 50%, rgba(162,207,212,0) 100%);"></div>
+            </td>
+          </tr>
+
           <!-- Footer -->
           <tr>
-            <td style="padding:24px 40px 32px; background-color:#f9fafb; border-radius:0 0 16px 16px; text-align:center;">
-              <p style="margin:0 0 8px; color:#718096; font-size:14px;">
-                Need help? Contact us at
-                <a href="mailto:support@pastecraft.com" style="color:#667eea; text-decoration:none; font-weight:500;">support@pastecraft.com</a>
+            <td style="padding:24px 40px 32px; background-color:#0c1f31; text-align:center;">
+              <p style="margin:0 0 10px; color:rgba(243,249,251,0.72); font-size:13px;">
+                Need a hand? Reach us at
+                <a href="mailto:support@pastecraft.com" style="color:#a2cfd4; text-decoration:none; font-weight:600;">support@pastecraft.com</a>
               </p>
-              <p style="margin:0; color:#a0aec0; font-size:12px;">
-                © 2026 PasteCraft. All rights reserved.<br>
-                <a href="{{ .SiteURL }}/privacy" style="color:#a0aec0; text-decoration:underline;">Privacy Policy</a> · 
-                <a href="{{ .SiteURL }}/terms" style="color:#a0aec0; text-decoration:underline;">Terms of Service</a>
+              <p style="margin:0; color:rgba(223,240,243,0.42); font-size:11px; line-height:1.7;">
+                &copy; 2026 PasteCraft &middot; All rights reserved<br>
+                <a href="{{ .SiteURL }}/privacy" style="color:rgba(162,207,212,0.6); text-decoration:underline;">Privacy</a>
+                &nbsp;&middot;&nbsp;
+                <a href="{{ .SiteURL }}/terms" style="color:rgba(162,207,212,0.6); text-decoration:underline;">Terms</a>
               </p>
             </td>
           </tr>
-          
+
         </table>
-        
+
       </td>
     </tr>
   </table>
-  
+
 </body>
 </html>

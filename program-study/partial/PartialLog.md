@@ -78,3 +78,8 @@
 **Status:** ⚠️ PARTIAL
 **Files:** extension/supabase-client.js, extension/popup.js
 **Result:** Preserved per-clip `device_id` during upserts and removed text-only dedupe in device feed so Device A clips stay attributable on Device B. Existing rows previously overwritten in Supabase need live validation/rewrite.
+
+### 2026-04-16 - PasteCraft Email Rebrand + Account Page Auth Features
+**Status:** ⚠️ PARTIAL
+**Files:** supabase/templates/{recovery,confirmation,magic-link,email-change,invite,password-changed}.html, website/src/pages/account.astro, extension/problem.md
+**Result:** Rebranded 6 Supabase auth email templates to PasteCraft dark theme (navy + blue/teal gradient + gold CTA). Added magic-link sign-in, change email, and forgot-password flows to `/account`. Fixed hardcoded dashboard stats — now count real clips/categories/archived via RLS. Added "Resets password" tooltip. Logged phone-based email recovery as future feature in problem.md. Needs: templates pasted into Supabase Dashboard + live email delivery test + stats verification with logged-in test user.

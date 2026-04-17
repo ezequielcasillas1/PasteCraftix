@@ -18,3 +18,17 @@
 - Devices should be discoverable when signed in and cloud sync is available.
 - The list should update when switching devices and after imports.
 - If there’s nothing new to import, the UI should clearly say so (not silently fail).
+
+---
+
+# Future: Forgot Email via Phone Number
+
+## Goal
+- Let a user recover their account email by entering a verified phone number.
+
+## Requirements
+- Add `phone`, `phone_country_code`, `phone_verified` columns to `user_profiles`.
+- Collect + SMS-verify phone at signup (and allow adding later in `/account` settings).
+- Edge Function `recover-email` (service role) takes phone → returns **masked** email (e.g. `e***@g***.com`) or sends reminder via SMS.
+- Rate-limit the lookup endpoint to prevent phone enumeration.
+- Never return a full email directly — always masked or SMS-delivered.
