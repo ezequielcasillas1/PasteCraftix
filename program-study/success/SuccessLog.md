@@ -1,3 +1,8 @@
+### Apr 17, 2026 - Support Ticket Email Pipeline (Private Email + Resend)
+**Status:** ✅ SUCCESS
+**Files:** netlify.toml, netlify/functions/support-ticket.js (Netlify env vars RESEND_API_KEY + RESEND_FROM updated)
+**Result:** End-to-end ticket flow works: extension → Netlify Function → Resend → support@pastecraft.com mailbox. Fixed 3 compounding issues — functions directory path (base=website), invalid RESEND_API_KEY, and RESEND_FROM using unverified @send subdomain (now @pastecraft.com). 4 aliases (team/help/reportbugs/howcanweimprove) forward to support@ mailbox. (Commit: 3e742fa)
+
 ### Apr 15, 2026 - PC1.7 Resend Email Integration
 **Status:** ✅ SUCCESS
 **Files:** supabase/templates/*.html, instructions/PC1.7-PRODUCTION-OVERVIEW.md, instructions/RESEND-EMAIL-SETUP.md, instructions/request.md

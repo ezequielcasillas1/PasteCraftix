@@ -1,3 +1,8 @@
+### Apr 17, 2026 - Support Ticket Email Pipeline (Private Email + Resend)
+**Status:** SUCCESS
+**Files:** netlify.toml, netlify/functions/support-ticket.js (+ Netlify env vars RESEND_API_KEY, RESEND_FROM)
+**Result:** Connected Namecheap Private Email receiving (support@pastecraft.com + 4 aliases: team/help/reportbugs/howcanweimprove) with Resend sending from root @pastecraft.com. Extension ticket form now delivers into the Private Email inbox with subject-prefixed category tags. (Commit: 3e742fa)
+
 ### Apr 14, 2026 - Security Hardening + Quick View Fix
 **Status:** SUCCESS
 **Files:** extension/background.js, extension/manifest.json, extension/popup.html, extension/callback.js, extension/content-script.js, extension/popup.js
