@@ -1,3 +1,8 @@
+### Apr 17, 2026 - Tighten RLS + Pin Function search_path (Snyk + Supabase Advisor)
+**Status:** ✅ SUCCESS
+**Files:** db/migrations/20260417_tighten_rls_and_functions.sql
+**Result:** Dropped 5 legacy `{public}` policies on `storage.objects` for profile-images bucket (anon could list/upload/update/delete any file). Replaced permissive `coupon_attempt_log` INSERT policy (roles=public, WITH CHECK true) with authenticated-only + `auth.uid() = user_id`. Pinned `search_path = public, pg_temp` on `set_config` (SECURITY DEFINER), `auto_archive_old_clips`, `search_clips`. Supabase advisor: 6 warnings → 1 (only `pg_net in public` remains, deferred). Snyk confirmed no real API key leaks — flagged JWTs are the public anon key.
+
 ### Apr 17, 2026 - Support Ticket Email Pipeline (Private Email + Resend)
 **Status:** ✅ SUCCESS
 **Files:** netlify.toml, netlify/functions/support-ticket.js (Netlify env vars RESEND_API_KEY + RESEND_FROM updated)
