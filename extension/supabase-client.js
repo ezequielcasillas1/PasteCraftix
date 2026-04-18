@@ -3173,11 +3173,46 @@ class PasteCraftSupabase {
       if (error) throw error;
 
       console.log('✅ User profile synced to Supabase');
+
+      // Fire a profile_update beacon for admin usage attribution.
+      const changes = [];
+      if (dbProfile.user_name)            changes.push('name');
+      if (dbProfile.profile_image_url)    changes.push('image_url');
+      if (dbProfile.profile_image_base64) changes.push('image_base64');
+      if (dbProfile.ai_generated_name)    changes.push('ai_name');
+      if (dbProfile.generated_image_url)  changes.push('generated_image');
+      this.pcBeacon('profile_update', { fields: changes.join(',') || 'unknown' });
+
       return true;
     } catch (error) {
       console.error('❌ Failed to sync user profile to Supabase:', error);
       return false;
     }
+  }
+
+  /**
+   * Fire a usage beacon event for admin attribution.
+   * Silent-fail — never blocks the caller. Uses the current auth session if available.
+   */
+  async pcBeacon(event, meta = {}) {
+    try {
+      if (!PASTECRAFT_CONFIG?.supabase?.url) return;
+      let token = '';
+      try {
+        const { data } = await this.client.auth.getSession();
+        token = data?.session?.access_token || '';
+      } catch (_) { /* anon beacon still works */ }
+
+      fetch(`${PASTECRAFT_CONFIG.supabase.url}/functions/v1/usage-beacon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+        },
+        body: JSON.stringify({ event, meta }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) { /* silent */ }
   }
 
   /**
@@ -3217,6 +3252,8 @@ class PasteCraftSupabase {
         generatedImageUrl: data.generated_image_url,
         aiGeneratedImage: data.ai_generated_image
       };
+
+      this.pcBeacon('profile_view');
 
       console.log('✅ Fetched user profile from Supabase');
       return localProfile;

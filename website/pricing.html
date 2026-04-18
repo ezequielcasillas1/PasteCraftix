@@ -694,6 +694,22 @@
             });
         });
     </script>
+    <script defer src="/analytics.js"></script>
+    <script>
+      // Attributed usage beacons for the admin Usage tab.
+      window.addEventListener('load', function () {
+        if (typeof window.pcBeacon !== 'function') return;
+        window.pcBeacon('subscription_view', { page: 'pricing' });
+        document.querySelectorAll('[data-store]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            window.pcBeacon('upgrade_click', {
+              page:  'pricing',
+              store: el.getAttribute('data-store') || 'unknown',
+            });
+          });
+        });
+      });
+    </script>
 </body>
 </html>
 

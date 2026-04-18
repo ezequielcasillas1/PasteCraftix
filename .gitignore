@@ -50,11 +50,23 @@ tests/.browser-profiles/
 # Bundled libraries (too large for git — download locally)
 extension/lib/
 
-# Sensitive data
+# Sensitive data — never commit
 secrets/
 credentials/
 *.key
 *.cert
+*.pem
+*.p12
+*.pfx
+*.secret
+*.secrets
+.env
+.env.*
+!.env.example
+service_role*
+*_service_role*
+*SERVICE_ROLE*
+supabase_keys.*
 
 # Local-only / generated in this workspace
 supabase/.temp/

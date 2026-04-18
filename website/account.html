@@ -603,12 +603,34 @@
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o'
         );
 
+        // ── Usage beacon (profile analytics) ──────────────────────────────
+        // Sends a small event to supabase functions/usage-beacon for admin
+        // attribution. Silent-fail; never blocks the UI.
+        async function pcBeacon(event, meta = {}) {
+          try {
+            const { data: { session: s } } = await sb.auth.getSession();
+            const token = s?.access_token || '';
+            await fetch('https://blpngeeqcegquiydreyu.supabase.co/functions/v1/usage-beacon', {
+              method: 'POST',
+              headers: {
+                'Content-Type':  'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+              },
+              body: JSON.stringify({ event, meta }),
+              keepalive: true,
+            });
+          } catch (_) { /* silent */ }
+        }
+
         // Check if user is already signed in
         window.addEventListener('load', async () => {
             const { data: { session }, error: sessionError } = await sb.auth.getSession();
-            
+
+            pcBeacon('account_page_open');
+
             if (session) {
                 showDashboard(session.user);
+                pcBeacon('profile_view');
             }
         });
 
@@ -791,6 +813,7 @@
                 const { error } = await sb.auth.updateUser({
                     data: { marketing_opt_in: optIn }
                 });
+                if (!error) pcBeacon('profile_update', { kind: 'marketing_opt_in', value: optIn });
                 if (error) throw error;
 
                 showSettingsStatus('Preferences saved.', 'success');
@@ -823,6 +846,7 @@
             } catch (_) {}
         }
     </script>
+    <script defer src="/analytics.js"></script>
 </body>
 </html>
 
