@@ -1,3 +1,8 @@
+### Apr 19, 2026 - Batch Category Sync Reliability
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js
+**Result:** Bulk clip→category moves now close the modal immediately and sync in background via compacted, single-flight queue. Audit-log hotspot pruned server-side, eliminating 8s upsert timeouts on clips/categories/notes.
+
 ### Jan 4, 2026 - Support Forms + Account Settings
 **Status:** SUCCESS
 **Files:** popup.html, popup.js, netlify/functions/support-ticket.js, website/account.html

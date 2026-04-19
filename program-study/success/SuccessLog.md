@@ -1,3 +1,8 @@
+### Apr 19, 2026 - Batch Category Sync + 8s Timeout Hotspot
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/supabase-client.js, change_audit_log (Supabase)
+**Result:** Fixed slow-closing category modal + cascading `57014` clips upserts. Decoupled bulk move from awaited sync (fire-and-forget via queue), added queue compaction + single-flight per sync type, made `performFullSync` read-mostly. Root cause of upsert timeouts: `change_audit_log` bloated to 1.23 GB / 1.02M rows from a prior runaway loop — trigger on every `clips` write stalled under 8s `statement_timeout`. Pruned to 7-day window + REINDEX + VACUUM FULL → 3.4 MB.
+
 ### Apr 19, 2026 - Tombstone-Safe CRUD (Fix Category Resurrection)
 **Status:** ✅ SUCCESS
 **Files:** extension/supabase-client.js, extension/popup.js, extension/indexeddb-store.js

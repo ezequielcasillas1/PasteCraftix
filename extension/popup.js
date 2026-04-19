@@ -680,6 +680,8 @@ class PasteCraftPopup {
     this.currentNoteType = 'note';
     this.currentNoteAttachments = [];
     this.pendingClipForNotes = null;
+    this.pendingBulkClipsForNotes = null; // array of clip objects for bulk send-to-notes
+    this.pendingBulkClipIds = null; // array of clip id keys for bulk send-to-categories
     this.pendingNoteForAlbum = null;
     this.currentViewerNoteId = null;
     this.currentAlbumAttachmentContext = null;
@@ -2352,6 +2354,9 @@ class PasteCraftPopup {
           text,
           category: clip?.category || 'Uncategorized',
           timestamp: ts,
+          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
+          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
+          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
           ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
         };
       }
@@ -2380,13 +2385,16 @@ class PasteCraftPopup {
           text,
           category: clip?.category || 'Uncategorized',
           timestamp: ts,
+          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
+          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
+          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
           ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
         };
       }
     });
     
     this.categories = categories;
-    
+
     if (normalizedChanged) {
       await chrome.storage.local.set({
         clips: this.clips,
@@ -4263,22 +4271,24 @@ class PasteCraftPopup {
     const bulkSendCategoriesBtn = document.getElementById('bulkSendCategoriesBtn');
     if (bulkSendCategoriesBtn) {
       bulkSendCategoriesBtn.addEventListener('click', () => {
-        const text = this._getSelectedClipsText();
-        if (!text) return;
-        this.pendingText = text;
+        const ids = this._getSelectedClipIdKeys();
+        if (ids.length === 0) return;
+        this.pendingBulkClipIds = ids;
+        this.pendingText = null;
         this.pendingClipId = null;
-        this.showCategoryModal(false);
+        this.showCategoryModal(true);
       });
     }
 
     const bulkSendNotesBtn = document.getElementById('bulkSendNotesBtn');
     if (bulkSendNotesBtn) {
       bulkSendNotesBtn.addEventListener('click', async () => {
-        const text = this._getSelectedClipsText();
-        if (!text) return;
+        const clips = this._getSelectedClipObjects();
+        if (clips.length === 0) return;
         await this.loadNotes();
+        this.pendingBulkClipsForNotes = clips;
+        this.pendingClipForNotes = null;
         this.showAlbumPicker();
-        this.pendingClipForNotes = { text, id: null, category: 'Uncategorized' };
       });
     }
 
@@ -6393,14 +6403,18 @@ class PasteCraftPopup {
   }
 
   _getSelectedClipsText() {
-    const ids = Array.from(this.selectedChips).map(String);
+    return this._getSelectedClipObjects().map(c => c.text).join('\n\n');
+  }
+
+  _getSelectedClipIdKeys() {
+    return Array.from(this.selectedChips).map(String).filter(Boolean);
+  }
+
+  _getSelectedClipObjects() {
+    const ids = this._getSelectedClipIdKeys();
     return ids
-      .map(id => {
-        const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
-        return clip ? clip.text : null;
-      })
-      .filter(Boolean)
-      .join('\n\n');
+      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id))
+      .filter(Boolean);
   }
   
   // ─── Magic Button: Content Type Detection ───
@@ -8063,6 +8077,7 @@ class PasteCraftPopup {
     document.getElementById('categoryModal').style.display = 'none';
     this.pendingText = null;
     this.pendingClipId = null;
+    this.pendingBulkClipIds = null;
     this.selectedCategoryForSave = 'Uncategorized';
     
     // Reset Add button to disabled state
@@ -8946,6 +8961,78 @@ class PasteCraftPopup {
   }
 
   async saveTextWithCategory() {
+    // Bulk reassignment path: multiple selected clips → single target category
+    if (Array.isArray(this.pendingBulkClipIds) && this.pendingBulkClipIds.length > 0) {
+      const targetCategory = this.selectedCategoryForSave;
+      const ids = this.pendingBulkClipIds.slice();
+      const updatedAt = Date.now();
+      const changedActiveClips = [];
+      const changedArchivedClips = [];
+
+      if (targetCategory !== 'Uncategorized') {
+        const allClips = [...this.clips, ...this.searchOnlyClips];
+        const existingCount = allClips.filter(
+          c => c.category === targetCategory && !ids.includes(this._clipIdKey(c?.id))
+        ).length;
+        if (existingCount + ids.length > 150) {
+          this.showToast(`Category "${targetCategory}" can't fit ${ids.length} more clips (150 max).`);
+          return;
+        }
+      }
+
+      let moved = 0;
+      ids.forEach(idKey => {
+        const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
+        if (activeIdx >= 0) {
+          this.clips[activeIdx] = {
+            ...this.clips[activeIdx],
+            category: targetCategory,
+            updatedAt
+          };
+          changedActiveClips.push(PasteCraftCRUD.createSnapshot(this.clips[activeIdx]));
+          moved += 1;
+          return;
+        }
+        const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
+        if (archivedIdx >= 0) {
+          this.searchOnlyClips[archivedIdx] = {
+            ...this.searchOnlyClips[archivedIdx],
+            category: targetCategory,
+            updatedAt
+          };
+          changedArchivedClips.push(PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]));
+          moved += 1;
+        }
+      });
+
+      await chrome.storage.local.set({
+        clips: this.clips,
+        searchOnlyClips: this.searchOnlyClips,
+        pc_local_updatedAt: updatedAt
+      });
+
+      if (changedActiveClips.length > 0) {
+        Promise.resolve()
+          .then(() => pasteCraftSupabase.syncWithQueue('syncClips', changedActiveClips, pasteCraftSupabase.syncClipsToSupabase))
+          .catch((error) => console.error('Failed to sync bulk category update (active):', error));
+      }
+      if (changedArchivedClips.length > 0) {
+        Promise.resolve()
+          .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', changedArchivedClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
+          .catch((error) => console.error('Failed to sync bulk category update (archived):', error));
+      }
+
+      this.selectedChips.clear();
+      this.updateQuickCopyButton();
+      this.renderChips();
+      this.renderSearchResults();
+      this.renderCategories();
+      this.updateCategoryFilter();
+      this.hideCategoryModal();
+      this.showToast(`Moved ${moved} clip${moved === 1 ? '' : 's'} to ${targetCategory}`);
+      return;
+    }
+
     if (!this.pendingText) return;
 
     if (this.pendingClipId !== null) {
@@ -8955,6 +9042,9 @@ class PasteCraftPopup {
         this.clips.find(c => this._clipIdKey(c?.id) === idKey) ||
         this.searchOnlyClips.find(c => this._clipIdKey(c?.id) === idKey);
       if (!currentClip) return;
+      const updatedAt = Date.now();
+      let changedActiveClip = null;
+      let changedArchivedClip = null;
 
       if (currentClip.category !== this.selectedCategoryForSave) {
         // Only check limit if moving to a different category (Uncategorized = unlimited, others = 150 max)
@@ -8974,22 +9064,38 @@ class PasteCraftPopup {
       // Update whichever list contains this clip (active or archived)
       const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
       if (activeIdx >= 0) {
-        this.clips[activeIdx].category = this.selectedCategoryForSave;
+        this.clips[activeIdx] = {
+          ...this.clips[activeIdx],
+          category: this.selectedCategoryForSave,
+          updatedAt
+        };
+        changedActiveClip = PasteCraftCRUD.createSnapshot(this.clips[activeIdx]);
       } else {
         const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (archivedIdx >= 0) this.searchOnlyClips[archivedIdx].category = this.selectedCategoryForSave;
+        if (archivedIdx >= 0) {
+          this.searchOnlyClips[archivedIdx] = {
+            ...this.searchOnlyClips[archivedIdx],
+            category: this.selectedCategoryForSave,
+            updatedAt
+          };
+          changedArchivedClip = PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]);
+        }
       }
 
       await chrome.storage.local.set({
         clips: this.clips,
         searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: Date.now()
+        pc_local_updatedAt: updatedAt
       });
-      
+
       // 🔄 AUTO-SYNC TO DATABASE
       try {
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
+        if (changedActiveClip) {
+          await pasteCraftSupabase.syncWithQueue('syncClips', [changedActiveClip], pasteCraftSupabase.syncClipsToSupabase);
+        }
+        if (changedArchivedClip) {
+          await pasteCraftSupabase.syncWithQueue('syncArchivedClips', [changedArchivedClip], pasteCraftSupabase.syncArchivedClipsToSupabase);
+        }
         console.log('✅ Clip category update synced to database');
       } catch (error) {
         console.error('⚠️ Failed to sync category update to database:', error);
@@ -15825,6 +15931,7 @@ class PasteCraftPopup {
   closeAlbumPicker() {
     document.getElementById('albumPickerModal').style.display = 'none';
     this.pendingNoteForAlbum = null;
+    this.pendingBulkClipsForNotes = null;
   }
 
   showBackToAlbumPicker() {
@@ -15905,9 +16012,37 @@ class PasteCraftPopup {
     const note = this.notes.find(n => n.id == noteId);
     if (!note) return;
 
-    // Get the clip to add (pending clip or most recent clip)
+    if (!note.clips) note.clips = [];
+
+    // Bulk path: add every selected clip individually
+    if (Array.isArray(this.pendingBulkClipsForNotes) && this.pendingBulkClipsForNotes.length > 0) {
+      const now = Date.now();
+      const noteClipCountBefore = note.clips.length;
+      this.pendingBulkClipsForNotes.forEach(clip => {
+        note.clips.push({
+          type: 'clip',
+          id: clip.id,
+          text: clip.text,
+          addedDate: now
+        });
+      });
+      const count = this.pendingBulkClipsForNotes.length;
+
+      note.updatedAt = now;
+      this.refreshAlbumsForNote(note);
+      await this.saveNotes();
+      await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
+      this.closeAlbumPicker();
+      this.pendingBulkClipsForNotes = null;
+      this.selectedChips.clear();
+      this.updateQuickCopyButton();
+      this.renderChips();
+      this.showToast(`${count} clip${count === 1 ? '' : 's'} added to "${note.title}"`);
+      return;
+    }
+
     let clipToAdd = this.pendingClipForNotes;
-    
+
     if (!clipToAdd) {
       if (this.clips.length === 0) {
         this.showToast('No clips to add');
@@ -15916,8 +16051,6 @@ class PasteCraftPopup {
       clipToAdd = this.clips[0];
     }
 
-    if (!note.clips) note.clips = [];
-    
     note.clips.push({
       type: 'clip',
       id: clipToAdd.id,
@@ -15928,8 +16061,9 @@ class PasteCraftPopup {
     note.updatedAt = Date.now();
     this.refreshAlbumsForNote(note);
     await this.saveNotes();
+    await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
     this.closeAlbumPicker();
-    this.pendingClipForNotes = null; // Clear pending clip
+    this.pendingClipForNotes = null;
     this.showToast(`Clip added to "${note.title}"`);
   }
 
@@ -15984,6 +16118,7 @@ class PasteCraftPopup {
 
     album.updatedAt = Date.now();
     await this.saveNotes();
+    await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(album)], pasteCraftSupabase.syncNotesToSupabase);
     this.closeAlbumPicker();
     this.pendingNoteForAlbum = null;
     this.showToast(`Note added to album "${album.title}"`);

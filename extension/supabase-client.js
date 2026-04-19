@@ -20,6 +20,10 @@ class PasteCraftSupabase {
     this._deviceRegisterCooldownMs = 60 * 1000; // avoid repeated upserts during rapid sync bursts
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
+    this._fullSyncPromise = null;
+    this._isFullSyncRunning = false;
+    this._isProcessingSyncQueue = false;
+    this._activeSyncTypes = new Set();
     // Cache flag to avoid repeated ensureUserProfileRow calls (quota optimization)
     this._profileRowEnsured = false;
     this._profileRowEnsuredUserId = null;
@@ -376,13 +380,123 @@ class PasteCraftSupabase {
     this.deviceId = deviceId;
     return deviceId;
   }
+
+  _isMergeableQueueType(type) {
+    return [
+      'syncClips',
+      'syncArchivedClips',
+      'syncCategories',
+      'syncNotes',
+      'syncDeletedClips',
+      'syncDeletedArchivedClips',
+      'syncDeletedCategories',
+      'syncDeletedNotes'
+    ].includes(String(type || ''));
+  }
+
+  _getQueueEntityKey(type, item) {
+    if (!item || typeof item !== 'object') return '';
+    switch (String(type || '')) {
+      case 'syncClips':
+      case 'syncArchivedClips':
+      case 'syncDeletedClips':
+      case 'syncDeletedArchivedClips':
+        return String(item.id ?? item.clip_id ?? item.clipId ?? '').trim();
+      case 'syncCategories':
+      case 'syncDeletedCategories':
+        return String(item.id ?? item.category_id ?? item.categoryId ?? item.name ?? '').trim();
+      case 'syncNotes':
+      case 'syncDeletedNotes':
+        return String(item.id ?? item.note_id ?? item.noteId ?? '').trim();
+      default:
+        return '';
+    }
+  }
+
+  _getQueueEntityVersion(item) {
+    if (!item || typeof item !== 'object') return 0;
+    const candidates = [
+      item.updatedAt,
+      item.updated_at,
+      item.deletedAt,
+      item.deleted_at,
+      item.timestamp,
+      item.createdAt,
+      item.created_at
+    ];
+    for (const value of candidates) {
+      if (Number.isFinite(value)) return value;
+      if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+    return 0;
+  }
+
+  _mergeQueueOperationData(type, existingData, incomingData) {
+    const existing = Array.isArray(existingData) ? existingData : [];
+    const incoming = Array.isArray(incomingData) ? incomingData : [];
+    const merged = new Map();
+
+    [...existing, ...incoming].forEach((item, index) => {
+      const key = this._getQueueEntityKey(type, item) || `__idx_${index}`;
+      const previous = merged.get(key);
+      if (!previous) {
+        merged.set(key, item);
+        return;
+      }
+      const prevVersion = this._getQueueEntityVersion(previous);
+      const nextVersion = this._getQueueEntityVersion(item);
+      if (nextVersion >= prevVersion) {
+        merged.set(key, item);
+      }
+    });
+
+    return Array.from(merged.values());
+  }
+
+  _compactSyncQueue(queue) {
+    const items = Array.isArray(queue) ? queue : [];
+    const compacted = [];
+    const mergeableIndexes = new Map();
+
+    items.forEach((operation) => {
+      if (!this._isMergeableQueueType(operation?.type)) {
+        compacted.push(operation);
+        return;
+      }
+      const existingIndex = mergeableIndexes.get(operation.type);
+      if (existingIndex === undefined) {
+        mergeableIndexes.set(operation.type, compacted.length);
+        compacted.push({
+          ...operation,
+          data: this._mergeQueueOperationData(operation.type, [], operation.data)
+        });
+        return;
+      }
+      const existingOperation = compacted[existingIndex];
+      compacted[existingIndex] = {
+        ...existingOperation,
+        timestamp: Math.max(Number(existingOperation?.timestamp || 0), Number(operation?.timestamp || 0)),
+        data: this._mergeQueueOperationData(operation.type, existingOperation?.data, operation?.data)
+      };
+    });
+
+    return compacted;
+  }
   
   async loadSyncQueue() {
     try {
       const result = await new Promise((resolve) => {
         chrome.storage.local.get(['syncQueue'], resolve);
       });
-      this.syncQueue = result.syncQueue || [];
+      const loadedQueue = Array.isArray(result.syncQueue) ? result.syncQueue : [];
+      this.syncQueue = this._compactSyncQueue(loadedQueue);
+      if (this.syncQueue.length !== loadedQueue.length) {
+        console.log(`🧹 Compacted sync queue on load: ${loadedQueue.length} -> ${this.syncQueue.length}`);
+        await this.saveSyncQueue();
+      }
       console.log(`📦 Loaded ${this.syncQueue.length} pending sync operations`);
       
       // Process queue if online
@@ -406,77 +520,102 @@ class PasteCraftSupabase {
   }
   
   async addToSyncQueue(operation) {
-    this.syncQueue.push({
+    const nextOperation = {
       ...operation,
       timestamp: Date.now(),
       id: Date.now() + Math.random()
-    });
+    };
+    this.syncQueue = this._compactSyncQueue([...this.syncQueue, nextOperation]);
     await this.saveSyncQueue();
     console.log(`➕ Added to sync queue: ${operation.type} (${this.syncQueue.length} pending)`);
   }
   
   async processSyncQueue() {
     if (this._pauseSync) return;
+    if (this._isFullSyncRunning) return;
+    if (this._isProcessingSyncQueue) return;
     if (!this.isOnline || this.syncQueue.length === 0) {
       return;
     }
     
-    console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
-    this.updateSyncStatus('syncing');
-    
-    const queue = [...this.syncQueue];
-    this.syncQueue = [];
-    
-    for (const operation of queue) {
-      try {
-        await this.executeSyncOperation(operation);
-        console.log(`✅ Processed: ${operation.type}`);
-      } catch (error) {
-        console.error(`❌ Failed to process ${operation.type}:`, error);
-        // Re-queue failed operations
-        this.syncQueue.push(operation);
-      }
+    const compactedQueue = this._compactSyncQueue(this.syncQueue);
+    if (compactedQueue.length !== this.syncQueue.length) {
+      console.log(`🧹 Compacted sync queue before processing: ${this.syncQueue.length} -> ${compactedQueue.length}`);
+      this.syncQueue = compactedQueue;
     }
-    
-    await this.saveSyncQueue();
-    this.updateSyncStatus(this.syncQueue.length > 0 ? 'syncing' : 'synced');
-    console.log(`✅ Queue processed. ${this.syncQueue.length} operations remaining.`);
+
+    this._isProcessingSyncQueue = true;
+    try {
+      console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
+      this.updateSyncStatus('syncing');
+      
+      const queue = [...this.syncQueue];
+      this.syncQueue = [];
+      
+      for (const operation of queue) {
+        try {
+          await this.executeSyncOperation(operation);
+          console.log(`✅ Processed: ${operation.type}`);
+        } catch (error) {
+          console.error(`❌ Failed to process ${operation.type}:`, error);
+          // Re-queue failed operations
+          this.syncQueue.push(operation);
+        }
+      }
+      
+      this.syncQueue = this._compactSyncQueue(this.syncQueue);
+      await this.saveSyncQueue();
+      this.updateSyncStatus(this.syncQueue.length > 0 ? 'syncing' : 'synced');
+      console.log(`✅ Queue processed. ${this.syncQueue.length} operations remaining.`);
+    } finally {
+      this._isProcessingSyncQueue = false;
+    }
   }
   
   async executeSyncOperation(operation) {
+    let result = true;
+    const type = String(operation?.type || '');
+    this._activeSyncTypes.add(type);
+    try {
     switch (operation.type) {
       case 'syncClips':
-        await this.syncClipsToSupabase(operation.data);
+        result = await this.syncClipsToSupabase(operation.data);
         break;
       case 'syncDeletedClips':
-        await this.syncDeletedClipsToSupabase(operation.data);
+        result = await this.syncDeletedClipsToSupabase(operation.data);
         break;
       case 'syncCategories':
-        await this.syncCategoriesToSupabase(operation.data);
+        result = await this.syncCategoriesToSupabase(operation.data);
         break;
       case 'syncDeletedCategories':
-        await this.syncDeletedCategoriesToSupabase(operation.data);
+        result = await this.syncDeletedCategoriesToSupabase(operation.data);
         break;
       case 'syncArchivedClips':
-        await this.syncArchivedClipsToSupabase(operation.data);
+        result = await this.syncArchivedClipsToSupabase(operation.data);
         break;
       case 'syncDeletedArchivedClips':
-        await this.syncDeletedArchivedClipsToSupabase(operation.data);
+        result = await this.syncDeletedArchivedClipsToSupabase(operation.data);
         break;
       case 'syncNotes':
-        await this.syncNotesToSupabase(operation.data);
+        result = await this.syncNotesToSupabase(operation.data);
         break;
       case 'syncDeletedNotes':
-        await this.syncDeletedNotesToSupabase(operation.data);
+        result = await this.syncDeletedNotesToSupabase(operation.data);
         break;
       case 'syncSettings':
-        await this.syncSettingsToSupabase(operation.data);
+        result = await this.syncSettingsToSupabase(operation.data);
         break;
       case 'syncProfile':
-        await this.syncUserProfileToSupabase(operation.data);
+        result = await this.syncUserProfileToSupabase(operation.data);
         break;
       default:
         console.warn('Unknown sync operation type:', operation.type);
+    }
+    if (result === false) {
+      throw new Error(`Sync operation returned false: ${operation.type}`);
+    }
+    } finally {
+      this._activeSyncTypes.delete(type);
     }
   }
   
@@ -497,22 +636,33 @@ class PasteCraftSupabase {
   }
   
   async syncWithQueue(type, data, syncMethod) {
+    const op = { type, data };
     if (!this.isOnline) {
       // Offline: add to queue
-      await this.addToSyncQueue({ type, data });
+      await this.addToSyncQueue(op);
+      return false;
+    }
+    if (this._isFullSyncRunning || this._isProcessingSyncQueue || this._activeSyncTypes.has(String(type || ''))) {
+      await this.addToSyncQueue(op);
       return false;
     }
     
     try {
       // Online: sync immediately
       this.updateSyncStatus('syncing');
-      await syncMethod.call(this, data);
+      this._activeSyncTypes.add(String(type || ''));
+      const result = await syncMethod.call(this, data);
+      if (result === false) {
+        throw new Error(`Sync method returned false: ${type}`);
+      }
       this.updateSyncStatus('synced');
       return true;
     } catch (error) {
       console.error(`❌ Sync failed, adding to queue:`, error);
-      await this.addToSyncQueue({ type, data });
+      await this.addToSyncQueue(op);
       return false;
+    } finally {
+      this._activeSyncTypes.delete(String(type || ''));
     }
   }
   
@@ -1662,10 +1812,7 @@ class PasteCraftSupabase {
       }
 
       // Standard sync for small datasets
-      const _pcBuildStart = Date.now();
       const dbClips = this.buildDbClipsForUpsert(localClips, userId, deviceId);
-      const _pcBuildMs = Date.now() - _pcBuildStart;
-      const stats = dbClips && dbClips._pcStats ? dbClips._pcStats : null;
 
       // TOMBSTONE GUARD: prevent stale devices from resurrecting deleted clips.
       const tombstoned = await this._fetchTombstonedIds('clips', 'clip_id');
@@ -1683,20 +1830,16 @@ class PasteCraftSupabase {
         return true;
       }
 
-      const _pcUpsertStart = Date.now();
-      const { data, error } = await this.client
+      const { error } = await this.client
         .from('clips')
         .upsert(safeDbClips, {
           onConflict: 'user_id,clip_id',
           ignoreDuplicates: false
-        })
-        .select();
-      const _pcUpsertMs = Date.now() - _pcUpsertStart;
+        });
 
       if (error) throw error;
 
-
-      console.log(`✅ Synced ${data.length} clips to Supabase`);
+      console.log(`✅ Synced ${safeDbClips.length} clips to Supabase`);
       return true;
     } catch (error) {
       console.error('❌ Failed to sync clips to Supabase:', error);
@@ -1935,17 +2078,16 @@ class PasteCraftSupabase {
       if (safeDbClips.length === 0) continue;
 
       try {
-        const { data, error } = await this.client
+        const { error } = await this.client
           .from('clips')
           .upsert(safeDbClips, {
             onConflict: 'user_id,clip_id',
             ignoreDuplicates: false
-          })
-          .select();
+          });
 
         if (error) throw error;
 
-        syncedCount += data.length;
+        syncedCount += safeDbClips.length;
         const percentage = Math.round((syncedCount / totalClips) * 100);
         
         // Update progress
@@ -2345,7 +2487,9 @@ class PasteCraftSupabase {
       const id = clip?.id != null ? String(clip.id) : '';
       const deletedAt = id ? deletedById.get(id) : null;
       const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
-      if (deletedAt && deletedAt >= clipUpdatedAt) return;
+      if (deletedAt && deletedAt >= clipUpdatedAt) {
+        return;
+      }
       const k = contentKey(clip);
       const prev = contentMerged.get(k);
       if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
@@ -2367,6 +2511,7 @@ class PasteCraftSupabase {
   async mergeCategories(localCategories, remoteCategories) {
     const merged = new Map();
     const deletedById = new Map();
+    const normalizeName = (name) => String(name || '').trim().toLowerCase();
 
     remoteCategories.forEach(cat => {
       const id = cat?.id != null ? String(cat.id) : '';
@@ -2423,8 +2568,20 @@ class PasteCraftSupabase {
       }
     });
 
+    const dedupedByName = new Map();
+    Array.from(merged.values()).forEach((cat) => {
+      const key = normalizeName(cat?.name);
+      if (!key) return;
+      const prev = dedupedByName.get(key);
+      const catUpdatedAt = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : 0;
+      const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : 0;
+      if (!prev || catUpdatedAt >= prevUpdatedAt) {
+        dedupedByName.set(key, cat);
+      }
+    });
+
     // Sort by name for consistent display
-    return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(dedupedByName.values()).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**
@@ -2508,13 +2665,62 @@ class PasteCraftSupabase {
       const userId = await this.getSyncUserId();
       const deviceId = await this.getDeviceId();
       await this.setUserContext(userId);
+      const normalizeName = (name) => String(name || '').trim().toLowerCase();
 
-      const filteredCategories = (localCategories || []).filter(cat => {
+      let healedLocalCategories = Array.isArray(localCategories) ? localCategories.slice() : [];
+      try {
+        const { data: remoteCategoryRows, error: remoteCategoriesError } = await this.client
+          .from('categories')
+          .select('category_id,name,icon,updated_at,deleted_at,device_id')
+          .eq('user_id', userId)
+          .is('deleted_at', null);
+        if (remoteCategoriesError) throw remoteCategoriesError;
+
+        const remoteByName = new Map();
+        (Array.isArray(remoteCategoryRows) ? remoteCategoryRows : []).forEach((row) => {
+          const key = normalizeName(row?.name);
+          if (!key) return;
+          remoteByName.set(key, {
+            id: row.category_id,
+            name: row.name,
+            icon: row.icon,
+            updatedAt: row.updated_at ? Date.parse(row.updated_at) : 0,
+            deviceId: row.device_id || null
+          });
+        });
+
+        let reconciledCount = 0;
+        healedLocalCategories = healedLocalCategories.map((cat) => {
+          const key = normalizeName(cat?.name);
+          const remote = remoteByName.get(key);
+          if (!remote) return cat;
+          if (String(remote.id) === String(cat?.id)) return cat;
+          reconciledCount += 1;
+          return {
+            ...cat,
+            id: remote.id,
+            updatedAt: Math.max(Number.isFinite(cat?.updatedAt) ? cat.updatedAt : 0, Number.isFinite(remote.updatedAt) ? remote.updatedAt : 0),
+            ...(remote.deviceId ? { deviceId: remote.deviceId } : {})
+          };
+        });
+
+        if (reconciledCount > 0) {
+          await chrome.storage.local.set({
+            categories: healedLocalCategories,
+            pc_local_updatedAt: Date.now()
+          });
+          console.log(`♻️ Reconciled ${reconciledCount} local category id${reconciledCount === 1 ? '' : 's'} from remote name matches`);
+        }
+      } catch (reconcileError) {
+        console.warn('⚠️ Category ID reconciliation skipped:', reconcileError?.message || reconcileError);
+      }
+
+      const filteredCategories = (healedLocalCategories || []).filter(cat => {
         const originDeviceId = String(cat?.origin_device_id || '').trim();
         return !originDeviceId || originDeviceId === deviceId;
       });
 
-      console.log(`📤 Syncing ${filteredCategories.length} categories to Supabase (skipped ${localCategories.length - filteredCategories.length} imported)...`);
+      console.log(`📤 Syncing ${filteredCategories.length} categories to Supabase (skipped ${healedLocalCategories.length - filteredCategories.length} imported)...`);
 
       const dbCategories = filteredCategories.map(cat => {
         const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
@@ -2547,10 +2753,23 @@ class PasteCraftSupabase {
         return true;
       }
 
+      const uniqueByName = new Map();
+      uniqueDbCategories.forEach((cat) => {
+        const nameKey = normalizeName(cat?.name);
+        if (!nameKey) return;
+        const prev = uniqueByName.get(nameKey);
+        const catUpdatedAt = Date.parse(cat.updated_at || '') || 0;
+        const prevUpdatedAt = Date.parse(prev?.updated_at || '') || 0;
+        if (!prev || catUpdatedAt >= prevUpdatedAt) {
+          uniqueByName.set(nameKey, cat);
+        }
+      });
+      const dedupedDbCategories = Array.from(uniqueByName.values());
+
       // TOMBSTONE GUARD: never resurrect a category that another device soft-deleted.
       // Without this, a stale device's UP-sync would upsert deleted_at: null and undo the delete.
       const tombstoned = await this._fetchTombstonedIds('categories', 'category_id');
-      const safeDbCategories = uniqueDbCategories.filter(cat => {
+      const safeDbCategories = dedupedDbCategories.filter(cat => {
         const idStr = String(cat.category_id || '');
         const hasLocalTombstone = cat.deleted_at != null;
         if (tombstoned.has(idStr) && !hasLocalTombstone) {
@@ -2559,8 +2778,8 @@ class PasteCraftSupabase {
         }
         return true;
       });
-      if (safeDbCategories.length !== uniqueDbCategories.length) {
-        const skipped = uniqueDbCategories.length - safeDbCategories.length;
+      if (safeDbCategories.length !== dedupedDbCategories.length) {
+        const skipped = dedupedDbCategories.length - safeDbCategories.length;
         console.log(`🛡️ Tombstone guard skipped ${skipped} already-deleted categor${skipped === 1 ? 'y' : 'ies'} from upsert`);
         // Self-heal: record the remote tombstones locally so loadData prunes them.
         await this._mergeTombstonesIntoLocal('pc_deleted_categories', tombstoned);
@@ -2602,7 +2821,19 @@ class PasteCraftSupabase {
       await this.setUserContext(userId);
       const deviceId = await this.getDeviceId();
 
-      const dbCategories = items.map(cat => {
+      const dedupedById = new Map();
+      items.forEach((cat) => {
+        const idStr = cat?.id != null ? String(cat.id) : '';
+        if (!idStr) return;
+        const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
+        const prev = dedupedById.get(idStr);
+        const prevDeletedAt = Number.isFinite(prev?.deletedAt) ? prev.deletedAt : 0;
+        if (!prev || deletedAtMs >= prevDeletedAt) {
+          dedupedById.set(idStr, { ...cat, deletedAt: deletedAtMs });
+        }
+      });
+
+      const dbCategories = Array.from(dedupedById.values()).map(cat => {
         const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
         const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
         return {
@@ -4167,8 +4398,13 @@ class PasteCraftSupabase {
         message: 'Supabase not configured'
       };
     }
+    if (this._fullSyncPromise) {
+      return await this._fullSyncPromise;
+    }
 
-    try {
+    this._isFullSyncRunning = true;
+    this._fullSyncPromise = (async () => {
+      try {
       const userId = await this.getSyncUserId();
       
       // Check cloud sync access (FREE tier = local only)
@@ -4196,7 +4432,8 @@ class PasteCraftSupabase {
           'pc_deleted_clips',
           'pc_deleted_archived_clips',
           'pc_deleted_categories',
-          'pc_deleted_notes'
+          'pc_deleted_notes',
+          'pc_local_updatedAt'
         ], resolve);
       });
 
@@ -4211,70 +4448,89 @@ class PasteCraftSupabase {
       const deletedArchivedClips = localData.pc_deleted_archived_clips || [];
       const deletedCategories = localData.pc_deleted_categories || [];
       const deletedNotes = localData.pc_deleted_notes || [];
+      const snapshotLocalUpdatedAt = Number.isFinite(localData.pc_local_updatedAt) ? localData.pc_local_updatedAt : Date.now();
+      const hasNewerLocalWrites = async () => {
+        try {
+          const latest = await chrome.storage.local.get(['pc_local_updatedAt']);
+          const latestUpdatedAt = Number.isFinite(latest?.pc_local_updatedAt) ? latest.pc_local_updatedAt : 0;
+          return latestUpdatedAt > snapshotLocalUpdatedAt;
+        } catch (_) {
+          return false;
+        }
+      };
+      const pendingQueueCount = Array.isArray(this.syncQueue) ? this.syncQueue.length : 0;
+      console.log(`📥 Startup sync running in read-mostly mode (${pendingQueueCount} queued local operation${pendingQueueCount === 1 ? '' : 's'})`);
 
-      // Sync soft deletions first (prevents resurrection)
-      await this.syncDeletedClipsToSupabase(deletedClips);
-      await this.syncDeletedArchivedClipsToSupabase(deletedArchivedClips);
-      await this.syncDeletedCategoriesToSupabase(deletedCategories);
-      await this.syncDeletedNotesToSupabase(deletedNotes);
-
-      // Sync clips
-      await this.syncClipsToSupabase(localClips);
+      // Read-mostly startup sync:
+      // Local changes should travel through the queue/delta path. Re-uploading
+      // whole local tables on every popup open is what has been timing out.
       const remoteClips = await this.syncClipsFromSupabase();
       if (remoteClips) {
         const mergedClips = await this.mergeClips(localClips, remoteClips);
-        await this._safeStorageSet({ clips: mergedClips });
-        console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
+        } else {
+          await this._safeStorageSet({ clips: mergedClips });
+          console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        }
       }
 
-      // Sync categories
-      await this.syncCategoriesToSupabase(localCategories);
       const remoteCategories = await this.syncCategoriesFromSupabase();
       if (remoteCategories) {
         const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
-        await this._safeStorageSet({ categories: mergedCategories });
-        console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping categories merge write - newer local changes detected during full sync');
+        } else {
+          await this._safeStorageSet({ categories: mergedCategories });
+          console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+        }
       }
 
-      // Sync archived clips (searchOnlyClips)
-      await this.syncArchivedClipsToSupabase(localArchivedClips);
       const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
       if (remoteArchivedClips) {
         const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
-        await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
-        console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping archived clips merge write - newer local changes detected during full sync');
+        } else {
+          await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
+          console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
+        }
       }
 
-      // Sync notes
-      await this.syncNotesToSupabase(localNotes);
       const remoteNotes = await this.syncNotesFromSupabase();
       if (remoteNotes) {
         const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
-        await this._safeStorageSet({ notes: mergedNotes });
-        console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping notes merge write - newer local changes detected during full sync');
+        } else {
+          await this._safeStorageSet({ notes: mergedNotes });
+          console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+        }
       }
 
-      // Sync AI history
-      await this.syncAiHistoryToSupabase(localAiHistory);
       const remoteAiHistory = await this.fetchAiHistoryFromSupabase();
       if (remoteAiHistory && remoteAiHistory.length > 0) {
         const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
-        await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
-        console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping AI history merge write - newer local changes detected during full sync');
+        } else {
+          await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
+          console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
+        }
       }
 
-      // Sync settings
-      await this.syncSettingsToSupabase(localSettings);
       const remoteSettings = await this.syncSettingsFromSupabase();
       if (remoteSettings) {
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ settings: remoteSettings }, resolve);
-        });
-        console.log('✅ Settings updated');
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping settings merge write - newer local changes detected during full sync');
+        } else {
+          await new Promise((resolve) => {
+            chrome.storage.local.set({ settings: remoteSettings }, resolve);
+          });
+          console.log('✅ Settings updated');
+        }
       }
 
-      // Sync user profile
-      await this.syncUserProfileToSupabase(localProfile);
       const remoteProfile = await this.syncUserProfileFromSupabase();
       if (remoteProfile) {
         const pickUrl = (localUrl, remoteUrl) => {
@@ -4305,32 +4561,45 @@ class PasteCraftSupabase {
           profileImageUrl: pickUrl(localProfile?.profileImageUrl, remoteProfile?.profileImageUrl),
           profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (localProfile?.profileImageBase64 || null))
         };
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
-        });
-        console.log('✅ User profile updated');
+        if (await hasNewerLocalWrites()) {
+          console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
+        } else {
+          await new Promise((resolve) => {
+            chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
+          });
+          console.log('✅ User profile updated');
+        }
       }
 
-      console.log('✅ Full sync complete!');
-      return {
-        success: true,
-        message: 'All data synced successfully',
-        stats: {
-          clips: remoteClips?.length || 0,
-          categories: remoteCategories?.length || 0,
-          archivedClips: remoteArchivedClips?.length || 0,
-          notes: remoteNotes?.length || 0,
-          aiHistory: remoteAiHistory?.length || 0
-        }
-      };
+        console.log('✅ Full sync complete!');
+        return {
+          success: true,
+          message: 'All data synced successfully',
+          stats: {
+            clips: remoteClips?.length || 0,
+            categories: remoteCategories?.length || 0,
+            archivedClips: remoteArchivedClips?.length || 0,
+            notes: remoteNotes?.length || 0,
+            aiHistory: remoteAiHistory?.length || 0
+          }
+        };
 
-    } catch (error) {
-      console.error('❌ Full sync failed:', error);
-      return {
-        success: false,
-        message: error.message
-      };
-    }
+      } catch (error) {
+        console.error('❌ Full sync failed:', error);
+        return {
+          success: false,
+          message: error.message
+        };
+      } finally {
+        this._isFullSyncRunning = false;
+        this._fullSyncPromise = null;
+        if (this.isOnline && this.syncQueue.length > 0 && !this._pauseSync) {
+          Promise.resolve().then(() => this.processSyncQueue()).catch(() => {});
+        }
+      }
+    })();
+
+    return await this._fullSyncPromise;
   }
 }
 
