@@ -1,3 +1,8 @@
+### Apr 19, 2026 - Publishing Safety + Cross-Browser Data Parity
+**Status:** ✅ SUCCESS
+**Files:** .cursor/rules/production-publishing-safety.mdc, extension/background.js, docs/publishing/CROSS_BROWSER_AUTH.md
+**Result:** Added always-on Cursor rule (Sections A-J) for Chrome + Edge publishing discipline — identity preservation, version rules, permissions immutability, storage schema discipline, migration guards, LWW sync, pre-publish checklist, rollback, re-test triggers. Added SCHEMA_VERSION + idempotent migration registry to onInstalled; failures fall back to cloud rehydrate, never wipe local. Documented Chrome + Edge chromiumapp.org redirect URLs for Supabase Auth allowlist.
+
 ### Apr 17, 2026 - Tighten RLS + Pin Function search_path (Snyk + Supabase Advisor)
 **Status:** ✅ SUCCESS
 **Files:** db/migrations/20260417_tighten_rls_and_functions.sql

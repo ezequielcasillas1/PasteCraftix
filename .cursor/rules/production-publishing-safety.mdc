@@ -1,0 +1,117 @@
+---
+alwaysApply: true
+---
+
+# Production Publishing Safety (Chrome + Edge)
+
+Durable rules that prevent user data loss across store updates and keep Chrome + Edge installs in perfect sync via Supabase. PasteCraft publishes to both Chrome Web Store and Edge Add-ons — extension IDs differ per store, so Supabase is the only bridge.
+
+Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise only.
+
+---
+
+## Section A — Identity preservation (never break extension ID)
+
+1. `[extension/manifest.json](extension/manifest.json)` must never contain a `"key"` field in any uploaded package.
+2. Never create a new store listing. Always "Upload new package" to the existing Chrome Web Store and Edge Add-ons listings.
+3. Never change the Supabase project URL or anon key in a way that re-scopes `user_id`.
+4. Published extension IDs (fill after first publish):
+   - Chrome Web Store ID: `TBD_CHROME_ID`
+   - Edge Add-ons ID: `TBD_EDGE_ID`
+
+---
+
+## Section B — Manifest version rules
+
+1. `extension/manifest.json` `version` must strictly increase on every store upload.
+2. Patch for fixes, minor for additive features, major for breaking changes.
+3. Never reuse a version number that was ever submitted (even if rejected).
+4. Last published version: `TBD` (update after each publish).
+
+---
+
+## Section C — Permissions immutability
+
+1. Never remove `storage`, `identity`, `scripting`, `activeTab`, `clipboardWrite`, `tabs`, `contextMenus` from `extension/manifest.json` without a migration plan.
+2. Never remove `host_permissions` for `*.supabase.co` or `accounts.google.com` — breaks sync and login.
+3. Adding new permissions is allowed; document as a re-consent trigger in release notes.
+
+---
+
+## Section D — Storage schema discipline
+
+1. `chrome.storage` keys must be defined as constants in a single shared module.
+2. Never rename a storage key without a migration.
+3. Never delete a key without a migration that archives data to Supabase first.
+4. Every schema change bumps `SCHEMA_VERSION` in `[extension/background.js](extension/background.js)`.
+
+---
+
+## Section E — Migration guard (mandatory for any storage shape change)
+
+1. `chrome.runtime.onInstalled` in `[extension/background.js](extension/background.js)` must detect `reason === "update"` and run registered migrations in order.
+2. Migrations are mapped `fromSchemaVersion -> async migrationFn`.
+3. Migrations must be idempotent and must write the new `SCHEMA_VERSION` marker on completion.
+4. On migration failure: NEVER wipe `chrome.storage.local`. Log the failure and flag cloud re-hydration on next login.
+
+---
+
+## Section F — Cross-browser sync rules (Chrome + Edge parity)
+
+1. Source of truth is Supabase. `chrome.storage.local` is a cache.
+2. All writes go through the existing tiered-storage + `syncQueue` pattern in `[extension/supabase-client.js](extension/supabase-client.js)`. Never bypass.
+3. Conflict resolution = last-write-wins by `updated_at` on the server row.
+4. On login, hydrate from Supabase first, then merge local cache. Never overwrite fresher cloud state with local-only state.
+5. Supabase Auth → URL Configuration → Redirect URLs must contain BOTH:
+   - `https://<CHROME_ID>.chromiumapp.org/`
+   - `https://<EDGE_ID>.chromiumapp.org/`
+6. Both stores must ship the same `extension/` zip. Never diverge code between Chrome and Edge builds.
+
+---
+
+## Section G — Pre-publish checklist (must pass before every upload)
+
+1. `extension/manifest.json` `version` > last published (Section B).
+2. `extension/manifest.json` contains NO `"key"` field.
+3. `storage`, `identity`, and all Supabase/Google `host_permissions` still present (Section C).
+4. Load previous published unpacked. Create test data: 1 clip, 1 category, 1 login, 1 settings change.
+5. Replace files with new version. Reload extension.
+6. Verify: login persists, clips intact, settings intact, no console errors.
+7. Repeat on both Chrome Stable and Edge Stable.
+8. If the diff touches any Section I trigger, full checklist is mandatory; otherwise smoke test is acceptable.
+9. Package = zip contents of `extension/` folder only. Never the repo root. Never the dev-loader `[manifest.json](manifest.json)`.
+
+---
+
+## Section H — Rollback plan
+
+1. Archive the last 3 published `.zip` packages locally as `pastecraft-v<MAJOR>.<MINOR>.<PATCH>.zip`.
+2. If a published update breaks users, re-upload the previous working version with a HIGHER version number (never reuse).
+3. Document incidents in `[program-study/failure/FailureLog.md](program-study/failure/FailureLog.md)` per `[instructions/log-format.md](instructions/log-format.md)`.
+
+---
+
+## Section I — Re-test triggers (any of these forces full Section G checklist)
+
+1. Any edit to `[extension/manifest.json](extension/manifest.json)`.
+2. Any edit to storage key names or storage shape.
+3. Any edit to `onInstalled` / `onStartup` in `[extension/background.js](extension/background.js)`.
+4. Any Supabase auth flow edit in `[extension/supabase-client.js](extension/supabase-client.js)`.
+5. Any Supabase table schema migration touching `clips`, `archived_clips`, `categories`, `settings`, `user_profiles`.
+6. Any change to `host_permissions` or `externally_connectable`.
+
+---
+
+## Section J — Store-specific notes
+
+1. Chrome Web Store: review 1-7 days typical. Never pull the listing.
+2. Edge Add-ons: separate dashboard, same `extension/` zip. Review 1-5 days typical.
+3. Chrome OAuth: the Google Cloud Console OAuth client's Authorized redirect URIs must include the Supabase callback only. The extension callback is handled by `launchWebAuthFlow` hitting `https://<EXT_ID>.chromiumapp.org/`.
+4. Both Chrome and Edge extension IDs must be on the Supabase Auth redirect allowlist.
+
+---
+
+## Notes
+
+- The `oauth2` block in `[extension/manifest.json](extension/manifest.json)` is unused by the current `launchWebAuthFlow` + Supabase flow. Safe to remove in a future cleanup; leave in place until a dedicated cleanup task.
+- When user says "ship to production" / "ready to publish" / "upload new version": automatically walk Section G with the user before any packaging step.

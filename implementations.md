@@ -1,3 +1,8 @@
+### Apr 19, 2026 - Publishing Safety + Cross-Browser Data Parity
+**Status:** SUCCESS
+**Files:** .cursor/rules/production-publishing-safety.mdc, extension/background.js, docs/publishing/CROSS_BROWSER_AUTH.md
+**Result:** New always-on rule codifies Chrome + Edge publishing safety (Sections A-J). Migration guard scaffold (SCHEMA_VERSION + registry) added to onInstalled — preserves local data on failure, falls back to cloud rehydrate. Cross-browser OAuth redirect URL doc explains Supabase allowlist setup.
+
 ### Apr 17, 2026 - Support Ticket Email Pipeline (Private Email + Resend)
 **Status:** SUCCESS
 **Files:** netlify.toml, netlify/functions/support-ticket.js (+ Netlify env vars RESEND_API_KEY, RESEND_FROM)
