@@ -1,3 +1,8 @@
+### 2026-04-19 - Deleted Categories Resurrect Across Browsers
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js, extension/popup.js, extension/indexeddb-store.js
+**Result:** Root cause: a stale second browser (Edge) ran UP-sync with `deleted_at: null`, overwriting the tombstone Comet just set, and realtime resurrected the category. Fix: pre-fetch tombstoned ids from Supabase and filter them out of every UP-sync (categories/clips/archived/notes); make `deleteOperation` atomic across chrome.storage + IndexedDB (`deleteByIds`) + local `pc_deleted_*`; merge helpers now honor local tombstones too. One delete now sticks.
+
 ### 2026-02-20 - Device Sync Not Showing Remote Devices
 **Status:** SUCCESS
 **Files:** extension/supabase-client.js, extension/popup.js

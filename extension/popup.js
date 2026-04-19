@@ -92,6 +92,17 @@ class PasteCraftCRUD {
     deleteFromArray, // (items, entityId) => items - filter function
     updateRelatedEntities, // (state, entity) => state - update related data
     
+    // Atomic secondary-store hard-delete (optional).
+    // When provided, runs in the SAME step as storageWriter so IndexedDB
+    // can never shadow chrome.storage on the next loadData().
+    idbStoreName, // e.g. 'categories' | 'clips' | 'notes'
+    idbExtraIds, // optional extra ids to hard-delete from IDB
+    
+    // Local tombstone bookkeeping (optional).
+    // When provided, the tombstone is written BEFORE the background sync
+    // so the mergeX helpers honor it even if a realtime echo races.
+    tombstoneStorageKey, // e.g. 'pc_deleted_categories'
+    
     // Verification
     verifier, // (entityId, storedData) => boolean - verify deletion persisted
     
@@ -197,8 +208,13 @@ class PasteCraftCRUD {
         throw new Error(`${entityType} still exists after deletion operation`);
       }
 
-      // Step 3: Update state
+      // Step 3: Update in-memory state
       await stateSetter(currentState);
+
+      // Step 3b: OPTIMISTIC UI - render the removal immediately so the
+      // user sees the item disappear without waiting on storage/IDB/verifier.
+      // If any downstream write fails, `rollback()` restores state and re-renders.
+      try { uiUpdater?.(); } catch (uiErr) { console.error(`⚠️ uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
 
       // Step 4: Persist to storage with retry
       if (storageWriter) {
@@ -214,18 +230,53 @@ class PasteCraftCRUD {
         });
       }
 
-      // PRACTICE #5: VERIFICATION - Verify deletion persisted
-      if (verifier) {
-        const verification = await verifier(entityId);
-        if (!verification) {
-          throw new Error(`Verification failed: ${entityType} still exists in storage`);
+      // Step 4b: ATOMIC SECONDARY-STORE HARD DELETE
+      // Without this, IndexedDB can still contain the row and overwrite
+      // chrome.storage on the next loadData() (see popup.js loadData IDB merge).
+      if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+        try {
+          const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
+          await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
+        } catch (idbErr) {
+          console.warn(`⚠️ IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
         }
       }
 
-      // Update UI
-      uiUpdater?.();
+      // Step 4c: RECORD LOCAL TOMBSTONE BEFORE BACKGROUND SYNC
+      // Ensures mergeX helpers honor the delete even if a realtime echo races.
+      if (tombstoneStorageKey) {
+        try {
+          const existing = await new Promise((resolve) => {
+            chrome.storage.local.get([tombstoneStorageKey], (res) => resolve(res || {}));
+          });
+          const prev = Array.isArray(existing[tombstoneStorageKey]) ? existing[tombstoneStorageKey] : [];
+          const already = prev.some((t) => t && String(t.id) === String(entityId));
+          if (!already) {
+            const tombstone = { id: entityId, name: entityName, deletedAt, updatedAt: deletedAt };
+            await new Promise((resolve) => {
+              chrome.storage.local.set({ [tombstoneStorageKey]: [...prev, tombstone] }, resolve);
+            });
+          }
+        } catch (tombErr) {
+          console.warn(`⚠️ Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
+        }
+      }
+
       const msg = successMessage?.({ id: entityId, name: entityName }) || `${entityType} deleted`;
       showToast?.(msg, 'success');
+
+      // PRACTICE #5: VERIFICATION - diagnostic only, off the critical path.
+      // chrome.storage + IDB writes above already acknowledged; re-reading
+      // storage just to block the UI was the main lag source, so we now
+      // only log mismatches instead of throwing.
+      if (verifier) {
+        Promise.resolve()
+          .then(() => verifier(entityId))
+          .then((ok) => {
+            if (!ok) console.warn(`⚠️ Post-write verification still sees ${entityType}:`, entityId);
+          })
+          .catch((verErr) => console.warn(`⚠️ Verifier threw (${entityType} delete):`, verErr));
+      }
 
       // Background sync (non-blocking)
       if (backgroundSync) {
@@ -333,10 +384,14 @@ class PasteCraftCRUD {
         });
       }
 
-      // Step 2: Update state
+      // Step 2: Update in-memory state
       await stateSetter(currentState);
 
-      // Step 3: Persist with retry
+      // Step 3: OPTIMISTIC UI - paint the change immediately so the user
+      // sees the new entity without waiting on chrome.storage or verifier I/O.
+      try { uiUpdater?.(); } catch (uiErr) { console.error('⚠️ uiUpdater threw (create, optimistic):', uiErr); }
+
+      // Step 4: Persist with retry (still awaited so rollback fires on real failure)
       if (storageWriter) {
         await PasteCraftCRUD.retryOperation(async () => {
           const storageData = {};
@@ -350,17 +405,20 @@ class PasteCraftCRUD {
         });
       }
 
-      // PRACTICE #5: VERIFICATION
-      if (verifier) {
-        const verification = await verifier(entity);
-        if (!verification) {
-          throw new Error('Verification failed: entity not found in storage');
-        }
-      }
-
-      uiUpdater?.();
       const msg = successMessage?.(entity) || 'Entity created';
       showToast?.(msg, 'success');
+
+      // Step 5: Verifier is diagnostic-only now (off the critical path).
+      //   If it fails we just warn — we do NOT rollback a write that Chrome
+      //   acknowledged. This removes the biggest source of perceived lag.
+      if (verifier) {
+        Promise.resolve()
+          .then(() => verifier(entity))
+          .then((ok) => {
+            if (!ok) console.warn('⚠️ Post-write verification missed entity (create):', entity?.id);
+          })
+          .catch((verErr) => console.warn('⚠️ Verifier threw (create):', verErr));
+      }
 
       if (backgroundSync) {
         Promise.resolve()
@@ -462,10 +520,13 @@ class PasteCraftCRUD {
         });
       }
 
-      // Step 2: Update state
+      // Step 2: Update in-memory state
       await stateSetter(currentState);
 
-      // Step 3: Persist with retry
+      // Step 3: OPTIMISTIC UI - render the updated entity immediately.
+      try { uiUpdater?.(); } catch (uiErr) { console.error('⚠️ uiUpdater threw (update, optimistic):', uiErr); }
+
+      // Step 4: Persist with retry
       if (storageWriter) {
         await PasteCraftCRUD.retryOperation(async () => {
           const storageData = {};
@@ -479,17 +540,18 @@ class PasteCraftCRUD {
         });
       }
 
-      // PRACTICE #5: VERIFICATION
-      if (verifier) {
-        const verification = await verifier(entityId, updates);
-        if (!verification) {
-          throw new Error('Verification failed: update not persisted');
-        }
-      }
-
-      uiUpdater?.();
       const msg = successMessage?.({ ...entity, ...updates }) || 'Entity updated';
       showToast?.(msg, 'success');
+
+      // Step 5: Verifier is diagnostic-only now (off the critical path).
+      if (verifier) {
+        Promise.resolve()
+          .then(() => verifier(entityId, updates))
+          .then((ok) => {
+            if (!ok) console.warn('⚠️ Post-write verification failed (update):', entityId);
+          })
+          .catch((verErr) => console.warn('⚠️ Verifier threw (update):', verErr));
+      }
 
       if (backgroundSync) {
         Promise.resolve()
@@ -7290,41 +7352,66 @@ class PasteCraftPopup {
   }
 
   async editCategory(category) {
+    if (!category || !category.id) return;
     const newName = prompt('Enter new category name:', category.name);
-    if (newName && newName.trim()) {
-      const newIcon = prompt('Enter new category icon:', category.icon) || category.icon;
-      
-      const oldName = category.name;
-      category.name = newName.trim();
-      category.icon = newIcon;
-      category.updatedAt = Date.now();
+    if (!newName || !newName.trim()) return;
+    const newIcon = prompt('Enter new category icon:', category.icon) || category.icon;
+    const trimmedName = newName.trim();
+    const oldName = category.name;
+    if (trimmedName === oldName && newIcon === category.icon) return;
+    const now = Date.now();
 
-      // Update clips that use this category
-      this.clips.forEach(clip => {
-        if (clip.category === oldName) {
-          clip.category = newName.trim();
+    return await PasteCraftCRUD.updateOperation({
+      entityId: category.id,
+      updates: { name: trimmedName, icon: newIcon, updatedAt: now },
+      stateGetter: () => ({ categories: this.categories, clips: this.clips }),
+      stateSetter: async (newState) => {
+        this.categories = newState.categories;
+        this.clips = newState.clips;
+      },
+      stateKeys: ['categories', 'clips'],
+      validator: (entity, state) => {
+        if (!entity.name || entity.name.length === 0) {
+          return { valid: false, error: 'Category name is required' };
         }
-      });
-
-      await chrome.storage.local.set({ 
-        categories: this.categories,
-        clips: this.clips,
-        pc_local_updatedAt: Date.now()
-      });
-      
-      // 🔄 AUTO-SYNC TO DATABASE
-      try {
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        console.log('✅ Category edit synced to database');
-      } catch (error) {
-        console.error('⚠️ Failed to sync category edit to database:', error);
-      }
-      
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.renderChips();
-    }
+        const dup = Array.isArray(state.categories) && state.categories.some(
+          c => c.id !== category.id && c.name.toLowerCase() === entity.name.toLowerCase()
+        );
+        return { valid: !dup, error: dup ? 'Another category already uses that name' : null };
+      },
+      storageKeys: ['categories', 'clips'],
+      storageWriter: async (data) => {
+        await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
+      },
+      updateInArray: (items, entityId, updates) => {
+        // `items` can be either categories or clips — we update both by key shape.
+        return items.map(item => {
+          if (item && item.id === entityId && 'icon' in item) {
+            return { ...item, ...updates };
+          }
+          if (item && item.category === oldName) {
+            return { ...item, category: updates.name };
+          }
+          return item;
+        });
+      },
+      uiUpdater: () => {
+        this.renderCategories();
+        this.updateCategoryFilter();
+        this.renderChips();
+      },
+      backgroundSync: async () => {
+        try {
+          await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
+          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
+        } catch (error) {
+          console.error('⚠️ Failed to sync category edit to database:', error);
+        }
+      },
+      successMessage: (entity) => `✅ Category renamed to "${entity.name}"`,
+      errorMessage: (error) => `❌ Failed to edit category: ${error.message || 'Unknown error'}`,
+      showToast: (msg, type) => this.showToast(msg, type)
+    });
   }
 
   /**
@@ -7371,6 +7458,8 @@ class PasteCraftPopup {
       storageWriter: async (data) => {
         await chrome.storage.local.set(data);
       },
+      idbStoreName: 'categories',
+      tombstoneStorageKey: 'pc_deleted_categories',
       deleteFromArray: (items, entityId) => items.filter(item => item.id !== entityId),
       updateRelatedEntities: (state, entity) => {
         // Move clips to Uncategorized
@@ -7386,9 +7475,20 @@ class PasteCraftPopup {
         });
       },
       verifier: async (entityId) => {
+        // Verify BOTH chrome.storage and IndexedDB - IDB can shadow chrome.storage
+        // on the next loadData(), so both must be clean or the delete isn't "real".
         const verification = await chrome.storage.local.get(['categories']);
         const categories = Array.isArray(verification.categories) ? verification.categories : [];
-        return !categories.some(cat => cat.id === entityId);
+        const inChrome = categories.some(cat => cat.id === entityId);
+        if (inChrome) return false;
+        try {
+          if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+            const idbCats = await window.pasteCraftIndexedDB.getAllPayloads('categories');
+            const inIdb = Array.isArray(idbCats) && idbCats.some((c) => String(c?.id) === String(entityId));
+            if (inIdb) return false;
+          }
+        } catch (_) {}
+        return true;
       },
       uiUpdater: () => {
         this.renderCategories();
@@ -7396,11 +7496,9 @@ class PasteCraftPopup {
         this.renderChips();
       },
       backgroundSync: async (entity, deletedAt) => {
-        await this.appendDeletedItems('pc_deleted_categories', [{
-          ...category,
-          deletedAt,
-          updatedAt: deletedAt
-        }]);
+        // Note: pc_deleted_categories tombstone is already recorded by deleteOperation
+        // (tombstoneStorageKey) BEFORE this runs, so merge helpers will honor the delete
+        // even if realtime echoes in from another device mid-sync.
         try {
           await pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? ''));
         } catch (_) {}
@@ -14170,11 +14268,7 @@ class PasteCraftPopup {
         this.renderNotes();
       },
       backgroundSync: async (entity, deletedAt) => {
-        await this.appendDeletedItems('pc_deleted_notes', [{
-          ...note,
-          deletedAt,
-          updatedAt: deletedAt
-        }]);
+        // Tombstone already recorded by deleteOperation (tombstoneStorageKey).
         await pasteCraftSupabase.syncWithQueue('syncDeletedNotes', [{
           ...note,
           deletedAt,

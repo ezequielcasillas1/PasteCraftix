@@ -1548,6 +1548,75 @@ class PasteCraftSupabase {
     if (!userId) return;
   }
 
+  /**
+   * Fetch the set of entity ids that are already tombstoned (soft-deleted) on Supabase
+   * for the current user. Used to prevent stale devices from resurrecting
+   * deleted rows via an UP-sync that would otherwise set deleted_at back to null.
+   *
+   * @param {string} tableName    - e.g. 'categories', 'clips', 'archived_clips', 'notes'
+   * @param {string} idColumn     - the per-row id column, e.g. 'category_id', 'clip_id', 'note_id'
+   * @returns {Promise<Set<string>>} stringified ids that are soft-deleted on the server
+   */
+  async _fetchTombstonedIds(tableName, idColumn) {
+    const empty = new Set();
+    if (!this.client) return empty;
+    try {
+      const userId = await this.getSyncUserId();
+      if (!userId) return empty;
+      const { data, error } = await this.client
+        .from(tableName)
+        .select(idColumn + ',deleted_at')
+        .eq('user_id', userId)
+        .not('deleted_at', 'is', null);
+      if (error) throw error;
+      const set = new Set();
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        const id = row && row[idColumn] != null ? String(row[idColumn]) : '';
+        if (id) set.add(id);
+      });
+      return set;
+    } catch (err) {
+      console.warn(`⚠️ Failed to fetch tombstoned ids from ${tableName}:`, err?.message || err);
+      // On failure, return an empty set. We'd rather allow the upsert than block sync entirely.
+      return empty;
+    }
+  }
+
+  /**
+   * Persist discovered remote tombstones into the local pc_deleted_<entity> list
+   * so subsequent full syncs + loadData on this device prune them.
+   * Non-fatal on error.
+   */
+  async _mergeTombstonesIntoLocal(storageKey, tombstonedIds) {
+    try {
+      if (!storageKey || !(tombstonedIds instanceof Set) || tombstonedIds.size === 0) return;
+      const current = await new Promise((resolve) => {
+        chrome.storage.local.get([storageKey], (res) => resolve(res || {}));
+      });
+      const existing = Array.isArray(current[storageKey]) ? current[storageKey] : [];
+      const byId = new Map();
+      existing.forEach((item) => {
+        const id = item && item.id != null ? String(item.id) : '';
+        if (id) byId.set(id, item);
+      });
+      const nowMs = Date.now();
+      let added = 0;
+      tombstonedIds.forEach((id) => {
+        if (!byId.has(id)) {
+          byId.set(id, { id, deletedAt: nowMs, updatedAt: nowMs });
+          added++;
+        }
+      });
+      if (added > 0) {
+        await new Promise((resolve) => {
+          chrome.storage.local.set({ [storageKey]: Array.from(byId.values()) }, resolve);
+        });
+      }
+    } catch (_) {
+      // Non-fatal.
+    }
+  }
+
   // =====================================================
   // CLIPS SYNC METHODS
   // =====================================================
@@ -1593,11 +1662,26 @@ class PasteCraftSupabase {
       const _pcBuildMs = Date.now() - _pcBuildStart;
       const stats = dbClips && dbClips._pcStats ? dbClips._pcStats : null;
 
+      // TOMBSTONE GUARD: prevent stale devices from resurrecting deleted clips.
+      const tombstoned = await this._fetchTombstonedIds('clips', 'clip_id');
+      const safeDbClips = dbClips.filter(c => {
+        const idStr = String(c.clip_id || '');
+        const hasLocalTombstone = c.deleted_at != null;
+        return !(tombstoned.has(idStr) && !hasLocalTombstone);
+      });
+      if (safeDbClips.length !== dbClips.length) {
+        console.log(`🛡️ Tombstone guard skipped ${dbClips.length - safeDbClips.length} already-deleted clips from upsert`);
+        await this._mergeTombstonesIntoLocal('pc_deleted_clips', tombstoned);
+      }
+      if (safeDbClips.length === 0) {
+        console.log('⚠️ All local clips were already tombstoned remotely; nothing to upsert');
+        return true;
+      }
 
       const _pcUpsertStart = Date.now();
       const { data, error } = await this.client
         .from('clips')
-        .upsert(dbClips, {
+        .upsert(safeDbClips, {
           onConflict: 'user_id,clip_id',
           ignoreDuplicates: false
         })
@@ -1828,6 +1912,9 @@ class PasteCraftSupabase {
     // Reset progress
     this.updateSyncProgress(0, totalClips, 0);
 
+    // TOMBSTONE GUARD (fetched once for the whole batch run).
+    const tombstoned = await this._fetchTombstonedIds('clips', 'clip_id');
+
     for (let i = 0; i < batches; i++) {
       const start = i * this.BATCH_SIZE;
       const end = Math.min(start + this.BATCH_SIZE, totalClips);
@@ -1835,11 +1922,17 @@ class PasteCraftSupabase {
 
       // Transform to DB format (and dedupe/normalize ids)
       const dbClips = this.buildDbClipsForUpsert(batchClips, userId, deviceId);
+      const safeDbClips = dbClips.filter(c => {
+        const idStr = String(c.clip_id || '');
+        const hasLocalTombstone = c.deleted_at != null;
+        return !(tombstoned.has(idStr) && !hasLocalTombstone);
+      });
+      if (safeDbClips.length === 0) continue;
 
       try {
         const { data, error } = await this.client
           .from('clips')
-          .upsert(dbClips, {
+          .upsert(safeDbClips, {
             onConflict: 'user_id,clip_id',
             ignoreDuplicates: false
           })
@@ -2214,6 +2307,21 @@ class PasteCraftSupabase {
       deletedById.set(id, clip.deletedAt);
     });
 
+    // Honor local tombstones so remote stale-alive rows cannot resurrect.
+    try {
+      const local = await new Promise((resolve) => {
+        chrome.storage.local.get(['pc_deleted_clips'], (res) => resolve(res || {}));
+      });
+      const localTombs = Array.isArray(local?.pc_deleted_clips) ? local.pc_deleted_clips : [];
+      localTombs.forEach((t) => {
+        const id = t?.id != null ? String(t.id) : '';
+        if (!id) return;
+        const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
+        const prev = deletedById.get(id) || 0;
+        if (when > prev) deletedById.set(id, when);
+      });
+    } catch (_) { /* non-fatal */ }
+
     const hashText = (t) => {
       const s = String(t || '');
       let h = 2166136261;
@@ -2250,7 +2358,9 @@ class PasteCraftSupabase {
   }
 
   /**
-   * Merge local and remote categories (newest wins by ID)
+   * Merge local and remote categories (newest wins by ID).
+   * Honors both remote tombstones (deleted_at) AND local pc_deleted_categories
+   * so a stale remote alive-row cannot resurrect a category the user just deleted here.
    */
   async mergeCategories(localCategories, remoteCategories) {
     const merged = new Map();
@@ -2261,6 +2371,21 @@ class PasteCraftSupabase {
       if (!id || !cat?.deletedAt) return;
       deletedById.set(id, cat.deletedAt);
     });
+
+    // Also pull local tombstones (written by deleteCategory/appendDeletedItems).
+    try {
+      const local = await new Promise((resolve) => {
+        chrome.storage.local.get(['pc_deleted_categories'], (res) => resolve(res || {}));
+      });
+      const localTombs = Array.isArray(local?.pc_deleted_categories) ? local.pc_deleted_categories : [];
+      localTombs.forEach((t) => {
+        const id = t?.id != null ? String(t.id) : '';
+        if (!id) return;
+        const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
+        const prev = deletedById.get(id) || 0;
+        if (when > prev) deletedById.set(id, when);
+      });
+    } catch (_) { /* non-fatal */ }
 
     const shouldDrop = (cat) => {
       if (!cat) return true;
@@ -2312,6 +2437,20 @@ class PasteCraftSupabase {
       if (!id || !clip?.deletedAt) return;
       deletedById.set(id, clip.deletedAt);
     });
+
+    try {
+      const local = await new Promise((resolve) => {
+        chrome.storage.local.get(['pc_deleted_archived_clips'], (res) => resolve(res || {}));
+      });
+      const localTombs = Array.isArray(local?.pc_deleted_archived_clips) ? local.pc_deleted_archived_clips : [];
+      localTombs.forEach((t) => {
+        const id = t?.id != null ? String(t.id) : '';
+        if (!id) return;
+        const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
+        const prev = deletedById.get(id) || 0;
+        if (when > prev) deletedById.set(id, when);
+      });
+    } catch (_) { /* non-fatal */ }
 
     const hashText = (t) => {
       const s = String(t || '');
@@ -2406,9 +2545,32 @@ class PasteCraftSupabase {
         return true;
       }
 
+      // TOMBSTONE GUARD: never resurrect a category that another device soft-deleted.
+      // Without this, a stale device's UP-sync would upsert deleted_at: null and undo the delete.
+      const tombstoned = await this._fetchTombstonedIds('categories', 'category_id');
+      const safeDbCategories = uniqueDbCategories.filter(cat => {
+        const idStr = String(cat.category_id || '');
+        const hasLocalTombstone = cat.deleted_at != null;
+        if (tombstoned.has(idStr) && !hasLocalTombstone) {
+          // Row is already tombstoned remotely; drop from upsert to preserve deleted_at.
+          return false;
+        }
+        return true;
+      });
+      if (safeDbCategories.length !== uniqueDbCategories.length) {
+        const skipped = uniqueDbCategories.length - safeDbCategories.length;
+        console.log(`🛡️ Tombstone guard skipped ${skipped} already-deleted categor${skipped === 1 ? 'y' : 'ies'} from upsert`);
+        // Self-heal: record the remote tombstones locally so loadData prunes them.
+        await this._mergeTombstonesIntoLocal('pc_deleted_categories', tombstoned);
+      }
+      if (safeDbCategories.length === 0) {
+        console.log('⚠️ All local categories were already tombstoned remotely; nothing to upsert');
+        return true;
+      }
+
       const { data, error } = await this.client
         .from('categories')
-        .upsert(uniqueDbCategories, {
+        .upsert(safeDbCategories, {
           onConflict: 'user_id,category_id',
           ignoreDuplicates: false
         })
@@ -2570,10 +2732,26 @@ class PasteCraftSupabase {
       // Transform local archived clips to DB format (and dedupe/normalize ids)
       const dbArchivedClips = this.buildDbClipsForUpsert(localArchivedClips, userId, deviceId);
 
+      // TOMBSTONE GUARD: prevent resurrection of deleted archived clips.
+      const tombstoned = await this._fetchTombstonedIds('archived_clips', 'clip_id');
+      const safeDbArchivedClips = dbArchivedClips.filter(c => {
+        const idStr = String(c.clip_id || '');
+        const hasLocalTombstone = c.deleted_at != null;
+        return !(tombstoned.has(idStr) && !hasLocalTombstone);
+      });
+      if (safeDbArchivedClips.length !== dbArchivedClips.length) {
+        console.log(`🛡️ Tombstone guard skipped ${dbArchivedClips.length - safeDbArchivedClips.length} already-deleted archived clips`);
+        await this._mergeTombstonesIntoLocal('pc_deleted_archived_clips', tombstoned);
+      }
+      if (safeDbArchivedClips.length === 0) {
+        console.log('⚠️ All local archived clips were already tombstoned remotely');
+        return true;
+      }
+
       // Upsert archived clips (insert or update on conflict)
       const { data, error } = await this.client
         .from('archived_clips')
-        .upsert(dbArchivedClips, {
+        .upsert(safeDbArchivedClips, {
           onConflict: 'user_id,clip_id',
           ignoreDuplicates: false
         })
@@ -2745,16 +2923,38 @@ class PasteCraftSupabase {
       const { rows, snapshots } = this.buildDbNotesForUpsert(localNotes, userId, deviceId);
       if (rows.length === 0) return true;
 
+      // TOMBSTONE GUARD: prevent resurrection of deleted notes.
+      const tombstoned = await this._fetchTombstonedIds('notes', 'note_id');
+      const safeRows = rows.filter(r => {
+        const idStr = String(r.note_id || '');
+        const hasLocalTombstone = r.deleted_at != null;
+        return !(tombstoned.has(idStr) && !hasLocalTombstone);
+      });
+      const safeSnapshots = snapshots.filter(s => {
+        const idStr = String(s.note_id || '');
+        return safeRows.some(r => String(r.note_id || '') === idStr);
+      });
+      if (safeRows.length !== rows.length) {
+        console.log(`🛡️ Tombstone guard skipped ${rows.length - safeRows.length} already-deleted notes`);
+        await this._mergeTombstonesIntoLocal('pc_deleted_notes', tombstoned);
+      }
+      if (safeRows.length === 0) {
+        console.log('⚠️ All local notes were already tombstoned remotely');
+        return true;
+      }
+
       const { error } = await this.client
         .from('notes')
-        .upsert(rows, {
+        .upsert(safeRows, {
           onConflict: 'user_id,note_id',
           ignoreDuplicates: false
         });
       if (error) throw error;
 
       try {
-        await this.client.from('note_versions').insert(snapshots);
+        if (Array.isArray(safeSnapshots) && safeSnapshots.length > 0) {
+          await this.client.from('note_versions').insert(safeSnapshots);
+        }
       } catch (_) {
         // Versioning should not block core sync
       }
@@ -2831,6 +3031,20 @@ class PasteCraftSupabase {
       if (!id || !note?.deletedAt) return;
       deletedById.set(id, note.deletedAt);
     });
+
+    try {
+      const local = await new Promise((resolve) => {
+        chrome.storage.local.get(['pc_deleted_notes'], (res) => resolve(res || {}));
+      });
+      const localTombs = Array.isArray(local?.pc_deleted_notes) ? local.pc_deleted_notes : [];
+      localTombs.forEach((t) => {
+        const id = t?.id != null ? String(t.id) : '';
+        if (!id) return;
+        const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
+        const prev = deletedById.get(id) || 0;
+        if (when > prev) deletedById.set(id, when);
+      });
+    } catch (_) { /* non-fatal */ }
 
     const shouldDrop = (note) => {
       if (!note) return true;

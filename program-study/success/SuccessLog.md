@@ -1,3 +1,8 @@
+### Apr 19, 2026 - Tombstone-Safe CRUD (Fix Category Resurrection)
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js, extension/popup.js, extension/indexeddb-store.js
+**Result:** Root cause: stale second browser (Edge) ran `syncCategoriesToSupabase` with `deleted_at: null`, clobbering the tombstone set by Comet and resurrecting deleted categories via realtime. Fix: added `_fetchTombstonedIds` pre-filter to all UP-syncs (categories/clips/archived/notes), made `PasteCraftCRUD.deleteOperation` atomic across chrome.storage + IndexedDB (`deleteByIds`) + local `pc_deleted_*` tombstone list, and made all merge helpers honor local tombstones. Single-delete now sticks across devices.
+
 ### Apr 19, 2026 - Publishing Safety + Cross-Browser Data Parity
 **Status:** ✅ SUCCESS
 **Files:** .cursor/rules/production-publishing-safety.mdc, extension/background.js, docs/publishing/CROSS_BROWSER_AUTH.md

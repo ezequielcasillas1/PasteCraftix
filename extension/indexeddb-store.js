@@ -75,6 +75,32 @@
       });
     }
 
+    async deleteByIds(storeName, ids) {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      const db = await this.open();
+      const idSet = new Set(ids.map((id) => String(id)));
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        let removed = 0;
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (cursor) {
+            const payloadId = cursor.value && cursor.value.payload ? String(cursor.value.payload.id || '') : '';
+            const recordId = cursor.value ? String(cursor.value.id || '') : '';
+            if (idSet.has(payloadId) || idSet.has(recordId)) {
+              cursor.delete();
+              removed++;
+            }
+            cursor.continue();
+          }
+        };
+        tx.oncomplete = () => resolve(removed);
+        tx.onerror = () => reject(tx.error || new Error(`Delete-by-ids failed for ${storeName}`));
+      });
+    }
+
     async replaceFromAppItems(storeName, items, toRecord) {
       const db = await this.open();
       const normalized = Array.isArray(items) ? items : [];
