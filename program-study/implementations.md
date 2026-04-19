@@ -83,3 +83,8 @@
 **Files:** popup.html, popup.js, styles.css
 **Result:** Added "Skip to PasteCraft" button on login screen for freemium use without account. Guest state persists via chrome.storage.local. Email contact/support forms show account-required notice with "Create Free Account" button redirecting to sign-up. Guest flag clears on sign-in/sign-out.
 
+### Apr 19, 2026 - Clips Page Bulk AI Actions Bar
+**Status:** PENDING_VERIFICATION
+**Files:** popup.html, popup.js
+**Result:** Added 4-button bulk AI actions bar beneath "Delete Selected" on Clips page. Bar appears only when 2+ clips are selected. Buttons: AI Summary, Send to Categories, Send to Notes, AI Breakdown. Each combines selected clip texts (newline-separated) and routes into existing modals/flows via `showSummaryModal()`, `showBreakdownModal()`, `showCategoryModal()`, `showAlbumPicker()`. State managed via extended `updateQuickCopyButton()` + new `_getSelectedClipsText()` helper.
+

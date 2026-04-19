@@ -36,10 +36,6 @@ class PasteCraftSupabase {
    * @returns {Promise<boolean>} - True if saved successfully
    */
   async _safeStorageSet(data) {
-    // #region agent log
-    const keys = Object.keys(data || {});
-    console.warn('[SYNC-DEBUG] _safeStorageSet called', { keys });
-    // #endregion
     try {
       await new Promise((resolve, reject) => {
         chrome.storage.local.set(data, () => {
@@ -50,9 +46,6 @@ class PasteCraftSupabase {
           }
         });
       });
-      // #region agent log
-      console.warn('[SYNC-DEBUG] _safeStorageSet SUCCESS', { keys });
-      // #endregion
       return true;
     } catch (err) {
       const msg = String(err?.message || err || '');
@@ -528,9 +521,6 @@ class PasteCraftSupabase {
   // =====================================================
   
   async setupRealtimeSubscriptions() {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] setupRealtimeSubscriptions called', { client: !!this.client, isOnline: this.isOnline, pauseSync: this._pauseSync });
-    // #endregion
     if (!this.client || !this.isOnline) {
       console.warn('⚠️ Skipping realtime subscriptions - offline or not initialized');
       return;
@@ -654,9 +644,6 @@ class PasteCraftSupabase {
   }
 
   async handleClipsChange(payload) {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] handleClipsChange fired', { eventType: payload?.eventType, table: payload?.table });
-    // #endregion
     if (this._shouldThrottleRealtime('clips')) return;
     console.log('🔔 Clips changed:', payload.eventType);
     
@@ -714,9 +701,6 @@ class PasteCraftSupabase {
   }
 
   async handleNotesChange(payload) {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] handleNotesChange fired', { eventType: payload?.eventType, table: payload?.table });
-    // #endregion
     if (this._shouldThrottleRealtime('notes')) return;
     console.log('🔔 Notes changed:', payload.eventType);
 
@@ -1239,13 +1223,21 @@ class PasteCraftSupabase {
       const candidates = [`${baseUrl}/ai-breakdown`, `${baseUrl}/explain-at-level`];
       const body = await this._withAiWorkflow({ text, level });
 
+      let accessToken = '';
+      try {
+        const s = await this.client?.auth?.getSession?.();
+        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      } catch (_) {}
+
       let response = null;
       for (const url of candidates) {
         response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+            'Authorization': accessToken
+              ? `Bearer ${accessToken}`
+              : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
           },
           body: JSON.stringify(body)
         });
@@ -1277,13 +1269,21 @@ class PasteCraftSupabase {
       const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
       const body = await this._withAiWorkflow({ text: text.substring(0, 3000), generateQuestions: true });
 
+      let accessToken = '';
+      try {
+        const s = await this.client?.auth?.getSession?.();
+        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      } catch (_) {}
+
       let response = null;
       for (const url of candidates) {
         response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+            'Authorization': accessToken
+              ? `Bearer ${accessToken}`
+              : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
           },
           body: JSON.stringify(body)
         });
@@ -1315,13 +1315,21 @@ class PasteCraftSupabase {
       const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
       const body = await this._withAiWorkflow({ text, question });
 
+      let accessToken = '';
+      try {
+        const s = await this.client?.auth?.getSession?.();
+        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      } catch (_) {}
+
       let response = null;
       for (const url of candidates) {
         response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+            'Authorization': accessToken
+              ? `Bearer ${accessToken}`
+              : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
           },
           body: JSON.stringify(body)
         });
@@ -1625,9 +1633,6 @@ class PasteCraftSupabase {
    * Sync local clips to Supabase (with batch support for large datasets)
    */
   async syncClipsToSupabase(localClips) {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] syncClipsToSupabase called', { clipCount: localClips?.length || 0 });
-    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping clip sync');
       return false;
@@ -1962,9 +1967,6 @@ class PasteCraftSupabase {
    * Fetches ALL clips for the user across ALL devices for automatic cross-device sync.
    */
   async syncClipsFromSupabase(userIdOverride = null) {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] syncClipsFromSupabase called', { userIdOverride: !!userIdOverride });
-    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping clip sync');
       return null;
@@ -4158,9 +4160,6 @@ class PasteCraftSupabase {
    * Perform full bidirectional sync on extension startup
    */
   async performFullSync() {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] performFullSync called', { client: !!this.client, pauseSync: this._pauseSync });
-    // #endregion
     if (!this.client) {
       console.warn('⚠️ Supabase not initialized - skipping full sync');
       return {

@@ -3,15 +3,18 @@
 ## 🐛 Current Issues Requiring Attention:
 
 {
-- Copy to clipboard button only copies single clip when multiple clips are selected. User expects: clicking any copy button when 2+ clips are selected should copy all selected clips (like AI Breakdown/Summary already do). Currently only copies the individual clip. Should use existing `getSelectedOrCurrentText()` method like AI features do.
 
-- Widget Quick View button (👁️ eye icon) does not open the Quick View panel when clicked. Expected: clicking should slide in panel from right showing saved clips. Currently: nothing happens. Issue reported by user - toggle functionality and storage sync were implemented but panel fails to open entirely.
+Deleting all the categories in categories, it comes back up again. The deleted categories reappear and we have done this multiple times when we tried to fix this and we still cannot have a fix so how can we debug? The reason for this category to be showing up again could be that I have Edge and the Comet browser enabled but Edge is not used anymore. I don't use Edge so I don't know if that's the reason why the category is showing that it's failing to categorize or actually not failing to delete the categories. When I delete the categories, it reopens and re-populates those categories. In fact the case is that I have deleted them and I had to delete them again and then they actually disappeared now so I had to delete them two times for them to disappear. Those two categories I had to delete them two times for them to disappear. A bug like that has to not happen so whatever reason this may be, find it please. Thank you. 
 
-- DEV4EVER coupon users are redirected to upgrade page after canceling paid subscription. Expected: coupon entitlement (`has_unlimited_ai`) should still allow premium AI features. Current: premium check sends user to buy subscription.
+---
 
-- Device A empty profile after login: local storage empty on new device, Supabase profile fetch gated behind cloud-sync tier in performFullSync(). Fix: direct profile fetch when local profile is empty, bypasses tier gate.
+AI Summary fails: POST `/functions/v1/ai-summary` → 401 Unauthorized. `generateSummaryQuestions` throws at `supabase-client.js:1297` / `popup.js:8407`. Happens on every attempt (summary + questions).
 
-- Image copy type mismatch: “Copy Image Link” should create a **URL clip only** (not an image clip). “Copy Image” should create an **image clip only** (not a URL clip).
+Related sync errors in same session:
+- `categories` upsert → 400 (`syncDeletedCategoriesToSupabase @ supabase-client.js:2636`)
+- `clips` upsert → 400 (`syncClipsToSupabaseBatch @ 1951`)
+- `notes`, `ai_history`, `settings`, `user_profiles` upsert → 500
+- Clipboard API blocked by Permissions Policy on perplexity.ai page (content script fallback path).
 
 }
 

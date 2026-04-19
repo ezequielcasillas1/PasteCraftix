@@ -428,6 +428,12 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            color: #fff;
+        }
+        .settings-btn svg.lucide,
+        .settings-btn [data-lucide] {
+            width: 18px;
+            height: 18px;
         }
         
         /* ── Upgrade Banner (Freemium users) ── */
@@ -1146,6 +1152,12 @@
             display: block;
         }
 
+        /* Let chip action buttons, not their SVG children, receive clicks. */
+        .chip-actions > button > svg,
+        .chip-actions > button > svg * {
+            pointer-events: none;
+        }
+
         .pc-icon {
             display: inline-block;
             vertical-align: middle;
@@ -1392,7 +1404,84 @@
             background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #059669 100%);
             animation: successPulse 0.6s ease-out;
         }
-        
+
+        /* Clips Bulk AI Actions Bar */
+        .clips-bulk-ai-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 20px 10px 20px;
+            padding: 10px 12px;
+            background: rgba(248, 250, 252, 0.95);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn {
+            flex: 1 1 calc(50% - 3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 10px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            font-family: 'Poppins', system-ui, sans-serif;
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            color: #374151;
+            white-space: nowrap;
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn.ai-summary {
+            color: #6d28d9;
+            border-color: #ddd6fe;
+        }
+        .clips-bulk-ai-actions .bulk-ai-btn.ai-summary:hover {
+            background: #f5f3ff;
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn.send-categories {
+            color: #0369a1;
+            border-color: #bae6fd;
+        }
+        .clips-bulk-ai-actions .bulk-ai-btn.send-categories:hover {
+            background: #f0f9ff;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn.send-notes {
+            color: #065f46;
+            border-color: #a7f3d0;
+        }
+        .clips-bulk-ai-actions .bulk-ai-btn.send-notes:hover {
+            background: #ecfdf5;
+            border-color: #34d399;
+            box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
+        }
+
+        .clips-bulk-ai-actions .bulk-ai-btn.ai-breakdown {
+            color: #92400e;
+            border-color: #fde68a;
+        }
+        .clips-bulk-ai-actions .bulk-ai-btn.ai-breakdown:hover {
+            background: #fffbeb;
+            border-color: #fbbf24;
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+        }
+
         /* Pagination Styles */
         #paginationControls {
             margin-top: 16px;
@@ -1734,6 +1823,78 @@
             width: 24px;
             height: 24px;
             vertical-align: middle;
+        }
+
+        /* Lucide icons - base inherit + sensible defaults */
+        [data-lucide],
+        .lucide-icon,
+        svg.lucide {
+            width: 1em;
+            height: 1em;
+            stroke-width: 2;
+            vertical-align: -0.125em;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .tab-icon svg.lucide,
+        .tab-icon [data-lucide] {
+            width: 18px;
+            height: 18px;
+        }
+        .btn-icon svg.lucide,
+        .btn-icon [data-lucide] {
+            width: 16px;
+            height: 16px;
+        }
+        .empty-state-icon svg.lucide,
+        .empty-state-icon [data-lucide],
+        .empty-search-icon svg.lucide,
+        .empty-search-icon [data-lucide],
+        .empty-categories-icon svg.lucide,
+        .empty-categories-icon [data-lucide],
+        .ai-empty-icon svg.lucide,
+        .ai-empty-icon [data-lucide] {
+            width: 48px;
+            height: 48px;
+            stroke-width: 1.5;
+        }
+        h3 svg.lucide,
+        h4 svg.lucide,
+        h3 [data-lucide],
+        h4 [data-lucide] {
+            width: 18px;
+            height: 18px;
+            vertical-align: -0.2em;
+            margin-right: 4px;
+        }
+        .note-action-btn svg.lucide,
+        .note-action-btn [data-lucide] {
+            width: 18px;
+            height: 18px;
+        }
+        .note-card-type svg.lucide,
+        .note-card-type [data-lucide] {
+            width: 18px;
+            height: 18px;
+        }
+        .note-card-count svg.lucide,
+        .note-card-count [data-lucide] {
+            width: 12px;
+            height: 12px;
+            vertical-align: -0.1em;
+        }
+        .create-note-btn svg.lucide,
+        .create-note-btn [data-lucide],
+        .create-album-btn svg.lucide,
+        .create-album-btn [data-lucide] {
+            width: 18px;
+            height: 18px;
+            vertical-align: -0.2em;
+        }
+        .album-picker-icon svg.lucide,
+        .album-picker-icon [data-lucide] {
+            width: 18px;
+            height: 18px;
         }
         
         .tab-btn-notes,
@@ -8088,7 +8249,7 @@
         <div id="topBar" class="top-bar" style="display: none;">
             <div id="topLeftProfileImage" class="top-bar-profile">
                 <img id="topLeftProfileImg" src="" alt="Profile" style="display: none;" />
-                <div id="topLeftProfilePlaceholder" class="top-bar-profile-placeholder" aria-hidden="true">👤</div>
+                <div id="topLeftProfilePlaceholder" class="top-bar-profile-placeholder" aria-hidden="true"><i data-lucide="user"></i></div>
                 <div class="top-bar-name-section">
                     <span id="topBarFunkyName" class="top-bar-funky-name">FunkyAnimalName</span>
                 </div>
@@ -8139,21 +8300,15 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="settings-btn" id="aiBtn" title="AI Lab">
-                    🤖
-                </button>
-                <button class="settings-btn" id="profileBtn" title="Profile">
-                    👤
-                </button>
-                <button class="settings-btn" id="settingsBtn" title="Settings">
-                    ⚙️
-                </button>
+                <button class="settings-btn" id="aiBtn" title="AI Lab"><i data-lucide="bot"></i></button>
+                <button class="settings-btn" id="profileBtn" title="Profile"><i data-lucide="user"></i></button>
+                <button class="settings-btn" id="settingsBtn" title="Settings"><i data-lucide="settings"></i></button>
             </div>
         </header>
 
         <!-- Upgrade Banner (Freemium users only) -->
         <div class="upgrade-banner" id="upgradeBanner" role="button" tabindex="0" aria-label="Upgrade your membership">
-            <span class="upgrade-banner-icon">⚡</span>
+            <span class="upgrade-banner-icon"><i data-lucide="zap"></i></span>
             <span class="upgrade-banner-text">Upgrade Membership — Cloud Sync, AI Tools & 20+ Markup Languages</span>
             <span class="upgrade-banner-arrow">›</span>
         </div>
@@ -8161,7 +8316,7 @@
         <!-- Manual Text Input Section -->
         <section class="manual-input-section" id="manualInputSection">
             <div class="manual-input-header">
-                <span class="manual-input-icon">✍️</span>
+                <span class="manual-input-icon"><i data-lucide="pencil"></i></span>
                 <span class="manual-input-title">Quick Save Text</span>
                 <button class="manual-input-toggle" id="manualInputToggle" title="Toggle input">
                     ▼
@@ -8201,16 +8356,16 @@
                         <option value="code">Code</option>
                     </select>
                     <button class="pdf-upload-btn" id="pdfUploadBtn" title="Extract text from PDF">
-                        <span>📄</span>
+                        <span><i data-lucide="file-text"></i></span>
                         <span>PDF</span>
                     </button>
                     <button class="manual-input-save-btn" id="manualInputSaveBtn">
                         <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
-                        <span id="manualInputSaveIcon">💾</span>
+                        <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
                         <span id="manualInputSaveLabel">Save Clip</span>
                     </button>
                     <button class="manual-input-clear-btn" id="manualInputClearBtn">
-                        <span>🗑️</span>
+                        <span><i data-lucide="trash-2"></i></span>
                     </button>
                 </div>
             </div>
@@ -8219,26 +8374,25 @@
         <!-- Navigation Tabs -->
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">
-                <span class="tab-icon">📋</span> Clips
+                <span class="tab-icon"><i data-lucide="clipboard"></i></span> Clips
             </button>
             <button class="tab-btn" data-tab="search" title="Search through all your saved clips">
-                <span class="tab-icon">🔍</span> Search
+                <span class="tab-icon"><i data-lucide="search"></i></span> Search
             </button>
             <button class="tab-btn" data-tab="categories" title="Organize clips into categories">
-                <span class="tab-icon">📁</span> Categories
+                <span class="tab-icon"><i data-lucide="folder"></i></span> Categories
             </button>
             <button class="tab-btn" data-tab="ai" title="AI tools: breakdown text and generate summaries">
-                <span class="tab-icon">🤖</span> AI Lab
+                <span class="tab-icon"><i data-lucide="bot"></i></span> AI Lab
             </button>
             <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
-                <img src="assets/note-icons/notebook.svg" alt="Notes" class="tab-icon-img pc-icon pc-icon-20">
-                Notes
+                <span class="tab-icon"><i data-lucide="notebook"></i></span> Notes
             </button>
             <button class="tab-btn tab-btn-ai-history" data-tab="aiHistory" title="View past AI conversations">
-                <span class="tab-icon">📜</span> AI History
+                <span class="tab-icon"><i data-lucide="scroll-text"></i></span> AI History
             </button>
             <button class="tab-btn tab-btn-activity" data-tab="activity" title="View your activity history">
-                <span class="tab-icon">📊</span> Activity
+                <span class="tab-icon"><i data-lucide="bar-chart-3"></i></span> Activity
             </button>
         </nav>
 
@@ -8247,7 +8401,7 @@
             <div class="chip-area">
                 <div class="chip-container" id="chipContainer">
                     <div class="empty-state">
-                        <div class="empty-state-icon">✨</div>
+                        <div class="empty-state-icon"><i data-lucide="sparkles"></i></div>
                         <h3>No clips yet</h3>
                         <p>Right-click selected text to save it here</p>
                         <div class="demo-hint">
@@ -8259,15 +8413,29 @@
                 </div>
                 <button class="quick-copy-btn" id="quickCopyBtn" style="display: none;">
                     <span class="btn-shimmer"></span>
-                    <span class="btn-icon">📋</span>
+                    <span class="btn-icon"><i data-lucide="clipboard"></i></span>
                     <span class="btn-text">Quick Copy Selected</span>
                     <span class="btn-arrow">→</span>
                 </button>
                 <button class="quick-delete-btn" id="quickDeleteBtn" style="display: none;">
                     <span class="btn-shimmer"></span>
-                    <span class="btn-icon">🗑️</span>
+                    <span class="btn-icon"><i data-lucide="trash-2"></i></span>
                     <span class="btn-text">Delete Selected</span>
                 </button>
+                <div class="clips-bulk-ai-actions" id="clipsBulkAiActions" style="display: none;">
+                    <button class="bulk-ai-btn ai-summary" id="bulkAiSummaryBtn" title="AI Summary of selected clips">
+                        <i data-lucide="notebook-pen"></i> AI Summary
+                    </button>
+                    <button class="bulk-ai-btn send-categories" id="bulkSendCategoriesBtn" title="Send selected clips to a category">
+                        <i data-lucide="folder"></i> Send to Categories
+                    </button>
+                    <button class="bulk-ai-btn send-notes" id="bulkSendNotesBtn" title="Send selected clips to a note">
+                        <i data-lucide="folder-plus"></i> Send to Notes
+                    </button>
+                    <button class="bulk-ai-btn ai-breakdown" id="bulkAiBreakdownBtn" title="AI Breakdown of selected clips">
+                        <i data-lucide="brain"></i> AI Breakdown
+                    </button>
+                </div>
                 <div id="paginationControls"></div>
             </div>
         </section>
@@ -8278,13 +8446,13 @@
             <div class="notes-info-box" id="notesInfoBox">
                 <div class="notes-info-content">
                     <div class="notes-info-left">
-                        <span class="notes-info-icon">📝</span>
+                        <span class="notes-info-icon"><i data-lucide="notebook-pen"></i></span>
                         <div class="notes-info-text">
                             <strong>Notes & Albums</strong> — Create notes to jot down quick thoughts, save clips, and attach images or URLs. Use albums to group related notes into organized collections.
                         </div>
                     </div>
                     <button class="notes-info-expand-btn" id="notesInfoExpandBtn" title="Learn more">
-                        <span>ℹ️</span>
+                        <span><i data-lucide="info"></i></span>
                     </button>
                 </div>
             </div>
@@ -8292,31 +8460,31 @@
             <div class="notes-header">
                 <div class="notes-actions">
                     <button class="create-note-btn" id="createNoteBtn">
-                        <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-18" style="margin-right: 6px;">
+                        <i data-lucide="notebook-pen" style="margin-right: 6px;"></i>
                         <span>New Note</span>
                     </button>
                     <button class="create-album-btn" id="createAlbumBtn">
-                        <img src="assets/note-icons/album-folder.svg" alt="" class="pc-icon pc-icon-18" style="margin-right: 6px;">
+                        <i data-lucide="folder-plus" style="margin-right: 6px;"></i>
                         <span>New Album</span>
                     </button>
                 </div>
                 <div class="notes-controls">
                     <div class="notes-view-toggle">
-                        <button class="view-toggle-btn active" data-view="grid" title="Grid view">⊞</button>
-                        <button class="view-toggle-btn" data-view="list" title="List view">☰</button>
+                        <button class="view-toggle-btn active" data-view="grid" title="Grid view"><i data-lucide="layout-grid"></i></button>
+                        <button class="view-toggle-btn" data-view="list" title="List view"><i data-lucide="list"></i></button>
                     </div>
                 </div>
             </div>
 
             <!-- Notes Search Bar -->
             <div class="notes-search-bar" id="notesSearchBar">
-                <input type="text" id="notesSearchInput" placeholder="🔍 Search notes & albums..." />
+                <input type="text" id="notesSearchInput" placeholder="Search notes & albums..." />
                 <button class="notes-search-clear" id="notesSearchClear" title="Clear search">✕</button>
             </div>
             
             <div class="notes-container" id="notesContainer">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-icon"><i data-lucide="notebook-pen"></i></div>
                     <h3>No notes yet</h3>
                     <p>Create a note or album to bundle your clips, images, and URLs</p>
                     <div class="demo-hint">
@@ -8333,26 +8501,26 @@
         <!-- AI History Tab -->
         <section class="tab-content" id="aiHistoryTab">
             <div class="ai-history-header">
-                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">📜 AI Conversation History</h3>
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;"><i data-lucide="scroll-text"></i> AI Conversation History</h3>
                 <button class="btn-secondary" id="clearAiHistoryBtn" style="font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#f8fafc;color:#64748b;">Clear All</button>
             </div>
 
             <!-- AI History Search Bar -->
             <div class="notes-search-bar" id="aiHistorySearchBar">
-                <input type="text" id="aiHistorySearchInput" placeholder="🔍 Search AI conversations..." />
+                <input type="text" id="aiHistorySearchInput" placeholder="Search AI conversations..." />
                 <button class="notes-search-clear" id="aiHistorySearchClear" title="Clear search">✕</button>
             </div>
 
             <!-- Filter chips -->
             <div class="ai-history-filters" style="display:flex;gap:6px;margin-bottom:10px;">
                 <button class="ai-history-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
-                <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">📝 Summary</button>
-                <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">🧠 Breakdown</button>
+                <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="notebook-pen"></i> Summary</button>
+                <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="brain"></i> Breakdown</button>
             </div>
 
             <div class="ai-history-list" id="aiHistoryList">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📜</div>
+                    <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
                     <h3>No history yet</h3>
                     <p>Your AI Summary and Breakdown conversations will appear here</p>
                 </div>
@@ -8362,17 +8530,17 @@
         <!-- Activity Log Tab -->
         <section class="tab-content" id="activityTab">
             <div class="activity-header">
-                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;">📊 Activity History</h3>
+                <h3 style="margin:0;font-size:16px;font-weight:700;color:#0f172a;"><i data-lucide="bar-chart-3"></i> Activity History</h3>
                 <button class="btn-secondary" id="refreshActivityBtn" style="font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid #e5e7eb;background:#f8fafc;color:#64748b;">Refresh</button>
             </div>
-            <p style="font-size:11px;color:#94a3b8;margin:4px 0 8px 0;">☁️ Shows cloud-synced activity only. Local-only clips appear after sync.</p>
+            <p style="font-size:11px;color:#94a3b8;margin:4px 0 8px 0;"><i data-lucide="cloud"></i> Shows cloud-synced activity only. Local-only clips appear after sync.</p>
 
             <!-- Activity Filters -->
             <div class="activity-filters" style="display:flex;gap:6px;margin:12px 0;">
                 <button class="activity-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
-                <button class="activity-filter-chip" data-filter="INSERT" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">➕ Created</button>
-                <button class="activity-filter-chip" data-filter="UPDATE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">✏️ Updated</button>
-                <button class="activity-filter-chip" data-filter="DELETE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">🗑️ Deleted</button>
+                <button class="activity-filter-chip" data-filter="INSERT" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="plus"></i> Created</button>
+                <button class="activity-filter-chip" data-filter="UPDATE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="pencil"></i> Updated</button>
+                <button class="activity-filter-chip" data-filter="DELETE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="trash-2"></i> Deleted</button>
             </div>
 
             <!-- Date Range Filter -->
@@ -8385,7 +8553,7 @@
 
             <div class="activity-list" id="activityList">
                 <div class="empty-state">
-                    <div class="empty-state-icon">📊</div>
+                    <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
                     <h3>No activity yet</h3>
                     <p>Your clips, categories, and notes activity will appear here</p>
                 </div>
@@ -8399,7 +8567,7 @@
         <section class="tab-content" id="searchTab">
             <div class="search-header">
                 <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="🔍 Search your clips..." />
+                    <input type="text" id="searchInput" placeholder="Search your clips..." />
                     <button class="clear-search" id="clearSearch">✕</button>
                 </div>
                 <div class="filter-controls">
@@ -8416,7 +8584,7 @@
             </div>
             <div class="search-results" id="searchResults">
                 <div class="empty-search">
-                    <div class="empty-search-icon">🔍</div>
+                    <div class="empty-search-icon"><i data-lucide="search"></i></div>
                     <h3>Start searching</h3>
                     <p>Type in the search bar to find your clips</p>
                 </div>
@@ -8437,7 +8605,7 @@
             </div>
             <div class="categories-list" id="categoriesList">
                 <div class="empty-categories">
-                    <div class="empty-categories-icon">📁</div>
+                    <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
                     <h3>No categories yet</h3>
                     <p>Create your first category to organize clips</p>
                 </div>
@@ -8472,7 +8640,7 @@
                             </span>
                         </div>
                         <div class="ai-lab-title-main" aria-label="AI Lab">
-                            <span class="ai-lab-icon">🤖</span>
+                            <span class="ai-lab-icon"><i data-lucide="bot"></i></span>
                             <h2>AI Lab</h2>
                         </div>
                         <div
@@ -8527,14 +8695,14 @@
 
                 <!-- AI Lab Internal Tabs -->
                 <nav class="ai-lab-tabs">
-                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji">🎨</span><span class="tab-text"> Generator</span></button>
-                    <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji">🖼️</span><span class="tab-text"> Gallery</span></button>
-                    <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji">📝</span><span class="tab-text"> Summary</span></button>
+                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji"><i data-lucide="palette"></i></span><span class="tab-text"> Generator</span></button>
+                    <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji"><i data-lucide="image"></i></span><span class="tab-text"> Gallery</span></button>
+                    <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
                 </nav>
 
                 <!-- AI Breakdown Standalone Feature -->
                 <button class="ai-breakdown-feature" data-ai-tab="breakdown">
-                    <span class="breakdown-icon">📊</span>
+                    <span class="breakdown-icon"><i data-lucide="bar-chart-3"></i></span>
                     <div class="breakdown-text">
                         <strong>AI Breakdown</strong>
                         <small>Analyze and understand your content</small>
@@ -8545,21 +8713,21 @@
                 <!-- Generator Section -->
                 <div class="ai-lab-section active" id="aiGeneratorSection">
                     <div class="ai-generation-section">
-                        <h3 class="ai-section-title">🎨 Generate New Image</h3>
+                        <h3 class="ai-section-title"><i data-lucide="palette"></i> Generate New Image</h3>
                         <div class="ai-gen-controls">
                             <button class="ai-gen-btn" id="aiGenerateFromProfileBtn">
-                                <span class="ai-gen-icon">✨</span>
+                                <span class="ai-gen-icon"><i data-lucide="sparkles"></i></span>
                                 <span>Generate from Profile</span>
                             </button>
                             <button class="ai-gen-btn" id="aiGenerateRandomBtn">
-                                <span class="ai-gen-icon">🎲</span>
+                                <span class="ai-gen-icon"><i data-lucide="dices"></i></span>
                                 <span>Random Avatar</span>
                             </button>
                         </div>
                         
                         <!-- Generation Timer (shown after generation) -->
                         <div id="aiGenerationTimer" class="ai-generation-timer" style="display: none;">
-                            <div class="timer-icon">⏱️</div>
+                            <div class="timer-icon"><i data-lucide="timer"></i></div>
                             <div class="timer-text">
                                 <span>Image saved! Gallery updating in </span>
                                 <span id="aiTimerCountdown" class="timer-countdown">10</span>
@@ -8574,13 +8742,13 @@
                 <div class="ai-lab-section" id="aiGallerySection">
                     <div class="ai-gallery-section">
                         <div class="ai-gallery-header">
-                            <h3 class="ai-section-title">🖼️ Your Gallery</h3>
+                            <h3 class="ai-section-title"><i data-lucide="image"></i> Your Gallery</h3>
                             <span class="ai-gallery-count" id="aiGalleryCount">0 images</span>
                         </div>
                         
                         <div class="ai-gallery-grid" id="aiGalleryGrid">
                             <div class="ai-gallery-empty">
-                                <div class="ai-empty-icon">🎨</div>
+                                <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
                                 <h4>No images yet</h4>
                                 <p>Generate your first AI image to start your gallery</p>
                             </div>
@@ -8594,7 +8762,7 @@
                 <div class="ai-lab-section" id="aiSummarySection">
                     <div class="ai-summary-container">
                         <div class="ai-summary-hero">
-                            <h3 class="ai-section-title">📝 AI Summary</h3>
+                            <h3 class="ai-section-title"><i data-lucide="notebook-pen"></i> AI Summary</h3>
                             <p class="ai-summary-description">Get intelligent summaries tailored to your needs—choose from AI-suggested questions or write your own.</p>
                         </div>
                         
@@ -8602,7 +8770,7 @@
                         <div class="summary-input-section" id="summaryInputSection">
                             <div class="input-header">
                                 <label for="summaryInput" class="summary-label">
-                                    <span class="label-icon">📄</span>
+                                    <span class="label-icon"><i data-lucide="file-text"></i></span>
                                     <span>Paste content to summarize</span>
                                 </label>
                                 <span class="char-counter" id="summaryCharCounter">0 characters</span>
@@ -8619,11 +8787,11 @@ Multiple clips are separated by:
                             
                             <div class="summary-input-actions">
                                 <button id="clearSummaryInput" class="btn-secondary summary-clear-btn">
-                                    <span>🗑️</span>
+                                    <span><i data-lucide="trash-2"></i></span>
                                     <span>Clear</span>
                                 </button>
                                 <button id="generateQuestionsBtn" class="btn-primary summary-generate-btn" disabled>
-                                    <span>✨</span>
+                                    <span><i data-lucide="sparkles"></i></span>
                                     <span>Generate Questions</span>
                                 </button>
                             </div>
@@ -8633,7 +8801,7 @@ Multiple clips are separated by:
                         <!-- Step 2: Question Selection -->
                         <div class="summary-questions-section" id="summaryQuestionsSection" style="display: none;">
                             <div class="questions-header">
-                                <h4 class="questions-title">🎯 What would you like to know?</h4>
+                                <h4 class="questions-title"><i data-lucide="target"></i> What would you like to know?</h4>
                                 <p class="questions-subtitle">Select a question or write your own below</p>
                             </div>
                             
@@ -8646,7 +8814,7 @@ Multiple clips are separated by:
                             
                             <div class="custom-question-section">
                                 <label for="customQuestionInput" class="custom-question-label">
-                                    <span>✍️</span>
+                                    <span><i data-lucide="pencil"></i></span>
                                     <span>Or write your own question:</span>
                                 </label>
                                 <input 
@@ -8656,7 +8824,7 @@ Multiple clips are separated by:
                                     placeholder="e.g., Summarize the main arguments in 3 bullet points..."
                                 />
                                 <button id="customQuestionBtn" class="btn-primary custom-question-btn" disabled>
-                                    <span>📝</span>
+                                    <span><i data-lucide="notebook-pen"></i></span>
                                     <span>Get Custom Summary</span>
                                 </button>
                             </div>
@@ -8670,9 +8838,9 @@ Multiple clips are separated by:
                         <!-- Step 3: Summary Result -->
                         <div class="summary-result-section" id="summaryResultSection" style="display: none;">
                             <div class="summary-result-header">
-                                <h4 class="result-title">📋 Your Summary</h4>
+                                <h4 class="result-title"><i data-lucide="clipboard"></i> Your Summary</h4>
                                 <button id="copySummaryBtn" class="btn-icon-action" title="Copy summary">
-                                    📋
+                                    <i data-lucide="clipboard"></i>
                                 </button>
                                 <div class="thread-pagination" id="summaryThreadPagination" style="display: none;"></div>
                             </div>
@@ -8687,7 +8855,7 @@ Multiple clips are separated by:
                             <!-- Follow-up Input Box -->
                             <div class="ai-followup-container" id="summaryFollowupContainer" style="display: none;">
                                 <div class="followup-label">
-                                    <span class="followup-icon">💬</span>
+                                    <span class="followup-icon"><i data-lucide="message-circle"></i></span>
                                     <span>Ask a follow-up question</span>
                                 </div>
                                 <div class="followup-input-group">
@@ -8706,11 +8874,11 @@ Multiple clips are separated by:
                             
                             <div class="summary-result-actions">
                                 <button id="newQuestionBtn" class="btn-secondary">
-                                    <span>🔙</span>
+                                    <span><i data-lucide="arrow-left"></i></span>
                                     <span>Ask Different Question</span>
                                 </button>
                                 <button id="newSummaryBtn" class="btn-primary">
-                                    <span>✨</span>
+                                    <span><i data-lucide="sparkles"></i></span>
                                     <span>New Summary</span>
                                 </button>
                             </div>
@@ -8731,7 +8899,7 @@ Multiple clips are separated by:
                             </div>
                             <div class="bd-hero-visual">
                                 <div class="bd-hero-orb">
-                                    <span class="bd-orb-icon">🧠</span>
+                                    <span class="bd-orb-icon"><i data-lucide="brain"></i></span>
                                 </div>
                             </div>
                         </div>
@@ -8753,7 +8921,7 @@ Multiple clips are separated by:
                                     rows="5"
                                 ></textarea>
                                 <button id="clearBreakdownInput" class="bd-clear-btn" title="Clear text">
-                                    <span>🗑️</span> Clear All
+                                    <span><i data-lucide="trash-2"></i></span> Clear All
                                 </button>
                             </div>
                         </div>
@@ -8813,7 +8981,7 @@ Multiple clips are separated by:
                             </div>
                             <div class="bd-analyze-action">
                                 <button id="analyzeLevelBtn" class="bd-analyze-btn" disabled>
-                                    <span class="bd-analyze-icon">🧠</span>
+                                    <span class="bd-analyze-icon"><i data-lucide="brain"></i></span>
                                     <span>Analyze with Selected Level</span>
                                 </button>
                             </div>
@@ -8867,7 +9035,7 @@ Multiple clips are separated by:
                             <!-- Follow-up -->
                             <div class="bd-inline-followup" id="bdInlineFollowup" style="display: none;">
                                 <div class="followup-label">
-                                    <span class="followup-icon">💬</span>
+                                    <span class="followup-icon"><i data-lucide="message-circle"></i></span>
                                     <span>Ask a follow-up question</span>
                                 </div>
                                 <div class="followup-input-group">
@@ -8888,7 +9056,7 @@ Multiple clips are separated by:
                         <!-- Quick Access Tip -->
                         <div class="bd-quick-tip">
                             <div class="bd-tip-icon-wrap">
-                                <span>⚡</span>
+                                <span><i data-lucide="zap"></i></span>
                             </div>
                             <div class="bd-tip-content">
                                 <p class="bd-tip-title">Quick Access from Clips</p>
@@ -8904,15 +9072,15 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="settingsModal" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>⚙️ Settings</h3>
+                    <h3><i data-lucide="settings"></i> Settings</h3>
                     <div class="modal-actions">
-                        <button class="help-btn" id="helpBtn" title="Help & Information">❓</button>
+                        <button class="help-btn" id="helpBtn" title="Help & Information"><i data-lucide="help-circle"></i></button>
                         <button class="modal-close" id="closeSettingsModal">✕</button>
                     </div>
                 </div>
                 <div class="modal-body">
                     <div class="settings-section">
-                        <h4>🗑️ Auto-Delete Uncategorized Clips</h4>
+                        <h4><i data-lucide="trash-2"></i> Auto-Delete Uncategorized Clips</h4>
                         <p class="settings-description">Automatically remove clips that haven't been assigned to a category after:</p>
                         <select id="autoDeletePeriod" class="settings-select">
                             <option value="never">Never delete</option>
@@ -8924,20 +9092,20 @@ Multiple clips are separated by:
                             <option value="1year">1 Year</option>
                         </select>
                         <div class="settings-note">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Only affects clips in "Uncategorized". Categorized clips are never auto-deleted.</span>
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>🌙 Appearance</h4>
+                        <h4><i data-lucide="moon"></i> Appearance</h4>
                         <p class="settings-description">Theme applies across PasteCraft (including Quick Paste).</p>
                         <label class="toggle is-disabled" style="margin-top: 8px;" title="Coming soon">
                             <input type="checkbox" id="darkModeToggle" disabled aria-disabled="true" aria-label="Dark Mode (Coming soon)">
                             <div class="toggle-switch"></div>
-                            <span>🌙 Dark Mode (Coming soon)</span>
+                            <span><i data-lucide="moon"></i> Dark Mode (Coming soon)</span>
                         </label>
                         <div class="settings-note" style="margin-top: 8px;">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Dark Mode is coming soon.</span>
                         </div>
                     </div>
@@ -8960,19 +9128,19 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>📚 Albums - Attachments</h4>
+                        <h4><i data-lucide="library"></i> Albums - Attachments</h4>
                         <p class="settings-description">When you click an attachment inside an album, choose how it opens:</p>
                         <select id="albumAttachmentOpenMode" class="settings-select">
                             <option value="overlay">Open inside the extension (Back button) (default)</option>
                             <option value="edgePopup">Open in a popup window</option>
                         </select>
                         <div class="settings-note">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Overlay keeps you inside the extension with Back. Popup window opens above the extension; close it to return.</span>
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>🔐 Quick Login Code</h4>
+                        <h4><i data-lucide="lock"></i> Quick Login Code</h4>
                         <p class="settings-description">Require a 3-digit code to open PasteCraft on this browser profile.</p>
                         <div class="quick-settings-checkboxes">
                             <label class="checkbox-label" style="margin-top: 8px;">
@@ -8985,7 +9153,7 @@ Multiple clips are separated by:
                             </label>
                         </div>
                         <div class="settings-note" style="margin-top: 8px;">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span><strong>Unlimited session overrides</strong> the “new browser” prompt. Selecting “new browser” will automatically turn Unlimited session off.</span>
                         </div>
                         <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
@@ -8993,12 +9161,12 @@ Multiple clips are separated by:
                             <button class="btn-secondary" id="disablePinBtn" type="button">Disable code</button>
                         </div>
                         <div class="settings-note">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>This only locks the extension UI. Your account session can stay signed in, and your 3-digit code can sync across devices when browser sync is enabled.</span>
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>📊 Storage Information</h4>
+                        <h4><i data-lucide="hard-drive"></i> Storage Information</h4>
                         <div class="storage-info">
                             <div class="storage-item">
                                 <span class="storage-label">Total Clips:</span>
@@ -9015,7 +9183,7 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>🕒 Restore Clips</h4>
+                        <h4><i data-lucide="clock"></i> Restore Clips</h4>
                         <p class="settings-description">Restore your local clips from a previous point in time. Cloud data is not changed unless you click “Sync restored data to cloud”.</p>
 
                         <div class="quick-setting">
@@ -9040,12 +9208,12 @@ Multiple clips are separated by:
                         </div>
 
                         <div class="settings-note" style="margin-top: 10px;">
-                            <span class="note-icon">⚠️</span>
+                            <span class="note-icon"><i data-lucide="alert-triangle"></i></span>
                             <span>Restore replaces local Clips and Archive with the snapshot.</span>
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4>📤 Export / Import</h4>
+                        <h4><i data-lucide="upload"></i> Export / Import</h4>
                         <p class="settings-description">Export a backup file or import a JSON backup (merge mode).</p>
                         <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0; flex-wrap: wrap;">
                             <button class="btn-secondary" id="exportBackupJsonBtn" type="button">Export JSON backup</button>
@@ -9054,7 +9222,7 @@ Multiple clips are separated by:
                             <input type="file" id="importBackupJsonFile" accept=".json,application/json" style="display: none;">
                         </div>
                         <div class="settings-note" style="margin-top: 10px;">
-                            <span class="note-icon">ℹ️</span>
+                            <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Import will keep your existing data and add missing items. Large imports may be capped to storage limits.</span>
                         </div>
                     </div>
@@ -9066,14 +9234,14 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="categoryModal" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>📁 Choose Category</h3>
+                    <h3><i data-lucide="folder"></i> Choose Category</h3>
                     <button class="modal-close" id="closeCategoryModal">✕</button>
                 </div>
                 <div class="modal-body">
                     <p class="modal-text">Where would you like to save this clip?</p>
                     <div class="category-options" id="categoryOptions">
                         <div class="category-option" data-category="Uncategorized">
-                            <div class="category-option-icon">📄</div>
+                            <div class="category-option-icon"><i data-lucide="file-text"></i></div>
                             <span>Uncategorized</span>
                         </div>
                     </div>
@@ -9091,7 +9259,7 @@ Multiple clips are separated by:
             <div class="modal-content breakdown-modal-content">
                 <div class="modal-header breakdown-modal-header">
                     <div class="breakdown-header-content">
-                        <h3>🧠 AI Text Breakdown</h3>
+                        <h3><i data-lucide="brain"></i> AI Text Breakdown</h3>
                         <p class="breakdown-header-subtitle">Choose your comprehension level</p>
                     </div>
                     <div class="breakdown-header-actions">
@@ -9101,14 +9269,14 @@ Multiple clips are separated by:
                 <div class="modal-body">
                     <div class="breakdown-original-text">
                         <div class="breakdown-original-header">
-                            <h4>📄 Original Text</h4>
+                            <h4><i data-lucide="file-text"></i> Original Text</h4>
                             <span class="text-length" id="breakdownTextLength"></span>
                         </div>
                         <p id="breakdownOriginalText" class="breakdown-original-text-content"></p>
                     </div>
                     
                     <div class="breakdown-level-info">
-                        <div class="level-info-icon">💡</div>
+                        <div class="level-info-icon"><i data-lucide="lightbulb"></i></div>
                         <p class="level-info-text" id="levelInfoText">
                             <strong>Child Level:</strong> Super simple explanation using basic words and fun examples
                         </p>
@@ -9160,7 +9328,7 @@ Multiple clips are separated by:
                         <!-- Follow-up Input Box -->
                         <div class="ai-followup-container" id="breakdownFollowupContainer" style="display: none;">
                             <div class="followup-label">
-                                <span class="followup-icon">💬</span>
+                                <span class="followup-icon"><i data-lucide="message-circle"></i></span>
                                 <span>Ask a follow-up question</span>
                             </div>
                             <div class="followup-input-group">
@@ -9179,7 +9347,7 @@ Multiple clips are separated by:
                             <!-- Breakdown Level Selector for Follow-ups -->
                             <div class="followup-level-selector">
                                 <div class="followup-level-label">
-                                    <span>📊</span>
+                                    <span><i data-lucide="bar-chart-3"></i></span>
                                     <span>Choose response style:</span>
                                 </div>
                                 <div class="followup-level-tabs" id="followupLevelTabs">
@@ -9213,7 +9381,7 @@ Multiple clips are separated by:
                     </div>
                     <div class="modal-actions">
                         <button class="btn-secondary" id="copyBreakdownBtn">
-                            <span>📋</span>
+                            <span><i data-lucide="clipboard"></i></span>
                             <span>Copy Explanation</span>
                         </button>
                         <button class="btn-primary" id="closeBreakdownBtn">Done</button>
@@ -9227,7 +9395,7 @@ Multiple clips are separated by:
             <div class="modal-content breakdown-modal-content">
                 <div class="modal-header breakdown-modal-header">
                     <div class="breakdown-header-content">
-                        <h3 id="aiHistoryModalTitle" class="ai-history-modal-title-display">📜 Conversation</h3>
+                        <h3 id="aiHistoryModalTitle" class="ai-history-modal-title-display"><i data-lucide="scroll-text"></i> Conversation</h3>
                         <div id="aiHistoryTitleEditContainer" class="ai-history-title-edit-container" style="display:none;">
                             <input type="text" id="aiHistoryTitleInput" class="ai-history-title-input" maxlength="60" placeholder="Enter title..." />
                             <button class="ai-history-title-save-btn" id="aiHistoryTitleSaveBtn" title="Save">✓</button>
@@ -9236,7 +9404,7 @@ Multiple clips are separated by:
                         <p class="breakdown-header-subtitle" id="aiHistoryModalSubtitle"></p>
                     </div>
                     <div class="breakdown-header-actions">
-                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title">✏️</button>
+                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title"><i data-lucide="pencil"></i></button>
                         <button class="modal-close" id="closeAiHistoryModal">✕</button>
                     </div>
                 </div>
@@ -9250,11 +9418,11 @@ Multiple clips are separated by:
 
                     <div class="modal-actions">
                         <button class="btn-secondary" id="copyAiHistoryBtn">
-                            <span>📋</span>
+                            <span><i data-lucide="clipboard"></i></span>
                             <span>Copy</span>
                         </button>
                         <button class="btn-secondary ai-history-continue-btn" id="continueConversationBtn">
-                            <span>💬</span>
+                            <span><i data-lucide="message-circle"></i></span>
                             <span>Continue Conversation</span>
                         </button>
                         <button class="btn-primary" id="closeAiHistoryModalBtn">Done</button>
@@ -9267,7 +9435,7 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="clipViewerModal" style="display: none;">
             <div class="modal-content clip-viewer-content">
                 <div class="modal-header">
-                    <h3 id="clipViewerTitle">🔎 Clip Viewer</h3>
+                    <h3 id="clipViewerTitle"><i data-lucide="search"></i> Clip Viewer</h3>
                     <button class="modal-close" id="closeClipViewerModal">✕</button>
                 </div>
                 <div class="modal-body">
@@ -9283,11 +9451,11 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-actions">
                     <button class="btn-secondary" id="clipViewerToggleRaw" title="Toggle between rendered and raw view" style="display:none;">
-                        <span>📄</span>
+                        <span><i data-lucide="file-text"></i></span>
                         <span>View Raw</span>
                     </button>
                     <button class="btn-secondary" id="copyClipViewerBtn">
-                        <span>📋</span>
+                        <span><i data-lucide="clipboard"></i></span>
                         <span>Copy</span>
                     </button>
                     <button class="btn-primary" id="closeClipViewerBtn">Done</button>
@@ -9325,12 +9493,12 @@ Multiple clips are separated by:
                     <label class="toggle" title="Delete duplicates in 1 or more clips">
                         <input type="checkbox" id="deduplicateToggle">
                         <div class="toggle-switch"></div>
-                        <span>🔄 Deduplicate</span>
+                        <span><i data-lucide="refresh-cw"></i> Deduplicate</span>
                     </label>
                     <label class="toggle" title="Automatically arrange multiple clips in alphabetical order (A to Z)">
                         <input type="checkbox" id="sortToggle">
                         <div class="toggle-switch"></div>
-                        <span>⬆️ Sort A→Z</span>
+                        <span><i data-lucide="arrow-up-a-z"></i> Sort A→Z</span>
                     </label>
                     <label class="toggle" title="Clips can be uppercased">
                         <input type="checkbox" id="uppercaseToggle">
@@ -9348,8 +9516,8 @@ Multiple clips are separated by:
         </section>
 
         <!-- Magic Wand (only show for clips and search tabs) -->
-        <button class="magic-wand" id="magicWand" title="🪄 Magic: Auto-categorize, enhance, dedupe & organize clips">
-            <span class="wand-icon">🪄</span>
+        <button class="magic-wand" id="magicWand" title="Magic: Auto-categorize, enhance, dedupe & organize clips">
+            <span class="wand-icon"><i data-lucide="wand-sparkles"></i></span>
             <span class="wand-text">Magic</span>
         </button>
 
@@ -9357,15 +9525,15 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="magicPreviewModal" style="display: none;">
             <div class="modal-content magic-preview-modal">
                 <div class="modal-header magic-preview-header">
-                    <h3>🪄 Magic Preview</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Magic Preview</h3>
                     <span class="magic-selected-count" id="magicSelectedCount">0 selected</span>
-                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Magic do?">ℹ️</button>
+                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Magic do?"><i data-lucide="info"></i></button>
                     <button class="modal-close" id="closeMagicPreview">✕</button>
                 </div>
                 <!-- Undo banner (hidden by default) -->
                 <div class="magic-undo-banner" id="magicUndoBanner" style="display: none;">
                     <span>Previous magic can be undone</span>
-                    <button class="magic-undo-btn" id="magicUndoBtn">↩️ Undo Last Magic</button>
+                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Magic</button>
                 </div>
                 <div class="modal-body magic-preview-body">
                     <div class="magic-clip-list" id="magicClipList"></div>
@@ -9376,8 +9544,8 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-footer magic-preview-footer">
                     <button class="magic-btn-secondary" id="magicCancelBtn">Cancel</button>
-                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled>🪄 Craft the Magic</button>
-                    <button class="magic-btn-craft-all" id="magicCraftAllBtn">✨ Craft all Magic to clips</button>
+                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled><i data-lucide="wand-sparkles"></i> Craft the Magic</button>
+                    <button class="magic-btn-craft-all" id="magicCraftAllBtn"><i data-lucide="sparkles"></i> Craft all Magic to clips</button>
                 </div>
             </div>
         </div>
@@ -9386,7 +9554,7 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="magicResultsModal" style="display: none;">
             <div class="modal-content magic-results-modal">
                 <div class="modal-header magic-results-header">
-                    <h3>🪄 Magic Complete</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Magic Complete</h3>
                     <button class="modal-close" id="closeMagicResults">✕</button>
                 </div>
                 <div class="modal-body magic-results-body">
@@ -9423,12 +9591,12 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="magicInfoModal" style="display: none;">
             <div class="modal-content magic-info-modal">
                 <div class="modal-header magic-info-header">
-                    <h3>🪄 What Does Magic Do?</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> What Does Magic Do?</h3>
                     <button class="modal-close" id="closeMagicInfo">✕</button>
                 </div>
                 <div class="modal-body magic-info-body">
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">📁</div>
+                        <div class="magic-info-icon"><i data-lucide="folder"></i></div>
                         <div class="magic-info-detail">
                             <h4>Smart Categorization</h4>
                             <p>Automatically assigns categories to uncategorized clips. Premium users get <strong>AI-powered</strong> categorization with smart, reusable titles.</p>
@@ -9436,7 +9604,7 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">✨</div>
+                        <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>Smart Format</h4>
                             <p>AI polishes grammar, punctuation, and structure — without changing vocabulary or meaning. Skips code, URLs, and data clips automatically.</p>
@@ -9444,21 +9612,21 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">🧹</div>
+                        <div class="magic-info-icon"><i data-lucide="eraser"></i></div>
                         <div class="magic-info-detail">
                             <h4>Content Cleanup</h4>
                             <p>Trims whitespace, collapses blank lines, formats JSON, removes URL tracking parameters, and normalizes content. Free for all users.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">📋</div>
+                        <div class="magic-info-icon"><i data-lucide="copy"></i></div>
                         <div class="magic-info-detail">
                             <h4>Duplicate Detection</h4>
                             <p>Identifies duplicate clips across your collection and flags them so you know which content appears more than once.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">🔍</div>
+                        <div class="magic-info-icon"><i data-lucide="search"></i></div>
                         <div class="magic-info-detail">
                             <h4>Context Awareness</h4>
                             <p>Detects 20+ content types including code, Markdown, HTML, JSON, YAML, XML, LaTeX, URLs, emails, phone numbers, and more markup languages.</p>
@@ -9466,14 +9634,14 @@ Multiple clips are separated by:
                     </div>
                     <div class="magic-info-divider"></div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">🪄</div>
+                        <div class="magic-info-icon"><i data-lucide="wand-sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>Craft the Magic</h4>
                             <p>Select specific clips to process. Only the clips you choose will be categorized and enhanced.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
-                        <div class="magic-info-icon">✨</div>
+                        <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>Craft All Magic to Clips</h4>
                             <p>Process every clip at once. A snapshot is saved so you can undo all changes by clicking Magic again.</p>
@@ -9497,12 +9665,12 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="notesInfoModal" style="display: none;">
             <div class="modal-content notes-info-modal-content">
                 <div class="modal-header notes-info-modal-header">
-                    <h3>📝 Notes & Albums Guide</h3>
+                    <h3><i data-lucide="notebook-pen"></i> Notes & Albums Guide</h3>
                     <button class="modal-close" id="closeNotesInfoModal">✕</button>
                 </div>
                 <div class="modal-body notes-info-modal-body">
                     <div class="notes-info-section">
-                        <div class="notes-info-section-icon">📝</div>
+                        <div class="notes-info-section-icon"><i data-lucide="notebook-pen"></i></div>
                         <div class="notes-info-section-detail">
                             <h4>Notes</h4>
                             <p>Notes let you create rich text entries where you can attach copied clips, images, and URLs all in one place. Use notes to:</p>
@@ -9515,7 +9683,7 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="notes-info-section">
-                        <div class="notes-info-section-icon">📚</div>
+                        <div class="notes-info-section-icon"><i data-lucide="library"></i></div>
                         <div class="notes-info-section-detail">
                             <h4>Albums</h4>
                             <p>Albums are collections that group related notes together, helping you stay organized. Use albums to:</p>
@@ -9528,7 +9696,7 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="notes-info-section">
-                        <div class="notes-info-section-icon">💡</div>
+                        <div class="notes-info-section-icon"><i data-lucide="lightbulb"></i></div>
                         <div class="notes-info-section-detail">
                             <h4>Tips</h4>
                             <ul>
@@ -9547,7 +9715,7 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="helpModal" style="display: none;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>❓ PasteCraft Help & Information</h3>
+                    <h3><i data-lucide="help-circle"></i> PasteCraft Help & Information</h3>
                     <div class="modal-actions">
                         <button class="back-btn" id="backBtn" title="Back to Settings">←</button>
                         <button class="modal-close" id="closeHelpModal">✕</button>
@@ -9555,7 +9723,7 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-body help-content">
                     <div class="help-section">
-                        <h4>🗑️ Auto-Delete Uncategorized Clips</h4>
+                        <h4><i data-lucide="trash-2"></i> Auto-Delete Uncategorized Clips</h4>
                         <div class="help-item">
                             <strong>Purpose:</strong> Automatically removes clips that haven't been assigned to a category after a specified time to keep your clipboard organized and prevent clutter.
                         </div>
@@ -9955,7 +10123,7 @@ Multiple clips are separated by:
                     ← Back
                 </button>
                 <h3 id="noteEditorTitle">
-                    <img src="assets/note-icons/notebook.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 8px;">
+                    <i data-lucide="notebook" style="margin-right: 8px;"></i>
                     <span id="noteEditorType">New Note</span>
                 </h3>
                 <button class="modal-close" id="closeNoteEditor">✕</button>
@@ -10029,9 +10197,9 @@ Multiple clips are separated by:
             </div>
             <div class="modal-body">
                 <div class="clip-picker-tabs">
-                    <button class="clip-picker-tab active" data-picker-tab="clips">📋 Recent Clips</button>
-                    <button class="clip-picker-tab" data-picker-tab="search">🔍 Search</button>
-                    <button class="clip-picker-tab" data-picker-tab="categories">📁 Categories</button>
+                    <button class="clip-picker-tab active" data-picker-tab="clips"><i data-lucide="clipboard"></i> Recent Clips</button>
+                    <button class="clip-picker-tab" data-picker-tab="search"><i data-lucide="search"></i> Search</button>
+                    <button class="clip-picker-tab" data-picker-tab="categories"><i data-lucide="folder"></i> Categories</button>
                 </div>
                 <div class="clip-picker-tab-content active" id="clipPickerClipsTab">
                     <div class="chip-container" id="clipPickerRecentList"></div>
@@ -10057,19 +10225,19 @@ Multiple clips are separated by:
         <div class="modal-content album-picker-content">
             <div class="modal-header">
                 <h3>
-                    <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 8px;">
+                    <i data-lucide="folder-plus" style="margin-right: 8px;"></i>
                     Send to Note/Album
                 </h3>
                 <button class="modal-close" id="closeAlbumPicker">✕</button>
             </div>
             <div class="modal-body">
                 <div class="album-picker-search">
-                    <input type="text" id="albumPickerSearch" placeholder="🔍 Search notes and albums..." class="note-input-field">
+                    <input type="text" id="albumPickerSearch" placeholder="Search notes and albums..." class="note-input-field">
                 </div>
                 <div class="album-picker-list" id="albumPickerList"></div>
                 <div style="display: flex; gap: 8px; margin-top: 16px;">
                     <button class="btn-secondary create-new-from-picker" id="createNewAlbumFromPicker" style="flex: 1;">
-                        <img src="assets/note-icons/album-folder.svg" alt="" class="pc-icon pc-icon-20" style="margin-right: 6px;">
+                        <i data-lucide="folder-plus" style="margin-right: 6px;"></i>
                         Create New Album
                     </button>
                 </div>
@@ -10821,6 +10989,7 @@ alice@email.com</div>
     <script src="lib/katex.min.js"></script>
     <script src="lib/mermaid.min.js"></script>
     <script src="lib/pdf.min.js"></script>
+    <script src="lib/lucide.min.js"></script>
     <script src="markup-renderer.js"></script>
 
     <!-- Database Client (Local) -->

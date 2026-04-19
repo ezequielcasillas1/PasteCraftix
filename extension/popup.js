@@ -1510,9 +1510,6 @@ class PasteCraftPopup {
   }
 
   setupLocalStorageListener() {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] setupLocalStorageListener called');
-    // #endregion
     try {
       // Debounce repeated local change events and avoid re-entrancy loops.
       this._handlingLocalChange = false;
@@ -1527,11 +1524,6 @@ class PasteCraftPopup {
       };
 
       chrome.storage.onChanged.addListener((changes, areaName) => {
-        // #region agent log
-        if (areaName === 'local' && changes) {
-          console.warn('[SYNC-DEBUG] storage.onChanged fired', { areaName, changedKeys: Object.keys(changes) });
-        }
-        // #endregion
         if (areaName !== 'local') return;
         if (!changes) return;
 
@@ -1991,9 +1983,6 @@ class PasteCraftPopup {
   }
   
   async performBackgroundSync({ force = false, reason = 'background-sync' } = {}) {
-    // #region agent log
-    console.warn('[SYNC-DEBUG] performBackgroundSync called', { force, reason });
-    // #endregion
     try {
       // Guardrail: after a local restore, don't auto-sync for a short window unless explicitly forced.
       if (!force) {
@@ -4261,7 +4250,46 @@ class PasteCraftPopup {
         this.handleQuickDelete();
       });
     }
-    
+
+    // Bulk AI Actions (2+ selected clips)
+    const bulkAiSummaryBtn = document.getElementById('bulkAiSummaryBtn');
+    if (bulkAiSummaryBtn) {
+      bulkAiSummaryBtn.addEventListener('click', () => {
+        const text = this._getSelectedClipsText();
+        if (text) this.showSummaryModal(text);
+      });
+    }
+
+    const bulkSendCategoriesBtn = document.getElementById('bulkSendCategoriesBtn');
+    if (bulkSendCategoriesBtn) {
+      bulkSendCategoriesBtn.addEventListener('click', () => {
+        const text = this._getSelectedClipsText();
+        if (!text) return;
+        this.pendingText = text;
+        this.pendingClipId = null;
+        this.showCategoryModal(false);
+      });
+    }
+
+    const bulkSendNotesBtn = document.getElementById('bulkSendNotesBtn');
+    if (bulkSendNotesBtn) {
+      bulkSendNotesBtn.addEventListener('click', async () => {
+        const text = this._getSelectedClipsText();
+        if (!text) return;
+        await this.loadNotes();
+        this.showAlbumPicker();
+        this.pendingClipForNotes = { text, id: null, category: 'Uncategorized' };
+      });
+    }
+
+    const bulkAiBreakdownBtn = document.getElementById('bulkAiBreakdownBtn');
+    if (bulkAiBreakdownBtn) {
+      bulkAiBreakdownBtn.addEventListener('click', () => {
+        const text = this._getSelectedClipsText();
+        if (text) this.showBreakdownModal(text);
+      });
+    }
+
     // Setup image viewer for expanded view
     this.setupImageViewer();
     
@@ -5713,7 +5741,7 @@ class PasteCraftPopup {
   
   renderChips() {
     const container = document.getElementById('chipContainer');
-    
+
     // Use total count for empty check (includes remote clips)
     const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
     
@@ -5942,14 +5970,12 @@ class PasteCraftPopup {
       <span class="chip-text" title="${this.escapeHtml(clip.text)}">${chipTextContent}</span>
       <span class="chip-time">${timeAgo}</span>
       <div class="chip-actions">
-        <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
-        <button class="chip-open-btn" title="Open">🔎</button>
-        <button class="chip-share-btn" title="Share">🔗</button>
-        <button class="chip-summary-btn" title="AI Summary">📝</button>
-        <button class="chip-notes-btn" title="Send to Notes">
-          <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-16">
-        </button>
-        <button class="chip-category-btn" title="Add to category">📁</button>
+        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
+        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
+        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
+        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
+        <button class="chip-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
+        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
         <button class="chip-remove" title="Remove clip">×</button>
       </div>
     `;
@@ -5979,45 +6005,54 @@ class PasteCraftPopup {
       e.stopPropagation();
       this.toggleChip(clipIdKey, chip);
     });
-    
+
     // Click to select/deselect
     chip.addEventListener('click', (e) => {
-      if (e.target.classList.contains('chip-remove')) {
+      // Use closest() so clicks on the inner <i data-lucide=".."> icon
+      // still resolve to the parent button that owns the chip-*-btn class.
+      const removeBtn    = e.target.classList.contains('chip-remove') ? e.target : null;
+      const breakdownBtn = e.target.closest('.chip-breakdown-btn');
+      const openBtn      = e.target.closest('.chip-open-btn');
+      const shareBtn     = e.target.closest('.chip-share-btn');
+      const summaryBtn   = e.target.closest('.chip-summary-btn');
+      const notesBtn     = e.target.closest('.chip-notes-btn');
+      const categoryBtn  = e.target.closest('.chip-category-btn');
+      const isCheckbox   = e.target.classList.contains('chip-checkbox');
+
+      if (removeBtn) {
         this.removeChip(clipIdKey);
-      } else if (e.target.classList.contains('chip-breakdown-btn')) {
+      } else if (breakdownBtn) {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
         this.showBreakdownModal(textToSend);
-      } else if (e.target.classList.contains('chip-open-btn')) {
+      } else if (openBtn) {
         e.stopPropagation();
         if (typeof this.openClipViewer === 'function') {
           this.openClipViewer(clip);
         }
-      } else if (e.target.classList.contains('chip-share-btn')) {
+      } else if (shareBtn) {
         e.stopPropagation();
         this.showShareMenuForClip(clip);
-      } else if (e.target.classList.contains('chip-summary-btn')) {
+      } else if (summaryBtn) {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
         this.showSummaryModal(textToSend);
-      } else if (e.target.classList.contains('chip-notes-btn') || e.target.closest('.chip-notes-btn')) {
+      } else if (notesBtn) {
         e.stopPropagation();
-        // Load notes and show album picker
         this.loadNotes().then(() => {
           this.showAlbumPicker();
-          // Store the clip to be added
           this.pendingClipForNotes = clip;
         });
-      } else if (e.target.classList.contains('chip-category-btn')) {
+      } else if (categoryBtn) {
         e.stopPropagation();
         this.pendingText = clip.text;
         this.pendingClipId = clipIdKey;
         this.showCategoryModal(true);
-      } else if (!e.target.classList.contains('chip-checkbox')) {
+      } else if (!isCheckbox) {
         this.toggleChip(clipIdKey, chip);
       }
     });
-    
+
     return chip;
   }
   
@@ -6336,24 +6371,36 @@ class PasteCraftPopup {
   updateQuickCopyButton() {
     const quickCopyBtn = document.getElementById('quickCopyBtn');
     const quickDeleteBtn = document.getElementById('quickDeleteBtn');
+    const bulkAiActions = document.getElementById('clipsBulkAiActions');
     if (!quickCopyBtn) return;
-    
-    // Show button only if there are selected clips
-    if (this.selectedChips.size > 0) {
-      quickCopyBtn.style.display = 'flex';
-    } else {
-      quickCopyBtn.style.display = 'none';
-    }
 
-    // Show delete only when 2+ are selected (per requirement)
+    const count = this.selectedChips.size;
+
+    quickCopyBtn.style.display = count > 0 ? 'flex' : 'none';
+
     if (quickDeleteBtn) {
-      if (this.selectedChips.size > 1) {
+      if (count > 1) {
         quickDeleteBtn.style.display = 'flex';
       } else {
         quickDeleteBtn.style.display = 'none';
         quickDeleteBtn.classList.remove('success');
       }
     }
+
+    if (bulkAiActions) {
+      bulkAiActions.style.display = count > 1 ? 'flex' : 'none';
+    }
+  }
+
+  _getSelectedClipsText() {
+    const ids = Array.from(this.selectedChips).map(String);
+    return ids
+      .map(id => {
+        const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
+        return clip ? clip.text : null;
+      })
+      .filter(Boolean)
+      .join('\n\n');
   }
   
   // ─── Magic Button: Content Type Detection ───
@@ -6970,7 +7017,7 @@ class PasteCraftPopup {
     if (!this.searchQuery && !this.selectedCategory && !this.selectedDateFilter) {
       container.innerHTML = `
         <div class="empty-search">
-          <div class="empty-search-icon">🔍</div>
+          <div class="empty-search-icon"><i data-lucide="search"></i></div>
           <h3>Start searching</h3>
           <p>Type in the search bar to find your clips</p>
         </div>
@@ -6984,7 +7031,7 @@ class PasteCraftPopup {
     if (filteredClips.length === 0) {
       container.innerHTML = `
         <div class="empty-search">
-          <div class="empty-search-icon">😔</div>
+          <div class="empty-search-icon"><i data-lucide="frown"></i></div>
           <h3>No results found</h3>
           <p>Try adjusting your search criteria</p>
         </div>
@@ -7090,15 +7137,13 @@ class PasteCraftPopup {
         </div>
       </div>
       <div class="search-result-actions">
-        <button class="chip-breakdown-btn" title="AI Breakdown">🧠</button>
-        <button class="chip-open-btn" title="Open">🔎</button>
-        <button class="chip-share-btn" title="Share">🔗</button>
-        <button class="chip-summary-btn" title="AI Summary">📝</button>
-        <button class="search-notes-btn" title="Send to Notes">
-          <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-16">
-        </button>
-        <button class="chip-category-btn" title="Add to category">📁</button>
-        <button class="btn-copy" title="Copy to clipboard">📋</button>
+        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
+        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
+        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
+        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
+        <button class="search-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
+        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
+        <button class="btn-copy" title="Copy to clipboard"><i data-lucide="clipboard"></i></button>
       </div>
     `;
     
@@ -7184,7 +7229,7 @@ class PasteCraftPopup {
     if (this.categories.length === 0) {
       container.innerHTML = `
         <div class="empty-categories">
-          <div class="empty-categories-icon">📁</div>
+          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
           <h3>No categories yet</h3>
           <p>Create your first category to organize clips</p>
         </div>
@@ -7228,7 +7273,7 @@ class PasteCraftPopup {
         </div>
         <div class="category-header-actions">
           <button class="category-btn edit-category" data-action="edit" title="Edit category">✏️</button>
-          <button class="category-btn delete-category" data-action="delete" title="Delete category">🗑️</button>
+          <button class="category-btn delete-category" data-action="delete" title="Delete category"><i data-lucide="trash-2"></i></button>
           <span class="category-expand-icon">▶</span>
         </div>
       </div>
@@ -8116,9 +8161,11 @@ class PasteCraftPopup {
 
   async generateBreakdown(level) {
     // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-      return;
+    let _premiumOk = true;
+    if (this.currentUser) {
+      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown');
     }
+    if (!_premiumOk) return;
 
     // Check cache first
     if (this.breakdownCache[level]) {
@@ -8390,9 +8437,11 @@ class PasteCraftPopup {
 
   async generateSummaryQuestions(text) {
     // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-      return;
+    let _premiumOk = true;
+    if (this.currentUser) {
+      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary');
     }
+    if (!_premiumOk) return;
 
     try {
       this.showSummarySection('questions');
@@ -8860,7 +8909,7 @@ class PasteCraftPopup {
         <div class="category-option-icon">📄</div>
         <span>Uncategorized (${uncategorizedCount}/∞)</span>
         ${uncategorizedFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip">🗑️</button>
+        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
       </div>
     `;
 
@@ -8875,7 +8924,7 @@ class PasteCraftPopup {
         <div class="category-option-icon">${category.icon}</div>
         <span>${this.escapeHtml(category.name)} (${clipsInCategory}/150)</span>
         ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip">🗑️</button>
+        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
       `;
       container.appendChild(option);
     });
@@ -9711,14 +9760,12 @@ class PasteCraftPopup {
             <div class="category-clip-time">${timeAgo}</div>
           </div>
           <div class="category-clip-actions">
-            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown">🧠</button>
-            <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open">🔎</button>
-            <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share">🔗</button>
-            <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary">📝</button>
-            <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes">
-              <img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-16">
-            </button>
-            <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy">📋</button>
+            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
+            <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
+            <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
+            <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
+            <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
+            <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy"><i data-lucide="clipboard"></i></button>
           </div>
         </div>
       `;
@@ -11402,7 +11449,7 @@ class PasteCraftPopup {
     if (gallery.length === 0) {
       galleryGrid.innerHTML = `
         <div class="ai-gallery-empty">
-          <div class="ai-empty-icon">🎨</div>
+          <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
           <h4>No images yet</h4>
           <p>Generate your first AI image to start your gallery</p>
         </div>
@@ -11820,7 +11867,7 @@ class PasteCraftPopup {
     const breakdownModal = document.getElementById('breakdownModal');
     const breakdownOriginalText = document.getElementById('breakdownOriginalText');
     const breakdownTextLength = document.getElementById('breakdownTextLength');
-    
+
     if (breakdownModal && breakdownOriginalText) {
       // Show FULL text, not truncated - let CSS handle scrolling
       breakdownOriginalText.textContent = text;
@@ -12784,7 +12831,7 @@ class PasteCraftPopup {
       const heading = query ? 'No matches' : 'No history yet';
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📜</div>
+          <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
           <h3>${heading}</h3>
           <p>${msg}</p>
         </div>`;
@@ -12806,7 +12853,7 @@ class PasteCraftPopup {
             <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
           </div>
           <span class="ai-history-entry-badge ${badgeClass}">${badgeLabel}</span>
-          <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete">🗑️</button>
+          <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete"><i data-lucide="trash-2"></i></button>
         </div>`;
     }).join('');
 
@@ -13507,7 +13554,7 @@ class PasteCraftPopup {
       if (searchQuery) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">🔍</div>
+            <div class="empty-state-icon"><i data-lucide="search"></i></div>
             <h3>No results found</h3>
             <p>No notes or albums match "<strong>${this.escapeHtml(searchQuery)}</strong>"</p>
           </div>
@@ -13515,7 +13562,7 @@ class PasteCraftPopup {
       } else {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">📝</div>
+            <div class="empty-state-icon"><i data-lucide="notebook-pen"></i></div>
             <h3>No notes yet</h3>
             <p>Create a note or album to bundle your clips, images, and URLs</p>
             <div class="demo-hint">
@@ -13551,36 +13598,36 @@ class PasteCraftPopup {
       const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
       const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
       const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
-      const typeIconSrc = note.type === 'album' ? 'assets/note-icons/album-folder.svg' : 'assets/note-icons/notebook.svg';
       const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
+      const typeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
       const date = new Date(note.createdAt).toLocaleDateString();
       const safeTitle = (note.title || '').trim();
       const safeDesc = (note.description || '').trim();
       const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
 
       const sendToAlbumBtn = note.type !== 'album'
-        ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-18"></button>`
+        ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><i data-lucide="folder-plus"></i></button>`
         : '';
       
       return `
         <div class="${cardClass}" data-note-id="${note.id}">
           <div class="note-card-header">
-            <span class="note-card-type"><img src="${typeIconSrc}" alt="" class="pc-icon pc-icon-18"></span>
+            <span class="note-card-type"><i data-lucide="${typeIcon}"></i></span>
             <div class="note-card-actions">
-              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><img src="assets/note-icons/Edit.svg" alt="" class="pc-icon pc-icon-18"></button>
+              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil"></i></button>
               ${sendToAlbumBtn}
-              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export"><img src="assets/note-icons/export.svg" alt="" class="pc-icon pc-icon-18"></button>
-              <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><img src="assets/note-icons/delete.svg" alt="" class="pc-icon pc-icon-18"></button>
+              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export"><i data-lucide="download"></i></button>
+              <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><i data-lucide="trash-2"></i></button>
             </div>
           </div>
           <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
           <p class="note-card-description">${this.escapeHtml(safeDesc)}</p>
           <div class="note-card-meta">
             <div class="note-card-count">
-              ${note.type === 'album' && noteRefCount > 0 ? `<span>📝 ${noteRefCount}</span>` : ''}
-              ${clipCount > 0 ? `<span>📋 ${clipCount}</span>` : ''}
-              ${imageCount > 0 ? `<span>🖼️ ${imageCount}</span>` : ''}
-              ${urlCount > 0 ? `<span>🔗 ${urlCount}</span>` : ''}
+              ${note.type === 'album' && noteRefCount > 0 ? `<span><i data-lucide="notebook"></i> ${noteRefCount}</span>` : ''}
+              ${clipCount > 0 ? `<span><i data-lucide="clipboard"></i> ${clipCount}</span>` : ''}
+              ${imageCount > 0 ? `<span><i data-lucide="image"></i> ${imageCount}</span>` : ''}
+              ${urlCount > 0 ? `<span><i data-lucide="link"></i> ${urlCount}</span>` : ''}
               ${totalItems === 0 ? '<span style="color: #9ca3af;">Empty</span>' : ''}
             </div>
             <span>${date}</span>
@@ -13771,26 +13818,26 @@ class PasteCraftPopup {
     const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
     const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
     const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
-    const typeIconSrc = note.type === 'album' ? 'assets/note-icons/album-folder.svg' : 'assets/note-icons/notebook.svg';
     const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
+    const typeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
     const date = new Date(note.createdAt).toLocaleDateString();
     const safeTitle = (note.title || '').trim();
     const safeDesc = (note.description || '').trim();
     const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
 
     const sendToAlbumBtn = note.type !== 'album'
-      ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><img src="assets/note-icons/sendcreate Album.svg" alt="" class="pc-icon pc-icon-18"></button>`
+      ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><i data-lucide="folder-plus"></i></button>`
       : '';
     
     return `
       <div class="${cardClass}" data-note-id="${note.id}">
         <div class="note-card-header">
-          <span class="note-card-type"><img src="${typeIconSrc}" alt="" class="pc-icon pc-icon-18"></span>
+          <span class="note-card-type"><i data-lucide="${typeIcon}"></i></span>
           <div class="note-card-actions">
-            <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><img src="assets/note-icons/Edit.svg" alt="" class="pc-icon pc-icon-18"></button>
-            <button class="note-action-btn export-note-pdf" data-note-id="${note.id}" title="Export to PDF"><img src="assets/note-icons/PDF.svg" alt="" class="pc-icon pc-icon-18"></button>
+            <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil"></i></button>
+            <button class="note-action-btn export-note-pdf" data-note-id="${note.id}" title="Export to PDF"><i data-lucide="file-down"></i></button>
             ${sendToAlbumBtn}
-            <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><img src="assets/note-icons/delete.svg" alt="" class="pc-icon pc-icon-18"></button>
+            <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><i data-lucide="trash-2"></i></button>
           </div>
         </div>
         <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
@@ -14479,7 +14526,7 @@ class PasteCraftPopup {
     if (recentClips.length === 0) {
       container.innerHTML = `
         <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon">📋</div>
+          <div class="clip-picker-empty-icon"><i data-lucide="clipboard"></i></div>
           <p>No recent clips available</p>
         </div>
       `;
@@ -14516,7 +14563,7 @@ class PasteCraftPopup {
     if (results.length === 0) {
       container.innerHTML = `
         <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon">🔍</div>
+          <div class="clip-picker-empty-icon"><i data-lucide="search"></i></div>
           <p>No clips found matching your search</p>
         </div>
       `;
@@ -14549,7 +14596,7 @@ class PasteCraftPopup {
     if (pickerCategories.length === 0) {
       container.innerHTML = `
         <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon">📁</div>
+          <div class="clip-picker-empty-icon"><i data-lucide="folder"></i></div>
           <p>No clips found in categories</p>
         </div>
       `;
@@ -15815,7 +15862,7 @@ class PasteCraftPopup {
     }
 
     list.innerHTML = filteredNotes.map(note => {
-      const iconSrc = note.type === 'album' ? 'assets/note-icons/album-folder.svg' : 'assets/note-icons/notebook.svg';
+      const pickerTypeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
       const itemCount =
         note.type === 'album'
           ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0)
@@ -15825,7 +15872,7 @@ class PasteCraftPopup {
       return `
         <div class="${itemClass}" data-note-id="${note.id}">
           <div class="album-picker-info">
-            <span class="album-picker-icon"><img src="${iconSrc}" alt="" class="pc-icon pc-icon-18"></span>
+            <span class="album-picker-icon"><i data-lucide="${pickerTypeIcon}"></i></span>
             <div class="album-picker-details">
               <div class="album-picker-title">${this.escapeHtml(note.title)}</div>
               <div class="album-picker-meta">${itemCount} items</div>
@@ -16027,7 +16074,7 @@ class PasteCraftPopup {
     if (!this.activityEntries || this.activityEntries.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📊</div>
+          <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
           <h3>No cloud activity yet</h3>
           <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
         </div>
@@ -16165,9 +16212,58 @@ class PasteCraftPopup {
   }
 }
 
+// Lucide icon renderer - idempotent, safe to call many times.
+// Replaces <i data-lucide="name"></i> placeholders with inline SVGs.
+// Observes DOM mutations so dynamically-rendered templates also get icons.
+window.renderLucideIcons = function renderLucideIcons() {
+  try {
+    if (typeof window.lucide === 'undefined' || !window.lucide.createIcons) return;
+    window.lucide.createIcons({
+      icons: window.lucide.icons || window.lucide,
+      attrs: { 'stroke-width': 2, 'aria-hidden': 'true', focusable: 'false' }
+    });
+  } catch (e) {
+    console.warn('Lucide render failed:', e);
+  }
+};
+
+(function initLucideObserver() {
+  if (window.__lucideObserverInstalled) return;
+  window.__lucideObserverInstalled = true;
+  const schedule = (() => {
+    let pending = false;
+    return () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        window.renderLucideIcons();
+      });
+    };
+  })();
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType === 1 && (node.matches?.('[data-lucide]') || node.querySelector?.('[data-lucide]'))) {
+          schedule();
+          return;
+        }
+      }
+    }
+  });
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      observer.observe(document.body, { childList: true, subtree: true });
+    }, { once: true });
+  }
+})();
+
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🚀 Popup script loaded');
+  window.renderLucideIcons();
   try {
     window.pasteCraftPopup = new PasteCraftPopup();
   } catch (error) {
@@ -16175,13 +16271,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fallback simple interface
     document.body.innerHTML = `
       <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h2>📋 PasteCraft</h2>
+        <h2><i data-lucide="clipboard"></i> PasteCraft</h2>
         <div id="simpleClips"></div>
         <p style="color: #666; font-size: 12px;">Right-click selected text to save clips</p>
       </div>
     `;
     loadSimpleClips();
   }
+  window.renderLucideIcons();
 });
 
 // Also boot immediately if DOMContentLoaded already fired (resilience for any non-blocking script load edge-cases)

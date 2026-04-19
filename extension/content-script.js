@@ -2818,7 +2818,10 @@ class PasteCraftFloatingWidget {
         
         <!-- Component 4: Quick View Button -->
         <div class="widget-component quick-view-button" data-tooltip="Quick View Menu">
-          <span class="widget-icon">👁️</span>
+          <div class="eye-icon-wrap">
+            <svg class="eye-svg" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <img class="eye-anim" src="" alt="" aria-hidden="true">
+          </div>
         </div>
       </div>
     `;
@@ -2986,8 +2989,35 @@ class PasteCraftFloatingWidget {
       }
       
       /* Component 4: Quick View Button */
-      .quick-view-button .widget-icon {
-        font-size: 24px;
+      .quick-view-button .eye-icon-wrap {
+        position: relative;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .quick-view-button .eye-svg {
+        display: block;
+        transition: opacity 0.15s ease;
+      }
+      .quick-view-button .eye-anim {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 36px;
+        height: 36px;
+        object-fit: cover;
+        mix-blend-mode: screen;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+      }
+      .quick-view-button:hover .eye-svg {
+        opacity: 0;
+      }
+      .quick-view-button:hover .eye-anim {
+        opacity: 1;
       }
       
       /* Tooltips - appear on LEFT side since widget is to left of popup */
@@ -3117,6 +3147,19 @@ class PasteCraftFloatingWidget {
       console.log('✅ Auto toggle listener attached');
     }
     
+    // Component 4: Eye GIF — SVG at rest, GIF animates on hover
+    const eyeAnim = this.widget.querySelector('.eye-anim');
+    const qvBtn   = this.widget.querySelector('.quick-view-button');
+    if (eyeAnim && qvBtn) {
+      const gifUrl = pastecraftGetURL('assets/eye.gif');
+      qvBtn.addEventListener('mouseenter', () => {
+        eyeAnim.src = gifUrl + '?t=' + Date.now();
+      });
+      qvBtn.addEventListener('mouseleave', () => {
+        eyeAnim.src = '';
+      });
+    }
+
     // Component 4: Quick View Button - Toggle quick view
     const quickViewButton = this.widget.querySelector('.quick-view-button');
     if (quickViewButton) {
@@ -4813,7 +4856,7 @@ class PasteCraftFloatingWidget {
       <body>
         <div class="quickview-header">
           <div class="quickview-title">
-            <span>👁️</span>
+            <span><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.2em"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
             <span>Quick View</span>
             <span class="clip-count" id="clip-count">0 clips</span>
           </div>

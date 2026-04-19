@@ -70,7 +70,9 @@
         "lib/katex-fonts/*",
         "lib/mermaid.min.js",
         "lib/pdf.min.js",
-        "lib/pdf.worker.min.js"
+        "lib/pdf.worker.min.js",
+        "lib/lucide.min.js",
+        "assets/eye.gif"
       ],
       "matches": ["<all_urls>"]
     }
