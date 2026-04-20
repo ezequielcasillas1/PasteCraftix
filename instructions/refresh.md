@@ -16,6 +16,10 @@ Related sync errors in same session:
 - `notes`, `ai_history`, `settings`, `user_profiles` upsert → 500
 - Clipboard API blocked by Permissions Policy on perplexity.ai page (content script fallback path).
 
+---
+
+Top-right icons (Bot/Profile/Settings) lag on click. Settings awaits `loadPinConfig()` (multiple `chrome.storage.sync.get`) before showing modal. Profile re-runs `cloneNode(true)+replaceWith` on 9 nodes every open. Bot kicks off gallery network reads in same frame as tab switch.
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

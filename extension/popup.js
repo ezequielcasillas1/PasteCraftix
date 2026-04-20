@@ -1127,8 +1127,41 @@ class PasteCraftPopup {
   }
   
   async init() {
+    // Guarantees that the purple loading overlay never gets stuck. Wraps the
+    // real init body in try/catch/finally with an absolute 10s watchdog so a
+    // throw, hang, or network stall can't freeze the popup in a loading state.
+    const watchdog = setTimeout(() => {
+      try {
+        console.warn('⏰ init() watchdog fired at 10s — force-hiding overlay');
+        this.hideLoadingOverlay();
+        this._showOfflineModeBanner();
+      } catch (_) {}
+    }, 10000);
+
+    try {
+      await this._initImpl();
+    } catch (e) {
+      console.error('❌ init() failed:', e);
+      try { this._showOfflineModeBanner(); } catch (_) {}
+    } finally {
+      clearTimeout(watchdog);
+      try { this.hideLoadingOverlay(); } catch (_) {}
+    }
+  }
+
+  _showOfflineModeBanner() {
+    if (document.getElementById('pcOfflineModeBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'pcOfflineModeBanner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
+    banner.textContent = 'Loaded in offline mode — click to retry';
+    banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
+    (document.body || document.documentElement).appendChild(banner);
+  }
+
+  async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
-    
+
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
     this.setupPinModalEvents();
@@ -1294,11 +1327,18 @@ class PasteCraftPopup {
     this.renderCategories();
     this.updateCategoryFilter();
 
-    // 🔄 RESTORE SESSION STATE (active tab, AI content, etc.)
-    await this._restoreSessionState();
-    
-    // 🎯 HIDE LOADING OVERLAY (local data loaded, ready to show)
+    // 🎯 HIDE LOADING OVERLAY (local data loaded, ready to show).
+    // Done BEFORE _restoreSessionState() so a slow Supabase call inside
+    // the session-restore path (loadNotes/loadActivityLog/loadAiHistory)
+    // cannot stall the visible UI behind the purple overlay.
     this.hideLoadingOverlay();
+
+    // 🔄 RESTORE SESSION STATE (active tab, AI content, etc.) — fire and
+    // forget. The restored tab shows its own lightweight inline loading
+    // state while its data arrives.
+    this._restoreSessionState().catch((e) => {
+      console.warn('Session restore failed:', e);
+    });
 
     // Run potentially heavy maintenance tasks in background (do not block popup render)
     Promise.resolve()
@@ -3272,24 +3312,24 @@ class PasteCraftPopup {
     const pinAskEachBrowserOpenEl = document.getElementById('pinAskEachBrowserOpen');
     if (pinAskEachBrowserOpenEl) {
       pinAskEachBrowserOpenEl.addEventListener('change', () => {
-        // Handle mutual exclusivity first
+        pinAskEachBrowserOpenEl.dataset.userTouched = '1';
         const unlimitedEl = document.getElementById('pinUnlimitedSession');
         if (pinAskEachBrowserOpenEl.checked && unlimitedEl && unlimitedEl.checked) {
           unlimitedEl.checked = false;
         }
-        triggerAutoSave(false); // Include PIN settings
+        triggerAutoSave(false);
       });
     }
 
     const pinUnlimitedSessionEl = document.getElementById('pinUnlimitedSession');
     if (pinUnlimitedSessionEl) {
       pinUnlimitedSessionEl.addEventListener('change', () => {
-        // Handle mutual exclusivity first
+        pinUnlimitedSessionEl.dataset.userTouched = '1';
         const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
         if (pinUnlimitedSessionEl.checked && browserScopeEl && browserScopeEl.checked) {
           browserScopeEl.checked = false;
         }
-        triggerAutoSave(false); // Include PIN settings
+        triggerAutoSave(false);
       });
     }
 
@@ -3752,10 +3792,14 @@ class PasteCraftPopup {
 
         // Refresh credits view when entering AI Lab.
         this.updateAiCreditsPills('ai-tab');
-        
-        // Load gallery and migrate existing profile image
-        this.loadAIGallery();
-        this.migrateProfileImageToGallery();
+
+        // Defer heavy work one frame so the tab-switch paints first. Avoids
+        // a stutter where layout + gallery network reads happen in the same
+        // frame as the CSS class change.
+        requestAnimationFrame(() => {
+          this.loadAIGallery();
+          this.migrateProfileImageToGallery();
+        });
       });
     }
 
@@ -4259,46 +4303,26 @@ class PasteCraftPopup {
       });
     }
 
-    // Bulk AI Actions (2+ selected clips)
-    const bulkAiSummaryBtn = document.getElementById('bulkAiSummaryBtn');
-    if (bulkAiSummaryBtn) {
-      bulkAiSummaryBtn.addEventListener('click', () => {
-        const text = this._getSelectedClipsText();
-        if (text) this.showSummaryModal(text);
-      });
-    }
+    // Bulk AI Actions (2+ selected clips) — modularized so Clips and Categories reuse the same wiring
+    this._wireBulkAiButtons({
+      summaryBtnId: 'bulkAiSummaryBtn',
+      sendCategoriesBtnId: 'bulkSendCategoriesBtn',
+      sendNotesBtnId: 'bulkSendNotesBtn',
+      breakdownBtnId: 'bulkAiBreakdownBtn',
+      getText: () => this._getSelectedClipsText(),
+      getIdKeys: () => this._getSelectedClipIdKeys(),
+      getClipObjects: () => this._getSelectedClipObjects()
+    });
 
-    const bulkSendCategoriesBtn = document.getElementById('bulkSendCategoriesBtn');
-    if (bulkSendCategoriesBtn) {
-      bulkSendCategoriesBtn.addEventListener('click', () => {
-        const ids = this._getSelectedClipIdKeys();
-        if (ids.length === 0) return;
-        this.pendingBulkClipIds = ids;
-        this.pendingText = null;
-        this.pendingClipId = null;
-        this.showCategoryModal(true);
-      });
-    }
-
-    const bulkSendNotesBtn = document.getElementById('bulkSendNotesBtn');
-    if (bulkSendNotesBtn) {
-      bulkSendNotesBtn.addEventListener('click', async () => {
-        const clips = this._getSelectedClipObjects();
-        if (clips.length === 0) return;
-        await this.loadNotes();
-        this.pendingBulkClipsForNotes = clips;
-        this.pendingClipForNotes = null;
-        this.showAlbumPicker();
-      });
-    }
-
-    const bulkAiBreakdownBtn = document.getElementById('bulkAiBreakdownBtn');
-    if (bulkAiBreakdownBtn) {
-      bulkAiBreakdownBtn.addEventListener('click', () => {
-        const text = this._getSelectedClipsText();
-        if (text) this.showBreakdownModal(text);
-      });
-    }
+    this._wireBulkAiButtons({
+      summaryBtnId: 'categoriesBulkAiSummaryBtn',
+      sendCategoriesBtnId: 'categoriesBulkSendCategoriesBtn',
+      sendNotesBtnId: 'categoriesBulkSendNotesBtn',
+      breakdownBtnId: 'categoriesBulkAiBreakdownBtn',
+      getText: () => this._getSelectedCategoryClipsText(),
+      getIdKeys: () => this._getSelectedCategoryClipIdKeys(),
+      getClipObjects: () => this._getSelectedCategoryClipObjects()
+    });
 
     // Setup image viewer for expanded view
     this.setupImageViewer();
@@ -6415,6 +6439,77 @@ class PasteCraftPopup {
     return ids
       .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id))
       .filter(Boolean);
+  }
+
+  _getSelectedCategoryClipIdKeys() {
+    if (!this.selectedCategoryClips) return [];
+    return Array.from(this.selectedCategoryClips).map(id => this._clipIdKey(id)).filter(Boolean);
+  }
+
+  _getSelectedCategoryClipObjects() {
+    const ids = this._getSelectedCategoryClipIdKeys();
+    if (ids.length === 0) return [];
+    const pool = Array.isArray(this.clips) ? this.clips : [];
+    return ids
+      .map(id => pool.find(c => this._clipIdKey(c?.id) === id))
+      .filter(Boolean);
+  }
+
+  _getSelectedCategoryClipsText() {
+    return this._getSelectedCategoryClipObjects().map(c => c.text).join('\n\n');
+  }
+
+  _wireBulkAiButtons(config) {
+    if (!config) return;
+    const {
+      summaryBtnId,
+      sendCategoriesBtnId,
+      sendNotesBtnId,
+      breakdownBtnId,
+      getText,
+      getIdKeys,
+      getClipObjects
+    } = config;
+
+    const summaryBtn = summaryBtnId ? document.getElementById(summaryBtnId) : null;
+    if (summaryBtn && typeof getText === 'function') {
+      summaryBtn.addEventListener('click', () => {
+        const text = getText();
+        if (text) this.showSummaryModal(text);
+      });
+    }
+
+    const sendCategoriesBtn = sendCategoriesBtnId ? document.getElementById(sendCategoriesBtnId) : null;
+    if (sendCategoriesBtn && typeof getIdKeys === 'function') {
+      sendCategoriesBtn.addEventListener('click', () => {
+        const ids = getIdKeys();
+        if (!ids || ids.length === 0) return;
+        this.pendingBulkClipIds = ids;
+        this.pendingText = null;
+        this.pendingClipId = null;
+        this.showCategoryModal(true);
+      });
+    }
+
+    const sendNotesBtn = sendNotesBtnId ? document.getElementById(sendNotesBtnId) : null;
+    if (sendNotesBtn && typeof getClipObjects === 'function') {
+      sendNotesBtn.addEventListener('click', async () => {
+        const clips = getClipObjects();
+        if (!clips || clips.length === 0) return;
+        await this.loadNotes();
+        this.pendingBulkClipsForNotes = clips;
+        this.pendingClipForNotes = null;
+        this.showAlbumPicker();
+      });
+    }
+
+    const breakdownBtn = breakdownBtnId ? document.getElementById(breakdownBtnId) : null;
+    if (breakdownBtn && typeof getText === 'function') {
+      breakdownBtn.addEventListener('click', () => {
+        const text = getText();
+        if (text) this.showBreakdownModal(text);
+      });
+    }
   }
   
   // ─── Magic Button: Content Type Detection ───
@@ -9671,7 +9766,16 @@ class PasteCraftPopup {
     const startTime = Date.now();
     // OPTIMIZATION: Show modal immediately with cached values, then update in background
     // This prevents the delay users experience when clicking Settings
-    
+
+    // Reset PIN toggle "userTouched" flags for this open session so the
+    // background refresh can reflect fresh config without clobbering input.
+    try {
+      const _a = document.getElementById('pinAskEachBrowserOpen');
+      const _b = document.getElementById('pinUnlimitedSession');
+      if (_a) delete _a.dataset.userTouched;
+      if (_b) delete _b.dataset.userTouched;
+    } catch (_) {}
+
     // Update storage statistics
     this.updateStorageStats();
     
@@ -9709,15 +9813,15 @@ class PasteCraftPopup {
     const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
     if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
 
-    // PIN lock UI - Refresh config from storage before reflecting checkbox state
+    // PIN lock UI - reflect cached config immediately (fresh values refreshed
+    // in the background Promise.all below to avoid blocking modal show).
     try {
-      await this.loadPinConfig();
       const enabled = !!this._pinConfig?.enabled;
       const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-      
+
       const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
       const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-      
+
       if (browserScopeEl) {
         browserScopeEl.checked = enabled && !isUnlimited;
         browserScopeEl.disabled = !enabled;
@@ -9772,10 +9876,24 @@ class PasteCraftPopup {
       
       if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
 
-      // NOTE: PIN checkboxes are NOT refreshed here. The initial blocking
-      // loadPinConfig() above already set them correctly. Re-setting them in
-      // this background callback would overwrite any user interaction that
-      // occurred between modal-show and this callback firing (race condition).
+      // Reflect fresh PIN config now that loadPinConfig() has resolved. We
+      // skip when the user has already toggled to avoid clobbering input.
+      try {
+        const enabled = !!this._pinConfig?.enabled;
+        const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
+        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
+        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
+        const disableBtn = document.getElementById('disablePinBtn');
+        if (browserScopeEl && !browserScopeEl.dataset.userTouched) {
+          browserScopeEl.checked = enabled && !isUnlimited;
+          browserScopeEl.disabled = !enabled;
+        }
+        if (unlimitedToggle && !unlimitedToggle.dataset.userTouched) {
+          unlimitedToggle.checked = isUnlimited;
+          unlimitedToggle.disabled = !enabled;
+        }
+        if (disableBtn) disableBtn.disabled = !enabled;
+      } catch (_) {}
     }).catch(() => {});
   }
 
@@ -10149,11 +10267,13 @@ class PasteCraftPopup {
   updateCategoryBulkActions() {
     const bar = document.getElementById('categoryBulkActions');
     const countEl = document.getElementById('categoryBulkCount');
+    const aiBar = document.getElementById('categoriesBulkAiActions');
     if (!bar || !countEl) return;
 
     const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
+    const isCategoriesTab = this.currentTab === 'categories';
 
-    if (this.currentTab === 'categories' && count > 0) {
+    if (isCategoriesTab && count > 0) {
       bar.style.display = 'flex';
       countEl.textContent = `${count} selected`;
     } else {
@@ -10161,6 +10281,10 @@ class PasteCraftPopup {
       countEl.textContent = '';
       const copyBtn = document.getElementById('categoryBulkCopyBtn');
       if (copyBtn) copyBtn.classList.remove('success');
+    }
+
+    if (aiBar) {
+      aiBar.style.display = (isCategoriesTab && count > 1) ? 'flex' : 'none';
     }
   }
 
@@ -10628,6 +10752,11 @@ class PasteCraftPopup {
   }
 
   setupProfileModalEvents() {
+    // Idempotent: bind once per popup lifetime. Re-running on every modal
+    // open forced expensive cloneNode(true)+replaceWith on ~9 nodes, which
+    // caused perceptible lag when opening Profile.
+    if (this._profileModalEventsBound) return;
+    this._profileModalEventsBound = true;
     // Prevent multiple event listener attachments
     const profileModal = document.getElementById('profileModal');
     const uploadImageBtn = document.getElementById('uploadImageBtn');
@@ -12505,6 +12634,23 @@ class PasteCraftPopup {
   }
 
   /** Restore all persisted UI state on popup open */
+  // Race a promise against a timer. Returns `fallback` if the promise throws
+  // or exceeds `ms`. Keeps the underlying fetch alive in the background, so
+  // the second call (or a visibility refresh) can use the warmed-up result.
+  _withTimeout(promise, ms, fallback = undefined, label = '') {
+    const wrapped = Promise.resolve()
+      .then(() => promise)
+      .catch((e) => {
+        if (label) console.warn(`${label} failed:`, e);
+        return fallback;
+      });
+    const timer = new Promise((resolve) => setTimeout(() => {
+      if (label) console.warn(`${label} timed out after ${ms}ms — using fallback`);
+      resolve(fallback);
+    }, ms));
+    return Promise.race([wrapped, timer]);
+  }
+
   async _restoreSessionState() {
     try {
       const keys = [
@@ -12539,13 +12685,13 @@ class PasteCraftPopup {
             this.loadAIGallery();
             this.migrateProfileImageToGallery();
           } else if (savedTab === 'notes') {
-            await this.loadNotes();
+            await this._withTimeout(this.loadNotes(), 3000, undefined, 'loadNotes');
             this.renderNotes();
           } else if (savedTab === 'activity') {
-            await this.loadActivityLog();
+            await this._withTimeout(this.loadActivityLog(), 3000, undefined, 'loadActivityLog');
             this.renderActivityList();
           } else if (savedTab === 'aiHistory') {
-            await this.loadAiHistory();
+            await this._withTimeout(this.loadAiHistory(), 3000, undefined, 'loadAiHistory');
             this.renderAiHistoryList();
           }
         }

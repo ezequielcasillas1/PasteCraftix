@@ -435,6 +435,16 @@
             width: 18px;
             height: 18px;
         }
+        /* Make every child of a settings button transparent to clicks so the
+           click target is always the <button> itself. Without this, Chrome
+           may dispatch the click to the inner <svg>/<path> and some click
+           paths (e.g. Lucide replacing <i> with <svg> mid-frame) can cause
+           the first click in the center of the icon to miss. */
+        .settings-btn > * ,
+        .settings-btn svg,
+        .settings-btn svg * {
+            pointer-events: none;
+        }
         
         /* ── Upgrade Banner (Freemium users) ── */
         .upgrade-banner {
@@ -8615,6 +8625,20 @@
                 <span class="bulk-sep">|</span>
                 <button class="bulk-action delete" id="categoryBulkDeleteBtn" title="Delete 1 or more selected clips">delete</button>
                 <span class="bulk-count" id="categoryBulkCount"></span>
+            </div>
+            <div class="clips-bulk-ai-actions" id="categoriesBulkAiActions" style="display: none; margin: 8px 16px 0 16px;">
+                <button class="bulk-ai-btn ai-summary" id="categoriesBulkAiSummaryBtn" title="AI Summary of selected clips">
+                    <i data-lucide="notebook-pen"></i> AI Summary
+                </button>
+                <button class="bulk-ai-btn send-categories" id="categoriesBulkSendCategoriesBtn" title="Send selected clips to a category">
+                    <i data-lucide="folder"></i> Send to Categories
+                </button>
+                <button class="bulk-ai-btn send-notes" id="categoriesBulkSendNotesBtn" title="Send selected clips to a note">
+                    <i data-lucide="folder-plus"></i> Send to Notes
+                </button>
+                <button class="bulk-ai-btn ai-breakdown" id="categoriesBulkAiBreakdownBtn" title="AI Breakdown of selected clips">
+                    <i data-lucide="brain"></i> AI Breakdown
+                </button>
             </div>
         </section>
 

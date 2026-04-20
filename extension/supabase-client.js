@@ -1017,9 +1017,10 @@ class PasteCraftSupabase {
     
     try {
       const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-images/${fileName}`;
-      
+      // Path must live under a `{userId}/` folder so the Storage RLS policy
+      // `(storage.foldername(name))[1] = auth.uid()::text` passes.
+      const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
       const { data, error } = await this.client.storage
         .from('profile-images')
         .upload(filePath, imageFile);
@@ -1066,12 +1067,12 @@ class PasteCraftSupabase {
       
       const blob = await response.blob();
       console.log('✅ Image downloaded, size:', blob.size, 'bytes');
-      
-      // Generate unique filename
+
+      // Path must live under a `{userId}/` folder so the Storage RLS policy
+      // `(storage.foldername(name))[1] = auth.uid()::text` passes.
       const timestamp = Date.now();
-      const fileName = `${userId}-${timestamp}.png`;
-      const filePath = `${fileName}`;
-      
+      const filePath = `${userId}/${timestamp}.png`;
+
       console.log('📤 Uploading to Supabase Storage:', filePath);
       
       // Upload to Supabase Storage
@@ -1161,9 +1162,10 @@ class PasteCraftSupabase {
         ct.includes('gif') ? 'gif' :
         'png';
 
+      // Path must live under a `{userId}/` folder so the Storage RLS policy
+      // `(storage.foldername(name))[1] = auth.uid()::text` passes.
       const timestamp = Date.now();
-      const fileName = `${userId}-${timestamp}.${ext}`;
-      const filePath = `${fileName}`;
+      const filePath = `${userId}/${timestamp}.${ext}`;
 
       const { error } = await this.client.storage
         .from('profile-images')

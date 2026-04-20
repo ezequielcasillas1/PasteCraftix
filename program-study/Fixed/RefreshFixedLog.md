@@ -4,6 +4,13 @@ All issues that have been resolved and fixed are documented here.
 
 ---
 
+### [Apr 20, 2026] - Profile Image Upload RLS Path Mismatch
+**Status:** SUCCESS ✅
+**Files:** extension/supabase-client.js
+**Result:** `StorageApiError: new row violates row-level security policy` on `profile-images` bucket. Path used `{userId}-{ts}.png` at bucket root; RLS required a `{userId}/` folder prefix. Rewrote all 3 upload sites (`uploadProfileImage`, `downloadAndUploadImage`, `uploadDataUrlToProfileImages`) to `{userId}/{ts}.ext`. No DB migration needed.
+
+---
+
 ### [Dec 23, 2025] - Website View Tint Overlay Regression (In-Page Panels)
 **Status:** SUCCESS ✅
 **Files:** content-script.js

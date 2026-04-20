@@ -1,3 +1,23 @@
+### Apr 20, 2026 - Popup Load Hardening + Header Icon Click Fix
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js, extension/popup.html, instructions/refresh.md
+**Result:** Three surgical fixes to stop the purple loading overlay from sticking. (1) `init()` wrapped in try/catch/finally with 10s watchdog + clickable "Loaded in offline mode" retry banner — overlay can never get stuck. (2) `hideLoadingOverlay()` moved ahead of `_restoreSessionState()`, which is now fire-and-forget. (3) Added reusable `_withTimeout(promise, ms, fallback, label)` helper and wrapped `loadNotes` / `loadActivityLog` / `loadAiHistory` in 3s races inside session restore. Also fixed header Bot/Profile/Settings icons losing center-of-icon clicks: added `pointer-events: none` to `.settings-btn` children so every click targets the button.
+
+### Apr 20, 2026 - Top-Right Icon Loading Lag (Settings/Profile/AI)
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.js
+**Result:** Settings modal no longer blocks on `await loadPinConfig()` before render — reflects cached `_pinConfig` instantly, refreshes in the existing background `Promise.all` with a `data-userTouched` race guard on the PIN toggles. Profile modal: made `setupProfileModalEvents()` idempotent via `_profileModalEventsBound`; the expensive `cloneNode(true) + replaceWith` on 9 nodes now runs once per popup lifetime instead of every open. AI Lab (Bot) button: deferred `loadAIGallery()` + `migrateProfileImageToGallery()` one `requestAnimationFrame` so the tab-switch paints before network work starts.
+
+### Apr 20, 2026 - Storage RLS Upload Path Fix (Profile Images)
+**Status:** ✅ SUCCESS
+**Files:** extension/supabase-client.js, instructions/refresh.md
+**Result:** Fixed `new row violates row-level security policy` 400 on `profile-images` bucket. Uploads wrote to bucket root (`{userId}-{ts}.png`) but RLS policy required `{userId}/...` folder prefix (`(storage.foldername(name))[1] = auth.uid()::text`). Changed all 3 upload sites — `uploadProfileImage`, `downloadAndUploadImage`, `uploadDataUrlToProfileImages` — to write to `{userId}/{ts}.ext`. DALL-E → permanent Storage URLs now persist instead of falling back to 2h temporary URLs.
+
+### Apr 20, 2026 - Categories Bulk AI Actions (Modular)
+**Status:** ✅ SUCCESS
+**Files:** extension/popup.html, extension/popup.js
+**Result:** Mirrored the Clips-page 4-button bulk bar (AI Summary, Send to Categories, Send to Notes, AI Breakdown) onto the Categories page, shown below the existing copy/delete bar when 2+ clips selected. Refactored wiring into reusable `_wireBulkAiButtons(config)` helper + 3 new getters (`_getSelectedCategoryClip{IdKeys,Objects,Text}`). Zero duplication — both scopes now drive the same `showSummaryModal`, `showBreakdownModal`, `showCategoryModal(true)`, `showAlbumPicker()` flows.
+
 ### Apr 19, 2026 - Batch Category Sync + 8s Timeout Hotspot
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/supabase-client.js, change_audit_log (Supabase)
