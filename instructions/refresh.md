@@ -20,6 +20,10 @@ Related sync errors in same session:
 
 Top-right icons (Bot/Profile/Settings) lag on click. Settings awaits `loadPinConfig()` (multiple `chrome.storage.sync.get`) before showing modal. Profile re-runs `cloneNode(true)+replaceWith` on 9 nodes every open. Bot kicks off gallery network reads in same frame as tab switch.
 
+---
+
+Categories page clip-action icons (brain / search / link / notebook-pen / folder-plus / clipboard) don't fire on click inside expanded category dropdowns. Same regression the clips page had. Root cause: per-button `addEventListener` is attached only during `toggleCategoryDropdown()` → `attachClipHandlers()`, and every `renderCategories()` re-render (called from ~30 sites) wipes `#categoriesList` innerHTML, leaving the new buttons with zero listeners. Modularize the clips-page pattern: one delegated click handler on `#categoriesList` using `e.target.closest('.category-clip-*-btn')`.
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

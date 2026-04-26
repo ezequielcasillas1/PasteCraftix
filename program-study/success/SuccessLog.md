@@ -1,3 +1,21 @@
+### Apr 26, 2026 - Supabase Audit Grant Hardening
+**Status:** SUCCESS
+**Commit:** pending
+**Files:** db/migrations/20260426_harden_audit_log_grants.sql, db/migrations/20260426_harden_change_audit_log_grants.sql, db/migrations/20260426_harden_coupon_attempt_log_grants.sql
+**Result:** Removed anon access from audit/coupon log tables while keeping authenticated access; Supabase advisor no longer lists those tables.
+
+### Apr 26, 2026 - Clip Viewer Paragraph UI
+**Status:** SUCCESS
+**Commit:** 1e91b30
+**Files:** extension/popup.js, extension/popup.html, extension/styles/clip-viewer.css
+**Result:** Clip Viewer now formats plain text as stacked paragraphs with dedicated CSS, improving Clips/Search/Categories viewer readability.
+
+### Apr 26, 2026 - OS Restart Auth Restore
+**Status:** SUCCESS
+**Commit:** 1e91b30
+**Files:** extension/popup.js, extension/supabase-client.js
+**Result:** Popup now waits for stored Supabase session restore before auth check; startup null sessions no longer erase the refresh-token bridge.
+
 ### Apr 20, 2026 - Popup Load Hardening + Header Icon Click Fix
 **Status:** ✅ SUCCESS
 **Files:** extension/popup.js, extension/popup.html, instructions/refresh.md

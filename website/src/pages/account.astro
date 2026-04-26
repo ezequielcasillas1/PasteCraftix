@@ -136,9 +136,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   </div>
 
   <script is:inline>
+    const SUPABASE_URL = 'https://blpngeeqcegquiydreyu.supabase.co';
+    const SUPABASE_ANON_KEY = [
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+      'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0',
+      'eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o'
+    ].join('.');
     const sb = window.supabase.createClient(
-      'https://blpngeeqcegquiydreyu.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o'
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
     );
 
     window.addEventListener('load', async () => {

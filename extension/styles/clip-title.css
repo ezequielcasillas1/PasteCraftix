@@ -1,0 +1,61 @@
+.pc-clip-stack,
+.pc-clip-title-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pc-clip-title {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pc-clip-subtext {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.chip.selected .pc-clip-title,
+.chip.selected .pc-clip-subtext,
+.category-clip.selected .pc-clip-title,
+.category-clip.selected .pc-clip-subtext {
+  color: #ffffff;
+}
+
+.search-result-item .pc-clip-title {
+  margin-bottom: 4px;
+}
+
+.category-clip-title-btn,
+.chip-title-btn {
+  color: inherit;
+}
+
+.viewer-attachment-title {
+  overflow: hidden;
+  color: #111827;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-attachment-subtext {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

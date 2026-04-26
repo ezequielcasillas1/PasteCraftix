@@ -49,6 +49,9 @@ function pastecraftGetURL(path) {
   const finalPath = __PASTECRAFT_IS_REPO_LOADER ? `extension/${normalized}` : normalized;
   return chrome.runtime.getURL(finalPath);
 }
+
+const PASTECRAFT_PAGE_ORIGIN = window.location.origin;
+
 class QuickPasteInterface {
   constructor() {
     this.isVisible = false;
@@ -2638,7 +2641,7 @@ class PasteCraftFloatingWidget {
             if (quickViewIframe.contentWindow) {
               quickViewIframe.contentWindow.postMessage(
                 { type: 'quickview-clips-data', clips: recentClips },
-                '*'
+                PASTECRAFT_PAGE_ORIGIN
               );
             }
           });
@@ -2817,10 +2820,14 @@ class PasteCraftFloatingWidget {
         </div>
         
         <!-- Component 4: Quick View Button -->
-        <div class="widget-component quick-view-button" data-tooltip="Quick View Menu">
+        <div class="widget-component quick-view-button" data-tooltip="Quick View Menu" role="button" tabindex="0" aria-label="Open Quick View Menu">
           <div class="eye-icon-wrap">
-            <svg class="eye-svg" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-            <img class="eye-anim" src="" alt="" aria-hidden="true">
+            <svg class="eye-svg" xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <g class="eye-drawing">
+                <path class="eye-outline" d="M5 32C11 20 20 14 32 14s21 6 27 18c-6 12-15 18-27 18S11 44 5 32Z"/>
+                <circle class="eye-pupil" cx="32" cy="32" r="10"/>
+              </g>
+            </svg>
           </div>
         </div>
       </div>
@@ -2989,6 +2996,10 @@ class PasteCraftFloatingWidget {
       }
       
       /* Component 4: Quick View Button */
+      .quick-view-button {
+        background: transparent;
+        box-shadow: none;
+      }
       .quick-view-button .eye-icon-wrap {
         position: relative;
         width: 36px;
@@ -2999,25 +3010,66 @@ class PasteCraftFloatingWidget {
       }
       .quick-view-button .eye-svg {
         display: block;
-        transition: opacity 0.15s ease;
+        width: 34px;
+        height: 34px;
+        overflow: visible;
+        transition: transform 0.15s ease;
       }
-      .quick-view-button .eye-anim {
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        width: 36px;
-        height: 36px;
-        object-fit: cover;
-        mix-blend-mode: screen;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.15s ease;
+      .quick-view-button .eye-drawing {
+        transform-box: fill-box;
+        transform-origin: center;
       }
-      .quick-view-button:hover .eye-svg {
-        opacity: 0;
+      .quick-view-button .eye-outline,
+      .quick-view-button .eye-pupil {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.96);
+        stroke-width: 6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35));
       }
-      .quick-view-button:hover .eye-anim {
-        opacity: 1;
+      .quick-view-button .eye-pupil {
+        stroke-width: 7;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .quick-view-button:hover,
+      .quick-view-button:focus-visible {
+        background: rgba(96, 165, 250, 0.18);
+        box-shadow: 0 0 16px rgba(56, 189, 248, 0.55);
+      }
+      .quick-view-button:hover .eye-svg,
+      .quick-view-button:focus-visible .eye-svg {
+        transform: scale(1.04);
+      }
+      .quick-view-button:hover .eye-drawing,
+      .quick-view-button:focus-visible .eye-drawing {
+        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+      }
+      .quick-view-button:hover .eye-pupil,
+      .quick-view-button:focus-visible .eye-pupil {
+        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+      }
+
+      @keyframes pastecraft-eye-blink {
+        0%, 38%, 68%, 100% {
+          transform: scaleY(1);
+        }
+        50% {
+          transform: scaleY(0.14);
+        }
+      }
+
+      @keyframes pastecraft-eye-pupil {
+        0%, 100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        65% {
+          transform: translateX(5px);
+        }
       }
       
       /* Tooltips - appear on LEFT side since widget is to left of popup */
@@ -3147,29 +3199,23 @@ class PasteCraftFloatingWidget {
       console.log('✅ Auto toggle listener attached');
     }
     
-    // Component 4: Eye GIF — SVG at rest, GIF animates on hover
-    const eyeAnim = this.widget.querySelector('.eye-anim');
-    const qvBtn   = this.widget.querySelector('.quick-view-button');
-    if (eyeAnim && qvBtn) {
-      const gifUrl = pastecraftGetURL('assets/eye.gif');
-      qvBtn.addEventListener('mouseenter', () => {
-        eyeAnim.src = gifUrl + '?t=' + Date.now();
-      });
-      qvBtn.addEventListener('mouseleave', () => {
-        eyeAnim.src = '';
-      });
-    }
-
     // Component 4: Quick View Button - Toggle quick view
     const quickViewButton = this.widget.querySelector('.quick-view-button');
     if (quickViewButton) {
-      quickViewButton.addEventListener('click', () => {
+      const toggleQuickView = () => {
         console.log('👁️ Quick View button clicked!');
         if (this.openStates.quickView) {
           this.closeQuickView();
         } else {
           this.openQuickView();
         }
+      };
+
+      quickViewButton.addEventListener('click', toggleQuickView);
+      quickViewButton.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        toggleQuickView();
       });
       console.log('✅ Quick View button listener attached');
     }
@@ -4877,7 +4923,7 @@ class PasteCraftFloatingWidget {
         <script>
           function loadClips() {
             // This will communicate with parent to get clips
-            window.parent.postMessage({ type: 'quickview-get-clips' }, '*');
+            window.parent.postMessage({ type: 'quickview-get-clips' }, ${JSON.stringify(window.location.origin)});
           }
           
           function refreshClips() {
@@ -4885,15 +4931,15 @@ class PasteCraftFloatingWidget {
           }
           
           function openSettings() {
-            window.parent.postMessage({ type: 'quickview-open-settings' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-settings' }, ${JSON.stringify(window.location.origin)});
           }
 
           function openMiniWindow() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, ${JSON.stringify(window.location.origin)});
           }
 
           function dockMiniBottomRight() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, ${JSON.stringify(window.location.origin)});
           }
 
           function isFromExtension(e) {
@@ -4916,7 +4962,7 @@ class PasteCraftFloatingWidget {
           
           function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, '*'); // parent origin varies per host page; e.source check in parent is the guard
+              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, ${JSON.stringify(window.location.origin)});
             }
           }
           
@@ -5066,7 +5112,7 @@ class PasteCraftFloatingWidget {
       getQuickViewClips()
         .then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, PASTECRAFT_PAGE_ORIGIN);
           }
         })
         .catch(() => {});
@@ -5084,7 +5130,7 @@ class PasteCraftFloatingWidget {
       if (e.data.type === 'quickview-get-clips') {
         getQuickViewClips().then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, PASTECRAFT_PAGE_ORIGIN);
           }
         }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
@@ -5132,7 +5178,7 @@ class PasteCraftFloatingWidget {
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {
               if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
+                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, PASTECRAFT_PAGE_ORIGIN);
               }
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }).catch(() => {});

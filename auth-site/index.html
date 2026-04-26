@@ -254,10 +254,22 @@
         const title = document.getElementById('title');
         const subtitle = document.getElementById('subtitle');
 
-        function escapeHtml(value) {
-            const div = document.createElement('div');
-            div.textContent = String(value ?? '');
-            return div.innerHTML;
+        function createElement(tag, className, text) {
+            const element = document.createElement(tag);
+            if (className) element.className = className;
+            if (text !== undefined) element.textContent = text;
+            return element;
+        }
+
+        function createOpenExtensionButton(label) {
+            const button = createElement('button', 'btn', label);
+            button.type = 'button';
+            button.addEventListener('click', openExtension);
+            return button;
+        }
+
+        function setContent(...nodes) {
+            content.replaceChildren(...nodes);
         }
         
         console.log('🔐 PasteCraft Callback Page Loaded');
@@ -281,45 +293,47 @@
             spinner.style.display = 'none';
             title.textContent = '❌ Authentication Error';
             subtitle.textContent = 'Something went wrong';
-            content.innerHTML = `
-                <div class="error">${escapeHtml(error)}</div>
-                <p class="status">Please try again or contact support if the issue persists.</p>
-            `;
+            setContent(
+                createElement('div', 'error', error),
+                createElement('p', 'status', 'Please try again or contact support if the issue persists.')
+            );
         }
         
         function handlePasswordReset(accessToken, refreshToken) {
             spinner.style.display = 'none';
             title.textContent = '🔐 Password Reset Ready';
             subtitle.textContent = 'Your reset link has been verified successfully';
-            
-            content.innerHTML = `
-                <div class="success">✅ Authentication verified!</div>
-                
-                <div class="instructions">
-                    <strong>📋 Complete Your Password Reset:</strong>
-                    <ol>
-                        <li>Click the <strong>PasteCraft extension icon</strong> <span class="extension-badge">📋</span> in your browser toolbar</li>
-                        <li>The password reset form will appear automatically</li>
-                        <li>Enter your new password (must be strong & secure)</li>
-                        <li>Click "Update Password" to complete</li>
-                    </ol>
-                </div>
-                
-                <div class="warning-box">
-                    <strong>⏰ Important:</strong> This reset link expires in <strong>1 hour</strong>. 
-                    Complete your password reset soon. Keep this tab open until you're done.
-                </div>
-                
-                <button class="btn" onclick="openExtension()">
-                    🚀 Open PasteCraft Extension
-                </button>
-                
-                <div class="info-box" style="margin-top: 30px;">
-                    <strong>💡 Tip:</strong> If the extension doesn't open automatically, 
-                    look for the PasteCraft icon <span class="extension-badge">📋</span> in your browser's 
-                    extension toolbar (usually top-right corner).
-                </div>
-            `;
+
+            const instructions = createElement('div', 'instructions');
+            const instructionsTitle = document.createElement('strong');
+            instructionsTitle.textContent = '📋 Complete Your Password Reset:';
+            const steps = document.createElement('ol');
+            [
+                'Click the PasteCraft extension icon 📋 in your browser toolbar',
+                'The password reset form will appear automatically',
+                'Enter your new password (must be strong & secure)',
+                'Click "Update Password" to complete'
+            ].forEach((step) => steps.appendChild(createElement('li', '', step)));
+            instructions.append(instructionsTitle, steps);
+
+            const warning = createElement('div', 'warning-box');
+            const warningTitle = document.createElement('strong');
+            warningTitle.textContent = '⏰ Important: ';
+            warning.append(warningTitle, 'This reset link expires in 1 hour. Complete your password reset soon. Keep this tab open until you\'re done.');
+
+            const tip = createElement('div', 'info-box');
+            tip.style.marginTop = '30px';
+            const tipTitle = document.createElement('strong');
+            tipTitle.textContent = '💡 Tip: ';
+            tip.append(tipTitle, 'If the extension doesn\'t open automatically, look for the PasteCraft icon 📋 in your browser\'s extension toolbar (usually top-right corner).');
+
+            setContent(
+                createElement('div', 'success', '✅ Authentication verified!'),
+                instructions,
+                warning,
+                createOpenExtensionButton('🚀 Open PasteCraft Extension'),
+                tip
+            );
 
             // Try to communicate with extension only if state is present (nonce gating).
             if (state) {
@@ -331,30 +345,33 @@
             spinner.style.display = 'none';
             title.textContent = '✅ Sign In Successful';
             subtitle.textContent = 'Welcome to PasteCraft!';
-            
-            content.innerHTML = `
-                <div class="success">You've been signed in successfully!</div>
-                
-                <div class="instructions">
-                    <strong>📋 Next Steps:</strong>
-                    <ol>
-                        <li>Click the PasteCraft extension icon in your browser</li>
-                        <li>Start using PasteCraft features</li>
-                        <li>You can close this tab</li>
-                    </ol>
-                </div>
-                
-                <button class="btn" onclick="openExtension()">
-                    🚀 Open PasteCraft
-                </button>
-            `;
+
+            const instructions = createElement('div', 'instructions');
+            const instructionsTitle = document.createElement('strong');
+            instructionsTitle.textContent = '📋 Next Steps:';
+            const steps = document.createElement('ol');
+            [
+                'Click the PasteCraft extension icon in your browser',
+                'Start using PasteCraft features',
+                'You can close this tab'
+            ].forEach((step) => steps.appendChild(createElement('li', '', step)));
+            instructions.append(instructionsTitle, steps);
+
+            setContent(
+                createElement('div', 'success', 'You\'ve been signed in successfully!'),
+                instructions,
+                createOpenExtensionButton('🚀 Open PasteCraft')
+            );
             
             // Try to communicate with extension
             tryExtensionMessage({ type: 'oauth_signin', access_token: accessToken, refresh_token: refreshToken });
             
             // Auto-close after delay
             setTimeout(() => {
-                content.innerHTML += '<p style="margin-top: 20px; color: #718096;">This tab will close automatically in 5 seconds...</p>';
+                const closeNotice = createElement('p', '', 'This tab will close automatically in 5 seconds...');
+                closeNotice.style.marginTop = '20px';
+                closeNotice.style.color = '#718096';
+                content.appendChild(closeNotice);
                 setTimeout(() => window.close(), 5000);
             }, 3000);
         }
@@ -363,23 +380,23 @@
             spinner.style.display = 'none';
             title.textContent = '❌ Invalid Link';
             subtitle.textContent = 'This authentication link is not valid';
-            
-            content.innerHTML = `
-                <div class="error">This link has expired or is invalid.</div>
-                
-                <div class="instructions">
-                    <strong>🔄 What to do:</strong>
-                    <ol>
-                        <li>Open the PasteCraft extension</li>
-                        <li>Request a new password reset link</li>
-                        <li>Check your email for the new link</li>
-                    </ol>
-                </div>
-                
-                <button class="btn" onclick="openExtension()">
-                    🚀 Open PasteCraft
-                </button>
-            `;
+
+            const instructions = createElement('div', 'instructions');
+            const instructionsTitle = document.createElement('strong');
+            instructionsTitle.textContent = '🔄 What to do:';
+            const steps = document.createElement('ol');
+            [
+                'Open the PasteCraft extension',
+                'Request a new password reset link',
+                'Check your email for the new link'
+            ].forEach((step) => steps.appendChild(createElement('li', '', step)));
+            instructions.append(instructionsTitle, steps);
+
+            setContent(
+                createElement('div', 'error', 'This link has expired or is invalid.'),
+                instructions,
+                createOpenExtensionButton('🚀 Open PasteCraft')
+            );
         }
         
         function openExtension() {

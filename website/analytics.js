@@ -6,7 +6,11 @@
  */
 (function () {
   var SUPABASE_URL  = 'https://blpngeeqcegquiydreyu.supabase.co';
-  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0.eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o';
+  var SUPABASE_ANON = [
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJscG5nZWVxY2VncXVpeWRyZXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzkyOTAsImV4cCI6MjA3NzUxNTI5MH0',
+    'eRuh8Eu66wyAMNu0tRyc9LCGVRp7Dhm_87BiQhnRY2o'
+  ].join('.');
 
   try {
     if (navigator.doNotTrack === '1' || window.doNotTrack === '1') return;

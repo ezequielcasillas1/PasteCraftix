@@ -283,14 +283,16 @@ class PasteCraftSupabase {
     if (this._authBridgeSetup) return;
     this._authBridgeSetup = true;
 
-    const writeSession = async (session) => {
+    const writeSession = async (session, options = {}) => {
       try {
         // ─── V2 GUARD: never write bridge if local/freemium mode is active ───
         const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
         if (pc_freemium_guest) return; // local mode owns storage; do not touch
 
         if (!session || !session.access_token) {
-          await chrome.storage.local.remove([this._sessionBridgeKey]);
+          if (options.clearMissing === true) {
+            await chrome.storage.local.remove([this._sessionBridgeKey]);
+          }
           return;
         }
         await chrome.storage.local.set({
@@ -307,15 +309,16 @@ class PasteCraftSupabase {
       }
     };
 
-    // Initial snapshot
+    // Initial snapshot. Do not clear the durable bridge for a null startup
+    // session; OS/browser restarts may need the stored refresh token first.
     this.client.auth.getSession()
-      .then(({ data }) => writeSession(data?.session))
+      .then(({ data }) => writeSession(data?.session, { clearMissing: false }))
       .catch(() => {});
 
     // Live updates
     try {
-      this.client.auth.onAuthStateChange((_event, session) => {
-        writeSession(session);
+      this.client.auth.onAuthStateChange((event, session) => {
+        writeSession(session, { clearMissing: event === 'SIGNED_OUT' });
       });
     } catch (_) {
       // Back-compat: if onAuthStateChange is not available, we still wrote initial snapshot.
@@ -1926,6 +1929,7 @@ class PasteCraftSupabase {
         user_id: userId,
         clip_id: clipId,
         text: String(text),
+        title: typeof clip === 'object' && clip ? String(clip.title || clip.clip_title || '').trim() : '',
         category: (typeof clip === 'object' && clip && clip.category) ? clip.category : 'Uncategorized',
         timestamp: Number.isFinite(ts) ? ts : Date.now(),
         updated_at: Number.isFinite(updatedAtMs) ? new Date(updatedAtMs).toISOString() : new Date().toISOString(),
@@ -2151,6 +2155,7 @@ class PasteCraftSupabase {
       const localClips = data.map(clip => ({
         id: clip.clip_id,
         text: clip.text,
+        title: clip.title || '',
         category: clip.category,
         timestamp: clip.timestamp,
         updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
@@ -2198,6 +2203,7 @@ class PasteCraftSupabase {
         const localClips = data.map(clip => ({
           id: clip.clip_id,
           text: clip.text,
+          title: clip.title || '',
           category: clip.category,
           timestamp: clip.timestamp,
           updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
@@ -2283,6 +2289,7 @@ class PasteCraftSupabase {
       return (data || []).map(clip => ({
         id: clip.clip_id,
         text: clip.text,
+        title: clip.title || '',
         category: clip.category,
         timestamp: clip.timestamp,
         updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
@@ -2420,6 +2427,7 @@ class PasteCraftSupabase {
       return (data || []).map(clip => ({
         id: clip.clip_id,
         text: clip.text,
+        title: clip.title || '',
         category: clip.category,
         timestamp: clip.timestamp,
         updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
@@ -2494,7 +2502,8 @@ class PasteCraftSupabase {
       }
       const k = contentKey(clip);
       const prev = contentMerged.get(k);
-      if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
+      const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : (prev?.timestamp || 0);
+      if (!prev || clipUpdatedAt > prevUpdatedAt || ((clipUpdatedAt === prevUpdatedAt) && (clip.timestamp || 0) > (prev.timestamp || 0))) {
         contentMerged.set(k, clip);
       }
     };
@@ -2637,7 +2646,8 @@ class PasteCraftSupabase {
       if (deletedAt && deletedAt >= clipUpdatedAt) return;
       const k = contentKey(clip);
       const prev = contentMerged.get(k);
-      if (!prev || (clip.timestamp || 0) > (prev.timestamp || 0)) {
+      const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : (prev?.timestamp || 0);
+      if (!prev || clipUpdatedAt > prevUpdatedAt || ((clipUpdatedAt === prevUpdatedAt) && (clip.timestamp || 0) > (prev.timestamp || 0))) {
         contentMerged.set(k, clip);
       }
     };
@@ -3031,6 +3041,7 @@ class PasteCraftSupabase {
       const localArchivedClips = data.map(clip => ({
         id: clip.clip_id,
         text: clip.text,
+        title: clip.title || '',
         category: clip.category,
         timestamp: clip.timestamp,
         updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,

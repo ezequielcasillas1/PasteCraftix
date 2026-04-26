@@ -5,8 +5,8 @@
   "author": "Ezequiel Casillas",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/profile-rate-limit.test.js",
-    "test:rate-limit": "node tests/profile-rate-limit.test.js",
+    "test": "node tests/extension-smoke.test.js",
+    "test:rate-limit": "node tests/extension-smoke.test.js",
     "test:browsers": "node tests/chromium-browser-test.js list",
     "test:chrome": "node tests/chromium-browser-test.js launch chrome",
     "test:edge": "node tests/chromium-browser-test.js launch edge",

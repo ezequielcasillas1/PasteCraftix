@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS public.clips (
     user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
     clip_id TEXT NOT NULL, -- Extension-generated ID
     text TEXT NOT NULL,
+    title TEXT DEFAULT '',
     category TEXT DEFAULT 'Uncategorized',
     timestamp BIGINT NOT NULL, -- Unix timestamp in milliseconds
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS public.archived_clips (
     user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
     clip_id TEXT NOT NULL,
     text TEXT NOT NULL,
+    title TEXT DEFAULT '',
     category TEXT DEFAULT 'Uncategorized',
     timestamp BIGINT NOT NULL,
     archived_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -422,8 +424,8 @@ BEGIN
         ORDER BY timestamp DESC
         OFFSET 20
     )
-    INSERT INTO public.archived_clips (user_id, clip_id, text, category, timestamp)
-    SELECT p_user_id, clip_id, text, category, timestamp
+    INSERT INTO public.archived_clips (user_id, clip_id, text, title, category, timestamp)
+    SELECT p_user_id, clip_id, text, title, category, timestamp
     FROM clips_to_archive
     ON CONFLICT (user_id, clip_id) DO NOTHING;
     

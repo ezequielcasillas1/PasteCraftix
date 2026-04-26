@@ -2763,6 +2763,8 @@
             align-items: center;
             gap: 4px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 2;
         }
 
         .category-clip-actions button {
@@ -2770,8 +2772,9 @@
             border: none;
             cursor: pointer;
             font-size: 16px;
-            width: 24px;
-            height: 24px;
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
             padding: 0;
             display: flex;
             align-items: center;
@@ -2781,6 +2784,11 @@
             outline: none;
             color: inherit;
             line-height: 1;
+        }
+
+        .category-clip-actions button svg,
+        .category-clip-actions button svg * {
+            pointer-events: none;
         }
 
         .category-clip-actions button:hover {
@@ -8246,6 +8254,8 @@
         }
         
     </style>
+    <link rel="stylesheet" href="styles/clip-title.css">
+    <link rel="stylesheet" href="styles/clip-viewer.css">
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -11015,6 +11025,7 @@ alice@email.com</div>
     <script src="lib/pdf.min.js"></script>
     <script src="lib/lucide.min.js"></script>
     <script src="markup-renderer.js"></script>
+    <script src="clip-title.js"></script>
 
     <!-- Database Client (Local) -->
     <script src="supabase.js"></script>

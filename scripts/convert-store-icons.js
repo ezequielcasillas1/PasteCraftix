@@ -3,11 +3,8 @@ const path = require("path");
 const sharp = require("sharp");
 
 const ROOT = path.resolve(__dirname, "..");
-const INPUT_SVG =
-  process.argv[2] ||
-  path.join(ROOT, "edge-store-assets", "icons", "logo.svg");
-const OUTPUT_DIR =
-  process.argv[3] || path.join(ROOT, "edge-store-assets", "icons");
+const INPUT_SVG = path.join(ROOT, "edge-store-assets", "icons", "logo.svg");
+const OUTPUT_DIR = path.join(ROOT, "edge-store-assets", "icons");
 
 const DENSITY = Number.parseInt(process.argv[4] || "768", 10);
 
@@ -25,6 +22,10 @@ async function rasterizeSvgToPng(svgPath, outPath, size) {
 }
 
 async function main() {
+  if (path.extname(INPUT_SVG).toLowerCase() !== ".svg") {
+    throw new Error(`Input file must be an SVG: ${INPUT_SVG}`);
+  }
+
   if (!fs.existsSync(INPUT_SVG)) {
     throw new Error(`Input SVG not found: ${INPUT_SVG}`);
   }

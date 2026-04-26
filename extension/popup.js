@@ -596,6 +596,7 @@ class PasteCraftPopup {
     // These store stable clip id keys (String(clip.id)), not numbers.
     this.selectedCategoryClips = new Set();
     this.selectedSearchClips = new Set();
+    this.expandedCategoryIds = new Set();
     this.categoryUiOrderSelectedIds = [];
     // Pending clip reference for category modal actions (stable clip id key)
     this.pendingClipId = null;
@@ -971,6 +972,25 @@ class PasteCraftPopup {
     return String(id);
   }
 
+  _clipTitle(clip) {
+    return typeof PCClipTitle !== 'undefined' ? PCClipTitle.getTitle(clip) : String(clip?.title || '').trim();
+  }
+
+  _clipFallbackTitle(clip, maxLength = 42) {
+    return typeof PCClipTitle !== 'undefined'
+      ? PCClipTitle.getFallbackTitle(clip, maxLength)
+      : String(clip?.text || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+  }
+
+  _clipAttachment(clip, addedDate = Date.now()) {
+    if (typeof PCClipTitle !== 'undefined') return PCClipTitle.makeAttachment(clip, addedDate);
+    return { type: 'clip', id: clip?.id, title: String(clip?.title || ''), text: clip?.text || '', addedDate };
+  }
+
+  _categoryIdKey(category) {
+    return String(category?.id ?? category?.createdAt ?? category?.name ?? '');
+  }
+
   _queueClipOp(fn) {
     const run = this._clipOpQueue.then(fn, fn);
     // Keep queue alive even if an operation fails
@@ -1165,7 +1185,7 @@ class PasteCraftPopup {
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
     this.setupPinModalEvents();
-    
+
     // ─── V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ───
     let isLocalGuest = false;
     try {
@@ -1197,7 +1217,7 @@ class PasteCraftPopup {
     }
 
     // ─── CLOUD AUTH PATH (only reached when NOT in local mode) ───
-    
+
     // Check if this is a password reset callback from storage
     const resetCallback = await this.checkPasswordResetCallback();
     if (resetCallback) {
@@ -1233,18 +1253,17 @@ class PasteCraftPopup {
     // Check for OAuth callback tokens
     await this.checkOAuthCallback();
 
-    // Best-effort: restore database auth session from the session bridge (non-blocking).
-    // Cached login is the default behavior now, so always attempt restore on startup.
+    // Restore database auth before the signed-in check. After an OS/browser
+    // restart, supabase-js may start empty while chrome.storage still has the
+    // refresh token bridge needed to rehydrate the session.
     try {
       await this.clearLegacyAuthPrefs();
-      Promise.resolve()
-        .then(() => this.restoreSupabaseSessionFromBridge('startup'))
-        .catch(() => {});
+      await this.restoreSupabaseSessionFromBridge('startup');
     } catch (_) {}
 
     // Check if user is authenticated
     const currentUser = await pasteCraftSupabase.getCurrentUser();
-    
+
     if (!currentUser) {
       // Show auth modal (no freemium fallback here — that's handled by the mode gate above)
       this.showAuthModal();
@@ -2392,6 +2411,7 @@ class PasteCraftPopup {
         return {
           id,
           text,
+          title: this._clipTitle(clip),
           category: clip?.category || 'Uncategorized',
           timestamp: ts,
           ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
@@ -2423,6 +2443,7 @@ class PasteCraftPopup {
         return {
           id,
           text,
+          title: this._clipTitle(clip),
           category: clip?.category || 'Uncategorized',
           timestamp: ts,
           ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
@@ -2542,6 +2563,10 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
+    // Category-page clip action delegation — one listener on the stable
+    // parent container survives every renderCategories() re-render.
+    this.setupCategoryClipDelegation();
+
     // Upgrade banner + modal (must run on init; banner is visible for freemium users)
     const upgradeBanner = document.getElementById('upgradeBanner');
     if (upgradeBanner) {
@@ -5429,7 +5454,8 @@ class PasteCraftPopup {
     document.getElementById('closeAppBtn').addEventListener('click', () => {
       // If we're in an iframe (content-script overlay), send message to parent
       if (window.self !== window.top) {
-        window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, '*');
+        const parentOrigin = document.referrer ? new URL(document.referrer).origin : window.location.origin;
+        window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, parentOrigin);
       } else {
         // Otherwise just close the window (for standalone popup)
         window.close();
@@ -5988,6 +6014,8 @@ class PasteCraftPopup {
     
     const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
     const timeAgo = this.getTimeAgo(clip.timestamp);
+    const clipTitle = this._clipTitle(clip);
+    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 42);
     
     const clipCategory = clip.category || 'Uncategorized';
     const isSelected = this.selectedChips.has(clipIdKey);
@@ -6001,9 +6029,13 @@ class PasteCraftPopup {
     chip.innerHTML = `
       <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
       ${markupBadge}
-      <span class="chip-text" title="${this.escapeHtml(clip.text)}">${chipTextContent}</span>
+      <span class="chip-text pc-clip-stack" title="${this.escapeHtml(clip.text)}">
+        <span class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</span>
+        <span class="pc-clip-subtext">${chipTextContent}</span>
+      </span>
       <span class="chip-time">${timeAgo}</span>
       <div class="chip-actions">
+        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
         <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
         <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
         <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
@@ -6051,10 +6083,14 @@ class PasteCraftPopup {
       const summaryBtn   = e.target.closest('.chip-summary-btn');
       const notesBtn     = e.target.closest('.chip-notes-btn');
       const categoryBtn  = e.target.closest('.chip-category-btn');
+      const titleBtn     = e.target.closest('.chip-title-btn');
       const isCheckbox   = e.target.classList.contains('chip-checkbox');
 
       if (removeBtn) {
         this.removeChip(clipIdKey);
+      } else if (titleBtn) {
+        e.stopPropagation();
+        this.promptEditClipTitle(clipIdKey);
       } else if (breakdownBtn) {
         e.stopPropagation();
         const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
@@ -7183,8 +7219,10 @@ class PasteCraftPopup {
     const allClips = [...this.clips, ...this.searchOnlyClips];
     
     return allClips.filter(clip => {
-      // Text search
-      if (this.searchQuery && !clip.text.toLowerCase().includes(this.searchQuery.toLowerCase())) {
+      // Text/title search
+      const query = this.searchQuery ? this.searchQuery.toLowerCase() : '';
+      const title = this._clipTitle(clip).toLowerCase();
+      if (query && !clip.text.toLowerCase().includes(query) && !title.includes(query)) {
         return false;
       }
 
@@ -7229,6 +7267,8 @@ class PasteCraftPopup {
 
     const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
     const timeAgo = this.getTimeAgo(clip.timestamp);
+    const clipTitle = this._clipTitle(clip);
+    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 64);
     const sMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
     const sBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
     const sPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
@@ -7239,13 +7279,17 @@ class PasteCraftPopup {
     item.innerHTML = `
       <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
       <div class="search-result-content">
-        <div class="search-result-text">${sBadge}${searchTextContent}</div>
+        <div class="search-result-text pc-clip-title-stack">
+          <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
+          <div class="pc-clip-subtext">${sBadge}${searchTextContent}</div>
+        </div>
         <div class="search-result-meta">
           <span class="search-result-category">${this.escapeHtml(clip.category || 'Uncategorized')}</span>
           <span>${timeAgo}</span>
         </div>
       </div>
       <div class="search-result-actions">
+        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
         <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
         <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
         <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
@@ -7274,6 +7318,11 @@ class PasteCraftPopup {
     item.querySelector('.btn-copy').addEventListener('click', (e) => {
       e.stopPropagation();
       this.copyClipToClipboard(clip.text);
+    });
+
+    item.querySelector('.chip-title-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.promptEditClipTitle(this._clipIdKey(clip.id));
     });
 
     // Breakdown functionality
@@ -7362,7 +7411,10 @@ class PasteCraftPopup {
 
   createCategoryItem(category) {
     const item = document.createElement('div');
-    item.className = 'category-item';
+    const categoryIdKey = this._categoryIdKey(category);
+    const isExpanded = this.expandedCategoryIds?.has(categoryIdKey);
+    item.className = `category-item${isExpanded ? ' expanded' : ''}`;
+    item.dataset.categoryId = categoryIdKey;
 
     // Get clips in this category (from both active and archived)
     const allClips = [...this.clips, ...this.searchOnlyClips];
@@ -7386,7 +7438,7 @@ class PasteCraftPopup {
           <span class="category-expand-icon">▶</span>
         </div>
       </div>
-      <div class="category-dropdown" id="dropdown-${category.id}">
+      <div class="category-dropdown${isExpanded ? ' expanded' : ''}" id="dropdown-${category.id}">
         ${this.createCategoryClipsHTML(clipsInCategory, category.id)}
       </div>
     `;
@@ -9969,6 +10021,8 @@ class PasteCraftPopup {
       const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
       const timeAgo = this.getTimeAgo(clip.timestamp);
       const isSelected = this.selectedCategoryClips.has(this._clipIdKey(clip.id));
+      const clipTitle = this._clipTitle(clip);
+      const displayTitle = clipTitle || this._clipFallbackTitle(clip, 46);
       const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
       const cBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
       const cPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
@@ -9980,10 +10034,14 @@ class PasteCraftPopup {
         <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}">
           <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
           <div class="category-clip-content">
-            <div class="category-clip-text">${cBadge}${catTextContent}</div>
+            <div class="category-clip-text pc-clip-title-stack">
+              <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
+              <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
+            </div>
             <div class="category-clip-time">${timeAgo}</div>
           </div>
           <div class="category-clip-actions">
+            <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil"></i></button>
             <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
             <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
             <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
@@ -10001,12 +10059,15 @@ class PasteCraftPopup {
   toggleCategoryDropdown(categoryItem, category) {
     const dropdown = categoryItem.querySelector('.category-dropdown');
     const isExpanded = categoryItem.classList.contains('expanded');
+    const categoryIdKey = this._categoryIdKey(category);
     
     // Close all other dropdowns
     document.querySelectorAll('.category-item.expanded').forEach(item => {
       if (item !== categoryItem) {
         item.classList.remove('expanded');
         item.querySelector('.category-dropdown').classList.remove('expanded');
+        const otherId = item.dataset.categoryId ? String(item.dataset.categoryId) : '';
+        if (otherId) this.expandedCategoryIds.delete(otherId);
       }
     });
     
@@ -10014,123 +10075,125 @@ class PasteCraftPopup {
       // Collapse this dropdown
       categoryItem.classList.remove('expanded');
       dropdown.classList.remove('expanded');
+      this.expandedCategoryIds.delete(categoryIdKey);
     } else {
       // Expand this dropdown
       categoryItem.classList.add('expanded');
       dropdown.classList.add('expanded');
+      if (categoryIdKey) this.expandedCategoryIds.add(categoryIdKey);
       
       // Add click handlers to clips in dropdown
       this.attachClipHandlers(dropdown, category);
     }
   }
 
-  attachClipHandlers(dropdown, category) {
-    const clips = dropdown.querySelectorAll('.category-clip');
-    clips.forEach(clipElement => {
-      const clipId = this._clipIdKey(clipElement.dataset.clipId);
-      
-      // Handle checkbox
-      const checkbox = clipElement.querySelector('.category-checkbox');
-      if (checkbox) {
-        checkbox.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.toggleCategoryClip(clipId, clipElement);
-        });
+  /**
+   * Category-page clip handlers are wired via a single delegated click listener
+   * on `#categoriesList` (see `setupCategoryClipDelegation`). This method is
+   * kept as a no-op stub so existing callers (`toggleCategoryDropdown`) stay
+   * safe — delegation survives every `renderCategories()` re-render, unlike
+   * the previous per-button listeners which detached whenever the list was
+   * re-rendered while a dropdown was open.
+   */
+  attachClipHandlers(_dropdown, _category) {
+    // Intentionally empty. Delegated handler on #categoriesList owns all
+    // clicks for .category-clip rows and .category-clip-*-btn buttons.
+  }
+
+  /**
+   * Mirrors the clips-page pattern (see `createChip`): one click handler on
+   * the stable parent container resolves the action button via
+   * `e.target.closest('.category-clip-*-btn')` at click time, so it keeps
+   * working even when `renderCategories()` wipes and rebuilds the DOM while
+   * a dropdown is open.
+   *
+   * Idempotent: guarded by `_categoryClipDelegationAttached` so repeat calls
+   * from `setupEventListeners()` don't stack listeners.
+   */
+  setupCategoryClipDelegation() {
+    if (this._categoryClipDelegationAttached) return;
+    const container = document.getElementById('categoriesList');
+    if (!container) return;
+
+    container.addEventListener('click', async (e) => {
+      const row = e.target.closest('.category-clip');
+      if (!row || !container.contains(row)) return;
+
+      const clipIdKey = this._clipIdKey(row.dataset.clipId);
+      if (!clipIdKey) return;
+
+      const allClips = [...this.clips, ...this.searchOnlyClips];
+      const clip = allClips.find((c) => this._clipIdKey(c?.id) === clipIdKey);
+
+      const breakdownBtn = e.target.closest('.category-clip-breakdown-btn');
+      const openBtn     = e.target.closest('.category-clip-open-btn');
+      const shareBtn    = e.target.closest('.category-clip-share-btn');
+      const summaryBtn  = e.target.closest('.category-clip-summary-btn');
+      const notesBtn    = e.target.closest('.category-clip-notes-btn');
+      const copyBtn     = e.target.closest('.category-clip-copy-btn');
+      const titleBtn    = e.target.closest('.category-clip-title-btn');
+      const checkbox    = e.target.classList && e.target.classList.contains('category-checkbox')
+        ? e.target
+        : null;
+
+      if (titleBtn) {
+        e.stopPropagation();
+        this.promptEditClipTitle(clipIdKey);
+        return;
       }
-      
-      // Handle breakdown button
-      const breakdownBtn = clipElement.querySelector('.category-clip-breakdown-btn');
       if (breakdownBtn) {
-        breakdownBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip) {
-            const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-            this.showBreakdownModal(textToSend);
-          }
-        });
+        e.stopPropagation();
+        if (!clip) return;
+        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
+        this.showBreakdownModal(textToSend);
+        return;
       }
-
-      // Handle open/view button
-      const openBtn = clipElement.querySelector('.category-clip-open-btn');
       if (openBtn) {
-        openBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip && typeof this.openClipViewer === 'function') {
-            this.openClipViewer(clip);
-          }
-        });
-      }
-
-      // Handle share button
-      const shareBtn = clipElement.querySelector('.category-clip-share-btn');
-      if (shareBtn) {
-        shareBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip) {
-            this.showShareMenuForClip(clip);
-          }
-        });
-      }
-      
-      // Handle summary button
-      const summaryBtn = clipElement.querySelector('.category-clip-summary-btn');
-      if (summaryBtn) {
-        summaryBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip) {
-            const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-            this.showSummaryModal(textToSend);
-          }
-        });
-      }
-
-      // Handle send to notes button
-      const notesBtn = clipElement.querySelector('.category-clip-notes-btn');
-      if (notesBtn) {
-        notesBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip) {
-            // Load notes and show album picker
-            await this.loadNotes();
-            this.showAlbumPicker();
-            // Store the clip to be added
-            this.pendingClipForNotes = clip;
-          }
-        });
-      }
-
-      // Handle copy button
-      const copyBtn = clipElement.querySelector('.category-clip-copy-btn');
-      if (copyBtn) {
-        copyBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clip = allClips.find(c => this._clipIdKey(c?.id) === clipId);
-          if (clip) {
-            this.copyClipToClipboard(clip.text);
-          }
-        });
-      }
-
-      // Handle clip selection (clicking on clip itself, not buttons or checkbox)
-      clipElement.addEventListener('click', (e) => {
-        // Only toggle selection if not clicking on buttons or checkbox
-        if (!e.target.closest('.category-clip-actions') && !e.target.classList.contains('category-checkbox')) {
-          e.stopPropagation();
-          this.toggleCategoryClip(clipId, clipElement);
+        e.stopPropagation();
+        if (clip && typeof this.openClipViewer === 'function') {
+          this.openClipViewer(clip);
         }
-      });
+        return;
+      }
+      if (shareBtn) {
+        e.stopPropagation();
+        if (clip) this.showShareMenuForClip(clip);
+        return;
+      }
+      if (summaryBtn) {
+        e.stopPropagation();
+        if (!clip) return;
+        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
+        this.showSummaryModal(textToSend);
+        return;
+      }
+      if (notesBtn) {
+        e.stopPropagation();
+        if (!clip) return;
+        await this.loadNotes();
+        this.showAlbumPicker();
+        this.pendingClipForNotes = clip;
+        return;
+      }
+      if (copyBtn) {
+        e.stopPropagation();
+        if (clip) this.copyClipToClipboard(clip.text);
+        return;
+      }
+      if (checkbox) {
+        e.stopPropagation();
+        this.toggleCategoryClip(clipIdKey, row);
+        return;
+      }
+
+      // Bare row click (no button, no checkbox) = toggle selection
+      if (!e.target.closest('.category-clip-actions')) {
+        e.stopPropagation();
+        this.toggleCategoryClip(clipIdKey, row);
+      }
     });
+
+    this._categoryClipDelegationAttached = true;
   }
 
   toggleClipSelection(clipElement, category) {
@@ -10167,6 +10230,141 @@ class PasteCraftPopup {
       this.selectedCategoryClips.delete(this._clipIdKey(clipId));
     }
     console.log(`🗑️ Removed clip ${clipId} from selection. Remaining:`, Array.from(this.selectedCategoryClips));
+  }
+
+  _findClipLocationById(clipId) {
+    const idKey = this._clipIdKey(clipId);
+    const activeIndex = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
+    if (activeIndex >= 0) return { listName: 'clips', index: activeIndex, clip: this.clips[activeIndex] };
+
+    const archivedIndex = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
+    if (archivedIndex >= 0) return { listName: 'searchOnlyClips', index: archivedIndex, clip: this.searchOnlyClips[archivedIndex] };
+
+    return null;
+  }
+
+  promptEditClipTitle(clipId) {
+    const location = this._findClipLocationById(clipId);
+    if (!location?.clip) {
+      this.showToast('Clip not found');
+      return;
+    }
+
+    const currentTitle = this._clipTitle(location.clip);
+    const fallback = this._clipFallbackTitle(location.clip, 80);
+    const nextTitle = prompt('Edit clip title (leave blank to clear):', currentTitle || fallback);
+    if (nextTitle === null) return;
+
+    this.updateClipTitleById(clipId, nextTitle);
+  }
+
+  async updateClipTitleById(clipId, title) {
+    const idKey = this._clipIdKey(clipId);
+    const normalizedTitle = typeof PCClipTitle !== 'undefined'
+      ? PCClipTitle.normalizeTitle(title)
+      : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+
+    return this._queueClipOp(async () => {
+      const location = this._findClipLocationById(idKey);
+      if (!location?.clip) {
+        this.showToast('Clip not found');
+        return false;
+      }
+
+      const snapshot = {
+        clips: PasteCraftCRUD.createSnapshot(this.clips),
+        searchOnlyClips: PasteCraftCRUD.createSnapshot(this.searchOnlyClips),
+        notes: PasteCraftCRUD.createSnapshot(this.notes)
+      };
+
+      const updatedAt = Date.now();
+      const nextClip = {
+        ...location.clip,
+        title: normalizedTitle,
+        updatedAt
+      };
+
+      if (location.listName === 'clips') {
+        this.clips[location.index] = nextClip;
+      } else {
+        this.searchOnlyClips[location.index] = nextClip;
+      }
+
+      const changedNotes = this._updateNoteClipTitlesById(idKey, normalizedTitle, updatedAt);
+
+      try {
+        await PasteCraftCRUD.retryOperation(async () => {
+          await chrome.storage.local.set({
+            clips: this.clips,
+            searchOnlyClips: this.searchOnlyClips,
+            notes: this.notes,
+            pc_local_updatedAt: updatedAt
+          });
+        });
+
+        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+        const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
+        const verifiedClip = verifiedPool.find(c => this._clipIdKey(c?.id) === idKey);
+        if (!verifiedClip || this._clipTitle(verifiedClip) !== normalizedTitle) {
+          throw new Error('Verification failed: clip title was not persisted');
+        }
+
+        const syncName = location.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
+        const syncFn = location.listName === 'clips'
+          ? pasteCraftSupabase.syncClipsToSupabase
+          : pasteCraftSupabase.syncArchivedClipsToSupabase;
+        Promise.resolve()
+          .then(() => pasteCraftSupabase.syncWithQueue(syncName, [nextClip], syncFn))
+          .catch((error) => console.error('Failed to sync clip title:', error));
+
+        if (changedNotes.length > 0) {
+          Promise.resolve()
+            .then(() => pasteCraftSupabase.syncWithQueue('syncNotes', changedNotes, pasteCraftSupabase.syncNotesToSupabase))
+            .catch((error) => console.error('Failed to sync note clip titles:', error));
+        }
+
+        this.renderChips();
+        this.renderSearchResults();
+        this.renderCategories();
+        this.renderNotes();
+        this.showToast(normalizedTitle ? 'Clip title updated' : 'Clip title cleared');
+        return true;
+      } catch (error) {
+        this.clips = snapshot.clips;
+        this.searchOnlyClips = snapshot.searchOnlyClips;
+        this.notes = snapshot.notes;
+        await chrome.storage.local.set({
+          clips: this.clips,
+          searchOnlyClips: this.searchOnlyClips,
+          notes: this.notes,
+          pc_local_updatedAt: Date.now()
+        });
+        console.error('❌ Clip title update failed:', error);
+        this.showToast('Failed to update clip title');
+        return false;
+      }
+    });
+  }
+
+  _updateNoteClipTitlesById(clipId, title, updatedAt) {
+    const changedNotes = [];
+    const idKey = this._clipIdKey(clipId);
+
+    (this.notes || []).forEach(note => {
+      if (!Array.isArray(note?.clips)) return;
+      let changed = false;
+      note.clips = note.clips.map(clip => {
+        if (this._clipIdKey(clip?.id) !== idKey) return clip;
+        changed = true;
+        return { ...clip, title };
+      });
+      if (changed) {
+        note.updatedAt = updatedAt;
+        changedNotes.push(PasteCraftCRUD.createSnapshot(note));
+      }
+    });
+
+    return changedNotes;
   }
 
   updatePreviewFromSelection() {
@@ -12208,6 +12406,44 @@ class PasteCraftPopup {
     }
   }
 
+  formatClipViewerPlainText(text) {
+    const normalized = String(text || '').replace(/\r\n?/g, '\n').trim();
+    if (!normalized) {
+      return '<div class="clip-viewer-empty">This clip is empty.</div>';
+    }
+
+    let paragraphs = normalized
+      .split(/\n\s*\n+/)
+      .map(part => part.trim())
+      .filter(Boolean);
+
+    if (paragraphs.length === 1 && !normalized.includes('\n') && normalized.length > 220) {
+      const sentences = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [normalized];
+      paragraphs = [];
+      let current = '';
+
+      sentences.forEach((sentence) => {
+        const next = sentence.trim();
+        if (!next) return;
+        if (current && (current.length + next.length) > 260) {
+          paragraphs.push(current);
+          current = next;
+          return;
+        }
+        current = current ? `${current} ${next}` : next;
+      });
+
+      if (current) paragraphs.push(current);
+    }
+
+    const html = paragraphs.map((paragraph) => {
+      const lineHtml = this.escapeHtml(paragraph).replace(/\n/g, '<br>');
+      return `<p>${lineHtml}</p>`;
+    }).join('');
+
+    return `<div class="clip-viewer-message">${html}</div>`;
+  }
+
   openClipViewer(clip) {
     const modal = document.getElementById('clipViewerModal');
     const titleEl = document.getElementById('clipViewerTitle');
@@ -12226,11 +12462,14 @@ class PasteCraftPopup {
 
     const text = (clip && clip.text != null) ? String(clip.text) : '';
     const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+    const clipTitle = this._clipTitle(clip);
 
     // Detect markup type
     const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
 
-    titleEl.textContent = meta && meta.kind === 'image'
+    titleEl.textContent = clipTitle
+      ? `🔎 ${clipTitle}`
+      : meta && meta.kind === 'image'
       ? '🖼️ Clip Viewer'
       : meta && meta.kind === 'url'
         ? '🔗 Clip Viewer'
@@ -12277,9 +12516,9 @@ class PasteCraftPopup {
     if (url) {
       const safeUrl = this.escapeHtml(url);
       headerParts.push(`
-        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom: 12px;">
-          <div style="font-weight:700; color:#111827;">Link</div>
-          <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+        <div class="clip-viewer-link-card">
+          <div class="clip-viewer-section-label">Link</div>
+          <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer">${safeUrl}</a>
         </div>
       `);
     }
@@ -12291,14 +12530,14 @@ class PasteCraftPopup {
       imgSrc.startsWith('https://'));
 
     if (imgSrc && !isRenderableImageSrc) {
-      headerParts.push(`<div style="margin-bottom:10px; color:#6b7280; font-size:12px;">Image preview unavailable (non-renderable source).</div>`);
+      headerParts.push('<div class="clip-viewer-note">Image preview unavailable (non-renderable source).</div>');
     } else if (imgSrc && isRenderableImageSrc) {
-      headerParts.push(`<img src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
+      headerParts.push(`<img class="clip-viewer-image" src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
       if (meta && meta.image && meta.image.tooLarge) {
-        headerParts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image payload too large to embed; showing what's available.</div>`);
+        headerParts.push('<div class="clip-viewer-note">Image payload too large to embed; showing what is available.</div>');
       }
       if (meta && meta.image && meta.image.exportFailed) {
-        headerParts.push(`<div style="margin-top:10px; color:#6b7280; font-size:12px;">Image export blocked by the page (canvas/security restrictions).</div>`);
+        headerParts.push('<div class="clip-viewer-note">Image export blocked by the page (canvas/security restrictions).</div>');
       }
     }
 
@@ -12309,7 +12548,7 @@ class PasteCraftPopup {
       if (hasMarkup) {
         const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
         if (rendered && typeof rendered.then === 'function') {
-          renderedEl.innerHTML = headerParts.join('') + '<div style="color:#9ca3af;font-size:12px;">Rendering diagram...</div>';
+          renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
           rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
             .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
         } else {
@@ -12317,7 +12556,7 @@ class PasteCraftPopup {
         }
         renderedEl.style.display = 'block';
       } else {
-        renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`;
+        renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
         renderedEl.style.display = 'block';
       }
     }
@@ -15449,8 +15688,14 @@ class PasteCraftPopup {
       if (copyAllBtn) copyAllBtn.style.display = isAlbum ? 'none' : '';
       attachList.innerHTML = allAttachments.map((att, idx) => {
         const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
+        const liveClip = att.type === 'clip' ? this._findClipLocationById(att.id)?.clip : null;
+        const clipForTitle = liveClip || att;
+        const clipTitle = att.type === 'clip' ? this._clipTitle(clipForTitle) : '';
         const text = att.type === 'url' ? att.url : (att.text || '').substring(0, 80);
         const displayText = text.length > 80 ? text + '...' : text;
+        const attachmentHtml = clipTitle
+          ? `<div class="viewer-attachment-title" title="${this.escapeHtml(clipTitle)}">${this.escapeHtml(clipTitle)}</div><div class="viewer-attachment-subtext" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>`
+          : `<div class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>`;
 
         if (isAlbum) {
           const sourceNoteId = att.sourceNoteId;
@@ -15476,7 +15721,7 @@ class PasteCraftPopup {
               <div class="viewer-attachment-info">
                 <span class="viewer-attachment-icon">${icon}</span>
                 <div style="min-width:0;">
-                  <div class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>
+                  ${attachmentHtml}
                   ${metaLine}
                 </div>
               </div>
@@ -15492,7 +15737,7 @@ class PasteCraftPopup {
           <div class="viewer-attachment-item">
             <div class="viewer-attachment-info">
               <span class="viewer-attachment-icon">${icon}</span>
-              <span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</span>
+              <div style="min-width:0;">${attachmentHtml}</div>
             </div>
             <div class="viewer-attachment-actions">
               <button class="btn-copy-attachment" data-index="${idx}" type="button">Copy</button>
@@ -15720,7 +15965,9 @@ class PasteCraftPopup {
     albumDesc.textContent = safeDesc || '';
 
     // Attachment content
-    const typeLabel = att.type === 'clip' ? 'Clip' : att.type === 'image' ? 'Image' : 'Link';
+    const liveClip = att.type === 'clip' ? this._findClipLocationById(att.id)?.clip : null;
+    const clipTitle = att.type === 'clip' ? this._clipTitle(liveClip || att) : '';
+    const typeLabel = att.type === 'clip' ? (clipTitle || 'Clip') : att.type === 'image' ? 'Image' : 'Link';
     titleEl.textContent = typeLabel;
 
     // Always allow open-in-popup as an escape hatch
@@ -15806,11 +16053,16 @@ class PasteCraftPopup {
     clipsList.innerHTML = clips.map((c, idx) => {
       const text = (c && c.text) ? String(c.text) : '';
       const display = text.length > 120 ? text.substring(0, 120) + '...' : text;
+      const liveClip = this._findClipLocationById(c?.id)?.clip;
+      const clipTitle = this._clipTitle(liveClip || c);
+      const clipHtml = clipTitle
+        ? `<div class="viewer-attachment-title" title="${this.escapeHtml(clipTitle)}">${this.escapeHtml(clipTitle)}</div><div class="viewer-attachment-subtext" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</div>`
+        : `<span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</span>`;
       return `
         <div class="viewer-attachment-item" data-type="clip" data-index="${idx}">
           <div class="viewer-attachment-info">
             <span class="viewer-attachment-icon">📋</span>
-            <span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</span>
+            <div style="min-width:0;">${clipHtml}</div>
           </div>
           <div class="viewer-attachment-actions">
             <button class="btn-copy-source-note-attachment" data-type="clip" data-index="${idx}" type="button">Copy</button>
@@ -16165,12 +16417,7 @@ class PasteCraftPopup {
       const now = Date.now();
       const noteClipCountBefore = note.clips.length;
       this.pendingBulkClipsForNotes.forEach(clip => {
-        note.clips.push({
-          type: 'clip',
-          id: clip.id,
-          text: clip.text,
-          addedDate: now
-        });
+        note.clips.push(this._clipAttachment(clip, now));
       });
       const count = this.pendingBulkClipsForNotes.length;
 
@@ -16197,12 +16444,7 @@ class PasteCraftPopup {
       clipToAdd = this.clips[0];
     }
 
-    note.clips.push({
-      type: 'clip',
-      id: clipToAdd.id,
-      text: clipToAdd.text,
-      addedDate: Date.now()
-    });
+    note.clips.push(this._clipAttachment(clipToAdd, Date.now()));
 
     note.updatedAt = Date.now();
     this.refreshAlbumsForNote(note);
@@ -16231,6 +16473,7 @@ class PasteCraftPopup {
       album.clips.push({
         type: 'clip',
         id: Date.now() + Math.random(),
+        title: sourceNote.title || 'Note content',
         text: `[From: ${sourceNote.title || 'Untitled Note'}]\n\n${sourceNote.body}`,
         addedDate: Date.now(),
         sourceNoteId: sourceNote.id
