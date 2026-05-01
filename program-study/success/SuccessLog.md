@@ -400,3 +400,8 @@
 **Commit:** 89da43f
 **Files:** website/src/*, website/astro.config.mjs, netlify.toml, tokens.css, base.css
 **Result:** Full website rebuild using Astro. Logo-derived brand system (navy, teal, gold), shared components, centralized tokens. Preserved Supabase auth and Stripe flows in account/pricing/upgrade pages.
+
+### Apr 30, 2026 - Clips Modular Refactor
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup/features/clips/*
+**Result:** Extracted Clips constants, selectors, render, events, state, and service modules. User verified Clips page functionality works.

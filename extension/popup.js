@@ -571,6 +571,10 @@ class PasteCraftCRUD {
   }
 }
 
+if (typeof window !== 'undefined') {
+  window.PasteCraftCRUD = PasteCraftCRUD;
+}
+
 class PasteCraftPopup {
   constructor() {
     console.log('🟢 PasteCraftPopup constructor called');
@@ -969,22 +973,19 @@ class PasteCraftPopup {
   }
 
   _clipIdKey(id) {
-    return String(id);
+    return this.clipsFeature.state.getClipIdKey(id);
   }
 
   _clipTitle(clip) {
-    return typeof PCClipTitle !== 'undefined' ? PCClipTitle.getTitle(clip) : String(clip?.title || '').trim();
+    return this.clipsFeature.state.getClipTitle(clip);
   }
 
   _clipFallbackTitle(clip, maxLength = 42) {
-    return typeof PCClipTitle !== 'undefined'
-      ? PCClipTitle.getFallbackTitle(clip, maxLength)
-      : String(clip?.text || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+    return this.clipsFeature.state.getClipFallbackTitle(clip, maxLength);
   }
 
   _clipAttachment(clip, addedDate = Date.now()) {
-    if (typeof PCClipTitle !== 'undefined') return PCClipTitle.makeAttachment(clip, addedDate);
-    return { type: 'clip', id: clip?.id, title: String(clip?.title || ''), text: clip?.text || '', addedDate };
+    return this.clipsFeature.state.getClipAttachment(clip, addedDate);
   }
 
   _categoryIdKey(category) {
@@ -992,36 +993,11 @@ class PasteCraftPopup {
   }
 
   _queueClipOp(fn) {
-    const run = this._clipOpQueue.then(fn, fn);
-    // Keep queue alive even if an operation fails
-    this._clipOpQueue = run.catch(() => {});
-    return run;
+    return this.clipsFeature.state.queueClipOp(this, fn);
   }
 
   getSelectedClipIdsInUiOrder() {
-    if (!this.selectedChips || this.selectedChips.size === 0) return [];
-
-    const selected = this.selectedChips;
-    const ordered = [];
-
-    // UI order = DOM order of current page chips
-    const domChips = document.querySelectorAll('#chipContainer .chip');
-    if (domChips && domChips.length > 0) {
-      domChips.forEach(el => {
-        const id = el?.dataset?.clipId;
-        if (id && selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: storage order
-    if (ordered.length === 0) {
-      this.clips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedClipIdsInUiOrder(this);
   }
 
   async deleteClipsByIdKeys(idKeys, {
@@ -1031,118 +1007,12 @@ class PasteCraftPopup {
     clearSelection = true,
     rerender = true
   } = {}) {
-    const ids = Array.isArray(idKeys) ? idKeys.map(k => String(k)).filter(Boolean) : [];
-    if (ids.length === 0) return { requested: 0, deleted: 0, missing: 0 };
-
-    return this._queueClipOp(async () => {
-      const idSet = new Set(ids);
-      const beforeActive = Array.isArray(this.clips) ? this.clips.length : 0;
-      const beforeArchived = Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips.length : 0;
-
-      // Compute next state (no index splicing)
-      const nextClips = (Array.isArray(this.clips) ? this.clips : []).filter(c => !idSet.has(this._clipIdKey(c?.id)));
-      const nextArchived = includeArchived
-        ? (Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips : []).filter(c => !idSet.has(this._clipIdKey(c?.id)))
-        : (Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips : []);
-
-      // PRACTICE #2: STATE SNAPSHOT for rollback
-      const snapshot = {
-        clips: PasteCraftCRUD.createSnapshot(this.clips),
-        searchOnlyClips: PasteCraftCRUD.createSnapshot(this.searchOnlyClips)
-      };
-
-      const rollback = async () => {
-        try {
-          this.clips = snapshot.clips;
-          this.searchOnlyClips = snapshot.searchOnlyClips;
-          await PasteCraftCRUD.retryOperation(async () => {
-            await chrome.storage.local.set({
-              clips: this.clips,
-              searchOnlyClips: this.searchOnlyClips,
-              pc_local_updatedAt: Date.now()
-            });
-          });
-          if (rerender) {
-            this.renderChips();
-            this.renderSearchResults();
-            this.renderCategories();
-          }
-        } catch (rollbackError) {
-          console.error('❌ Rollback failed:', rollbackError);
-        }
-      };
-
-      try {
-        // PRACTICE #4: IDEMPOTENCY CHECK - Verify clips were removed
-        const stillExists = [...nextClips, ...nextArchived].some(c => idSet.has(this._clipIdKey(c?.id)));
-        if (stillExists) {
-          throw new Error('Clips still exist after filter operation');
-        }
-
-        // Update in-memory state
-        this.clips = nextClips;
-        this.searchOnlyClips = nextArchived;
-
-        // PRACTICE #3: RETRY LOGIC - Atomic write with retry
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            pc_local_updatedAt: Date.now()
-          });
-        });
-
-        // PRACTICE #5: VERIFICATION - Verify deletion persisted
-        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-        const verifiedClips = [...(verification.clips || []), ...(includeArchived ? (verification.searchOnlyClips || []) : [])];
-        const verifiedDeleted = !verifiedClips.some(c => idSet.has(this._clipIdKey(c?.id)));
-        if (!verifiedDeleted) {
-          throw new Error('Verification failed: clips still exist in storage');
-        }
-
-        // UI updates
-        if (clearSelection) {
-          ids.forEach(id => this.selectedChips.delete(id));
-          this.selectedSearchClips.clear();
-          this.selectedCategoryClips.clear();
-        }
-        if (closeCategoryModal) {
-          this.hideCategoryModal();
-        }
-        if (rerender) {
-          this.renderChips();
-          this.renderSearchResults();
-          this.renderCategories();
-          this.updateCategoryFilter();
-          this.updateManualInputCategories();
-          this.updatePreview();
-          this.updateQuickCopyButton();
-          this.updateCategoryBulkActions();
-          this.updateSearchBulkActions();
-        }
-
-        // Background sync (non-blocking)
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-          .catch(() => {});
-        if (includeArchived) {
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-            .catch(() => {});
-        }
-
-        const afterActive = this.clips.length;
-        const afterArchived = this.searchOnlyClips.length;
-        const deleted = (beforeActive - afterActive) + (includeArchived ? (beforeArchived - afterArchived) : 0);
-        const missing = Math.max(0, idSet.size - deleted);
-
-        return { requested: idSet.size, deleted, missing };
-      } catch (error) {
-        // Rollback on any failure
-        console.error('❌ Clip deletion failed, rolling back:', error);
-        await rollback();
-        return { requested: idSet.size, deleted: 0, missing: idSet.size };
-      }
+    return this.clipsFeature.service.deleteClipsByIdKeys(this, idKeys, {
+      includeArchived,
+      reason,
+      closeCategoryModal,
+      clearSelection,
+      rerender
     });
   }
   
@@ -1179,8 +1049,16 @@ class PasteCraftPopup {
     (document.body || document.documentElement).appendChild(banner);
   }
 
+  async _initializeClipsFeature() {
+    if (this.clipsFeature) return this.clipsFeature;
+    const { initClipsFeature } = await import('./popup/features/clips/clips.controller.js');
+    this.clipsFeature = initClipsFeature(this);
+    return this.clipsFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
+    await this._initializeClipsFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -2534,32 +2412,7 @@ class PasteCraftPopup {
   }
   
   async enforceClipLimit() {
-    if (this.clips.length <= this.maxClips) {
-      return;
-    }
-    
-    console.log(`📦 Clip limit exceeded: ${this.clips.length}/${this.maxClips}. Moving oldest clips to search...`);
-    
-    // Sort clips by timestamp (newest first)
-    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    
-    // Keep first 500 clips (newest), move rest to searchOnlyClips (oldest)
-    const clipsToArchive = this.clips.slice(this.maxClips);
-    this.clips = this.clips.slice(0, this.maxClips);
-    
-    // Add archived clips to searchOnlyClips
-    this.searchOnlyClips = [...clipsToArchive, ...this.searchOnlyClips];
-    
-    // Save to storage
-    await chrome.storage.local.set({
-      clips: this.clips,
-      searchOnlyClips: this.searchOnlyClips
-    });
-    if (this._idbReady && this.idb) {
-      await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-    }
-    
-    console.log(`✅ Archived ${clipsToArchive.length} clips to search. Active: ${this.clips.length}, Archived: ${this.searchOnlyClips.length}`);
+    return this.clipsFeature.service.enforceClipLimit(this);
   }
   
   setupEventListeners() {
@@ -3127,31 +2980,7 @@ class PasteCraftPopup {
       });
     }
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      this.searchQuery = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('clearSearch').addEventListener('click', () => {
-      document.getElementById('searchInput').value = '';
-      this.searchQuery = '';
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('categoryFilter').addEventListener('change', (e) => {
-      this.selectedCategory = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('dateFilter').addEventListener('change', (e) => {
-      this.selectedDateFilter = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
+    this.clipsFeature.events.registerClipEvents(this);
 
     // Category management
     document.getElementById('createCategoryBtn').addEventListener('click', () => {
@@ -3163,31 +2992,6 @@ class PasteCraftPopup {
     if (previewArea) {
       previewArea.addEventListener('input', () => {
         this.previewIsManual = true;
-      });
-    }
-
-    // Categories bulk actions (copy | delete)
-    const categoryBulkCopyBtn = document.getElementById('categoryBulkCopyBtn');
-    const categoryBulkDeleteBtn = document.getElementById('categoryBulkDeleteBtn');
-    if (categoryBulkCopyBtn) {
-      categoryBulkCopyBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleCategoryBulkCopy();
-      });
-    }
-    if (categoryBulkDeleteBtn) {
-      categoryBulkDeleteBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleCategoryBulkDelete();
-      });
-    }
-
-    // Search bulk action (copy 2+ selected)
-    const searchBulkCopyBtn = document.getElementById('searchBulkCopyBtn');
-    if (searchBulkCopyBtn) {
-      searchBulkCopyBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleSearchBulkCopy();
       });
     }
 
@@ -5800,52 +5604,7 @@ class PasteCraftPopup {
   }
   
   renderChips() {
-    const container = document.getElementById('chipContainer');
-
-    // Use total count for empty check (includes remote clips)
-    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
-    
-    if (totalClips === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">✨</div>
-          <h3>No clips yet</h3>
-          <p>Right-click selected text to save it here</p>
-          <div class="demo-hint">
-            <span class="demo-step">1️⃣ Select text</span>
-            <span class="demo-step">2️⃣ Right-click</span>
-            <span class="demo-step">3️⃣ Save to PasteCraft</span>
-          </div>
-        </div>
-      `;
-      return;
-    }
-    
-    // Calculate pagination
-    const startIndex = this.currentPage * this.clipsPerPage;
-    const endIndex = Math.min(startIndex + this.clipsPerPage, totalClips);
-    
-    // Check if we need to lazy load (page is beyond local data)
-    if (startIndex >= this.clips.length && this.tieredClipsStore?.needsLazyLoading()) {
-      this._lazyLoadClipsPage(startIndex, this.clipsPerPage, container);
-      return;
-    }
-    
-    // Use local clips for this page
-    const pageClips = this.clips.slice(startIndex, Math.min(endIndex, this.clips.length));
-    
-    container.innerHTML = '';
-    pageClips.forEach((clip, pageIndex) => {
-      const actualIndex = startIndex + pageIndex;
-      const chip = this.createChip(clip, actualIndex);
-      container.appendChild(chip);
-    });
-    
-    // Render pagination controls
-    this.renderPagination();
-    
-    // Update quick copy button visibility
-    this.updateQuickCopyButton();
+    return this.clipsFeature.render.renderChips(this);
   }
 
   /**
@@ -5853,324 +5612,27 @@ class PasteCraftPopup {
    * @private
    */
   async _lazyLoadClipsPage(startIndex, pageSize, container) {
-    // Check if we're offline first
-    if (!navigator.onLine) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📡</div>
-          <h3>You're offline</h3>
-          <p>Connect to the internet to view older clips</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.currentPage = 0; window.pasteCraftPopup.renderChips();">
-            Go to first page
-          </button>
-        </div>
-      `;
-      this.renderPagination();
-      return;
-    }
-
-    // Show loading state
-    this._isLazyLoading = true;
-    container.innerHTML = `
-      <div class="lazy-load-indicator">
-        <div class="lazy-load-spinner"></div>
-        <p>Loading clips...</p>
-      </div>
-    `;
-    
-    // Render pagination while loading
-    this.renderPagination();
-
-    try {
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const remoteClips = await pasteCraftSupabase.fetchClipsPage(startIndex, pageSize);
-        
-        if (remoteClips && remoteClips.length > 0) {
-          container.innerHTML = '';
-          remoteClips.forEach((clip, pageIndex) => {
-            const actualIndex = startIndex + pageIndex;
-            const chip = this.createChip(clip, actualIndex);
-            container.appendChild(chip);
-          });
-        } else {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <h3>No more clips</h3>
-              <p>You've reached the end of your clips</p>
-            </div>
-          `;
-        }
-      } else {
-        // No Supabase access - show message
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">☁️</div>
-            <h3>Sign in to view more</h3>
-            <p>Older clips are stored in the cloud</p>
-          </div>
-        `;
-      }
-    } catch (e) {
-      console.error('Failed to lazy load clips:', e);
-      // Check if it's a network error
-      const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
-          <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
-          <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.renderChips();">
-            Retry
-          </button>
-        </div>
-      `;
-    } finally {
-      this._isLazyLoading = false;
-    }
+    return this.clipsFeature.render.lazyLoadClipsPage(this, startIndex, pageSize, container);
   }
   
   renderPagination() {
-    const paginationContainer = document.getElementById('paginationControls');
-    if (!paginationContainer) return;
-    
-    // Use total count (including remote) for pagination
-    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
-    const totalPages = Math.min(Math.ceil(totalClips / this.clipsPerPage), this.maxPages);
-    
-    if (totalPages <= 1) {
-      paginationContainer.innerHTML = '';
-      return;
-    }
-    
-    let paginationHTML = '<div class="pagination-wrapper">';
-    
-    // Previous button
-    paginationHTML += `
-      <button class="pagination-btn pagination-prev" ${this.currentPage === 0 ? 'disabled' : ''} data-page="${this.currentPage - 1}">
-        ‹ Prev
-      </button>
-    `;
-    
-    // Page numbers
-    paginationHTML += '<div class="pagination-numbers">';
-    
-    // Show first page
-    if (this.currentPage > 2) {
-      paginationHTML += `<button class="pagination-number" data-page="0">0</button>`;
-      if (this.currentPage > 3) {
-        paginationHTML += '<span class="pagination-ellipsis">...</span>';
-      }
-    }
-    
-    // Show pages around current page
-    const startPage = Math.max(0, this.currentPage - 2);
-    const endPage = Math.min(totalPages - 1, this.currentPage + 2);
-    
-    for (let i = startPage; i <= endPage; i++) {
-      const isActive = i === this.currentPage ? 'active' : '';
-      paginationHTML += `<button class="pagination-number ${isActive}" data-page="${i}">${i}</button>`;
-    }
-    
-    // Show last page
-    if (this.currentPage < totalPages - 3) {
-      if (this.currentPage < totalPages - 4) {
-        paginationHTML += '<span class="pagination-ellipsis">...</span>';
-      }
-      paginationHTML += `<button class="pagination-number" data-page="${totalPages - 1}">${totalPages - 1}</button>`;
-    }
-    
-    paginationHTML += '</div>';
-    
-    // Next button
-    paginationHTML += `
-      <button class="pagination-btn pagination-next" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''} data-page="${this.currentPage + 1}">
-        Next ›
-      </button>
-    `;
-    
-    paginationHTML += '</div>';
-    
-    paginationContainer.innerHTML = paginationHTML;
-    
-    // Add click handlers
-    paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const page = parseInt(e.target.dataset.page);
-        if (!isNaN(page) && page >= 0 && page < totalPages) {
-          this.currentPage = page;
-          this.renderChips();
-        }
-      });
-    });
+    return this.clipsFeature.render.renderPagination(this);
   }
   
   createChip(clip, index) {
-    const chip = document.createElement('div');
-    chip.className = 'chip animate-slide-in';
-    chip.dataset.index = index;
-    const clipIdKey = this._clipIdKey(clip?.id != null ? clip.id : index);
-    chip.dataset.clipId = clipIdKey;
-    
-    const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const clipTitle = this._clipTitle(clip);
-    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 42);
-    
-    const clipCategory = clip.category || 'Uncategorized';
-    const isSelected = this.selectedChips.has(clipIdKey);
-    const clipMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const markupBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, clipMeta) : '';
-    const markupPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, clipMeta, 80) : '';
-    const chipTextContent = markupPreview
-      ? `<span class="pc-chip-preview">${markupPreview}</span>`
-      : this.escapeHtml(plainText);
-    
-    chip.innerHTML = `
-      <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
-      ${markupBadge}
-      <span class="chip-text pc-clip-stack" title="${this.escapeHtml(clip.text)}">
-        <span class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</span>
-        <span class="pc-clip-subtext">${chipTextContent}</span>
-      </span>
-      <span class="chip-time">${timeAgo}</span>
-      <div class="chip-actions">
-        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
-        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-        <button class="chip-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-        <button class="chip-remove" title="Remove clip">×</button>
-      </div>
-    `;
-
-    // Add category indicator if not Uncategorized
-    if (clipCategory !== 'Uncategorized') {
-      const categoryIndicator = document.createElement('span');
-      categoryIndicator.className = 'chip-category-indicator';
-      categoryIndicator.style.cssText = `
-        font-size: 10px;
-        background: rgba(0,0,0,0.1);
-        padding: 2px 6px;
-        border-radius: 8px;
-        margin-left: 4px;
-      `;
-      categoryIndicator.textContent = clipCategory;
-      chip.querySelector('.chip-text').appendChild(categoryIndicator);
-    }
-    
-    if (isSelected) {
-      chip.classList.add('selected');
-    }
-    
-    // Checkbox handler
-    const checkbox = chip.querySelector('.chip-checkbox');
-    checkbox.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleChip(clipIdKey, chip);
-    });
-
-    // Click to select/deselect
-    chip.addEventListener('click', (e) => {
-      // Use closest() so clicks on the inner <i data-lucide=".."> icon
-      // still resolve to the parent button that owns the chip-*-btn class.
-      const removeBtn    = e.target.classList.contains('chip-remove') ? e.target : null;
-      const breakdownBtn = e.target.closest('.chip-breakdown-btn');
-      const openBtn      = e.target.closest('.chip-open-btn');
-      const shareBtn     = e.target.closest('.chip-share-btn');
-      const summaryBtn   = e.target.closest('.chip-summary-btn');
-      const notesBtn     = e.target.closest('.chip-notes-btn');
-      const categoryBtn  = e.target.closest('.chip-category-btn');
-      const titleBtn     = e.target.closest('.chip-title-btn');
-      const isCheckbox   = e.target.classList.contains('chip-checkbox');
-
-      if (removeBtn) {
-        this.removeChip(clipIdKey);
-      } else if (titleBtn) {
-        e.stopPropagation();
-        this.promptEditClipTitle(clipIdKey);
-      } else if (breakdownBtn) {
-        e.stopPropagation();
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
-        this.showBreakdownModal(textToSend);
-      } else if (openBtn) {
-        e.stopPropagation();
-        if (typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-      } else if (shareBtn) {
-        e.stopPropagation();
-        this.showShareMenuForClip(clip);
-      } else if (summaryBtn) {
-        e.stopPropagation();
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
-        this.showSummaryModal(textToSend);
-      } else if (notesBtn) {
-        e.stopPropagation();
-        this.loadNotes().then(() => {
-          this.showAlbumPicker();
-          this.pendingClipForNotes = clip;
-        });
-      } else if (categoryBtn) {
-        e.stopPropagation();
-        this.pendingText = clip.text;
-        this.pendingClipId = clipIdKey;
-        this.showCategoryModal(true);
-      } else if (!isCheckbox) {
-        this.toggleChip(clipIdKey, chip);
-      }
-    });
-
-    return chip;
+    return this.clipsFeature.render.createChip(this, clip, index);
   }
   
   toggleChip(clipIdKey, chipElement) {
-    const checkbox = chipElement.querySelector('.chip-checkbox');
-    if (this.selectedChips.has(clipIdKey)) {
-      this.selectedChips.delete(clipIdKey);
-      chipElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedChips.add(clipIdKey);
-      chipElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.syncOptionToggles();
-    this.updatePreview();
+    return this.clipsFeature.state.toggleChip(this, clipIdKey, chipElement);
   }
   
   toggleSearchClip(clipId, itemElement) {
-    const checkbox = itemElement.querySelector('.search-checkbox');
-    const idKey = this._clipIdKey(clipId);
-    if (this.selectedSearchClips.has(idKey)) {
-      this.selectedSearchClips.delete(idKey);
-      itemElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedSearchClips.add(idKey);
-      itemElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.updatePreviewFromSearchSelection();
-    this.updateSearchBulkActions();
+    return this.clipsFeature.state.toggleSearchClip(this, clipId, itemElement);
   }
   
   toggleCategoryClip(clipId, itemElement) {
-    const checkbox = itemElement.querySelector('.category-checkbox');
-    const idKey = this._clipIdKey(clipId);
-    if (this.selectedCategoryClips.has(idKey)) {
-      this.selectedCategoryClips.delete(idKey);
-      itemElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedCategoryClips.add(idKey);
-      itemElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.updatePreviewFromSelection();
-    this.updateCategoryBulkActions();
+    return this.clipsFeature.state.toggleCategoryClip(this, clipId, itemElement);
   }
   
   syncOptionToggles() {
@@ -6185,47 +5647,15 @@ class PasteCraftPopup {
   }
   
   async removeChip(clipIdKey) {
-    const id = String(clipIdKey || '');
-    if (!id) return;
-    await this.deleteClipsByIdKeys([id], {
-      includeArchived: false,
-      reason: 'delete:removeChip',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
+    return this.clipsFeature.service.removeChip(this, clipIdKey);
   }
   
   updateLastCapture() {
-    const lastCaptureEl = document.getElementById('lastCapture');
-    if (this.clips.length > 0) {
-      const lastClip = this.clips[0];
-      const timeAgo = this.getTimeAgo(lastClip.timestamp);
-      lastCaptureEl.textContent = `Last: ${timeAgo}`;
-    } else {
-      lastCaptureEl.textContent = 'No recent captures';
-    }
+    return this.clipsFeature.render.updateLastCapture(this);
   }
   
   getTimeAgo(timestamp) {
-    // Handle both timestamp (number) and date string formats
-    const now = Date.now();
-    const clipTime = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
-    
-    // Validate timestamp
-    if (isNaN(clipTime)) {
-      return 'unknown';
-    }
-    
-    const diffMs = now - clipTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
+    return this.clipsFeature.render.getTimeAgo(timestamp);
   }
   
   updatePreview() {
@@ -6301,165 +5731,23 @@ class PasteCraftPopup {
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
   async copyToClipboardFallback(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (e) {
-      console.log('📋 Clipboard API blocked, using fallback method...');
-    }
-
-    // Fallback: Use execCommand with temporary textarea
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    try {
-      const success = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (!success) throw new Error('execCommand copy failed');
-      return true;
-    } catch (e) {
-      document.body.removeChild(textarea);
-      throw e;
-    }
+    return this.clipsFeature.service.copyToClipboardFallback(text);
   }
   
   async copyToClipboard() {
-    const previewArea = document.getElementById('previewArea');
-    const copyBtn = document.getElementById('copyBtn');
-    
-    if (!previewArea.value) return;
-    
-    try {
-      await this.copyToClipboardFallback(previewArea.value);
-      
-      // Success feedback
-      copyBtn.textContent = 'Copied! ✓';
-      copyBtn.classList.add('success');
-      
-      // Confetti for large copies
-      if (this.selectedChips.size >= 5) {
-        this.showConfetti();
-      }
-      
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy Crafted Output';
-        copyBtn.classList.remove('success');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Copy failed:', error);
-      copyBtn.textContent = 'Copy Failed';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy Crafted Output';
-      }, 2000);
-    }
+    return this.clipsFeature.service.copyToClipboard(this);
   }
   
   async handleQuickCopy() {
-    const quickCopyBtn = document.getElementById('quickCopyBtn');
-    
-    if (this.selectedChips.size === 0) return;
-
-    // Ensure preview reflects current selection/options/delimiter
-    this.updatePreview();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? String(previewArea.value || '') : '';
-    if (!textToCopy) {
-      // stale selection guard
-      this.selectedChips.clear();
-      this.updateQuickCopyButton();
-      return;
-    }
-    
-    try {
-      // Use fallback method for extension popups (Clipboard API is blocked by permissions policy)
-      await this.copyToClipboardFallback(textToCopy);
-      
-      console.log('✅ Quick Copy - Successfully copied to clipboard!');
-      
-      // Success feedback
-      const originalHTML = quickCopyBtn.innerHTML;
-      quickCopyBtn.innerHTML = `
-        <span class="btn-icon">✓</span>
-        <span class="btn-text">Copied!</span>
-      `;
-      quickCopyBtn.classList.add('success');
-      
-      // Confetti for large copies
-      if (this.selectedChips.size >= 5) {
-        this.showConfetti();
-      }
-      
-      setTimeout(() => {
-        quickCopyBtn.innerHTML = originalHTML;
-        quickCopyBtn.classList.remove('success');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('❌ Quick copy failed:', error);
-      console.error('❌ Error name:', error.name);
-      console.error('❌ Error message:', error.message);
-      const originalHTML = quickCopyBtn.innerHTML;
-      quickCopyBtn.innerHTML = `
-        <span class="btn-icon">✗</span>
-        <span class="btn-text">Failed</span>
-      `;
-      setTimeout(() => {
-        quickCopyBtn.innerHTML = originalHTML;
-      }, 2000);
-    }
+    return this.clipsFeature.service.handleQuickCopy(this);
   }
 
   async handleQuickDelete() {
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    if (!quickDeleteBtn) return;
-
-    const ids = Array.from(this.selectedChips || []).map(String).filter(Boolean);
-    if (ids.length <= 1) return; // only for 2+
-
-    if (!confirm(`Delete ${ids.length} selected clip${ids.length === 1 ? '' : 's'}?`)) {
-      return;
-    }
-
-    const result = await this.deleteClipsByIdKeys(ids, {
-      includeArchived: false,
-      reason: 'delete:handleQuickDelete',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
-
-    this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+    return this.clipsFeature.service.handleQuickDelete(this);
   }
   
   updateQuickCopyButton() {
-    const quickCopyBtn = document.getElementById('quickCopyBtn');
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    const bulkAiActions = document.getElementById('clipsBulkAiActions');
-    if (!quickCopyBtn) return;
-
-    const count = this.selectedChips.size;
-
-    quickCopyBtn.style.display = count > 0 ? 'flex' : 'none';
-
-    if (quickDeleteBtn) {
-      if (count > 1) {
-        quickDeleteBtn.style.display = 'flex';
-      } else {
-        quickDeleteBtn.style.display = 'none';
-        quickDeleteBtn.classList.remove('success');
-      }
-    }
-
-    if (bulkAiActions) {
-      bulkAiActions.style.display = count > 1 ? 'flex' : 'none';
-    }
+    return this.clipsFeature.render.updateQuickCopyButton(this);
   }
 
   _getSelectedClipsText() {
@@ -6467,28 +5755,19 @@ class PasteCraftPopup {
   }
 
   _getSelectedClipIdKeys() {
-    return Array.from(this.selectedChips).map(String).filter(Boolean);
+    return this.clipsFeature.state.getSelectedClipIdKeys(this);
   }
 
   _getSelectedClipObjects() {
-    const ids = this._getSelectedClipIdKeys();
-    return ids
-      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id))
-      .filter(Boolean);
+    return this.clipsFeature.state.getSelectedClipObjects(this);
   }
 
   _getSelectedCategoryClipIdKeys() {
-    if (!this.selectedCategoryClips) return [];
-    return Array.from(this.selectedCategoryClips).map(id => this._clipIdKey(id)).filter(Boolean);
+    return this.clipsFeature.state.getSelectedCategoryClipIdKeys(this);
   }
 
   _getSelectedCategoryClipObjects() {
-    const ids = this._getSelectedCategoryClipIdKeys();
-    if (ids.length === 0) return [];
-    const pool = Array.isArray(this.clips) ? this.clips : [];
-    return ids
-      .map(id => pool.find(c => this._clipIdKey(c?.id) === id))
-      .filter(Boolean);
+    return this.clipsFeature.state.getSelectedCategoryClipObjects(this);
   }
 
   _getSelectedCategoryClipsText() {
@@ -7157,227 +6436,20 @@ class PasteCraftPopup {
 
   // Search and Filter Functions
   renderSearchResults() {
-    const container = document.getElementById('searchResults');
-    
-    if (!this.searchQuery && !this.selectedCategory && !this.selectedDateFilter) {
-      container.innerHTML = `
-        <div class="empty-search">
-          <div class="empty-search-icon"><i data-lucide="search"></i></div>
-          <h3>Start searching</h3>
-          <p>Type in the search bar to find your clips</p>
-        </div>
-      `;
-      this.updateSearchBulkActions();
-      return;
-    }
-
-    const filteredClips = this.filterClips();
-    
-    if (filteredClips.length === 0) {
-      container.innerHTML = `
-        <div class="empty-search">
-          <div class="empty-search-icon"><i data-lucide="frown"></i></div>
-          <h3>No results found</h3>
-          <p>Try adjusting your search criteria</p>
-        </div>
-      `;
-      this.updateSearchBulkActions();
-      return;
-    }
-
-    container.innerHTML = '';
-    filteredClips.forEach(clip => {
-      const resultItem = this.createSearchResultItem(clip);
-      container.appendChild(resultItem);
-    });
-
-    // Show cloud notice if there might be more clips in the cloud
-    if (this.totalArchivedCount > this.searchOnlyClips.length && 
-        this.tieredArchivedStore?.needsLazyLoading() &&
-        typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-      const cloudNotice = document.createElement('div');
-      cloudNotice.className = 'cloud-search-notice';
-      cloudNotice.innerHTML = `
-        <div class="cloud-notice-content">
-          <span class="cloud-notice-icon">☁️</span>
-          <span>More clips may be available in the cloud (${this.totalArchivedCount - this.searchOnlyClips.length} additional)</span>
-        </div>
-      `;
-      container.appendChild(cloudNotice);
-    }
-
-    this.updateSearchBulkActions();
+    return this.clipsFeature.render.renderSearchResults(this);
   }
 
   // Backwards-compat: older code paths still call this name
   performSearch() {
-    this.renderSearchResults();
+    return this.renderSearchResults();
   }
 
   filterClips() {
-    // Combine active clips and search-only clips for search functionality
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    
-    return allClips.filter(clip => {
-      // Text/title search
-      const query = this.searchQuery ? this.searchQuery.toLowerCase() : '';
-      const title = this._clipTitle(clip).toLowerCase();
-      if (query && !clip.text.toLowerCase().includes(query) && !title.includes(query)) {
-        return false;
-      }
-
-      // Category filter
-      if (this.selectedCategory && clip.category !== this.selectedCategory) {
-        return false;
-      }
-
-      // Date filter
-      if (this.selectedDateFilter) {
-        const clipDate = new Date(clip.timestamp);
-        const now = new Date();
-        
-        switch (this.selectedDateFilter) {
-          case 'today':
-            if (clipDate.toDateString() !== now.toDateString()) return false;
-            break;
-          case 'week':
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (clipDate < weekAgo) return false;
-            break;
-          case 'month':
-            const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-            if (clipDate < monthAgo) return false;
-            break;
-        }
-      }
-
-      return true;
-    });
+    return this.clipsFeature.render.filterClips(this);
   }
 
   createSearchResultItem(clip) {
-    const item = document.createElement('div');
-    item.className = 'search-result-item';
-    item.dataset.clipId = clip.id;
-    
-    const isSelected = this.selectedSearchClips.has(this._clipIdKey(clip.id));
-    if (isSelected) {
-      item.classList.add('selected');
-    }
-
-    const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const clipTitle = this._clipTitle(clip);
-    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 64);
-    const sMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const sBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
-    const sPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
-    const searchTextContent = sPreview
-      ? `<div class="pc-search-preview">${sPreview}</div>`
-      : `<div>${this.escapeHtml(truncatedText)}</div>`;
-
-    item.innerHTML = `
-      <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
-      <div class="search-result-content">
-        <div class="search-result-text pc-clip-title-stack">
-          <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
-          <div class="pc-clip-subtext">${sBadge}${searchTextContent}</div>
-        </div>
-        <div class="search-result-meta">
-          <span class="search-result-category">${this.escapeHtml(clip.category || 'Uncategorized')}</span>
-          <span>${timeAgo}</span>
-        </div>
-      </div>
-      <div class="search-result-actions">
-        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
-        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-        <button class="search-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-        <button class="btn-copy" title="Copy to clipboard"><i data-lucide="clipboard"></i></button>
-      </div>
-    `;
-    
-    // Checkbox handler
-    const checkbox = item.querySelector('.search-checkbox');
-    checkbox.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleSearchClip(clip.id, item);
-    });
-    
-    // Item click handler for selection
-    item.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-result-actions') && !e.target.classList.contains('search-checkbox')) {
-        this.toggleSearchClip(clip.id, item);
-      }
-    });
-
-    // Copy functionality
-    item.querySelector('.btn-copy').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.copyClipToClipboard(clip.text);
-    });
-
-    item.querySelector('.chip-title-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.promptEditClipTitle(this._clipIdKey(clip.id));
-    });
-
-    // Breakdown functionality
-    item.querySelector('.chip-breakdown-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
-      this.showBreakdownModal(textToSend);
-    });
-
-    // Open/view functionality
-    const openBtn = item.querySelector('.chip-open-btn');
-    if (openBtn) {
-      openBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-      });
-    }
-
-    // Share functionality
-    const shareBtn = item.querySelector('.chip-share-btn');
-    if (shareBtn) {
-      shareBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.showShareMenuForClip(clip);
-      });
-    }
-    
-    // Summary functionality
-    item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
-      this.showSummaryModal(textToSend);
-    });
-
-    // Send to Notes functionality
-    item.querySelector('.search-notes-btn').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      // Load notes and show album picker
-      await this.loadNotes();
-      this.showAlbumPicker();
-      // Store the clip to be added
-      this.pendingClipForNotes = clip;
-    });
-
-    // Category assignment
-    item.querySelector('.chip-category-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.pendingText = clip.text;
-      this.pendingClipId = this._clipIdKey(clip.id);
-      this.showCategoryModal(true);
-    });
-
-    return item;
+    return this.clipsFeature.render.createSearchResultItem(this, clip);
   }
 
   // Category Management Functions
@@ -8125,12 +7197,7 @@ class PasteCraftPopup {
   }
 
   async copyClipToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      this.showToast('Copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
+    return this.clipsFeature.service.copyClipToClipboard(this, text);
   }
 
   showToast(message) {
