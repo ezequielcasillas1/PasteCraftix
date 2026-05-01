@@ -1,5 +1,63 @@
 import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
 
+function getAllClipCandidates(app) {
+  return [...app.clips, ...app.searchOnlyClips];
+}
+
+function findCategoryClip(app, clipIdKey) {
+  return getAllClipCandidates(app).find((c) => app._clipIdKey(c?.id) === clipIdKey);
+}
+
+function isCategoryCheckbox(event) {
+  return event.target.classList?.contains('category-checkbox');
+}
+
+function isCategoryActionArea(event) {
+  return Boolean(event.target.closest('.category-clip-actions'));
+}
+
+function toggleCategoryRow(app, clipIdKey, row, event) {
+  event.stopPropagation();
+  app.toggleCategoryClip(clipIdKey, row);
+}
+
+function getCategoryClipActionHandlers(app, clip, clipIdKey) {
+  return [
+    ['.category-clip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
+    ['.category-clip-breakdown-btn', () => clip && app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
+    ['.category-clip-open-btn', () => clip && typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
+    ['.category-clip-share-btn', () => clip && app.showShareMenuForClip(clip)],
+    ['.category-clip-summary-btn', () => clip && app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
+    ['.category-clip-notes-btn', async () => {
+      if (!clip) return;
+      await app.loadNotes();
+      app.showAlbumPicker();
+      app.pendingClipForNotes = clip;
+    }],
+    ['.category-clip-copy-btn', () => clip && app.copyClipToClipboard(clip.text)],
+  ];
+}
+
+async function handleCategoryClipClick(app, container, event) {
+  const row = event.target.closest('.category-clip');
+  if (!row || !container.contains(row)) return;
+
+  const clipIdKey = app._clipIdKey(row.dataset.clipId);
+  if (!clipIdKey) return;
+
+  const clip = findCategoryClip(app, clipIdKey);
+  const action = getCategoryClipActionHandlers(app, clip, clipIdKey)
+    .find(([selector]) => event.target.closest(selector));
+
+  if (action) {
+    event.stopPropagation();
+    await action[1]();
+    return;
+  }
+
+  if (isCategoryCheckbox(event) || !isCategoryActionArea(event)) toggleCategoryRow(app, clipIdKey, row, event);
+}
+
 export function registerClipSearchEvents(app) {
   const { searchInput, clearSearch, categoryFilter, dateFilter } = getClipSearchControls();
 
@@ -59,76 +117,7 @@ export function setupCategoryClipDelegation(app) {
   if (!container) return;
 
   container.addEventListener('click', async (e) => {
-    const row = e.target.closest('.category-clip');
-    if (!row || !container.contains(row)) return;
-
-    const clipIdKey = app._clipIdKey(row.dataset.clipId);
-    if (!clipIdKey) return;
-
-    const allClips = [...app.clips, ...app.searchOnlyClips];
-    const clip = allClips.find((c) => app._clipIdKey(c?.id) === clipIdKey);
-
-    const breakdownBtn = e.target.closest('.category-clip-breakdown-btn');
-    const openBtn = e.target.closest('.category-clip-open-btn');
-    const shareBtn = e.target.closest('.category-clip-share-btn');
-    const summaryBtn = e.target.closest('.category-clip-summary-btn');
-    const notesBtn = e.target.closest('.category-clip-notes-btn');
-    const copyBtn = e.target.closest('.category-clip-copy-btn');
-    const titleBtn = e.target.closest('.category-clip-title-btn');
-    const checkbox = e.target.classList && e.target.classList.contains('category-checkbox')
-      ? e.target
-      : null;
-
-    if (titleBtn) {
-      e.stopPropagation();
-      app.promptEditClipTitle(clipIdKey);
-      return;
-    }
-    if (breakdownBtn) {
-      e.stopPropagation();
-      if (!clip) return;
-      app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'categories'));
-      return;
-    }
-    if (openBtn) {
-      e.stopPropagation();
-      if (clip && typeof app.openClipViewer === 'function') app.openClipViewer(clip);
-      return;
-    }
-    if (shareBtn) {
-      e.stopPropagation();
-      if (clip) app.showShareMenuForClip(clip);
-      return;
-    }
-    if (summaryBtn) {
-      e.stopPropagation();
-      if (!clip) return;
-      app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'categories'));
-      return;
-    }
-    if (notesBtn) {
-      e.stopPropagation();
-      if (!clip) return;
-      await app.loadNotes();
-      app.showAlbumPicker();
-      app.pendingClipForNotes = clip;
-      return;
-    }
-    if (copyBtn) {
-      e.stopPropagation();
-      if (clip) app.copyClipToClipboard(clip.text);
-      return;
-    }
-    if (checkbox) {
-      e.stopPropagation();
-      app.toggleCategoryClip(clipIdKey, row);
-      return;
-    }
-
-    if (!e.target.closest('.category-clip-actions')) {
-      e.stopPropagation();
-      app.toggleCategoryClip(clipIdKey, row);
-    }
+    await handleCategoryClipClick(app, container, e);
   });
 
   app._categoryClipDelegationAttached = true;

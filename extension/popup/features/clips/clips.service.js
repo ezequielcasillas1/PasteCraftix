@@ -5,6 +5,130 @@ import {
   queueClipOp,
 } from './clips.state.js';
 
+function normalizeIdKeys(idKeys) {
+  return Array.isArray(idKeys) ? idKeys.map(k => String(k)).filter(Boolean) : [];
+}
+
+function getStoredClipArrays(app) {
+  return {
+    active: Array.isArray(app.clips) ? app.clips : [],
+    archived: Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips : [],
+  };
+}
+
+function createDeleteState(app, ids, includeArchived, crud) {
+  const idSet = new Set(ids);
+  const { active, archived } = getStoredClipArrays(app);
+
+  return {
+    idSet,
+    beforeActive: active.length,
+    beforeArchived: archived.length,
+    nextClips: active.filter(c => !idSet.has(getClipIdKey(c?.id))),
+    nextArchived: includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived,
+    snapshot: {
+      clips: crud.createSnapshot(app.clips),
+      searchOnlyClips: crud.createSnapshot(app.searchOnlyClips),
+    },
+  };
+}
+
+function containsDeletedClipId(clips, idSet) {
+  return clips.some(c => idSet.has(getClipIdKey(c?.id)));
+}
+
+async function persistClipArrays(app, crud) {
+  await crud.retryOperation(async () => {
+    await chrome.storage.local.set({
+      [CLIPS_STORAGE_KEYS.ACTIVE]: app.clips,
+      [CLIPS_STORAGE_KEYS.ARCHIVED]: app.searchOnlyClips,
+      [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
+    });
+  });
+}
+
+function renderAfterDeletion(app) {
+  app.renderChips();
+  app.renderSearchResults();
+  app.renderCategories();
+  app.updateCategoryFilter();
+  app.updateManualInputCategories();
+  app.updatePreview();
+  app.updateQuickCopyButton();
+  app.updateCategoryBulkActions();
+  app.updateSearchBulkActions();
+}
+
+async function rollbackClipDeletion(app, crud, snapshot, rerender) {
+  try {
+    app.clips = snapshot.clips;
+    app.searchOnlyClips = snapshot.searchOnlyClips;
+    await persistClipArrays(app, crud);
+    if (rerender) {
+      app.renderChips();
+      app.renderSearchResults();
+      app.renderCategories();
+    }
+  } catch (rollbackError) {
+    console.error('❌ Rollback failed:', rollbackError);
+  }
+}
+
+async function verifyDeletedClipIds(idSet, includeArchived) {
+  const verification = await chrome.storage.local.get([CLIPS_STORAGE_KEYS.ACTIVE, CLIPS_STORAGE_KEYS.ARCHIVED]);
+  const verifiedClips = [
+    ...(verification[CLIPS_STORAGE_KEYS.ACTIVE] || []),
+    ...(includeArchived ? (verification[CLIPS_STORAGE_KEYS.ARCHIVED] || []) : []),
+  ];
+  return !verifiedClips.some(c => idSet.has(getClipIdKey(c?.id)));
+}
+
+function clearDeletedClipSelections(app, ids) {
+  ids.forEach(id => app.selectedChips.delete(id));
+  app.selectedSearchClips.clear();
+  app.selectedCategoryClips.clear();
+}
+
+function syncDeletedClipState(app, includeArchived) {
+  Promise.resolve()
+    .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ACTIVE, app.clips, pasteCraftSupabase.syncClipsToSupabase))
+    .catch(() => {});
+
+  if (!includeArchived) return;
+
+  Promise.resolve()
+    .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ARCHIVED, app.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
+    .catch(() => {});
+}
+
+function getDeletionResult(state, app, includeArchived, reason) {
+  const afterActive = app.clips.length;
+  const afterArchived = app.searchOnlyClips.length;
+  const deleted = (state.beforeActive - afterActive) + (includeArchived ? (state.beforeArchived - afterArchived) : 0);
+  const missing = Math.max(0, state.idSet.size - deleted);
+  return { requested: state.idSet.size, deleted, missing, reason };
+}
+
+async function applyClipDeletion(app, crud, state, options) {
+  const { includeArchived, clearSelection, closeCategoryModal, rerender, ids } = options;
+
+  if (containsDeletedClipId([...state.nextClips, ...state.nextArchived], state.idSet)) {
+    throw new Error('Clips still exist after filter operation');
+  }
+
+  app.clips = state.nextClips;
+  app.searchOnlyClips = state.nextArchived;
+  await persistClipArrays(app, crud);
+
+  if (!(await verifyDeletedClipIds(state.idSet, includeArchived))) {
+    throw new Error('Verification failed: clips still exist in storage');
+  }
+
+  if (clearSelection) clearDeletedClipSelections(app, ids);
+  if (closeCategoryModal) app.hideCategoryModal();
+  if (rerender) renderAfterDeletion(app);
+}
+
 export async function deleteClipsByIdKeys(app, idKeys, {
   includeArchived = true,
   reason = 'delete:unknown',
@@ -12,109 +136,27 @@ export async function deleteClipsByIdKeys(app, idKeys, {
   clearSelection = true,
   rerender = true,
 } = {}) {
-  const ids = Array.isArray(idKeys) ? idKeys.map(k => String(k)).filter(Boolean) : [];
+  const ids = normalizeIdKeys(idKeys);
   if (ids.length === 0) return { requested: 0, deleted: 0, missing: 0 };
   const crud = window.PasteCraftCRUD;
 
   return queueClipOp(app, async () => {
-    const idSet = new Set(ids);
-    const beforeActive = Array.isArray(app.clips) ? app.clips.length : 0;
-    const beforeArchived = Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips.length : 0;
-
-    const nextClips = (Array.isArray(app.clips) ? app.clips : []).filter(c => !idSet.has(getClipIdKey(c?.id)));
-    const nextArchived = includeArchived
-      ? (Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips : []).filter(c => !idSet.has(getClipIdKey(c?.id)))
-      : (Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips : []);
-
-    const snapshot = {
-      clips: crud.createSnapshot(app.clips),
-      searchOnlyClips: crud.createSnapshot(app.searchOnlyClips),
-    };
-
-    const rollback = async () => {
-      try {
-        app.clips = snapshot.clips;
-        app.searchOnlyClips = snapshot.searchOnlyClips;
-        await crud.retryOperation(async () => {
-          await chrome.storage.local.set({
-            [CLIPS_STORAGE_KEYS.ACTIVE]: app.clips,
-            [CLIPS_STORAGE_KEYS.ARCHIVED]: app.searchOnlyClips,
-            [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
-          });
-        });
-        if (rerender) {
-          app.renderChips();
-          app.renderSearchResults();
-          app.renderCategories();
-        }
-      } catch (rollbackError) {
-        console.error('❌ Rollback failed:', rollbackError);
-      }
-    };
+    const state = createDeleteState(app, ids, includeArchived, crud);
 
     try {
-      const stillExists = [...nextClips, ...nextArchived].some(c => idSet.has(getClipIdKey(c?.id)));
-      if (stillExists) {
-        throw new Error('Clips still exist after filter operation');
-      }
-
-      app.clips = nextClips;
-      app.searchOnlyClips = nextArchived;
-
-      await crud.retryOperation(async () => {
-        await chrome.storage.local.set({
-          [CLIPS_STORAGE_KEYS.ACTIVE]: app.clips,
-          [CLIPS_STORAGE_KEYS.ARCHIVED]: app.searchOnlyClips,
-          [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
-        });
+      await applyClipDeletion(app, crud, state, {
+        includeArchived,
+        clearSelection,
+        closeCategoryModal,
+        rerender,
+        ids,
       });
-
-      const verification = await chrome.storage.local.get([CLIPS_STORAGE_KEYS.ACTIVE, CLIPS_STORAGE_KEYS.ARCHIVED]);
-      const verifiedClips = [
-        ...(verification[CLIPS_STORAGE_KEYS.ACTIVE] || []),
-        ...(includeArchived ? (verification[CLIPS_STORAGE_KEYS.ARCHIVED] || []) : []),
-      ];
-      const verifiedDeleted = !verifiedClips.some(c => idSet.has(getClipIdKey(c?.id)));
-      if (!verifiedDeleted) {
-        throw new Error('Verification failed: clips still exist in storage');
-      }
-
-      if (clearSelection) {
-        ids.forEach(id => app.selectedChips.delete(id));
-        app.selectedSearchClips.clear();
-        app.selectedCategoryClips.clear();
-      }
-      if (closeCategoryModal) app.hideCategoryModal();
-      if (rerender) {
-        app.renderChips();
-        app.renderSearchResults();
-        app.renderCategories();
-        app.updateCategoryFilter();
-        app.updateManualInputCategories();
-        app.updatePreview();
-        app.updateQuickCopyButton();
-        app.updateCategoryBulkActions();
-        app.updateSearchBulkActions();
-      }
-
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ACTIVE, app.clips, pasteCraftSupabase.syncClipsToSupabase))
-        .catch(() => {});
-      if (includeArchived) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ARCHIVED, app.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-          .catch(() => {});
-      }
-
-      const afterActive = app.clips.length;
-      const afterArchived = app.searchOnlyClips.length;
-      const deleted = (beforeActive - afterActive) + (includeArchived ? (beforeArchived - afterArchived) : 0);
-      const missing = Math.max(0, idSet.size - deleted);
-      return { requested: idSet.size, deleted, missing, reason };
+      syncDeletedClipState(app, includeArchived);
+      return getDeletionResult(state, app, includeArchived, reason);
     } catch (error) {
       console.error('❌ Clip deletion failed, rolling back:', error);
-      await rollback();
-      return { requested: idSet.size, deleted: 0, missing: idSet.size, reason };
+      await rollbackClipDeletion(app, crud, state.snapshot, rerender);
+      return { requested: state.idSet.size, deleted: 0, missing: state.idSet.size, reason };
     }
   });
 }
@@ -251,38 +293,58 @@ export async function handleQuickDelete(app) {
   app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
 }
 
-export async function handleCategoryBulkCopy(app) {
-  if (!app.selectedCategoryClips || app.selectedCategoryClips.size === 0) return;
+function resetBulkCopyButton(copyBtn, originalText) {
+  if (!copyBtn) return;
+  copyBtn.textContent = originalText;
+  copyBtn.classList.remove('success');
+}
 
-  app.updatePreviewFromSelection();
+function showBulkCopySuccess(copyBtn, originalText) {
+  if (copyBtn) {
+    copyBtn.textContent = 'copied ✓';
+    copyBtn.classList.add('success');
+  }
+  setTimeout(() => resetBulkCopyButton(copyBtn, originalText), 1400);
+}
+
+function showBulkCopyFailure(copyBtn, originalText) {
+  if (!copyBtn) return;
+  copyBtn.textContent = 'failed';
+  setTimeout(() => resetBulkCopyButton(copyBtn, originalText), 1400);
+}
+
+async function handleBulkCopy(app, {
+  hasSelection,
+  updatePreview,
+  buttonId,
+  errorLabel,
+}) {
+  if (!hasSelection()) return;
+
+  updatePreview();
   const previewArea = document.getElementById('previewArea');
   const textToCopy = previewArea ? previewArea.value : '';
   if (!textToCopy) return;
 
-  const copyBtn = document.getElementById('categoryBulkCopyBtn');
+  const copyBtn = document.getElementById(buttonId);
   const originalText = copyBtn ? copyBtn.textContent : 'copy';
 
   try {
     await copyToClipboardFallback(textToCopy);
-    if (copyBtn) {
-      copyBtn.textContent = 'copied ✓';
-      copyBtn.classList.add('success');
-    }
-    setTimeout(() => {
-      if (copyBtn) {
-        copyBtn.textContent = originalText;
-        copyBtn.classList.remove('success');
-      }
-    }, 1400);
+    showBulkCopySuccess(copyBtn, originalText);
   } catch (error) {
-    console.error('❌ Category bulk copy failed:', error);
-    if (copyBtn) {
-      copyBtn.textContent = 'failed';
-      setTimeout(() => {
-        copyBtn.textContent = originalText;
-      }, 1400);
-    }
+    console.error(`❌ ${errorLabel} bulk copy failed:`, error);
+    showBulkCopyFailure(copyBtn, originalText);
   }
+}
+
+export async function handleCategoryBulkCopy(app) {
+  await handleBulkCopy(app, {
+    hasSelection: () => Boolean(app.selectedCategoryClips?.size),
+    updatePreview: () => app.updatePreviewFromSelection(),
+    buttonId: 'categoryBulkCopyBtn',
+    errorLabel: 'Category',
+  });
 }
 
 export async function handleCategoryBulkDelete(app) {
@@ -308,37 +370,12 @@ export async function handleCategoryBulkDelete(app) {
 
 export async function handleSearchBulkCopy(app) {
   const orderedIds = getSelectedSearchClipIdsInUiOrder(app);
-  if (orderedIds.length <= 1) return;
-
-  app.updatePreviewFromSearchSelection();
-  const previewArea = document.getElementById('previewArea');
-  const textToCopy = previewArea ? previewArea.value : '';
-  if (!textToCopy) return;
-
-  const copyBtn = document.getElementById('searchBulkCopyBtn');
-  const originalText = copyBtn ? copyBtn.textContent : 'copy';
-
-  try {
-    await copyToClipboardFallback(textToCopy);
-    if (copyBtn) {
-      copyBtn.textContent = 'copied ✓';
-      copyBtn.classList.add('success');
-    }
-    setTimeout(() => {
-      if (copyBtn) {
-        copyBtn.textContent = originalText;
-        copyBtn.classList.remove('success');
-      }
-    }, 1400);
-  } catch (error) {
-    console.error('❌ Search bulk copy failed:', error);
-    if (copyBtn) {
-      copyBtn.textContent = 'failed';
-      setTimeout(() => {
-        copyBtn.textContent = originalText;
-      }, 1400);
-    }
-  }
+  await handleBulkCopy(app, {
+    hasSelection: () => orderedIds.length > 1,
+    updatePreview: () => app.updatePreviewFromSearchSelection(),
+    buttonId: 'searchBulkCopyBtn',
+    errorLabel: 'Search',
+  });
 }
 
 export async function removeChip(app, clipIdKey) {

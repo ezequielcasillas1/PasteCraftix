@@ -23,73 +23,78 @@ export function queueClipOp(app, fn) {
   return run;
 }
 
+function getClipPool(app, includeArchived = false) {
+  const active = Array.isArray(app.clips) ? app.clips : [];
+  if (!includeArchived) return active;
+  const archived = Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips : [];
+  return [...active, ...archived];
+}
+
+function getSelectedSet(selection) {
+  const selected = new Set(Array.from(selection).map(getClipIdKey));
+  return selected.size > 0 ? selected : null;
+}
+
+function getDomSelectedIds(domSelector, selected) {
+  return Array.from(document.querySelectorAll(domSelector))
+    .map(el => getClipIdKey(el?.dataset?.clipId))
+    .filter(id => id && selected.has(id));
+}
+
+function getFallbackSelectedIds(fallbackClips, selected) {
+  return fallbackClips
+    .map(clip => getClipIdKey(clip?.id))
+    .filter(id => id && selected.has(id));
+}
+
+function getOrderedSelectedIds(selection, domSelector, fallbackClips) {
+  const selected = selection ? getSelectedSet(selection) : null;
+  if (!selected) return [];
+
+  const domIds = getDomSelectedIds(domSelector, selected);
+  return domIds.length > 0 ? domIds : getFallbackSelectedIds(fallbackClips, selected);
+}
+
+function toggleSelection(selection, clipId, itemElement, checkboxSelector) {
+  const idKey = getClipIdKey(clipId);
+  const isSelected = selection.has(idKey);
+  const checkbox = itemElement.querySelector(checkboxSelector);
+
+  if (isSelected) {
+    selection.delete(idKey);
+    itemElement.classList.remove('selected');
+  } else {
+    selection.add(idKey);
+    itemElement.classList.add('selected');
+  }
+
+  if (checkbox) checkbox.checked = !isSelected;
+}
+
+function getSelectedClipObjectsByIds(ids, clips) {
+  return ids
+    .map(id => clips.find(c => getClipIdKey(c?.id) === id))
+    .filter(Boolean);
+}
+
 export function getSelectedClipIdsInUiOrder(app) {
-  if (!app.selectedChips || app.selectedChips.size === 0) return [];
-
-  const selected = new Set(Array.from(app.selectedChips).map(String));
-  const ordered = [];
-
-  const domChips = document.querySelectorAll('#chipContainer .chip');
-  if (domChips && domChips.length > 0) {
-    domChips.forEach(el => {
-      const id = el?.dataset?.clipId;
-      if (id && selected.has(id)) ordered.push(id);
-    });
-  }
-
-  if (ordered.length === 0) {
-    app.clips.forEach(c => {
-      const id = getClipIdKey(c?.id);
-      if (selected.has(id)) ordered.push(id);
-    });
-  }
-
-  return ordered;
+  return getOrderedSelectedIds(app.selectedChips, '#chipContainer .chip', getClipPool(app));
 }
 
 export function toggleChip(app, clipIdKey, chipElement) {
-  const checkbox = chipElement.querySelector('.chip-checkbox');
-  if (app.selectedChips.has(clipIdKey)) {
-    app.selectedChips.delete(clipIdKey);
-    chipElement.classList.remove('selected');
-    if (checkbox) checkbox.checked = false;
-  } else {
-    app.selectedChips.add(clipIdKey);
-    chipElement.classList.add('selected');
-    if (checkbox) checkbox.checked = true;
-  }
+  toggleSelection(app.selectedChips, clipIdKey, chipElement, '.chip-checkbox');
   app.syncOptionToggles();
   app.updatePreview();
 }
 
 export function toggleSearchClip(app, clipId, itemElement) {
-  const checkbox = itemElement.querySelector('.search-checkbox');
-  const idKey = getClipIdKey(clipId);
-  if (app.selectedSearchClips.has(idKey)) {
-    app.selectedSearchClips.delete(idKey);
-    itemElement.classList.remove('selected');
-    if (checkbox) checkbox.checked = false;
-  } else {
-    app.selectedSearchClips.add(idKey);
-    itemElement.classList.add('selected');
-    if (checkbox) checkbox.checked = true;
-  }
+  toggleSelection(app.selectedSearchClips, clipId, itemElement, '.search-checkbox');
   app.updatePreviewFromSearchSelection();
   app.updateSearchBulkActions();
 }
 
 export function toggleCategoryClip(app, clipId, itemElement) {
-  const checkbox = itemElement.querySelector('.category-checkbox');
-  const idKey = getClipIdKey(clipId);
-  if (app.selectedCategoryClips.has(idKey)) {
-    app.selectedCategoryClips.delete(idKey);
-    itemElement.classList.remove('selected');
-    if (checkbox) checkbox.checked = false;
-  } else {
-    app.selectedCategoryClips.add(idKey);
-    itemElement.classList.add('selected');
-    if (checkbox) checkbox.checked = true;
-  }
+  toggleSelection(app.selectedCategoryClips, clipId, itemElement, '.category-checkbox');
   app.updatePreviewFromSelection();
   app.updateCategoryBulkActions();
 }
@@ -100,9 +105,7 @@ export function getSelectedClipIdKeys(app) {
 
 export function getSelectedClipObjects(app) {
   const ids = getSelectedClipIdKeys(app);
-  return ids
-    .map(id => app.clips.find(c => getClipIdKey(c?.id) === id))
-    .filter(Boolean);
+  return getSelectedClipObjectsByIds(ids, getClipPool(app));
 }
 
 export function getSelectedCategoryClipIdKeys(app) {
@@ -113,58 +116,23 @@ export function getSelectedCategoryClipIdKeys(app) {
 export function getSelectedCategoryClipObjects(app) {
   const ids = getSelectedCategoryClipIdKeys(app);
   if (ids.length === 0) return [];
-  const pool = Array.isArray(app.clips) ? app.clips : [];
-  return ids
-    .map(id => pool.find(c => getClipIdKey(c?.id) === id))
-    .filter(Boolean);
+  return getSelectedClipObjectsByIds(ids, getClipPool(app));
 }
 
 export function getSelectedCategoryClipIdsInUiOrder(app) {
-  if (!app.selectedCategoryClips || app.selectedCategoryClips.size === 0) return [];
-
-  const selected = app.selectedCategoryClips;
-  const ordered = [];
-  const domClips = document.querySelectorAll('.category-item.expanded .category-clip');
-  if (domClips && domClips.length > 0) {
-    domClips.forEach(el => {
-      const id = getClipIdKey(el.dataset.clipId);
-      if (selected.has(id)) ordered.push(id);
-    });
-  }
-
-  if (ordered.length === 0) {
-    const allClips = [...app.clips, ...app.searchOnlyClips];
-    allClips.forEach(c => {
-      const id = getClipIdKey(c?.id);
-      if (selected.has(id)) ordered.push(id);
-    });
-  }
-
-  return ordered;
+  return getOrderedSelectedIds(
+    app.selectedCategoryClips,
+    '.category-item.expanded .category-clip',
+    getClipPool(app, true),
+  );
 }
 
 export function getSelectedSearchClipIdsInUiOrder(app) {
-  if (!app.selectedSearchClips || app.selectedSearchClips.size === 0) return [];
-
-  const selected = app.selectedSearchClips;
-  const ordered = [];
-  const domItems = document.querySelectorAll('#searchResults .search-result-item');
-  if (domItems && domItems.length > 0) {
-    domItems.forEach(el => {
-      const id = getClipIdKey(el.dataset.clipId);
-      if (selected.has(id)) ordered.push(id);
-    });
-  }
-
-  if (ordered.length === 0) {
-    const allClips = [...app.clips, ...app.searchOnlyClips];
-    allClips.forEach(c => {
-      const id = getClipIdKey(c?.id);
-      if (selected.has(id)) ordered.push(id);
-    });
-  }
-
-  return ordered;
+  return getOrderedSelectedIds(
+    app.selectedSearchClips,
+    '#searchResults .search-result-item',
+    getClipPool(app, true),
+  );
 }
 
 export function applyClipTextOptions(app, texts) {

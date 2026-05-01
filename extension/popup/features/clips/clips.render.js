@@ -7,6 +7,201 @@ import {
   getSelectedSearchClipIdsInUiOrder,
 } from './clips.state.js';
 
+function getPaginationItems(currentPage, totalPages) {
+  const items = [];
+  const startPage = Math.max(0, currentPage - 2);
+  const endPage = Math.min(totalPages - 1, currentPage + 2);
+
+  if (currentPage > 2) items.push({ type: 'page', page: 0 });
+  if (currentPage > 3) items.push({ type: 'ellipsis' });
+
+  for (let page = startPage; page <= endPage; page++) {
+    items.push({ type: 'page', page });
+  }
+
+  if (currentPage < totalPages - 4) items.push({ type: 'ellipsis' });
+  if (currentPage < totalPages - 3) items.push({ type: 'page', page: totalPages - 1 });
+
+  return items;
+}
+
+function renderPaginationItem(item, currentPage) {
+  if (item.type === 'ellipsis') return '<span class="pagination-ellipsis">...</span>';
+  const isActive = item.page === currentPage ? 'active' : '';
+  return `<button class="pagination-number ${isActive}" data-page="${item.page}">${item.page}</button>`;
+}
+
+function isNetworkLoadError(error) {
+  return error.message?.includes('network') || error.message?.includes('fetch') || !navigator.onLine;
+}
+
+function matchesQuery(app, clip) {
+  const query = app.searchQuery ? app.searchQuery.toLowerCase() : '';
+  if (!query) return true;
+  const text = String(clip.text || '').toLowerCase();
+  const title = getClipTitle(clip).toLowerCase();
+  return text.includes(query) || title.includes(query);
+}
+
+function matchesCategory(app, clip) {
+  return !app.selectedCategory || clip.category === app.selectedCategory;
+}
+
+function matchesDateFilter(app, clip) {
+  if (!app.selectedDateFilter) return true;
+
+  const clipDate = new Date(clip.timestamp);
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+  const filters = {
+    today: () => clipDate.toDateString() === now.toDateString(),
+    week: () => clipDate >= weekAgo,
+    month: () => clipDate >= monthAgo,
+  };
+
+  return filters[app.selectedDateFilter]?.() ?? true;
+}
+
+function shouldShowCloudSearchNotice(app) {
+  return app.totalArchivedCount > app.searchOnlyClips.length &&
+    app.tieredArchivedStore?.needsLazyLoading() &&
+    typeof pasteCraftSupabase !== 'undefined' &&
+    pasteCraftSupabase.isAuthenticated?.();
+}
+
+function hasSearchFilters(app) {
+  return Boolean(app.searchQuery || app.selectedCategory || app.selectedDateFilter);
+}
+
+function isValidPage(page, totalPages) {
+  return !Number.isNaN(page) && page >= 0 && page < totalPages;
+}
+
+function getObjectMeta(value) {
+  return value && typeof value === 'object' ? value : null;
+}
+
+function getMarkupBadge(text, meta) {
+  return window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(text, meta) : '';
+}
+
+function getMarkupPreview(text, meta, maxLength) {
+  return window.PCMarkup ? window.PCMarkup.renderMarkupPreview(text, meta, maxLength) : '';
+}
+
+function getChipTextContent(app, clip, meta) {
+  const preview = getMarkupPreview(clip.text, meta, 80);
+  if (preview) return `<span class="pc-chip-preview">${preview}</span>`;
+
+  const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
+  return app.escapeHtml(plainText);
+}
+
+function getChipViewModel(app, clip, index) {
+  const clipIdKey = getClipIdKey(clip?.id != null ? clip.id : index);
+  const clipTitle = getClipTitle(clip);
+  const clipMeta = getObjectMeta(clip.meta);
+
+  return {
+    clipIdKey,
+    clipCategory: clip.category || CLIPS_DEFAULTS.CATEGORY,
+    isSelected: app.selectedChips.has(clipIdKey),
+    timeAgo: app.getTimeAgo(clip.timestamp),
+    displayTitle: clipTitle || getClipFallbackTitle(clip, 42),
+    markupBadge: getMarkupBadge(clip.text, clipMeta),
+    chipTextContent: getChipTextContent(app, clip, clipMeta),
+  };
+}
+
+function appendChipCategoryIndicator(chip, category) {
+  if (category === CLIPS_DEFAULTS.CATEGORY) return;
+  const categoryIndicator = document.createElement('span');
+  categoryIndicator.className = 'chip-category-indicator';
+  categoryIndicator.style.cssText = `
+    font-size: 10px;
+    background: rgba(0,0,0,0.1);
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 4px;
+  `;
+  categoryIndicator.textContent = category;
+  chip.querySelector('.chip-text').appendChild(categoryIndicator);
+}
+
+function setBulkSelectionBar({ bar, countEl, copyBtnId, visible, count }) {
+  bar.style.display = visible ? 'flex' : 'none';
+  countEl.textContent = visible ? `${count} selected` : '';
+  if (!visible) document.getElementById(copyBtnId)?.classList.remove('success');
+}
+
+function getSearchResultViewModel(app, clip) {
+  const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
+  const clipTitle = getClipTitle(clip);
+  const sMeta = getObjectMeta(clip.meta);
+  const sPreview = getMarkupPreview(clip.text, sMeta, 200);
+  const searchTextContent = sPreview
+    ? `<div class="pc-search-preview" title="${app.escapeHtml(clip.text)}">${sPreview}</div>`
+    : `<div title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</div>`;
+
+  return {
+    isSelected: app.selectedSearchClips.has(getClipIdKey(clip.id)),
+    timeAgo: app.getTimeAgo(clip.timestamp),
+    displayTitle: clipTitle || getClipFallbackTitle(clip, 64),
+    sBadge: getMarkupBadge(clip.text, sMeta),
+    searchTextContent,
+  };
+}
+
+function getCategoryClipViewModel(app, clip) {
+  const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
+  const clipTitle = getClipTitle(clip);
+  const cMeta = getObjectMeta(clip.meta);
+  const cPreview = getMarkupPreview(clip.text, cMeta, 120);
+  const catTextContent = cPreview
+    ? `<div class="pc-cat-preview" title="${app.escapeHtml(clip.text)}">${cPreview}</div>`
+    : `<span title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</span>`;
+
+  return {
+    timeAgo: app.getTimeAgo(clip.timestamp),
+    isSelected: app.selectedCategoryClips.has(getClipIdKey(clip.id)),
+    displayTitle: clipTitle || getClipFallbackTitle(clip, 46),
+    cBadge: getMarkupBadge(clip.text, cMeta),
+    catTextContent,
+  };
+}
+
+async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
+  const actionHandlers = [
+    ['.chip-remove', () => app.removeChip(clipIdKey)],
+    ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
+    ['.chip-breakdown-btn', () => app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
+    ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
+    ['.chip-share-btn', () => app.showShareMenuForClip(clip)],
+    ['.chip-summary-btn', () => app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
+    ['.chip-notes-btn', async () => {
+      await app.loadNotes();
+      app.showAlbumPicker();
+      app.pendingClipForNotes = clip;
+    }],
+    ['.chip-category-btn', () => {
+      app.pendingText = clip.text;
+      app.pendingClipId = clipIdKey;
+      app.showCategoryModal(true);
+    }],
+  ];
+
+  const action = actionHandlers.find(([selector]) => event.target.closest(selector));
+  if (action) {
+    event.stopPropagation();
+    await action[1]();
+    return;
+  }
+
+  if (!event.target.classList.contains('chip-checkbox')) app.toggleChip(clipIdKey, chip);
+}
+
 export function renderChips(app) {
   const { chipContainer: container } = getClipElements();
   if (!container) return;
@@ -107,7 +302,7 @@ export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
     }
   } catch (e) {
     console.error('Failed to lazy load clips:', e);
-    const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
+    const isNetworkError = isNetworkLoadError(e);
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
@@ -142,29 +337,9 @@ export function renderPagination(app) {
     </button>
   `;
   paginationHTML += '<div class="pagination-numbers">';
-
-  if (app.currentPage > 2) {
-    paginationHTML += '<button class="pagination-number" data-page="0">0</button>';
-    if (app.currentPage > 3) {
-      paginationHTML += '<span class="pagination-ellipsis">...</span>';
-    }
-  }
-
-  const startPage = Math.max(0, app.currentPage - 2);
-  const endPage = Math.min(totalPages - 1, app.currentPage + 2);
-
-  for (let i = startPage; i <= endPage; i++) {
-    const isActive = i === app.currentPage ? 'active' : '';
-    paginationHTML += `<button class="pagination-number ${isActive}" data-page="${i}">${i}</button>`;
-  }
-
-  if (app.currentPage < totalPages - 3) {
-    if (app.currentPage < totalPages - 4) {
-      paginationHTML += '<span class="pagination-ellipsis">...</span>';
-    }
-    paginationHTML += `<button class="pagination-number" data-page="${totalPages - 1}">${totalPages - 1}</button>`;
-  }
-
+  paginationHTML += getPaginationItems(app.currentPage, totalPages)
+    .map(item => renderPaginationItem(item, app.currentPage))
+    .join('');
   paginationHTML += '</div>';
   paginationHTML += `
     <button class="pagination-btn pagination-next" ${app.currentPage >= totalPages - 1 ? 'disabled' : ''} data-page="${app.currentPage + 1}">
@@ -177,7 +352,7 @@ export function renderPagination(app) {
   paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const page = parseInt(e.target.dataset.page);
-      if (!isNaN(page) && page >= 0 && page < totalPages) {
+      if (isValidPage(page, totalPages)) {
         app.currentPage = page;
         app.renderChips();
       }
@@ -189,22 +364,16 @@ export function createChip(app, clip, index) {
   const chip = document.createElement('div');
   chip.className = 'chip animate-slide-in';
   chip.dataset.index = index;
-  const clipIdKey = getClipIdKey(clip?.id != null ? clip.id : index);
+  const {
+    clipIdKey,
+    clipCategory,
+    isSelected,
+    timeAgo,
+    displayTitle,
+    markupBadge,
+    chipTextContent,
+  } = getChipViewModel(app, clip, index);
   chip.dataset.clipId = clipIdKey;
-
-  const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
-  const timeAgo = app.getTimeAgo(clip.timestamp);
-  const clipTitle = getClipTitle(clip);
-  const displayTitle = clipTitle || getClipFallbackTitle(clip, 42);
-
-  const clipCategory = clip.category || CLIPS_DEFAULTS.CATEGORY;
-  const isSelected = app.selectedChips.has(clipIdKey);
-  const clipMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-  const markupBadge = window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(clip.text, clipMeta) : '';
-  const markupPreview = window.PCMarkup ? window.PCMarkup.renderMarkupPreview(clip.text, clipMeta, 80) : '';
-  const chipTextContent = markupPreview
-    ? `<span class="pc-chip-preview">${markupPreview}</span>`
-    : app.escapeHtml(plainText);
 
   chip.innerHTML = `
     <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
@@ -226,19 +395,7 @@ export function createChip(app, clip, index) {
     </div>
   `;
 
-  if (clipCategory !== CLIPS_DEFAULTS.CATEGORY) {
-    const categoryIndicator = document.createElement('span');
-    categoryIndicator.className = 'chip-category-indicator';
-    categoryIndicator.style.cssText = `
-      font-size: 10px;
-      background: rgba(0,0,0,0.1);
-      padding: 2px 6px;
-      border-radius: 8px;
-      margin-left: 4px;
-    `;
-    categoryIndicator.textContent = clipCategory;
-    chip.querySelector('.chip-text').appendChild(categoryIndicator);
-  }
+  appendChipCategoryIndicator(chip, clipCategory);
 
   if (isSelected) {
     chip.classList.add('selected');
@@ -251,51 +408,7 @@ export function createChip(app, clip, index) {
   });
 
   chip.addEventListener('click', (e) => {
-    const removeBtn = e.target.classList.contains('chip-remove') ? e.target : null;
-    const breakdownBtn = e.target.closest('.chip-breakdown-btn');
-    const openBtn = e.target.closest('.chip-open-btn');
-    const shareBtn = e.target.closest('.chip-share-btn');
-    const summaryBtn = e.target.closest('.chip-summary-btn');
-    const notesBtn = e.target.closest('.chip-notes-btn');
-    const categoryBtn = e.target.closest('.chip-category-btn');
-    const titleBtn = e.target.closest('.chip-title-btn');
-    const isCheckbox = e.target.classList.contains('chip-checkbox');
-
-    if (removeBtn) {
-      app.removeChip(clipIdKey);
-    } else if (titleBtn) {
-      e.stopPropagation();
-      app.promptEditClipTitle(clipIdKey);
-    } else if (breakdownBtn) {
-      e.stopPropagation();
-      const textToSend = app.getSelectedOrCurrentText(clip.text, 'clips');
-      app.showBreakdownModal(textToSend);
-    } else if (openBtn) {
-      e.stopPropagation();
-      if (typeof app.openClipViewer === 'function') {
-        app.openClipViewer(clip);
-      }
-    } else if (shareBtn) {
-      e.stopPropagation();
-      app.showShareMenuForClip(clip);
-    } else if (summaryBtn) {
-      e.stopPropagation();
-      const textToSend = app.getSelectedOrCurrentText(clip.text, 'clips');
-      app.showSummaryModal(textToSend);
-    } else if (notesBtn) {
-      e.stopPropagation();
-      app.loadNotes().then(() => {
-        app.showAlbumPicker();
-        app.pendingClipForNotes = clip;
-      });
-    } else if (categoryBtn) {
-      e.stopPropagation();
-      app.pendingText = clip.text;
-      app.pendingClipId = clipIdKey;
-      app.showCategoryModal(true);
-    } else if (!isCheckbox) {
-      app.toggleChip(clipIdKey, chip);
-    }
+    void handleChipAction({ app, clip, clipIdKey, chip, event: e });
   });
 
   return chip;
@@ -353,16 +466,13 @@ export function updateCategoryBulkActions(app) {
 
   const count = app.selectedCategoryClips ? app.selectedCategoryClips.size : 0;
   const isCategoriesTab = app.currentTab === 'categories';
-
-  if (isCategoriesTab && count > 0) {
-    bar.style.display = 'flex';
-    countEl.textContent = `${count} selected`;
-  } else {
-    bar.style.display = 'none';
-    countEl.textContent = '';
-    const copyBtn = document.getElementById('categoryBulkCopyBtn');
-    if (copyBtn) copyBtn.classList.remove('success');
-  }
+  setBulkSelectionBar({
+    bar,
+    countEl,
+    copyBtnId: 'categoryBulkCopyBtn',
+    visible: isCategoriesTab && count > 0,
+    count,
+  });
 
   if (aiBar) {
     aiBar.style.display = (isCategoriesTab && count > 1) ? 'flex' : 'none';
@@ -391,7 +501,7 @@ export function renderSearchResults(app) {
   const { searchResults: container } = getClipElements();
   if (!container) return;
 
-  if (!app.searchQuery && !app.selectedCategory && !app.selectedDateFilter) {
+  if (!hasSearchFilters(app)) {
     container.innerHTML = `
       <div class="empty-search">
         <div class="empty-search-icon"><i data-lucide="search"></i></div>
@@ -423,9 +533,7 @@ export function renderSearchResults(app) {
     container.appendChild(resultItem);
   });
 
-  if (app.totalArchivedCount > app.searchOnlyClips.length &&
-      app.tieredArchivedStore?.needsLazyLoading() &&
-      typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+  if (shouldShowCloudSearchNotice(app)) {
     const cloudNotice = document.createElement('div');
     cloudNotice.className = 'cloud-search-notice';
     cloudNotice.innerHTML = `
@@ -442,40 +550,7 @@ export function renderSearchResults(app) {
 
 export function filterClips(app) {
   const allClips = [...app.clips, ...app.searchOnlyClips];
-
-  return allClips.filter(clip => {
-    const query = app.searchQuery ? app.searchQuery.toLowerCase() : '';
-    const title = getClipTitle(clip).toLowerCase();
-    if (query && !clip.text.toLowerCase().includes(query) && !title.includes(query)) {
-      return false;
-    }
-
-    if (app.selectedCategory && clip.category !== app.selectedCategory) {
-      return false;
-    }
-
-    if (app.selectedDateFilter) {
-      const clipDate = new Date(clip.timestamp);
-      const now = new Date();
-      switch (app.selectedDateFilter) {
-        case 'today':
-          if (clipDate.toDateString() !== now.toDateString()) return false;
-          break;
-        case 'week': {
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          if (clipDate < weekAgo) return false;
-          break;
-        }
-        case 'month': {
-          const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-          if (clipDate < monthAgo) return false;
-          break;
-        }
-      }
-    }
-
-    return true;
-  });
+  return allClips.filter(clip => matchesQuery(app, clip) && matchesCategory(app, clip) && matchesDateFilter(app, clip));
 }
 
 export function createSearchResultItem(app, clip) {
@@ -483,19 +558,14 @@ export function createSearchResultItem(app, clip) {
   item.className = 'search-result-item';
   item.dataset.clipId = clip.id;
 
-  const isSelected = app.selectedSearchClips.has(getClipIdKey(clip.id));
+  const {
+    isSelected,
+    timeAgo,
+    displayTitle,
+    sBadge,
+    searchTextContent,
+  } = getSearchResultViewModel(app, clip);
   if (isSelected) item.classList.add('selected');
-
-  const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
-  const timeAgo = app.getTimeAgo(clip.timestamp);
-  const clipTitle = getClipTitle(clip);
-  const displayTitle = clipTitle || getClipFallbackTitle(clip, 64);
-  const sMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-  const sBadge = window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
-  const sPreview = window.PCMarkup ? window.PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
-  const searchTextContent = sPreview
-    ? `<div class="pc-search-preview" title="${app.escapeHtml(clip.text)}">${sPreview}</div>`
-    : `<div title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</div>`;
 
   item.innerHTML = `
     <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
@@ -576,17 +646,13 @@ export function createCategoryClipsHTML(app, clips) {
   }
 
   return clips.map(clip => {
-    const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
-    const timeAgo = app.getTimeAgo(clip.timestamp);
-    const isSelected = app.selectedCategoryClips.has(getClipIdKey(clip.id));
-    const clipTitle = getClipTitle(clip);
-    const displayTitle = clipTitle || getClipFallbackTitle(clip, 46);
-    const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const cBadge = window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
-    const cPreview = window.PCMarkup ? window.PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
-    const catTextContent = cPreview
-      ? `<div class="pc-cat-preview" title="${app.escapeHtml(clip.text)}">${cPreview}</div>`
-      : `<span title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</span>`;
+    const {
+      timeAgo,
+      isSelected,
+      displayTitle,
+      cBadge,
+      catTextContent,
+    } = getCategoryClipViewModel(app, clip);
 
     const html = `
       <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}" title="${app.escapeHtml(clip.text)}">
