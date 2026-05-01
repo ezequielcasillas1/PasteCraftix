@@ -1,6 +1,11 @@
 import { CLIPS_DEFAULTS } from './clips.constants.js';
 import { getClipElements } from './clips.selectors.js';
-import { getClipFallbackTitle, getClipIdKey, getClipTitle } from './clips.state.js';
+import {
+  getClipFallbackTitle,
+  getClipIdKey,
+  getClipTitle,
+  getSelectedSearchClipIdsInUiOrder,
+} from './clips.state.js';
 
 export function renderChips(app) {
   const { chipContainer: container } = getClipElements();
@@ -340,6 +345,48 @@ export function updateQuickCopyButton(app) {
   }
 }
 
+export function updateCategoryBulkActions(app) {
+  const bar = document.getElementById('categoryBulkActions');
+  const countEl = document.getElementById('categoryBulkCount');
+  const aiBar = document.getElementById('categoriesBulkAiActions');
+  if (!bar || !countEl) return;
+
+  const count = app.selectedCategoryClips ? app.selectedCategoryClips.size : 0;
+  const isCategoriesTab = app.currentTab === 'categories';
+
+  if (isCategoriesTab && count > 0) {
+    bar.style.display = 'flex';
+    countEl.textContent = `${count} selected`;
+  } else {
+    bar.style.display = 'none';
+    countEl.textContent = '';
+    const copyBtn = document.getElementById('categoryBulkCopyBtn');
+    if (copyBtn) copyBtn.classList.remove('success');
+  }
+
+  if (aiBar) {
+    aiBar.style.display = (isCategoriesTab && count > 1) ? 'flex' : 'none';
+  }
+}
+
+export function updateSearchBulkActions(app) {
+  const bar = document.getElementById('searchBulkActions');
+  const countEl = document.getElementById('searchBulkCount');
+  if (!bar || !countEl) return;
+
+  const visibleSelectedCount = getSelectedSearchClipIdsInUiOrder(app).length;
+
+  if (app.currentTab === 'search' && visibleSelectedCount > 1) {
+    bar.style.display = 'flex';
+    countEl.textContent = `${visibleSelectedCount} selected`;
+  } else {
+    bar.style.display = 'none';
+    countEl.textContent = '';
+    const copyBtn = document.getElementById('searchBulkCopyBtn');
+    if (copyBtn) copyBtn.classList.remove('success');
+  }
+}
+
 export function renderSearchResults(app) {
   const { searchResults: container } = getClipElements();
   if (!container) return;
@@ -447,8 +494,8 @@ export function createSearchResultItem(app, clip) {
   const sBadge = window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
   const sPreview = window.PCMarkup ? window.PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
   const searchTextContent = sPreview
-    ? `<div class="pc-search-preview">${sPreview}</div>`
-    : `<div>${app.escapeHtml(truncatedText)}</div>`;
+    ? `<div class="pc-search-preview" title="${app.escapeHtml(clip.text)}">${sPreview}</div>`
+    : `<div title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</div>`;
 
   item.innerHTML = `
     <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
@@ -521,4 +568,48 @@ export function createSearchResultItem(app, clip) {
   });
 
   return item;
+}
+
+export function createCategoryClipsHTML(app, clips) {
+  if (clips.length === 0) {
+    return '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>';
+  }
+
+  return clips.map(clip => {
+    const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
+    const timeAgo = app.getTimeAgo(clip.timestamp);
+    const isSelected = app.selectedCategoryClips.has(getClipIdKey(clip.id));
+    const clipTitle = getClipTitle(clip);
+    const displayTitle = clipTitle || getClipFallbackTitle(clip, 46);
+    const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
+    const cBadge = window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
+    const cPreview = window.PCMarkup ? window.PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
+    const catTextContent = cPreview
+      ? `<div class="pc-cat-preview" title="${app.escapeHtml(clip.text)}">${cPreview}</div>`
+      : `<span title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</span>`;
+
+    const html = `
+      <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}" title="${app.escapeHtml(clip.text)}">
+        <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
+        <div class="category-clip-content">
+          <div class="category-clip-text pc-clip-title-stack">
+            <div class="pc-clip-title" title="${app.escapeHtml(displayTitle)}">${app.escapeHtml(displayTitle)}</div>
+            <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
+          </div>
+          <div class="category-clip-time">${timeAgo}</div>
+        </div>
+        <div class="category-clip-actions">
+          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil"></i></button>
+          <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
+          <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
+          <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
+          <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
+          <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
+          <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy"><i data-lucide="clipboard"></i></button>
+        </div>
+      </div>
+    `;
+    console.log(`🏗️ Creating category clip with ID: ${clip.id} (type: ${typeof clip.id})`);
+    return html;
+  }).join('');
 }

@@ -9080,47 +9080,7 @@ class PasteCraftPopup {
 
   // Category Dropdown Functions
   createCategoryClipsHTML(clips, categoryId) {
-    if (clips.length === 0) {
-      return '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>';
-    }
-
-    return clips.map(clip => {
-      const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
-      const timeAgo = this.getTimeAgo(clip.timestamp);
-      const isSelected = this.selectedCategoryClips.has(this._clipIdKey(clip.id));
-      const clipTitle = this._clipTitle(clip);
-      const displayTitle = clipTitle || this._clipFallbackTitle(clip, 46);
-      const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-      const cBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
-      const cPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
-      const catTextContent = cPreview
-        ? `<div class="pc-cat-preview">${cPreview}</div>`
-        : this.escapeHtml(truncatedText);
-      
-      const html = `
-        <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}">
-          <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
-          <div class="category-clip-content">
-            <div class="category-clip-text pc-clip-title-stack">
-              <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
-              <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
-            </div>
-            <div class="category-clip-time">${timeAgo}</div>
-          </div>
-          <div class="category-clip-actions">
-            <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil"></i></button>
-            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
-            <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
-            <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
-            <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-            <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-            <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy"><i data-lucide="clipboard"></i></button>
-          </div>
-        </div>
-      `;
-      console.log(`🏗️ Creating category clip with ID: ${clip.id} (type: ${typeof clip.id})`);
-      return html;
-    }).join('');
+    return this.clipsFeature.render.createCategoryClipsHTML(this, clips, categoryId);
   }
 
   toggleCategoryDropdown(categoryItem, category) {
@@ -9178,89 +9138,7 @@ class PasteCraftPopup {
    * from `setupEventListeners()` don't stack listeners.
    */
   setupCategoryClipDelegation() {
-    if (this._categoryClipDelegationAttached) return;
-    const container = document.getElementById('categoriesList');
-    if (!container) return;
-
-    container.addEventListener('click', async (e) => {
-      const row = e.target.closest('.category-clip');
-      if (!row || !container.contains(row)) return;
-
-      const clipIdKey = this._clipIdKey(row.dataset.clipId);
-      if (!clipIdKey) return;
-
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      const clip = allClips.find((c) => this._clipIdKey(c?.id) === clipIdKey);
-
-      const breakdownBtn = e.target.closest('.category-clip-breakdown-btn');
-      const openBtn     = e.target.closest('.category-clip-open-btn');
-      const shareBtn    = e.target.closest('.category-clip-share-btn');
-      const summaryBtn  = e.target.closest('.category-clip-summary-btn');
-      const notesBtn    = e.target.closest('.category-clip-notes-btn');
-      const copyBtn     = e.target.closest('.category-clip-copy-btn');
-      const titleBtn    = e.target.closest('.category-clip-title-btn');
-      const checkbox    = e.target.classList && e.target.classList.contains('category-checkbox')
-        ? e.target
-        : null;
-
-      if (titleBtn) {
-        e.stopPropagation();
-        this.promptEditClipTitle(clipIdKey);
-        return;
-      }
-      if (breakdownBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-        this.showBreakdownModal(textToSend);
-        return;
-      }
-      if (openBtn) {
-        e.stopPropagation();
-        if (clip && typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-        return;
-      }
-      if (shareBtn) {
-        e.stopPropagation();
-        if (clip) this.showShareMenuForClip(clip);
-        return;
-      }
-      if (summaryBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-        this.showSummaryModal(textToSend);
-        return;
-      }
-      if (notesBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        await this.loadNotes();
-        this.showAlbumPicker();
-        this.pendingClipForNotes = clip;
-        return;
-      }
-      if (copyBtn) {
-        e.stopPropagation();
-        if (clip) this.copyClipToClipboard(clip.text);
-        return;
-      }
-      if (checkbox) {
-        e.stopPropagation();
-        this.toggleCategoryClip(clipIdKey, row);
-        return;
-      }
-
-      // Bare row click (no button, no checkbox) = toggle selection
-      if (!e.target.closest('.category-clip-actions')) {
-        e.stopPropagation();
-        this.toggleCategoryClip(clipIdKey, row);
-      }
-    });
-
-    this._categoryClipDelegationAttached = true;
+    return this.clipsFeature.events.setupCategoryClipDelegation(this);
   }
 
   toggleClipSelection(clipElement, category) {
@@ -9435,299 +9313,39 @@ class PasteCraftPopup {
   }
 
   updatePreviewFromSelection() {
-    console.log('🔄 Updating preview from selection:', this.selectedCategoryClips?.size || 0, 'clips selected');
-    
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) {
-      // Don't wipe user edits when nothing is selected
-      if (!this.previewIsManual && this.previewLastAutoValue) {
-        document.getElementById('previewArea').value = '';
-        this.previewLastAutoValue = '';
-      }
-      console.log('📄 Preview cleared - no clips selected');
-      this.updateCategoryBulkActions();
-      return;
-    }
-
-    // Get selected clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    console.log('🔍 All clips available:', allClips.map(c => ({id: c.id, text: c.text.substring(0, 20)})));
-    console.log('🎯 Selected clip IDs:', Array.from(this.selectedCategoryClips));
-
-    // Preserve CURRENT UI ORDER (DOM order in expanded category dropdowns)
-    const orderedSelectedIds = this.getSelectedCategoryClipIdsInUiOrder();
-    const selectedClips = orderedSelectedIds
-      .map((clipId) => {
-        const found = allClips.find(clip => clip.id === clipId);
-        console.log(`🔎 Looking for clip ${clipId} (${typeof clipId}), found:`, found ? found.text.substring(0, 20) : 'NOT FOUND');
-        return found;
-      })
-      .filter(Boolean);
-
-    console.log('📋 Found selected clips:', selectedClips.length);
-
-    // Apply formatting
-    let processedTexts = selectedClips.map(clip => clip.text);
-    
-    // Apply transformations
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-      console.log('🔄 Applied deduplication');
-    }
-    
-    if (this.options.sort) {
-      processedTexts.sort();
-      console.log('⬆️ Applied sorting');
-    }
-    
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(text => text.toUpperCase());
-      console.log('🔤 Applied uppercase');
-    }
-
-    // Apply delimiter
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    
-    const delimiter = delimiters[this.delimiter] || delimiters.comma;
-    const formattedText = processedTexts.join(delimiter);
-    
-    document.getElementById('previewArea').value = formattedText;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = formattedText;
-    console.log('✅ Preview updated with formatted text:', formattedText.substring(0, 50) + '...');
-    this.updateCategoryBulkActions();
+    return this.clipsFeature.state.updatePreviewFromSelection(this);
   }
 
   getSelectedCategoryClipIdsInUiOrder() {
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return [];
-
-    const selected = this.selectedCategoryClips;
-    const ordered = [];
-
-    // Prefer DOM order of expanded dropdowns (true UI order)
-    const domClips = document.querySelectorAll('.category-item.expanded .category-clip');
-    if (domClips && domClips.length > 0) {
-      domClips.forEach(el => {
-        const id = this._clipIdKey(el.dataset.clipId);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: stable data order from storage if DOM not available
-    if (ordered.length === 0) {
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      allClips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedCategoryClipIdsInUiOrder(this);
   }
 
   updateCategoryBulkActions() {
-    const bar = document.getElementById('categoryBulkActions');
-    const countEl = document.getElementById('categoryBulkCount');
-    const aiBar = document.getElementById('categoriesBulkAiActions');
-    if (!bar || !countEl) return;
-
-    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
-    const isCategoriesTab = this.currentTab === 'categories';
-
-    if (isCategoriesTab && count > 0) {
-      bar.style.display = 'flex';
-      countEl.textContent = `${count} selected`;
-    } else {
-      bar.style.display = 'none';
-      countEl.textContent = '';
-      const copyBtn = document.getElementById('categoryBulkCopyBtn');
-      if (copyBtn) copyBtn.classList.remove('success');
-    }
-
-    if (aiBar) {
-      aiBar.style.display = (isCategoriesTab && count > 1) ? 'flex' : 'none';
-    }
+    return this.clipsFeature.render.updateCategoryBulkActions(this);
   }
 
   async handleCategoryBulkCopy() {
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return;
-
-    // Ensure preview matches selection + UI order + delimiter/options
-    this.updatePreviewFromSelection();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? previewArea.value : '';
-    if (!textToCopy) return;
-
-    const copyBtn = document.getElementById('categoryBulkCopyBtn');
-    const originalText = copyBtn ? copyBtn.textContent : 'copy';
-
-    try {
-      await this.copyToClipboardFallback(textToCopy);
-      if (copyBtn) {
-        copyBtn.textContent = 'copied ✓';
-        copyBtn.classList.add('success');
-      }
-      setTimeout(() => {
-        if (copyBtn) {
-          copyBtn.textContent = originalText;
-          copyBtn.classList.remove('success');
-        }
-      }, 1400);
-    } catch (error) {
-      console.error('❌ Category bulk copy failed:', error);
-      if (copyBtn) {
-        copyBtn.textContent = 'failed';
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-        }, 1400);
-      }
-    }
+    return this.clipsFeature.service.handleCategoryBulkCopy(this);
   }
 
   async handleCategoryBulkDelete() {
-    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
-    if (count === 0) return;
-
-    if (!confirm(`Delete ${count} selected clip${count === 1 ? '' : 's'}?`)) return;
-
-    const ids = Array.from(this.selectedCategoryClips || []).map(id => this._clipIdKey(id));
-    const result = await this.deleteClipsByIdKeys(ids, {
-      includeArchived: true,
-      reason: 'delete:handleCategoryBulkDelete',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
-
-    const previewArea = document.getElementById('previewArea');
-    if (previewArea) previewArea.value = '';
-    this.previewIsManual = false;
-    this.previewLastAutoValue = '';
-
-    this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+    return this.clipsFeature.service.handleCategoryBulkDelete(this);
   }
 
   getSelectedSearchClipIdsInUiOrder() {
-    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return [];
-
-    const selected = this.selectedSearchClips;
-    const ordered = [];
-
-    // UI order = DOM order of current search results
-    const domItems = document.querySelectorAll('#searchResults .search-result-item');
-    if (domItems && domItems.length > 0) {
-      domItems.forEach(el => {
-        const id = this._clipIdKey(el.dataset.clipId);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: storage order
-    if (ordered.length === 0) {
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      allClips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedSearchClipIdsInUiOrder(this);
   }
 
   updatePreviewFromSearchSelection() {
-    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return;
-
-    const previewArea = document.getElementById('previewArea');
-    if (!previewArea) return;
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
-    const selectedClips = orderedIds.map(id => allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(id))).filter(Boolean);
-
-    if (selectedClips.length === 0) return;
-
-    let processedTexts = selectedClips.map(c => c.text);
-
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-    }
-    if (this.options.sort) {
-      processedTexts.sort();
-    }
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(t => t.toUpperCase());
-    }
-
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    const delimiter = delimiters[this.delimiter] || delimiters.comma;
-    const formattedText = processedTexts.join(delimiter);
-
-    previewArea.value = formattedText;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = formattedText;
+    return this.clipsFeature.state.updatePreviewFromSearchSelection(this);
   }
 
   updateSearchBulkActions() {
-    const bar = document.getElementById('searchBulkActions');
-    const countEl = document.getElementById('searchBulkCount');
-    if (!bar || !countEl) return;
-
-    const visibleSelectedCount = this.getSelectedSearchClipIdsInUiOrder().length;
-
-    if (this.currentTab === 'search' && visibleSelectedCount > 1) {
-      bar.style.display = 'flex';
-      countEl.textContent = `${visibleSelectedCount} selected`;
-    } else {
-      bar.style.display = 'none';
-      countEl.textContent = '';
-      const copyBtn = document.getElementById('searchBulkCopyBtn');
-      if (copyBtn) copyBtn.classList.remove('success');
-    }
+    return this.clipsFeature.render.updateSearchBulkActions(this);
   }
 
   async handleSearchBulkCopy() {
-    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
-    if (orderedIds.length <= 1) return; // only show/copy for 2+
-
-    // Ensure preview matches current selection + options + delimiter
-    this.updatePreviewFromSearchSelection();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? previewArea.value : '';
-    if (!textToCopy) return;
-
-    const copyBtn = document.getElementById('searchBulkCopyBtn');
-    const originalText = copyBtn ? copyBtn.textContent : 'copy';
-
-    try {
-      await this.copyToClipboardFallback(textToCopy);
-      if (copyBtn) {
-        copyBtn.textContent = 'copied ✓';
-        copyBtn.classList.add('success');
-      }
-      setTimeout(() => {
-        if (copyBtn) {
-          copyBtn.textContent = originalText;
-          copyBtn.classList.remove('success');
-        }
-      }, 1400);
-    } catch (error) {
-      console.error('❌ Search bulk copy failed:', error);
-      if (copyBtn) {
-        copyBtn.textContent = 'failed';
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-        }, 1400);
-      }
-    }
+    return this.clipsFeature.service.handleSearchBulkCopy(this);
   }
 
   // Search-Only Storage Management

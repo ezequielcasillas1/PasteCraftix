@@ -405,3 +405,8 @@
 **Status:** SUCCESS
 **Files:** extension/popup.js, extension/popup/features/clips/*
 **Result:** Extracted Clips constants, selectors, render, events, state, and service modules. User verified Clips page functionality works.
+
+### May 1, 2026 - Clips Category/Search Refactor
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup/features/clips/*
+**Result:** Moved category dropdown, delegated events, selection previews, and bulk actions into Clips modules. Fixed tooltip regression and user verified success.

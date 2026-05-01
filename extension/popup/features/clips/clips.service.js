@@ -1,5 +1,9 @@
 import { CLIPS_STORAGE_KEYS, CLIPS_SYNC_QUEUE_KEYS } from './clips.constants.js';
-import { getClipIdKey, queueClipOp } from './clips.state.js';
+import {
+  getClipIdKey,
+  getSelectedSearchClipIdsInUiOrder,
+  queueClipOp,
+} from './clips.state.js';
 
 export async function deleteClipsByIdKeys(app, idKeys, {
   includeArchived = true,
@@ -245,6 +249,96 @@ export async function handleQuickDelete(app) {
     rerender: true,
   });
   app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+}
+
+export async function handleCategoryBulkCopy(app) {
+  if (!app.selectedCategoryClips || app.selectedCategoryClips.size === 0) return;
+
+  app.updatePreviewFromSelection();
+  const previewArea = document.getElementById('previewArea');
+  const textToCopy = previewArea ? previewArea.value : '';
+  if (!textToCopy) return;
+
+  const copyBtn = document.getElementById('categoryBulkCopyBtn');
+  const originalText = copyBtn ? copyBtn.textContent : 'copy';
+
+  try {
+    await copyToClipboardFallback(textToCopy);
+    if (copyBtn) {
+      copyBtn.textContent = 'copied ✓';
+      copyBtn.classList.add('success');
+    }
+    setTimeout(() => {
+      if (copyBtn) {
+        copyBtn.textContent = originalText;
+        copyBtn.classList.remove('success');
+      }
+    }, 1400);
+  } catch (error) {
+    console.error('❌ Category bulk copy failed:', error);
+    if (copyBtn) {
+      copyBtn.textContent = 'failed';
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+      }, 1400);
+    }
+  }
+}
+
+export async function handleCategoryBulkDelete(app) {
+  const count = app.selectedCategoryClips ? app.selectedCategoryClips.size : 0;
+  if (count === 0) return;
+  if (!confirm(`Delete ${count} selected clip${count === 1 ? '' : 's'}?`)) return;
+
+  const ids = Array.from(app.selectedCategoryClips || []).map(id => getClipIdKey(id));
+  const result = await deleteClipsByIdKeys(app, ids, {
+    includeArchived: true,
+    reason: 'delete:handleCategoryBulkDelete',
+    closeCategoryModal: false,
+    clearSelection: true,
+    rerender: true,
+  });
+
+  const previewArea = document.getElementById('previewArea');
+  if (previewArea) previewArea.value = '';
+  app.previewIsManual = false;
+  app.previewLastAutoValue = '';
+  app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+}
+
+export async function handleSearchBulkCopy(app) {
+  const orderedIds = getSelectedSearchClipIdsInUiOrder(app);
+  if (orderedIds.length <= 1) return;
+
+  app.updatePreviewFromSearchSelection();
+  const previewArea = document.getElementById('previewArea');
+  const textToCopy = previewArea ? previewArea.value : '';
+  if (!textToCopy) return;
+
+  const copyBtn = document.getElementById('searchBulkCopyBtn');
+  const originalText = copyBtn ? copyBtn.textContent : 'copy';
+
+  try {
+    await copyToClipboardFallback(textToCopy);
+    if (copyBtn) {
+      copyBtn.textContent = 'copied ✓';
+      copyBtn.classList.add('success');
+    }
+    setTimeout(() => {
+      if (copyBtn) {
+        copyBtn.textContent = originalText;
+        copyBtn.classList.remove('success');
+      }
+    }, 1400);
+  } catch (error) {
+    console.error('❌ Search bulk copy failed:', error);
+    if (copyBtn) {
+      copyBtn.textContent = 'failed';
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+      }, 1400);
+    }
+  }
 }
 
 export async function removeChip(app, clipIdKey) {
