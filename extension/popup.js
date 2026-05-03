@@ -989,7 +989,7 @@ class PasteCraftPopup {
   }
 
   _categoryIdKey(category) {
-    return String(category?.id ?? category?.createdAt ?? category?.name ?? '');
+    return this.categoriesFeature.state.getCategoryIdKey(category);
   }
 
   _queueClipOp(fn) {
@@ -1056,9 +1056,17 @@ class PasteCraftPopup {
     return this.clipsFeature;
   }
 
+  async _initializeCategoriesFeature() {
+    if (this.categoriesFeature) return this.categoriesFeature;
+    const { initCategoriesFeature } = await import('./popup/features/categories/categories.controller.js');
+    this.categoriesFeature = initCategoriesFeature(this);
+    return this.categoriesFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
+    await this._initializeCategoriesFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -2996,51 +3004,7 @@ class PasteCraftPopup {
     }
 
     // Category modal events
-    document.getElementById('closeCategoryModal').addEventListener('click', () => {
-      this.hideCategoryModal();
-    });
-
-    document.getElementById('cancelCategorization').addEventListener('click', () => {
-      this.hideCategoryModal();
-    });
-
-    document.getElementById('createNewCategory').addEventListener('click', () => {
-      this.showCreateCategoryFromModal();
-    });
-
-    document.getElementById('categoryOptions').addEventListener('click', (e) => {
-      // Check if delete button was clicked
-      const deleteBtn = e.target.closest('.category-delete-btn');
-      if (deleteBtn) {
-        e.stopPropagation();
-        this.handleClipDelete();
-        return;
-      }
-      
-      const option = e.target.closest('.category-option');
-      if (option && !option.classList.contains('category-full')) {
-        document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
-        option.classList.add('selected');
-        this.selectedCategoryForSave = option.dataset.category;
-        
-        // Enable the Add button
-        document.getElementById('addToCategory').disabled = false;
-      } else if (option && option.classList.contains('category-full')) {
-        // Show feedback for full categories
-        this.showToast('This category is full (150 clips max). Remove some clips first.');
-      }
-    });
-
-    document.getElementById('addToCategory').addEventListener('click', () => {
-      this.saveTextWithCategory();
-    });
-
-    // Modal overlay click to close
-    document.getElementById('categoryModal').addEventListener('click', (e) => {
-      if (e.target.id === 'categoryModal') {
-        this.hideCategoryModal();
-      }
-    });
+    this.categoriesFeature.events.registerCategoryModalEvents(this);
 
     // Profile modal events
     document.getElementById('profileBtn').addEventListener('click', () => {
@@ -6454,96 +6418,15 @@ class PasteCraftPopup {
 
   // Category Management Functions
   renderCategories() {
-    const container = document.getElementById('categoriesList');
-    
-    if (this.categories.length === 0) {
-      container.innerHTML = `
-        <div class="empty-categories">
-          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
-          <h3>No categories yet</h3>
-          <p>Create your first category to organize clips</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    // Newest categories first (top of list)
-    const categoriesSorted = [...this.categories].sort((a, b) => {
-      const aTs = Number(a?.created ?? a?.id ?? 0);
-      const bTs = Number(b?.created ?? b?.id ?? 0);
-      return bTs - aTs;
-    });
-
-    categoriesSorted.forEach(category => {
-      const categoryItem = this.createCategoryItem(category);
-      container.appendChild(categoryItem);
-    });
+    return this.categoriesFeature.render.renderCategories(this);
   }
 
   createCategoryItem(category) {
-    const item = document.createElement('div');
-    const categoryIdKey = this._categoryIdKey(category);
-    const isExpanded = this.expandedCategoryIds?.has(categoryIdKey);
-    item.className = `category-item${isExpanded ? ' expanded' : ''}`;
-    item.dataset.categoryId = categoryIdKey;
-
-    // Get clips in this category (from both active and archived)
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const clipsInCategory = allClips.filter(clip => clip.category === category.name);
-    const clipCount = clipsInCategory.length;
-    
-    console.log(`📊 Category "${category.name}" has ${clipCount} clips`);
-
-    item.innerHTML = `
-      <div class="category-header">
-        <div class="category-info">
-          <div class="category-icon">${category.icon}</div>
-          <div class="category-details">
-            <h4>${this.escapeHtml(category.name)}</h4>
-            <p>${clipCount}/150 clips</p>
-          </div>
-        </div>
-        <div class="category-header-actions">
-          <button class="category-btn edit-category" data-action="edit" title="Edit category">✏️</button>
-          <button class="category-btn delete-category" data-action="delete" title="Delete category"><i data-lucide="trash-2"></i></button>
-          <span class="category-expand-icon">▶</span>
-        </div>
-      </div>
-      <div class="category-dropdown${isExpanded ? ' expanded' : ''}" id="dropdown-${category.id}">
-        ${this.createCategoryClipsHTML(clipsInCategory, category.id)}
-      </div>
-    `;
-
-    // Add click handler for expand/collapse
-    const header = item.querySelector('.category-header');
-    header.addEventListener('click', (e) => {
-      // Don't trigger if clicking on action buttons
-      if (e.target.closest('.category-header-actions button')) return;
-      
-      this.toggleCategoryDropdown(item, category);
-    });
-
-    // Add event listeners for category actions
-    item.querySelector('.edit-category').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.editCategory(category);
-    });
-
-    item.querySelector('.delete-category').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.deleteCategory(category);
-    });
-
-    return item;
+    return this.categoriesFeature.render.createCategoryItem(this, category);
   }
 
   showCreateCategoryDialog() {
-    const name = prompt('Enter category name:');
-    if (name && name.trim()) {
-      const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon, { originButtonId: 'createCategoryBtn' });
-    }
+    return this.categoriesFeature.render.showCreateCategoryDialog(this);
   }
 
   setActionButtonLoading(buttonId, isLoading, loadingText = 'Loading...') {
@@ -6565,285 +6448,23 @@ class PasteCraftPopup {
   }
 
   async createCategory(name, icon, options = {}) {
-    const originButtonId = options?.originButtonId || null;
-    this.setActionButtonLoading(originButtonId, true, 'Creating...');
-
-    const now = Date.now();
-    const category = {
-      id: Date.now(),
-      name: String(name || '').trim(),
-      icon: String(icon || '📁'),
-      createdAt: now,
-      updatedAt: now
-    };
-
-    return await PasteCraftCRUD.createOperation({
-      entity: category,
-      stateGetter: () => ({ categories: this.categories }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-      },
-      stateKeys: ['categories'],
-      validator: (entity, state) => {
-        if (!entity.name || entity.name.length === 0) {
-          return { valid: false, error: 'Category name is required' };
-        }
-        const duplicate = Array.isArray(state.categories) && 
-          state.categories.some(cat => cat.name.toLowerCase() === entity.name.toLowerCase());
-        return { valid: !duplicate, error: duplicate ? 'Category already exists' : null };
-      },
-      duplicateCheck: (entity, state) => {
-        return Array.isArray(state.categories) && 
-          state.categories.some(cat => cat.name.toLowerCase() === entity.name.toLowerCase());
-      },
-      storageKeys: ['categories'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
-      },
-      addToArray: (items, entity) => {
-        return [...items, entity];
-      },
-      verifier: async (entity) => {
-        const verification = await chrome.storage.local.get(['categories']);
-        const categories = Array.isArray(verification.categories) ? verification.categories : [];
-        return categories.some(cat => cat.id === entity.id);
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        const categoryModal = document.getElementById('categoryModal');
-        if (categoryModal && categoryModal.style.display === 'flex') {
-          this.populateCategoryOptions();
-        }
-        this.setActionButtonLoading(originButtonId, false);
-      },
-      backgroundSync: async (entity) => {
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-      },
-      successMessage: (entity) => `✅ Category "${entity.name}" created`,
-      errorMessage: (error) => `❌ Failed to create category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => {
-        this.showToast(msg, type);
-        this.setActionButtonLoading(originButtonId, false);
-      }
-    });
+    return this.categoriesFeature.service.createCategory(this, name, icon, options);
   }
 
   async editCategory(category) {
-    if (!category || !category.id) return;
-    const newName = prompt('Enter new category name:', category.name);
-    if (!newName || !newName.trim()) return;
-    const newIcon = prompt('Enter new category icon:', category.icon) || category.icon;
-    const trimmedName = newName.trim();
-    const oldName = category.name;
-    if (trimmedName === oldName && newIcon === category.icon) return;
-    const now = Date.now();
-
-    return await PasteCraftCRUD.updateOperation({
-      entityId: category.id,
-      updates: { name: trimmedName, icon: newIcon, updatedAt: now },
-      stateGetter: () => ({ categories: this.categories, clips: this.clips }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-        this.clips = newState.clips;
-      },
-      stateKeys: ['categories', 'clips'],
-      validator: (entity, state) => {
-        if (!entity.name || entity.name.length === 0) {
-          return { valid: false, error: 'Category name is required' };
-        }
-        const dup = Array.isArray(state.categories) && state.categories.some(
-          c => c.id !== category.id && c.name.toLowerCase() === entity.name.toLowerCase()
-        );
-        return { valid: !dup, error: dup ? 'Another category already uses that name' : null };
-      },
-      storageKeys: ['categories', 'clips'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
-      },
-      updateInArray: (items, entityId, updates) => {
-        // `items` can be either categories or clips — we update both by key shape.
-        return items.map(item => {
-          if (item && item.id === entityId && 'icon' in item) {
-            return { ...item, ...updates };
-          }
-          if (item && item.category === oldName) {
-            return { ...item, category: updates.name };
-          }
-          return item;
-        });
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.renderChips();
-      },
-      backgroundSync: async () => {
-        try {
-          await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        } catch (error) {
-          console.error('⚠️ Failed to sync category edit to database:', error);
-        }
-      },
-      successMessage: (entity) => `✅ Category renamed to "${entity.name}"`,
-      errorMessage: (error) => `❌ Failed to edit category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => this.showToast(msg, type)
-    });
+    return this.categoriesFeature.service.editCategory(this, category);
   }
 
-  /**
-   * Category Deletion using CRUD Utility (5 Best Practices)
-   */
   async deleteCategory(category) {
-    // PRACTICE #1: VALIDATION - Verify category exists and is valid
-    if (!category || !category.id || !category.name) {
-      this.showToast('❌ Invalid category - cannot delete', 'error');
-      return;
-    }
-    const categoryExists = Array.isArray(this.categories) && this.categories.some(cat => cat.id === category.id);
-    if (!categoryExists) {
-      this.showToast('✅ Category already deleted', 'success');
-      return; // Idempotent: already deleted, safe to return
-    }
-
-    const ok = confirm(`Delete category "${category.name}"? Clips will be moved to "Uncategorized".`);
-    if (!ok) return;
-
-    return await PasteCraftCRUD.deleteOperation({
-      entityId: category.id,
-      entityName: category.name,
-      entityType: 'category',
-      stateGetter: () => ({
-        categories: this.categories,
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips
-      }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-        this.clips = newState.clips;
-        this.searchOnlyClips = newState.searchOnlyClips;
-      },
-      stateKeys: ['categories', 'clips', 'searchOnlyClips'],
-      validator: (entity, state) => {
-        const exists = Array.isArray(state.categories) && state.categories.some(cat => cat.id === entity.id);
-        return { valid: exists, error: exists ? null : 'Category not found' };
-      },
-      idempotencyCheck: (entityId, state) => {
-        return !Array.isArray(state.categories) || !state.categories.some(cat => cat.id === entityId);
-      },
-      storageKeys: ['categories', 'clips', 'searchOnlyClips'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set(data);
-      },
-      idbStoreName: 'categories',
-      tombstoneStorageKey: 'pc_deleted_categories',
-      deleteFromArray: (items, entityId) => items.filter(item => item.id !== entityId),
-      updateRelatedEntities: (state, entity) => {
-        // Move clips to Uncategorized
-        state.clips.forEach(clip => {
-          if (clip.category === entity.name) {
-            clip.category = 'Uncategorized';
-          }
-        });
-        state.searchOnlyClips.forEach(clip => {
-          if (clip.category === entity.name) {
-            clip.category = 'Uncategorized';
-          }
-        });
-      },
-      verifier: async (entityId) => {
-        // Verify BOTH chrome.storage and IndexedDB - IDB can shadow chrome.storage
-        // on the next loadData(), so both must be clean or the delete isn't "real".
-        const verification = await chrome.storage.local.get(['categories']);
-        const categories = Array.isArray(verification.categories) ? verification.categories : [];
-        const inChrome = categories.some(cat => cat.id === entityId);
-        if (inChrome) return false;
-        try {
-          if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-            const idbCats = await window.pasteCraftIndexedDB.getAllPayloads('categories');
-            const inIdb = Array.isArray(idbCats) && idbCats.some((c) => String(c?.id) === String(entityId));
-            if (inIdb) return false;
-          }
-        } catch (_) {}
-        return true;
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.renderChips();
-      },
-      backgroundSync: async (entity, deletedAt) => {
-        // Note: pc_deleted_categories tombstone is already recorded by deleteOperation
-        // (tombstoneStorageKey) BEFORE this runs, so merge helpers will honor the delete
-        // even if realtime echoes in from another device mid-sync.
-        try {
-          await pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? ''));
-        } catch (_) {}
-        await pasteCraftSupabase.syncWithQueue('syncDeletedCategories', [{
-          ...category,
-          deletedAt,
-          updatedAt: deletedAt
-        }], pasteCraftSupabase.syncDeletedCategoriesToSupabase);
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      },
-      successMessage: (entity) => `✅ Category "${entity.name}" deleted`,
-      errorMessage: (error) => `❌ Failed to delete category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => this.showToast(msg, type)
-    });
+    return this.categoriesFeature.service.deleteCategory(this, category);
   }
 
   updateCategoryFilter() {
-    const select = document.getElementById('categoryFilter');
-    const currentValue = select.value;
-    
-    select.innerHTML = '<option value="">All Categories</option>';
-    
-    // Include categories from both active and archived clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const uniqueCategories = [...new Set(allClips.map(clip => clip.category))];
-    console.log('🎯 Unique categories found in all clips:', uniqueCategories);
-    
-    uniqueCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      select.appendChild(option);
-    });
-    
-    select.value = currentValue;
+    return this.categoriesFeature.render.updateCategoryFilter(this);
   }
 
   updateManualInputCategories() {
-    const select = document.getElementById('manualInputCategory');
-    if (!select) return;
-    
-    const currentValue = select.value;
-    
-    // Include categories from both active and archived clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const uniqueCategories = [...new Set(allClips.map(clip => clip.category))];
-    
-    // Always include Uncategorized
-    if (!uniqueCategories.includes('Uncategorized')) {
-      uniqueCategories.unshift('Uncategorized');
-    }
-    
-    select.innerHTML = '';
-    uniqueCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      select.appendChild(option);
-    });
-    
-    // Restore previous selection or default to Uncategorized
-    if (uniqueCategories.includes(currentValue)) {
-      select.value = currentValue;
-    } else {
-      select.value = 'Uncategorized';
-    }
+    return this.categoriesFeature.render.updateManualInputCategories(this);
   }
 
   // ── PDF Extraction ──────────────────────────────────────────────
@@ -7021,21 +6642,7 @@ class PasteCraftPopup {
   }
 
   populatePdfCategoryDropdown() {
-    const select = document.getElementById('pdfExtractCategory');
-    if (!select) return;
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const cats = [...new Set(allClips.map(c => c.category))];
-    if (!cats.includes('Uncategorized')) cats.unshift('Uncategorized');
-
-    select.innerHTML = '';
-    cats.forEach(cat => {
-      const opt = document.createElement('option');
-      opt.value = cat;
-      opt.textContent = cat;
-      select.appendChild(opt);
-    });
-    select.value = 'Uncategorized';
+    return this.categoriesFeature.render.populatePdfCategoryDropdown(this);
   }
 
   async savePdfClips() {
@@ -7272,33 +6879,11 @@ class PasteCraftPopup {
 
   // Category Modal Functions
   showCategoryModal(isReassignment = false) {
-    this.populateCategoryOptions();
-    document.getElementById('categoryModal').style.display = 'flex';
-    
-    // Reset Add button to disabled state
-    document.getElementById('addToCategory').disabled = true;
-    
-    // Update modal text for reassignment vs new save
-    const modalText = document.querySelector('.modal-text');
-    if (isReassignment) {
-      modalText.textContent = 'Choose a new category for this clip:';
-    } else {
-      modalText.textContent = 'Where would you like to save this clip?';
-    }
+    return this.categoriesFeature.events.showCategoryModal(this, isReassignment);
   }
 
   hideCategoryModal() {
-    document.getElementById('categoryModal').style.display = 'none';
-    this.pendingText = null;
-    this.pendingClipId = null;
-    this.pendingBulkClipIds = null;
-    this.selectedCategoryForSave = 'Uncategorized';
-    
-    // Reset Add button to disabled state
-    document.getElementById('addToCategory').disabled = true;
-    
-    // Clear selected state from options
-    document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
+    return this.categoriesFeature.events.hideCategoryModal(this);
   }
 
   // Breakdown Modal Functions
@@ -8126,37 +7711,7 @@ class PasteCraftPopup {
   }
 
   populateCategoryOptions() {
-    const container = document.getElementById('categoryOptions');
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    
-    // Count clips in Uncategorized (unlimited capacity)
-    const uncategorizedCount = allClips.filter(clip => clip.category === 'Uncategorized').length;
-    const uncategorizedFull = false; // Uncategorized is never full
-    
-    container.innerHTML = `
-      <div class="category-option ${uncategorizedFull ? 'category-full' : ''}" data-category="Uncategorized">
-        <div class="category-option-icon">📄</div>
-        <span>Uncategorized (${uncategorizedCount}/∞)</span>
-        ${uncategorizedFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
-      </div>
-    `;
-
-    this.categories.forEach(category => {
-      const clipsInCategory = allClips.filter(clip => clip.category === category.name).length;
-      const isFull = clipsInCategory >= 150;
-      
-      const option = document.createElement('div');
-      option.className = `category-option ${isFull ? 'category-full' : ''}`;
-      option.dataset.category = category.name;
-      option.innerHTML = `
-        <div class="category-option-icon">${category.icon}</div>
-        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/150)</span>
-        ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
-      `;
-      container.appendChild(option);
-    });
+    return this.categoriesFeature.render.populateCategoryOptions(this);
   }
 
   async handleClipDelete() {
@@ -8175,225 +7730,11 @@ class PasteCraftPopup {
   }
 
   async saveTextWithCategory() {
-    // Bulk reassignment path: multiple selected clips → single target category
-    if (Array.isArray(this.pendingBulkClipIds) && this.pendingBulkClipIds.length > 0) {
-      const targetCategory = this.selectedCategoryForSave;
-      const ids = this.pendingBulkClipIds.slice();
-      const updatedAt = Date.now();
-      const changedActiveClips = [];
-      const changedArchivedClips = [];
-
-      if (targetCategory !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const existingCount = allClips.filter(
-          c => c.category === targetCategory && !ids.includes(this._clipIdKey(c?.id))
-        ).length;
-        if (existingCount + ids.length > 150) {
-          this.showToast(`Category "${targetCategory}" can't fit ${ids.length} more clips (150 max).`);
-          return;
-        }
-      }
-
-      let moved = 0;
-      ids.forEach(idKey => {
-        const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (activeIdx >= 0) {
-          this.clips[activeIdx] = {
-            ...this.clips[activeIdx],
-            category: targetCategory,
-            updatedAt
-          };
-          changedActiveClips.push(PasteCraftCRUD.createSnapshot(this.clips[activeIdx]));
-          moved += 1;
-          return;
-        }
-        const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (archivedIdx >= 0) {
-          this.searchOnlyClips[archivedIdx] = {
-            ...this.searchOnlyClips[archivedIdx],
-            category: targetCategory,
-            updatedAt
-          };
-          changedArchivedClips.push(PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]));
-          moved += 1;
-        }
-      });
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: updatedAt
-      });
-
-      if (changedActiveClips.length > 0) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncClips', changedActiveClips, pasteCraftSupabase.syncClipsToSupabase))
-          .catch((error) => console.error('Failed to sync bulk category update (active):', error));
-      }
-      if (changedArchivedClips.length > 0) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', changedArchivedClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-          .catch((error) => console.error('Failed to sync bulk category update (archived):', error));
-      }
-
-      this.selectedChips.clear();
-      this.updateQuickCopyButton();
-      this.renderChips();
-      this.renderSearchResults();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.hideCategoryModal();
-      this.showToast(`Moved ${moved} clip${moved === 1 ? '' : 's'} to ${targetCategory}`);
-      return;
-    }
-
-    if (!this.pendingText) return;
-
-    if (this.pendingClipId !== null) {
-      // Reassigning existing clip - check category limit first
-      const idKey = String(this.pendingClipId || '');
-      const currentClip =
-        this.clips.find(c => this._clipIdKey(c?.id) === idKey) ||
-        this.searchOnlyClips.find(c => this._clipIdKey(c?.id) === idKey);
-      if (!currentClip) return;
-      const updatedAt = Date.now();
-      let changedActiveClip = null;
-      let changedArchivedClip = null;
-
-      if (currentClip.category !== this.selectedCategoryForSave) {
-        // Only check limit if moving to a different category (Uncategorized = unlimited, others = 150 max)
-        if (this.selectedCategoryForSave !== 'Uncategorized') {
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clipsInTargetCategory = allClips.filter(clip => 
-            clip.category === this.selectedCategoryForSave && clip.id !== currentClip.id
-          );
-          
-          if (clipsInTargetCategory.length >= 150) {
-            this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
-            return;
-          }
-        }
-      }
-
-      // Update whichever list contains this clip (active or archived)
-      const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-      if (activeIdx >= 0) {
-        this.clips[activeIdx] = {
-          ...this.clips[activeIdx],
-          category: this.selectedCategoryForSave,
-          updatedAt
-        };
-        changedActiveClip = PasteCraftCRUD.createSnapshot(this.clips[activeIdx]);
-      } else {
-        const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (archivedIdx >= 0) {
-          this.searchOnlyClips[archivedIdx] = {
-            ...this.searchOnlyClips[archivedIdx],
-            category: this.selectedCategoryForSave,
-            updatedAt
-          };
-          changedArchivedClip = PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]);
-        }
-      }
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: updatedAt
-      });
-
-      // 🔄 AUTO-SYNC TO DATABASE
-      try {
-        if (changedActiveClip) {
-          await pasteCraftSupabase.syncWithQueue('syncClips', [changedActiveClip], pasteCraftSupabase.syncClipsToSupabase);
-        }
-        if (changedArchivedClip) {
-          await pasteCraftSupabase.syncWithQueue('syncArchivedClips', [changedArchivedClip], pasteCraftSupabase.syncArchivedClipsToSupabase);
-        }
-        console.log('✅ Clip category update synced to database');
-      } catch (error) {
-        console.error('⚠️ Failed to sync category update to database:', error);
-      }
-      
-      this.renderChips();
-      this.renderSearchResults();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.showToast(`Moved to ${this.selectedCategoryForSave}!`);
-    } else {
-      // New clip save - check category limit first (Uncategorized = unlimited, others = 150 max)
-      if (this.selectedCategoryForSave !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const clipsInCategory = allClips.filter(clip => clip.category === this.selectedCategoryForSave);
-        
-        if (clipsInCategory.length >= 150) {
-          this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
-          return;
-        }
-      }
-
-      const newClip = {
-        id: Date.now() + Math.random(),
-        text: this.pendingText,
-        category: this.selectedCategoryForSave,
-        timestamp: Date.now()
-      };
-
-      this.clips.unshift(newClip);
-      
-      // Enforce 500 clip limit with auto-archive
-      await this.enforceClipLimit();
-
-      this.currentPage = 0; // Jump to first page so new clip is visible
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: Date.now()
-      });
-      
-      // 🔄 AUTO-SYNC TO DATABASE
-      try {
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-        console.log('✅ New clip synced to database');
-      } catch (error) {
-        console.error('⚠️ Failed to sync new clip to database:', error);
-        // Don't block user - local save already succeeded
-      }
-      // Notify content scripts about new clip (for Quick Paste updates)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'clipSaved',
-              clip: newClip,
-              autoShow: true // Auto-show when saving from popup
-            }).catch(() => {}); // Ignore errors for tabs without content script
-          });
-        });
-      } catch (error) {
-        console.log('Could not notify content scripts:', error);
-      }
-      
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-      this.showToast(`Saved to ${this.selectedCategoryForSave}!`);
-    }
-
-    this.hideCategoryModal();
+    return this.categoriesFeature.service.saveTextWithCategory(this);
   }
 
   showCreateCategoryFromModal() {
-    const name = prompt('Enter category name:');
-    if (name && name.trim()) {
-      const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' }).then(() => {
-        this.populateCategoryOptions();
-      });
-    }
+    return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
   // Settings Management Functions
@@ -9084,34 +8425,7 @@ class PasteCraftPopup {
   }
 
   toggleCategoryDropdown(categoryItem, category) {
-    const dropdown = categoryItem.querySelector('.category-dropdown');
-    const isExpanded = categoryItem.classList.contains('expanded');
-    const categoryIdKey = this._categoryIdKey(category);
-    
-    // Close all other dropdowns
-    document.querySelectorAll('.category-item.expanded').forEach(item => {
-      if (item !== categoryItem) {
-        item.classList.remove('expanded');
-        item.querySelector('.category-dropdown').classList.remove('expanded');
-        const otherId = item.dataset.categoryId ? String(item.dataset.categoryId) : '';
-        if (otherId) this.expandedCategoryIds.delete(otherId);
-      }
-    });
-    
-    if (isExpanded) {
-      // Collapse this dropdown
-      categoryItem.classList.remove('expanded');
-      dropdown.classList.remove('expanded');
-      this.expandedCategoryIds.delete(categoryIdKey);
-    } else {
-      // Expand this dropdown
-      categoryItem.classList.add('expanded');
-      dropdown.classList.add('expanded');
-      if (categoryIdKey) this.expandedCategoryIds.add(categoryIdKey);
-      
-      // Add click handlers to clips in dropdown
-      this.attachClipHandlers(dropdown, category);
-    }
+    return this.categoriesFeature.render.toggleCategoryDropdown(this, categoryItem, category);
   }
 
   /**

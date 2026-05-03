@@ -1,0 +1,86 @@
+# Git Commit and Push Mastery
+
+## Objective
+Keep `main` clean, stable, and professional. Every commit should explain a real project step, and every push should move the repo toward a working, reviewable state.
+
+## What Goes On `main`
+Only push to `main` when the work is complete enough to trust.
+
+Good for `main`:
+- Working bug fixes.
+- Finished features.
+- Safe refactors that were checked.
+- Documentation that matches the current repo.
+- Config changes that are required and verified.
+
+Not good for `main`:
+- Broken experiments.
+- Debug-only changes that should not ship.
+- Secret keys or `.env` files.
+- Half-finished feature code.
+- Generated junk, cache files, or local-only files.
+
+## Bug Fix Rule
+For bug fixes, commit the fix only when it works or when the commit clearly documents a useful partial state on a non-main branch.
+
+Best pattern:
+1. Reproduce the bug.
+2. Fix the bug on a focused branch like `fix/clip-delete-sync`.
+3. Test the fix.
+4. Commit the working code and any needed test/log update.
+5. Push the branch or merge to `main` after it is verified.
+
+Do not push failed bug-fix attempts to `main`.
+
+## What To Do With Failed Attempts
+Failed attempts are still useful, but they should not pollute `main`.
+
+Use one of these:
+- Keep failed attempts local while debugging.
+- Commit them only to a temporary branch if they preserve useful investigation work.
+- Replace the failed attempt with the final working fix before merging.
+- Log the issue in the proper failure/partial log only when asked or required.
+
+## Commit Checklist
+Before committing, check:
+- Does this commit have one clear purpose?
+- Does the app still run or has the changed area been manually verified?
+- Are secrets excluded?
+- Are unrelated files excluded?
+- Is the commit message clear?
+
+Good commit examples:
+- `fix: prevent duplicate clip sync`
+- `feat: add Netlify deployment guide`
+- `docs: add Git commit workflow`
+- `refactor: split popup clip handlers`
+
+Bad commit examples:
+- `update`
+- `stuff`
+- `final fix`
+- `changes`
+
+## Push Checklist
+Before pushing, check:
+- Am I on the right branch?
+- Is this branch named for the task?
+- Is the work safe to share?
+- Is `main` only receiving stable work?
+- Does Git status show only intended files?
+
+## Branch Strategy
+Use short-lived task branches.
+
+Examples:
+- `fix/auth-session-loop`
+- `feature/profile-widget-icon`
+- `docs/git-workflow`
+- `refactor/background-handlers`
+
+Merge into `main` only after the work is stable.
+
+## Simple Rule
+If it works and belongs in the project, commit it.
+
+If it is broken, experimental, secret, local-only, or unrelated, do not push it to `main`.

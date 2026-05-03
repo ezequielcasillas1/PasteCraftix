@@ -1,0 +1,103 @@
+# Git Commits and Branches for AI-Agent Development
+
+## Core Idea
+The `main` branch should be the stable source of truth for the project. It should contain code that runs, is tested when possible, and represents the version a teammate or hiring manager can trust.
+
+A branch is a focused line of work. A commit is a saved project snapshot with a message explaining the change.
+
+## What Belongs On `main`
+Use `main` for working, reviewed, or verified code.
+
+Professional teams usually expect:
+- No random unfinished work on `main`.
+- Pull requests before merging into `main`.
+- Passing checks before merge when CI exists.
+- Clear commit messages that explain the result.
+- No secrets, local config, or generated junk files.
+
+## What Belongs On Other Branches
+Branches are for focused work, not only broken code. Use them for features, fixes, refactors, infrastructure changes, experiments, releases, and hotfixes.
+
+Good branch names:
+- `feature/paste-search-ui`
+- `fix/supabase-auth-loop`
+- `refactor/extension-storage-layer`
+- `infra/netlify-env-update`
+- `release/v2`
+- `hotfix/login-redirect`
+
+## Branch Naming Strategy
+Create branches by task, not by permanent layer.
+
+Prefer:
+- `feature/profile-page`
+- `fix/clip-delete-sync`
+- `refactor/background-service-worker`
+
+Avoid long-lived generic branches like:
+- `ui`
+- `backend`
+- `new-code`
+- `testing`
+
+Short-lived task branches are easier to review, merge, and delete.
+
+## Practical Workflow
+1. Start from the latest `main`.
+2. Create one focused branch for the task.
+3. Make small commits with useful messages.
+4. Test locally before opening a pull request.
+5. Open a pull request with a short summary and test notes.
+6. Merge into `main` only when the change is ready.
+7. Delete the branch after merge unless it is a release or archive branch.
+
+## Pull Request Standard
+A good pull request should include:
+- What changed.
+- Why it changed.
+- How it was tested.
+- Screenshots or notes for UI changes.
+- Any risks, migrations, or follow-up work.
+
+## Commit Message Standard
+Use short, specific messages.
+
+Good examples:
+- `fix: prevent duplicate clip sync`
+- `feat: add profile image upload`
+- `refactor: split background handlers`
+- `docs: clarify branch workflow`
+
+Avoid vague messages:
+- `update`
+- `fix stuff`
+- `changes`
+- `final`
+
+## How Worktrees Fit In
+Worktrees let multiple branches stay open in separate folders. They are useful when AI agents or developers need to work on different tasks at the same time without constantly switching branches.
+
+Use worktrees for parallel work, but still keep each branch focused and merge through the same clean workflow.
+
+## Hiring Signal
+This workflow is close to what professional teams expect. A hiring manager will care most about whether the GitHub repo proves the workflow is real:
+
+- `main` is stable.
+- Branches are focused.
+- Pull requests are readable.
+- Commits are clear.
+- Tests or manual verification are documented.
+- Old branches are cleaned up or archived.
+- The README explains how to run the project.
+
+The guide helps, but the repository history and project quality matter more than the guide itself.
+
+## Example Setup For PasteCraft
+- `main` = stable app.
+- `feature/onboarding-flow` = new user onboarding.
+- `fix/mobile-login-error` = authentication bug fix.
+- `infra/netlify-build-config` = build or deployment configuration.
+- `release/v2` = launch-prep branch for the next version.
+- `archive/old-master` = preserved old history that should not be the active default.
+
+This setup keeps work organized by goal and makes the repository easier for teammates, reviewers, AI agents, and hiring managers to understand.
