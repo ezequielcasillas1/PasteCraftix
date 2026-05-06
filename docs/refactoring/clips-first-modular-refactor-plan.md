@@ -121,6 +121,87 @@ extension/
       popup-bridge.js
 ```
 
+## Long-Term Popup Organization
+
+Use vertical slices for product features, and separate cross-cutting systems into modules.
+
+```text
+extension/
+  popup/
+    app/
+      popup-bootstrap.js
+      popup-app.js
+
+    features/
+      clips/
+      categories/
+      notes/
+      ai-lab/
+      settings/
+
+    modules/
+      auth/
+      billing/
+      sync/
+
+    shared/
+      popup-bridge.js
+      popup-dom.js
+      popup-events.js
+      popup-storage.js
+      crud-operations.js
+```
+
+Feature folders own user-facing workflows. Module folders own cross-cutting app capabilities that support multiple features.
+
+Do not force Auth, Billing, or Sync into `features/` unless they become full user-facing feature slices with their own tab/page workflow.
+
+## Feature Modularity Rule
+
+Use vertical slices first, then modularize inside each slice only when the code proves the responsibility exists.
+
+- Start with the smallest useful files for each feature.
+- Add `state`, `service`, `render`, `events`, `selectors`, or `constants` only when that responsibility is real.
+- Do not create empty architecture folders or placeholder files just for appearance.
+- If modularity is found inside a feature during refactor, document it in the dependency map and extract it in the smallest safe slice.
+
+## Modularity Discovery Process
+
+Before extracting each feature, research `popup.js` by feature area and produce a short dependency map.
+
+For each feature, map:
+
+- State variables owned by the feature.
+- DOM selectors and popup sections it touches.
+- Event listeners and user actions it owns.
+- Render functions and markup helpers it uses.
+- Storage reads, writes, and storage keys.
+- Sync calls, realtime refresh paths, and message events.
+- Cross-feature dependencies and shared helper candidates.
+
+Compare features only to find repeated patterns, not to force identical folders. Create module files only when the code proves the responsibility exists.
+
+Dependency map format:
+
+```text
+Feature: Clips
+State: clips, searchOnlyClips, selectedChips, currentPage
+DOM: chipContainer, paginationControls, quickCopyBtn
+Storage: clips, searchOnlyClips, pc_local_updatedAt
+External: background.js, content-script.js, supabase-client.js
+Modules needed: state, service, render, events, selectors, constants
+```
+
+## CRUD Utility Placement
+
+`PasteCraftCRUD` is shared popup infrastructure, not a Clips-only service.
+
+- Move generic CRUD helpers to `extension/popup/shared/crud-operations.js`.
+- Keep feature-specific CRUD behavior inside each feature service, such as `clips.service.js`, `categories.service.js`, `notes.service.js`, and `settings.service.js`.
+- Shared CRUD owns retry, snapshot, rollback, validation, idempotency, and verification patterns.
+- Feature services own domain behavior like delete clip, create category, save note, update settings, archive overflow, and related UI refresh.
+- Do not grow one global CRUD utility into a new large feature file.
+
 ## Module Responsibilities
 
 `clips.controller.js`
@@ -137,6 +218,7 @@ extension/
 - Owns Clips CRUD operations.
 - Uses existing storage and sync paths.
 - Preserves current id, tombstone, archive, and verification behavior.
+- Uses shared CRUD helpers when they fit, but keeps Clips-specific archive/search/sync behavior local to Clips.
 
 `clips.render.js`
 - Renders Clips UI from state and data.
@@ -169,6 +251,21 @@ extension/
 9. Re-check background, content script, Supabase, IndexedDB, and tiered storage behavior.
 10. Final cleanup of duplicated or dead Clips code inside `popup.js`.
 
+## Refactor Slice Rules
+
+- Move one responsibility at a time.
+- After each move, the popup must load and Clips must still work.
+- Do not combine render, event, state, and service extraction in one slice.
+- Keep each slice small enough to review and revert safely.
+- Run the manual Clips checklist after every user-facing slice.
+
+## Shared Vs Feature Decision Rule
+
+- If code is used by one feature, keep it in that feature.
+- If code is used by two or more features, move it to `extension/popup/shared/`.
+- If code coordinates app-wide behavior, move it to `extension/popup/modules/`.
+- If code touches storage, sync, auth, or billing, verify it does not bypass existing contracts.
+
 ## Safe Bridge Pattern
 
 Start with `popup.js` still owning startup:
@@ -188,6 +285,14 @@ clipsFeature.initClipsFeature(window.pasteCraftPopup);
 
 This avoids converting the whole popup script to a module in the first pass.
 
+## Legacy Bridge Removal Plan
+
+- Keep `window.pasteCraftPopup` during the Clips extraction.
+- Keep existing fallback `onclick="window.pasteCraftPopup..."` paths until their generated UI is moved.
+- Keep `PasteCraftPopup.handleMessage()` until runtime message handlers are moved safely.
+- Remove global bridge points only after every dependent popup action has migrated to feature/module code.
+- Do not remove bridge code in the same slice that introduces new feature modules.
+
 ## Guardrails
 
 - Keep behavior unchanged during the first Clips extraction.
@@ -195,9 +300,23 @@ This avoids converting the whole popup script to a module in the first pass.
 - Do not change Supabase schema or RLS.
 - Do not bypass existing tiered storage or sync queue behavior.
 - Do not introduce new generated IDs in the extension.
-- Do not move Auth, Billing, Sync, or Settings during the Clips pass.
+- Do not move Categories, Notes, AI Lab, Settings, Auth, Billing, or Sync during the Clips pass.
 - Keep new files small, named exports only, and vanilla JavaScript.
 - Add tests or manual verification for each user-facing Clips flow touched.
+
+## Useful Follow-Up Notes
+
+- CSS ownership should be decided later: keep shared CSS in `extension/styles.css`, and move only clearly feature-owned styles when safe.
+- No behavior rewrite during extraction: keep existing ID generation, storage keys, sync calls, archive limits, and tombstone behavior unchanged.
+- Produce the dependency map before coding so the slice boundary is explicit.
+- Treat shared helpers as earned abstractions; do not move code to shared just because it might be reused later.
+
+Follow-up meanings:
+
+- CSS ownership: do not split CSS during the first Clips extraction unless a style is clearly Clips-only and safe to move.
+- No behavior rewrite: this refactor should move code first, not redesign storage, sync, archive, ID, or tombstone behavior.
+- Dependency map first: write the Clips dependency map before coding so the first slice is obvious and reviewable.
+- Earned shared helpers: move helper code to `shared/` only after two or more features truly use it.
 
 ## Manual Test Checklist
 
@@ -248,6 +367,7 @@ After each slice:
 ### Phase 4: Service Extraction
 
 - Move Clips CRUD operations only after render/events are stable.
+- Extract reusable `PasteCraftCRUD` helpers to shared popup infrastructure before broad feature service reuse.
 - Preserve current storage, IndexedDB, tombstone, and sync behavior.
 - Preserve `background.js`, `content-script.js`, and `supabase-client.js` contracts.
 - Re-run CodeScene review after the service move.
@@ -260,15 +380,34 @@ After each slice:
 - Ask: `Ezequiel is the implementation successful`
 - Only after confirmation, write the matching program-study log if requested.
 
-## Next Features After Clips
+## Next Refactor Order After Clips
+
+Product feature slices:
 
 1. Categories
 2. Notes
 3. AI Lab
 4. Settings
-5. Billing
-6. Auth
-7. Sync
+
+Cross-cutting modules:
+
+1. Auth
+2. Billing
+3. Sync
+
+Move one folder at a time. Product features go under `extension/popup/features/`; cross-cutting modules go under `extension/popup/modules/`.
+
+## Post-Refactor Follow-Up (Implement After This Pass)
+
+Once the modular refactor is complete and verified, implement the following queued fix using the new `*.events.js` modules — do not patch the monolith before the refactor:
+
+- **Icon Click Hit-Target Fix** — `instructions/request.md` item **#46**
+  - Add `pointer-events: none` to all icon elements inside action buttons
+  - Ensure event handlers are on the outermost button container, not inner children
+  - Surfaces: Popup (PDF button, Save Clip button), content widget (Magic wand button), and any other icon+label button pairs
+  - Fix belongs in the new `clips.events.js`, `categories.events.js`, and widget event modules
+
+---
 
 ## Done Criteria For The Clips Pass
 

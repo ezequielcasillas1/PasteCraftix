@@ -2293,7 +2293,13 @@
             align-items: center;
             justify-content: center;
         }
-        
+
+        .note-action-btn > *,
+        .note-action-btn svg,
+        .note-action-btn [data-lucide] {
+            pointer-events: none;
+        }
+
         .note-action-btn:hover {
             background: #f3f4f6;
         }

@@ -415,3 +415,9 @@
 **Status:** SUCCESS
 **Files:** extension/popup/features/clips/*
 **Result:** Simplified Clips state, service, render, and event modules. Syntax/lints passed and CodeScene quality gate passed.
+
+### May 3, 2026 - Categories Modular Refactor
+**Status:** SUCCESS
+**Commit:** 5e547ff
+**Files:** extension/popup.js, extension/popup/features/categories/* (7 new files)
+**Result:** Extracted 13 category methods into vertical slice (constants, selectors, render, state, events, service, controller). popup.js -577 lines; saveTextWithCategory CC38→fixed, deleteCategory CC22→fixed. All CodeScene gates passed.

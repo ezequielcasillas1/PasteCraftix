@@ -24,6 +24,14 @@ Top-right icons (Bot/Profile/Settings) lag on click. Settings awaits `loadPinCon
 
 Categories page clip-action icons (brain / search / link / notebook-pen / folder-plus / clipboard) don't fire on click inside expanded category dropdowns. Same regression the clips page had. Root cause: per-button `addEventListener` is attached only during `toggleCategoryDropdown()` → `attachClipHandlers()`, and every `renderCategories()` re-render (called from ~30 sites) wipes `#categoriesList` innerHTML, leaving the new buttons with zero listeners. Modularize the clips-page pattern: one delegated click handler on `#categoriesList` using `e.target.closest('.category-clip-*-btn')`.
 
+---
+
+Notes editor stays open after Save Note click — note appears in list only after manually closing the modal. Root cause: `refreshAlbumsForNote` was dropped from `notes.album.js` during the Opus 4.7 sub-refactor, so `app.refreshAlbumsForNote(noteData)` in `saveNote` throws TypeError, which short-circuits the rest of the function (`saveNotes`, `renderNotes`, `closeNoteEditor` never run). Notes also weren't persisted to `chrome.storage.local`. Fix: re-add `refreshAlbumsForNote` to `notes.album.js` (adapted from original popup.js method) and wrap downstream calls in `saveNote` with try/catch so the modal always closes.
+
+---
+
+Notes "Send/Create Album" button does not open; trash/delete button works only when the cursor lands precisely on the icon stroke (not the icon interior). Real root cause: lucide SVG icons have `fill="none"`, so the interior of the icon is transparent to clicks — `e.target` becomes the SVG path on stroke clicks but skips past the button on interior clicks. Defense-in-depth fixes applied: (1) added `.note-action-btn > *, .note-action-btn svg, .note-action-btn [data-lucide] { pointer-events: none; }` in `extension/popup.html` so all clicks land on the button regardless of where in the icon the cursor is; (2) replaced per-button listeners in `attachNoteCardListeners` with one delegated `container.addEventListener('click', ...)` using `e.target.closest('.note-action-btn')` so listeners survive every `container.innerHTML` re-render; (3) wrapped `app.loadNotes()` in `_handleSendToAlbum` with try/catch so the album modal opens even if pre-fetch rejects.
+
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

@@ -1,0 +1,416 @@
+// ── loadNotes ──────────────────────────────────────────────────────────────
+
+async function _readNotesFromStorage() {
+  const stored = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
+  return {
+    notes: Array.isArray(stored.notes) ? stored.notes : [],
+    notesViewMode: stored.notesViewMode ?? 'notes',
+    notesPageIndex: stored.notesPageIndex ?? 0,
+    notesAiEnabled: stored.notesAiEnabled ?? false
+  };
+}
+
+function _hasIdb(app) {
+  return !!(app && app._idbReady && app.idb);
+}
+
+function _idbHasMoreNotes(idbNotes, currentNotes) {
+  if (!Array.isArray(idbNotes)) return false;
+  return idbNotes.length >= (currentNotes?.length || 0);
+}
+
+async function _resolveNotesFromIdb(app, currentNotes) {
+  if (!_hasIdb(app)) return currentNotes;
+  const idbNotes = await app.idb.getAllPayloads('notes');
+  return _idbHasMoreNotes(idbNotes, currentNotes) ? idbNotes : currentNotes;
+}
+
+async function _seedDemoNotesIfEmpty(notes) {
+  if (notes.length > 0) return notes;
+  const demo = _buildDemoNotes();
+  await chrome.storage.local.set({ notes: demo });
+  console.log('🧪 Seeded 2 notes + 2 albums (PC 1.0)');
+  return demo;
+}
+
+function _applyNotesPrefs(app, prefs) {
+  app.notesViewMode = prefs.notesViewMode;
+  app.notesPageIndex = typeof prefs.notesPageIndex === 'number' ? prefs.notesPageIndex : 0;
+  app.notesAiEnabled = !!prefs.notesAiEnabled;
+
+  const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
+  if (viewAlbumsBtn) viewAlbumsBtn.classList.toggle('active', app.notesViewMode === 'albums');
+  const notesAiToggle = document.getElementById('notesAiToggle');
+  if (notesAiToggle) notesAiToggle.checked = app.notesAiEnabled;
+}
+
+export async function loadNotes(app) {
+  await app._ensureIndexedDbReadyAndMigrate();
+
+  const stored = await _readNotesFromStorage();
+  let notes = await _resolveNotesFromIdb(app, stored.notes);
+  notes = await _seedDemoNotesIfEmpty(notes);
+
+  app.notes = notes;
+  await _syncNotesToIdb(app);
+
+  _applyNotesPrefs(app, stored);
+
+  initializeTieredNotesStorage(app).catch(e => console.warn('Notes tiered storage init failed:', e));
+
+  console.log(`📝 Loaded ${notes.length} notes`);
+  return notes;
+}
+
+function _buildDemoNotes() {
+  const now = Date.now();
+  const N1 = now - 400000;
+  const N2 = now - 300000;
+  const A1 = now - 200000;
+  const A2 = now - 100000;
+
+  return [
+    {
+      id: N1, type: 'note',
+      title: 'Welcome to PasteCraft',
+      description: 'Getting started guide — delete anytime',
+      body: 'PasteCraft auto-detects 20+ markup languages including Markdown, LaTeX, Mermaid diagrams, and code with syntax highlighting. Copy anything and it renders automatically!\n\nTry the preset categories to organize your clips, or create your own.',
+      clips: [{ type: 'clip', id: now - 399000, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** These are examples — delete them anytime!', addedDate: now - 399000 }],
+      images: [],
+      urls: [{ type: 'url', id: now - 398000, url: 'https://pastecraft.com/docs', title: 'PasteCraft Documentation', addedDate: now - 398000 }],
+      createdAt: N1, updatedAt: N1
+    },
+    {
+      id: N2, type: 'note',
+      title: 'Meeting Notes Template',
+      description: 'Reusable meeting template — delete anytime',
+      body: 'Use this as a starting point for meeting notes. Attach clips, links, and images to keep everything in one place.',
+      clips: [{ type: 'clip', id: now - 299000, text: '# Meeting Notes — [Date]\n\n**Attendees:** [names]\n**Agenda:**\n1. Status updates\n2. Blockers\n3. Action items\n\n## Notes\n- \n\n## Action Items\n- [ ] [Owner] — [Task] — Due: [Date]', addedDate: now - 299000 }],
+      images: [],
+      urls: [],
+      createdAt: N2, updatedAt: N2
+    },
+    {
+      id: A1, type: 'album',
+      title: 'Developer Toolkit',
+      description: 'Code snippets & diagram references — delete anytime',
+      body: 'A collection of useful developer clips. Albums group related notes together for quick access.',
+      clips: [
+        { type: 'clip', id: now - 199000, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', addedDate: now - 199000 },
+        { type: 'clip', id: now - 198000, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', addedDate: now - 198000 }
+      ],
+      images: [],
+      urls: [{ type: 'url', id: now - 197000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript', title: 'MDN Web Docs', addedDate: now - 197000 }],
+      noteRefs: [N1], sourceNoteIds: [N1],
+      createdAt: A1, updatedAt: A1
+    },
+    {
+      id: A2, type: 'album',
+      title: 'Research & References',
+      description: 'Formulas, links & templates — delete anytime',
+      body: 'Collect research materials in albums. Group notes, clips, and links for any project or topic.',
+      clips: [{ type: 'clip', id: now - 99000, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', addedDate: now - 99000 }],
+      images: [],
+      urls: [
+        { type: 'url', id: now - 98000, url: 'https://www.overleaf.com/learn/latex/Mathematical_expressions', title: 'Overleaf - LaTeX Math Guide', addedDate: now - 98000 },
+        { type: 'url', id: now - 97000, url: 'https://mermaid.js.org/intro/', title: 'Mermaid Docs', addedDate: now - 97000 }
+      ],
+      noteRefs: [N2], sourceNoteIds: [N2],
+      createdAt: A2, updatedAt: A2
+    }
+  ];
+}
+
+// ── initializeTieredNotesStorage ───────────────────────────────────────────
+
+export async function initializeTieredNotesStorage(app) {
+  if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') return;
+  try {
+    app.tieredNotesStore = tieredStorageManager.getStore('notes', {
+      pageSize: 6,
+      localStorageKey: 'notes',
+      supabaseTable: 'notes',
+      timestampField: 'updated_at'
+    });
+    await app.tieredNotesStore.initialize();
+    app.tieredNotesStore.localCount = app.notes.length;
+
+    if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
+      const notesCount = await pasteCraftSupabase.getNotesCount().catch(() => 0);
+      app.totalNotesCount = Math.max(notesCount, app.notes.length);
+      app.tieredNotesStore.totalCount = app.totalNotesCount;
+      console.log(`📝 Notes tiered storage: ${app.notes.length} local, ${app.totalNotesCount} total`);
+    } else {
+      app.totalNotesCount = app.notes.length;
+    }
+  } catch (e) {
+    console.warn('Failed to initialize notes tiered storage:', e);
+    app.totalNotesCount = app.notes.length;
+  }
+}
+
+// ── getNoteContentForHash ──────────────────────────────────────────────────
+
+export function getNoteContentForHash(note) {
+  if (!note) return '';
+  return `${String(note.title || '').trim()}|${String(note.description || '').trim()}|${String(note.body || '').trim()}`.toLowerCase();
+}
+
+// ── saveNotes ──────────────────────────────────────────────────────────────
+
+function _hasQuotaText(value) {
+  const msg = value?.message;
+  if (!msg) return false;
+  return msg.includes('QUOTA') || msg.includes('quota');
+}
+
+function _isQuotaError(storageError) {
+  return _hasQuotaText(storageError) || _hasQuotaText(chrome.runtime.lastError);
+}
+
+function _shouldFallbackToIdbOnly(storageError, app) {
+  return _isQuotaError(storageError) && _hasIdb(app);
+}
+
+async function _writeNotesToLocalStorage(app) {
+  try {
+    await PasteCraftCRUD.retryOperation(async () => {
+      await chrome.storage.local.set({ notes: app.notes });
+    });
+    return false;
+  } catch (storageError) {
+    if (_shouldFallbackToIdbOnly(storageError, app)) {
+      console.warn('⚠️ Chrome storage quota exceeded, using IndexedDB only for notes');
+      return true;
+    }
+    throw storageError;
+  }
+}
+
+async function _syncNotesToIdb(app) {
+  if (!_hasIdb(app)) return;
+  await app.idb.syncEntityFromLocalStorage('notes', app.notes);
+}
+
+async function _verifyIdbNotesSaved(app) {
+  if (!_hasIdb(app)) return;
+  const idbNotes = await app.idb.getAllPayloads('notes');
+  if (!Array.isArray(idbNotes) || idbNotes.length !== app.notes.length) {
+    throw new Error('Verification failed: IDB notes count mismatch');
+  }
+}
+
+async function _verifyLocalNotesSaved(app) {
+  const verification = await chrome.storage.local.get(['notes']);
+  const verifiedNotes = Array.isArray(verification.notes) ? verification.notes : [];
+  if (verifiedNotes.length !== app.notes.length) {
+    throw new Error('Verification failed: notes count mismatch');
+  }
+}
+
+async function _verifyNotesSaved(app, savedToIdbOnly) {
+  if (savedToIdbOnly) {
+    await _verifyIdbNotesSaved(app);
+    return;
+  }
+  await _verifyLocalNotesSaved(app);
+}
+
+async function _rollbackNotes(app, snapshot) {
+  app.notes = snapshot;
+  try {
+    await chrome.storage.local.set({ notes: app.notes });
+  } catch (_) {
+    // Ignore quota error on rollback
+  }
+  await _syncNotesToIdb(app);
+}
+
+export async function saveNotes(app) {
+  const snapshot = PasteCraftCRUD.createSnapshot(app.notes);
+
+  try {
+    const savedToIdbOnly = await _writeNotesToLocalStorage(app);
+    await _syncNotesToIdb(app);
+    await _verifyNotesSaved(app, savedToIdbOnly);
+    console.log(`💾 Saved ${app.notes.length} notes${savedToIdbOnly ? ' (IDB only - quota exceeded)' : ''}`);
+  } catch (error) {
+    console.error('❌ Notes save failed, rolling back:', error);
+    await _rollbackNotes(app, snapshot);
+    throw error;
+  }
+}
+
+// ── saveNotesPrefs ─────────────────────────────────────────────────────────
+
+export async function saveNotesPrefs(app) {
+  await chrome.storage.local.set({
+    notesViewMode: app.notesViewMode,
+    notesPageIndex: app.notesPageIndex,
+    notesAiEnabled: app.notesAiEnabled
+  });
+}
+
+// ── lazyLoadNotesPage ──────────────────────────────────────────────────────
+
+function _renderLazyOfflineState(container) {
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">📡</div>
+      <h3>You're offline</h3>
+      <p>Connect to the internet to view older notes</p>
+      <button class="btn-secondary" onclick="window.pasteCraftPopup.notesPageIndex = 0; window.pasteCraftPopup.renderNotes();">
+        Go to first page
+      </button>
+    </div>
+  `;
+}
+
+function _renderLazyLoadingIndicator(container) {
+  container.innerHTML = `
+    <div class="lazy-load-indicator">
+      <div class="lazy-load-spinner"></div>
+      <p>Loading notes...</p>
+    </div>
+  `;
+}
+
+function _renderLazyPagination(app, paginationEl, pageCount) {
+  if (!paginationEl) return;
+  paginationEl.style.display = 'flex';
+  paginationEl.innerHTML = Array.from({ length: pageCount }).map((_, idx) => {
+    const active = idx === app.notesPageIndex ? 'active' : '';
+    return `<button class="notes-page-btn ${active}" data-page="${idx}" title="Page ${idx}">${idx}</button>`;
+  }).join('');
+  paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const nextPage = parseInt(btn.dataset.page, 10);
+      if (!Number.isNaN(nextPage)) {
+        app.notesPageIndex = nextPage;
+        await app.saveNotesPrefs();
+        app.renderNotes();
+      }
+    });
+  });
+}
+
+async function _renderRemoteNotesPage(app, startIndex, pageSize, container) {
+  const remoteNotes = await pasteCraftSupabase.fetchNotesPage(startIndex, pageSize);
+  if (remoteNotes && remoteNotes.length > 0) {
+    container.innerHTML = remoteNotes.map(note => app._renderNoteCard(note)).join('');
+    app._attachNoteCardListeners(container);
+    return;
+  }
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">📭</div>
+      <h3>No more notes</h3>
+      <p>You've reached the end of your notes</p>
+    </div>
+  `;
+}
+
+function _renderSignInPrompt(container) {
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">☁️</div>
+      <h3>Sign in to view more</h3>
+      <p>Older notes are stored in the cloud</p>
+    </div>
+  `;
+}
+
+function _renderLazyLoadError(container, error) {
+  const isNetworkError = error.message?.includes('network') || error.message?.includes('fetch') || !navigator.onLine;
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
+      <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
+      <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
+      <button class="btn-secondary" onclick="window.pasteCraftPopup.renderNotes();">
+        Retry
+      </button>
+    </div>
+  `;
+}
+
+function _isSupabaseAuthenticated() {
+  return typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.();
+}
+
+async function _fetchAndRenderLazyPage(app, opts) {
+  if (_isSupabaseAuthenticated()) {
+    await _renderRemoteNotesPage(app, opts.startIndex, opts.pageSize, opts.container);
+    return;
+  }
+  _renderSignInPrompt(opts.container);
+}
+
+export async function lazyLoadNotesPage(app, opts) {
+  const { container, paginationEl, pageCount } = opts;
+
+  if (!navigator.onLine) {
+    _renderLazyOfflineState(container);
+    return;
+  }
+
+  app._isLazyLoading = true;
+  _renderLazyLoadingIndicator(container);
+  _renderLazyPagination(app, paginationEl, pageCount);
+
+  try {
+    await _fetchAndRenderLazyPage(app, opts);
+  } catch (e) {
+    console.error('Failed to lazy load notes:', e);
+    _renderLazyLoadError(container, e);
+  } finally {
+    app._isLazyLoading = false;
+  }
+}
+
+// ── deleteNote ─────────────────────────────────────────────────────────────
+
+export async function deleteNote(app, noteId) {
+  const note = app.notes.find(n => n.id == noteId);
+  if (!note) return;
+
+  const confirmed = confirm(`Delete "${note.title}"?`);
+  if (!confirmed) return;
+
+  return await PasteCraftCRUD.deleteOperation({
+    entityId: noteId,
+    entityName: note.title,
+    entityType: 'note',
+    stateGetter: () => ({ notes: app.notes }),
+    stateSetter: async (newState) => { app.notes = newState.notes; },
+    stateKeys: ['notes'],
+    validator: (entity, state) => {
+      const exists = Array.isArray(state.notes) && state.notes.some(n => n.id == entity.id);
+      return { valid: exists, error: exists ? null : 'Note not found' };
+    },
+    idempotencyCheck: (entityId, state) => {
+      return !Array.isArray(state.notes) || !state.notes.some(n => n.id == entityId);
+    },
+    storageKeys: ['notes'],
+    storageWriter: async (data) => { await chrome.storage.local.set(data); },
+    deleteFromArray: (items, entityId) => items.filter(n => n.id != entityId),
+    updateRelatedEntities: (_state, _entity) => {},
+    verifier: async (entityId) => {
+      const verification = await chrome.storage.local.get(['notes']);
+      const notes = Array.isArray(verification.notes) ? verification.notes : [];
+      return !notes.some(n => n.id == entityId);
+    },
+    uiUpdater: () => { app.renderNotes(); },
+    backgroundSync: async (_entity, deletedAt) => {
+      await pasteCraftSupabase.syncWithQueue('syncDeletedNotes', [{
+        ...note,
+        deletedAt,
+        updatedAt: deletedAt
+      }], pasteCraftSupabase.syncDeletedNotesToSupabase);
+      await pasteCraftSupabase.syncWithQueue('syncNotes', app.notes, pasteCraftSupabase.syncNotesToSupabase);
+    },
+    successMessage: (entity) => `✅ Note "${entity.name}" deleted`,
+    errorMessage: (error) => `❌ Failed to delete note: ${error.message || 'Unknown error'}`,
+    showToast: (msg, type) => app.showToast(msg, type)
+  });
+}

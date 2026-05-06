@@ -550,6 +550,26 @@ state management.
 
 ---
 
+#### 46. Icon Click Hit-Target Fix (Post-Refactor)
+**Priority:** High
+**Status:** Queued — implement after modular refactor is complete
+**Implement After:** Clips-first modular refactor (clips.events.js, categories.events.js, widget events)
+
+**Problem:** Clicking the icon portion of any button does not trigger the action; only clicking the label text works.
+
+**Root Cause Pattern:**
+- Event listeners attached to the text node / inner span rather than the full button container
+- OR icon SVG/img element intercepts pointer events and the click never reaches the handler
+
+**Requirements:**
+- Add `pointer-events: none` to all icon elements (`svg`, `img`, `i`, `.icon`) inside action buttons — lets clicks pass through to the button
+- Ensure all button event handlers are registered on the outermost button/container element, not on inner children
+- Apply fix across all affected surfaces: Popup (Quick Save PDF button, Save Clip button), content widget (Magic wand button), and any other button that contains an icon + label pair
+- Validate fix in `*.events.js` modules during/after refactor extraction — do not patch the monolith `popup.js` just to move it again
+- After fix: clicking anywhere on a button (icon or label) must trigger the same action
+
+---
+
 #### 45. Comprehensive Hotkey System
 **Priority:** High  
 **Status:** Not started  
