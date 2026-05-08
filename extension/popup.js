@@ -5200,327 +5200,53 @@ class PasteCraftPopup {
   }
   
   // ─── Magic Button: Content Type Detection ───
-  // Leverages PCMarkup.detectMarkupType for 20+ markup languages, plus non-markup types
   _detectContentType(text, meta) {
-    if (!text || typeof text !== 'string') return 'text';
-    const trimmed = text.trim();
-
-    // URL (single-line)
-    if (/^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+/i.test(trimmed)) return 'url';
-
-    // Email (single-line)
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'email';
-
-    // Phone number (single-line)
-    if (/^[\+]?[\d\s\-\(\)\.]{7,20}$/.test(trimmed) && /\d{3,}/.test(trimmed)) return 'phone';
-
-    // Delegate to markup renderer for all 20+ markup/code types
-    if (window.PCMarkup && typeof window.PCMarkup.detectMarkupType === 'function') {
-      const markupType = window.PCMarkup.detectMarkupType(trimmed, meta);
-      if (markupType && markupType !== 'text') return markupType;
-    }
-
-    // Multi-line long text (likely notes/paragraphs)
-    if (trimmed.split('\n').length > 3 || trimmed.length > 300) return 'note';
-
-    return 'text';
+    return this.aiLabFeature.magic._detectContentType.call(this, text, meta);
   }
 
   // ─── Magic Button: Category Suggestion ───
-  // Maps all detected content types (including markup) to categories
   _suggestCategory(contentType) {
-    const map = {
-      // Non-markup types
-      url:       { name: 'Links', icon: '🔗' },
-      email:     { name: 'Contacts', icon: '📧' },
-      phone:     { name: 'Contacts', icon: '📧' },
-      note:      { name: 'Notes', icon: '📝' },
-      text:      { name: 'Quick', icon: '⚡' },
-      // Code & data
-      code:      { name: 'Code', icon: '💻' },
-      json:      { name: 'Data', icon: '📊' },
-      yaml:      { name: 'Data', icon: '📊' },
-      toml:      { name: 'Data', icon: '📊' },
-      xml:       { name: 'Data', icon: '📊' },
-      csv:       { name: 'Data', icon: '📊' },
-      tsv:       { name: 'Data', icon: '📊' },
-      // Markup & documentation
-      markdown:  { name: 'Markup', icon: '📄' },
-      html:      { name: 'Markup', icon: '📄' },
-      latex:     { name: 'Markup', icon: '📄' },
-      bbcode:    { name: 'Markup', icon: '📄' },
-      asciidoc:  { name: 'Markup', icon: '📄' },
-      rst:       { name: 'Markup', icon: '📄' },
-      orgmode:   { name: 'Markup', icon: '📄' },
-      mediawiki: { name: 'Markup', icon: '📄' },
-      textile:   { name: 'Markup', icon: '📄' },
-      jira:      { name: 'Markup', icon: '📄' },
-      slack:     { name: 'Markup', icon: '📄' },
-      // Diagrams
-      mermaid:   { name: 'Diagrams', icon: '📐' },
-    };
-    return map[contentType] || map.text;
+    return this.aiLabFeature.magic._suggestCategory.call(this, contentType);
   }
 
   // ─── Magic Button: Content Enhancement ───
   _enhanceContent(text, contentType) {
-    if (!text) return text;
-    let enhanced = text;
-
-    // Universal cleanup: trim, collapse excessive blank lines, strip trailing whitespace
-    enhanced = enhanced.replace(/\r\n/g, '\n');
-    enhanced = enhanced.replace(/\n{4,}/g, '\n\n\n');
-    enhanced = enhanced.replace(/[ \t]+$/gm, '');
-    enhanced = enhanced.trim();
-
-    // Type-specific enhancements
-    if (contentType === 'url') {
-      try {
-        const url = new URL(enhanced);
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'].forEach(p => url.searchParams.delete(p));
-        enhanced = url.toString();
-      } catch (_) { /* leave as-is */ }
-    }
-
-    if (contentType === 'json') {
-      try { enhanced = JSON.stringify(JSON.parse(enhanced), null, 2); } catch (_) { /* leave as-is */ }
-    }
-
-    if (contentType === 'xml') {
-      // Normalize self-closing tags spacing
-      enhanced = enhanced.replace(/\s*\/>/g, ' />');
-    }
-
-    if (contentType === 'yaml' || contentType === 'toml') {
-      // Normalize trailing whitespace on value lines (already done above), ensure final newline
-      if (!enhanced.endsWith('\n')) enhanced += '\n';
-    }
-
-    if (contentType === 'csv' || contentType === 'tsv') {
-      // Remove fully empty rows
-      enhanced = enhanced.split('\n').filter(l => l.trim()).join('\n');
-    }
-
-    if (contentType === 'email') {
-      enhanced = enhanced.toLowerCase().trim();
-    }
-
-    if (contentType === 'markdown' || contentType === 'html' || contentType === 'asciidoc' ||
-        contentType === 'rst' || contentType === 'orgmode' || contentType === 'mediawiki' ||
-        contentType === 'textile' || contentType === 'jira' || contentType === 'bbcode' ||
-        contentType === 'slack' || contentType === 'latex') {
-      // Ensure consistent line endings (already done), no extra cleanup needed for markup
-    }
-
-    return enhanced;
+    return this.aiLabFeature.magic._enhanceContent.call(this, text, contentType);
   }
 
   // ─── Magic Button: Type Labels (shared) ───
   _magicTypeLabels() {
-    return {
-      url: '🔗 Link', email: '📧 Email', phone: '📞 Phone', note: '📝 Note', text: '⚡ Text',
-      code: '💻 Code', json: '📊 JSON', yaml: '📊 YAML', toml: '📊 TOML', xml: '📊 XML', csv: '📊 CSV', tsv: '📊 TSV',
-      markdown: '📄 MD', html: '📄 HTML', latex: '📄 LaTeX', bbcode: '📄 BBCode',
-      asciidoc: '📄 ADoc', rst: '📄 rST', orgmode: '📄 Org', mediawiki: '📄 Wiki',
-      textile: '📄 Textile', jira: '📄 JIRA', slack: '📄 Slack', mermaid: '📐 Diagram'
-    };
+    return this.aiLabFeature.magic._magicTypeLabels.call(this);
   }
 
   // ─── Magic Button: Analyze All Clips ───
   _analyzeMagicClips() {
-    const analysis = [];
-    // Build duplicate map (text → count)
-    const dupMap = new Map();
-    for (const clip of this.clips) {
-      const key = (clip.text || '').trim().toLowerCase();
-      if (!key) continue;
-      dupMap.set(key, (dupMap.get(key) || 0) + 1);
-    }
-
-    for (const clip of this.clips) {
-      const contentType = this._detectContentType(clip.text, clip.meta);
-      const issues = [];
-
-      // Uncategorized?
-      if (!clip.category || clip.category === 'Uncategorized') {
-        const suggested = this._suggestCategory(contentType);
-        const aiLabel = this._hasAiAccess() ? ' (AI)' : '';
-        issues.push({ tag: '📁 Uncategorized', detail: `→ Smart Categorize${aiLabel}`, color: 'amber' });
-      }
-
-      // Duplicate?
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key && (dupMap.get(key) || 0) > 1) {
-        issues.push({ tag: '📋 Duplicate', detail: '', color: 'red' });
-      }
-
-      // AI Smart Format + Content Cleanup (show both when both apply)
-      const enhanced = this._enhanceContent(clip.text, contentType);
-      const skipTypes = this._skipAiFormatTypes();
-      const canAiFormat = this._hasAiAccess() && !skipTypes.has(contentType) && (clip.text || '').trim().length > 5;
-      const needsCleanup = enhanced !== clip.text;
-      if (canAiFormat) {
-        issues.push({ tag: '✨ Smart Format (AI)', detail: '', color: 'blue' });
-      }
-      if (needsCleanup) {
-        issues.push({ tag: '🧹 Needs cleanup', detail: '', color: 'blue' });
-      }
-
-      if (issues.length === 0) {
-        issues.push({ tag: '✓ Already clean', detail: '', color: 'green' });
-      }
-
-      analysis.push({ clip, contentType, issues });
-    }
-    return analysis;
+    return this.aiLabFeature.magic._analyzeMagicClips.call(this);
   }
 
   // ─── Magic Button: Open Preview Modal ───
   magicFormat() {
-    // Wand animation
-    const wand = document.getElementById('magicWand');
-    wand.style.transform = 'scale(1.2) rotate(360deg)';
-    setTimeout(() => { wand.style.transform = ''; }, 500);
-
-    // Analyze all clips
-    this._magicAnalysis = this._analyzeMagicClips();
-    this._magicSelected = new Set();
-    this._magicPage = 0;
-
-    // Show/hide undo banner
-    const undoBanner = document.getElementById('magicUndoBanner');
-    if (undoBanner) {
-      undoBanner.style.display = this._magicUndoSnapshot ? 'flex' : 'none';
-    }
-
-    // Show/hide AI credit notice for premium users
-    const creditNotice = document.getElementById('magicAiCreditNotice');
-    if (creditNotice) {
-      creditNotice.style.display = this._hasAiAccess() ? 'block' : 'none';
-    }
-
-    // Render first page and open modal
-    this._renderMagicPage(0);
-    this._renderMagicPagination();
-    this._updateMagicSelectedCount();
-
-    document.getElementById('magicPreviewModal').style.display = 'flex';
+    return this.aiLabFeature.magic.magicFormat.call(this);
   }
 
   // ─── Magic Button: Render a Page of Clips in Modal ───
   _renderMagicPage(page) {
-    this._magicPage = page;
-    const perPage = 10;
-    const start = page * perPage;
-    const end = Math.min(start + perPage, this._magicAnalysis.length);
-    const pageItems = this._magicAnalysis.slice(start, end);
-    const labels = this._magicTypeLabels();
-    const container = document.getElementById('magicClipList');
-
-    if (this._magicAnalysis.length === 0) {
-      container.innerHTML = '<div class="magic-clip-empty">No clips to analyze</div>';
-      return;
-    }
-
-    container.innerHTML = pageItems.map((item, idx) => {
-      const globalIdx = start + idx;
-      const clipId = String(item.clip.id);
-      const isSelected = this._magicSelected.has(clipId);
-      const preview = (item.clip.text || '').replace(/\n/g, ' ').slice(0, 80) + ((item.clip.text || '').length > 80 ? '…' : '');
-      const typeBadge = this._escHtml(labels[item.contentType] || item.contentType);
-      const issueTags = item.issues.map(i => {
-        const safeColor = String(i.color || 'neutral').replace(/[^a-z0-9_-]/gi, '') || 'neutral';
-        return `<span class="magic-issue-tag magic-issue-${safeColor}">${this._escHtml(i.tag)}${i.detail ? ' ' + this._escHtml(i.detail) : ''}</span>`;
-      }
-      ).join('');
-
-      return `
-        <div class="magic-clip-row ${isSelected ? 'magic-clip-selected' : ''}" data-magic-idx="${globalIdx}" data-clip-id="${clipId}">
-          <input type="checkbox" class="magic-clip-check" ${isSelected ? 'checked' : ''}>
-          <div class="magic-clip-info">
-            <div class="magic-clip-text">${this._escHtml(preview)}</div>
-            <div class="magic-clip-meta">
-              <span class="magic-type-badge">${typeBadge}</span>
-              ${issueTags}
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-
-    // Attach click handlers to rows
-    container.querySelectorAll('.magic-clip-row').forEach(row => {
-      row.addEventListener('click', (e) => {
-        const clipId = row.dataset.clipId;
-        const checkbox = row.querySelector('.magic-clip-check');
-        if (this._magicSelected.has(clipId)) {
-          this._magicSelected.delete(clipId);
-          row.classList.remove('magic-clip-selected');
-          checkbox.checked = false;
-        } else {
-          this._magicSelected.add(clipId);
-          row.classList.add('magic-clip-selected');
-          checkbox.checked = true;
-        }
-        this._updateMagicSelectedCount();
-      });
-    });
+    return this.aiLabFeature.magic._renderMagicPage.call(this, page);
   }
 
   // ─── Magic Button: Escape HTML helper ───
   _escHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    return this.aiLabFeature.magic._escHtml.call(this, str);
   }
 
   // ─── Magic Button: Pagination Controls ───
   _renderMagicPagination() {
-    const perPage = 10;
-    const totalPages = Math.max(1, Math.ceil(this._magicAnalysis.length / perPage));
-    const container = document.getElementById('magicPagination');
-
-    if (totalPages <= 1) {
-      container.innerHTML = '';
-      return;
-    }
-
-    let html = '';
-    // Previous
-    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage - 1}" ${this._magicPage === 0 ? 'disabled' : ''}>‹</button>`;
-
-    // Page numbers (show current ±2)
-    for (let i = 0; i < totalPages; i++) {
-      if (i === 0 || i === totalPages - 1 || Math.abs(i - this._magicPage) <= 2) {
-        html += `<button class="magic-page-btn ${i === this._magicPage ? 'active' : ''}" data-magic-page="${i}">${i + 1}</button>`;
-      } else if (i === 1 && this._magicPage > 3) {
-        html += '<span class="magic-page-dots">…</span>';
-      } else if (i === totalPages - 2 && this._magicPage < totalPages - 4) {
-        html += '<span class="magic-page-dots">…</span>';
-      }
-    }
-
-    // Next
-    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage + 1}" ${this._magicPage >= totalPages - 1 ? 'disabled' : ''}>›</button>`;
-    container.innerHTML = html;
-
-    // Attach page click handlers
-    container.querySelectorAll('.magic-page-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = parseInt(btn.dataset.magicPage);
-        if (!isNaN(p) && p >= 0 && p < totalPages) {
-          this._renderMagicPage(p);
-          this._renderMagicPagination();
-        }
-      });
-    });
+    return this.aiLabFeature.magic._renderMagicPagination.call(this);
   }
 
   // ─── Magic Button: Update Selected Count ───
   _updateMagicSelectedCount() {
-    const countEl = document.getElementById('magicSelectedCount');
-    if (countEl) countEl.textContent = `${this._magicSelected.size} selected`;
-    const craftBtn = document.getElementById('magicCraftSelectedBtn');
-    if (craftBtn) craftBtn.disabled = this._magicSelected.size === 0;
+    return this.aiLabFeature.magic._updateMagicSelectedCount.call(this);
   }
 
   // ─── Magic Button: Check if user has AI (premium) access ───
@@ -5537,248 +5263,29 @@ class PasteCraftPopup {
 
   // ─── Magic Button: Content types that should skip AI formatting ───
   _skipAiFormatTypes() {
-    return new Set(['url', 'email', 'phone', 'code', 'json', 'yaml', 'toml', 'xml', 'csv', 'tsv', 'html', 'latex', 'mermaid']);
+    return this.aiLabFeature.magic._skipAiFormatTypes.call(this);
   }
 
   // ─── Magic Button: Apply Magic to Specific Clips ───
   async _craftMagic(clipIds) {
-    const targetSet = new Set(clipIds.map(String));
-    const stats = { categorized: 0, enhanced: 0, duplicatesFound: 0, typesFound: {}, aiCategorized: false, aiFormatted: 0 };
-    const categoryCreationQueue = new Map();
-
-    // Pre-compute content types for target clips
-    const clipTypeMap = new Map();
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      clipTypeMap.set(String(clip.id), this._detectContentType(clip.text, clip.meta));
-    }
-
-    // Collect uncategorized target clips for potential AI batch
-    const uncategorizedTargets = [];
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      if (!clip.category || clip.category === 'Uncategorized') {
-        uncategorizedTargets.push(clip);
-      }
-    }
-
-    // Collect formattable text clips for AI smart format
-    const skipTypes = this._skipAiFormatTypes();
-    const formatTargets = [];
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      const ct = clipTypeMap.get(String(clip.id));
-      // Only format natural language text clips (note, text, markdown, etc.)
-      if (!skipTypes.has(ct) && (clip.text || '').trim().length > 5) {
-        formatTargets.push(clip);
-      }
-    }
-
-    const hasAi = this._hasAiAccess();
-
-    // ── AI Smart Categorization (premium users) ──
-    let aiCategoryMap = new Map();
-    if (uncategorizedTargets.length > 0 && hasAi) {
-      try {
-        const aiResults = await pasteCraftSupabase.aiCategorize(uncategorizedTargets);
-        if (Array.isArray(aiResults) && aiResults.length > 0) {
-          for (let i = 0; i < uncategorizedTargets.length && i < aiResults.length; i++) {
-            const catName = String(aiResults[i] || '').trim();
-            if (catName) aiCategoryMap.set(String(uncategorizedTargets[i].id), catName);
-          }
-          stats.aiCategorized = true;
-        }
-      } catch (_) { /* AI failed — fall back to rule-based */ }
-    }
-
-    // ── AI Smart Format (premium users) ──
-    let aiFormatMap = new Map();
-    if (formatTargets.length > 0 && hasAi) {
-      try {
-        const aiResults = await pasteCraftSupabase.aiFormat(formatTargets);
-        if (Array.isArray(aiResults) && aiResults.length > 0) {
-          for (let i = 0; i < formatTargets.length && i < aiResults.length; i++) {
-            const formatted = String(aiResults[i] || '').trim();
-            if (formatted && formatted !== (formatTargets[i].text || '').trim()) {
-              aiFormatMap.set(String(formatTargets[i].id), formatted);
-            }
-          }
-        }
-      } catch (_) { /* AI failed — fall back to rule-based enhance */ }
-    }
-
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-
-      const contentType = clipTypeMap.get(String(clip.id)) || 'text';
-      stats.typesFound[contentType] = (stats.typesFound[contentType] || 0) + 1;
-
-      // Categorize: prefer AI category, fall back to rule-based
-      if (!clip.category || clip.category === 'Uncategorized') {
-        const aiCat = aiCategoryMap.get(String(clip.id));
-        const suggested = aiCat
-          ? { name: aiCat, icon: '🏷️' }
-          : this._suggestCategory(contentType);
-
-        const existingCat = this.categories.find(c => c.name.toLowerCase() === suggested.name.toLowerCase());
-        if (existingCat) {
-          const clipsInCat = this.clips.filter(c => c.category === existingCat.name);
-          if (clipsInCat.length < 150) {
-            clip.category = existingCat.name;
-            stats.categorized++;
-          }
-        } else {
-          if (!categoryCreationQueue.has(suggested.name)) {
-            categoryCreationQueue.set(suggested.name, suggested);
-          }
-          clip._pendingCategory = suggested.name;
-        }
-      }
-
-      // ── Sequential pipeline: AI Format → Content Cleanup ──
-      // Step A: Apply AI grammar/punctuation polish if available
-      const aiFormatted = aiFormatMap.get(String(clip.id));
-      if (aiFormatted) {
-        clip.text = aiFormatted;
-        stats.aiFormatted++;
-      }
-      // Step B: ALWAYS run rule-based cleanup (whitespace, blank lines, UTM, JSON format, etc.)
-      const enhanced = this._enhanceContent(clip.text, contentType);
-      if (enhanced !== clip.text) {
-        clip.text = enhanced;
-        stats.enhanced++;
-      }
-    }
-
-    // ── Duplicate detection (second pass — after all text modifications) ──
-    const dupMap = new Map();
-    for (const clip of this.clips) {
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key) dupMap.set(key, (dupMap.get(key) || 0) + 1);
-    }
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key && (dupMap.get(key) || 0) > 1) stats.duplicatesFound++;
-    }
-
-    // Create missing categories
-    for (const [name, { icon }] of categoryCreationQueue) {
-      if (!this.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-        const now = Date.now();
-        this.categories.push({ id: now + Math.random(), name, icon, createdAt: now, updatedAt: now });
-      }
-    }
-
-    // Assign pending
-    for (const clip of this.clips) {
-      if (clip._pendingCategory) {
-        const cat = this.categories.find(c => c.name.toLowerCase() === clip._pendingCategory.toLowerCase());
-        if (cat && this.clips.filter(c => c.category === cat.name).length < 150) {
-          clip.category = cat.name;
-          stats.categorized++;
-        }
-        delete clip._pendingCategory;
-      }
-    }
-
-    // Persist
-    await chrome.storage.local.set({
-      clips: this.clips,
-      categories: this.categories,
-      searchOnlyClips: this.searchOnlyClips,
-      pc_local_updatedAt: Date.now()
-    });
-    try {
-      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-    } catch (_) { /* don't block */ }
-
-    // Refresh credit pills after AI calls
-    if (stats.aiCategorized || stats.aiFormatted > 0) {
-      this.updateAiCreditsPills('fresh');
-    }
-
-    // Refresh UI
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-
-    return stats;
+    return this.aiLabFeature.magic._craftMagic.call(this, clipIds);
   }
 
   // ─── Magic Button: Craft All with Undo Snapshot ───
   async _craftAllMagic() {
-    // Snapshot for undo BEFORE any changes
-    this._magicUndoSnapshot = {
-      clips: JSON.parse(JSON.stringify(this.clips)),
-      categories: JSON.parse(JSON.stringify(this.categories))
-    };
-
-    const allClipIds = this.clips.map(c => String(c.id));
-    const stats = await this._craftMagic(allClipIds);
-
-    this.showToast('🪄 All clips processed! Click Magic again to undo.');
-    return stats;
+    return this.aiLabFeature.magic._craftAllMagic.call(this);
   }
 
   // ─── Magic Button: Undo Last Magic ───
   async _undoMagic() {
-    if (!this._magicUndoSnapshot) {
-      this.showToast('⚠️ No magic to undo');
-      return;
-    }
-
-    this.clips = this._magicUndoSnapshot.clips;
-    this.categories = this._magicUndoSnapshot.categories;
-    this._magicUndoSnapshot = null;
-
-    await chrome.storage.local.set({
-      clips: this.clips,
-      categories: this.categories,
-      pc_local_updatedAt: Date.now()
-    });
-    try {
-      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-    } catch (_) { /* don't block */ }
-
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-
-    // Close modal and notify
-    document.getElementById('magicPreviewModal').style.display = 'none';
-    this.showToast('🪄 Magic undone! Clips restored.');
+    return this.aiLabFeature.magic._undoMagic.call(this);
   }
 
   // ─── Magic Button: Show Results Modal ───
   _showMagicResults(stats) {
-    const modal = document.getElementById('magicResultsModal');
-    if (!modal) {
-      const parts = [];
-      if (stats.categorized > 0) parts.push(`${stats.categorized} categorized${stats.aiCategorized ? ' (AI)' : ''}`);
-      if (stats.enhanced > 0) parts.push(`${stats.enhanced} enhanced${stats.aiFormatted > 0 ? ` (${stats.aiFormatted} AI formatted)` : ''}`);
-      if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
-      this.showToast(parts.length ? `🪄 ${parts.join(', ')}` : '🪄 Clips already organized!');
-      return;
-    }
-
-    const labels = this._magicTypeLabels();
-    const typeBreakdown = Object.entries(stats.typesFound)
-      .map(([type, count]) => `<span class="magic-type-tag">${this._escHtml(labels[type] || type)}: ${count}</span>`)
-      .join(' ');
-
-    document.getElementById('magicStatCategorized').textContent = stats.categorized;
-    document.getElementById('magicStatEnhanced').textContent = stats.enhanced;
-    document.getElementById('magicStatAiFormatted').textContent = stats.aiFormatted || 0;
-    document.getElementById('magicStatDupes').textContent = stats.duplicatesFound;
-    document.getElementById('magicTypeBreakdown').innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
-
-    modal.style.display = 'flex';
+    return this.aiLabFeature.magic._showMagicResults.call(this, stats);
   }
+
   
   showConfetti() {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -10127,132 +9634,7 @@ class PasteCraftPopup {
   }
 
   async continueHistoryConversation() {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads || entry.threads.length === 0) {
-      this.showToast('No conversation to continue');
-      return;
-    }
-
-    // Close the history modal
-    const modal = document.getElementById('aiHistoryModal');
-    if (modal) modal.style.display = 'none';
-
-    if (entry.type === 'summary') {
-      // Restore summary state
-      this.currentSummaryText = entry.originalText || '';
-      this.summaryThreads = entry.threads.map(t => ({
-        question: t.question || '',
-        answer: t.answer || '',
-        timestamp: t.timestamp || Date.now()
-      }));
-      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
-      this._activeSummaryHistoryId = entry.id;
-
-      // Navigate to AI Lab > Summary tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      const aiTab = document.querySelector('[data-tab="ai"]');
-      if (aiTab) aiTab.classList.add('active');
-      const aiTabEl = document.getElementById('aiTab');
-      if (aiTabEl) aiTabEl.classList.add('active');
-      this.currentTab = 'ai';
-
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
-      if (summarySubTab) summarySubTab.classList.add('active');
-      const summarySection = document.getElementById('aiSummarySection');
-      if (summarySection) summarySection.classList.add('active');
-      this._currentAiLabSubTab = 'summary';
-
-      // Show result section with last thread
-      this.showSummarySection('result');
-      const lastThread = this.summaryThreads[this.currentSummaryThreadIndex];
-      const summaryContent = document.getElementById('summaryResultContent');
-      if (summaryContent && lastThread) {
-        summaryContent.innerHTML = await this._renderAiResponse(lastThread.answer);
-      }
-
-      // Show follow-up container
-      const followupContainer = document.getElementById('summaryFollowupContainer');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Render pagination if multiple threads
-      if (this.summaryThreads.length >= 2) {
-        this.renderThreadPagination('summary');
-      }
-
-      // Persist
-      this._currentSummarySection = 'result';
-      this._saveSummaryState();
-      this._saveActiveTabState();
-      this.showToast('Conversation restored — ask a follow-up!');
-
-    } else if (entry.type === 'breakdown') {
-      // Restore breakdown state
-      this.currentBreakdownText = entry.originalText || '';
-      this.breakdownThreads = entry.threads.map(t => ({
-        question: t.question || '',
-        answer: t.answer || '',
-        level: t.level || null,
-        timestamp: t.timestamp || Date.now()
-      }));
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-      this._activeBreakdownHistoryId = entry.id;
-      this.currentBreakdownLevel = entry.threads[0]?.level || null;
-
-      // Navigate to AI Lab > Breakdown tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      const aiTab = document.querySelector('[data-tab="ai"]');
-      if (aiTab) aiTab.classList.add('active');
-      const aiTabEl = document.getElementById('aiTab');
-      if (aiTabEl) aiTabEl.classList.add('active');
-      this.currentTab = 'ai';
-
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      const breakdownSubTab = document.querySelector('[data-ai-tab="breakdown"]');
-      if (breakdownSubTab) breakdownSubTab.classList.add('active');
-      const breakdownSection = document.getElementById('aiBreakdownSection');
-      if (breakdownSection) breakdownSection.classList.add('active');
-      this._currentAiLabSubTab = 'breakdown';
-
-      // Open the breakdown modal with the last thread content
-      const breakdownModal = document.getElementById('breakdownModal');
-      if (breakdownModal) breakdownModal.style.display = 'flex';
-
-      // Populate the original text box (was missing — caused blank display)
-      const breakdownOriginalText = document.getElementById('breakdownOriginalText');
-      if (breakdownOriginalText) {
-        breakdownOriginalText.textContent = this.currentBreakdownText;
-      }
-      const breakdownTextLength = document.getElementById('breakdownTextLength');
-      if (breakdownTextLength && this.currentBreakdownText) {
-        const wordCount = this.currentBreakdownText.trim().split(/\s+/).length;
-        breakdownTextLength.textContent = `${wordCount} words`;
-      }
-
-      const resultEl = document.getElementById('breakdownResult');
-      const lastThread = this.breakdownThreads[this.currentBreakdownThreadIndex];
-      if (resultEl && lastThread) {
-        resultEl.innerHTML = await this._renderAiResponse(lastThread.answer);
-      }
-
-      // Show follow-up container
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Render pagination if multiple threads
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Persist
-      this._saveBreakdownModalState();
-      this._saveActiveTabState();
-      this.showToast('Conversation restored — ask a follow-up!');
-    }
+    return this.aiLabFeature.history.continueHistoryConversation.call(this);
   }
 
   /** Delete all AI history entries */
