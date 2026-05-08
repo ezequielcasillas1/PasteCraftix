@@ -183,13 +183,6 @@ export async function enforceClipLimit(app) {
 }
 
 export async function copyToClipboardFallback(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (e) {
-    console.log('📋 Clipboard API blocked, using fallback method...');
-  }
-
   const textarea = document.createElement('textarea');
   textarea.value = text;
   textarea.style.position = 'fixed';
@@ -205,7 +198,13 @@ export async function copyToClipboardFallback(text) {
     if (!success) throw new Error('execCommand copy failed');
     return true;
   } catch (e) {
-    document.body.removeChild(textarea);
+    if (textarea.parentNode) document.body.removeChild(textarea);
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
     throw e;
   }
 }

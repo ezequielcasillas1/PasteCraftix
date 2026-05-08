@@ -168,30 +168,40 @@ function _scheduleNotesSync(app) {
 }
 
 export async function saveNote(app) {
+  if (app._noteSaveInProgress) return;
+  app._noteSaveInProgress = true;
+
   const isUpdate = !!app.currentNoteId;
   const inputs = _readNoteEditorInputs();
   const existing = app.currentNoteId ? app.notes.find(n => n.id == app.currentNoteId) : null;
   const noteData = _buildNoteData(app, inputs, existing);
-
-  _commitNoteToList(app, noteData);
-
-  try { _refreshAlbumsIfNote(app, noteData); }
-  catch (e) { console.warn('refreshAlbumsForNote failed:', e); }
+  const saveBtn = document.getElementById('saveNote');
+  if (saveBtn) saveBtn.disabled = true;
 
   try {
-    await app.saveNotes();
-    await app.saveNotesPrefs();
-  } catch (e) {
-    console.error('Failed to persist note:', e);
-    app.showToast('Failed to save note');
+    _commitNoteToList(app, noteData);
+
+    try { _refreshAlbumsIfNote(app, noteData); }
+    catch (e) { console.warn('refreshAlbumsForNote failed:', e); }
+
+    try {
+      await app.saveNotes();
+      await app.saveNotesPrefs();
+    } catch (e) {
+      console.error('Failed to persist note:', e);
+      app.showToast('Failed to save note');
+    }
+
+    app.renderNotes();
+    app.closeNoteEditor();
+
+    _maybeReopenAlbumPicker(app);
+    app.showToast(isUpdate ? 'Note updated!' : 'Note created!');
+    _scheduleNotesSync(app);
+  } finally {
+    app._noteSaveInProgress = false;
+    if (saveBtn) saveBtn.disabled = false;
   }
-
-  app.renderNotes();
-  app.closeNoteEditor();
-
-  _maybeReopenAlbumPicker(app);
-  app.showToast(isUpdate ? 'Note updated!' : 'Note created!');
-  _scheduleNotesSync(app);
 }
 
 // ── generateNoteTitleFromContent ───────────────────────────────────────────

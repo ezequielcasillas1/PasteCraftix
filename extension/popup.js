@@ -793,150 +793,19 @@ class PasteCraftPopup {
   static AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
 
   _normalizeAiWorkflow(raw) {
-    const obj = (raw && typeof raw === 'object') ? raw : {};
-    const enabled = obj.enabled === true;
-    const provider = PasteCraftPopup.AI_ALLOWED_PROVIDERS.has(String(obj.provider || 'openai'))
-      ? String(obj.provider || 'openai')
-      : 'openai';
-    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-    const allowedPresets = new Set(presets.map(p => p.value));
-    const preset = allowedPresets.has(String(obj.preset || 'default')) ? String(obj.preset || 'default') : 'default';
-    const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
-
-    return { enabled, provider, preset, updatedAt };
+    return this.aiLabFeature.credits._normalizeAiWorkflow.call(this, raw);
   }
 
   async loadAiWorkflow() {
-    const key = this._aiWorkflowKey;
-    const defaults = { enabled: false, provider: 'openai', preset: 'default', updatedAt: 0 };
-
-    let syncCfg = null;
-    let localCfg = null;
-    try {
-      syncCfg = await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
-    } catch (_) {
-      syncCfg = null;
-    }
-    try {
-      localCfg = await chrome.storage.local.get([key]);
-    } catch (_) {
-      localCfg = null;
-    }
-
-    const fromSync = this._normalizeAiWorkflow(syncCfg ? syncCfg[key] : null);
-    const fromLocal = this._normalizeAiWorkflow(localCfg ? localCfg[key] : null);
-
-    const hasSync = !!(syncCfg && syncCfg[key]);
-    const hasLocal = !!(localCfg && localCfg[key]);
-
-    const preferSync = hasSync && fromSync.updatedAt >= fromLocal.updatedAt;
-    const next = preferSync ? fromSync : (hasLocal ? fromLocal : defaults);
-
-    this.aiWorkflow = this._normalizeAiWorkflow(next);
-
-    // Local cache for offline access (best-effort)
-    try { await chrome.storage.local.set({ [key]: this.aiWorkflow }); } catch (_) {}
-
-    this.applyAiWorkflowToUi();
-    return this.aiWorkflow;
+    return this.aiLabFeature.credits.loadAiWorkflow.call(this);
   }
 
   applyAiWorkflowToUi() {
-    try {
-      const toggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-
-      const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
-      this.aiWorkflow = cfg;
-
-      if (toggle) toggle.checked = !!cfg.enabled;
-      if (providerEl) providerEl.value = cfg.provider || 'openai';
-
-      // Rebuild preset options for the selected provider
-      if (presetEl) {
-        const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[cfg.provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-        presetEl.innerHTML = '';
-        for (const p of presets) {
-          const opt = document.createElement('option');
-          opt.value = p.value;
-          opt.textContent = p.label;
-          presetEl.appendChild(opt);
-        }
-        presetEl.value = cfg.preset || 'default';
-      }
-
-      const disabled = !cfg.enabled;
-      if (providerEl) providerEl.disabled = disabled;
-      if (presetEl) presetEl.disabled = disabled;
-    } catch (_) {}
+    return this.aiLabFeature.credits.applyAiWorkflowToUi.call(this);
   }
 
   async saveAiWorkflowFromUi(silent = true) {
-    // Use CRUD utility for reliable update
-    const key = this._aiWorkflowKey;
-    const snapshot = PasteCraftCRUD.createSnapshot(this.aiWorkflow);
-
-    const rollback = async () => {
-      try {
-        this.aiWorkflow = this._normalizeAiWorkflow(snapshot);
-        this.applyAiWorkflowToUi();
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ [key]: this.aiWorkflow });
-        });
-      } catch (rollbackError) {
-        console.error('❌ AI workflow rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      const toggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-      if (!toggle || !providerEl || !presetEl) {
-        throw new Error('AI workflow UI elements not found');
-      }
-
-      const next = this._normalizeAiWorkflow({
-        enabled: !!toggle.checked,
-        provider: String(providerEl.value || 'openai'),
-        preset: String(presetEl.value || 'default'),
-        updatedAt: Date.now()
-      });
-
-      this.aiWorkflow = next;
-      this.applyAiWorkflowToUi();
-
-      // PRACTICE #3: RETRY LOGIC - Save locally with retry
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ [key]: this.aiWorkflow });
-      });
-
-      // Best-effort: sync storage for cross-device
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ [key]: this.aiWorkflow }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION - Verify persisted
-      const verification = await chrome.storage.local.get([key]);
-      const verified = this._normalizeAiWorkflow(verification ? verification[key] : null);
-      if (verified.updatedAt !== this.aiWorkflow.updatedAt || verified.preset !== this.aiWorkflow.preset || verified.enabled !== this.aiWorkflow.enabled) {
-        throw new Error('Verification failed: AI workflow not persisted correctly');
-      }
-
-      // Immediately sync in-memory cache so next AI call uses the new config
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
-        pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
-      }
-
-      if (!silent) this.showToast('✅ AI workflow saved!');
-      return this.aiWorkflow;
-    } catch (error) {
-      console.error('❌ AI workflow save failed, rolling back:', error);
-      await rollback();
-      if (!silent) this.showToast(`❌ Failed to save AI workflow: ${error.message || 'Unknown error'}`, 'error');
-      return null;
-    }
+    return this.aiLabFeature.credits.saveAiWorkflowFromUi.call(this, silent);
   }
 
   // =====================================================
@@ -1070,11 +939,19 @@ class PasteCraftPopup {
     return this.notesFeature;
   }
 
+  async _initializeAiLabFeature() {
+    if (this.aiLabFeature) return this.aiLabFeature;
+    const { initAiLabFeature } = await import('./popup/features/ai-lab/ai-lab.controller.js');
+    this.aiLabFeature = initAiLabFeature(this);
+    return this.aiLabFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
     await this._initializeCategoriesFeature();
     await this._initializeNotesFeature();
+    await this._initializeAiLabFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -1294,174 +1171,30 @@ class PasteCraftPopup {
   }
 
   _computeAiImageCreditsView(subscription) {
-    if (!subscription) {
-      return { state: 'unknown', text: 'Image credits: —', css: 'is-muted', title: 'Sign in to view image credits' };
-    }
-
-    const tier = String(subscription.subscription_tier || '').toLowerCase();
-    const status = String(subscription.subscription_status || '').toLowerCase();
-    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
-    const hasCouponAiAccess = !!(subscription && (
-      subscription.has_unlimited_ai === true ||
-      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-    ));
-
-    const isEntitledTier = (tier === 'premium' || tier === 'admin');
-    const isActiveStatus = (status === 'active' || status === 'past_due');
-    const entitled = (isEntitledTier && isActiveStatus) || hasCouponAiAccess;
-
-    if (!entitled) {
-      return { state: 'no_access', text: 'Image credits: 0', css: 'is-empty', title: 'Upgrade to access AI image generation' };
-    }
-
-    if (subscription.has_unlimited_ai === true || tier === 'admin') {
-      return { state: 'unlimited', text: 'Image credits: ∞', css: '', title: 'Unlimited AI image credits' };
-    }
-
-    const limit = Number.isFinite(Number(subscription.ai_image_credits_limit))
-      ? Number(subscription.ai_image_credits_limit)
-      : NaN;
-    const used = Number.isFinite(Number(subscription.ai_image_credits_used))
-      ? Number(subscription.ai_image_credits_used)
-      : 0;
-
-    const resetAt = subscription.ai_image_credits_reset_at
-      || subscription.stripe_current_period_end
-      || subscription.current_period_end
-      || null;
-
-    if (!Number.isFinite(limit) || limit <= 0) {
-      const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-      const base = 'Image credits: —';
-      const suffix = resetShort ? ` • resets ${resetShort}` : '';
-      return { state: 'pending', text: `${base}${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
-    }
-
-    const remaining = Math.max(0, limit - Math.max(0, used));
-    const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-    const suffix = resetShort ? ` • resets ${resetShort}` : '';
-    const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
-    return {
-      state: 'ok',
-      text: `Image credits: ${remaining}/${limit}${suffix}`,
-      css,
-      title: `AI image credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
-    };
+    return this.aiLabFeature.credits._computeAiImageCreditsView.call(this, subscription);
   }
 
   _computeAiTextCreditsView(subscription) {
-    if (!subscription) {
-      return { state: 'unknown', text: 'AI text credits: —', css: 'is-muted', title: 'Sign in to view AI text credits' };
-    }
-
-    const tier = String(subscription.subscription_tier || '').toLowerCase();
-    const status = String(subscription.subscription_status || '').toLowerCase();
-    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
-    const hasCouponAiAccess = !!(subscription && (
-      subscription.has_unlimited_ai === true ||
-      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-    ));
-
-    const isEntitledTier = (tier === 'premium' || tier === 'admin');
-    const isActiveStatus = (status === 'active' || status === 'past_due');
-    const entitled = (isEntitledTier && isActiveStatus) || hasCouponAiAccess;
-
-    if (!entitled) {
-      return { state: 'no_access', text: 'AI text credits: 0', css: 'is-empty', title: 'Upgrade to access AI text features' };
-    }
-
-    // If you later add `ai_text_credits_*` fields, we will use them automatically.
-    const limit = Number.isFinite(Number(subscription.ai_text_credits_limit))
-      ? Number(subscription.ai_text_credits_limit)
-      : NaN;
-    const used = Number.isFinite(Number(subscription.ai_text_credits_used))
-      ? Number(subscription.ai_text_credits_used)
-      : 0;
-
-    const resetAt = subscription.ai_text_credits_reset_at
-      || subscription.stripe_current_period_end
-      || subscription.current_period_end
-      || null;
-
-    if (!Number.isFinite(limit) || limit <= 0) {
-      return { state: 'unlimited', text: 'AI text credits: ∞', css: '', title: 'AI text credits are currently unlimited' };
-    }
-
-    const remaining = Math.max(0, limit - Math.max(0, used));
-    const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-    const suffix = resetShort ? ` • resets ${resetShort}` : '';
-    const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
-    return {
-      state: 'ok',
-      text: `AI text credits: ${remaining}/${limit}${suffix}`,
-      css,
-      title: `AI text credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
-    };
+    return this.aiLabFeature.credits._computeAiTextCreditsView.call(this, subscription);
   }
 
   /** Update the label text of a credit pill without destroying child elements (tooltips). */
   _setPillLabel(el, text) {
-    // Find or create the first text node to hold the label.
-    const firstTextNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (firstTextNode) {
-      firstTextNode.textContent = text + ' ';
-    } else {
-      el.insertBefore(document.createTextNode(text + ' '), el.firstChild);
-    }
+    return this.aiLabFeature.credits._setPillLabel.call(this, el, text);
   }
 
   /** Build provider-aware cost breakdown HTML for the text-credits tooltip. */
   _buildCreditCostHtml() {
-    const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
-    const provider = cfg.provider || 'openai';
-    const costs = PasteCraftPopup.AI_CREDIT_COSTS[provider] || PasteCraftPopup.AI_CREDIT_COSTS.openai;
-    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-    const providerName = provider === 'google' ? 'Google Gemini' : 'OpenAI';
-
-    const lines = presets
-      .filter(p => costs[p.value] !== undefined)
-      .map(p => {
-        // Strip the " · XX cr" suffix we added to labels to get the clean model name
-        const cleanLabel = p.label.replace(/\s*·\s*\d+\s*cr$/i, '');
-        return `${cleanLabel} · <strong>${costs[p.value]}</strong> cr`;
-      });
-
-    return `<strong>${providerName} — Cost per call:</strong><br>` + lines.join('<br>');
+    return this.aiLabFeature.credits._buildCreditCostHtml.call(this);
   }
 
   updateAiCreditsPills(source = '') {
-    const imgEl = document.getElementById('aiCreditsPill');
-    if (imgEl) {
-      const view = this._computeAiImageCreditsView(this.userSubscription);
-      this._setPillLabel(imgEl, view.text);
-      imgEl.title = view.title || imgEl.title || '';
-      imgEl.classList.remove('is-muted', 'is-low', 'is-empty');
-      if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => imgEl.classList.add(c));
-    }
-
-    const textEl = document.getElementById('aiTextCreditsPill');
-    if (textEl) {
-      const view = this._computeAiTextCreditsView(this.userSubscription);
-      this._setPillLabel(textEl, view.text);
-      textEl.title = view.title || textEl.title || '';
-      textEl.classList.remove('is-muted', 'is-low', 'is-empty');
-      if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => textEl.classList.add(c));
-
-      // Inject dynamic model-cost breakdown into the tooltip
-      const costsEl = document.getElementById('aiTextCreditsCosts');
-      if (costsEl) {
-        costsEl.innerHTML = this._buildCreditCostHtml();
-      }
-    }
-
-    if (source) {
-      try { console.log(`🎫 AI credits pills updated (${source})`); } catch (_) {}
-    }
+    return this.aiLabFeature.credits.updateAiCreditsPills.call(this, source);
   }
 
   // Back-compat: older callsites.
   updateAiCreditsPill(source = '') {
-    this.updateAiCreditsPills(source);
+    return this.aiLabFeature.credits.updateAiCreditsPill.call(this, source);
   }
 
   setupLocalStorageListener() {
@@ -3631,11 +3364,16 @@ class PasteCraftPopup {
 
     // Copy summary button
     if (copySummaryBtn) {
-      copySummaryBtn.addEventListener('click', () => {
+      copySummaryBtn.addEventListener('click', async () => {
         const content = document.getElementById('summaryResultContent').textContent;
         if (content) {
-          navigator.clipboard.writeText(content);
-          this.showToast('Summary copied to clipboard!');
+          try {
+            await this.copyToClipboardFallback(content);
+            this.showToast('Summary copied to clipboard!');
+          } catch (error) {
+            console.error('Summary copy failed:', error);
+            this.showToast('Failed to copy summary', 'error');
+          }
         }
       });
     }
@@ -6714,8 +6452,12 @@ class PasteCraftPopup {
   copyBreakdownText() {
     const text = document.getElementById('breakdownResult').textContent;
     if (text) {
-      navigator.clipboard.writeText(text);
-      this.showToast('Explanation copied to clipboard!');
+      this.copyToClipboardFallback(text)
+        .then(() => this.showToast('Explanation copied to clipboard!'))
+        .catch((error) => {
+          console.error('Breakdown copy failed:', error);
+          this.showToast('Failed to copy explanation', 'error');
+        });
     }
   }
 
@@ -6750,423 +6492,37 @@ class PasteCraftPopup {
   }
 
   async generateBreakdownInline(level) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-      return;
-    }
-
-    const loadingEl = document.getElementById('bdInlineLoading');
-    const resultEl = document.getElementById('bdInlineResult');
-
-    // Check cache first
-    if (this.inlineBreakdownCache && this.inlineBreakdownCache[level]) {
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(this.inlineBreakdownCache[level]);
-      return;
-    }
-
-    try {
-      // Show loading
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      // Generate explanation
-      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
-
-      // Cache
-      const formatted = this._formatAiOutput(explanation);
-      if (!this.inlineBreakdownCache) this.inlineBreakdownCache = {};
-      this.inlineBreakdownCache[level] = formatted;
-
-      // Render
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Add to threads
-      if (!this.inlineBreakdownThreads) this.inlineBreakdownThreads = [];
-      this.inlineBreakdownThreads.push({
-        question: `Breakdown at ${level} level`,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
-
-      // Show follow-up
-      const followupContainer = document.getElementById('bdInlineFollowup');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Show thread pagination after 2+ threads
-      if (this.inlineBreakdownThreads.length >= 2) {
-        this.renderInlineBreakdownPagination();
-      }
-
-      // Also persist to breakdown modal state for session restore
-      this.breakdownCache = this.inlineBreakdownCache;
-      this.breakdownThreads = this.inlineBreakdownThreads;
-      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
-      this._saveBreakdownModalState();
-
-      // Save to AI history
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate inline breakdown:', error);
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate explanation. Please try again.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate explanation');
-    }
+    return this.aiLabFeature.summary.generateBreakdownInline.call(this, level);
   }
 
   async sendInlineBreakdownFollowup(question) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-      return;
-    }
-
-    const loadingEl = document.getElementById('bdInlineLoading');
-    const resultEl = document.getElementById('bdInlineResult');
-
-    try {
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      // Build context from previous thread
-      const prevThread = this.inlineBreakdownThreads[this.currentInlineBreakdownThreadIndex];
-      const contextPrompt = prevThread
-        ? `Previous explanation:\n${prevThread.answer}\n\nUser follow-up: ${question}`
-        : question;
-
-      const level = this.currentBreakdownLevel || 'college';
-      const explanation = await pasteCraftSupabase.breakdownText(contextPrompt, level);
-
-      const formatted = this._formatAiOutput(explanation);
-
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Add to threads
-      this.inlineBreakdownThreads.push({
-        question,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
-
-      // Update pagination
-      this.renderInlineBreakdownPagination();
-
-      // Persist
-      this.breakdownThreads = this.inlineBreakdownThreads;
-      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
-      this._saveBreakdownModalState();
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to send inline follow-up:', error);
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate response.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate follow-up');
-    }
+    return this.aiLabFeature.summary.sendInlineBreakdownFollowup.call(this, question);
   }
 
   renderInlineBreakdownPagination() {
-    const container = document.getElementById('bdInlineThreadPagination');
-    if (!container || !this.inlineBreakdownThreads || this.inlineBreakdownThreads.length < 2) {
-      if (container) container.style.display = 'none';
-      return;
-    }
-
-    container.style.display = 'flex';
-    container.innerHTML = '';
-
-    this.inlineBreakdownThreads.forEach((thread, idx) => {
-      const box = document.createElement('button');
-      box.className = 'thread-box' + (idx === this.currentInlineBreakdownThreadIndex ? ' active' : '');
-      box.textContent = idx + 1;
-      box.setAttribute('data-tooltip', thread.question || `Thread ${idx + 1}`);
-      box.addEventListener('click', async () => {
-        this.currentInlineBreakdownThreadIndex = idx;
-        const resultEl = document.getElementById('bdInlineResult');
-        if (resultEl) resultEl.innerHTML = await this._renderAiResponse(thread.answer);
-        // Update active box
-        container.querySelectorAll('.thread-box').forEach((b, i) => {
-          b.classList.toggle('active', i === idx);
-        });
-      });
-      container.appendChild(box);
-    });
+    return this.aiLabFeature.summary.renderInlineBreakdownPagination.call(this);
   }
 
-  // AI Summary Methods
   showSummarySection(section) {
-    const inputSection = document.getElementById('summaryInputSection');
-    const questionsSection = document.getElementById('summaryQuestionsSection');
-    const resultSection = document.getElementById('summaryResultSection');
-
-    // Hide all sections
-    if (inputSection) inputSection.style.display = 'none';
-    if (questionsSection) questionsSection.style.display = 'none';
-    if (resultSection) resultSection.style.display = 'none';
-
-    // Show requested section
-    if (section === 'input' && inputSection) {
-      inputSection.style.display = 'block';
-    } else if (section === 'questions' && questionsSection) {
-      questionsSection.style.display = 'block';
-    } else if (section === 'result' && resultSection) {
-      resultSection.style.display = 'block';
-    }
+    return this.aiLabFeature.summary.showSummarySection.call(this, section);
   }
 
   async generateSummaryQuestions(text) {
-    // Premium check
-    let _premiumOk = true;
-    if (this.currentUser) {
-      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary');
-    }
-    if (!_premiumOk) return;
-
-    try {
-      this.showSummarySection('questions');
-      const questionsLoading = document.getElementById('questionsLoading');
-      const questionsList = document.getElementById('questionsList');
-      
-      // Show loading
-      if (questionsLoading) questionsLoading.style.display = 'flex';
-      if (questionsList) questionsList.innerHTML = '';
-
-      // Generate questions using AI
-      const questions = await pasteCraftSupabase.generateSummaryQuestions(text);
-      this.generatedQuestions = questions;
-
-      // Hide loading
-      if (questionsLoading) questionsLoading.style.display = 'none';
-
-      // Display questions
-      if (questionsList) {
-        questions.forEach(question => {
-          const chip = document.createElement('button');
-          chip.className = 'question-chip';
-          chip.textContent = question;
-          chip.addEventListener('click', () => {
-            this.currentSummaryQuestion = question;
-            this.generateSummary(text, question);
-          });
-          questionsList.appendChild(chip);
-        });
-      }
-
-      // Clear custom question input
-      const customInput = document.getElementById('customQuestionInput');
-      if (customInput) {
-        customInput.value = '';
-        document.getElementById('customQuestionBtn').disabled = true;
-      }
-
-      // Persist questions state
-      this._currentSummarySection = 'questions';
-      this._saveSummaryState();
-
-    } catch (error) {
-      console.error('Failed to generate questions:', error);
-      this.showToast('Failed to generate questions. Please check your API key.');
-      this.showSummarySection('input');
-    }
+    return this.aiLabFeature.summary.generateSummaryQuestions.call(this, text);
   }
 
   async generateSummary(text, question) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-      return;
-    }
-
-    try {
-      this.showSummarySection('result');
-      const summaryLoading = document.getElementById('summaryLoading');
-      const summaryContent = document.getElementById('summaryResultContent');
-
-      // Show loading
-      if (summaryLoading) summaryLoading.style.display = 'flex';
-      if (summaryContent) summaryContent.innerHTML = '';
-
-      // Generate summary using AI
-      const summary = await pasteCraftSupabase.generateSummary(text, question);
-      const formatted = this._formatAiOutput(summary);
-
-      // Hide loading
-      if (summaryLoading) summaryLoading.style.display = 'none';
-
-      // Render as rich HTML and display
-      if (summaryContent) {
-        summaryContent.innerHTML = await this._renderAiResponse(formatted);
-      }
-
-      // Store raw text for current summary (for copy/persistence)
-      this._currentRawSummary = formatted;
-
-      // Add to threads (store raw text)
-      this.summaryThreads.push({
-        question,
-        answer: formatted,
-        timestamp: Date.now()
-      });
-      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
-
-      // Show follow-up input after first response
-      const followupContainer = document.getElementById('summaryFollowupContainer');
-      if (followupContainer) {
-        followupContainer.style.display = 'block';
-      }
-
-      // Update thread pagination (only show after 2nd response)
-      if (this.summaryThreads.length >= 2) {
-        this.renderThreadPagination('summary');
-      }
-
-      // Persist summary result state
-      this._currentSummarySection = 'result';
-      this._saveSummaryState();
-
-      // Save to AI history
-      await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads);
-
-    } catch (error) {
-      console.error('Failed to generate summary:', error);
-      const summaryContent = document.getElementById('summaryResultContent');
-      if (summaryContent) {
-        summaryContent.innerHTML = '❌ Failed to generate summary. Please check your OpenAI API key configuration.';
-      }
-      document.getElementById('summaryLoading').style.display = 'none';
-      this.showToast('Failed to generate summary');
-    }
+    return this.aiLabFeature.summary.generateSummary.call(this, text, question);
   }
 
   _formatAiOutput(raw) {
-    // Minimal cleanup: only strip decorative artifacts, preserve all formatting
-    const s = String(raw ?? '');
-    if (!s.trim()) return '';
-
-    const lines = s.split(/\r?\n/);
-    const cleaned = lines.map(line => {
-      // Remove leading // comment markers (keep URLs like https://)
-      if (/^\s*\/\/\s?/.test(line) && !/^\s*\/\/\s*https?:\/\//i.test(line)) {
-        line = line.replace(/^\s*\/\/\s?/, '');
-      }
-      // Remove leading \\ backslash prefixes (decorative only)
-      line = line.replace(/^\s*\\\\+\s?/, '');
-      // Strip trailing whitespace
-      line = line.replace(/[ \t]+$/, '');
-      return line;
-    });
-
-    // Normalize excessive blank lines (max 2 consecutive)
-    const out = [];
-    let blankRun = 0;
-    for (const line of cleaned) {
-      const isBlank = !String(line).trim();
-      if (isBlank) {
-        blankRun += 1;
-        if (blankRun <= 2) out.push('');
-        continue;
-      }
-      blankRun = 0;
-      out.push(line);
-    }
-    return out.join('\n').trim();
+    return this.aiLabFeature.summary._formatAiOutput.call(this, raw);
   }
 
-  /**
-   * Render AI response text as rich HTML using the markup renderer.
-   * Handles Markdown with embedded LaTeX ($...$, $$...$$) and Mermaid diagrams.
-   * @param {string} rawText - Raw AI response text
-   * @returns {string|Promise<string>} Rendered HTML
-   */
   async _renderAiResponse(rawText) {
-    if (!rawText || typeof rawText !== 'string') return '';
-    const text = rawText.trim();
-    if (!text) return '';
-
-    // Check if PCMarkup is available
-    if (typeof PCMarkup === 'undefined') return PCMarkup?.escapeHtml?.(text) || text;
-
-    // Step 1: Extract mermaid code blocks and render them separately
-    const mermaidBlocks = [];
-    let processed = text.replace(/```mermaid\s*\n([\s\S]*?)```/gi, (_, code) => {
-      const placeholder = `%%MERMAID_BLOCK_${mermaidBlocks.length}%%`;
-      mermaidBlocks.push(code.trim());
-      return placeholder;
-    });
-
-    // Step 2: Extract LaTeX blocks and protect them from Markdown parsing
-    const latexBlocks = [];
-    // Display math $$...$$
-    processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
-      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: true });
-      return placeholder;
-    });
-    // Display math \[...\]
-    processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
-      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: true });
-      return placeholder;
-    });
-    // Inline math $...$
-    processed = processed.replace(/\$([^$\n]+?)\$/g, (_, expr) => {
-      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: false });
-      return placeholder;
-    });
-    // Inline math \(...\)
-    processed = processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
-      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: false });
-      return placeholder;
-    });
-
-    // Step 3: Render as Markdown
-    let html = PCMarkup.renderMarkup(processed, null, { type: 'markdown' });
-
-    // Step 4: Replace LaTeX placeholders with KaTeX rendered HTML
-    if (typeof katex !== 'undefined') {
-      for (let i = 0; i < latexBlocks.length; i++) {
-        const block = latexBlocks[i];
-        const displayPlaceholder = `%%LATEX_DISPLAY_${i}%%`;
-        const inlinePlaceholder = `%%LATEX_INLINE_${i}%%`;
-        try {
-          const rendered = katex.renderToString(block.expr, {
-            displayMode: block.display,
-            throwOnError: false
-          });
-          html = html.replace(displayPlaceholder, rendered);
-          html = html.replace(inlinePlaceholder, rendered);
-        } catch (_) {
-          const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
-          html = html.replace(displayPlaceholder, fallback);
-          html = html.replace(inlinePlaceholder, fallback);
-        }
-      }
-    }
-
-    // Step 5: Replace Mermaid placeholders with rendered diagrams
-    for (let i = 0; i < mermaidBlocks.length; i++) {
-      const placeholder = `%%MERMAID_BLOCK_${i}%%`;
-      // Check if placeholder survived markdown rendering (might be inside <p> tags)
-      if (html.includes(placeholder)) {
-        try {
-          const mermaidHtml = await PCMarkup.renderMarkup(mermaidBlocks[i], null, { type: 'mermaid' });
-          html = html.replace(placeholder, mermaidHtml);
-        } catch (_) {
-          html = html.replace(placeholder, `<pre class="pc-code-block"><code>${PCMarkup.escapeHtml(mermaidBlocks[i])}</code></pre>`);
-        }
-      }
-    }
-
-    return html;
+    return this.aiLabFeature.summary._renderAiResponse.call(this, rawText);
   }
 
-  // Handle Summary Follow-up
   async handleSummaryFollowup(followupQuestion) {
     const summaryFollowupInput = document.getElementById('summaryFollowupInput');
     if (summaryFollowupInput) {
@@ -7190,93 +6546,9 @@ class PasteCraftPopup {
 
   // Handle Breakdown Follow-up
   async handleBreakdownFollowup(followupQuestion) {
-    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.value = '';
-      breakdownFollowupInput.disabled = true;
-    }
-    
-    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
-    if (breakdownFollowupBtn) {
-      breakdownFollowupBtn.disabled = true;
-    }
-
-    // Disable level tabs during processing
-    this.toggleFollowupLevelTabs(false);
-
-    const loadingEl = document.getElementById('breakdownLoading');
-    const resultEl = document.getElementById('breakdownResult');
-
-    try {
-      // Show loading
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      let answer;
-      
-      // Use selected level if specified, otherwise use general summary
-      if (this.selectedFollowupLevel) {
-        console.log('🎯 Generating follow-up at level:', this.selectedFollowupLevel);
-        // Generate with specific breakdown level
-        const levelPrompt = `Based on the previous explanation, answer this follow-up question at a ${this.selectedFollowupLevel} comprehension level: ${followupQuestion}. Context: "${this.currentBreakdownText.substring(0, 100)}..."`;
-        answer = await pasteCraftSupabase.breakdownText(levelPrompt, this.selectedFollowupLevel);
-      } else {
-        // Generate standard follow-up response
-        const contextPrompt = `Based on the previous explanation about "${this.currentBreakdownText.substring(0, 100)}...", answer this follow-up: ${followupQuestion}`;
-        answer = await pasteCraftSupabase.generateSummary(this.currentBreakdownText, contextPrompt);
-      }
-
-      // Clean up the raw answer
-      const formatted = this._formatAiOutput(answer);
-
-      // Hide loading
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Render as rich HTML and display
-      if (resultEl) {
-        resultEl.innerHTML = await this._renderAiResponse(formatted);
-      }
-
-      // Add to threads (store raw text)
-      this.breakdownThreads.push({
-        question: followupQuestion,
-        answer: formatted,
-        level: this.selectedFollowupLevel || 'standard',
-        timestamp: Date.now()
-      });
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-
-      // Update pagination
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Reset selected level for next follow-up
-      this.selectedFollowupLevel = null;
-      document.querySelectorAll('.followup-level-tab').forEach(t => t.classList.remove('selected'));
-
-      // Persist breakdown modal state after follow-up
-      this._saveBreakdownModalState();
-
-      // Update AI history with new thread
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate follow-up:', error);
-      if (resultEl) {
-        resultEl.innerHTML = '❌ Failed to generate follow-up response.';
-      }
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate follow-up');
-    }
-
-    // Re-enable input
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.disabled = false;
-    }
+    return this.aiLabFeature.summary.handleBreakdownFollowup.call(this, followupQuestion);
   }
 
-  // Toggle Follow-up Level Tabs Enabled/Disabled
   toggleFollowupLevelTabs(enable) {
     const tabs = document.querySelectorAll('.followup-level-tab');
     tabs.forEach(tab => {
@@ -9971,6 +9243,14 @@ class PasteCraftPopup {
     const breakdownTextLength = document.getElementById('breakdownTextLength');
 
     if (breakdownModal && breakdownOriginalText) {
+      this.currentBreakdownText = text;
+      this.currentBreakdownLevel = null;
+      this.breakdownCache = {};
+      this.breakdownThreads = [];
+      this.currentBreakdownThreadIndex = 0;
+      this._activeBreakdownHistoryId = null;
+      this.selectedFollowupLevel = null;
+
       // Show FULL text, not truncated - let CSS handle scrolling
       breakdownOriginalText.textContent = text;
       
@@ -9978,9 +9258,6 @@ class PasteCraftPopup {
         const wordCount = text.trim().split(/\s+/).length;
         breakdownTextLength.textContent = `${wordCount} words`;
       }
-      
-      // Store the full text for analysis
-      this.currentBreakdownText = text;
       
       // Force reflow to ensure scrollbar appears correctly
       breakdownOriginalText.style.display = 'none';
@@ -9998,6 +9275,12 @@ class PasteCraftPopup {
       if (breakdownResult) {
         breakdownResult.innerHTML = '';
       }
+      const loadingEl = document.getElementById('breakdownLoading');
+      const followupContainer = document.getElementById('breakdownFollowupContainer');
+      const paginationContainer = document.getElementById('breakdownThreadPagination');
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (followupContainer) followupContainer.style.display = 'none';
+      if (paginationContainer) paginationContainer.style.display = 'none';
       
       // Reset tabs - no active tab initially
       document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
@@ -10076,41 +9359,7 @@ class PasteCraftPopup {
   }
 
   formatClipViewerPlainText(text) {
-    const normalized = String(text || '').replace(/\r\n?/g, '\n').trim();
-    if (!normalized) {
-      return '<div class="clip-viewer-empty">This clip is empty.</div>';
-    }
-
-    let paragraphs = normalized
-      .split(/\n\s*\n+/)
-      .map(part => part.trim())
-      .filter(Boolean);
-
-    if (paragraphs.length === 1 && !normalized.includes('\n') && normalized.length > 220) {
-      const sentences = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [normalized];
-      paragraphs = [];
-      let current = '';
-
-      sentences.forEach((sentence) => {
-        const next = sentence.trim();
-        if (!next) return;
-        if (current && (current.length + next.length) > 260) {
-          paragraphs.push(current);
-          current = next;
-          return;
-        }
-        current = current ? `${current} ${next}` : next;
-      });
-
-      if (current) paragraphs.push(current);
-    }
-
-    const html = paragraphs.map((paragraph) => {
-      const lineHtml = this.escapeHtml(paragraph).replace(/\n/g, '<br>');
-      return `<p>${lineHtml}</p>`;
-    }).join('');
-
-    return `<div class="clip-viewer-message">${html}</div>`;
+    return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
   }
 
   openClipViewer(clip) {
@@ -10369,8 +9618,14 @@ class PasteCraftPopup {
   }
   
   showBreakdownModalWithLevel(text, level) {
-    // Show the breakdown modal with pre-selected level
     this.showBreakdownModal(text);
+    this.currentBreakdownLevel = level;
+
+    document.querySelectorAll('.breakdown-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.level === level);
+    });
+    this.updateLevelInfo(level);
+    this.generateBreakdown(level);
   }
   
   // ==================== SESSION PERSISTENCE ====================
@@ -10824,380 +10079,53 @@ class PasteCraftPopup {
 
   /** Load AI history entries from local + cloud (merged) */
   async loadAiHistory() {
-    try {
-      const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-      let localHistory = pc_aiHistory_v1;
-
-      // If user is authenticated, merge with cloud history
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
-        try {
-          const remoteHistory = await pasteCraftSupabase.fetchAiHistoryFromSupabase();
-          if (remoteHistory && remoteHistory.length > 0) {
-            localHistory = pasteCraftSupabase.mergeAiHistory(localHistory, remoteHistory);
-            await chrome.storage.local.set({ pc_aiHistory_v1: localHistory });
-          }
-        } catch (_) {}
-      }
-
-      this.aiHistoryEntries = localHistory;
-      return localHistory;
-    } catch (_) {
-      this.aiHistoryEntries = [];
-      return [];
-    }
+    return this.aiLabFeature.history.loadAiHistory.call(this);
   }
 
-  /** Persist AI history entries to local + cloud */
   async _persistAiHistory() {
-    try {
-      // Keep max 50 entries
-      if (this.aiHistoryEntries.length > 50) {
-        this.aiHistoryEntries.splice(50);
-      }
-      await chrome.storage.local.set({ pc_aiHistory_v1: this.aiHistoryEntries });
-
-      // Sync to cloud if authenticated (non-blocking)
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
-        pasteCraftSupabase.syncAiHistoryToSupabase(this.aiHistoryEntries).catch(() => {});
-      }
-    } catch (_) {}
+    return this.aiLabFeature.history._persistAiHistory.call(this);
   }
 
-  /**
-   * Save or update an AI conversation in history.
-   * Creates new entry on first call, updates existing on follow-ups.
-   */
   async saveAiHistory(type, originalText, threads) {
-    try {
-      if (!threads || threads.length === 0) {
-        console.warn('saveAiHistory: no threads to save');
-        return;
-      }
-
-      await this.loadAiHistory();
-
-      // Use separate active IDs for breakdown vs summary
-      const activeId = type === 'breakdown' ? this._activeBreakdownHistoryId : this._activeSummaryHistoryId;
-
-      // Check if we should update an existing entry (active conversation)
-      if (activeId) {
-        const idx = this.aiHistoryEntries.findIndex(e => e.id === activeId);
-        if (idx !== -1) {
-          // Update existing entry with latest threads
-          this.aiHistoryEntries[idx].threads = threads.map(t => ({
-            question: t.question || '',
-            answer: t.answer || '',
-            level: t.level || null,
-            timestamp: t.timestamp || Date.now()
-          }));
-          this.aiHistoryEntries[idx].updatedAt = Date.now();
-          await this._persistAiHistory();
-          console.log('📜 AI History updated:', activeId, 'threads:', threads.length);
-          return this.aiHistoryEntries[idx];
-        }
-      }
-
-      // Create new entry with placeholder title
-      const placeholderTitle = (originalText || '').substring(0, 40).replace(/\n/g, ' ').trim() || 'Untitled';
-      const entry = {
-        id: Date.now(),
-        type,
-        title: placeholderTitle + '...',
-        originalText: (originalText || '').substring(0, 2000),
-        threads: threads.map(t => ({
-          question: t.question || '',
-          answer: t.answer || '',
-          level: t.level || null,
-          timestamp: t.timestamp || Date.now()
-        })),
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-
-      // Add to front of list
-      this.aiHistoryEntries.unshift(entry);
-
-      // Track active conversation per type
-      if (type === 'breakdown') {
-        this._activeBreakdownHistoryId = entry.id;
-      } else {
-        this._activeSummaryHistoryId = entry.id;
-      }
-
-      await this._persistAiHistory();
-      console.log('📜 AI History saved new entry:', entry.id, type, 'threads:', threads.length);
-
-      // Fire async AI title generation (non-blocking)
-      this._generateAiHistoryTitle(entry.id, originalText);
-
-      return entry;
-    } catch (err) {
-      console.error('saveAiHistory failed:', err);
-    }
+    return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads);
   }
 
-  /** Async: generate an AI title for a history entry */
   async _generateAiHistoryTitle(entryId, originalText) {
-    try {
-      const snippet = (originalText || '').substring(0, 300);
-      const title = await pasteCraftSupabase.generateSummary(
-        snippet,
-        'Generate a concise 3-5 word title for this text. Return ONLY the title text, nothing else. No quotes, no punctuation at the end.'
-      );
-      if (title && typeof title === 'string' && title.trim()) {
-        const cleanTitle = title.trim().replace(/^["']|["']$/g, '').substring(0, 60);
-        // Update the entry in the array
-        const idx = this.aiHistoryEntries.findIndex(e => e.id === entryId);
-        if (idx !== -1) {
-          this.aiHistoryEntries[idx].title = cleanTitle;
-          await this._persistAiHistory();
-          // Re-render list if the AI History tab is active
-          if (this.currentTab === 'aiHistory') {
-            this.renderAiHistoryList();
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('AI history title generation failed:', err);
-    }
+    return this.aiLabFeature.history._generateAiHistoryTitle.call(this, entryId, originalText);
   }
 
-  /** Render the AI History list in the tab */
   renderAiHistoryList() {
-    const container = document.getElementById('aiHistoryList');
-    if (!container) return;
-
-    let entries = this.aiHistoryEntries || [];
-
-    // Apply type filter
-    const filterType = this._aiHistoryFilterType || 'all';
-    if (filterType !== 'all') {
-      entries = entries.filter(e => e.type === filterType);
-    }
-
-    // Apply search query
-    const query = (this._aiHistorySearchQuery || '').toLowerCase();
-    if (query) {
-      entries = entries.filter(e => {
-        const title = (e.title || '').toLowerCase();
-        const text = (e.originalText || '').toLowerCase();
-        const answers = (e.threads || []).map(t => (t.answer || '').toLowerCase()).join(' ');
-        return title.includes(query) || text.includes(query) || answers.includes(query);
-      });
-    }
-
-    if (!entries || entries.length === 0) {
-      const msg = query ? 'No results match your search' : 'Your AI Summary and Breakdown conversations will appear here';
-      const heading = query ? 'No matches' : 'No history yet';
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
-          <h3>${heading}</h3>
-          <p>${msg}</p>
-        </div>`;
-      return;
-    }
-
-    container.innerHTML = entries.map(entry => {
-      const icon = entry.type === 'breakdown' ? '🧠' : '📝';
-      const badgeClass = entry.type === 'breakdown' ? 'breakdown' : 'summary';
-      const badgeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-      const threadCount = (entry.threads || []).length;
-      const timeStr = this.getTimeAgo ? this.getTimeAgo(entry.createdAt) : new Date(entry.createdAt).toLocaleDateString();
-
-      return `
-        <div class="ai-history-entry" data-history-id="${entry.id}">
-          <span class="ai-history-entry-icon">${icon}</span>
-          <div class="ai-history-entry-info">
-            <div class="ai-history-entry-title">${this.escapeHtml ? this.escapeHtml(entry.title || 'Untitled') : (entry.title || 'Untitled')}</div>
-            <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
-          </div>
-          <span class="ai-history-entry-badge ${badgeClass}">${badgeLabel}</span>
-          <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete"><i data-lucide="trash-2"></i></button>
-        </div>`;
-    }).join('');
-
-    // Attach click handlers
-    container.querySelectorAll('.ai-history-entry').forEach(el => {
-      el.addEventListener('click', (e) => {
-        // Don't open modal if delete button clicked
-        if (e.target.closest('.ai-history-entry-delete')) return;
-        const id = parseInt(el.dataset.historyId);
-        const entry = this.aiHistoryEntries.find(e => e.id === id);
-        if (entry) this.openAiHistoryModal(entry);
-      });
-    });
-
-    // Attach delete handlers
-    container.querySelectorAll('.ai-history-entry-delete').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = parseInt(btn.dataset.deleteId);
-        this.aiHistoryEntries = this.aiHistoryEntries.filter(e => e.id !== id);
-        await this._persistAiHistory();
-        this.renderAiHistoryList();
-        this.showToast('History entry deleted');
-      });
-    });
+    return this.aiLabFeature.history.renderAiHistoryList.call(this);
   }
 
-  /** Open the AI History viewer modal for a specific entry */
   async openAiHistoryModal(entry) {
-    if (!entry) return;
-    this.currentHistoryEntry = entry;
-    this.currentHistoryThreadIndex = 0;
-
-    const modal = document.getElementById('aiHistoryModal');
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const subtitleEl = document.getElementById('aiHistoryModalSubtitle');
-    const resultEl = document.getElementById('aiHistoryResultContent');
-    const paginationEl = document.getElementById('aiHistoryThreadPagination');
-
-    if (!modal) return;
-
-    // Reset edit title state
-    this._cancelEditHistoryTitle();
-
-    // Set title and subtitle
-    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
-    const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-    if (titleEl) titleEl.textContent = `${typeIcon} ${entry.title || 'Untitled'}`;
-    if (subtitleEl) subtitleEl.textContent = `${typeLabel} — ${(entry.threads || []).length} response(s)`;
-
-    // Show modal
-    modal.style.display = 'flex';
-
-    // Render first thread
-    if (entry.threads && entry.threads.length > 0) {
-      if (resultEl) {
-        resultEl.innerHTML = await this._renderAiResponse(entry.threads[0].answer);
-      }
-    } else {
-      if (resultEl) resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
-    }
-
-    // Render pagination
-    this._renderHistoryPagination();
+    return this.aiLabFeature.history.openAiHistoryModal.call(this, entry);
   }
 
-  /** Render pagination boxes for the AI History viewer modal */
   _renderHistoryPagination() {
-    const entry = this.currentHistoryEntry;
-    const paginationEl = document.getElementById('aiHistoryThreadPagination');
-    if (!paginationEl || !entry) return;
-
-    const threads = entry.threads || [];
-    if (threads.length < 2) {
-      paginationEl.style.display = 'none';
-      return;
-    }
-
-    paginationEl.style.display = 'flex';
-    paginationEl.style.gap = '8px';
-    paginationEl.innerHTML = '';
-
-    threads.forEach((thread, index) => {
-      const box = document.createElement('div');
-      box.className = `thread-box ${index === this.currentHistoryThreadIndex ? 'active' : ''}`;
-      box.textContent = index + 1;
-      box.style.cssText = `
-        width: 32px; height: 32px; border-radius: 6px;
-        background: ${index === this.currentHistoryThreadIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
-        border: 2px solid ${index === this.currentHistoryThreadIndex ? '#2563eb' : '#cbd5e1'};
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 700;
-        color: ${index === this.currentHistoryThreadIndex ? 'white' : '#64748b'};
-        transition: all 0.25s ease;
-      `;
-
-      const question = thread.question || 'Response';
-      const tipText = question.length > 30 ? question.substring(0, 30) + '...' : question;
-      box.title = `${index + 1}. ${tipText}`;
-
-      box.addEventListener('click', () => this.navigateHistoryThread(index));
-      paginationEl.appendChild(box);
-    });
+    return this.aiLabFeature.history._renderHistoryPagination.call(this);
   }
 
-  /** Navigate to a specific thread in the history viewer */
   async navigateHistoryThread(index) {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads || index < 0 || index >= entry.threads.length) return;
-
-    this.currentHistoryThreadIndex = index;
-    const resultEl = document.getElementById('aiHistoryResultContent');
-    if (resultEl) {
-      resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
-    }
-    this._renderHistoryPagination();
+    return this.aiLabFeature.history.navigateHistoryThread.call(this, index);
   }
 
-  /** Copy the current thread's answer from the history viewer */
   copyHistoryContent() {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads) return;
-    const thread = entry.threads[this.currentHistoryThreadIndex];
-    if (thread && thread.answer) {
-      navigator.clipboard.writeText(thread.answer);
-      this.showToast('Copied to clipboard!');
-    }
+    return this.aiLabFeature.history.copyHistoryContent.call(this);
   }
 
-  /** Start editing the AI history entry title */
   _startEditHistoryTitle() {
-    const entry = this.currentHistoryEntry;
-    if (!entry) return;
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
-    const titleInput = document.getElementById('aiHistoryTitleInput');
-    const editBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (!titleEl || !editContainer || !titleInput) return;
-    // Hide display title, show edit input
-    titleEl.style.display = 'none';
-    editContainer.style.display = 'flex';
-    if (editBtn) editBtn.style.display = 'none';
-    // Pre-fill with current title (strip icon prefix)
-    const rawTitle = entry.title || 'Untitled';
-    titleInput.value = rawTitle;
-    titleInput.focus();
-    titleInput.select();
+    return this.aiLabFeature.history._startEditHistoryTitle.call(this);
   }
 
-  /** Save the edited AI history entry title */
   async _saveEditHistoryTitle() {
-    const entry = this.currentHistoryEntry;
-    const titleInput = document.getElementById('aiHistoryTitleInput');
-    if (!entry || !titleInput) return;
-    const newTitle = titleInput.value.trim().substring(0, 60);
-    if (!newTitle) {
-      this.showToast('Title cannot be empty');
-      return;
-    }
-    // Update entry in memory and persist
-    entry.title = newTitle;
-    const idx = this.aiHistoryEntries.findIndex(e => e.id === entry.id);
-    if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
-    await this._persistAiHistory();
-    // Update displayed title
-    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
-    this._cancelEditHistoryTitle();
-    this.renderAiHistoryList();
-    this.showToast('Title updated');
+    return this.aiLabFeature.history._saveEditHistoryTitle.call(this);
   }
 
-  /** Cancel editing the AI history entry title */
   _cancelEditHistoryTitle() {
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
-    const editBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (titleEl) titleEl.style.display = '';
-    if (editContainer) editContainer.style.display = 'none';
-    if (editBtn) editBtn.style.display = '';
+    return this.aiLabFeature.history._cancelEditHistoryTitle.call(this);
   }
 
-  /** Continue a conversation from AI history — restores state and navigates to AI Lab */
   async continueHistoryConversation() {
     const entry = this.currentHistoryEntry;
     if (!entry || !entry.threads || entry.threads.length === 0) {
@@ -11329,15 +10257,8 @@ class PasteCraftPopup {
 
   /** Delete all AI history entries */
   async clearAllAiHistory() {
-    this.aiHistoryEntries = [];
-    this._activeBreakdownHistoryId = null;
-    this._activeSummaryHistoryId = null;
-    await this._persistAiHistory();
-    this.renderAiHistoryList();
-    this.showToast('AI history cleared');
+    return this.aiLabFeature.history.clearAllAiHistory.call(this);
   }
-
-  // ==================== NOTES SYSTEM ====================
 
   async loadNotes() {
     return this.notesFeature.service.loadNotes(this);

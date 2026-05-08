@@ -5,6 +5,9 @@ function _hasValidAttachmentContext(ctx) {
 }
 
 export function registerNotesEvents(app) {
+  if (app._notesEventsRegistered) return;
+  app._notesEventsRegistered = true;
+
   // Create note / album
   document.getElementById('createNoteBtn').addEventListener('click', () => app.openNoteEditor('note'));
   document.getElementById('createAlbumBtn').addEventListener('click', () => app.openNoteEditor('album'));
