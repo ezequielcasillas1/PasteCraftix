@@ -701,17 +701,6 @@ class PasteCraftPopup {
     // Serialize clip mutations to prevent races / double-click issues.
     this._clipOpQueue = Promise.resolve();
 
-    // PIN lock (3-digit) state
-    this._pinConfig = null; // { enabled, salt, hash, updatedAt }
-    // sessionStorage is per-popup-document; use chrome.storage.session for whole-browser-session unlock.
-    this._pinUnlockSessionKey = 'pc_pin_unlocked_v2'; // chrome.storage.session + sessionStorage fallback
-    this._pinUnlockWindowsKey = 'pc_pin_unlocked_windows_v1'; // chrome.storage.session, window-scoped unlocks
-    this._pinUnlimitedSessionKey = 'pc_pin_unlimited_session_v1'; // chrome.storage.session, session-wide unlimited flag
-    // NOTE: PIN storage is account-scoped for cross-device use (via browser sync).
-    // Legacy (pre-scope) key is still supported for migration.
-    this._pinConfigKey = 'pc_pin_v1'; // base key (scoped as `${base}:${userId}`) in chrome.storage.sync + local cache
-    this._pinAttemptsKey = 'pc_pin_attempts_v1'; // chrome.storage.local only (scoped as `${base}:${userId}`)
-
     // Auth preferences (local-only; never store passwords)
     this._authPrefsKey = 'pc_auth_prefs_v1';
 
@@ -735,25 +724,8 @@ class PasteCraftPopup {
       updatedAt: 0
     };
     
-    // Real-Time State Synchronization: BroadcastChannel API for cross-tab/browser communication
-    try {
-      this._broadcastChannel = new BroadcastChannel('pastecraft-settings-sync');
-      this._broadcastChannel.onmessage = (event) => {
-        if (event.data && event.data.type === 'settingsUpdated') {
-          // Reload settings from storage (optimistic UI update)
-          this.loadSettings().then(async () => {
-            // If settings modal is open, refresh it (now async)
-            const settingsModal = document.getElementById('settingsModal');
-            if (settingsModal && settingsModal.style.display === 'flex') {
-              await this.showSettingsModal();
-            }
-          }).catch(() => {});
-        }
-      };
-    } catch (error) {
-      console.warn('⚠️ BroadcastChannel not available:', error);
-      this._broadcastChannel = null;
-    }
+    // BroadcastChannel is initialized by settingsFeature in _initializeSettingsFeature()
+    this._broadcastChannel = null;
     
     this.init();
   }
@@ -816,29 +788,6 @@ class PasteCraftPopup {
     try {
       await chrome.storage.local.remove([this._authPrefsKey]);
     } catch (_) {}
-  }
-
-  // =====================================================
-  // PIN STORAGE KEYS (account-scoped)
-  // =====================================================
-
-  async _getAuthedUserIdForPin() {
-    // Best-effort: avoid throwing; return '' if not signed in.
-    try {
-      if (this.currentUser?.id) return String(this.currentUser.id);
-    } catch (_) {}
-    try {
-      const u = await pasteCraftSupabase.getCurrentUser();
-      const userId = u?.id ? String(u.id) : '';
-      return userId;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  _pinScopedKey(base, userId) {
-    const uid = String(userId || '').trim();
-    return uid ? `${String(base)}:${uid}` : String(base);
   }
 
   _clipIdKey(id) {
@@ -946,16 +895,23 @@ class PasteCraftPopup {
     return this.aiLabFeature;
   }
 
+  async _initializeSettingsFeature() {
+    if (this.settingsFeature) return this.settingsFeature;
+    const { initSettingsFeature } = await import('./popup/features/settings/settings.controller.js');
+    this.settingsFeature = initSettingsFeature(this);
+    return this.settingsFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
     await this._initializeCategoriesFeature();
     await this._initializeNotesFeature();
     await this._initializeAiLabFeature();
+    await this._initializeSettingsFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
-    this.setupPinModalEvents();
 
     // ─── V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ───
     let isLocalGuest = false;
@@ -1046,12 +1002,6 @@ class PasteCraftPopup {
     this.currentUser = currentUser;
 
 
-    // If PIN lock is enabled, require unlock before proceeding.
-    const pinOk = await this.maybeRequirePinUnlock();
-    if (!pinOk) {
-      return;
-    }
-    
     // Load subscription info
     // Do NOT block popup UI on slow network subscription fetch.
     // Use cached subscription if available, then refresh in background.
@@ -2418,252 +2368,15 @@ class PasteCraftPopup {
       this.hideProfileModal();
     });
 
-    // Settings modal events
-    document.getElementById('settingsBtn').addEventListener('click', () => {
-      this.showSettingsModal();
-    });
-
-    document.getElementById('closeSettingsModal').addEventListener('click', () => {
-      this.hideSettingsModal();
-    });
-    
-    // Help button
-    document.getElementById('helpBtn').addEventListener('click', () => {
-      this.showHelpModal();
-    });
-
-    // Auto-save functionality - removed Cancel and Save buttons
-    // Debounced auto-save function
-    let autoSaveTimeout = null;
-    const triggerAutoSave = (skipPinAndAuth = false) => {
-      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-      autoSaveTimeout = setTimeout(() => {
-        this.saveSettings(true, skipPinAndAuth).catch(() => {});
-      }, 300); // 300ms debounce
-    };
-
-    // Auto-save listeners for standard settings
-    const autoDeletePeriodEl = document.getElementById('autoDeletePeriod');
-    if (autoDeletePeriodEl) {
-      autoDeletePeriodEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const darkModeToggleEl = document.getElementById('darkModeToggle');
-    if (darkModeToggleEl) {
-      darkModeToggleEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    // Profile dark mode toggle (theme-only save; avoid overwriting other settings with stale UI values)
-    const profileDarkModeToggleEl = document.getElementById('profileDarkModeToggle');
-    if (profileDarkModeToggleEl) {
-      profileDarkModeToggleEl.addEventListener('change', async () => {
-        if (this._themeSyncing) return;
-        const nextTheme = profileDarkModeToggleEl.checked ? 'dark' : 'light';
-        await this.saveThemeOnly(nextTheme, true);
-      });
-    }
-
-    // Profile: Set current profile image as widget icon (floating widget)
-    const widgetIconUseProfileToggleEl = document.getElementById('widgetIconUseProfileToggle');
-    if (widgetIconUseProfileToggleEl) {
-      widgetIconUseProfileToggleEl.addEventListener('change', async () => {
-        const enabled = !!widgetIconUseProfileToggleEl.checked;
-
-        // PRACTICE #1: VALIDATION - require an available profile image if enabling
-        if (enabled) {
-          const src = await this.getCurrentProfileImageForWidget();
-          if (!src) {
-            widgetIconUseProfileToggleEl.checked = false;
-            this.showToast('⚠️ Set a profile image first (upload or AI)', 'error');
-            return;
-          }
-        }
-
-        await this.saveWidgetIconUseProfileImage(enabled, true);
-      });
-    }
-
-    const quickPasteAutoHideEl = document.getElementById('quickPasteAutoHidePopup');
-    if (quickPasteAutoHideEl) {
-      quickPasteAutoHideEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const quickPasteShowTimestampsEl = document.getElementById('quickPasteShowTimestampsPopup');
-    if (quickPasteShowTimestampsEl) {
-      quickPasteShowTimestampsEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const quickPasteMaxClipsEl = document.getElementById('quickPasteMaxClipsPopup');
-    if (quickPasteMaxClipsEl) {
-      quickPasteMaxClipsEl.addEventListener('input', () => triggerAutoSave(true));
-      quickPasteMaxClipsEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-    if (albumAttachmentOpenModeEl) {
-      albumAttachmentOpenModeEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    // Auto-save for PIN settings (with special handling)
-    const pinAskEachBrowserOpenEl = document.getElementById('pinAskEachBrowserOpen');
-    if (pinAskEachBrowserOpenEl) {
-      pinAskEachBrowserOpenEl.addEventListener('change', () => {
-        pinAskEachBrowserOpenEl.dataset.userTouched = '1';
-        const unlimitedEl = document.getElementById('pinUnlimitedSession');
-        if (pinAskEachBrowserOpenEl.checked && unlimitedEl && unlimitedEl.checked) {
-          unlimitedEl.checked = false;
-        }
-        triggerAutoSave(false);
-      });
-    }
-
-    const pinUnlimitedSessionEl = document.getElementById('pinUnlimitedSession');
-    if (pinUnlimitedSessionEl) {
-      pinUnlimitedSessionEl.addEventListener('change', () => {
-        pinUnlimitedSessionEl.dataset.userTouched = '1';
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        if (pinUnlimitedSessionEl.checked && browserScopeEl && browserScopeEl.checked) {
-          browserScopeEl.checked = false;
-        }
-        triggerAutoSave(false);
-      });
-    }
-
-    // Restore clips (local snapshots)
-    const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-    const previewRestoreBtn = document.getElementById('previewRestoreBtn');
-    const restoreNowBtn = document.getElementById('restoreNowBtn');
-    const syncRestoredToCloudBtn = document.getElementById('syncRestoredToCloudBtn');
-
-    if (restoreWindowSelect) {
-      restoreWindowSelect.addEventListener('change', async () => {
-        // Update preview automatically on selection change (best-effort).
-        try { await this.previewRestore(restoreWindowSelect.value); } catch (_) {}
-      });
-    }
-    if (previewRestoreBtn) {
-      previewRestoreBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        try {
-          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-          await this.previewRestore(key);
-        } catch (_) {}
-      });
-    }
-    if (restoreNowBtn) {
-      restoreNowBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        // Ensure preview is up to date
-        try {
-          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-          await this.previewRestore(key);
-        } catch (_) {}
-        await this.applyRestoreFromPreview();
-      });
-    }
-    if (syncRestoredToCloudBtn) {
-      syncRestoredToCloudBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.syncRestoredDataToCloud();
-      });
-    }
-
-    // Export / Import (JSON/CSV)
-    const exportBackupJsonBtn = document.getElementById('exportBackupJsonBtn');
-    if (exportBackupJsonBtn) {
-      exportBackupJsonBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.exportBackupToJson();
-      });
-    }
-    const exportClipsCsvBtn = document.getElementById('exportClipsCsvBtn');
-    if (exportClipsCsvBtn) {
-      exportClipsCsvBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.exportClipsToCsv();
-      });
-    }
-    const importBackupJsonBtn = document.getElementById('importBackupJsonBtn');
-    const importBackupJsonFile = document.getElementById('importBackupJsonFile');
-    if (importBackupJsonBtn && importBackupJsonFile) {
-      importBackupJsonBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        importBackupJsonFile.value = '';
-        importBackupJsonFile.click();
-      });
-      importBackupJsonFile.addEventListener('change', async () => {
-        const file = importBackupJsonFile.files && importBackupJsonFile.files[0] ? importBackupJsonFile.files[0] : null;
-        if (!file) return;
-        await this.importBackupFromJsonMerge(file);
-      });
-    }
-    
-    // Help modal events
-    document.getElementById('closeHelpModal').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-    
-    document.getElementById('backBtn').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-    
-    document.getElementById('backToSettingsFromHelp').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-
-    // Help modal overlay click to close
-    document.getElementById('helpModal').addEventListener('click', (e) => {
-      if (e.target.id === 'helpModal') {
-        this.hideHelpModal();
+    // Settings events — delegated to settingsFeature
+    if (this.settingsFeature?.events?.initSettingsEvents) {
+      try {
+        this.settingsFeature.events.initSettingsEvents();
+      } catch (e) {
+        console.error('[Popup] Settings event init failed:', e);
       }
-    });
-
-    // Info modal events
-    const clipJoinerInfo = document.getElementById('clipJoinerInfo');
-    if (clipJoinerInfo) {
-      clipJoinerInfo.addEventListener('click', () => {
-        document.getElementById('clipJoinerModal').classList.add('active');
-      });
-    }
-
-    const clipSettingsInfo = document.getElementById('clipSettingsInfo');
-    if (clipSettingsInfo) {
-      clipSettingsInfo.addEventListener('click', () => {
-        document.getElementById('clipSettingsModal').classList.add('active');
-      });
-    }
-
-    const closeClipJoinerModal = document.getElementById('closeClipJoinerModal');
-    if (closeClipJoinerModal) {
-      closeClipJoinerModal.addEventListener('click', () => {
-        document.getElementById('clipJoinerModal').classList.remove('active');
-      });
-    }
-
-    const closeClipSettingsModal = document.getElementById('closeClipSettingsModal');
-    if (closeClipSettingsModal) {
-      closeClipSettingsModal.addEventListener('click', () => {
-        document.getElementById('clipSettingsModal').classList.remove('active');
-      });
-    }
-
-    // Close info modals when clicking overlay
-    const clipJoinerModal = document.getElementById('clipJoinerModal');
-    if (clipJoinerModal) {
-      clipJoinerModal.addEventListener('click', (e) => {
-        if (e.target.id === 'clipJoinerModal') {
-          clipJoinerModal.classList.remove('active');
-        }
-      });
-    }
-
-    const clipSettingsModal = document.getElementById('clipSettingsModal');
-    if (clipSettingsModal) {
-      clipSettingsModal.addEventListener('click', (e) => {
-        if (e.target.id === 'clipSettingsModal') {
-          clipSettingsModal.classList.remove('active');
-        }
-      });
+    } else {
+      console.error('[Popup] settingsFeature not initialized');
     }
 
     // Breakdown modal events
@@ -2833,11 +2546,7 @@ class PasteCraftPopup {
       }
     });
 
-    document.getElementById('settingsModal').addEventListener('click', (e) => {
-      if (e.target.id === 'settingsModal') {
-        this.hideSettingsModal();
-      }
-    });
+    // settingsModal overlay click handled by settingsFeature.events.initSettingsEvents()
 
     // Delimiter controls
     document.getElementById('delimiterControl').addEventListener('click', (e) => {
@@ -3671,446 +3380,6 @@ class PasteCraftPopup {
   }
 
   // =====================================================
-  // PIN LOCK (3-digit) - local UI unlock
-  // =====================================================
-
-  async _pinIsSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    const cfg = this._pinConfig;
-
-    // Unlimited session: never prompt
-    if (cfg?.unlimitedSession) return true;
-
-    // Unlimited session active in this browser session (cross-window)
-    try {
-      const res = await new Promise((resolve) => chrome.storage.session.get([unlimitedKey], resolve));
-      if (res && res[unlimitedKey] === '1') return true;
-    } catch (_) {}
-
-    // Window-scoped unlocks when "ask on new browser" is enabled
-    const windowId = await this._getCurrentWindowId();
-    try {
-      const res = await new Promise((resolve) => chrome.storage.session.get([windowsKey], resolve));
-      const list = Array.isArray(res?.[windowsKey]) ? res[windowsKey] : [];
-      if (windowId && list.includes(windowId)) {
-        return true;
-      }
-    } catch (_) {}
-
-    // No global unlock when unlimitedSession is off
-    return false;
-  }
-
-  async _pinSetSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    const cfg = this._pinConfig;
-    const windowId = await this._getCurrentWindowId();
-
-    if (cfg?.unlimitedSession) {
-      try { sessionStorage.setItem(key, '1'); } catch (_) {}
-      try { await new Promise((resolve) => chrome.storage.session.set({ [key]: '1' }, resolve)); } catch (_) {}
-      try { await new Promise((resolve) => chrome.storage.session.set({ [unlimitedKey]: '1' }, resolve)); } catch (_) {}
-    }
-
-    if (windowId) {
-      try {
-        const res = await new Promise((resolve) => chrome.storage.session.get([windowsKey], resolve));
-        const list = Array.isArray(res?.[windowsKey]) ? res[windowsKey] : [];
-        if (!list.includes(windowId)) list.push(windowId);
-        await new Promise((resolve) => chrome.storage.session.set({ [windowsKey]: list }, resolve));
-      } catch (_) {}
-    }
-
-  }
-
-  async _pinClearSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    try { sessionStorage.removeItem(key); } catch (_) {}
-    try { await new Promise((resolve) => chrome.storage.session.remove([key, windowsKey, unlimitedKey], resolve)); } catch (_) {}
-  }
-
-  async _getCurrentWindowId() {
-    try {
-      const win = await new Promise((resolve) => chrome.windows.getCurrent(resolve));
-      return typeof win?.id === 'number' ? win.id : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  _pinNormalize(raw) {
-    const s = String(raw ?? '').trim();
-    if (!/^\d{3}$/.test(s)) return '';
-    return s;
-  }
-
-  async _sha256Hex(str) {
-    const enc = new TextEncoder();
-    const data = enc.encode(String(str));
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    const bytes = new Uint8Array(digest);
-    return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  async _hashPin(pin, salt) {
-    return await this._sha256Hex(`${String(salt)}:${String(pin)}`);
-  }
-
-  _randomHex(bytesLen = 16) {
-    try {
-      const bytes = new Uint8Array(bytesLen);
-      crypto.getRandomValues(bytes);
-      return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-    } catch (_) {
-      return String(Date.now()) + String(Math.random()).slice(2);
-    }
-  }
-
-  async loadPinConfig() {
-    // Source of truth: chrome.storage.sync, fallback: chrome.storage.local cache.
-    const legacyKey = this._pinConfigKey;
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinConfigKey, userId);
-    let cfg = null;
-
-    try {
-      const syncRes = await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
-      cfg = syncRes && syncRes[key] ? syncRes[key] : null;
-    } catch (_) {
-      cfg = null;
-    }
-
-    // Migration: if scoped key is missing but legacy exists, promote legacy → scoped.
-    if (!cfg && userId) {
-      try {
-        const legacyRes = await new Promise((resolve) => chrome.storage.sync.get([legacyKey], resolve));
-        const legacyCfg = legacyRes && legacyRes[legacyKey] ? legacyRes[legacyKey] : null;
-        if (legacyCfg && typeof legacyCfg === 'object') {
-          cfg = legacyCfg;
-          try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
-          try { await new Promise((resolve) => chrome.storage.local.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
-        }
-      } catch (_) {}
-    }
-
-    if (!cfg) {
-      try {
-        const localRes = await new Promise((resolve) => chrome.storage.local.get([key, legacyKey], resolve));
-        cfg = (localRes && localRes[key]) ? localRes[key] : ((localRes && localRes[legacyKey]) ? localRes[legacyKey] : null);
-      } catch (_) {
-        cfg = null;
-      }
-    }
-
-    // Minimal normalization
-    if (!cfg || typeof cfg !== 'object') {
-      this._pinConfig = null;
-      return null;
-    }
-    const enabled = !!cfg.enabled;
-    const salt = typeof cfg.salt === 'string' ? cfg.salt : '';
-    const hash = typeof cfg.hash === 'string' ? cfg.hash : '';
-    const updatedAt = typeof cfg.updatedAt === 'number' ? cfg.updatedAt : 0;
-    // FIX: Preserve unlimitedSession field (was being lost during normalization)
-    const unlimitedSession = typeof cfg.unlimitedSession === 'boolean' ? cfg.unlimitedSession : false;
-    this._pinConfig = { enabled, salt, hash, updatedAt, unlimitedSession };
-
-
-    // Best-effort local cache write for offline reads.
-    try {
-      await new Promise((resolve) => chrome.storage.local.set({ [key]: this._pinConfig }, resolve));
-    } catch (_) {}
-
-    return this._pinConfig;
-  }
-
-  async _savePinConfig(cfg, userIdOverride = '') {
-    const userId = userIdOverride ? String(userIdOverride) : await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinConfigKey, userId);
-    this._pinConfig = cfg;
-    try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: cfg }, resolve)); } catch (_) {}
-    try { await new Promise((resolve) => chrome.storage.local.set({ [key]: cfg }, resolve)); } catch (_) {}
-  }
-
-  async _getPinAttempts() {
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
-    try {
-      const res = await new Promise((resolve) => chrome.storage.local.get([key], resolve));
-      const v = res && res[key] ? res[key] : null;
-      const attempts = typeof v?.attempts === 'number' ? v.attempts : 0;
-      const lockedUntil = typeof v?.lockedUntil === 'number' ? v.lockedUntil : 0;
-      return { attempts, lockedUntil };
-    } catch (_) {
-      return { attempts: 0, lockedUntil: 0 };
-    }
-  }
-
-  async _setPinAttempts(next) {
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
-    try {
-      await new Promise((resolve) => chrome.storage.local.set({ [key]: next }, resolve));
-    } catch (_) {}
-  }
-
-  showPinModal() {
-    try { this.hideLoadingOverlay(); } catch (_) {}
-    const el = document.getElementById('pinModal');
-    if (el) el.style.display = 'flex';
-    try {
-      const input = document.getElementById('pinUnlockInput');
-      if (input) {
-        input.value = '';
-        input.focus();
-      }
-    } catch (_) {}
-  }
-
-  hidePinModal() {
-    const el = document.getElementById('pinModal');
-    if (el) el.style.display = 'none';
-  }
-
-  showPinSetupModal({ title = 'Set 3-digit code', onComplete = null } = {}) {
-    const modal = document.getElementById('pinSetupModal');
-    const titleEl = document.getElementById('pinSetupTitle');
-    const a = document.getElementById('pinSetupInput');
-    const b = document.getElementById('pinSetupConfirmInput');
-
-    if (titleEl) titleEl.textContent = title;
-    if (a) a.value = '';
-    if (b) b.value = '';
-
-    this._pinSetupOnComplete = typeof onComplete === 'function' ? onComplete : null;
-
-    if (modal) modal.style.display = 'flex';
-    try { a && a.focus(); } catch (_) {}
-  }
-
-  hidePinSetupModal() {
-    const modal = document.getElementById('pinSetupModal');
-    if (modal) modal.style.display = 'none';
-    this._pinSetupOnComplete = null;
-  }
-
-  async attemptPinUnlock() {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig;
-    if (!cfg || !cfg.enabled || !cfg.salt || !cfg.hash) {
-      // If config is missing, don't block.
-      await this._pinSetSessionUnlocked();
-      this.hidePinModal();
-      return true;
-    }
-
-    const hintEl = document.getElementById('pinUnlockHint');
-    const input = document.getElementById('pinUnlockInput');
-    const pin = this._pinNormalize(input?.value || '');
-
-    const { attempts, lockedUntil } = await this._getPinAttempts();
-    const now = Date.now();
-    if (lockedUntil && lockedUntil > now) {
-      const seconds = Math.ceil((lockedUntil - now) / 1000);
-      if (hintEl) hintEl.textContent = `Too many tries. Try again in ${seconds}s.`;
-      return false;
-    }
-
-    if (!pin) {
-      if (hintEl) hintEl.textContent = 'Enter a 3-digit code.';
-      return false;
-    }
-
-    const computed = await this._hashPin(pin, cfg.salt);
-    if (computed === cfg.hash) {
-      await this._setPinAttempts({ attempts: 0, lockedUntil: 0 });
-      await this._pinSetSessionUnlocked();
-      this.hidePinModal();
-      return true;
-    }
-
-    // Wrong code: increment + optional lockout.
-    const nextAttempts = attempts + 1;
-    const MAX = 5;
-    const LOCK_MS = 5 * 60 * 1000;
-    const nextLockedUntil = nextAttempts >= MAX ? (Date.now() + LOCK_MS) : 0;
-    await this._setPinAttempts({ attempts: nextAttempts, lockedUntil: nextLockedUntil });
-    if (hintEl) {
-      hintEl.textContent = nextLockedUntil
-        ? 'Too many tries. Locked for 5 minutes.'
-        : `Wrong code. ${Math.max(0, MAX - nextAttempts)} tries left.`;
-    }
-    if (input) input.value = '';
-    return false;
-  }
-
-  async maybeRequirePinUnlock() {
-    await this.loadPinConfig();
-    const sessionUnlocked = await this._pinIsSessionUnlocked();
-    const cfg = this._pinConfig;
-    if (sessionUnlocked) return true;
-    if (!cfg || !cfg.enabled) return true;
-    if (!cfg.salt || !cfg.hash) return true;
-    this.showPinModal();
-    return false;
-  }
-
-  async setPinEnabled(enabled) {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig || { enabled: false, salt: '', hash: '', updatedAt: 0, unlimitedSession: false };
-    const next = { ...cfg, enabled: !!enabled, updatedAt: Date.now() };
-    await this._savePinConfig(next);
-  }
-
-  async setPinUnlimitedSession(unlimitedSession) {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig || { enabled: false, salt: '', hash: '', updatedAt: 0, unlimitedSession: false };
-    const next = { ...cfg, unlimitedSession: !!unlimitedSession, updatedAt: Date.now() };
-
-    await this._savePinConfig(next);
-    if (next.unlimitedSession) {
-      // Mark unlimited session active for this browser session
-      try {
-        await this._pinSetSessionUnlocked();
-        await new Promise((resolve) => chrome.storage.session.set({ [this._pinUnlimitedSessionKey]: '1' }, resolve));
-      } catch (_) {}
-    } else {
-      // Clear global session unlock so new windows must re-auth
-      try { await this._pinClearSessionUnlocked(); } catch (_) {}
-      // Keep current window unlocked
-      try { await this._pinSetSessionUnlocked(); } catch (_) {}
-    }
-  }
-
-  async saveNewPin(pinRaw) {
-    const pin = this._pinNormalize(pinRaw);
-    if (!pin) return { success: false, error: 'Invalid code' };
-
-    const salt = this._randomHex(16);
-    const hash = await this._hashPin(pin, salt);
-    // FIX: Include unlimitedSession when creating new PIN (defaults to false)
-    const next = { enabled: true, salt, hash, updatedAt: Date.now(), unlimitedSession: false };
-    await this._savePinConfig(next);
-    await this._setPinAttempts({ attempts: 0, lockedUntil: 0 });
-    return { success: true };
-  }
-
-  setupPinModalEvents() {
-    const unlockBtn = document.getElementById('unlockPinBtn');
-    const unlockInput = document.getElementById('pinUnlockInput');
-    const signInAgainLink = document.getElementById('pinSignInAgainLink');
-
-    unlockBtn && unlockBtn.addEventListener('click', async () => {
-      const ok = await this.attemptPinUnlock();
-      if (ok) {
-        // Re-run init path from a clean state.
-        window.location.reload();
-      }
-    });
-
-    unlockInput && unlockInput.addEventListener('input', (e) => {
-      // Keep digits only + max 3
-      try {
-        const v = String(e.target.value || '').replace(/\D/g, '').slice(0, 3);
-        e.target.value = v;
-      } catch (_) {}
-    });
-
-    unlockInput && unlockInput.addEventListener('keypress', async (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const ok = await this.attemptPinUnlock();
-        if (ok) window.location.reload();
-      }
-    });
-
-    signInAgainLink && signInAgainLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this._pinClearSessionUnlocked();
-      this.hidePinModal();
-      try { await pasteCraftSupabase.signOutFast(); } catch (_) {}
-      window.location.reload();
-    });
-
-    const changeBtn = document.getElementById('changePinBtn');
-    changeBtn && changeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const ok = confirm('Change your 3-digit code? You will need the new code next time you open PasteCraft.');
-      if (!ok) return;
-      this.showPinSetupModal({ title: 'Change 3-digit code' });
-    });
-
-    const disableBtn = document.getElementById('disablePinBtn');
-    disableBtn && disableBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const ok = confirm('Disable the 3-digit code? PasteCraft will open without a code on this browser profile.');
-      if (!ok) return;
-      await this.setPinEnabled(false);
-      try { await this.setPinUnlimitedSession(false); } catch (_) {}
-      try { await this._pinClearSessionUnlocked(); } catch (_) {}
-      const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-      if (browserScopeEl) browserScopeEl.checked = false;
-      const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-      if (unlimitedToggle) unlimitedToggle.checked = false;
-      try { await this._setPinAttempts({ attempts: 0, lockedUntil: 0 }); } catch (_) {}
-      this.showToast('✅ Code disabled');
-    });
-
-    const cancelSetup = document.getElementById('cancelPinSetupBtn');
-    cancelSetup && cancelSetup.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hidePinSetupModal();
-    });
-
-    const saveSetup = document.getElementById('savePinSetupBtn');
-    saveSetup && saveSetup.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const a = document.getElementById('pinSetupInput');
-      const b = document.getElementById('pinSetupConfirmInput');
-      const pinA = this._pinNormalize(a?.value || '');
-      const pinB = this._pinNormalize(b?.value || '');
-      if (!pinA || !pinB) {
-        this.showToast('⚠️ Enter a 3-digit code twice', 'error');
-        return;
-      }
-      if (pinA !== pinB) {
-        this.showToast('⚠️ Codes do not match', 'error');
-        return;
-      }
-      const result = await this.saveNewPin(pinA);
-      if (!result.success) {
-        this.showToast(`❌ ${result.error || 'Could not save code'}`, 'error');
-        return;
-      }
-      await this._pinSetSessionUnlocked();
-      // Reflect the selected mode checkboxes (browser prompt vs unlimited).
-      try {
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-        const isUnlimited = !!this._pinConfig?.unlimitedSession;
-        if (unlimitedToggle) unlimitedToggle.checked = isUnlimited;
-        if (browserScopeEl) browserScopeEl.checked = !isUnlimited;
-      } catch (_) {}
-      // Capture callback BEFORE hide clears it.
-      const onComplete = this._pinSetupOnComplete;
-      this.hidePinSetupModal();
-      this.showToast('✅ Code saved');
-      try {
-        if (typeof onComplete === 'function') onComplete();
-      } catch (_) {}
-    });
-
-    // NOTE: PIN checkbox event listeners are handled in setupSettingsModalEvents()
-    // to avoid duplicate listeners and ensure auto-save works properly
-  }
-
-  // =====================================================
   // AUTH SESSION RESTORE (from chrome.storage.local bridge)
   // =====================================================
 
@@ -4293,8 +3562,6 @@ class PasteCraftPopup {
 
         this.showToast('✅ Welcome back!', 'success');
 
-        // A successful email+password sign-in should count as unlocked for this session.
-        await this._pinSetSessionUnlocked();
         this.hideAuthModal();
         // Reload page to initialize with authenticated user
         window.location.reload();
@@ -4415,7 +3682,6 @@ class PasteCraftPopup {
       
       if (result.success) {
         await this.clearLegacyAuthPrefs();
-        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -4434,7 +3700,6 @@ class PasteCraftPopup {
       
       if (result.success) {
         await this.clearLegacyAuthPrefs();
-        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -6186,686 +5451,69 @@ class PasteCraftPopup {
     return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
-  // Settings Management Functions
+  // Settings Management Functions — delegated to settingsFeature
   async loadSettings() {
-    // First, try to fetch settings from Supabase (cloud sync)
-    let cloudSettings = null;
-    try {
-      cloudSettings = await Promise.race([
-        pasteCraftSupabase.syncSettingsFromSupabase(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('syncSettingsFromSupabase timeout')), 500))
-      ]);
-    } catch (error) {
-      console.warn('⚠️ Could not fetch settings from Supabase, using local:', error);
-    }
-
-    // Load sync + local settings as fallback (sync helps cross-browser refresh)
-    let syncData = {};
-    try {
-      syncData = await new Promise((resolve) => chrome.storage.sync.get(['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt'], resolve));
-    } catch (_) {
-      syncData = {};
-    }
-    const localData = await chrome.storage.local.get(['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt']);
-    const localAutoDeletePeriod = localData.autoDeletePeriod || 'never';
-    const localQuickPasteSettings = localData.quickPasteSettings || {};
-    const localAlbumAttachmentOpenMode = localData.albumAttachmentOpenMode || 'overlay';
-    const localTheme = (localData.theme || localQuickPasteSettings.theme || 'light');
-    const localSettingsUpdatedAt = typeof localData.settingsUpdatedAt === 'number' ? localData.settingsUpdatedAt : 0;
-    const syncSettingsUpdatedAt = typeof syncData.settingsUpdatedAt === 'number' ? syncData.settingsUpdatedAt : 0;
-    const syncHasPayload = !!(syncData && (syncData.autoDeletePeriod || syncData.quickPasteSettings || syncData.albumAttachmentOpenMode || syncData.theme));
-    const localHasPayload = !!(localAutoDeletePeriod || (localQuickPasteSettings && Object.keys(localQuickPasteSettings).length) || localAlbumAttachmentOpenMode || localData.theme);
-
-    // Merge: Prefer the newest between sync/local; fall back to cloud if neither has data
-    const preferSync = syncHasPayload && syncSettingsUpdatedAt >= localSettingsUpdatedAt;
-    const preferLocal = localHasPayload && localSettingsUpdatedAt > syncSettingsUpdatedAt;
-
-    if (preferSync) {
-      console.log('✅ Using sync settings from chrome.storage.sync');
-      this.autoDeletePeriod = syncData.autoDeletePeriod || localAutoDeletePeriod;
-      this.theme = (syncData.theme || syncData.quickPasteSettings?.theme || localTheme) === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings, // Local fallback for missing fields
-        ...syncData.quickPasteSettings // Sync takes precedence
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode = syncData.albumAttachmentOpenMode || localAlbumAttachmentOpenMode;
-      this.settingsUpdatedAt = syncSettingsUpdatedAt || Date.now();
-    } else if (preferLocal) {
-      console.log('✅ Using local settings (newer than sync)');
-      this.autoDeletePeriod = localAutoDeletePeriod;
-      this.theme = localTheme === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode =
-        localAlbumAttachmentOpenMode === 'overlay' || localAlbumAttachmentOpenMode === 'edgePopup'
-          ? localAlbumAttachmentOpenMode
-          : 'overlay';
-      this.settingsUpdatedAt = localSettingsUpdatedAt || Date.now();
-    } else if (cloudSettings) {
-      console.log('✅ Using cloud settings from Supabase');
-      this.autoDeletePeriod = cloudSettings.autoDeletePeriod || localAutoDeletePeriod;
-      this.theme = (cloudSettings.theme || cloudSettings.quickPasteSettings?.theme || localTheme) === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings, // Local fallback for fields not in cloud
-        ...cloudSettings.quickPasteSettings // Cloud takes precedence
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode = cloudSettings.albumAttachmentOpenMode || localAlbumAttachmentOpenMode;
-      this.settingsUpdatedAt = Date.now();
-    } else {
-      console.log('ℹ️ Using local settings (no cloud sync available)');
-      this.autoDeletePeriod = localAutoDeletePeriod;
-      this.theme = localTheme === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode =
-        localAlbumAttachmentOpenMode === 'overlay' || localAlbumAttachmentOpenMode === 'edgePopup'
-          ? localAlbumAttachmentOpenMode
-          : 'overlay';
-      this.settingsUpdatedAt = localSettingsUpdatedAt || Date.now();
-    }
-
-    // Dark mode is not released yet.
-    if (this.darkModeComingSoon) {
-      this.theme = 'light';
-    }
-
-    // Save merged settings back to local storage for offline access
-    try {
-      await chrome.storage.local.set({
-        autoDeletePeriod: this.autoDeletePeriod,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-        theme: this.theme,
-        settingsUpdatedAt: this.settingsUpdatedAt || Math.max(localSettingsUpdatedAt, syncSettingsUpdatedAt) || Date.now()
-      });
-    } catch (_) {}
-
-    this.syncThemeToggles();
+    return this.settingsFeature.storage.loadSettings();
   }
 
-  async saveSettings(silent = false, skipPinAndAuth = false) {
-    // Use CRUD utility for reliable settings update with 5 best practices
-    const snapshot = {
-      autoDeletePeriod: this.autoDeletePeriod,
-      theme: this.theme,
-      quickPasteSettings: PasteCraftCRUD.createSnapshot(this.quickPasteSettings),
-      albumAttachmentOpenMode: this.albumAttachmentOpenMode
-    };
-
-    const rollback = async () => {
-      try {
-        this.autoDeletePeriod = snapshot.autoDeletePeriod;
-        this.theme = snapshot.theme;
-        this.quickPasteSettings = snapshot.quickPasteSettings;
-        this.albumAttachmentOpenMode = snapshot.albumAttachmentOpenMode;
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ 
-            autoDeletePeriod: this.autoDeletePeriod,
-            theme: this.theme,
-            quickPasteSettings: this.quickPasteSettings,
-            albumAttachmentOpenMode: this.albumAttachmentOpenMode
-          });
-        });
-      } catch (rollbackError) {
-        console.error('❌ Settings rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // PRACTICE #1: VALIDATION - Get and validate settings from UI
-      const newAutoDeletePeriod = document.getElementById('autoDeletePeriod')?.value;
-      if (!newAutoDeletePeriod) {
-        throw new Error('Invalid auto-delete period');
-      }
-
-      const darkModeEl = document.getElementById('darkModeToggle');
-      const autoHideEl = document.getElementById('quickPasteAutoHidePopup');
-      const showTimestampsEl = document.getElementById('quickPasteShowTimestampsPopup');
-      const maxClipsEl = document.getElementById('quickPasteMaxClipsPopup');
-      
-      if (!darkModeEl || !autoHideEl || !showTimestampsEl || !maxClipsEl) {
-        throw new Error('Settings UI elements not found');
-      }
-
-      // Update settings
-      this.autoDeletePeriod = newAutoDeletePeriod;
-      this.theme = darkModeEl.checked ? 'dark' : 'light';
-      this.quickPasteSettings.autoHide = autoHideEl.checked;
-      this.quickPasteSettings.showTimestamps = showTimestampsEl.checked;
-      this.quickPasteSettings.maxClipsDisplay = parseInt(maxClipsEl.value) || 20;
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-
-      const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-      this.albumAttachmentOpenMode =
-        albumAttachmentOpenModeEl && (albumAttachmentOpenModeEl.value === 'overlay' || albumAttachmentOpenModeEl.value === 'edgePopup')
-          ? albumAttachmentOpenModeEl.value
-          : 'edgePopup';
-      
-      const settingsUpdatedAt = Date.now();
-      this.settingsUpdatedAt = settingsUpdatedAt;
-      // PRACTICE #3: RETRY LOGIC - Save to local storage with retry
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ 
-          autoDeletePeriod: this.autoDeletePeriod,
-          theme: this.theme,
-          quickPasteSettings: this.quickPasteSettings,
-          albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-          settingsUpdatedAt
-        });
-      });
-      // Also persist to chrome.storage.sync for cross-browser sync
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({
-          autoDeletePeriod: this.autoDeletePeriod,
-          theme: this.theme,
-          quickPasteSettings: this.quickPasteSettings,
-          albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-          settingsUpdatedAt
-        }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION - Verify settings persisted
-      const verification = await chrome.storage.local.get(['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode']);
-      if (verification.autoDeletePeriod !== this.autoDeletePeriod ||
-          verification.theme !== this.theme) {
-        throw new Error('Verification failed: settings not persisted correctly');
-      }
-    
-      // 🔄 AUTO-SYNC TO DATABASE (background, non-blocking)
-      const settingsData = {
-        autoDeletePeriod: this.autoDeletePeriod,
-        theme: this.theme,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode
-      };
-      
-      pasteCraftSupabase.syncSettingsToSupabase(settingsData)
-        .then(() => {
-          console.log('✅ Settings synced to database');
-          // Real-Time Sync: Broadcast settings change to other tabs/browsers via BroadcastChannel
-          if (this._broadcastChannel) {
-            try {
-              this._broadcastChannel.postMessage({
-                type: 'settingsUpdated',
-                settings: settingsData,
-                timestamp: Date.now()
-              });
-            } catch (broadcastError) {
-              console.warn('⚠️ Failed to broadcast settings update:', broadcastError);
-            }
-          }
-          
-          if (!silent) this.showToast('✅ Settings saved and synced!');
-        })
-        .catch((error) => {
-          console.error('⚠️ Failed to sync settings to database:', error);
-          // Still broadcast locally saved settings for cross-tab sync
-          if (this._broadcastChannel) {
-            try {
-              this._broadcastChannel.postMessage({
-                type: 'settingsUpdated',
-                settings: settingsData,
-                timestamp: Date.now()
-              });
-            } catch (broadcastError) {
-              console.warn('⚠️ Failed to broadcast settings update:', broadcastError);
-            }
-          }
-          
-          if (!silent) this.showToast('✅ Settings saved locally');
-        });
-
-    // PIN lock setting (do NOT sync to database) - skip during auto-save
-    if (!skipPinAndAuth) {
-      try {
-        // Read desired state from checkboxes FIRST (before loadPinConfig overwrites _pinConfig)
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedEl = document.getElementById('pinUnlimitedSession');
-        const askBrowserRequested = browserScopeEl ? !!browserScopeEl.checked : false;
-        const unlimitedRequested = unlimitedEl ? !!unlimitedEl.checked : false;
-        const enableRequested = askBrowserRequested || unlimitedRequested;
-
-        // Only load config to verify PIN hash exists (not to derive checkbox state)
-        await this.loadPinConfig();
-
-        if (enableRequested) {
-          if (!this._pinConfig?.salt || !this._pinConfig?.hash) {
-            // Need a code first - show modal
-            if (!silent) {
-              this.hideSettingsModal();
-              this.showPinSetupModal({ title: 'Set 3-digit code' });
-            }
-          } else {
-            // Ensure PIN is enabled first, then update unlimitedSession state
-            if (!this._pinConfig.enabled) {
-              await this.setPinEnabled(true);
-            }
-            
-            // Update unlimitedSession to match checkbox state (uses user's requested value, not stale config)
-            await this.setPinUnlimitedSession(unlimitedRequested);
-          }
-        } else {
-          if (this._pinConfig?.enabled) {
-            await this.setPinEnabled(false);
-            await this._pinClearSessionUnlocked();
-          }
-        }
-
-        // Re-read saved config and sync checkboxes to confirm persistence
-        await this.loadPinConfig();
-        const savedEnabled = !!this._pinConfig?.enabled;
-        const savedUnlimited = savedEnabled && !!this._pinConfig?.unlimitedSession;
-        if (browserScopeEl) {
-          browserScopeEl.checked = savedEnabled && !savedUnlimited;
-          browserScopeEl.disabled = !savedEnabled;
-        }
-        if (unlimitedEl) {
-          unlimitedEl.checked = savedUnlimited;
-          unlimitedEl.disabled = !savedEnabled;
-        }
-      } catch (error) {
-        console.error('❌ PIN save failed:', error);
-      }
-    }
-
-    if (!skipPinAndAuth) {
-      try { await this.clearLegacyAuthPrefs(); } catch (_) {}
-    }
-    
-      // Show feedback and close modal only if not silent
-      if (!silent) {
-        this.showToast('✅ Settings saved!');
-        this.hideSettingsModal();
-      }
-      
-      // Update UI immediately
-      this.renderChips();
-      this.updateCategoryFilter();
-
-      // Run cleanup after changing settings (deferred, non-blocking)
-      this.cleanupOldClips().catch(() => {});
-      
-      // Notify content scripts about settings change (non-blocking)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'settingsUpdated',
-              settings: { ...this.quickPasteSettings, theme: this.theme }
-            }).catch(() => {}); // Ignore errors for tabs without content script
-          });
-        });
-      } catch (error) {
-        console.log('Could not notify content scripts about settings:', error);
-      }
-    } catch (error) {
-      // Rollback on any failure
-      console.error('❌ Settings save failed, rolling back:', error);
-      await rollback();
-      if (!silent) {
-        this.showToast(`❌ Failed to save settings: ${error.message || 'Unknown error'}`, 'error');
-      }
-    }
+  async saveSettings(silent = false, skipAuthPrefs = false) {
+    return this.settingsFeature.storage.saveSettings(silent, skipAuthPrefs);
   }
 
   syncThemeToggles() {
-    this._themeSyncing = true;
-    try {
-      const settingsToggle = document.getElementById('darkModeToggle');
-      const profileToggle = document.getElementById('profileDarkModeToggle');
-      const isDark = this.theme === 'dark';
-      if (settingsToggle) {
-        settingsToggle.checked = isDark;
-      }
-      if (profileToggle) {
-        profileToggle.checked = isDark;
-      }
-    } finally {
-      this._themeSyncing = false;
-    }
+    return this.settingsFeature.storage.syncThemeToggles();
   }
 
   async saveThemeOnly(nextTheme, silent = false) {
-    // Theme-only save to avoid overwriting other settings with stale UI values.
-    const normalized = nextTheme === 'dark' ? 'dark' : 'light';
-    const prev = this.theme;
-    this.theme = normalized;
-    this.syncThemeToggles();
-
-    try {
-      const settingsUpdatedAt = Date.now();
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ theme: this.theme, settingsUpdatedAt });
-      });
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ theme: this.theme, settingsUpdatedAt }, resolve));
-      } catch (_) {}
-
-      const verification = await chrome.storage.local.get(['theme']);
-      if (verification.theme !== this.theme) {
-        throw new Error('Verification failed: theme not persisted correctly');
-      }
-
-      // Best-effort cloud sync
-      const settingsData = {
-        autoDeletePeriod: this.autoDeletePeriod,
-        theme: this.theme,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode
-      };
-      pasteCraftSupabase.syncSettingsToSupabase(settingsData).catch(() => {});
-
-      // Nudge content scripts (Quick Paste reads theme too)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'settingsUpdated',
-              settings: { theme: this.theme }
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      if (!silent) this.showToast('✅ Theme updated!', 'success');
-      return true;
-    } catch (e) {
-      this.theme = prev;
-      this.syncThemeToggles();
-      if (!silent) this.showToast(`❌ Theme update failed: ${e.message}`, 'error');
-      return false;
-    }
+    return this.settingsFeature.storage.saveThemeOnly(nextTheme, silent);
   }
 
   async getCurrentProfileImageForWidget() {
-    // Prefer stable URL; allow small data:image as fallback.
-    try {
-      if (!this.userProfile) {
-        const res = await chrome.storage.local.get(['userProfile']);
-        this.userProfile = res ? res.userProfile : null;
-      }
-    } catch (_) {}
-
-    const url = typeof this.userProfile?.profileImageUrl === 'string' ? this.userProfile.profileImageUrl : '';
-    if (url) return url;
-
-    const b64 = typeof this.userProfile?.profileImageBase64 === 'string' ? this.userProfile.profileImageBase64 : '';
-    if (b64 && b64.startsWith('data:image/') && b64.length <= 250000) return b64;
-    return '';
+    return this.settingsFeature.storage.getCurrentProfileImageForWidget();
   }
 
   async saveWidgetIconUseProfileImage(enabled, silent = false) {
-    // Persist into widgetSettings so content-script widget can react instantly.
-    const snapshot = await chrome.storage.local.get(['widgetSettings']);
-    const prev = snapshot && snapshot.widgetSettings && typeof snapshot.widgetSettings === 'object' ? snapshot.widgetSettings : {};
+    return this.settingsFeature.storage.saveWidgetIconUseProfileImage(enabled, silent);
+  }
 
-    const rollback = async () => {
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ widgetSettings: prev });
-        });
-      } catch (e) {
-        console.error('❌ Widget icon rollback failed:', e);
-      }
-    };
+  async exportBackupToJson() {
+    return this.settingsFeature.backup.exportBackupToJson();
+  }
 
-    try {
-      // PRACTICE #1: VALIDATION
-      const nextEnabled = !!enabled;
+  async exportClipsToCsv() {
+    return this.settingsFeature.backup.exportClipsToCsv();
+  }
 
-      // PRACTICE #2: SAFE DEFAULTS
-      const next = { ...prev, widgetIconUseProfileImage: nextEnabled };
-
-      // PRACTICE #3: RETRY LOGIC
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ widgetSettings: next, pc_local_updatedAt: Date.now() });
-      });
-
-      // Best-effort: persist to sync as well (cross-device)
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ widgetSettings: next }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION
-      const verification = await chrome.storage.local.get(['widgetSettings']);
-      const ok = !!verification.widgetSettings && verification.widgetSettings.widgetIconUseProfileImage === nextEnabled;
-      if (!ok) throw new Error('Verification failed: widget icon preference not persisted');
-
-      // Notify content scripts immediately (non-blocking)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'widgetSettingsUpdated',
-              widgetSettings: { widgetIconUseProfileImage: nextEnabled }
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      if (!silent) this.showToast('✅ Widget icon preference saved');
-      return true;
-    } catch (e) {
-      console.error('❌ Failed to save widget icon preference:', e);
-      await rollback();
-      if (!silent) this.showToast(`❌ Failed to save: ${e.message || 'Unknown error'}`, 'error');
-      return false;
-    }
+  async importBackupFromJsonMerge(file) {
+    return this.settingsFeature.backup.importBackupFromJsonMerge(file);
   }
 
   async showSettingsModal() {
-    const startTime = Date.now();
-    // OPTIMIZATION: Show modal immediately with cached values, then update in background
-    // This prevents the delay users experience when clicking Settings
-
-    // Reset PIN toggle "userTouched" flags for this open session so the
-    // background refresh can reflect fresh config without clobbering input.
-    try {
-      const _a = document.getElementById('pinAskEachBrowserOpen');
-      const _b = document.getElementById('pinUnlimitedSession');
-      if (_a) delete _a.dataset.userTouched;
-      if (_b) delete _b.dataset.userTouched;
-    } catch (_) {}
-
-    // Update storage statistics
-    this.updateStorageStats();
-    
-    // Set current auto-delete period (use cached values)
-    document.getElementById('autoDeletePeriod').value = this.autoDeletePeriod || 'never';
-
-    // Theme toggle (single source of truth)
-    const darkModeToggle = document.getElementById('darkModeToggle');
-    if (darkModeToggle) {
-      if (this.darkModeComingSoon) {
-        darkModeToggle.checked = false;
-        darkModeToggle.disabled = true;
-      } else {
-        darkModeToggle.disabled = false;
-        darkModeToggle.checked = this.theme === 'dark';
-      }
-    }
-    // Profile dark mode toggle (coming soon)
-    const profileDarkModeToggle = document.getElementById('profileDarkModeToggle');
-    if (profileDarkModeToggle) {
-      if (this.darkModeComingSoon) {
-        profileDarkModeToggle.checked = false;
-        profileDarkModeToggle.disabled = true;
-      } else {
-        profileDarkModeToggle.disabled = false;
-        profileDarkModeToggle.checked = this.theme === 'dark';
-      }
-    }
-    
-    // Set current quick paste settings (use cached values)
-    document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings?.autoHide !== false;
-    document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings?.showTimestamps !== false;
-    document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings?.maxClipsDisplay || 20;
-
-    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-    if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
-
-    // PIN lock UI - reflect cached config immediately (fresh values refreshed
-    // in the background Promise.all below to avoid blocking modal show).
-    try {
-      const enabled = !!this._pinConfig?.enabled;
-      const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-
-      const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-      const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-
-      if (browserScopeEl) {
-        browserScopeEl.checked = enabled && !isUnlimited;
-        browserScopeEl.disabled = !enabled;
-      }
-      if (unlimitedToggle) {
-        unlimitedToggle.checked = isUnlimited;
-        unlimitedToggle.disabled = !enabled;
-      }
-
-      const disableBtn = document.getElementById('disablePinBtn');
-      if (disableBtn) disableBtn.disabled = !enabled;
-    } catch (_) {}
-
-    // Auth prefs UI
-    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
-
-    // Restore UI (preview + button state)
-    try {
-      const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-      if (restoreWindowSelect && !restoreWindowSelect.value) restoreWindowSelect.value = '1week';
-
-      const previewEl = document.getElementById('restorePreviewText');
-      if (previewEl) previewEl.textContent = 'Select a window to preview what will be restored.';
-
-      const syncBtn = document.getElementById('syncRestoredToCloudBtn');
-      if (syncBtn) syncBtn.disabled = !(this._lastAppliedRestore && this._lastAppliedRestore.point);
-
-      // Best-effort initial preview (keeps UI informative)
-      const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-      Promise.resolve().then(() => this.previewRestore(key)).catch(() => {});
-    } catch (_) {}
-    
-    // Show modal immediately
-    document.getElementById('settingsModal').style.display = 'flex';
-    
-    const modalShownTime = Date.now();
-
-    // Load fresh settings in background and update UI when ready (non-blocking)
-    Promise.all([
-      this.loadSettings().catch(() => {}),
-      this.loadPinConfig().catch(() => {})
-    ]).then(() => {
-      const loadCompleteTime = Date.now();
-
-      // Update UI with fresh values
-      document.getElementById('autoDeletePeriod').value = this.autoDeletePeriod || 'never';
-      const darkModeToggle = document.getElementById('darkModeToggle');
-      if (darkModeToggle) darkModeToggle.checked = this.theme === 'dark';
-      document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings?.autoHide !== false;
-      document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings?.showTimestamps !== false;
-      document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings?.maxClipsDisplay || 20;
-      
-      if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
-
-      // Reflect fresh PIN config now that loadPinConfig() has resolved. We
-      // skip when the user has already toggled to avoid clobbering input.
-      try {
-        const enabled = !!this._pinConfig?.enabled;
-        const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-        const disableBtn = document.getElementById('disablePinBtn');
-        if (browserScopeEl && !browserScopeEl.dataset.userTouched) {
-          browserScopeEl.checked = enabled && !isUnlimited;
-          browserScopeEl.disabled = !enabled;
-        }
-        if (unlimitedToggle && !unlimitedToggle.dataset.userTouched) {
-          unlimitedToggle.checked = isUnlimited;
-          unlimitedToggle.disabled = !enabled;
-        }
-        if (disableBtn) disableBtn.disabled = !enabled;
-      } catch (_) {}
-    }).catch(() => {});
+    return this.settingsFeature.render.showSettingsModal();
   }
 
   hideSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
+    return this.settingsFeature.render.hideSettingsModal();
   }
-  
+
   showHelpModal() {
-    console.log('🔍 Help modal requested');
-    document.getElementById('helpModal').style.display = 'flex';
-    console.log('✅ Help modal shown');
+    return this.settingsFeature.render.showHelpModal();
   }
-  
+
   hideHelpModal() {
-    console.log('🙈 Help modal hidden');
-    document.getElementById('helpModal').style.display = 'none';
+    return this.settingsFeature.render.hideHelpModal();
   }
-  
 
   updateStorageStats() {
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const totalClips = allClips.length;
-    const categorizedClips = allClips.filter(clip => clip.category !== 'Uncategorized').length;
-    const uncategorizedClips = totalClips - categorizedClips;
-
-    document.getElementById('totalClipsCount').textContent = `${totalClips} (${this.clips.length} active, ${this.searchOnlyClips.length} archived)`;
-    document.getElementById('categorizedClipsCount').textContent = categorizedClips;
-    document.getElementById('uncategorizedClipsCount').textContent = uncategorizedClips;
+    return this.settingsFeature.render.updateStorageStats();
   }
 
-  // Auto-Delete Functions
   async cleanupOldClips() {
-    if (this.autoDeletePeriod === 'never') return;
-
-    const cutoffTime = this.getCutoffTime(this.autoDeletePeriod);
-    const toDelete = (Array.isArray(this.clips) ? this.clips : [])
-      .filter(clip => clip?.category === 'Uncategorized' && clip.timestamp < cutoffTime)
-      .map(clip => this._clipIdKey(clip?.id))
-      .filter(Boolean);
-
-    if (toDelete.length > 0) {
-      await this.deleteClipsByIdKeys(toDelete, {
-        includeArchived: false,
-        reason: 'auto-delete:uncategorized',
-        clearSelection: false,
-        rerender: true
-      });
-      console.log(`🗑️ Auto-deleted ${toDelete.length} old uncategorized clips`);
-    }
+    return this.settingsFeature.storage.cleanupOldClips();
   }
 
   getCutoffTime(period) {
-    const now = Date.now();
-    const periods = {
-      '1day': 24 * 60 * 60 * 1000,
-      '1week': 7 * 24 * 60 * 60 * 1000,
-      '1month': 30 * 24 * 60 * 60 * 1000,
-      '3months': 90 * 24 * 60 * 60 * 1000,
-      '6months': 180 * 24 * 60 * 60 * 1000,
-      '1year': 365 * 24 * 60 * 60 * 1000
-    };
-    
-    return now - (periods[period] || 0);
+    return this.settingsFeature.storage.getCutoffTime(period);
   }
 
   // Category Dropdown Functions

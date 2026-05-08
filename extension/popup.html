@@ -9180,32 +9180,6 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="settings-section">
-                        <h4><i data-lucide="lock"></i> Quick Login Code</h4>
-                        <p class="settings-description">Require a 3-digit code to open PasteCraft on this browser profile.</p>
-                        <div class="quick-settings-checkboxes">
-                            <label class="checkbox-label" style="margin-top: 8px;">
-                                <input type="checkbox" id="pinAskEachBrowserOpen" title="If enabled, you'll be asked again after a full browser restart. Choosing this will turn off Unlimited session.">
-                                Ask for 3-digit code every time a new browser is open
-                            </label>
-                            <label class="checkbox-label" style="margin-top: 8px;">
-                                <input type="checkbox" id="pinUnlimitedSession" title="Overrides “new browser” prompts. If enabled, PasteCraft won't ask again after your first unlock.">
-                                Unlimited session (never require code after initial unlock)
-                            </label>
-                        </div>
-                        <div class="settings-note" style="margin-top: 8px;">
-                            <span class="note-icon"><i data-lucide="info"></i></span>
-                            <span><strong>Unlimited session overrides</strong> the “new browser” prompt. Selecting “new browser” will automatically turn Unlimited session off.</span>
-                        </div>
-                        <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 10px 0 0 0;">
-                            <button class="btn-secondary" id="changePinBtn" type="button">Change 3-digit code</button>
-                            <button class="btn-secondary" id="disablePinBtn" type="button">Disable code</button>
-                        </div>
-                        <div class="settings-note">
-                            <span class="note-icon"><i data-lucide="info"></i></span>
-                            <span>This only locks the extension UI. Your account session can stay signed in, and your 3-digit code can sync across devices when browser sync is enabled.</span>
-                        </div>
-                    </div>
-                    <div class="settings-section">
                         <h4><i data-lucide="hard-drive"></i> Storage Information</h4>
                         <div class="storage-info">
                             <div class="storage-item">
@@ -10621,102 +10595,45 @@ Multiple clips are separated by:
         </div>
     </div>
 
-    <!-- PIN Unlock Modal -->
-    <div class="modal-overlay" id="pinModal" style="display: none;">
-        <div class="modal-content auth-modal-new">
-            <div class="auth-container">
-                <div class="auth-brand" style="margin-bottom: 18px;">
-                    <div class="auth-logo-wrapper">
-                        <img src="icon.png" alt="PasteCraft" class="auth-logo-img">
-                    </div>
-                    <h1 class="auth-title" style="font-size: 22px;">Enter 3-digit code</h1>
-                    <p class="auth-tagline">Unlock PasteCraft</p>
+    <!-- Restore Preview Modal -->
+    <div class="modal-overlay" id="restorePreviewModal" style="display: none;">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3><i data-lucide="clock"></i> Restore Preview</h3>
+                <button class="modal-close" id="closeRestorePreviewModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-note" style="margin-bottom: 12px;">
+                    <span class="note-icon">ℹ️</span>
+                    <span id="restorePreviewMetaText">Loading preview…</span>
                 </div>
 
-                <div class="auth-form-new">
-                    <div class="form-group-new">
-                        <label class="form-label-new">
-                            <span class="label-icon">🔢</span>
-                            Code
-                        </label>
-                        <input
-                            type="password"
-                            id="pinUnlockInput"
-                            class="auth-input-new"
-                            inputmode="numeric"
-                            pattern="\\d{3}"
-                            maxlength="3"
-                            placeholder="•••"
-                            autocomplete="one-time-code">
-                        <span class="input-hint" id="pinUnlockHint">3 digits (0-9)</span>
+                <div id="restorePreviewEmpty" class="settings-note" style="display: none; margin-bottom: 12px;">
+                    <span class="note-icon">⚠️</span>
+                    <span>No restore points found yet. PasteCraft creates a daily snapshot automatically — please come back later.</span>
+                </div>
+
+                <div id="restorePreviewContent">
+                    <div class="settings-section">
+                        <h4>Active Clips (<span id="rpActiveCount">0</span>)</h4>
+                        <div id="rpActiveList" class="restore-preview-list" style="max-height: 160px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; background: #f9fafb;"></div>
                     </div>
-
-                    <button class="btn-primary-new auth-submit-new" id="unlockPinBtn" type="button">
-                        <span class="btn-text">Unlock</span>
-                        <span class="btn-icon">→</span>
-                    </button>
-
-                    <div class="auth-footer-text" style="margin-top: 6px;">
-                        <a href="#" id="pinSignInAgainLink">Sign in with email &amp; password instead</a>
+                    <div class="settings-section">
+                        <h4>Archived Clips (<span id="rpArchivedCount">0</span>)</h4>
+                        <div id="rpArchivedList" class="restore-preview-list" style="max-height: 160px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; background: #f9fafb;"></div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>Categories (<span id="rpCategoriesCount">0</span>)</h4>
+                        <div id="rpCategoriesList" class="restore-preview-list" style="max-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; background: #f9fafb;"></div>
+                    </div>
+                    <div class="settings-section">
+                        <h4>Notes (<span id="rpNotesCount">0</span>)</h4>
+                        <div id="rpNotesList" class="restore-preview-list" style="max-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; background: #f9fafb;"></div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- PIN Setup / Change Modal -->
-    <div class="modal-overlay" id="pinSetupModal" style="display: none;">
-        <div class="modal-content auth-modal-new">
-            <div class="auth-container">
-                <div class="auth-brand" style="margin-bottom: 18px;">
-                    <div class="auth-logo-wrapper">
-                        <img src="icon.png" alt="PasteCraft" class="auth-logo-img">
-                    </div>
-                    <h1 class="auth-title" id="pinSetupTitle" style="font-size: 22px;">Set 3-digit code</h1>
-                    <p class="auth-tagline">This will lock the extension UI</p>
-                </div>
-
-                <div class="auth-form-new">
-                    <div class="form-group-new">
-                        <label class="form-label-new">
-                            <span class="label-icon">🔢</span>
-                            New code
-                        </label>
-                        <input
-                            type="password"
-                            id="pinSetupInput"
-                            class="auth-input-new"
-                            inputmode="numeric"
-                            pattern="\\d{3}"
-                            maxlength="3"
-                            placeholder="•••">
-                    </div>
-
-                    <div class="form-group-new">
-                        <label class="form-label-new">
-                            <span class="label-icon">✅</span>
-                            Confirm code
-                        </label>
-                        <input
-                            type="password"
-                            id="pinSetupConfirmInput"
-                            class="auth-input-new"
-                            inputmode="numeric"
-                            pattern="\\d{3}"
-                            maxlength="3"
-                            placeholder="•••">
-                    </div>
-
-                    <div class="modal-actions" style="padding: 0; margin-top: 6px;">
-                        <button class="btn-secondary" id="cancelPinSetupBtn" type="button">Cancel</button>
-                        <button class="btn-primary" id="savePinSetupBtn" type="button">Save code</button>
-                    </div>
-
-                    <div class="settings-note" style="margin-top: 14px;">
-                        <span class="note-icon">ℹ️</span>
-                        <span>Tip: a 3-digit code is not very strong. Use this only on devices you trust.</span>
-                    </div>
-                </div>
+            <div class="modal-actions" style="padding: 12px 24px 16px; gap: 10px; justify-content: flex-end; border-top: 1px solid #e5e7eb;">
+                <button class="btn-secondary" id="restorePreviewCloseBtn" type="button">Close</button>
             </div>
         </div>
     </div>
