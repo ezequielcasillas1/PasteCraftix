@@ -1,3 +1,9 @@
+### May 9, 2026 - Notes Duplicate Sync + Ordering Fix
+**Status:** SUCCESS
+**Commit:** pending
+**Files:** extension/supabase-client.js, extension/popup/features/notes/notes.service.js, extension/popup/features/notes/notes.editor.js, extension/popup/features/notes/notes.render.js
+**Result:** Fixed duplicate album note sync by normalizing note IDs, deduping note upserts, and keeping notes sorted newest-first after IndexedDB reloads.
+
 ### Apr 26, 2026 - Supabase Audit Grant Hardening
 **Status:** SUCCESS
 **Commit:** pending

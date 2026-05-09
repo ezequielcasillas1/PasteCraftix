@@ -3061,6 +3061,35 @@ class PasteCraftSupabase {
   // NOTES SYNC METHODS
   // =====================================================
 
+  // Pick the winning row when two rows share the same (user_id, note_id):
+  // newest updated_ms wins; on tie a tombstoned row beats a live row so a
+  // pending delete is never silently resurrected.
+  _pickPreferredNoteRow(existing, candidate) {
+    const existingMs = Number.isFinite(existing?.updated_ms) ? existing.updated_ms : 0;
+    const candidateMs = Number.isFinite(candidate?.updated_ms) ? candidate.updated_ms : 0;
+    if (candidateMs > existingMs) return candidate;
+    if (candidateMs < existingMs) return existing;
+    if (candidate?.deleted_at && !existing?.deleted_at) return candidate;
+    return existing;
+  }
+
+  _dedupeNotesByKey(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    const map = new Map();
+    rows.forEach(row => {
+      const key = `${row.user_id}::${String(row.note_id)}`;
+      const existing = map.get(key);
+      map.set(key, existing ? this._pickPreferredNoteRow(existing, row) : row);
+    });
+    return Array.from(map.values());
+  }
+
+  _filterSnapshotsToRows(snapshots, rows) {
+    if (!Array.isArray(snapshots) || snapshots.length === 0) return [];
+    const allowed = new Set(rows.map(r => `${r.user_id}::${String(r.note_id)}`));
+    return snapshots.filter(s => allowed.has(`${s.user_id}::${String(s.note_id)}`));
+  }
+
   buildDbNotesForUpsert(localNotes, userId, deviceId) {
     const allNotes = Array.isArray(localNotes) ? localNotes : [];
     const notes = allNotes.filter(note => {
@@ -3189,17 +3218,24 @@ class PasteCraftSupabase {
         return true;
       }
 
+      // Dedupe by (user_id, note_id) — Postgres ON CONFLICT cannot tolerate
+      // duplicate keys in the same batch (error code 21000). Keep the row
+      // with the latest updated_ms; on ties prefer a tombstoned row so a
+      // pending delete is never lost to a stale resurrection.
+      const dedupedRows = this._dedupeNotesByKey(safeRows);
+      const dedupedSnapshots = this._filterSnapshotsToRows(safeSnapshots, dedupedRows);
+
       const { error } = await this.client
         .from('notes')
-        .upsert(safeRows, {
+        .upsert(dedupedRows, {
           onConflict: 'user_id,note_id',
           ignoreDuplicates: false
         });
       if (error) throw error;
 
       try {
-        if (Array.isArray(safeSnapshots) && safeSnapshots.length > 0) {
-          await this.client.from('note_versions').insert(safeSnapshots);
+        if (Array.isArray(dedupedSnapshots) && dedupedSnapshots.length > 0) {
+          await this.client.from('note_versions').insert(dedupedSnapshots);
         }
       } catch (_) {
         // Versioning should not block core sync
@@ -3272,8 +3308,14 @@ class PasteCraftSupabase {
     const merged = new Map();
     const deletedById = new Map();
 
+    // Local ids are numbers (Date.now()), remote ids are strings (Postgres
+    // TEXT). Without normalization the Map treats them as different keys and
+    // every realtime echo or full sync writes a duplicate copy of every
+    // recently-touched note (root cause of the 21000 ON CONFLICT failures).
+    const idKey = (note) => (note?.id != null ? String(note.id) : '');
+
     remoteNotes.forEach(note => {
-      const id = note?.id != null ? String(note.id) : '';
+      const id = idKey(note);
       if (!id || !note?.deletedAt) return;
       deletedById.set(id, note.deletedAt);
     });
@@ -3284,7 +3326,7 @@ class PasteCraftSupabase {
       });
       const localTombs = Array.isArray(local?.pc_deleted_notes) ? local.pc_deleted_notes : [];
       localTombs.forEach((t) => {
-        const id = t?.id != null ? String(t.id) : '';
+        const id = idKey(t);
         if (!id) return;
         const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
         const prev = deletedById.get(id) || 0;
@@ -3294,33 +3336,33 @@ class PasteCraftSupabase {
 
     const shouldDrop = (note) => {
       if (!note) return true;
-      const id = note?.id != null ? String(note.id) : '';
+      const id = idKey(note);
       const deletedAt = id ? deletedById.get(id) : null;
       const updatedAt = Number.isFinite(note?.updatedAt) ? note.updatedAt : 0;
       return deletedAt && deletedAt >= updatedAt;
     };
 
     localNotes.forEach(note => {
-      if (!shouldDrop(note)) {
-        merged.set(note.id, note);
-      }
+      const id = idKey(note);
+      if (!id) return;
+      if (!shouldDrop(note)) merged.set(id, note);
     });
 
     remoteNotes.forEach(remoteNote => {
+      const id = idKey(remoteNote);
+      if (!id) return;
       if (shouldDrop(remoteNote)) {
-        merged.delete(remoteNote.id);
+        merged.delete(id);
         return;
       }
-      const localNote = merged.get(remoteNote.id);
+      const localNote = merged.get(id);
       if (!localNote) {
-        merged.set(remoteNote.id, remoteNote);
+        merged.set(id, remoteNote);
         return;
       }
       const localUpdatedAt = Number.isFinite(localNote?.updatedAt) ? localNote.updatedAt : 0;
       const remoteUpdatedAt = Number.isFinite(remoteNote?.updatedAt) ? remoteNote.updatedAt : 0;
-      if (remoteUpdatedAt >= localUpdatedAt) {
-        merged.set(remoteNote.id, remoteNote);
-      }
+      if (remoteUpdatedAt >= localUpdatedAt) merged.set(id, remoteNote);
     });
 
     return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));

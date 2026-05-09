@@ -1,3 +1,47 @@
+// ── dedupe helper ──────────────────────────────────────────────────────────
+
+// Two notes can never legitimately share an `id`. When that happens we keep
+// the most recently updated record; on ties a soft-deleted note wins so a
+// pending delete cannot be silently resurrected by an older live copy.
+function _pickPreferredNote(existing, candidate) {
+  const existingMs = Number.isFinite(existing?.updatedAt) ? existing.updatedAt : 0;
+  const candidateMs = Number.isFinite(candidate?.updatedAt) ? candidate.updatedAt : 0;
+  if (candidateMs > existingMs) return candidate;
+  if (candidateMs < existingMs) return existing;
+  if (candidate?.deletedAt && !existing?.deletedAt) return candidate;
+  return existing;
+}
+
+export function dedupeNotesById(notes) {
+  if (!Array.isArray(notes) || notes.length === 0) return [];
+  const map = new Map();
+  notes.forEach(note => {
+    if (!note || note.id == null) return;
+    const key = String(note.id);
+    const existing = map.get(key);
+    map.set(key, existing ? _pickPreferredNote(existing, note) : note);
+  });
+  return Array.from(map.values());
+}
+
+function _noteSortMs(note) {
+  if (Number.isFinite(note?.updatedAt)) return note.updatedAt;
+  if (Number.isFinite(note?.createdAt)) return note.createdAt;
+  return 0;
+}
+
+function sortNotesByRecency(notes) {
+  return [...notes].sort((a, b) => {
+    const diff = _noteSortMs(b) - _noteSortMs(a);
+    if (diff !== 0) return diff;
+    return String(b?.id || '').localeCompare(String(a?.id || ''));
+  });
+}
+
+function _noteIdOrder(notes) {
+  return notes.map(note => String(note?.id || '')).join('|');
+}
+
 // ── loadNotes ──────────────────────────────────────────────────────────────
 
 async function _readNotesFromStorage() {
@@ -50,6 +94,18 @@ export async function loadNotes(app) {
   const stored = await _readNotesFromStorage();
   let notes = await _resolveNotesFromIdb(app, stored.notes);
   notes = await _seedDemoNotesIfEmpty(notes);
+
+  const beforeDedupe = notes.length;
+  notes = dedupeNotesById(notes);
+  if (notes.length !== beforeDedupe) {
+    try { await chrome.storage.local.set({ notes }); } catch (_) {}
+  }
+
+  const beforeSortOrder = _noteIdOrder(notes);
+  notes = sortNotesByRecency(notes);
+  if (_noteIdOrder(notes) !== beforeSortOrder) {
+    try { await chrome.storage.local.set({ notes }); } catch (_) {}
+  }
 
   app.notes = notes;
   await _syncNotesToIdb(app);
@@ -228,6 +284,9 @@ async function _rollbackNotes(app, snapshot) {
 
 export async function saveNotes(app) {
   const snapshot = PasteCraftCRUD.createSnapshot(app.notes);
+
+  app.notes = dedupeNotesById(app.notes);
+  app.notes = sortNotesByRecency(app.notes);
 
   try {
     const savedToIdbOnly = await _writeNotesToLocalStorage(app);
