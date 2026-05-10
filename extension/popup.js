@@ -7956,17 +7956,7 @@ class PasteCraftPopup {
   // or exceeds `ms`. Keeps the underlying fetch alive in the background, so
   // the second call (or a visibility refresh) can use the warmed-up result.
   _withTimeout(promise, ms, fallback = undefined, label = '') {
-    const wrapped = Promise.resolve()
-      .then(() => promise)
-      .catch((e) => {
-        if (label) console.warn(`${label} failed:`, e);
-        return fallback;
-      });
-    const timer = new Promise((resolve) => setTimeout(() => {
-      if (label) console.warn(`${label} timed out after ${ms}ms — using fallback`);
-      resolve(fallback);
-    }, ms));
-    return Promise.race([wrapped, timer]);
+    return PasteCraftAsyncUtils.withTimeout(promise, { ms, fallback, label });
   }
 
   async _restoreSessionState() {
