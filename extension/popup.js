@@ -902,6 +902,13 @@ class PasteCraftPopup {
     return this.settingsFeature;
   }
 
+  async _initializeActivityFeature() {
+    if (this.activityFeature) return this.activityFeature;
+    const { initActivityFeature } = await import('./popup/features/activity/activity.controller.js');
+    this.activityFeature = initActivityFeature(this);
+    return this.activityFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
@@ -909,6 +916,7 @@ class PasteCraftPopup {
     await this._initializeNotesFeature();
     await this._initializeAiLabFeature();
     await this._initializeSettingsFeature();
+    await this._initializeActivityFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -2196,8 +2204,8 @@ class PasteCraftPopup {
           this.renderAiHistoryList();
           console.log('✅ AI History loaded');
         } else if (this.currentTab === 'activity') {
-          await this.loadActivityLog();
-          this.renderActivityList();
+          await this.activityFeature.service.loadActivityLog(this);
+          this.activityFeature.render.renderActivityList(this);
         }
       }
     });
@@ -3241,7 +3249,7 @@ class PasteCraftPopup {
     this.updateDelimiterExample();
 
     // Activity log event listeners
-    this.initActivityEventListeners();
+    this.activityFeature.events.initActivityEventListeners(this);
   }
   
   // =====================================================
@@ -7996,8 +8004,8 @@ class PasteCraftPopup {
             await this._withTimeout(this.loadNotes(), 3000, undefined, 'loadNotes');
             this.renderNotes();
           } else if (savedTab === 'activity') {
-            await this._withTimeout(this.loadActivityLog(), 3000, undefined, 'loadActivityLog');
-            this.renderActivityList();
+            await this._withTimeout(this.activityFeature.service.loadActivityLog(this), 3000, undefined, 'loadActivityLog');
+            this.activityFeature.render.renderActivityList(this);
           } else if (savedTab === 'aiHistory') {
             await this._withTimeout(this.loadAiHistory(), 3000, undefined, 'loadAiHistory');
             this.renderAiHistoryList();
@@ -8534,224 +8542,14 @@ class PasteCraftPopup {
   addURLToNote() { return this.notesFeature.editor.addURLToNote(this); }
   async exportNoteToPDF(noteId) { return this.notesFeature.editor.exportNoteToPDF(this, noteId); }
 
-  /** Load activity log entries from change_audit_log table */
-  async loadActivityLog() {
-    try {
-      this.activityEntries = [];
-      this.activityOffset = 0;
-      this.activityFilter = 'all';
-      this.activityHasMore = true;
+  async loadActivityLog() { return this.activityFeature.service.loadActivityLog(this); }
+  async fetchActivityPage(append = false) { return this.activityFeature.service.fetchActivityPage(this, append); }
+  renderActivityList() { return this.activityFeature.render.renderActivityList(this); }
+  getActivityIcon(operation) { return this.activityFeature.render.getActivityIcon(operation); }
+  getTableBadge(tableName) { return this.activityFeature.render.getTableBadge(tableName); }
+  getActivitySummary(entry) { return this.activityFeature.render.getActivitySummary(entry); }
+  formatTimeAgo(date) { return this.activityFeature.render.formatTimeAgo(date); }
 
-      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) {
-        console.warn('⚠️ Supabase client not available for activity log');
-        return;
-      }
-
-      const supabase = pasteCraftSupabase.client;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.warn('⚠️ User not logged in - activity log unavailable');
-        return;
-      }
-
-      await this.fetchActivityPage();
-    } catch (error) {
-      console.error('❌ Failed to load activity log:', error);
-    }
-  }
-
-  /** Fetch a page of activity entries */
-  async fetchActivityPage(append = false) {
-    try {
-      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) return;
-      const supabase = pasteCraftSupabase.client;
-
-      const pageSize = 20;
-      let query = supabase
-        .from('change_audit_log')
-        .select('id, occurred_at, table_name, operation, row_old, row_new')
-        .order('occurred_at', { ascending: false })
-        .range(this.activityOffset, this.activityOffset + pageSize - 1);
-
-      if (this.activityFilter && this.activityFilter !== 'all') {
-        query = query.eq('operation', this.activityFilter);
-      }
-
-      const dateFrom = document.getElementById('activityDateFrom')?.value;
-      const dateTo = document.getElementById('activityDateTo')?.value;
-      if (dateFrom) {
-        query = query.gte('occurred_at', dateFrom);
-      }
-      if (dateTo) {
-        query = query.lte('occurred_at', dateTo + 'T23:59:59');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Activity query error:', error);
-        return;
-      }
-
-      if (append) {
-        this.activityEntries = [...this.activityEntries, ...(data || [])];
-      } else {
-        this.activityEntries = data || [];
-      }
-
-      this.activityHasMore = (data?.length || 0) >= pageSize;
-      this.activityOffset += data?.length || 0;
-
-    } catch (error) {
-      console.error('❌ Failed to fetch activity page:', error);
-    }
-  }
-
-  /** Render activity list UI */
-  renderActivityList() {
-    const container = document.getElementById('activityList');
-    const loadMoreBtn = document.getElementById('loadMoreActivityBtn');
-    if (!container) return;
-
-    if (!this.activityEntries || this.activityEntries.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
-          <h3>No cloud activity yet</h3>
-          <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
-        </div>
-      `;
-      if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-      return;
-    }
-
-    container.innerHTML = this.activityEntries.map(entry => {
-      const icon = this.getActivityIcon(entry.operation);
-      const iconClass = entry.operation.toLowerCase();
-      const tableBadge = this.getTableBadge(entry.table_name);
-      const summary = this.getActivitySummary(entry);
-      const timeAgo = this.formatTimeAgo(new Date(entry.occurred_at));
-
-      return `
-        <div class="activity-entry" data-id="${entry.id}">
-          <div class="activity-entry-icon ${iconClass}">${icon}</div>
-          <div class="activity-entry-info">
-            <div class="activity-entry-title">${summary}</div>
-            <div class="activity-entry-meta">${timeAgo}</div>
-          </div>
-          <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
-        </div>
-      `;
-    }).join('');
-
-    if (loadMoreBtn) {
-      loadMoreBtn.style.display = this.activityHasMore ? 'block' : 'none';
-    }
-  }
-
-  /** Get icon for operation type */
-  getActivityIcon(operation) {
-    switch (operation) {
-      case 'INSERT': return '➕';
-      case 'UPDATE': return '✏️';
-      case 'DELETE': return '🗑️';
-      default: return '📝';
-    }
-  }
-
-  /** Get badge label for table name */
-  getTableBadge(tableName) {
-    const badges = {
-      clips: 'Clip',
-      categories: 'Category',
-      notes: 'Note',
-      settings: 'Settings',
-      user_profiles: 'Profile',
-      archived_clips: 'Archive'
-    };
-    return badges[tableName] || tableName;
-  }
-
-  /** Generate human-readable summary of the activity */
-  getActivitySummary(entry) {
-    const action = entry.operation === 'INSERT' ? 'Created' :
-                   entry.operation === 'UPDATE' ? 'Updated' :
-                   entry.operation === 'DELETE' ? 'Deleted' : 'Modified';
-    
-    const table = this.getTableBadge(entry.table_name).toLowerCase();
-    
-    // Try to extract a meaningful identifier
-    let identifier = '';
-    const data = entry.row_new || entry.row_old;
-    if (data) {
-      if (data.text) {
-        identifier = `: "${data.text.substring(0, 30)}${data.text.length > 30 ? '...' : ''}"`;
-      } else if (data.name) {
-        identifier = `: "${data.name}"`;
-      } else if (data.title) {
-        identifier = `: "${data.title}"`;
-      }
-    }
-
-    return `${action} ${table}${identifier}`;
-  }
-
-  /** Format timestamp as relative time */
-  formatTimeAgo(date) {
-    const now = new Date();
-    const diff = now - date;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    return 'Just now';
-  }
-
-  /** Initialize activity tab event listeners */
-  initActivityEventListeners() {
-    // Refresh button
-    document.getElementById('refreshActivityBtn')?.addEventListener('click', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-      this.showToast('Activity refreshed');
-    });
-
-    // Filter chips
-    document.querySelectorAll('.activity-filter-chip').forEach(chip => {
-      chip.addEventListener('click', async () => {
-        document.querySelectorAll('.activity-filter-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        this.activityFilter = chip.dataset.filter;
-        this.activityOffset = 0;
-        await this.fetchActivityPage();
-        this.renderActivityList();
-      });
-    });
-
-    // Date filters
-    document.getElementById('activityDateFrom')?.addEventListener('change', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-    });
-
-    document.getElementById('activityDateTo')?.addEventListener('change', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-    });
-
-    // Load more button
-    document.getElementById('loadMoreActivityBtn')?.addEventListener('click', async () => {
-      await this.fetchActivityPage(true);
-      this.renderActivityList();
-    });
-  }
 }
 
 // Lucide icon renderer - idempotent, safe to call many times.
