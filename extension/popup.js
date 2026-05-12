@@ -1774,9 +1774,9 @@ class PasteCraftPopup {
     indicator.className = `sync-indicator ${status}`;
     
     const statusMessages = {
-      'synced': '?? Synced',
-      'syncing': '?? Syncing...',
-      'offline': '?? Offline'
+      'synced': 'Synced',
+      'syncing': 'Syncing...',
+      'offline': 'Offline'
     };
     
     statusText.textContent = statusMessages[status] || status;
@@ -3392,14 +3392,14 @@ class PasteCraftPopup {
     const schema = SUPPORT_FORM_SCHEMAS[type] || { blurb: '', fields: [] };
 
     const titles = {
-      team: '?? Team',
-      help: '?? Help',
-      support: '?? Support',
-      howcanweimprove: '?? How can we improve?',
-      reportbugs: '?? Report a bug',
+      team: 'Team',
+      help: 'Help',
+      support: 'Support',
+      howcanweimprove: 'How can we improve?',
+      reportbugs: 'Report a bug',
     };
 
-    if (titleEl) titleEl.textContent = `?? ${titles[type] || 'Contact PasteCraft'}`;
+    if (titleEl) titleEl.textContent = titles[type] || 'Contact PasteCraft';
 
     const userEmail = this.currentUser?.email || '';
     if (infoEl) {
