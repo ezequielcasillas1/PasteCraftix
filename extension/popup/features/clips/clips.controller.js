@@ -1,0 +1,18 @@
+import { CLIPS_LIMITS } from './clips.constants.js';
+import * as clipRender from './clips.render.js';
+import * as clipEvents from './clips.events.js';
+import * as clipService from './clips.service.js';
+import * as clipState from './clips.state.js';
+
+export function initClipsFeature(app) {
+  app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
+  app.maxPages = CLIPS_LIMITS.MAX_PAGES;
+  app.maxClips = app.clipsPerPage * app.maxPages;
+
+  return {
+    render: clipRender,
+    events: clipEvents,
+    service: clipService,
+    state: clipState,
+  };
+}

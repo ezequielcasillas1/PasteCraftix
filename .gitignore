@@ -81,3 +81,6 @@ PRODUCTION_*.md
 
 # Admin dashboard — localhost only, never committed
 admin/
+
+# Cursor AI editor config — local dev tool, not repo material
+.cursor/

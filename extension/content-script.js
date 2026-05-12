@@ -4779,6 +4779,9 @@ class PasteCraftFloatingWidget {
             gap: 8px;
           }
           .quickview-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 6px;
@@ -4792,20 +4795,10 @@ class PasteCraftFloatingWidget {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
           }
-          .quickview-btn.placeholder {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .quickview-btn.placeholder .placeholder-box {
-            width: 14px;
-            height: 14px;
-            border-radius: 3px;
-            background: rgba(255, 255, 255, 0.55);
-            box-shadow:
-              inset 0 0 0 1px rgba(30, 64, 175, 0.25),
-              0 1px 2px rgba(0, 0, 0, 0.12);
-            display: inline-block;
+          .quickview-btn svg,
+          .quickview-btn svg *,
+          .quickview-btn span {
+            pointer-events: none;
           }
           .quickview-content {
             flex: 1;
@@ -4907,8 +4900,8 @@ class PasteCraftFloatingWidget {
             <span class="clip-count" id="clip-count">0 clips</span>
           </div>
           <div class="quickview-controls">
-            <button class="quickview-btn placeholder" onclick="openMiniWindow()" title="Open mini Quick View (window)"><span class="placeholder-box" aria-hidden="true"></span></button>
-            <button class="quickview-btn placeholder" onclick="dockMiniBottomRight()" title="Open mini Quick View (bottom-right)"><span class="placeholder-box" aria-hidden="true"></span></button>
+            <button class="quickview-btn" onclick="openMiniWindow()" title="Open mini Quick View (window)" aria-label="Open mini Quick View window"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg></button>
+            <button class="quickview-btn" onclick="dockMiniBottomRight()" title="Open mini Quick View (bottom-right)" aria-label="Dock mini Quick View to bottom-right"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 13V19H13"/><path d="M5 5L19 19"/></svg></button>
             <button class="quickview-btn" onclick="refreshClips()" title="Refresh">🔄</button>
             <button class="quickview-btn" onclick="openSettings()" title="Settings">⚙️</button>
           </div>
@@ -5336,6 +5329,52 @@ class PasteCraftFloatingWidget {
       .pastecraft-mini-quickview-body {
         flex: 1;
         background: rgba(241, 245, 249, 0.65);
+        overflow-y: auto;
+        padding: 8px;
+      }
+
+      .pastecraft-mini-quickview-empty {
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+        padding: 32px 16px;
+      }
+
+      .pastecraft-mini-quickview-clip {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .pastecraft-mini-quickview-clip:hover {
+        background: #eff6ff;
+        border-color: #3b82f6;
+      }
+
+      .pastecraft-mini-quickview-clip-text {
+        font-size: 13px;
+        color: #1f2937;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pastecraft-mini-quickview-clip-category {
+        font-size: 11px;
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+        align-self: flex-start;
       }
 
       .pastecraft-mini-quickview.docked {
@@ -5431,7 +5470,6 @@ class PasteCraftFloatingWidget {
       closeBtn.type = 'button';
       closeBtn.title = 'Close';
       closeBtn.textContent = '×';
-      closeBtn.addEventListener('click', () => el.remove());
 
       controls.appendChild(closeBtn);
       header.appendChild(title);
@@ -5442,6 +5480,26 @@ class PasteCraftFloatingWidget {
       el.appendChild(header);
       el.appendChild(body);
       document.body.appendChild(el);
+
+      this._populateMiniQuickView(body);
+
+      const storageListener = (changes, area) => {
+        if (area !== 'local') return;
+        if (!changes.clips && !changes.searchOnlyClips) return;
+        if (!document.body.contains(el)) return;
+        this._populateMiniQuickView(body);
+      };
+      chrome.storage.onChanged.addListener(storageListener);
+
+      const closeMini = () => {
+        try { chrome.storage.onChanged.removeListener(storageListener); } catch (_) {}
+        el.remove();
+      };
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMini();
+      });
 
       // Initial position (window mode): place it slightly left of the Quick View panel.
       if (mode !== 'corner') {
@@ -5470,7 +5528,7 @@ class PasteCraftFloatingWidget {
 
       header.addEventListener('pointerdown', (e) => {
         if (!e || e.button !== 0) return;
-        // Convert docked (bottom/right) into absolute left/top for smooth drag.
+        if (e.target?.closest?.('.pastecraft-mini-quickview-btn')) return;
         const rect = el.getBoundingClientRect();
         el.classList.remove('docked');
         el.style.right = '';
@@ -5490,7 +5548,91 @@ class PasteCraftFloatingWidget {
       console.error('❌ Error opening mini Quick View:', err);
     }
   }
-  
+
+  async _populateMiniQuickView(body) {
+    if (!body) return;
+    body.textContent = '';
+
+    let active = [];
+    let archived = [];
+    try {
+      const res = await new Promise((resolve) => chrome.storage.local.get(['clips', 'searchOnlyClips'], resolve));
+      active = Array.isArray(res?.clips) ? res.clips : [];
+      archived = Array.isArray(res?.searchOnlyClips) ? res.searchOnlyClips : [];
+    } catch (_) {
+      // ignore — render empty state below
+    }
+
+    const merged = [...active, ...archived]
+      .filter((c) => c && typeof c === 'object')
+      .sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0))
+      .slice(0, 100);
+
+    if (merged.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'pastecraft-mini-quickview-empty';
+      empty.textContent = 'No clips yet. Right-click selected text to save your first clip.';
+      body.appendChild(empty);
+      return;
+    }
+
+    merged.forEach((clip) => {
+      const card = document.createElement('div');
+      card.className = 'pastecraft-mini-quickview-clip';
+      card.title = 'Click to copy';
+
+      const text = String(clip.text ?? '').trim() || '(empty)';
+      const category = String(clip.category ?? '').trim();
+
+      if (category) {
+        const cat = document.createElement('div');
+        cat.className = 'pastecraft-mini-quickview-clip-category';
+        cat.textContent = category;
+        card.appendChild(cat);
+      }
+
+      const txt = document.createElement('div');
+      txt.className = 'pastecraft-mini-quickview-clip-text';
+      txt.textContent = text;
+      card.appendChild(txt);
+
+      const flashCopied = () => {
+        const original = txt.textContent;
+        const originalColor = card.style.borderColor;
+        txt.textContent = '✓ Copied!';
+        card.style.borderColor = '#10b981';
+        setTimeout(() => {
+          txt.textContent = original;
+          card.style.borderColor = originalColor;
+        }, 800);
+        try { window.pasteCraftQuickPaste?.showToast?.('Copied!', 'success'); } catch (_) {}
+      };
+
+      card.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          flashCopied();
+        } catch (_) {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            flashCopied();
+          } catch (e) {
+            try { window.pasteCraftQuickPaste?.showToast?.('Copy failed', 'error'); } catch (_) {}
+          }
+        }
+      });
+
+      body.appendChild(card);
+    });
+  }
+
   loadSavedPosition() {
     chrome.storage.local.get(['widgetPosition'], (result) => {
       if (result.widgetPosition && this.widget) {

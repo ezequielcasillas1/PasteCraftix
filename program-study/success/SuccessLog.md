@@ -1,3 +1,9 @@
+### May 9, 2026 - Notes Duplicate Sync + Ordering Fix
+**Status:** SUCCESS
+**Commit:** pending
+**Files:** extension/supabase-client.js, extension/popup/features/notes/notes.service.js, extension/popup/features/notes/notes.editor.js, extension/popup/features/notes/notes.render.js
+**Result:** Fixed duplicate album note sync by normalizing note IDs, deduping note upserts, and keeping notes sorted newest-first after IndexedDB reloads.
+
 ### Apr 26, 2026 - Supabase Audit Grant Hardening
 **Status:** SUCCESS
 **Commit:** pending
@@ -400,3 +406,29 @@
 **Commit:** 89da43f
 **Files:** website/src/*, website/astro.config.mjs, netlify.toml, tokens.css, base.css
 **Result:** Full website rebuild using Astro. Logo-derived brand system (navy, teal, gold), shared components, centralized tokens. Preserved Supabase auth and Stripe flows in account/pricing/upgrade pages.
+
+### Apr 30, 2026 - Clips Modular Refactor
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup/features/clips/*
+**Result:** Extracted Clips constants, selectors, render, events, state, and service modules. User verified Clips page functionality works.
+
+### May 1, 2026 - Clips Category/Search Refactor
+**Status:** SUCCESS
+**Files:** extension/popup.js, extension/popup/features/clips/*
+**Result:** Moved category dropdown, delegated events, selection previews, and bulk actions into Clips modules. Fixed tooltip regression and user verified success.
+
+### May 1, 2026 - Clips CodeScene Cleanup
+**Status:** SUCCESS
+**Files:** extension/popup/features/clips/*
+**Result:** Simplified Clips state, service, render, and event modules. Syntax/lints passed and CodeScene quality gate passed.
+
+### May 3, 2026 - Categories Modular Refactor
+**Status:** SUCCESS
+**Commit:** 5e547ff
+**Files:** extension/popup.js, extension/popup/features/categories/* (7 new files)
+**Result:** Extracted 13 category methods into vertical slice (constants, selectors, render, state, events, service, controller). popup.js -577 lines; saveTextWithCategory CC38→fixed, deleteCategory CC22→fixed. All CodeScene gates passed.
+
+### May 8, 2026 - AI Lab Opus 4.7 Brain Method Refactor
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js (new), ai-lab.history.js, ai-lab.controller.js, popup.js
+**Result:** Extracted Magic feature (14 methods) and decomposed _craftMagic CC63→orchestrator CC1. Decomposed continueHistoryConversation CC38→router CC4. ai-lab.magic.js scored 10.0 optimal. popup.js improved 1.09→1.23. All CodeScene gates passed.

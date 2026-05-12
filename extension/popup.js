@@ -1,4 +1,4 @@
-// PasteCraft Advanced Popup Script
+﻿// PasteCraft Advanced Popup Script
 // (startup logging removed)
 
 const PASTECRAFT_LOGS_ENABLED = (() => {
@@ -571,6 +571,10 @@ class PasteCraftCRUD {
   }
 }
 
+if (typeof window !== 'undefined') {
+  window.PasteCraftCRUD = PasteCraftCRUD;
+}
+
 class PasteCraftPopup {
   constructor() {
     console.log('🟢 PasteCraftPopup constructor called');
@@ -697,17 +701,6 @@ class PasteCraftPopup {
     // Serialize clip mutations to prevent races / double-click issues.
     this._clipOpQueue = Promise.resolve();
 
-    // PIN lock (3-digit) state
-    this._pinConfig = null; // { enabled, salt, hash, updatedAt }
-    // sessionStorage is per-popup-document; use chrome.storage.session for whole-browser-session unlock.
-    this._pinUnlockSessionKey = 'pc_pin_unlocked_v2'; // chrome.storage.session + sessionStorage fallback
-    this._pinUnlockWindowsKey = 'pc_pin_unlocked_windows_v1'; // chrome.storage.session, window-scoped unlocks
-    this._pinUnlimitedSessionKey = 'pc_pin_unlimited_session_v1'; // chrome.storage.session, session-wide unlimited flag
-    // NOTE: PIN storage is account-scoped for cross-device use (via browser sync).
-    // Legacy (pre-scope) key is still supported for migration.
-    this._pinConfigKey = 'pc_pin_v1'; // base key (scoped as `${base}:${userId}`) in chrome.storage.sync + local cache
-    this._pinAttemptsKey = 'pc_pin_attempts_v1'; // chrome.storage.local only (scoped as `${base}:${userId}`)
-
     // Auth preferences (local-only; never store passwords)
     this._authPrefsKey = 'pc_auth_prefs_v1';
 
@@ -731,25 +724,8 @@ class PasteCraftPopup {
       updatedAt: 0
     };
     
-    // Real-Time State Synchronization: BroadcastChannel API for cross-tab/browser communication
-    try {
-      this._broadcastChannel = new BroadcastChannel('pastecraft-settings-sync');
-      this._broadcastChannel.onmessage = (event) => {
-        if (event.data && event.data.type === 'settingsUpdated') {
-          // Reload settings from storage (optimistic UI update)
-          this.loadSettings().then(async () => {
-            // If settings modal is open, refresh it (now async)
-            const settingsModal = document.getElementById('settingsModal');
-            if (settingsModal && settingsModal.style.display === 'flex') {
-              await this.showSettingsModal();
-            }
-          }).catch(() => {});
-        }
-      };
-    } catch (error) {
-      console.warn('⚠️ BroadcastChannel not available:', error);
-      this._broadcastChannel = null;
-    }
+    // BroadcastChannel is initialized by settingsFeature in _initializeSettingsFeature()
+    this._broadcastChannel = null;
     
     this.init();
   }
@@ -789,150 +765,19 @@ class PasteCraftPopup {
   static AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
 
   _normalizeAiWorkflow(raw) {
-    const obj = (raw && typeof raw === 'object') ? raw : {};
-    const enabled = obj.enabled === true;
-    const provider = PasteCraftPopup.AI_ALLOWED_PROVIDERS.has(String(obj.provider || 'openai'))
-      ? String(obj.provider || 'openai')
-      : 'openai';
-    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-    const allowedPresets = new Set(presets.map(p => p.value));
-    const preset = allowedPresets.has(String(obj.preset || 'default')) ? String(obj.preset || 'default') : 'default';
-    const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
-
-    return { enabled, provider, preset, updatedAt };
+    return this.aiLabFeature.credits._normalizeAiWorkflow.call(this, raw);
   }
 
   async loadAiWorkflow() {
-    const key = this._aiWorkflowKey;
-    const defaults = { enabled: false, provider: 'openai', preset: 'default', updatedAt: 0 };
-
-    let syncCfg = null;
-    let localCfg = null;
-    try {
-      syncCfg = await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
-    } catch (_) {
-      syncCfg = null;
-    }
-    try {
-      localCfg = await chrome.storage.local.get([key]);
-    } catch (_) {
-      localCfg = null;
-    }
-
-    const fromSync = this._normalizeAiWorkflow(syncCfg ? syncCfg[key] : null);
-    const fromLocal = this._normalizeAiWorkflow(localCfg ? localCfg[key] : null);
-
-    const hasSync = !!(syncCfg && syncCfg[key]);
-    const hasLocal = !!(localCfg && localCfg[key]);
-
-    const preferSync = hasSync && fromSync.updatedAt >= fromLocal.updatedAt;
-    const next = preferSync ? fromSync : (hasLocal ? fromLocal : defaults);
-
-    this.aiWorkflow = this._normalizeAiWorkflow(next);
-
-    // Local cache for offline access (best-effort)
-    try { await chrome.storage.local.set({ [key]: this.aiWorkflow }); } catch (_) {}
-
-    this.applyAiWorkflowToUi();
-    return this.aiWorkflow;
+    return this.aiLabFeature.credits.loadAiWorkflow.call(this);
   }
 
   applyAiWorkflowToUi() {
-    try {
-      const toggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-
-      const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
-      this.aiWorkflow = cfg;
-
-      if (toggle) toggle.checked = !!cfg.enabled;
-      if (providerEl) providerEl.value = cfg.provider || 'openai';
-
-      // Rebuild preset options for the selected provider
-      if (presetEl) {
-        const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[cfg.provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-        presetEl.innerHTML = '';
-        for (const p of presets) {
-          const opt = document.createElement('option');
-          opt.value = p.value;
-          opt.textContent = p.label;
-          presetEl.appendChild(opt);
-        }
-        presetEl.value = cfg.preset || 'default';
-      }
-
-      const disabled = !cfg.enabled;
-      if (providerEl) providerEl.disabled = disabled;
-      if (presetEl) presetEl.disabled = disabled;
-    } catch (_) {}
+    return this.aiLabFeature.credits.applyAiWorkflowToUi.call(this);
   }
 
   async saveAiWorkflowFromUi(silent = true) {
-    // Use CRUD utility for reliable update
-    const key = this._aiWorkflowKey;
-    const snapshot = PasteCraftCRUD.createSnapshot(this.aiWorkflow);
-
-    const rollback = async () => {
-      try {
-        this.aiWorkflow = this._normalizeAiWorkflow(snapshot);
-        this.applyAiWorkflowToUi();
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ [key]: this.aiWorkflow });
-        });
-      } catch (rollbackError) {
-        console.error('❌ AI workflow rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      const toggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-      if (!toggle || !providerEl || !presetEl) {
-        throw new Error('AI workflow UI elements not found');
-      }
-
-      const next = this._normalizeAiWorkflow({
-        enabled: !!toggle.checked,
-        provider: String(providerEl.value || 'openai'),
-        preset: String(presetEl.value || 'default'),
-        updatedAt: Date.now()
-      });
-
-      this.aiWorkflow = next;
-      this.applyAiWorkflowToUi();
-
-      // PRACTICE #3: RETRY LOGIC - Save locally with retry
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ [key]: this.aiWorkflow });
-      });
-
-      // Best-effort: sync storage for cross-device
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ [key]: this.aiWorkflow }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION - Verify persisted
-      const verification = await chrome.storage.local.get([key]);
-      const verified = this._normalizeAiWorkflow(verification ? verification[key] : null);
-      if (verified.updatedAt !== this.aiWorkflow.updatedAt || verified.preset !== this.aiWorkflow.preset || verified.enabled !== this.aiWorkflow.enabled) {
-        throw new Error('Verification failed: AI workflow not persisted correctly');
-      }
-
-      // Immediately sync in-memory cache so next AI call uses the new config
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
-        pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
-      }
-
-      if (!silent) this.showToast('✅ AI workflow saved!');
-      return this.aiWorkflow;
-    } catch (error) {
-      console.error('❌ AI workflow save failed, rolling back:', error);
-      await rollback();
-      if (!silent) this.showToast(`❌ Failed to save AI workflow: ${error.message || 'Unknown error'}`, 'error');
-      return null;
-    }
+    return this.aiLabFeature.credits.saveAiWorkflowFromUi.call(this, silent);
   }
 
   // =====================================================
@@ -945,83 +790,32 @@ class PasteCraftPopup {
     } catch (_) {}
   }
 
-  // =====================================================
-  // PIN STORAGE KEYS (account-scoped)
-  // =====================================================
-
-  async _getAuthedUserIdForPin() {
-    // Best-effort: avoid throwing; return '' if not signed in.
-    try {
-      if (this.currentUser?.id) return String(this.currentUser.id);
-    } catch (_) {}
-    try {
-      const u = await pasteCraftSupabase.getCurrentUser();
-      const userId = u?.id ? String(u.id) : '';
-      return userId;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  _pinScopedKey(base, userId) {
-    const uid = String(userId || '').trim();
-    return uid ? `${String(base)}:${uid}` : String(base);
-  }
-
   _clipIdKey(id) {
-    return String(id);
+    return this.clipsFeature.state.getClipIdKey(id);
   }
 
   _clipTitle(clip) {
-    return typeof PCClipTitle !== 'undefined' ? PCClipTitle.getTitle(clip) : String(clip?.title || '').trim();
+    return this.clipsFeature.state.getClipTitle(clip);
   }
 
   _clipFallbackTitle(clip, maxLength = 42) {
-    return typeof PCClipTitle !== 'undefined'
-      ? PCClipTitle.getFallbackTitle(clip, maxLength)
-      : String(clip?.text || '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+    return this.clipsFeature.state.getClipFallbackTitle(clip, maxLength);
   }
 
   _clipAttachment(clip, addedDate = Date.now()) {
-    if (typeof PCClipTitle !== 'undefined') return PCClipTitle.makeAttachment(clip, addedDate);
-    return { type: 'clip', id: clip?.id, title: String(clip?.title || ''), text: clip?.text || '', addedDate };
+    return this.clipsFeature.state.getClipAttachment(clip, addedDate);
   }
 
   _categoryIdKey(category) {
-    return String(category?.id ?? category?.createdAt ?? category?.name ?? '');
+    return this.categoriesFeature.state.getCategoryIdKey(category);
   }
 
   _queueClipOp(fn) {
-    const run = this._clipOpQueue.then(fn, fn);
-    // Keep queue alive even if an operation fails
-    this._clipOpQueue = run.catch(() => {});
-    return run;
+    return this.clipsFeature.state.queueClipOp(this, fn);
   }
 
   getSelectedClipIdsInUiOrder() {
-    if (!this.selectedChips || this.selectedChips.size === 0) return [];
-
-    const selected = this.selectedChips;
-    const ordered = [];
-
-    // UI order = DOM order of current page chips
-    const domChips = document.querySelectorAll('#chipContainer .chip');
-    if (domChips && domChips.length > 0) {
-      domChips.forEach(el => {
-        const id = el?.dataset?.clipId;
-        if (id && selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: storage order
-    if (ordered.length === 0) {
-      this.clips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedClipIdsInUiOrder(this);
   }
 
   async deleteClipsByIdKeys(idKeys, {
@@ -1031,118 +825,12 @@ class PasteCraftPopup {
     clearSelection = true,
     rerender = true
   } = {}) {
-    const ids = Array.isArray(idKeys) ? idKeys.map(k => String(k)).filter(Boolean) : [];
-    if (ids.length === 0) return { requested: 0, deleted: 0, missing: 0 };
-
-    return this._queueClipOp(async () => {
-      const idSet = new Set(ids);
-      const beforeActive = Array.isArray(this.clips) ? this.clips.length : 0;
-      const beforeArchived = Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips.length : 0;
-
-      // Compute next state (no index splicing)
-      const nextClips = (Array.isArray(this.clips) ? this.clips : []).filter(c => !idSet.has(this._clipIdKey(c?.id)));
-      const nextArchived = includeArchived
-        ? (Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips : []).filter(c => !idSet.has(this._clipIdKey(c?.id)))
-        : (Array.isArray(this.searchOnlyClips) ? this.searchOnlyClips : []);
-
-      // PRACTICE #2: STATE SNAPSHOT for rollback
-      const snapshot = {
-        clips: PasteCraftCRUD.createSnapshot(this.clips),
-        searchOnlyClips: PasteCraftCRUD.createSnapshot(this.searchOnlyClips)
-      };
-
-      const rollback = async () => {
-        try {
-          this.clips = snapshot.clips;
-          this.searchOnlyClips = snapshot.searchOnlyClips;
-          await PasteCraftCRUD.retryOperation(async () => {
-            await chrome.storage.local.set({
-              clips: this.clips,
-              searchOnlyClips: this.searchOnlyClips,
-              pc_local_updatedAt: Date.now()
-            });
-          });
-          if (rerender) {
-            this.renderChips();
-            this.renderSearchResults();
-            this.renderCategories();
-          }
-        } catch (rollbackError) {
-          console.error('❌ Rollback failed:', rollbackError);
-        }
-      };
-
-      try {
-        // PRACTICE #4: IDEMPOTENCY CHECK - Verify clips were removed
-        const stillExists = [...nextClips, ...nextArchived].some(c => idSet.has(this._clipIdKey(c?.id)));
-        if (stillExists) {
-          throw new Error('Clips still exist after filter operation');
-        }
-
-        // Update in-memory state
-        this.clips = nextClips;
-        this.searchOnlyClips = nextArchived;
-
-        // PRACTICE #3: RETRY LOGIC - Atomic write with retry
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            pc_local_updatedAt: Date.now()
-          });
-        });
-
-        // PRACTICE #5: VERIFICATION - Verify deletion persisted
-        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-        const verifiedClips = [...(verification.clips || []), ...(includeArchived ? (verification.searchOnlyClips || []) : [])];
-        const verifiedDeleted = !verifiedClips.some(c => idSet.has(this._clipIdKey(c?.id)));
-        if (!verifiedDeleted) {
-          throw new Error('Verification failed: clips still exist in storage');
-        }
-
-        // UI updates
-        if (clearSelection) {
-          ids.forEach(id => this.selectedChips.delete(id));
-          this.selectedSearchClips.clear();
-          this.selectedCategoryClips.clear();
-        }
-        if (closeCategoryModal) {
-          this.hideCategoryModal();
-        }
-        if (rerender) {
-          this.renderChips();
-          this.renderSearchResults();
-          this.renderCategories();
-          this.updateCategoryFilter();
-          this.updateManualInputCategories();
-          this.updatePreview();
-          this.updateQuickCopyButton();
-          this.updateCategoryBulkActions();
-          this.updateSearchBulkActions();
-        }
-
-        // Background sync (non-blocking)
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-          .catch(() => {});
-        if (includeArchived) {
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-            .catch(() => {});
-        }
-
-        const afterActive = this.clips.length;
-        const afterArchived = this.searchOnlyClips.length;
-        const deleted = (beforeActive - afterActive) + (includeArchived ? (beforeArchived - afterArchived) : 0);
-        const missing = Math.max(0, idSet.size - deleted);
-
-        return { requested: idSet.size, deleted, missing };
-      } catch (error) {
-        // Rollback on any failure
-        console.error('❌ Clip deletion failed, rolling back:', error);
-        await rollback();
-        return { requested: idSet.size, deleted: 0, missing: idSet.size };
-      }
+    return this.clipsFeature.service.deleteClipsByIdKeys(this, idKeys, {
+      includeArchived,
+      reason,
+      closeCategoryModal,
+      clearSelection,
+      rerender
     });
   }
   
@@ -1179,12 +867,59 @@ class PasteCraftPopup {
     (document.body || document.documentElement).appendChild(banner);
   }
 
+  async _initializeClipsFeature() {
+    if (this.clipsFeature) return this.clipsFeature;
+    const { initClipsFeature } = await import('./popup/features/clips/clips.controller.js');
+    this.clipsFeature = initClipsFeature(this);
+    return this.clipsFeature;
+  }
+
+  async _initializeCategoriesFeature() {
+    if (this.categoriesFeature) return this.categoriesFeature;
+    const { initCategoriesFeature } = await import('./popup/features/categories/categories.controller.js');
+    this.categoriesFeature = initCategoriesFeature(this);
+    return this.categoriesFeature;
+  }
+
+  async _initializeNotesFeature() {
+    if (this.notesFeature) return this.notesFeature;
+    const { initNotesFeature } = await import('./popup/features/notes/notes.controller.js');
+    this.notesFeature = initNotesFeature(this);
+    return this.notesFeature;
+  }
+
+  async _initializeAiLabFeature() {
+    if (this.aiLabFeature) return this.aiLabFeature;
+    const { initAiLabFeature } = await import('./popup/features/ai-lab/ai-lab.controller.js');
+    this.aiLabFeature = initAiLabFeature(this);
+    return this.aiLabFeature;
+  }
+
+  async _initializeSettingsFeature() {
+    if (this.settingsFeature) return this.settingsFeature;
+    const { initSettingsFeature } = await import('./popup/features/settings/settings.controller.js');
+    this.settingsFeature = initSettingsFeature(this);
+    return this.settingsFeature;
+  }
+
+  async _initializeActivityFeature() {
+    if (this.activityFeature) return this.activityFeature;
+    const { initActivityFeature } = await import('./popup/features/activity/activity.controller.js');
+    this.activityFeature = initActivityFeature(this);
+    return this.activityFeature;
+  }
+
   async _initImpl() {
     console.log('🚀 Initializing PasteCraft popup...');
+    await this._initializeClipsFeature();
+    await this._initializeCategoriesFeature();
+    await this._initializeNotesFeature();
+    await this._initializeAiLabFeature();
+    await this._initializeSettingsFeature();
+    await this._initializeActivityFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
-    this.setupPinModalEvents();
 
     // ─── V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ───
     let isLocalGuest = false;
@@ -1275,12 +1010,6 @@ class PasteCraftPopup {
     this.currentUser = currentUser;
 
 
-    // If PIN lock is enabled, require unlock before proceeding.
-    const pinOk = await this.maybeRequirePinUnlock();
-    if (!pinOk) {
-      return;
-    }
-    
     // Load subscription info
     // Do NOT block popup UI on slow network subscription fetch.
     // Use cached subscription if available, then refresh in background.
@@ -1400,174 +1129,30 @@ class PasteCraftPopup {
   }
 
   _computeAiImageCreditsView(subscription) {
-    if (!subscription) {
-      return { state: 'unknown', text: 'Image credits: —', css: 'is-muted', title: 'Sign in to view image credits' };
-    }
-
-    const tier = String(subscription.subscription_tier || '').toLowerCase();
-    const status = String(subscription.subscription_status || '').toLowerCase();
-    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
-    const hasCouponAiAccess = !!(subscription && (
-      subscription.has_unlimited_ai === true ||
-      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-    ));
-
-    const isEntitledTier = (tier === 'premium' || tier === 'admin');
-    const isActiveStatus = (status === 'active' || status === 'past_due');
-    const entitled = (isEntitledTier && isActiveStatus) || hasCouponAiAccess;
-
-    if (!entitled) {
-      return { state: 'no_access', text: 'Image credits: 0', css: 'is-empty', title: 'Upgrade to access AI image generation' };
-    }
-
-    if (subscription.has_unlimited_ai === true || tier === 'admin') {
-      return { state: 'unlimited', text: 'Image credits: ∞', css: '', title: 'Unlimited AI image credits' };
-    }
-
-    const limit = Number.isFinite(Number(subscription.ai_image_credits_limit))
-      ? Number(subscription.ai_image_credits_limit)
-      : NaN;
-    const used = Number.isFinite(Number(subscription.ai_image_credits_used))
-      ? Number(subscription.ai_image_credits_used)
-      : 0;
-
-    const resetAt = subscription.ai_image_credits_reset_at
-      || subscription.stripe_current_period_end
-      || subscription.current_period_end
-      || null;
-
-    if (!Number.isFinite(limit) || limit <= 0) {
-      const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-      const base = 'Image credits: —';
-      const suffix = resetShort ? ` • resets ${resetShort}` : '';
-      return { state: 'pending', text: `${base}${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
-    }
-
-    const remaining = Math.max(0, limit - Math.max(0, used));
-    const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-    const suffix = resetShort ? ` • resets ${resetShort}` : '';
-    const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
-    return {
-      state: 'ok',
-      text: `Image credits: ${remaining}/${limit}${suffix}`,
-      css,
-      title: `AI image credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
-    };
+    return this.aiLabFeature.credits._computeAiImageCreditsView.call(this, subscription);
   }
 
   _computeAiTextCreditsView(subscription) {
-    if (!subscription) {
-      return { state: 'unknown', text: 'AI text credits: —', css: 'is-muted', title: 'Sign in to view AI text credits' };
-    }
-
-    const tier = String(subscription.subscription_tier || '').toLowerCase();
-    const status = String(subscription.subscription_status || '').toLowerCase();
-    const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
-    const hasCouponAiAccess = !!(subscription && (
-      subscription.has_unlimited_ai === true ||
-      (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-    ));
-
-    const isEntitledTier = (tier === 'premium' || tier === 'admin');
-    const isActiveStatus = (status === 'active' || status === 'past_due');
-    const entitled = (isEntitledTier && isActiveStatus) || hasCouponAiAccess;
-
-    if (!entitled) {
-      return { state: 'no_access', text: 'AI text credits: 0', css: 'is-empty', title: 'Upgrade to access AI text features' };
-    }
-
-    // If you later add `ai_text_credits_*` fields, we will use them automatically.
-    const limit = Number.isFinite(Number(subscription.ai_text_credits_limit))
-      ? Number(subscription.ai_text_credits_limit)
-      : NaN;
-    const used = Number.isFinite(Number(subscription.ai_text_credits_used))
-      ? Number(subscription.ai_text_credits_used)
-      : 0;
-
-    const resetAt = subscription.ai_text_credits_reset_at
-      || subscription.stripe_current_period_end
-      || subscription.current_period_end
-      || null;
-
-    if (!Number.isFinite(limit) || limit <= 0) {
-      return { state: 'unlimited', text: 'AI text credits: ∞', css: '', title: 'AI text credits are currently unlimited' };
-    }
-
-    const remaining = Math.max(0, limit - Math.max(0, used));
-    const resetShort = resetAt ? this._formatShortDate(resetAt) : null;
-    const suffix = resetShort ? ` • resets ${resetShort}` : '';
-    const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
-    return {
-      state: 'ok',
-      text: `AI text credits: ${remaining}/${limit}${suffix}`,
-      css,
-      title: `AI text credits remaining: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`
-    };
+    return this.aiLabFeature.credits._computeAiTextCreditsView.call(this, subscription);
   }
 
   /** Update the label text of a credit pill without destroying child elements (tooltips). */
   _setPillLabel(el, text) {
-    // Find or create the first text node to hold the label.
-    const firstTextNode = Array.from(el.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (firstTextNode) {
-      firstTextNode.textContent = text + ' ';
-    } else {
-      el.insertBefore(document.createTextNode(text + ' '), el.firstChild);
-    }
+    return this.aiLabFeature.credits._setPillLabel.call(this, el, text);
   }
 
   /** Build provider-aware cost breakdown HTML for the text-credits tooltip. */
   _buildCreditCostHtml() {
-    const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
-    const provider = cfg.provider || 'openai';
-    const costs = PasteCraftPopup.AI_CREDIT_COSTS[provider] || PasteCraftPopup.AI_CREDIT_COSTS.openai;
-    const presets = PasteCraftPopup.AI_PROVIDER_PRESETS[provider] || PasteCraftPopup.AI_PROVIDER_PRESETS.openai;
-    const providerName = provider === 'google' ? 'Google Gemini' : 'OpenAI';
-
-    const lines = presets
-      .filter(p => costs[p.value] !== undefined)
-      .map(p => {
-        // Strip the " · XX cr" suffix we added to labels to get the clean model name
-        const cleanLabel = p.label.replace(/\s*·\s*\d+\s*cr$/i, '');
-        return `${cleanLabel} · <strong>${costs[p.value]}</strong> cr`;
-      });
-
-    return `<strong>${providerName} — Cost per call:</strong><br>` + lines.join('<br>');
+    return this.aiLabFeature.credits._buildCreditCostHtml.call(this);
   }
 
   updateAiCreditsPills(source = '') {
-    const imgEl = document.getElementById('aiCreditsPill');
-    if (imgEl) {
-      const view = this._computeAiImageCreditsView(this.userSubscription);
-      this._setPillLabel(imgEl, view.text);
-      imgEl.title = view.title || imgEl.title || '';
-      imgEl.classList.remove('is-muted', 'is-low', 'is-empty');
-      if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => imgEl.classList.add(c));
-    }
-
-    const textEl = document.getElementById('aiTextCreditsPill');
-    if (textEl) {
-      const view = this._computeAiTextCreditsView(this.userSubscription);
-      this._setPillLabel(textEl, view.text);
-      textEl.title = view.title || textEl.title || '';
-      textEl.classList.remove('is-muted', 'is-low', 'is-empty');
-      if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => textEl.classList.add(c));
-
-      // Inject dynamic model-cost breakdown into the tooltip
-      const costsEl = document.getElementById('aiTextCreditsCosts');
-      if (costsEl) {
-        costsEl.innerHTML = this._buildCreditCostHtml();
-      }
-    }
-
-    if (source) {
-      try { console.log(`🎫 AI credits pills updated (${source})`); } catch (_) {}
-    }
+    return this.aiLabFeature.credits.updateAiCreditsPills.call(this, source);
   }
 
   // Back-compat: older callsites.
   updateAiCreditsPill(source = '') {
-    this.updateAiCreditsPills(source);
+    return this.aiLabFeature.credits.updateAiCreditsPill.call(this, source);
   }
 
   setupLocalStorageListener() {
@@ -2534,32 +2119,7 @@ class PasteCraftPopup {
   }
   
   async enforceClipLimit() {
-    if (this.clips.length <= this.maxClips) {
-      return;
-    }
-    
-    console.log(`📦 Clip limit exceeded: ${this.clips.length}/${this.maxClips}. Moving oldest clips to search...`);
-    
-    // Sort clips by timestamp (newest first)
-    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    
-    // Keep first 500 clips (newest), move rest to searchOnlyClips (oldest)
-    const clipsToArchive = this.clips.slice(this.maxClips);
-    this.clips = this.clips.slice(0, this.maxClips);
-    
-    // Add archived clips to searchOnlyClips
-    this.searchOnlyClips = [...clipsToArchive, ...this.searchOnlyClips];
-    
-    // Save to storage
-    await chrome.storage.local.set({
-      clips: this.clips,
-      searchOnlyClips: this.searchOnlyClips
-    });
-    if (this._idbReady && this.idb) {
-      await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-    }
-    
-    console.log(`✅ Archived ${clipsToArchive.length} clips to search. Active: ${this.clips.length}, Archived: ${this.searchOnlyClips.length}`);
+    return this.clipsFeature.service.enforceClipLimit(this);
   }
   
   setupEventListeners() {
@@ -2644,8 +2204,8 @@ class PasteCraftPopup {
           this.renderAiHistoryList();
           console.log('✅ AI History loaded');
         } else if (this.currentTab === 'activity') {
-          await this.loadActivityLog();
-          this.renderActivityList();
+          await this.activityFeature.service.loadActivityLog(this);
+          this.activityFeature.render.renderActivityList(this);
         }
       }
     });
@@ -2787,371 +2347,9 @@ class PasteCraftPopup {
     this.updateManualInputCategories();
 
     // Notes functionality
-    document.getElementById('createNoteBtn').addEventListener('click', () => {
-      this.openNoteEditor('note');
-    });
+    this.notesFeature.events.registerNotesEvents(this);
 
-    document.getElementById('createAlbumBtn').addEventListener('click', () => {
-      this.openNoteEditor('album');
-    });
-
-    // Notes info expand button → open modal
-    const notesInfoExpandBtn = document.getElementById('notesInfoExpandBtn');
-    if (notesInfoExpandBtn) {
-      notesInfoExpandBtn.addEventListener('click', () => {
-        const modal = document.getElementById('notesInfoModal');
-        if (modal) modal.style.display = 'flex';
-      });
-    }
-
-    // Close notes info modal
-    const closeNotesInfoModal = document.getElementById('closeNotesInfoModal');
-    if (closeNotesInfoModal) {
-      closeNotesInfoModal.addEventListener('click', () => {
-        const modal = document.getElementById('notesInfoModal');
-        if (modal) modal.style.display = 'none';
-      });
-    }
-
-    // Close notes info modal on overlay click
-    const notesInfoModal = document.getElementById('notesInfoModal');
-    if (notesInfoModal) {
-      notesInfoModal.addEventListener('click', (e) => {
-        if (e.target === notesInfoModal) notesInfoModal.style.display = 'none';
-      });
-    }
-
-    // Notes search bar
-    const notesSearchInput = document.getElementById('notesSearchInput');
-    const notesSearchClear = document.getElementById('notesSearchClear');
-    if (notesSearchInput) {
-      notesSearchInput.addEventListener('input', () => {
-        const val = notesSearchInput.value.trim();
-        if (notesSearchClear) notesSearchClear.classList.toggle('visible', val.length > 0);
-        this.notesPageIndex = 0;
-        this.renderNotes();
-      });
-    }
-    if (notesSearchClear) {
-      notesSearchClear.addEventListener('click', () => {
-        if (notesSearchInput) notesSearchInput.value = '';
-        notesSearchClear.classList.remove('visible');
-        this.notesPageIndex = 0;
-        this.renderNotes();
-      });
-    }
-
-    const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
-    if (viewAlbumsBtn) {
-      viewAlbumsBtn.addEventListener('click', async () => {
-        this.notesViewMode = this.notesViewMode === 'albums' ? 'notes' : 'albums';
-        this.notesPageIndex = 0;
-        viewAlbumsBtn.classList.toggle('active', this.notesViewMode === 'albums');
-        await this.saveNotesPrefs();
-        this.renderNotes();
-      });
-    }
-
-    const notesAiToggle = document.getElementById('notesAiToggle');
-    if (notesAiToggle) {
-      notesAiToggle.addEventListener('change', async (e) => {
-        this.notesAiEnabled = !!e.target.checked;
-        await this.saveNotesPrefs();
-        this.updateNoteAiControls();
-      });
-    }
-
-    document.getElementById('closeNoteEditor').addEventListener('click', () => {
-      this.closeNoteEditor();
-    });
-
-    document.getElementById('cancelNoteEditor').addEventListener('click', () => {
-      this.closeNoteEditor();
-    });
-
-    document.getElementById('saveNote').addEventListener('click', () => {
-      this.saveNote();
-    });
-
-    document.getElementById('addClipToNote').addEventListener('click', () => {
-      if (this.currentNoteType === 'album') {
-        this.showToast('Albums do not use attachments');
-        return;
-      }
-      this.showClipPickerForNote();
-    });
-
-    // Clip Picker Modal
-    document.getElementById('closeClipPicker').addEventListener('click', () => {
-      this.closeClipPicker();
-    });
-
-    const clipPickerTabs = document.querySelectorAll('.clip-picker-tab');
-    clipPickerTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const targetTab = tab.dataset.pickerTab;
-        this.switchClipPickerTab(targetTab);
-      });
-    });
-
-    document.getElementById('clipPickerSearchInput').addEventListener('input', (e) => {
-      this.searchClipsInPicker(e.target.value);
-    });
-
-    document.getElementById('clipPickerAddBtn').addEventListener('click', () => {
-      this.addSelectedClipsToNote();
-    });
-
-    document.getElementById('addImageToNote').addEventListener('click', () => {
-      if (this.currentNoteType === 'album') {
-        this.showToast('Albums do not use attachments');
-        return;
-      }
-      this.showImagePickerForNote();
-    });
-
-    document.getElementById('addURLToNote').addEventListener('click', () => {
-      if (this.currentNoteType === 'album') {
-        this.showToast('Albums do not use attachments');
-        return;
-      }
-      this.addURLToNote();
-    });
-
-    const aiTitleBtn = document.getElementById('aiTitleBtn');
-    if (aiTitleBtn) {
-      aiTitleBtn.addEventListener('click', async () => {
-        await this.generateNoteTitleFromContent();
-      });
-    }
-
-    const aiDescBtn = document.getElementById('aiDescBtn');
-    if (aiDescBtn) {
-      aiDescBtn.addEventListener('click', async () => {
-        await this.generateNoteDescriptionFromContent();
-      });
-    }
-
-    const noteBodyInput = document.getElementById('noteBodyInput');
-    if (noteBodyInput) {
-      noteBodyInput.addEventListener('input', () => {
-        this.updateNoteAiControls();
-      });
-    }
-
-    // Album Picker Modal
-    document.getElementById('closeAlbumPicker').addEventListener('click', () => {
-      this.closeAlbumPicker();
-    });
-
-    document.getElementById('createNewAlbumFromPicker').addEventListener('click', () => {
-      this.createdFromPicker = true;
-      this.closeAlbumPicker();
-      this.openNoteEditor('album', null, true);
-    });
-
-    document.getElementById('backToAlbumPicker').addEventListener('click', () => {
-      this.closeNoteEditor();
-      this.showAlbumPicker();
-    });
-
-    document.getElementById('albumPickerSearch').addEventListener('input', (e) => {
-      this.filterAlbumPicker(e.target.value);
-    });
-
-    // Notes view toggle (delegate to parent to handle dynamic content)
-    const notesHeader = document.querySelector('.notes-header');
-    if (notesHeader) {
-      notesHeader.addEventListener('click', (e) => {
-        const _pcTarget = e.target;
-        const _pcTargetTag = (_pcTarget && _pcTarget.tagName) ? _pcTarget.tagName : null;
-        const _pcTargetType = (_pcTarget && typeof _pcTarget.nodeType === 'number') ? _pcTarget.nodeType : null;
-        const _pcTargetHasClosest = !!(_pcTarget && typeof _pcTarget.closest === 'function');
-
-        const toggleBtn = e.target.closest('.view-toggle-btn');
-        if (toggleBtn) {
-          document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
-          toggleBtn.classList.add('active');
-          const view = toggleBtn.dataset.view;
-          const container = document.getElementById('notesContainer');
-          if (container) {
-            const _pcBefore = {hasListView:container.classList.contains('list-view')};
-            if (view === 'list') {
-              container.classList.add('list-view');
-            } else {
-              container.classList.remove('list-view');
-            }
-            const _pcAfter = {hasListView:container.classList.contains('list-view')};
-
-            const _pcComputed = {
-              gridTemplateColumns: getComputedStyle(container).gridTemplateColumns,
-              display: getComputedStyle(container).display
-            };
-            const _pcFirstCard = container.querySelector('.note-card');
-            const _pcFirstCardStyle = _pcFirstCard ? {
-              padding: getComputedStyle(_pcFirstCard).padding,
-              borderRadius: getComputedStyle(_pcFirstCard).borderRadius
-            } : null;
-
-            // Re-render to apply view-dependent pagination (list=3, grid=8)
-            this.renderNotes();
-          }
-        }
-      });
-    }
-
-    // Note Viewer Modal
-    document.getElementById('closeNoteViewer').addEventListener('click', () => {
-      this.closeNoteViewer();
-    });
-
-    document.getElementById('closeNoteViewerBtn').addEventListener('click', () => {
-      this.closeNoteViewer();
-    });
-
-    const noteViewerBackBtn = document.getElementById('noteViewerBackBtn');
-    if (noteViewerBackBtn) {
-      noteViewerBackBtn.addEventListener('click', () => {
-        if (this.noteViewerParentAlbumId) {
-          const albumId = this.noteViewerParentAlbumId;
-          this.noteViewerParentAlbumId = null;
-          this.openNoteViewer(albumId);
-        }
-      });
-    }
-
-    document.getElementById('editNoteFromViewer').addEventListener('click', () => {
-      const noteId = this.currentViewerNoteId;
-      this.closeNoteViewer();
-      if (noteId) {
-        const note = this.notes.find(n => n.id == noteId);
-        this.openNoteEditor(note?.type || 'note', noteId);
-      }
-    });
-
-    document.getElementById('copyNoteContent').addEventListener('click', () => {
-      const content = document.getElementById('noteViewerContent').textContent;
-      if (content) {
-        navigator.clipboard.writeText(content);
-        this.showToast('Content copied!');
-      }
-    });
-
-    document.getElementById('copyAllAttachments').addEventListener('click', () => {
-      this.copyAllNoteAttachments();
-    });
-
-    // Album Attachment Viewer (Overlay Mode)
-    const albumAttachmentBackBtn = document.getElementById('albumAttachmentBackBtn');
-    if (albumAttachmentBackBtn) {
-      albumAttachmentBackBtn.addEventListener('click', () => this.closeAlbumAttachmentViewer());
-    }
-
-    const closeAlbumAttachmentViewerBtn = document.getElementById('closeAlbumAttachmentViewer');
-    if (closeAlbumAttachmentViewerBtn) {
-      closeAlbumAttachmentViewerBtn.addEventListener('click', () => this.closeAlbumAttachmentViewer());
-    }
-
-    const albumAttachmentOpenInPopupBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
-    if (albumAttachmentOpenInPopupBtn) {
-      albumAttachmentOpenInPopupBtn.addEventListener('click', () => {
-        const ctx = this.currentAlbumAttachmentContext;
-        if (ctx && ctx.noteId != null && typeof ctx.attachmentIndex === 'number') {
-          this.openAlbumAttachmentInEdgePopup(ctx.noteId, ctx.attachmentIndex);
-        }
-      });
-    }
-
-    // Modal overlay clicks
-    document.getElementById('noteEditorModal').addEventListener('click', (e) => {
-      if (e.target.id === 'noteEditorModal') {
-        this.closeNoteEditor();
-      }
-    });
-
-    document.getElementById('albumPickerModal').addEventListener('click', (e) => {
-      if (e.target.id === 'albumPickerModal') {
-        this.closeAlbumPicker();
-      }
-    });
-
-    document.getElementById('clipPickerModal').addEventListener('click', (e) => {
-      if (e.target.id === 'clipPickerModal') {
-        this.closeClipPicker();
-      }
-    });
-
-    document.getElementById('noteViewerModal').addEventListener('click', (e) => {
-      if (e.target.id === 'noteViewerModal') {
-        this.closeNoteViewer();
-      }
-    });
-
-    const albumAttachmentViewerModal = document.getElementById('albumAttachmentViewerModal');
-    if (albumAttachmentViewerModal) {
-      albumAttachmentViewerModal.addEventListener('click', (e) => {
-        if (e.target.id === 'albumAttachmentViewerModal') {
-          this.closeAlbumAttachmentViewer();
-        }
-      });
-    }
-
-    // Album Source Note Viewer (Overlay Mode)
-    const albumSourceNoteBackBtn = document.getElementById('albumSourceNoteBackBtn');
-    if (albumSourceNoteBackBtn) {
-      albumSourceNoteBackBtn.addEventListener('click', () => this.closeAlbumSourceNoteOverlay());
-    }
-
-    const closeAlbumSourceNoteModalBtn = document.getElementById('closeAlbumSourceNoteModal');
-    if (closeAlbumSourceNoteModalBtn) {
-      closeAlbumSourceNoteModalBtn.addEventListener('click', () => this.closeAlbumSourceNoteOverlay());
-    }
-
-    const albumSourceNoteCopyContentBtn = document.getElementById('albumSourceNoteCopyContent');
-    if (albumSourceNoteCopyContentBtn) {
-      albumSourceNoteCopyContentBtn.addEventListener('click', () => {
-        const content = document.getElementById('albumSourceNoteBody')?.textContent;
-        if (content) {
-          navigator.clipboard.writeText(content);
-          this.showToast('Content copied!');
-        }
-      });
-    }
-
-    const albumSourceNoteModal = document.getElementById('albumSourceNoteModal');
-    if (albumSourceNoteModal) {
-      albumSourceNoteModal.addEventListener('click', (e) => {
-        if (e.target.id === 'albumSourceNoteModal') {
-          this.closeAlbumSourceNoteOverlay();
-        }
-      });
-    }
-
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      this.searchQuery = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('clearSearch').addEventListener('click', () => {
-      document.getElementById('searchInput').value = '';
-      this.searchQuery = '';
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('categoryFilter').addEventListener('change', (e) => {
-      this.selectedCategory = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
-
-    document.getElementById('dateFilter').addEventListener('change', (e) => {
-      this.selectedDateFilter = e.target.value;
-      this.renderSearchResults();
-      this.updateSearchBulkActions();
-    });
+    this.clipsFeature.events.registerClipEvents(this);
 
     // Category management
     document.getElementById('createCategoryBtn').addEventListener('click', () => {
@@ -3166,77 +2364,8 @@ class PasteCraftPopup {
       });
     }
 
-    // Categories bulk actions (copy | delete)
-    const categoryBulkCopyBtn = document.getElementById('categoryBulkCopyBtn');
-    const categoryBulkDeleteBtn = document.getElementById('categoryBulkDeleteBtn');
-    if (categoryBulkCopyBtn) {
-      categoryBulkCopyBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleCategoryBulkCopy();
-      });
-    }
-    if (categoryBulkDeleteBtn) {
-      categoryBulkDeleteBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleCategoryBulkDelete();
-      });
-    }
-
-    // Search bulk action (copy 2+ selected)
-    const searchBulkCopyBtn = document.getElementById('searchBulkCopyBtn');
-    if (searchBulkCopyBtn) {
-      searchBulkCopyBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.handleSearchBulkCopy();
-      });
-    }
-
     // Category modal events
-    document.getElementById('closeCategoryModal').addEventListener('click', () => {
-      this.hideCategoryModal();
-    });
-
-    document.getElementById('cancelCategorization').addEventListener('click', () => {
-      this.hideCategoryModal();
-    });
-
-    document.getElementById('createNewCategory').addEventListener('click', () => {
-      this.showCreateCategoryFromModal();
-    });
-
-    document.getElementById('categoryOptions').addEventListener('click', (e) => {
-      // Check if delete button was clicked
-      const deleteBtn = e.target.closest('.category-delete-btn');
-      if (deleteBtn) {
-        e.stopPropagation();
-        this.handleClipDelete();
-        return;
-      }
-      
-      const option = e.target.closest('.category-option');
-      if (option && !option.classList.contains('category-full')) {
-        document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
-        option.classList.add('selected');
-        this.selectedCategoryForSave = option.dataset.category;
-        
-        // Enable the Add button
-        document.getElementById('addToCategory').disabled = false;
-      } else if (option && option.classList.contains('category-full')) {
-        // Show feedback for full categories
-        this.showToast('This category is full (150 clips max). Remove some clips first.');
-      }
-    });
-
-    document.getElementById('addToCategory').addEventListener('click', () => {
-      this.saveTextWithCategory();
-    });
-
-    // Modal overlay click to close
-    document.getElementById('categoryModal').addEventListener('click', (e) => {
-      if (e.target.id === 'categoryModal') {
-        this.hideCategoryModal();
-      }
-    });
+    this.categoriesFeature.events.registerCategoryModalEvents(this);
 
     // Profile modal events
     document.getElementById('profileBtn').addEventListener('click', () => {
@@ -3247,252 +2376,15 @@ class PasteCraftPopup {
       this.hideProfileModal();
     });
 
-    // Settings modal events
-    document.getElementById('settingsBtn').addEventListener('click', () => {
-      this.showSettingsModal();
-    });
-
-    document.getElementById('closeSettingsModal').addEventListener('click', () => {
-      this.hideSettingsModal();
-    });
-    
-    // Help button
-    document.getElementById('helpBtn').addEventListener('click', () => {
-      this.showHelpModal();
-    });
-
-    // Auto-save functionality - removed Cancel and Save buttons
-    // Debounced auto-save function
-    let autoSaveTimeout = null;
-    const triggerAutoSave = (skipPinAndAuth = false) => {
-      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-      autoSaveTimeout = setTimeout(() => {
-        this.saveSettings(true, skipPinAndAuth).catch(() => {});
-      }, 300); // 300ms debounce
-    };
-
-    // Auto-save listeners for standard settings
-    const autoDeletePeriodEl = document.getElementById('autoDeletePeriod');
-    if (autoDeletePeriodEl) {
-      autoDeletePeriodEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const darkModeToggleEl = document.getElementById('darkModeToggle');
-    if (darkModeToggleEl) {
-      darkModeToggleEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    // Profile dark mode toggle (theme-only save; avoid overwriting other settings with stale UI values)
-    const profileDarkModeToggleEl = document.getElementById('profileDarkModeToggle');
-    if (profileDarkModeToggleEl) {
-      profileDarkModeToggleEl.addEventListener('change', async () => {
-        if (this._themeSyncing) return;
-        const nextTheme = profileDarkModeToggleEl.checked ? 'dark' : 'light';
-        await this.saveThemeOnly(nextTheme, true);
-      });
-    }
-
-    // Profile: Set current profile image as widget icon (floating widget)
-    const widgetIconUseProfileToggleEl = document.getElementById('widgetIconUseProfileToggle');
-    if (widgetIconUseProfileToggleEl) {
-      widgetIconUseProfileToggleEl.addEventListener('change', async () => {
-        const enabled = !!widgetIconUseProfileToggleEl.checked;
-
-        // PRACTICE #1: VALIDATION - require an available profile image if enabling
-        if (enabled) {
-          const src = await this.getCurrentProfileImageForWidget();
-          if (!src) {
-            widgetIconUseProfileToggleEl.checked = false;
-            this.showToast('⚠️ Set a profile image first (upload or AI)', 'error');
-            return;
-          }
-        }
-
-        await this.saveWidgetIconUseProfileImage(enabled, true);
-      });
-    }
-
-    const quickPasteAutoHideEl = document.getElementById('quickPasteAutoHidePopup');
-    if (quickPasteAutoHideEl) {
-      quickPasteAutoHideEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const quickPasteShowTimestampsEl = document.getElementById('quickPasteShowTimestampsPopup');
-    if (quickPasteShowTimestampsEl) {
-      quickPasteShowTimestampsEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const quickPasteMaxClipsEl = document.getElementById('quickPasteMaxClipsPopup');
-    if (quickPasteMaxClipsEl) {
-      quickPasteMaxClipsEl.addEventListener('input', () => triggerAutoSave(true));
-      quickPasteMaxClipsEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-    if (albumAttachmentOpenModeEl) {
-      albumAttachmentOpenModeEl.addEventListener('change', () => triggerAutoSave(true));
-    }
-
-    // Auto-save for PIN settings (with special handling)
-    const pinAskEachBrowserOpenEl = document.getElementById('pinAskEachBrowserOpen');
-    if (pinAskEachBrowserOpenEl) {
-      pinAskEachBrowserOpenEl.addEventListener('change', () => {
-        pinAskEachBrowserOpenEl.dataset.userTouched = '1';
-        const unlimitedEl = document.getElementById('pinUnlimitedSession');
-        if (pinAskEachBrowserOpenEl.checked && unlimitedEl && unlimitedEl.checked) {
-          unlimitedEl.checked = false;
-        }
-        triggerAutoSave(false);
-      });
-    }
-
-    const pinUnlimitedSessionEl = document.getElementById('pinUnlimitedSession');
-    if (pinUnlimitedSessionEl) {
-      pinUnlimitedSessionEl.addEventListener('change', () => {
-        pinUnlimitedSessionEl.dataset.userTouched = '1';
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        if (pinUnlimitedSessionEl.checked && browserScopeEl && browserScopeEl.checked) {
-          browserScopeEl.checked = false;
-        }
-        triggerAutoSave(false);
-      });
-    }
-
-    // Restore clips (local snapshots)
-    const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-    const previewRestoreBtn = document.getElementById('previewRestoreBtn');
-    const restoreNowBtn = document.getElementById('restoreNowBtn');
-    const syncRestoredToCloudBtn = document.getElementById('syncRestoredToCloudBtn');
-
-    if (restoreWindowSelect) {
-      restoreWindowSelect.addEventListener('change', async () => {
-        // Update preview automatically on selection change (best-effort).
-        try { await this.previewRestore(restoreWindowSelect.value); } catch (_) {}
-      });
-    }
-    if (previewRestoreBtn) {
-      previewRestoreBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        try {
-          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-          await this.previewRestore(key);
-        } catch (_) {}
-      });
-    }
-    if (restoreNowBtn) {
-      restoreNowBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        // Ensure preview is up to date
-        try {
-          const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-          await this.previewRestore(key);
-        } catch (_) {}
-        await this.applyRestoreFromPreview();
-      });
-    }
-    if (syncRestoredToCloudBtn) {
-      syncRestoredToCloudBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.syncRestoredDataToCloud();
-      });
-    }
-
-    // Export / Import (JSON/CSV)
-    const exportBackupJsonBtn = document.getElementById('exportBackupJsonBtn');
-    if (exportBackupJsonBtn) {
-      exportBackupJsonBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.exportBackupToJson();
-      });
-    }
-    const exportClipsCsvBtn = document.getElementById('exportClipsCsvBtn');
-    if (exportClipsCsvBtn) {
-      exportClipsCsvBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        await this.exportClipsToCsv();
-      });
-    }
-    const importBackupJsonBtn = document.getElementById('importBackupJsonBtn');
-    const importBackupJsonFile = document.getElementById('importBackupJsonFile');
-    if (importBackupJsonBtn && importBackupJsonFile) {
-      importBackupJsonBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        importBackupJsonFile.value = '';
-        importBackupJsonFile.click();
-      });
-      importBackupJsonFile.addEventListener('change', async () => {
-        const file = importBackupJsonFile.files && importBackupJsonFile.files[0] ? importBackupJsonFile.files[0] : null;
-        if (!file) return;
-        await this.importBackupFromJsonMerge(file);
-      });
-    }
-    
-    // Help modal events
-    document.getElementById('closeHelpModal').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-    
-    document.getElementById('backBtn').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-    
-    document.getElementById('backToSettingsFromHelp').addEventListener('click', () => {
-      this.hideHelpModal();
-    });
-
-    // Help modal overlay click to close
-    document.getElementById('helpModal').addEventListener('click', (e) => {
-      if (e.target.id === 'helpModal') {
-        this.hideHelpModal();
+    // Settings events — delegated to settingsFeature
+    if (this.settingsFeature?.events?.initSettingsEvents) {
+      try {
+        this.settingsFeature.events.initSettingsEvents();
+      } catch (e) {
+        console.error('[Popup] Settings event init failed:', e);
       }
-    });
-
-    // Info modal events
-    const clipJoinerInfo = document.getElementById('clipJoinerInfo');
-    if (clipJoinerInfo) {
-      clipJoinerInfo.addEventListener('click', () => {
-        document.getElementById('clipJoinerModal').classList.add('active');
-      });
-    }
-
-    const clipSettingsInfo = document.getElementById('clipSettingsInfo');
-    if (clipSettingsInfo) {
-      clipSettingsInfo.addEventListener('click', () => {
-        document.getElementById('clipSettingsModal').classList.add('active');
-      });
-    }
-
-    const closeClipJoinerModal = document.getElementById('closeClipJoinerModal');
-    if (closeClipJoinerModal) {
-      closeClipJoinerModal.addEventListener('click', () => {
-        document.getElementById('clipJoinerModal').classList.remove('active');
-      });
-    }
-
-    const closeClipSettingsModal = document.getElementById('closeClipSettingsModal');
-    if (closeClipSettingsModal) {
-      closeClipSettingsModal.addEventListener('click', () => {
-        document.getElementById('clipSettingsModal').classList.remove('active');
-      });
-    }
-
-    // Close info modals when clicking overlay
-    const clipJoinerModal = document.getElementById('clipJoinerModal');
-    if (clipJoinerModal) {
-      clipJoinerModal.addEventListener('click', (e) => {
-        if (e.target.id === 'clipJoinerModal') {
-          clipJoinerModal.classList.remove('active');
-        }
-      });
-    }
-
-    const clipSettingsModal = document.getElementById('clipSettingsModal');
-    if (clipSettingsModal) {
-      clipSettingsModal.addEventListener('click', (e) => {
-        if (e.target.id === 'clipSettingsModal') {
-          clipSettingsModal.classList.remove('active');
-        }
-      });
+    } else {
+      console.error('[Popup] settingsFeature not initialized');
     }
 
     // Breakdown modal events
@@ -3662,11 +2554,7 @@ class PasteCraftPopup {
       }
     });
 
-    document.getElementById('settingsModal').addEventListener('click', (e) => {
-      if (e.target.id === 'settingsModal') {
-        this.hideSettingsModal();
-      }
-    });
+    // settingsModal overlay click handled by settingsFeature.events.initSettingsEvents()
 
     // Delimiter controls
     document.getElementById('delimiterControl').addEventListener('click', (e) => {
@@ -4193,11 +3081,16 @@ class PasteCraftPopup {
 
     // Copy summary button
     if (copySummaryBtn) {
-      copySummaryBtn.addEventListener('click', () => {
+      copySummaryBtn.addEventListener('click', async () => {
         const content = document.getElementById('summaryResultContent').textContent;
         if (content) {
-          navigator.clipboard.writeText(content);
-          this.showToast('Summary copied to clipboard!');
+          try {
+            await this.copyToClipboardFallback(content);
+            this.showToast('Summary copied to clipboard!');
+          } catch (error) {
+            console.error('Summary copy failed:', error);
+            this.showToast('Failed to copy summary', 'error');
+          }
         }
       });
     }
@@ -4356,7 +3249,7 @@ class PasteCraftPopup {
     this.updateDelimiterExample();
 
     // Activity log event listeners
-    this.initActivityEventListeners();
+    this.activityFeature.events.initActivityEventListeners(this);
   }
   
   // =====================================================
@@ -4492,446 +3385,6 @@ class PasteCraftPopup {
 
   hideAuthModal() {
     document.getElementById('authModal').style.display = 'none';
-  }
-
-  // =====================================================
-  // PIN LOCK (3-digit) - local UI unlock
-  // =====================================================
-
-  async _pinIsSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    const cfg = this._pinConfig;
-
-    // Unlimited session: never prompt
-    if (cfg?.unlimitedSession) return true;
-
-    // Unlimited session active in this browser session (cross-window)
-    try {
-      const res = await new Promise((resolve) => chrome.storage.session.get([unlimitedKey], resolve));
-      if (res && res[unlimitedKey] === '1') return true;
-    } catch (_) {}
-
-    // Window-scoped unlocks when "ask on new browser" is enabled
-    const windowId = await this._getCurrentWindowId();
-    try {
-      const res = await new Promise((resolve) => chrome.storage.session.get([windowsKey], resolve));
-      const list = Array.isArray(res?.[windowsKey]) ? res[windowsKey] : [];
-      if (windowId && list.includes(windowId)) {
-        return true;
-      }
-    } catch (_) {}
-
-    // No global unlock when unlimitedSession is off
-    return false;
-  }
-
-  async _pinSetSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    const cfg = this._pinConfig;
-    const windowId = await this._getCurrentWindowId();
-
-    if (cfg?.unlimitedSession) {
-      try { sessionStorage.setItem(key, '1'); } catch (_) {}
-      try { await new Promise((resolve) => chrome.storage.session.set({ [key]: '1' }, resolve)); } catch (_) {}
-      try { await new Promise((resolve) => chrome.storage.session.set({ [unlimitedKey]: '1' }, resolve)); } catch (_) {}
-    }
-
-    if (windowId) {
-      try {
-        const res = await new Promise((resolve) => chrome.storage.session.get([windowsKey], resolve));
-        const list = Array.isArray(res?.[windowsKey]) ? res[windowsKey] : [];
-        if (!list.includes(windowId)) list.push(windowId);
-        await new Promise((resolve) => chrome.storage.session.set({ [windowsKey]: list }, resolve));
-      } catch (_) {}
-    }
-
-  }
-
-  async _pinClearSessionUnlocked() {
-    const key = this._pinUnlockSessionKey;
-    const windowsKey = this._pinUnlockWindowsKey;
-    const unlimitedKey = this._pinUnlimitedSessionKey;
-    try { sessionStorage.removeItem(key); } catch (_) {}
-    try { await new Promise((resolve) => chrome.storage.session.remove([key, windowsKey, unlimitedKey], resolve)); } catch (_) {}
-  }
-
-  async _getCurrentWindowId() {
-    try {
-      const win = await new Promise((resolve) => chrome.windows.getCurrent(resolve));
-      return typeof win?.id === 'number' ? win.id : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  _pinNormalize(raw) {
-    const s = String(raw ?? '').trim();
-    if (!/^\d{3}$/.test(s)) return '';
-    return s;
-  }
-
-  async _sha256Hex(str) {
-    const enc = new TextEncoder();
-    const data = enc.encode(String(str));
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    const bytes = new Uint8Array(digest);
-    return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  async _hashPin(pin, salt) {
-    return await this._sha256Hex(`${String(salt)}:${String(pin)}`);
-  }
-
-  _randomHex(bytesLen = 16) {
-    try {
-      const bytes = new Uint8Array(bytesLen);
-      crypto.getRandomValues(bytes);
-      return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-    } catch (_) {
-      return String(Date.now()) + String(Math.random()).slice(2);
-    }
-  }
-
-  async loadPinConfig() {
-    // Source of truth: chrome.storage.sync, fallback: chrome.storage.local cache.
-    const legacyKey = this._pinConfigKey;
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinConfigKey, userId);
-    let cfg = null;
-
-    try {
-      const syncRes = await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
-      cfg = syncRes && syncRes[key] ? syncRes[key] : null;
-    } catch (_) {
-      cfg = null;
-    }
-
-    // Migration: if scoped key is missing but legacy exists, promote legacy → scoped.
-    if (!cfg && userId) {
-      try {
-        const legacyRes = await new Promise((resolve) => chrome.storage.sync.get([legacyKey], resolve));
-        const legacyCfg = legacyRes && legacyRes[legacyKey] ? legacyRes[legacyKey] : null;
-        if (legacyCfg && typeof legacyCfg === 'object') {
-          cfg = legacyCfg;
-          try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
-          try { await new Promise((resolve) => chrome.storage.local.set({ [key]: legacyCfg }, resolve)); } catch (_) {}
-        }
-      } catch (_) {}
-    }
-
-    if (!cfg) {
-      try {
-        const localRes = await new Promise((resolve) => chrome.storage.local.get([key, legacyKey], resolve));
-        cfg = (localRes && localRes[key]) ? localRes[key] : ((localRes && localRes[legacyKey]) ? localRes[legacyKey] : null);
-      } catch (_) {
-        cfg = null;
-      }
-    }
-
-    // Minimal normalization
-    if (!cfg || typeof cfg !== 'object') {
-      this._pinConfig = null;
-      return null;
-    }
-    const enabled = !!cfg.enabled;
-    const salt = typeof cfg.salt === 'string' ? cfg.salt : '';
-    const hash = typeof cfg.hash === 'string' ? cfg.hash : '';
-    const updatedAt = typeof cfg.updatedAt === 'number' ? cfg.updatedAt : 0;
-    // FIX: Preserve unlimitedSession field (was being lost during normalization)
-    const unlimitedSession = typeof cfg.unlimitedSession === 'boolean' ? cfg.unlimitedSession : false;
-    this._pinConfig = { enabled, salt, hash, updatedAt, unlimitedSession };
-
-
-    // Best-effort local cache write for offline reads.
-    try {
-      await new Promise((resolve) => chrome.storage.local.set({ [key]: this._pinConfig }, resolve));
-    } catch (_) {}
-
-    return this._pinConfig;
-  }
-
-  async _savePinConfig(cfg, userIdOverride = '') {
-    const userId = userIdOverride ? String(userIdOverride) : await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinConfigKey, userId);
-    this._pinConfig = cfg;
-    try { await new Promise((resolve) => chrome.storage.sync.set({ [key]: cfg }, resolve)); } catch (_) {}
-    try { await new Promise((resolve) => chrome.storage.local.set({ [key]: cfg }, resolve)); } catch (_) {}
-  }
-
-  async _getPinAttempts() {
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
-    try {
-      const res = await new Promise((resolve) => chrome.storage.local.get([key], resolve));
-      const v = res && res[key] ? res[key] : null;
-      const attempts = typeof v?.attempts === 'number' ? v.attempts : 0;
-      const lockedUntil = typeof v?.lockedUntil === 'number' ? v.lockedUntil : 0;
-      return { attempts, lockedUntil };
-    } catch (_) {
-      return { attempts: 0, lockedUntil: 0 };
-    }
-  }
-
-  async _setPinAttempts(next) {
-    const userId = await this._getAuthedUserIdForPin();
-    const key = this._pinScopedKey(this._pinAttemptsKey, userId);
-    try {
-      await new Promise((resolve) => chrome.storage.local.set({ [key]: next }, resolve));
-    } catch (_) {}
-  }
-
-  showPinModal() {
-    try { this.hideLoadingOverlay(); } catch (_) {}
-    const el = document.getElementById('pinModal');
-    if (el) el.style.display = 'flex';
-    try {
-      const input = document.getElementById('pinUnlockInput');
-      if (input) {
-        input.value = '';
-        input.focus();
-      }
-    } catch (_) {}
-  }
-
-  hidePinModal() {
-    const el = document.getElementById('pinModal');
-    if (el) el.style.display = 'none';
-  }
-
-  showPinSetupModal({ title = 'Set 3-digit code', onComplete = null } = {}) {
-    const modal = document.getElementById('pinSetupModal');
-    const titleEl = document.getElementById('pinSetupTitle');
-    const a = document.getElementById('pinSetupInput');
-    const b = document.getElementById('pinSetupConfirmInput');
-
-    if (titleEl) titleEl.textContent = title;
-    if (a) a.value = '';
-    if (b) b.value = '';
-
-    this._pinSetupOnComplete = typeof onComplete === 'function' ? onComplete : null;
-
-    if (modal) modal.style.display = 'flex';
-    try { a && a.focus(); } catch (_) {}
-  }
-
-  hidePinSetupModal() {
-    const modal = document.getElementById('pinSetupModal');
-    if (modal) modal.style.display = 'none';
-    this._pinSetupOnComplete = null;
-  }
-
-  async attemptPinUnlock() {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig;
-    if (!cfg || !cfg.enabled || !cfg.salt || !cfg.hash) {
-      // If config is missing, don't block.
-      await this._pinSetSessionUnlocked();
-      this.hidePinModal();
-      return true;
-    }
-
-    const hintEl = document.getElementById('pinUnlockHint');
-    const input = document.getElementById('pinUnlockInput');
-    const pin = this._pinNormalize(input?.value || '');
-
-    const { attempts, lockedUntil } = await this._getPinAttempts();
-    const now = Date.now();
-    if (lockedUntil && lockedUntil > now) {
-      const seconds = Math.ceil((lockedUntil - now) / 1000);
-      if (hintEl) hintEl.textContent = `Too many tries. Try again in ${seconds}s.`;
-      return false;
-    }
-
-    if (!pin) {
-      if (hintEl) hintEl.textContent = 'Enter a 3-digit code.';
-      return false;
-    }
-
-    const computed = await this._hashPin(pin, cfg.salt);
-    if (computed === cfg.hash) {
-      await this._setPinAttempts({ attempts: 0, lockedUntil: 0 });
-      await this._pinSetSessionUnlocked();
-      this.hidePinModal();
-      return true;
-    }
-
-    // Wrong code: increment + optional lockout.
-    const nextAttempts = attempts + 1;
-    const MAX = 5;
-    const LOCK_MS = 5 * 60 * 1000;
-    const nextLockedUntil = nextAttempts >= MAX ? (Date.now() + LOCK_MS) : 0;
-    await this._setPinAttempts({ attempts: nextAttempts, lockedUntil: nextLockedUntil });
-    if (hintEl) {
-      hintEl.textContent = nextLockedUntil
-        ? 'Too many tries. Locked for 5 minutes.'
-        : `Wrong code. ${Math.max(0, MAX - nextAttempts)} tries left.`;
-    }
-    if (input) input.value = '';
-    return false;
-  }
-
-  async maybeRequirePinUnlock() {
-    await this.loadPinConfig();
-    const sessionUnlocked = await this._pinIsSessionUnlocked();
-    const cfg = this._pinConfig;
-    if (sessionUnlocked) return true;
-    if (!cfg || !cfg.enabled) return true;
-    if (!cfg.salt || !cfg.hash) return true;
-    this.showPinModal();
-    return false;
-  }
-
-  async setPinEnabled(enabled) {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig || { enabled: false, salt: '', hash: '', updatedAt: 0, unlimitedSession: false };
-    const next = { ...cfg, enabled: !!enabled, updatedAt: Date.now() };
-    await this._savePinConfig(next);
-  }
-
-  async setPinUnlimitedSession(unlimitedSession) {
-    await this.loadPinConfig();
-    const cfg = this._pinConfig || { enabled: false, salt: '', hash: '', updatedAt: 0, unlimitedSession: false };
-    const next = { ...cfg, unlimitedSession: !!unlimitedSession, updatedAt: Date.now() };
-
-    await this._savePinConfig(next);
-    if (next.unlimitedSession) {
-      // Mark unlimited session active for this browser session
-      try {
-        await this._pinSetSessionUnlocked();
-        await new Promise((resolve) => chrome.storage.session.set({ [this._pinUnlimitedSessionKey]: '1' }, resolve));
-      } catch (_) {}
-    } else {
-      // Clear global session unlock so new windows must re-auth
-      try { await this._pinClearSessionUnlocked(); } catch (_) {}
-      // Keep current window unlocked
-      try { await this._pinSetSessionUnlocked(); } catch (_) {}
-    }
-  }
-
-  async saveNewPin(pinRaw) {
-    const pin = this._pinNormalize(pinRaw);
-    if (!pin) return { success: false, error: 'Invalid code' };
-
-    const salt = this._randomHex(16);
-    const hash = await this._hashPin(pin, salt);
-    // FIX: Include unlimitedSession when creating new PIN (defaults to false)
-    const next = { enabled: true, salt, hash, updatedAt: Date.now(), unlimitedSession: false };
-    await this._savePinConfig(next);
-    await this._setPinAttempts({ attempts: 0, lockedUntil: 0 });
-    return { success: true };
-  }
-
-  setupPinModalEvents() {
-    const unlockBtn = document.getElementById('unlockPinBtn');
-    const unlockInput = document.getElementById('pinUnlockInput');
-    const signInAgainLink = document.getElementById('pinSignInAgainLink');
-
-    unlockBtn && unlockBtn.addEventListener('click', async () => {
-      const ok = await this.attemptPinUnlock();
-      if (ok) {
-        // Re-run init path from a clean state.
-        window.location.reload();
-      }
-    });
-
-    unlockInput && unlockInput.addEventListener('input', (e) => {
-      // Keep digits only + max 3
-      try {
-        const v = String(e.target.value || '').replace(/\D/g, '').slice(0, 3);
-        e.target.value = v;
-      } catch (_) {}
-    });
-
-    unlockInput && unlockInput.addEventListener('keypress', async (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const ok = await this.attemptPinUnlock();
-        if (ok) window.location.reload();
-      }
-    });
-
-    signInAgainLink && signInAgainLink.addEventListener('click', async (e) => {
-      e.preventDefault();
-      await this._pinClearSessionUnlocked();
-      this.hidePinModal();
-      try { await pasteCraftSupabase.signOutFast(); } catch (_) {}
-      window.location.reload();
-    });
-
-    const changeBtn = document.getElementById('changePinBtn');
-    changeBtn && changeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const ok = confirm('Change your 3-digit code? You will need the new code next time you open PasteCraft.');
-      if (!ok) return;
-      this.showPinSetupModal({ title: 'Change 3-digit code' });
-    });
-
-    const disableBtn = document.getElementById('disablePinBtn');
-    disableBtn && disableBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const ok = confirm('Disable the 3-digit code? PasteCraft will open without a code on this browser profile.');
-      if (!ok) return;
-      await this.setPinEnabled(false);
-      try { await this.setPinUnlimitedSession(false); } catch (_) {}
-      try { await this._pinClearSessionUnlocked(); } catch (_) {}
-      const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-      if (browserScopeEl) browserScopeEl.checked = false;
-      const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-      if (unlimitedToggle) unlimitedToggle.checked = false;
-      try { await this._setPinAttempts({ attempts: 0, lockedUntil: 0 }); } catch (_) {}
-      this.showToast('✅ Code disabled');
-    });
-
-    const cancelSetup = document.getElementById('cancelPinSetupBtn');
-    cancelSetup && cancelSetup.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.hidePinSetupModal();
-    });
-
-    const saveSetup = document.getElementById('savePinSetupBtn');
-    saveSetup && saveSetup.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const a = document.getElementById('pinSetupInput');
-      const b = document.getElementById('pinSetupConfirmInput');
-      const pinA = this._pinNormalize(a?.value || '');
-      const pinB = this._pinNormalize(b?.value || '');
-      if (!pinA || !pinB) {
-        this.showToast('⚠️ Enter a 3-digit code twice', 'error');
-        return;
-      }
-      if (pinA !== pinB) {
-        this.showToast('⚠️ Codes do not match', 'error');
-        return;
-      }
-      const result = await this.saveNewPin(pinA);
-      if (!result.success) {
-        this.showToast(`❌ ${result.error || 'Could not save code'}`, 'error');
-        return;
-      }
-      await this._pinSetSessionUnlocked();
-      // Reflect the selected mode checkboxes (browser prompt vs unlimited).
-      try {
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-        const isUnlimited = !!this._pinConfig?.unlimitedSession;
-        if (unlimitedToggle) unlimitedToggle.checked = isUnlimited;
-        if (browserScopeEl) browserScopeEl.checked = !isUnlimited;
-      } catch (_) {}
-      // Capture callback BEFORE hide clears it.
-      const onComplete = this._pinSetupOnComplete;
-      this.hidePinSetupModal();
-      this.showToast('✅ Code saved');
-      try {
-        if (typeof onComplete === 'function') onComplete();
-      } catch (_) {}
-    });
-
-    // NOTE: PIN checkbox event listeners are handled in setupSettingsModalEvents()
-    // to avoid duplicate listeners and ensure auto-save works properly
   }
 
   // =====================================================
@@ -5117,8 +3570,6 @@ class PasteCraftPopup {
 
         this.showToast('✅ Welcome back!', 'success');
 
-        // A successful email+password sign-in should count as unlocked for this session.
-        await this._pinSetSessionUnlocked();
         this.hideAuthModal();
         // Reload page to initialize with authenticated user
         window.location.reload();
@@ -5239,7 +3690,6 @@ class PasteCraftPopup {
       
       if (result.success) {
         await this.clearLegacyAuthPrefs();
-        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -5258,7 +3708,6 @@ class PasteCraftPopup {
       
       if (result.success) {
         await this.clearLegacyAuthPrefs();
-        await this._pinSetSessionUnlocked();
         this.showToast('✅ Signed in with Google!', 'success');
         window.location.reload();
       } else {
@@ -5800,52 +4249,7 @@ class PasteCraftPopup {
   }
   
   renderChips() {
-    const container = document.getElementById('chipContainer');
-
-    // Use total count for empty check (includes remote clips)
-    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
-    
-    if (totalClips === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">✨</div>
-          <h3>No clips yet</h3>
-          <p>Right-click selected text to save it here</p>
-          <div class="demo-hint">
-            <span class="demo-step">1️⃣ Select text</span>
-            <span class="demo-step">2️⃣ Right-click</span>
-            <span class="demo-step">3️⃣ Save to PasteCraft</span>
-          </div>
-        </div>
-      `;
-      return;
-    }
-    
-    // Calculate pagination
-    const startIndex = this.currentPage * this.clipsPerPage;
-    const endIndex = Math.min(startIndex + this.clipsPerPage, totalClips);
-    
-    // Check if we need to lazy load (page is beyond local data)
-    if (startIndex >= this.clips.length && this.tieredClipsStore?.needsLazyLoading()) {
-      this._lazyLoadClipsPage(startIndex, this.clipsPerPage, container);
-      return;
-    }
-    
-    // Use local clips for this page
-    const pageClips = this.clips.slice(startIndex, Math.min(endIndex, this.clips.length));
-    
-    container.innerHTML = '';
-    pageClips.forEach((clip, pageIndex) => {
-      const actualIndex = startIndex + pageIndex;
-      const chip = this.createChip(clip, actualIndex);
-      container.appendChild(chip);
-    });
-    
-    // Render pagination controls
-    this.renderPagination();
-    
-    // Update quick copy button visibility
-    this.updateQuickCopyButton();
+    return this.clipsFeature.render.renderChips(this);
   }
 
   /**
@@ -5853,324 +4257,27 @@ class PasteCraftPopup {
    * @private
    */
   async _lazyLoadClipsPage(startIndex, pageSize, container) {
-    // Check if we're offline first
-    if (!navigator.onLine) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📡</div>
-          <h3>You're offline</h3>
-          <p>Connect to the internet to view older clips</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.currentPage = 0; window.pasteCraftPopup.renderChips();">
-            Go to first page
-          </button>
-        </div>
-      `;
-      this.renderPagination();
-      return;
-    }
-
-    // Show loading state
-    this._isLazyLoading = true;
-    container.innerHTML = `
-      <div class="lazy-load-indicator">
-        <div class="lazy-load-spinner"></div>
-        <p>Loading clips...</p>
-      </div>
-    `;
-    
-    // Render pagination while loading
-    this.renderPagination();
-
-    try {
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const remoteClips = await pasteCraftSupabase.fetchClipsPage(startIndex, pageSize);
-        
-        if (remoteClips && remoteClips.length > 0) {
-          container.innerHTML = '';
-          remoteClips.forEach((clip, pageIndex) => {
-            const actualIndex = startIndex + pageIndex;
-            const chip = this.createChip(clip, actualIndex);
-            container.appendChild(chip);
-          });
-        } else {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <h3>No more clips</h3>
-              <p>You've reached the end of your clips</p>
-            </div>
-          `;
-        }
-      } else {
-        // No Supabase access - show message
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">☁️</div>
-            <h3>Sign in to view more</h3>
-            <p>Older clips are stored in the cloud</p>
-          </div>
-        `;
-      }
-    } catch (e) {
-      console.error('Failed to lazy load clips:', e);
-      // Check if it's a network error
-      const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
-          <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
-          <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.renderChips();">
-            Retry
-          </button>
-        </div>
-      `;
-    } finally {
-      this._isLazyLoading = false;
-    }
+    return this.clipsFeature.render.lazyLoadClipsPage(this, startIndex, pageSize, container);
   }
   
   renderPagination() {
-    const paginationContainer = document.getElementById('paginationControls');
-    if (!paginationContainer) return;
-    
-    // Use total count (including remote) for pagination
-    const totalClips = Math.max(this.totalClipsCount || 0, this.clips.length);
-    const totalPages = Math.min(Math.ceil(totalClips / this.clipsPerPage), this.maxPages);
-    
-    if (totalPages <= 1) {
-      paginationContainer.innerHTML = '';
-      return;
-    }
-    
-    let paginationHTML = '<div class="pagination-wrapper">';
-    
-    // Previous button
-    paginationHTML += `
-      <button class="pagination-btn pagination-prev" ${this.currentPage === 0 ? 'disabled' : ''} data-page="${this.currentPage - 1}">
-        ‹ Prev
-      </button>
-    `;
-    
-    // Page numbers
-    paginationHTML += '<div class="pagination-numbers">';
-    
-    // Show first page
-    if (this.currentPage > 2) {
-      paginationHTML += `<button class="pagination-number" data-page="0">0</button>`;
-      if (this.currentPage > 3) {
-        paginationHTML += '<span class="pagination-ellipsis">...</span>';
-      }
-    }
-    
-    // Show pages around current page
-    const startPage = Math.max(0, this.currentPage - 2);
-    const endPage = Math.min(totalPages - 1, this.currentPage + 2);
-    
-    for (let i = startPage; i <= endPage; i++) {
-      const isActive = i === this.currentPage ? 'active' : '';
-      paginationHTML += `<button class="pagination-number ${isActive}" data-page="${i}">${i}</button>`;
-    }
-    
-    // Show last page
-    if (this.currentPage < totalPages - 3) {
-      if (this.currentPage < totalPages - 4) {
-        paginationHTML += '<span class="pagination-ellipsis">...</span>';
-      }
-      paginationHTML += `<button class="pagination-number" data-page="${totalPages - 1}">${totalPages - 1}</button>`;
-    }
-    
-    paginationHTML += '</div>';
-    
-    // Next button
-    paginationHTML += `
-      <button class="pagination-btn pagination-next" ${this.currentPage >= totalPages - 1 ? 'disabled' : ''} data-page="${this.currentPage + 1}">
-        Next ›
-      </button>
-    `;
-    
-    paginationHTML += '</div>';
-    
-    paginationContainer.innerHTML = paginationHTML;
-    
-    // Add click handlers
-    paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const page = parseInt(e.target.dataset.page);
-        if (!isNaN(page) && page >= 0 && page < totalPages) {
-          this.currentPage = page;
-          this.renderChips();
-        }
-      });
-    });
+    return this.clipsFeature.render.renderPagination(this);
   }
   
   createChip(clip, index) {
-    const chip = document.createElement('div');
-    chip.className = 'chip animate-slide-in';
-    chip.dataset.index = index;
-    const clipIdKey = this._clipIdKey(clip?.id != null ? clip.id : index);
-    chip.dataset.clipId = clipIdKey;
-    
-    const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const clipTitle = this._clipTitle(clip);
-    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 42);
-    
-    const clipCategory = clip.category || 'Uncategorized';
-    const isSelected = this.selectedChips.has(clipIdKey);
-    const clipMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const markupBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, clipMeta) : '';
-    const markupPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, clipMeta, 80) : '';
-    const chipTextContent = markupPreview
-      ? `<span class="pc-chip-preview">${markupPreview}</span>`
-      : this.escapeHtml(plainText);
-    
-    chip.innerHTML = `
-      <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
-      ${markupBadge}
-      <span class="chip-text pc-clip-stack" title="${this.escapeHtml(clip.text)}">
-        <span class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</span>
-        <span class="pc-clip-subtext">${chipTextContent}</span>
-      </span>
-      <span class="chip-time">${timeAgo}</span>
-      <div class="chip-actions">
-        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
-        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-        <button class="chip-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-        <button class="chip-remove" title="Remove clip">×</button>
-      </div>
-    `;
-
-    // Add category indicator if not Uncategorized
-    if (clipCategory !== 'Uncategorized') {
-      const categoryIndicator = document.createElement('span');
-      categoryIndicator.className = 'chip-category-indicator';
-      categoryIndicator.style.cssText = `
-        font-size: 10px;
-        background: rgba(0,0,0,0.1);
-        padding: 2px 6px;
-        border-radius: 8px;
-        margin-left: 4px;
-      `;
-      categoryIndicator.textContent = clipCategory;
-      chip.querySelector('.chip-text').appendChild(categoryIndicator);
-    }
-    
-    if (isSelected) {
-      chip.classList.add('selected');
-    }
-    
-    // Checkbox handler
-    const checkbox = chip.querySelector('.chip-checkbox');
-    checkbox.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleChip(clipIdKey, chip);
-    });
-
-    // Click to select/deselect
-    chip.addEventListener('click', (e) => {
-      // Use closest() so clicks on the inner <i data-lucide=".."> icon
-      // still resolve to the parent button that owns the chip-*-btn class.
-      const removeBtn    = e.target.classList.contains('chip-remove') ? e.target : null;
-      const breakdownBtn = e.target.closest('.chip-breakdown-btn');
-      const openBtn      = e.target.closest('.chip-open-btn');
-      const shareBtn     = e.target.closest('.chip-share-btn');
-      const summaryBtn   = e.target.closest('.chip-summary-btn');
-      const notesBtn     = e.target.closest('.chip-notes-btn');
-      const categoryBtn  = e.target.closest('.chip-category-btn');
-      const titleBtn     = e.target.closest('.chip-title-btn');
-      const isCheckbox   = e.target.classList.contains('chip-checkbox');
-
-      if (removeBtn) {
-        this.removeChip(clipIdKey);
-      } else if (titleBtn) {
-        e.stopPropagation();
-        this.promptEditClipTitle(clipIdKey);
-      } else if (breakdownBtn) {
-        e.stopPropagation();
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
-        this.showBreakdownModal(textToSend);
-      } else if (openBtn) {
-        e.stopPropagation();
-        if (typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-      } else if (shareBtn) {
-        e.stopPropagation();
-        this.showShareMenuForClip(clip);
-      } else if (summaryBtn) {
-        e.stopPropagation();
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'clips');
-        this.showSummaryModal(textToSend);
-      } else if (notesBtn) {
-        e.stopPropagation();
-        this.loadNotes().then(() => {
-          this.showAlbumPicker();
-          this.pendingClipForNotes = clip;
-        });
-      } else if (categoryBtn) {
-        e.stopPropagation();
-        this.pendingText = clip.text;
-        this.pendingClipId = clipIdKey;
-        this.showCategoryModal(true);
-      } else if (!isCheckbox) {
-        this.toggleChip(clipIdKey, chip);
-      }
-    });
-
-    return chip;
+    return this.clipsFeature.render.createChip(this, clip, index);
   }
   
   toggleChip(clipIdKey, chipElement) {
-    const checkbox = chipElement.querySelector('.chip-checkbox');
-    if (this.selectedChips.has(clipIdKey)) {
-      this.selectedChips.delete(clipIdKey);
-      chipElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedChips.add(clipIdKey);
-      chipElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.syncOptionToggles();
-    this.updatePreview();
+    return this.clipsFeature.state.toggleChip(this, clipIdKey, chipElement);
   }
   
   toggleSearchClip(clipId, itemElement) {
-    const checkbox = itemElement.querySelector('.search-checkbox');
-    const idKey = this._clipIdKey(clipId);
-    if (this.selectedSearchClips.has(idKey)) {
-      this.selectedSearchClips.delete(idKey);
-      itemElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedSearchClips.add(idKey);
-      itemElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.updatePreviewFromSearchSelection();
-    this.updateSearchBulkActions();
+    return this.clipsFeature.state.toggleSearchClip(this, clipId, itemElement);
   }
   
   toggleCategoryClip(clipId, itemElement) {
-    const checkbox = itemElement.querySelector('.category-checkbox');
-    const idKey = this._clipIdKey(clipId);
-    if (this.selectedCategoryClips.has(idKey)) {
-      this.selectedCategoryClips.delete(idKey);
-      itemElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedCategoryClips.add(idKey);
-      itemElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    this.updatePreviewFromSelection();
-    this.updateCategoryBulkActions();
+    return this.clipsFeature.state.toggleCategoryClip(this, clipId, itemElement);
   }
   
   syncOptionToggles() {
@@ -6185,47 +4292,15 @@ class PasteCraftPopup {
   }
   
   async removeChip(clipIdKey) {
-    const id = String(clipIdKey || '');
-    if (!id) return;
-    await this.deleteClipsByIdKeys([id], {
-      includeArchived: false,
-      reason: 'delete:removeChip',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
+    return this.clipsFeature.service.removeChip(this, clipIdKey);
   }
   
   updateLastCapture() {
-    const lastCaptureEl = document.getElementById('lastCapture');
-    if (this.clips.length > 0) {
-      const lastClip = this.clips[0];
-      const timeAgo = this.getTimeAgo(lastClip.timestamp);
-      lastCaptureEl.textContent = `Last: ${timeAgo}`;
-    } else {
-      lastCaptureEl.textContent = 'No recent captures';
-    }
+    return this.clipsFeature.render.updateLastCapture(this);
   }
   
   getTimeAgo(timestamp) {
-    // Handle both timestamp (number) and date string formats
-    const now = Date.now();
-    const clipTime = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
-    
-    // Validate timestamp
-    if (isNaN(clipTime)) {
-      return 'unknown';
-    }
-    
-    const diffMs = now - clipTime;
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
+    return this.clipsFeature.render.getTimeAgo(timestamp);
   }
   
   updatePreview() {
@@ -6301,165 +4376,23 @@ class PasteCraftPopup {
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
   async copyToClipboardFallback(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (e) {
-      console.log('📋 Clipboard API blocked, using fallback method...');
-    }
-
-    // Fallback: Use execCommand with temporary textarea
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    try {
-      const success = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (!success) throw new Error('execCommand copy failed');
-      return true;
-    } catch (e) {
-      document.body.removeChild(textarea);
-      throw e;
-    }
+    return this.clipsFeature.service.copyToClipboardFallback(text);
   }
   
   async copyToClipboard() {
-    const previewArea = document.getElementById('previewArea');
-    const copyBtn = document.getElementById('copyBtn');
-    
-    if (!previewArea.value) return;
-    
-    try {
-      await this.copyToClipboardFallback(previewArea.value);
-      
-      // Success feedback
-      copyBtn.textContent = 'Copied! ✓';
-      copyBtn.classList.add('success');
-      
-      // Confetti for large copies
-      if (this.selectedChips.size >= 5) {
-        this.showConfetti();
-      }
-      
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy Crafted Output';
-        copyBtn.classList.remove('success');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Copy failed:', error);
-      copyBtn.textContent = 'Copy Failed';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy Crafted Output';
-      }, 2000);
-    }
+    return this.clipsFeature.service.copyToClipboard(this);
   }
   
   async handleQuickCopy() {
-    const quickCopyBtn = document.getElementById('quickCopyBtn');
-    
-    if (this.selectedChips.size === 0) return;
-
-    // Ensure preview reflects current selection/options/delimiter
-    this.updatePreview();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? String(previewArea.value || '') : '';
-    if (!textToCopy) {
-      // stale selection guard
-      this.selectedChips.clear();
-      this.updateQuickCopyButton();
-      return;
-    }
-    
-    try {
-      // Use fallback method for extension popups (Clipboard API is blocked by permissions policy)
-      await this.copyToClipboardFallback(textToCopy);
-      
-      console.log('✅ Quick Copy - Successfully copied to clipboard!');
-      
-      // Success feedback
-      const originalHTML = quickCopyBtn.innerHTML;
-      quickCopyBtn.innerHTML = `
-        <span class="btn-icon">✓</span>
-        <span class="btn-text">Copied!</span>
-      `;
-      quickCopyBtn.classList.add('success');
-      
-      // Confetti for large copies
-      if (this.selectedChips.size >= 5) {
-        this.showConfetti();
-      }
-      
-      setTimeout(() => {
-        quickCopyBtn.innerHTML = originalHTML;
-        quickCopyBtn.classList.remove('success');
-      }, 2000);
-      
-    } catch (error) {
-      console.error('❌ Quick copy failed:', error);
-      console.error('❌ Error name:', error.name);
-      console.error('❌ Error message:', error.message);
-      const originalHTML = quickCopyBtn.innerHTML;
-      quickCopyBtn.innerHTML = `
-        <span class="btn-icon">✗</span>
-        <span class="btn-text">Failed</span>
-      `;
-      setTimeout(() => {
-        quickCopyBtn.innerHTML = originalHTML;
-      }, 2000);
-    }
+    return this.clipsFeature.service.handleQuickCopy(this);
   }
 
   async handleQuickDelete() {
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    if (!quickDeleteBtn) return;
-
-    const ids = Array.from(this.selectedChips || []).map(String).filter(Boolean);
-    if (ids.length <= 1) return; // only for 2+
-
-    if (!confirm(`Delete ${ids.length} selected clip${ids.length === 1 ? '' : 's'}?`)) {
-      return;
-    }
-
-    const result = await this.deleteClipsByIdKeys(ids, {
-      includeArchived: false,
-      reason: 'delete:handleQuickDelete',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
-
-    this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+    return this.clipsFeature.service.handleQuickDelete(this);
   }
   
   updateQuickCopyButton() {
-    const quickCopyBtn = document.getElementById('quickCopyBtn');
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    const bulkAiActions = document.getElementById('clipsBulkAiActions');
-    if (!quickCopyBtn) return;
-
-    const count = this.selectedChips.size;
-
-    quickCopyBtn.style.display = count > 0 ? 'flex' : 'none';
-
-    if (quickDeleteBtn) {
-      if (count > 1) {
-        quickDeleteBtn.style.display = 'flex';
-      } else {
-        quickDeleteBtn.style.display = 'none';
-        quickDeleteBtn.classList.remove('success');
-      }
-    }
-
-    if (bulkAiActions) {
-      bulkAiActions.style.display = count > 1 ? 'flex' : 'none';
-    }
+    return this.clipsFeature.render.updateQuickCopyButton(this);
   }
 
   _getSelectedClipsText() {
@@ -6467,28 +4400,19 @@ class PasteCraftPopup {
   }
 
   _getSelectedClipIdKeys() {
-    return Array.from(this.selectedChips).map(String).filter(Boolean);
+    return this.clipsFeature.state.getSelectedClipIdKeys(this);
   }
 
   _getSelectedClipObjects() {
-    const ids = this._getSelectedClipIdKeys();
-    return ids
-      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id))
-      .filter(Boolean);
+    return this.clipsFeature.state.getSelectedClipObjects(this);
   }
 
   _getSelectedCategoryClipIdKeys() {
-    if (!this.selectedCategoryClips) return [];
-    return Array.from(this.selectedCategoryClips).map(id => this._clipIdKey(id)).filter(Boolean);
+    return this.clipsFeature.state.getSelectedCategoryClipIdKeys(this);
   }
 
   _getSelectedCategoryClipObjects() {
-    const ids = this._getSelectedCategoryClipIdKeys();
-    if (ids.length === 0) return [];
-    const pool = Array.isArray(this.clips) ? this.clips : [];
-    return ids
-      .map(id => pool.find(c => this._clipIdKey(c?.id) === id))
-      .filter(Boolean);
+    return this.clipsFeature.state.getSelectedCategoryClipObjects(this);
   }
 
   _getSelectedCategoryClipsText() {
@@ -6549,327 +4473,53 @@ class PasteCraftPopup {
   }
   
   // ─── Magic Button: Content Type Detection ───
-  // Leverages PCMarkup.detectMarkupType for 20+ markup languages, plus non-markup types
   _detectContentType(text, meta) {
-    if (!text || typeof text !== 'string') return 'text';
-    const trimmed = text.trim();
-
-    // URL (single-line)
-    if (/^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+/i.test(trimmed)) return 'url';
-
-    // Email (single-line)
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'email';
-
-    // Phone number (single-line)
-    if (/^[\+]?[\d\s\-\(\)\.]{7,20}$/.test(trimmed) && /\d{3,}/.test(trimmed)) return 'phone';
-
-    // Delegate to markup renderer for all 20+ markup/code types
-    if (window.PCMarkup && typeof window.PCMarkup.detectMarkupType === 'function') {
-      const markupType = window.PCMarkup.detectMarkupType(trimmed, meta);
-      if (markupType && markupType !== 'text') return markupType;
-    }
-
-    // Multi-line long text (likely notes/paragraphs)
-    if (trimmed.split('\n').length > 3 || trimmed.length > 300) return 'note';
-
-    return 'text';
+    return this.aiLabFeature.magic._detectContentType.call(this, text, meta);
   }
 
   // ─── Magic Button: Category Suggestion ───
-  // Maps all detected content types (including markup) to categories
   _suggestCategory(contentType) {
-    const map = {
-      // Non-markup types
-      url:       { name: 'Links', icon: '🔗' },
-      email:     { name: 'Contacts', icon: '📧' },
-      phone:     { name: 'Contacts', icon: '📧' },
-      note:      { name: 'Notes', icon: '📝' },
-      text:      { name: 'Quick', icon: '⚡' },
-      // Code & data
-      code:      { name: 'Code', icon: '💻' },
-      json:      { name: 'Data', icon: '📊' },
-      yaml:      { name: 'Data', icon: '📊' },
-      toml:      { name: 'Data', icon: '📊' },
-      xml:       { name: 'Data', icon: '📊' },
-      csv:       { name: 'Data', icon: '📊' },
-      tsv:       { name: 'Data', icon: '📊' },
-      // Markup & documentation
-      markdown:  { name: 'Markup', icon: '📄' },
-      html:      { name: 'Markup', icon: '📄' },
-      latex:     { name: 'Markup', icon: '📄' },
-      bbcode:    { name: 'Markup', icon: '📄' },
-      asciidoc:  { name: 'Markup', icon: '📄' },
-      rst:       { name: 'Markup', icon: '📄' },
-      orgmode:   { name: 'Markup', icon: '📄' },
-      mediawiki: { name: 'Markup', icon: '📄' },
-      textile:   { name: 'Markup', icon: '📄' },
-      jira:      { name: 'Markup', icon: '📄' },
-      slack:     { name: 'Markup', icon: '📄' },
-      // Diagrams
-      mermaid:   { name: 'Diagrams', icon: '📐' },
-    };
-    return map[contentType] || map.text;
+    return this.aiLabFeature.magic._suggestCategory.call(this, contentType);
   }
 
   // ─── Magic Button: Content Enhancement ───
   _enhanceContent(text, contentType) {
-    if (!text) return text;
-    let enhanced = text;
-
-    // Universal cleanup: trim, collapse excessive blank lines, strip trailing whitespace
-    enhanced = enhanced.replace(/\r\n/g, '\n');
-    enhanced = enhanced.replace(/\n{4,}/g, '\n\n\n');
-    enhanced = enhanced.replace(/[ \t]+$/gm, '');
-    enhanced = enhanced.trim();
-
-    // Type-specific enhancements
-    if (contentType === 'url') {
-      try {
-        const url = new URL(enhanced);
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'].forEach(p => url.searchParams.delete(p));
-        enhanced = url.toString();
-      } catch (_) { /* leave as-is */ }
-    }
-
-    if (contentType === 'json') {
-      try { enhanced = JSON.stringify(JSON.parse(enhanced), null, 2); } catch (_) { /* leave as-is */ }
-    }
-
-    if (contentType === 'xml') {
-      // Normalize self-closing tags spacing
-      enhanced = enhanced.replace(/\s*\/>/g, ' />');
-    }
-
-    if (contentType === 'yaml' || contentType === 'toml') {
-      // Normalize trailing whitespace on value lines (already done above), ensure final newline
-      if (!enhanced.endsWith('\n')) enhanced += '\n';
-    }
-
-    if (contentType === 'csv' || contentType === 'tsv') {
-      // Remove fully empty rows
-      enhanced = enhanced.split('\n').filter(l => l.trim()).join('\n');
-    }
-
-    if (contentType === 'email') {
-      enhanced = enhanced.toLowerCase().trim();
-    }
-
-    if (contentType === 'markdown' || contentType === 'html' || contentType === 'asciidoc' ||
-        contentType === 'rst' || contentType === 'orgmode' || contentType === 'mediawiki' ||
-        contentType === 'textile' || contentType === 'jira' || contentType === 'bbcode' ||
-        contentType === 'slack' || contentType === 'latex') {
-      // Ensure consistent line endings (already done), no extra cleanup needed for markup
-    }
-
-    return enhanced;
+    return this.aiLabFeature.magic._enhanceContent.call(this, text, contentType);
   }
 
   // ─── Magic Button: Type Labels (shared) ───
   _magicTypeLabels() {
-    return {
-      url: '🔗 Link', email: '📧 Email', phone: '📞 Phone', note: '📝 Note', text: '⚡ Text',
-      code: '💻 Code', json: '📊 JSON', yaml: '📊 YAML', toml: '📊 TOML', xml: '📊 XML', csv: '📊 CSV', tsv: '📊 TSV',
-      markdown: '📄 MD', html: '📄 HTML', latex: '📄 LaTeX', bbcode: '📄 BBCode',
-      asciidoc: '📄 ADoc', rst: '📄 rST', orgmode: '📄 Org', mediawiki: '📄 Wiki',
-      textile: '📄 Textile', jira: '📄 JIRA', slack: '📄 Slack', mermaid: '📐 Diagram'
-    };
+    return this.aiLabFeature.magic._magicTypeLabels.call(this);
   }
 
   // ─── Magic Button: Analyze All Clips ───
   _analyzeMagicClips() {
-    const analysis = [];
-    // Build duplicate map (text → count)
-    const dupMap = new Map();
-    for (const clip of this.clips) {
-      const key = (clip.text || '').trim().toLowerCase();
-      if (!key) continue;
-      dupMap.set(key, (dupMap.get(key) || 0) + 1);
-    }
-
-    for (const clip of this.clips) {
-      const contentType = this._detectContentType(clip.text, clip.meta);
-      const issues = [];
-
-      // Uncategorized?
-      if (!clip.category || clip.category === 'Uncategorized') {
-        const suggested = this._suggestCategory(contentType);
-        const aiLabel = this._hasAiAccess() ? ' (AI)' : '';
-        issues.push({ tag: '📁 Uncategorized', detail: `→ Smart Categorize${aiLabel}`, color: 'amber' });
-      }
-
-      // Duplicate?
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key && (dupMap.get(key) || 0) > 1) {
-        issues.push({ tag: '📋 Duplicate', detail: '', color: 'red' });
-      }
-
-      // AI Smart Format + Content Cleanup (show both when both apply)
-      const enhanced = this._enhanceContent(clip.text, contentType);
-      const skipTypes = this._skipAiFormatTypes();
-      const canAiFormat = this._hasAiAccess() && !skipTypes.has(contentType) && (clip.text || '').trim().length > 5;
-      const needsCleanup = enhanced !== clip.text;
-      if (canAiFormat) {
-        issues.push({ tag: '✨ Smart Format (AI)', detail: '', color: 'blue' });
-      }
-      if (needsCleanup) {
-        issues.push({ tag: '🧹 Needs cleanup', detail: '', color: 'blue' });
-      }
-
-      if (issues.length === 0) {
-        issues.push({ tag: '✓ Already clean', detail: '', color: 'green' });
-      }
-
-      analysis.push({ clip, contentType, issues });
-    }
-    return analysis;
+    return this.aiLabFeature.magic._analyzeMagicClips.call(this);
   }
 
   // ─── Magic Button: Open Preview Modal ───
   magicFormat() {
-    // Wand animation
-    const wand = document.getElementById('magicWand');
-    wand.style.transform = 'scale(1.2) rotate(360deg)';
-    setTimeout(() => { wand.style.transform = ''; }, 500);
-
-    // Analyze all clips
-    this._magicAnalysis = this._analyzeMagicClips();
-    this._magicSelected = new Set();
-    this._magicPage = 0;
-
-    // Show/hide undo banner
-    const undoBanner = document.getElementById('magicUndoBanner');
-    if (undoBanner) {
-      undoBanner.style.display = this._magicUndoSnapshot ? 'flex' : 'none';
-    }
-
-    // Show/hide AI credit notice for premium users
-    const creditNotice = document.getElementById('magicAiCreditNotice');
-    if (creditNotice) {
-      creditNotice.style.display = this._hasAiAccess() ? 'block' : 'none';
-    }
-
-    // Render first page and open modal
-    this._renderMagicPage(0);
-    this._renderMagicPagination();
-    this._updateMagicSelectedCount();
-
-    document.getElementById('magicPreviewModal').style.display = 'flex';
+    return this.aiLabFeature.magic.magicFormat.call(this);
   }
 
   // ─── Magic Button: Render a Page of Clips in Modal ───
   _renderMagicPage(page) {
-    this._magicPage = page;
-    const perPage = 10;
-    const start = page * perPage;
-    const end = Math.min(start + perPage, this._magicAnalysis.length);
-    const pageItems = this._magicAnalysis.slice(start, end);
-    const labels = this._magicTypeLabels();
-    const container = document.getElementById('magicClipList');
-
-    if (this._magicAnalysis.length === 0) {
-      container.innerHTML = '<div class="magic-clip-empty">No clips to analyze</div>';
-      return;
-    }
-
-    container.innerHTML = pageItems.map((item, idx) => {
-      const globalIdx = start + idx;
-      const clipId = String(item.clip.id);
-      const isSelected = this._magicSelected.has(clipId);
-      const preview = (item.clip.text || '').replace(/\n/g, ' ').slice(0, 80) + ((item.clip.text || '').length > 80 ? '…' : '');
-      const typeBadge = this._escHtml(labels[item.contentType] || item.contentType);
-      const issueTags = item.issues.map(i => {
-        const safeColor = String(i.color || 'neutral').replace(/[^a-z0-9_-]/gi, '') || 'neutral';
-        return `<span class="magic-issue-tag magic-issue-${safeColor}">${this._escHtml(i.tag)}${i.detail ? ' ' + this._escHtml(i.detail) : ''}</span>`;
-      }
-      ).join('');
-
-      return `
-        <div class="magic-clip-row ${isSelected ? 'magic-clip-selected' : ''}" data-magic-idx="${globalIdx}" data-clip-id="${clipId}">
-          <input type="checkbox" class="magic-clip-check" ${isSelected ? 'checked' : ''}>
-          <div class="magic-clip-info">
-            <div class="magic-clip-text">${this._escHtml(preview)}</div>
-            <div class="magic-clip-meta">
-              <span class="magic-type-badge">${typeBadge}</span>
-              ${issueTags}
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-
-    // Attach click handlers to rows
-    container.querySelectorAll('.magic-clip-row').forEach(row => {
-      row.addEventListener('click', (e) => {
-        const clipId = row.dataset.clipId;
-        const checkbox = row.querySelector('.magic-clip-check');
-        if (this._magicSelected.has(clipId)) {
-          this._magicSelected.delete(clipId);
-          row.classList.remove('magic-clip-selected');
-          checkbox.checked = false;
-        } else {
-          this._magicSelected.add(clipId);
-          row.classList.add('magic-clip-selected');
-          checkbox.checked = true;
-        }
-        this._updateMagicSelectedCount();
-      });
-    });
+    return this.aiLabFeature.magic._renderMagicPage.call(this, page);
   }
 
   // ─── Magic Button: Escape HTML helper ───
   _escHtml(str) {
-    const d = document.createElement('div');
-    d.textContent = str;
-    return d.innerHTML;
+    return this.aiLabFeature.magic._escHtml.call(this, str);
   }
 
   // ─── Magic Button: Pagination Controls ───
   _renderMagicPagination() {
-    const perPage = 10;
-    const totalPages = Math.max(1, Math.ceil(this._magicAnalysis.length / perPage));
-    const container = document.getElementById('magicPagination');
-
-    if (totalPages <= 1) {
-      container.innerHTML = '';
-      return;
-    }
-
-    let html = '';
-    // Previous
-    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage - 1}" ${this._magicPage === 0 ? 'disabled' : ''}>‹</button>`;
-
-    // Page numbers (show current ±2)
-    for (let i = 0; i < totalPages; i++) {
-      if (i === 0 || i === totalPages - 1 || Math.abs(i - this._magicPage) <= 2) {
-        html += `<button class="magic-page-btn ${i === this._magicPage ? 'active' : ''}" data-magic-page="${i}">${i + 1}</button>`;
-      } else if (i === 1 && this._magicPage > 3) {
-        html += '<span class="magic-page-dots">…</span>';
-      } else if (i === totalPages - 2 && this._magicPage < totalPages - 4) {
-        html += '<span class="magic-page-dots">…</span>';
-      }
-    }
-
-    // Next
-    html += `<button class="magic-page-btn" data-magic-page="${this._magicPage + 1}" ${this._magicPage >= totalPages - 1 ? 'disabled' : ''}>›</button>`;
-    container.innerHTML = html;
-
-    // Attach page click handlers
-    container.querySelectorAll('.magic-page-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = parseInt(btn.dataset.magicPage);
-        if (!isNaN(p) && p >= 0 && p < totalPages) {
-          this._renderMagicPage(p);
-          this._renderMagicPagination();
-        }
-      });
-    });
+    return this.aiLabFeature.magic._renderMagicPagination.call(this);
   }
 
   // ─── Magic Button: Update Selected Count ───
   _updateMagicSelectedCount() {
-    const countEl = document.getElementById('magicSelectedCount');
-    if (countEl) countEl.textContent = `${this._magicSelected.size} selected`;
-    const craftBtn = document.getElementById('magicCraftSelectedBtn');
-    if (craftBtn) craftBtn.disabled = this._magicSelected.size === 0;
+    return this.aiLabFeature.magic._updateMagicSelectedCount.call(this);
   }
 
   // ─── Magic Button: Check if user has AI (premium) access ───
@@ -6886,248 +4536,29 @@ class PasteCraftPopup {
 
   // ─── Magic Button: Content types that should skip AI formatting ───
   _skipAiFormatTypes() {
-    return new Set(['url', 'email', 'phone', 'code', 'json', 'yaml', 'toml', 'xml', 'csv', 'tsv', 'html', 'latex', 'mermaid']);
+    return this.aiLabFeature.magic._skipAiFormatTypes.call(this);
   }
 
   // ─── Magic Button: Apply Magic to Specific Clips ───
   async _craftMagic(clipIds) {
-    const targetSet = new Set(clipIds.map(String));
-    const stats = { categorized: 0, enhanced: 0, duplicatesFound: 0, typesFound: {}, aiCategorized: false, aiFormatted: 0 };
-    const categoryCreationQueue = new Map();
-
-    // Pre-compute content types for target clips
-    const clipTypeMap = new Map();
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      clipTypeMap.set(String(clip.id), this._detectContentType(clip.text, clip.meta));
-    }
-
-    // Collect uncategorized target clips for potential AI batch
-    const uncategorizedTargets = [];
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      if (!clip.category || clip.category === 'Uncategorized') {
-        uncategorizedTargets.push(clip);
-      }
-    }
-
-    // Collect formattable text clips for AI smart format
-    const skipTypes = this._skipAiFormatTypes();
-    const formatTargets = [];
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      const ct = clipTypeMap.get(String(clip.id));
-      // Only format natural language text clips (note, text, markdown, etc.)
-      if (!skipTypes.has(ct) && (clip.text || '').trim().length > 5) {
-        formatTargets.push(clip);
-      }
-    }
-
-    const hasAi = this._hasAiAccess();
-
-    // ── AI Smart Categorization (premium users) ──
-    let aiCategoryMap = new Map();
-    if (uncategorizedTargets.length > 0 && hasAi) {
-      try {
-        const aiResults = await pasteCraftSupabase.aiCategorize(uncategorizedTargets);
-        if (Array.isArray(aiResults) && aiResults.length > 0) {
-          for (let i = 0; i < uncategorizedTargets.length && i < aiResults.length; i++) {
-            const catName = String(aiResults[i] || '').trim();
-            if (catName) aiCategoryMap.set(String(uncategorizedTargets[i].id), catName);
-          }
-          stats.aiCategorized = true;
-        }
-      } catch (_) { /* AI failed — fall back to rule-based */ }
-    }
-
-    // ── AI Smart Format (premium users) ──
-    let aiFormatMap = new Map();
-    if (formatTargets.length > 0 && hasAi) {
-      try {
-        const aiResults = await pasteCraftSupabase.aiFormat(formatTargets);
-        if (Array.isArray(aiResults) && aiResults.length > 0) {
-          for (let i = 0; i < formatTargets.length && i < aiResults.length; i++) {
-            const formatted = String(aiResults[i] || '').trim();
-            if (formatted && formatted !== (formatTargets[i].text || '').trim()) {
-              aiFormatMap.set(String(formatTargets[i].id), formatted);
-            }
-          }
-        }
-      } catch (_) { /* AI failed — fall back to rule-based enhance */ }
-    }
-
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-
-      const contentType = clipTypeMap.get(String(clip.id)) || 'text';
-      stats.typesFound[contentType] = (stats.typesFound[contentType] || 0) + 1;
-
-      // Categorize: prefer AI category, fall back to rule-based
-      if (!clip.category || clip.category === 'Uncategorized') {
-        const aiCat = aiCategoryMap.get(String(clip.id));
-        const suggested = aiCat
-          ? { name: aiCat, icon: '🏷️' }
-          : this._suggestCategory(contentType);
-
-        const existingCat = this.categories.find(c => c.name.toLowerCase() === suggested.name.toLowerCase());
-        if (existingCat) {
-          const clipsInCat = this.clips.filter(c => c.category === existingCat.name);
-          if (clipsInCat.length < 150) {
-            clip.category = existingCat.name;
-            stats.categorized++;
-          }
-        } else {
-          if (!categoryCreationQueue.has(suggested.name)) {
-            categoryCreationQueue.set(suggested.name, suggested);
-          }
-          clip._pendingCategory = suggested.name;
-        }
-      }
-
-      // ── Sequential pipeline: AI Format → Content Cleanup ──
-      // Step A: Apply AI grammar/punctuation polish if available
-      const aiFormatted = aiFormatMap.get(String(clip.id));
-      if (aiFormatted) {
-        clip.text = aiFormatted;
-        stats.aiFormatted++;
-      }
-      // Step B: ALWAYS run rule-based cleanup (whitespace, blank lines, UTM, JSON format, etc.)
-      const enhanced = this._enhanceContent(clip.text, contentType);
-      if (enhanced !== clip.text) {
-        clip.text = enhanced;
-        stats.enhanced++;
-      }
-    }
-
-    // ── Duplicate detection (second pass — after all text modifications) ──
-    const dupMap = new Map();
-    for (const clip of this.clips) {
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key) dupMap.set(key, (dupMap.get(key) || 0) + 1);
-    }
-    for (const clip of this.clips) {
-      if (!targetSet.has(String(clip.id))) continue;
-      const key = (clip.text || '').trim().toLowerCase();
-      if (key && (dupMap.get(key) || 0) > 1) stats.duplicatesFound++;
-    }
-
-    // Create missing categories
-    for (const [name, { icon }] of categoryCreationQueue) {
-      if (!this.categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
-        const now = Date.now();
-        this.categories.push({ id: now + Math.random(), name, icon, createdAt: now, updatedAt: now });
-      }
-    }
-
-    // Assign pending
-    for (const clip of this.clips) {
-      if (clip._pendingCategory) {
-        const cat = this.categories.find(c => c.name.toLowerCase() === clip._pendingCategory.toLowerCase());
-        if (cat && this.clips.filter(c => c.category === cat.name).length < 150) {
-          clip.category = cat.name;
-          stats.categorized++;
-        }
-        delete clip._pendingCategory;
-      }
-    }
-
-    // Persist
-    await chrome.storage.local.set({
-      clips: this.clips,
-      categories: this.categories,
-      searchOnlyClips: this.searchOnlyClips,
-      pc_local_updatedAt: Date.now()
-    });
-    try {
-      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-    } catch (_) { /* don't block */ }
-
-    // Refresh credit pills after AI calls
-    if (stats.aiCategorized || stats.aiFormatted > 0) {
-      this.updateAiCreditsPills('fresh');
-    }
-
-    // Refresh UI
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-
-    return stats;
+    return this.aiLabFeature.magic._craftMagic.call(this, clipIds);
   }
 
   // ─── Magic Button: Craft All with Undo Snapshot ───
   async _craftAllMagic() {
-    // Snapshot for undo BEFORE any changes
-    this._magicUndoSnapshot = {
-      clips: JSON.parse(JSON.stringify(this.clips)),
-      categories: JSON.parse(JSON.stringify(this.categories))
-    };
-
-    const allClipIds = this.clips.map(c => String(c.id));
-    const stats = await this._craftMagic(allClipIds);
-
-    this.showToast('🪄 All clips processed! Click Magic again to undo.');
-    return stats;
+    return this.aiLabFeature.magic._craftAllMagic.call(this);
   }
 
   // ─── Magic Button: Undo Last Magic ───
   async _undoMagic() {
-    if (!this._magicUndoSnapshot) {
-      this.showToast('⚠️ No magic to undo');
-      return;
-    }
-
-    this.clips = this._magicUndoSnapshot.clips;
-    this.categories = this._magicUndoSnapshot.categories;
-    this._magicUndoSnapshot = null;
-
-    await chrome.storage.local.set({
-      clips: this.clips,
-      categories: this.categories,
-      pc_local_updatedAt: Date.now()
-    });
-    try {
-      await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-    } catch (_) { /* don't block */ }
-
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-
-    // Close modal and notify
-    document.getElementById('magicPreviewModal').style.display = 'none';
-    this.showToast('🪄 Magic undone! Clips restored.');
+    return this.aiLabFeature.magic._undoMagic.call(this);
   }
 
   // ─── Magic Button: Show Results Modal ───
   _showMagicResults(stats) {
-    const modal = document.getElementById('magicResultsModal');
-    if (!modal) {
-      const parts = [];
-      if (stats.categorized > 0) parts.push(`${stats.categorized} categorized${stats.aiCategorized ? ' (AI)' : ''}`);
-      if (stats.enhanced > 0) parts.push(`${stats.enhanced} enhanced${stats.aiFormatted > 0 ? ` (${stats.aiFormatted} AI formatted)` : ''}`);
-      if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
-      this.showToast(parts.length ? `🪄 ${parts.join(', ')}` : '🪄 Clips already organized!');
-      return;
-    }
-
-    const labels = this._magicTypeLabels();
-    const typeBreakdown = Object.entries(stats.typesFound)
-      .map(([type, count]) => `<span class="magic-type-tag">${this._escHtml(labels[type] || type)}: ${count}</span>`)
-      .join(' ');
-
-    document.getElementById('magicStatCategorized').textContent = stats.categorized;
-    document.getElementById('magicStatEnhanced').textContent = stats.enhanced;
-    document.getElementById('magicStatAiFormatted').textContent = stats.aiFormatted || 0;
-    document.getElementById('magicStatDupes').textContent = stats.duplicatesFound;
-    document.getElementById('magicTypeBreakdown').innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
-
-    modal.style.display = 'flex';
+    return this.aiLabFeature.magic._showMagicResults.call(this, stats);
   }
+
   
   showConfetti() {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
@@ -7157,321 +4588,33 @@ class PasteCraftPopup {
 
   // Search and Filter Functions
   renderSearchResults() {
-    const container = document.getElementById('searchResults');
-    
-    if (!this.searchQuery && !this.selectedCategory && !this.selectedDateFilter) {
-      container.innerHTML = `
-        <div class="empty-search">
-          <div class="empty-search-icon"><i data-lucide="search"></i></div>
-          <h3>Start searching</h3>
-          <p>Type in the search bar to find your clips</p>
-        </div>
-      `;
-      this.updateSearchBulkActions();
-      return;
-    }
-
-    const filteredClips = this.filterClips();
-    
-    if (filteredClips.length === 0) {
-      container.innerHTML = `
-        <div class="empty-search">
-          <div class="empty-search-icon"><i data-lucide="frown"></i></div>
-          <h3>No results found</h3>
-          <p>Try adjusting your search criteria</p>
-        </div>
-      `;
-      this.updateSearchBulkActions();
-      return;
-    }
-
-    container.innerHTML = '';
-    filteredClips.forEach(clip => {
-      const resultItem = this.createSearchResultItem(clip);
-      container.appendChild(resultItem);
-    });
-
-    // Show cloud notice if there might be more clips in the cloud
-    if (this.totalArchivedCount > this.searchOnlyClips.length && 
-        this.tieredArchivedStore?.needsLazyLoading() &&
-        typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-      const cloudNotice = document.createElement('div');
-      cloudNotice.className = 'cloud-search-notice';
-      cloudNotice.innerHTML = `
-        <div class="cloud-notice-content">
-          <span class="cloud-notice-icon">☁️</span>
-          <span>More clips may be available in the cloud (${this.totalArchivedCount - this.searchOnlyClips.length} additional)</span>
-        </div>
-      `;
-      container.appendChild(cloudNotice);
-    }
-
-    this.updateSearchBulkActions();
+    return this.clipsFeature.render.renderSearchResults(this);
   }
 
   // Backwards-compat: older code paths still call this name
   performSearch() {
-    this.renderSearchResults();
+    return this.renderSearchResults();
   }
 
   filterClips() {
-    // Combine active clips and search-only clips for search functionality
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    
-    return allClips.filter(clip => {
-      // Text/title search
-      const query = this.searchQuery ? this.searchQuery.toLowerCase() : '';
-      const title = this._clipTitle(clip).toLowerCase();
-      if (query && !clip.text.toLowerCase().includes(query) && !title.includes(query)) {
-        return false;
-      }
-
-      // Category filter
-      if (this.selectedCategory && clip.category !== this.selectedCategory) {
-        return false;
-      }
-
-      // Date filter
-      if (this.selectedDateFilter) {
-        const clipDate = new Date(clip.timestamp);
-        const now = new Date();
-        
-        switch (this.selectedDateFilter) {
-          case 'today':
-            if (clipDate.toDateString() !== now.toDateString()) return false;
-            break;
-          case 'week':
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            if (clipDate < weekAgo) return false;
-            break;
-          case 'month':
-            const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-            if (clipDate < monthAgo) return false;
-            break;
-        }
-      }
-
-      return true;
-    });
+    return this.clipsFeature.render.filterClips(this);
   }
 
   createSearchResultItem(clip) {
-    const item = document.createElement('div');
-    item.className = 'search-result-item';
-    item.dataset.clipId = clip.id;
-    
-    const isSelected = this.selectedSearchClips.has(this._clipIdKey(clip.id));
-    if (isSelected) {
-      item.classList.add('selected');
-    }
-
-    const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const clipTitle = this._clipTitle(clip);
-    const displayTitle = clipTitle || this._clipFallbackTitle(clip, 64);
-    const sMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const sBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, sMeta) : '';
-    const sPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, sMeta, 200) : '';
-    const searchTextContent = sPreview
-      ? `<div class="pc-search-preview">${sPreview}</div>`
-      : `<div>${this.escapeHtml(truncatedText)}</div>`;
-
-    item.innerHTML = `
-      <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''}>
-      <div class="search-result-content">
-        <div class="search-result-text pc-clip-title-stack">
-          <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
-          <div class="pc-clip-subtext">${sBadge}${searchTextContent}</div>
-        </div>
-        <div class="search-result-meta">
-          <span class="search-result-category">${this.escapeHtml(clip.category || 'Uncategorized')}</span>
-          <span>${timeAgo}</span>
-        </div>
-      </div>
-      <div class="search-result-actions">
-        <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
-        <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-        <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-        <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-        <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-        <button class="search-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-        <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-        <button class="btn-copy" title="Copy to clipboard"><i data-lucide="clipboard"></i></button>
-      </div>
-    `;
-    
-    // Checkbox handler
-    const checkbox = item.querySelector('.search-checkbox');
-    checkbox.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleSearchClip(clip.id, item);
-    });
-    
-    // Item click handler for selection
-    item.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-result-actions') && !e.target.classList.contains('search-checkbox')) {
-        this.toggleSearchClip(clip.id, item);
-      }
-    });
-
-    // Copy functionality
-    item.querySelector('.btn-copy').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.copyClipToClipboard(clip.text);
-    });
-
-    item.querySelector('.chip-title-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.promptEditClipTitle(this._clipIdKey(clip.id));
-    });
-
-    // Breakdown functionality
-    item.querySelector('.chip-breakdown-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
-      this.showBreakdownModal(textToSend);
-    });
-
-    // Open/view functionality
-    const openBtn = item.querySelector('.chip-open-btn');
-    if (openBtn) {
-      openBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-      });
-    }
-
-    // Share functionality
-    const shareBtn = item.querySelector('.chip-share-btn');
-    if (shareBtn) {
-      shareBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.showShareMenuForClip(clip);
-      });
-    }
-    
-    // Summary functionality
-    item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const textToSend = this.getSelectedOrCurrentText(clip.text, 'search');
-      this.showSummaryModal(textToSend);
-    });
-
-    // Send to Notes functionality
-    item.querySelector('.search-notes-btn').addEventListener('click', async (e) => {
-      e.stopPropagation();
-      // Load notes and show album picker
-      await this.loadNotes();
-      this.showAlbumPicker();
-      // Store the clip to be added
-      this.pendingClipForNotes = clip;
-    });
-
-    // Category assignment
-    item.querySelector('.chip-category-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.pendingText = clip.text;
-      this.pendingClipId = this._clipIdKey(clip.id);
-      this.showCategoryModal(true);
-    });
-
-    return item;
+    return this.clipsFeature.render.createSearchResultItem(this, clip);
   }
 
   // Category Management Functions
   renderCategories() {
-    const container = document.getElementById('categoriesList');
-    
-    if (this.categories.length === 0) {
-      container.innerHTML = `
-        <div class="empty-categories">
-          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
-          <h3>No categories yet</h3>
-          <p>Create your first category to organize clips</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    // Newest categories first (top of list)
-    const categoriesSorted = [...this.categories].sort((a, b) => {
-      const aTs = Number(a?.created ?? a?.id ?? 0);
-      const bTs = Number(b?.created ?? b?.id ?? 0);
-      return bTs - aTs;
-    });
-
-    categoriesSorted.forEach(category => {
-      const categoryItem = this.createCategoryItem(category);
-      container.appendChild(categoryItem);
-    });
+    return this.categoriesFeature.render.renderCategories(this);
   }
 
   createCategoryItem(category) {
-    const item = document.createElement('div');
-    const categoryIdKey = this._categoryIdKey(category);
-    const isExpanded = this.expandedCategoryIds?.has(categoryIdKey);
-    item.className = `category-item${isExpanded ? ' expanded' : ''}`;
-    item.dataset.categoryId = categoryIdKey;
-
-    // Get clips in this category (from both active and archived)
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const clipsInCategory = allClips.filter(clip => clip.category === category.name);
-    const clipCount = clipsInCategory.length;
-    
-    console.log(`📊 Category "${category.name}" has ${clipCount} clips`);
-
-    item.innerHTML = `
-      <div class="category-header">
-        <div class="category-info">
-          <div class="category-icon">${category.icon}</div>
-          <div class="category-details">
-            <h4>${this.escapeHtml(category.name)}</h4>
-            <p>${clipCount}/150 clips</p>
-          </div>
-        </div>
-        <div class="category-header-actions">
-          <button class="category-btn edit-category" data-action="edit" title="Edit category">✏️</button>
-          <button class="category-btn delete-category" data-action="delete" title="Delete category"><i data-lucide="trash-2"></i></button>
-          <span class="category-expand-icon">▶</span>
-        </div>
-      </div>
-      <div class="category-dropdown${isExpanded ? ' expanded' : ''}" id="dropdown-${category.id}">
-        ${this.createCategoryClipsHTML(clipsInCategory, category.id)}
-      </div>
-    `;
-
-    // Add click handler for expand/collapse
-    const header = item.querySelector('.category-header');
-    header.addEventListener('click', (e) => {
-      // Don't trigger if clicking on action buttons
-      if (e.target.closest('.category-header-actions button')) return;
-      
-      this.toggleCategoryDropdown(item, category);
-    });
-
-    // Add event listeners for category actions
-    item.querySelector('.edit-category').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.editCategory(category);
-    });
-
-    item.querySelector('.delete-category').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.deleteCategory(category);
-    });
-
-    return item;
+    return this.categoriesFeature.render.createCategoryItem(this, category);
   }
 
   showCreateCategoryDialog() {
-    const name = prompt('Enter category name:');
-    if (name && name.trim()) {
-      const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon, { originButtonId: 'createCategoryBtn' });
-    }
+    return this.categoriesFeature.render.showCreateCategoryDialog(this);
   }
 
   setActionButtonLoading(buttonId, isLoading, loadingText = 'Loading...') {
@@ -7493,285 +4636,23 @@ class PasteCraftPopup {
   }
 
   async createCategory(name, icon, options = {}) {
-    const originButtonId = options?.originButtonId || null;
-    this.setActionButtonLoading(originButtonId, true, 'Creating...');
-
-    const now = Date.now();
-    const category = {
-      id: Date.now(),
-      name: String(name || '').trim(),
-      icon: String(icon || '📁'),
-      createdAt: now,
-      updatedAt: now
-    };
-
-    return await PasteCraftCRUD.createOperation({
-      entity: category,
-      stateGetter: () => ({ categories: this.categories }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-      },
-      stateKeys: ['categories'],
-      validator: (entity, state) => {
-        if (!entity.name || entity.name.length === 0) {
-          return { valid: false, error: 'Category name is required' };
-        }
-        const duplicate = Array.isArray(state.categories) && 
-          state.categories.some(cat => cat.name.toLowerCase() === entity.name.toLowerCase());
-        return { valid: !duplicate, error: duplicate ? 'Category already exists' : null };
-      },
-      duplicateCheck: (entity, state) => {
-        return Array.isArray(state.categories) && 
-          state.categories.some(cat => cat.name.toLowerCase() === entity.name.toLowerCase());
-      },
-      storageKeys: ['categories'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
-      },
-      addToArray: (items, entity) => {
-        return [...items, entity];
-      },
-      verifier: async (entity) => {
-        const verification = await chrome.storage.local.get(['categories']);
-        const categories = Array.isArray(verification.categories) ? verification.categories : [];
-        return categories.some(cat => cat.id === entity.id);
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        const categoryModal = document.getElementById('categoryModal');
-        if (categoryModal && categoryModal.style.display === 'flex') {
-          this.populateCategoryOptions();
-        }
-        this.setActionButtonLoading(originButtonId, false);
-      },
-      backgroundSync: async (entity) => {
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-      },
-      successMessage: (entity) => `✅ Category "${entity.name}" created`,
-      errorMessage: (error) => `❌ Failed to create category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => {
-        this.showToast(msg, type);
-        this.setActionButtonLoading(originButtonId, false);
-      }
-    });
+    return this.categoriesFeature.service.createCategory(this, name, icon, options);
   }
 
   async editCategory(category) {
-    if (!category || !category.id) return;
-    const newName = prompt('Enter new category name:', category.name);
-    if (!newName || !newName.trim()) return;
-    const newIcon = prompt('Enter new category icon:', category.icon) || category.icon;
-    const trimmedName = newName.trim();
-    const oldName = category.name;
-    if (trimmedName === oldName && newIcon === category.icon) return;
-    const now = Date.now();
-
-    return await PasteCraftCRUD.updateOperation({
-      entityId: category.id,
-      updates: { name: trimmedName, icon: newIcon, updatedAt: now },
-      stateGetter: () => ({ categories: this.categories, clips: this.clips }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-        this.clips = newState.clips;
-      },
-      stateKeys: ['categories', 'clips'],
-      validator: (entity, state) => {
-        if (!entity.name || entity.name.length === 0) {
-          return { valid: false, error: 'Category name is required' };
-        }
-        const dup = Array.isArray(state.categories) && state.categories.some(
-          c => c.id !== category.id && c.name.toLowerCase() === entity.name.toLowerCase()
-        );
-        return { valid: !dup, error: dup ? 'Another category already uses that name' : null };
-      },
-      storageKeys: ['categories', 'clips'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
-      },
-      updateInArray: (items, entityId, updates) => {
-        // `items` can be either categories or clips — we update both by key shape.
-        return items.map(item => {
-          if (item && item.id === entityId && 'icon' in item) {
-            return { ...item, ...updates };
-          }
-          if (item && item.category === oldName) {
-            return { ...item, category: updates.name };
-          }
-          return item;
-        });
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.renderChips();
-      },
-      backgroundSync: async () => {
-        try {
-          await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-          await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        } catch (error) {
-          console.error('⚠️ Failed to sync category edit to database:', error);
-        }
-      },
-      successMessage: (entity) => `✅ Category renamed to "${entity.name}"`,
-      errorMessage: (error) => `❌ Failed to edit category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => this.showToast(msg, type)
-    });
+    return this.categoriesFeature.service.editCategory(this, category);
   }
 
-  /**
-   * Category Deletion using CRUD Utility (5 Best Practices)
-   */
   async deleteCategory(category) {
-    // PRACTICE #1: VALIDATION - Verify category exists and is valid
-    if (!category || !category.id || !category.name) {
-      this.showToast('❌ Invalid category - cannot delete', 'error');
-      return;
-    }
-    const categoryExists = Array.isArray(this.categories) && this.categories.some(cat => cat.id === category.id);
-    if (!categoryExists) {
-      this.showToast('✅ Category already deleted', 'success');
-      return; // Idempotent: already deleted, safe to return
-    }
-
-    const ok = confirm(`Delete category "${category.name}"? Clips will be moved to "Uncategorized".`);
-    if (!ok) return;
-
-    return await PasteCraftCRUD.deleteOperation({
-      entityId: category.id,
-      entityName: category.name,
-      entityType: 'category',
-      stateGetter: () => ({
-        categories: this.categories,
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips
-      }),
-      stateSetter: async (newState) => {
-        this.categories = newState.categories;
-        this.clips = newState.clips;
-        this.searchOnlyClips = newState.searchOnlyClips;
-      },
-      stateKeys: ['categories', 'clips', 'searchOnlyClips'],
-      validator: (entity, state) => {
-        const exists = Array.isArray(state.categories) && state.categories.some(cat => cat.id === entity.id);
-        return { valid: exists, error: exists ? null : 'Category not found' };
-      },
-      idempotencyCheck: (entityId, state) => {
-        return !Array.isArray(state.categories) || !state.categories.some(cat => cat.id === entityId);
-      },
-      storageKeys: ['categories', 'clips', 'searchOnlyClips'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set(data);
-      },
-      idbStoreName: 'categories',
-      tombstoneStorageKey: 'pc_deleted_categories',
-      deleteFromArray: (items, entityId) => items.filter(item => item.id !== entityId),
-      updateRelatedEntities: (state, entity) => {
-        // Move clips to Uncategorized
-        state.clips.forEach(clip => {
-          if (clip.category === entity.name) {
-            clip.category = 'Uncategorized';
-          }
-        });
-        state.searchOnlyClips.forEach(clip => {
-          if (clip.category === entity.name) {
-            clip.category = 'Uncategorized';
-          }
-        });
-      },
-      verifier: async (entityId) => {
-        // Verify BOTH chrome.storage and IndexedDB - IDB can shadow chrome.storage
-        // on the next loadData(), so both must be clean or the delete isn't "real".
-        const verification = await chrome.storage.local.get(['categories']);
-        const categories = Array.isArray(verification.categories) ? verification.categories : [];
-        const inChrome = categories.some(cat => cat.id === entityId);
-        if (inChrome) return false;
-        try {
-          if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-            const idbCats = await window.pasteCraftIndexedDB.getAllPayloads('categories');
-            const inIdb = Array.isArray(idbCats) && idbCats.some((c) => String(c?.id) === String(entityId));
-            if (inIdb) return false;
-          }
-        } catch (_) {}
-        return true;
-      },
-      uiUpdater: () => {
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.renderChips();
-      },
-      backgroundSync: async (entity, deletedAt) => {
-        // Note: pc_deleted_categories tombstone is already recorded by deleteOperation
-        // (tombstoneStorageKey) BEFORE this runs, so merge helpers will honor the delete
-        // even if realtime echoes in from another device mid-sync.
-        try {
-          await pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? ''));
-        } catch (_) {}
-        await pasteCraftSupabase.syncWithQueue('syncDeletedCategories', [{
-          ...category,
-          deletedAt,
-          updatedAt: deletedAt
-        }], pasteCraftSupabase.syncDeletedCategoriesToSupabase);
-        await pasteCraftSupabase.syncCategoriesToSupabase(this.categories);
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-      },
-      successMessage: (entity) => `✅ Category "${entity.name}" deleted`,
-      errorMessage: (error) => `❌ Failed to delete category: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => this.showToast(msg, type)
-    });
+    return this.categoriesFeature.service.deleteCategory(this, category);
   }
 
   updateCategoryFilter() {
-    const select = document.getElementById('categoryFilter');
-    const currentValue = select.value;
-    
-    select.innerHTML = '<option value="">All Categories</option>';
-    
-    // Include categories from both active and archived clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const uniqueCategories = [...new Set(allClips.map(clip => clip.category))];
-    console.log('🎯 Unique categories found in all clips:', uniqueCategories);
-    
-    uniqueCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      select.appendChild(option);
-    });
-    
-    select.value = currentValue;
+    return this.categoriesFeature.render.updateCategoryFilter(this);
   }
 
   updateManualInputCategories() {
-    const select = document.getElementById('manualInputCategory');
-    if (!select) return;
-    
-    const currentValue = select.value;
-    
-    // Include categories from both active and archived clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const uniqueCategories = [...new Set(allClips.map(clip => clip.category))];
-    
-    // Always include Uncategorized
-    if (!uniqueCategories.includes('Uncategorized')) {
-      uniqueCategories.unshift('Uncategorized');
-    }
-    
-    select.innerHTML = '';
-    uniqueCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      select.appendChild(option);
-    });
-    
-    // Restore previous selection or default to Uncategorized
-    if (uniqueCategories.includes(currentValue)) {
-      select.value = currentValue;
-    } else {
-      select.value = 'Uncategorized';
-    }
+    return this.categoriesFeature.render.updateManualInputCategories(this);
   }
 
   // ── PDF Extraction ──────────────────────────────────────────────
@@ -7949,21 +4830,7 @@ class PasteCraftPopup {
   }
 
   populatePdfCategoryDropdown() {
-    const select = document.getElementById('pdfExtractCategory');
-    if (!select) return;
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const cats = [...new Set(allClips.map(c => c.category))];
-    if (!cats.includes('Uncategorized')) cats.unshift('Uncategorized');
-
-    select.innerHTML = '';
-    cats.forEach(cat => {
-      const opt = document.createElement('option');
-      opt.value = cat;
-      opt.textContent = cat;
-      select.appendChild(opt);
-    });
-    select.value = 'Uncategorized';
+    return this.categoriesFeature.render.populatePdfCategoryDropdown(this);
   }
 
   async savePdfClips() {
@@ -8125,12 +4992,7 @@ class PasteCraftPopup {
   }
 
   async copyClipToClipboard(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      this.showToast('Copied to clipboard!');
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
+    return this.clipsFeature.service.copyClipToClipboard(this, text);
   }
 
   showToast(message) {
@@ -8205,33 +5067,11 @@ class PasteCraftPopup {
 
   // Category Modal Functions
   showCategoryModal(isReassignment = false) {
-    this.populateCategoryOptions();
-    document.getElementById('categoryModal').style.display = 'flex';
-    
-    // Reset Add button to disabled state
-    document.getElementById('addToCategory').disabled = true;
-    
-    // Update modal text for reassignment vs new save
-    const modalText = document.querySelector('.modal-text');
-    if (isReassignment) {
-      modalText.textContent = 'Choose a new category for this clip:';
-    } else {
-      modalText.textContent = 'Where would you like to save this clip?';
-    }
+    return this.categoriesFeature.events.showCategoryModal(this, isReassignment);
   }
 
   hideCategoryModal() {
-    document.getElementById('categoryModal').style.display = 'none';
-    this.pendingText = null;
-    this.pendingClipId = null;
-    this.pendingBulkClipIds = null;
-    this.selectedCategoryForSave = 'Uncategorized';
-    
-    // Reset Add button to disabled state
-    document.getElementById('addToCategory').disabled = true;
-    
-    // Clear selected state from options
-    document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
+    return this.categoriesFeature.events.hideCategoryModal(this);
   }
 
   // Breakdown Modal Functions
@@ -8392,8 +5232,12 @@ class PasteCraftPopup {
   copyBreakdownText() {
     const text = document.getElementById('breakdownResult').textContent;
     if (text) {
-      navigator.clipboard.writeText(text);
-      this.showToast('Explanation copied to clipboard!');
+      this.copyToClipboardFallback(text)
+        .then(() => this.showToast('Explanation copied to clipboard!'))
+        .catch((error) => {
+          console.error('Breakdown copy failed:', error);
+          this.showToast('Failed to copy explanation', 'error');
+        });
     }
   }
 
@@ -8428,423 +5272,37 @@ class PasteCraftPopup {
   }
 
   async generateBreakdownInline(level) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-      return;
-    }
-
-    const loadingEl = document.getElementById('bdInlineLoading');
-    const resultEl = document.getElementById('bdInlineResult');
-
-    // Check cache first
-    if (this.inlineBreakdownCache && this.inlineBreakdownCache[level]) {
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(this.inlineBreakdownCache[level]);
-      return;
-    }
-
-    try {
-      // Show loading
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      // Generate explanation
-      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
-
-      // Cache
-      const formatted = this._formatAiOutput(explanation);
-      if (!this.inlineBreakdownCache) this.inlineBreakdownCache = {};
-      this.inlineBreakdownCache[level] = formatted;
-
-      // Render
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Add to threads
-      if (!this.inlineBreakdownThreads) this.inlineBreakdownThreads = [];
-      this.inlineBreakdownThreads.push({
-        question: `Breakdown at ${level} level`,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
-
-      // Show follow-up
-      const followupContainer = document.getElementById('bdInlineFollowup');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Show thread pagination after 2+ threads
-      if (this.inlineBreakdownThreads.length >= 2) {
-        this.renderInlineBreakdownPagination();
-      }
-
-      // Also persist to breakdown modal state for session restore
-      this.breakdownCache = this.inlineBreakdownCache;
-      this.breakdownThreads = this.inlineBreakdownThreads;
-      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
-      this._saveBreakdownModalState();
-
-      // Save to AI history
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate inline breakdown:', error);
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate explanation. Please try again.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate explanation');
-    }
+    return this.aiLabFeature.summary.generateBreakdownInline.call(this, level);
   }
 
   async sendInlineBreakdownFollowup(question) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-      return;
-    }
-
-    const loadingEl = document.getElementById('bdInlineLoading');
-    const resultEl = document.getElementById('bdInlineResult');
-
-    try {
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      // Build context from previous thread
-      const prevThread = this.inlineBreakdownThreads[this.currentInlineBreakdownThreadIndex];
-      const contextPrompt = prevThread
-        ? `Previous explanation:\n${prevThread.answer}\n\nUser follow-up: ${question}`
-        : question;
-
-      const level = this.currentBreakdownLevel || 'college';
-      const explanation = await pasteCraftSupabase.breakdownText(contextPrompt, level);
-
-      const formatted = this._formatAiOutput(explanation);
-
-      if (resultEl) resultEl.innerHTML = await this._renderAiResponse(formatted);
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Add to threads
-      this.inlineBreakdownThreads.push({
-        question,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
-
-      // Update pagination
-      this.renderInlineBreakdownPagination();
-
-      // Persist
-      this.breakdownThreads = this.inlineBreakdownThreads;
-      this.currentBreakdownThreadIndex = this.currentInlineBreakdownThreadIndex;
-      this._saveBreakdownModalState();
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to send inline follow-up:', error);
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate response.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate follow-up');
-    }
+    return this.aiLabFeature.summary.sendInlineBreakdownFollowup.call(this, question);
   }
 
   renderInlineBreakdownPagination() {
-    const container = document.getElementById('bdInlineThreadPagination');
-    if (!container || !this.inlineBreakdownThreads || this.inlineBreakdownThreads.length < 2) {
-      if (container) container.style.display = 'none';
-      return;
-    }
-
-    container.style.display = 'flex';
-    container.innerHTML = '';
-
-    this.inlineBreakdownThreads.forEach((thread, idx) => {
-      const box = document.createElement('button');
-      box.className = 'thread-box' + (idx === this.currentInlineBreakdownThreadIndex ? ' active' : '');
-      box.textContent = idx + 1;
-      box.setAttribute('data-tooltip', thread.question || `Thread ${idx + 1}`);
-      box.addEventListener('click', async () => {
-        this.currentInlineBreakdownThreadIndex = idx;
-        const resultEl = document.getElementById('bdInlineResult');
-        if (resultEl) resultEl.innerHTML = await this._renderAiResponse(thread.answer);
-        // Update active box
-        container.querySelectorAll('.thread-box').forEach((b, i) => {
-          b.classList.toggle('active', i === idx);
-        });
-      });
-      container.appendChild(box);
-    });
+    return this.aiLabFeature.summary.renderInlineBreakdownPagination.call(this);
   }
 
-  // AI Summary Methods
   showSummarySection(section) {
-    const inputSection = document.getElementById('summaryInputSection');
-    const questionsSection = document.getElementById('summaryQuestionsSection');
-    const resultSection = document.getElementById('summaryResultSection');
-
-    // Hide all sections
-    if (inputSection) inputSection.style.display = 'none';
-    if (questionsSection) questionsSection.style.display = 'none';
-    if (resultSection) resultSection.style.display = 'none';
-
-    // Show requested section
-    if (section === 'input' && inputSection) {
-      inputSection.style.display = 'block';
-    } else if (section === 'questions' && questionsSection) {
-      questionsSection.style.display = 'block';
-    } else if (section === 'result' && resultSection) {
-      resultSection.style.display = 'block';
-    }
+    return this.aiLabFeature.summary.showSummarySection.call(this, section);
   }
 
   async generateSummaryQuestions(text) {
-    // Premium check
-    let _premiumOk = true;
-    if (this.currentUser) {
-      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary');
-    }
-    if (!_premiumOk) return;
-
-    try {
-      this.showSummarySection('questions');
-      const questionsLoading = document.getElementById('questionsLoading');
-      const questionsList = document.getElementById('questionsList');
-      
-      // Show loading
-      if (questionsLoading) questionsLoading.style.display = 'flex';
-      if (questionsList) questionsList.innerHTML = '';
-
-      // Generate questions using AI
-      const questions = await pasteCraftSupabase.generateSummaryQuestions(text);
-      this.generatedQuestions = questions;
-
-      // Hide loading
-      if (questionsLoading) questionsLoading.style.display = 'none';
-
-      // Display questions
-      if (questionsList) {
-        questions.forEach(question => {
-          const chip = document.createElement('button');
-          chip.className = 'question-chip';
-          chip.textContent = question;
-          chip.addEventListener('click', () => {
-            this.currentSummaryQuestion = question;
-            this.generateSummary(text, question);
-          });
-          questionsList.appendChild(chip);
-        });
-      }
-
-      // Clear custom question input
-      const customInput = document.getElementById('customQuestionInput');
-      if (customInput) {
-        customInput.value = '';
-        document.getElementById('customQuestionBtn').disabled = true;
-      }
-
-      // Persist questions state
-      this._currentSummarySection = 'questions';
-      this._saveSummaryState();
-
-    } catch (error) {
-      console.error('Failed to generate questions:', error);
-      this.showToast('Failed to generate questions. Please check your API key.');
-      this.showSummarySection('input');
-    }
+    return this.aiLabFeature.summary.generateSummaryQuestions.call(this, text);
   }
 
   async generateSummary(text, question) {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-      return;
-    }
-
-    try {
-      this.showSummarySection('result');
-      const summaryLoading = document.getElementById('summaryLoading');
-      const summaryContent = document.getElementById('summaryResultContent');
-
-      // Show loading
-      if (summaryLoading) summaryLoading.style.display = 'flex';
-      if (summaryContent) summaryContent.innerHTML = '';
-
-      // Generate summary using AI
-      const summary = await pasteCraftSupabase.generateSummary(text, question);
-      const formatted = this._formatAiOutput(summary);
-
-      // Hide loading
-      if (summaryLoading) summaryLoading.style.display = 'none';
-
-      // Render as rich HTML and display
-      if (summaryContent) {
-        summaryContent.innerHTML = await this._renderAiResponse(formatted);
-      }
-
-      // Store raw text for current summary (for copy/persistence)
-      this._currentRawSummary = formatted;
-
-      // Add to threads (store raw text)
-      this.summaryThreads.push({
-        question,
-        answer: formatted,
-        timestamp: Date.now()
-      });
-      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
-
-      // Show follow-up input after first response
-      const followupContainer = document.getElementById('summaryFollowupContainer');
-      if (followupContainer) {
-        followupContainer.style.display = 'block';
-      }
-
-      // Update thread pagination (only show after 2nd response)
-      if (this.summaryThreads.length >= 2) {
-        this.renderThreadPagination('summary');
-      }
-
-      // Persist summary result state
-      this._currentSummarySection = 'result';
-      this._saveSummaryState();
-
-      // Save to AI history
-      await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads);
-
-    } catch (error) {
-      console.error('Failed to generate summary:', error);
-      const summaryContent = document.getElementById('summaryResultContent');
-      if (summaryContent) {
-        summaryContent.innerHTML = '❌ Failed to generate summary. Please check your OpenAI API key configuration.';
-      }
-      document.getElementById('summaryLoading').style.display = 'none';
-      this.showToast('Failed to generate summary');
-    }
+    return this.aiLabFeature.summary.generateSummary.call(this, text, question);
   }
 
   _formatAiOutput(raw) {
-    // Minimal cleanup: only strip decorative artifacts, preserve all formatting
-    const s = String(raw ?? '');
-    if (!s.trim()) return '';
-
-    const lines = s.split(/\r?\n/);
-    const cleaned = lines.map(line => {
-      // Remove leading // comment markers (keep URLs like https://)
-      if (/^\s*\/\/\s?/.test(line) && !/^\s*\/\/\s*https?:\/\//i.test(line)) {
-        line = line.replace(/^\s*\/\/\s?/, '');
-      }
-      // Remove leading \\ backslash prefixes (decorative only)
-      line = line.replace(/^\s*\\\\+\s?/, '');
-      // Strip trailing whitespace
-      line = line.replace(/[ \t]+$/, '');
-      return line;
-    });
-
-    // Normalize excessive blank lines (max 2 consecutive)
-    const out = [];
-    let blankRun = 0;
-    for (const line of cleaned) {
-      const isBlank = !String(line).trim();
-      if (isBlank) {
-        blankRun += 1;
-        if (blankRun <= 2) out.push('');
-        continue;
-      }
-      blankRun = 0;
-      out.push(line);
-    }
-    return out.join('\n').trim();
+    return this.aiLabFeature.summary._formatAiOutput.call(this, raw);
   }
 
-  /**
-   * Render AI response text as rich HTML using the markup renderer.
-   * Handles Markdown with embedded LaTeX ($...$, $$...$$) and Mermaid diagrams.
-   * @param {string} rawText - Raw AI response text
-   * @returns {string|Promise<string>} Rendered HTML
-   */
   async _renderAiResponse(rawText) {
-    if (!rawText || typeof rawText !== 'string') return '';
-    const text = rawText.trim();
-    if (!text) return '';
-
-    // Check if PCMarkup is available
-    if (typeof PCMarkup === 'undefined') return PCMarkup?.escapeHtml?.(text) || text;
-
-    // Step 1: Extract mermaid code blocks and render them separately
-    const mermaidBlocks = [];
-    let processed = text.replace(/```mermaid\s*\n([\s\S]*?)```/gi, (_, code) => {
-      const placeholder = `%%MERMAID_BLOCK_${mermaidBlocks.length}%%`;
-      mermaidBlocks.push(code.trim());
-      return placeholder;
-    });
-
-    // Step 2: Extract LaTeX blocks and protect them from Markdown parsing
-    const latexBlocks = [];
-    // Display math $$...$$
-    processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
-      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: true });
-      return placeholder;
-    });
-    // Display math \[...\]
-    processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
-      const placeholder = `%%LATEX_DISPLAY_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: true });
-      return placeholder;
-    });
-    // Inline math $...$
-    processed = processed.replace(/\$([^$\n]+?)\$/g, (_, expr) => {
-      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: false });
-      return placeholder;
-    });
-    // Inline math \(...\)
-    processed = processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
-      const placeholder = `%%LATEX_INLINE_${latexBlocks.length}%%`;
-      latexBlocks.push({ expr: expr.trim(), display: false });
-      return placeholder;
-    });
-
-    // Step 3: Render as Markdown
-    let html = PCMarkup.renderMarkup(processed, null, { type: 'markdown' });
-
-    // Step 4: Replace LaTeX placeholders with KaTeX rendered HTML
-    if (typeof katex !== 'undefined') {
-      for (let i = 0; i < latexBlocks.length; i++) {
-        const block = latexBlocks[i];
-        const displayPlaceholder = `%%LATEX_DISPLAY_${i}%%`;
-        const inlinePlaceholder = `%%LATEX_INLINE_${i}%%`;
-        try {
-          const rendered = katex.renderToString(block.expr, {
-            displayMode: block.display,
-            throwOnError: false
-          });
-          html = html.replace(displayPlaceholder, rendered);
-          html = html.replace(inlinePlaceholder, rendered);
-        } catch (_) {
-          const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
-          html = html.replace(displayPlaceholder, fallback);
-          html = html.replace(inlinePlaceholder, fallback);
-        }
-      }
-    }
-
-    // Step 5: Replace Mermaid placeholders with rendered diagrams
-    for (let i = 0; i < mermaidBlocks.length; i++) {
-      const placeholder = `%%MERMAID_BLOCK_${i}%%`;
-      // Check if placeholder survived markdown rendering (might be inside <p> tags)
-      if (html.includes(placeholder)) {
-        try {
-          const mermaidHtml = await PCMarkup.renderMarkup(mermaidBlocks[i], null, { type: 'mermaid' });
-          html = html.replace(placeholder, mermaidHtml);
-        } catch (_) {
-          html = html.replace(placeholder, `<pre class="pc-code-block"><code>${PCMarkup.escapeHtml(mermaidBlocks[i])}</code></pre>`);
-        }
-      }
-    }
-
-    return html;
+    return this.aiLabFeature.summary._renderAiResponse.call(this, rawText);
   }
 
-  // Handle Summary Follow-up
   async handleSummaryFollowup(followupQuestion) {
     const summaryFollowupInput = document.getElementById('summaryFollowupInput');
     if (summaryFollowupInput) {
@@ -8868,93 +5326,9 @@ class PasteCraftPopup {
 
   // Handle Breakdown Follow-up
   async handleBreakdownFollowup(followupQuestion) {
-    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.value = '';
-      breakdownFollowupInput.disabled = true;
-    }
-    
-    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
-    if (breakdownFollowupBtn) {
-      breakdownFollowupBtn.disabled = true;
-    }
-
-    // Disable level tabs during processing
-    this.toggleFollowupLevelTabs(false);
-
-    const loadingEl = document.getElementById('breakdownLoading');
-    const resultEl = document.getElementById('breakdownResult');
-
-    try {
-      // Show loading
-      if (loadingEl) loadingEl.style.display = 'flex';
-      if (resultEl) resultEl.innerHTML = '';
-
-      let answer;
-      
-      // Use selected level if specified, otherwise use general summary
-      if (this.selectedFollowupLevel) {
-        console.log('🎯 Generating follow-up at level:', this.selectedFollowupLevel);
-        // Generate with specific breakdown level
-        const levelPrompt = `Based on the previous explanation, answer this follow-up question at a ${this.selectedFollowupLevel} comprehension level: ${followupQuestion}. Context: "${this.currentBreakdownText.substring(0, 100)}..."`;
-        answer = await pasteCraftSupabase.breakdownText(levelPrompt, this.selectedFollowupLevel);
-      } else {
-        // Generate standard follow-up response
-        const contextPrompt = `Based on the previous explanation about "${this.currentBreakdownText.substring(0, 100)}...", answer this follow-up: ${followupQuestion}`;
-        answer = await pasteCraftSupabase.generateSummary(this.currentBreakdownText, contextPrompt);
-      }
-
-      // Clean up the raw answer
-      const formatted = this._formatAiOutput(answer);
-
-      // Hide loading
-      if (loadingEl) loadingEl.style.display = 'none';
-
-      // Render as rich HTML and display
-      if (resultEl) {
-        resultEl.innerHTML = await this._renderAiResponse(formatted);
-      }
-
-      // Add to threads (store raw text)
-      this.breakdownThreads.push({
-        question: followupQuestion,
-        answer: formatted,
-        level: this.selectedFollowupLevel || 'standard',
-        timestamp: Date.now()
-      });
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-
-      // Update pagination
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Reset selected level for next follow-up
-      this.selectedFollowupLevel = null;
-      document.querySelectorAll('.followup-level-tab').forEach(t => t.classList.remove('selected'));
-
-      // Persist breakdown modal state after follow-up
-      this._saveBreakdownModalState();
-
-      // Update AI history with new thread
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate follow-up:', error);
-      if (resultEl) {
-        resultEl.innerHTML = '❌ Failed to generate follow-up response.';
-      }
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate follow-up');
-    }
-
-    // Re-enable input
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.disabled = false;
-    }
+    return this.aiLabFeature.summary.handleBreakdownFollowup.call(this, followupQuestion);
   }
 
-  // Toggle Follow-up Level Tabs Enabled/Disabled
   toggleFollowupLevelTabs(enable) {
     const tabs = document.querySelectorAll('.followup-level-tab');
     tabs.forEach(tab => {
@@ -9059,37 +5433,7 @@ class PasteCraftPopup {
   }
 
   populateCategoryOptions() {
-    const container = document.getElementById('categoryOptions');
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    
-    // Count clips in Uncategorized (unlimited capacity)
-    const uncategorizedCount = allClips.filter(clip => clip.category === 'Uncategorized').length;
-    const uncategorizedFull = false; // Uncategorized is never full
-    
-    container.innerHTML = `
-      <div class="category-option ${uncategorizedFull ? 'category-full' : ''}" data-category="Uncategorized">
-        <div class="category-option-icon">📄</div>
-        <span>Uncategorized (${uncategorizedCount}/∞)</span>
-        ${uncategorizedFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
-      </div>
-    `;
-
-    this.categories.forEach(category => {
-      const clipsInCategory = allClips.filter(clip => clip.category === category.name).length;
-      const isFull = clipsInCategory >= 150;
-      
-      const option = document.createElement('div');
-      option.className = `category-option ${isFull ? 'category-full' : ''}`;
-      option.dataset.category = category.name;
-      option.innerHTML = `
-        <div class="category-option-icon">${category.icon}</div>
-        <span>${this.escapeHtml(category.name)} (${clipsInCategory}/150)</span>
-        ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
-        <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>
-      `;
-      container.appendChild(option);
-    });
+    return this.categoriesFeature.render.populateCategoryOptions(this);
   }
 
   async handleClipDelete() {
@@ -9108,983 +5452,85 @@ class PasteCraftPopup {
   }
 
   async saveTextWithCategory() {
-    // Bulk reassignment path: multiple selected clips → single target category
-    if (Array.isArray(this.pendingBulkClipIds) && this.pendingBulkClipIds.length > 0) {
-      const targetCategory = this.selectedCategoryForSave;
-      const ids = this.pendingBulkClipIds.slice();
-      const updatedAt = Date.now();
-      const changedActiveClips = [];
-      const changedArchivedClips = [];
-
-      if (targetCategory !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const existingCount = allClips.filter(
-          c => c.category === targetCategory && !ids.includes(this._clipIdKey(c?.id))
-        ).length;
-        if (existingCount + ids.length > 150) {
-          this.showToast(`Category "${targetCategory}" can't fit ${ids.length} more clips (150 max).`);
-          return;
-        }
-      }
-
-      let moved = 0;
-      ids.forEach(idKey => {
-        const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (activeIdx >= 0) {
-          this.clips[activeIdx] = {
-            ...this.clips[activeIdx],
-            category: targetCategory,
-            updatedAt
-          };
-          changedActiveClips.push(PasteCraftCRUD.createSnapshot(this.clips[activeIdx]));
-          moved += 1;
-          return;
-        }
-        const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (archivedIdx >= 0) {
-          this.searchOnlyClips[archivedIdx] = {
-            ...this.searchOnlyClips[archivedIdx],
-            category: targetCategory,
-            updatedAt
-          };
-          changedArchivedClips.push(PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]));
-          moved += 1;
-        }
-      });
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: updatedAt
-      });
-
-      if (changedActiveClips.length > 0) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncClips', changedActiveClips, pasteCraftSupabase.syncClipsToSupabase))
-          .catch((error) => console.error('Failed to sync bulk category update (active):', error));
-      }
-      if (changedArchivedClips.length > 0) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', changedArchivedClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-          .catch((error) => console.error('Failed to sync bulk category update (archived):', error));
-      }
-
-      this.selectedChips.clear();
-      this.updateQuickCopyButton();
-      this.renderChips();
-      this.renderSearchResults();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.hideCategoryModal();
-      this.showToast(`Moved ${moved} clip${moved === 1 ? '' : 's'} to ${targetCategory}`);
-      return;
-    }
-
-    if (!this.pendingText) return;
-
-    if (this.pendingClipId !== null) {
-      // Reassigning existing clip - check category limit first
-      const idKey = String(this.pendingClipId || '');
-      const currentClip =
-        this.clips.find(c => this._clipIdKey(c?.id) === idKey) ||
-        this.searchOnlyClips.find(c => this._clipIdKey(c?.id) === idKey);
-      if (!currentClip) return;
-      const updatedAt = Date.now();
-      let changedActiveClip = null;
-      let changedArchivedClip = null;
-
-      if (currentClip.category !== this.selectedCategoryForSave) {
-        // Only check limit if moving to a different category (Uncategorized = unlimited, others = 150 max)
-        if (this.selectedCategoryForSave !== 'Uncategorized') {
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clipsInTargetCategory = allClips.filter(clip => 
-            clip.category === this.selectedCategoryForSave && clip.id !== currentClip.id
-          );
-          
-          if (clipsInTargetCategory.length >= 150) {
-            this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
-            return;
-          }
-        }
-      }
-
-      // Update whichever list contains this clip (active or archived)
-      const activeIdx = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-      if (activeIdx >= 0) {
-        this.clips[activeIdx] = {
-          ...this.clips[activeIdx],
-          category: this.selectedCategoryForSave,
-          updatedAt
-        };
-        changedActiveClip = PasteCraftCRUD.createSnapshot(this.clips[activeIdx]);
-      } else {
-        const archivedIdx = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-        if (archivedIdx >= 0) {
-          this.searchOnlyClips[archivedIdx] = {
-            ...this.searchOnlyClips[archivedIdx],
-            category: this.selectedCategoryForSave,
-            updatedAt
-          };
-          changedArchivedClip = PasteCraftCRUD.createSnapshot(this.searchOnlyClips[archivedIdx]);
-        }
-      }
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: updatedAt
-      });
-
-      // 🔄 AUTO-SYNC TO DATABASE
-      try {
-        if (changedActiveClip) {
-          await pasteCraftSupabase.syncWithQueue('syncClips', [changedActiveClip], pasteCraftSupabase.syncClipsToSupabase);
-        }
-        if (changedArchivedClip) {
-          await pasteCraftSupabase.syncWithQueue('syncArchivedClips', [changedArchivedClip], pasteCraftSupabase.syncArchivedClipsToSupabase);
-        }
-        console.log('✅ Clip category update synced to database');
-      } catch (error) {
-        console.error('⚠️ Failed to sync category update to database:', error);
-      }
-      
-      this.renderChips();
-      this.renderSearchResults();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.showToast(`Moved to ${this.selectedCategoryForSave}!`);
-    } else {
-      // New clip save - check category limit first (Uncategorized = unlimited, others = 150 max)
-      if (this.selectedCategoryForSave !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const clipsInCategory = allClips.filter(clip => clip.category === this.selectedCategoryForSave);
-        
-        if (clipsInCategory.length >= 150) {
-          this.showToast(`Category "${this.selectedCategoryForSave}" is full (150 clips max). Remove some clips first.`);
-          return;
-        }
-      }
-
-      const newClip = {
-        id: Date.now() + Math.random(),
-        text: this.pendingText,
-        category: this.selectedCategoryForSave,
-        timestamp: Date.now()
-      };
-
-      this.clips.unshift(newClip);
-      
-      // Enforce 500 clip limit with auto-archive
-      await this.enforceClipLimit();
-
-      this.currentPage = 0; // Jump to first page so new clip is visible
-
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: Date.now()
-      });
-      
-      // 🔄 AUTO-SYNC TO DATABASE
-      try {
-        await pasteCraftSupabase.syncClipsToSupabase(this.clips);
-        await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-        console.log('✅ New clip synced to database');
-      } catch (error) {
-        console.error('⚠️ Failed to sync new clip to database:', error);
-        // Don't block user - local save already succeeded
-      }
-      // Notify content scripts about new clip (for Quick Paste updates)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'clipSaved',
-              clip: newClip,
-              autoShow: true // Auto-show when saving from popup
-            }).catch(() => {}); // Ignore errors for tabs without content script
-          });
-        });
-      } catch (error) {
-        console.log('Could not notify content scripts:', error);
-      }
-      
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-      this.showToast(`Saved to ${this.selectedCategoryForSave}!`);
-    }
-
-    this.hideCategoryModal();
+    return this.categoriesFeature.service.saveTextWithCategory(this);
   }
 
   showCreateCategoryFromModal() {
-    const name = prompt('Enter category name:');
-    if (name && name.trim()) {
-      const icon = prompt('Enter category icon (emoji):') || '📁';
-      this.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' }).then(() => {
-        this.populateCategoryOptions();
-      });
-    }
+    return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
-  // Settings Management Functions
+  // Settings Management Functions — delegated to settingsFeature
   async loadSettings() {
-    // First, try to fetch settings from Supabase (cloud sync)
-    let cloudSettings = null;
-    try {
-      cloudSettings = await Promise.race([
-        pasteCraftSupabase.syncSettingsFromSupabase(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('syncSettingsFromSupabase timeout')), 500))
-      ]);
-    } catch (error) {
-      console.warn('⚠️ Could not fetch settings from Supabase, using local:', error);
-    }
-
-    // Load sync + local settings as fallback (sync helps cross-browser refresh)
-    let syncData = {};
-    try {
-      syncData = await new Promise((resolve) => chrome.storage.sync.get(['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt'], resolve));
-    } catch (_) {
-      syncData = {};
-    }
-    const localData = await chrome.storage.local.get(['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt']);
-    const localAutoDeletePeriod = localData.autoDeletePeriod || 'never';
-    const localQuickPasteSettings = localData.quickPasteSettings || {};
-    const localAlbumAttachmentOpenMode = localData.albumAttachmentOpenMode || 'overlay';
-    const localTheme = (localData.theme || localQuickPasteSettings.theme || 'light');
-    const localSettingsUpdatedAt = typeof localData.settingsUpdatedAt === 'number' ? localData.settingsUpdatedAt : 0;
-    const syncSettingsUpdatedAt = typeof syncData.settingsUpdatedAt === 'number' ? syncData.settingsUpdatedAt : 0;
-    const syncHasPayload = !!(syncData && (syncData.autoDeletePeriod || syncData.quickPasteSettings || syncData.albumAttachmentOpenMode || syncData.theme));
-    const localHasPayload = !!(localAutoDeletePeriod || (localQuickPasteSettings && Object.keys(localQuickPasteSettings).length) || localAlbumAttachmentOpenMode || localData.theme);
-
-    // Merge: Prefer the newest between sync/local; fall back to cloud if neither has data
-    const preferSync = syncHasPayload && syncSettingsUpdatedAt >= localSettingsUpdatedAt;
-    const preferLocal = localHasPayload && localSettingsUpdatedAt > syncSettingsUpdatedAt;
-
-    if (preferSync) {
-      console.log('✅ Using sync settings from chrome.storage.sync');
-      this.autoDeletePeriod = syncData.autoDeletePeriod || localAutoDeletePeriod;
-      this.theme = (syncData.theme || syncData.quickPasteSettings?.theme || localTheme) === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings, // Local fallback for missing fields
-        ...syncData.quickPasteSettings // Sync takes precedence
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode = syncData.albumAttachmentOpenMode || localAlbumAttachmentOpenMode;
-      this.settingsUpdatedAt = syncSettingsUpdatedAt || Date.now();
-    } else if (preferLocal) {
-      console.log('✅ Using local settings (newer than sync)');
-      this.autoDeletePeriod = localAutoDeletePeriod;
-      this.theme = localTheme === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode =
-        localAlbumAttachmentOpenMode === 'overlay' || localAlbumAttachmentOpenMode === 'edgePopup'
-          ? localAlbumAttachmentOpenMode
-          : 'overlay';
-      this.settingsUpdatedAt = localSettingsUpdatedAt || Date.now();
-    } else if (cloudSettings) {
-      console.log('✅ Using cloud settings from Supabase');
-      this.autoDeletePeriod = cloudSettings.autoDeletePeriod || localAutoDeletePeriod;
-      this.theme = (cloudSettings.theme || cloudSettings.quickPasteSettings?.theme || localTheme) === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings, // Local fallback for fields not in cloud
-        ...cloudSettings.quickPasteSettings // Cloud takes precedence
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode = cloudSettings.albumAttachmentOpenMode || localAlbumAttachmentOpenMode;
-      this.settingsUpdatedAt = Date.now();
-    } else {
-      console.log('ℹ️ Using local settings (no cloud sync available)');
-      this.autoDeletePeriod = localAutoDeletePeriod;
-      this.theme = localTheme === 'dark' ? 'dark' : 'light';
-      this.quickPasteSettings = {
-        autoHide: true,
-        showTimestamps: true,
-        maxClipsDisplay: 20,
-        ...localQuickPasteSettings
-      };
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-      this.albumAttachmentOpenMode =
-        localAlbumAttachmentOpenMode === 'overlay' || localAlbumAttachmentOpenMode === 'edgePopup'
-          ? localAlbumAttachmentOpenMode
-          : 'overlay';
-      this.settingsUpdatedAt = localSettingsUpdatedAt || Date.now();
-    }
-
-    // Dark mode is not released yet.
-    if (this.darkModeComingSoon) {
-      this.theme = 'light';
-    }
-
-    // Save merged settings back to local storage for offline access
-    try {
-      await chrome.storage.local.set({
-        autoDeletePeriod: this.autoDeletePeriod,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-        theme: this.theme,
-        settingsUpdatedAt: this.settingsUpdatedAt || Math.max(localSettingsUpdatedAt, syncSettingsUpdatedAt) || Date.now()
-      });
-    } catch (_) {}
-
-    this.syncThemeToggles();
+    return this.settingsFeature.storage.loadSettings();
   }
 
-  async saveSettings(silent = false, skipPinAndAuth = false) {
-    // Use CRUD utility for reliable settings update with 5 best practices
-    const snapshot = {
-      autoDeletePeriod: this.autoDeletePeriod,
-      theme: this.theme,
-      quickPasteSettings: PasteCraftCRUD.createSnapshot(this.quickPasteSettings),
-      albumAttachmentOpenMode: this.albumAttachmentOpenMode
-    };
-
-    const rollback = async () => {
-      try {
-        this.autoDeletePeriod = snapshot.autoDeletePeriod;
-        this.theme = snapshot.theme;
-        this.quickPasteSettings = snapshot.quickPasteSettings;
-        this.albumAttachmentOpenMode = snapshot.albumAttachmentOpenMode;
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ 
-            autoDeletePeriod: this.autoDeletePeriod,
-            theme: this.theme,
-            quickPasteSettings: this.quickPasteSettings,
-            albumAttachmentOpenMode: this.albumAttachmentOpenMode
-          });
-        });
-      } catch (rollbackError) {
-        console.error('❌ Settings rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // PRACTICE #1: VALIDATION - Get and validate settings from UI
-      const newAutoDeletePeriod = document.getElementById('autoDeletePeriod')?.value;
-      if (!newAutoDeletePeriod) {
-        throw new Error('Invalid auto-delete period');
-      }
-
-      const darkModeEl = document.getElementById('darkModeToggle');
-      const autoHideEl = document.getElementById('quickPasteAutoHidePopup');
-      const showTimestampsEl = document.getElementById('quickPasteShowTimestampsPopup');
-      const maxClipsEl = document.getElementById('quickPasteMaxClipsPopup');
-      
-      if (!darkModeEl || !autoHideEl || !showTimestampsEl || !maxClipsEl) {
-        throw new Error('Settings UI elements not found');
-      }
-
-      // Update settings
-      this.autoDeletePeriod = newAutoDeletePeriod;
-      this.theme = darkModeEl.checked ? 'dark' : 'light';
-      this.quickPasteSettings.autoHide = autoHideEl.checked;
-      this.quickPasteSettings.showTimestamps = showTimestampsEl.checked;
-      this.quickPasteSettings.maxClipsDisplay = parseInt(maxClipsEl.value) || 20;
-      if (this.quickPasteSettings && typeof this.quickPasteSettings === 'object') delete this.quickPasteSettings.theme;
-
-      const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-      this.albumAttachmentOpenMode =
-        albumAttachmentOpenModeEl && (albumAttachmentOpenModeEl.value === 'overlay' || albumAttachmentOpenModeEl.value === 'edgePopup')
-          ? albumAttachmentOpenModeEl.value
-          : 'edgePopup';
-      
-      const settingsUpdatedAt = Date.now();
-      this.settingsUpdatedAt = settingsUpdatedAt;
-      // PRACTICE #3: RETRY LOGIC - Save to local storage with retry
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ 
-          autoDeletePeriod: this.autoDeletePeriod,
-          theme: this.theme,
-          quickPasteSettings: this.quickPasteSettings,
-          albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-          settingsUpdatedAt
-        });
-      });
-      // Also persist to chrome.storage.sync for cross-browser sync
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({
-          autoDeletePeriod: this.autoDeletePeriod,
-          theme: this.theme,
-          quickPasteSettings: this.quickPasteSettings,
-          albumAttachmentOpenMode: this.albumAttachmentOpenMode,
-          settingsUpdatedAt
-        }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION - Verify settings persisted
-      const verification = await chrome.storage.local.get(['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode']);
-      if (verification.autoDeletePeriod !== this.autoDeletePeriod ||
-          verification.theme !== this.theme) {
-        throw new Error('Verification failed: settings not persisted correctly');
-      }
-    
-      // 🔄 AUTO-SYNC TO DATABASE (background, non-blocking)
-      const settingsData = {
-        autoDeletePeriod: this.autoDeletePeriod,
-        theme: this.theme,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode
-      };
-      
-      pasteCraftSupabase.syncSettingsToSupabase(settingsData)
-        .then(() => {
-          console.log('✅ Settings synced to database');
-          // Real-Time Sync: Broadcast settings change to other tabs/browsers via BroadcastChannel
-          if (this._broadcastChannel) {
-            try {
-              this._broadcastChannel.postMessage({
-                type: 'settingsUpdated',
-                settings: settingsData,
-                timestamp: Date.now()
-              });
-            } catch (broadcastError) {
-              console.warn('⚠️ Failed to broadcast settings update:', broadcastError);
-            }
-          }
-          
-          if (!silent) this.showToast('✅ Settings saved and synced!');
-        })
-        .catch((error) => {
-          console.error('⚠️ Failed to sync settings to database:', error);
-          // Still broadcast locally saved settings for cross-tab sync
-          if (this._broadcastChannel) {
-            try {
-              this._broadcastChannel.postMessage({
-                type: 'settingsUpdated',
-                settings: settingsData,
-                timestamp: Date.now()
-              });
-            } catch (broadcastError) {
-              console.warn('⚠️ Failed to broadcast settings update:', broadcastError);
-            }
-          }
-          
-          if (!silent) this.showToast('✅ Settings saved locally');
-        });
-
-    // PIN lock setting (do NOT sync to database) - skip during auto-save
-    if (!skipPinAndAuth) {
-      try {
-        // Read desired state from checkboxes FIRST (before loadPinConfig overwrites _pinConfig)
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedEl = document.getElementById('pinUnlimitedSession');
-        const askBrowserRequested = browserScopeEl ? !!browserScopeEl.checked : false;
-        const unlimitedRequested = unlimitedEl ? !!unlimitedEl.checked : false;
-        const enableRequested = askBrowserRequested || unlimitedRequested;
-
-        // Only load config to verify PIN hash exists (not to derive checkbox state)
-        await this.loadPinConfig();
-
-        if (enableRequested) {
-          if (!this._pinConfig?.salt || !this._pinConfig?.hash) {
-            // Need a code first - show modal
-            if (!silent) {
-              this.hideSettingsModal();
-              this.showPinSetupModal({ title: 'Set 3-digit code' });
-            }
-          } else {
-            // Ensure PIN is enabled first, then update unlimitedSession state
-            if (!this._pinConfig.enabled) {
-              await this.setPinEnabled(true);
-            }
-            
-            // Update unlimitedSession to match checkbox state (uses user's requested value, not stale config)
-            await this.setPinUnlimitedSession(unlimitedRequested);
-          }
-        } else {
-          if (this._pinConfig?.enabled) {
-            await this.setPinEnabled(false);
-            await this._pinClearSessionUnlocked();
-          }
-        }
-
-        // Re-read saved config and sync checkboxes to confirm persistence
-        await this.loadPinConfig();
-        const savedEnabled = !!this._pinConfig?.enabled;
-        const savedUnlimited = savedEnabled && !!this._pinConfig?.unlimitedSession;
-        if (browserScopeEl) {
-          browserScopeEl.checked = savedEnabled && !savedUnlimited;
-          browserScopeEl.disabled = !savedEnabled;
-        }
-        if (unlimitedEl) {
-          unlimitedEl.checked = savedUnlimited;
-          unlimitedEl.disabled = !savedEnabled;
-        }
-      } catch (error) {
-        console.error('❌ PIN save failed:', error);
-      }
-    }
-
-    if (!skipPinAndAuth) {
-      try { await this.clearLegacyAuthPrefs(); } catch (_) {}
-    }
-    
-      // Show feedback and close modal only if not silent
-      if (!silent) {
-        this.showToast('✅ Settings saved!');
-        this.hideSettingsModal();
-      }
-      
-      // Update UI immediately
-      this.renderChips();
-      this.updateCategoryFilter();
-
-      // Run cleanup after changing settings (deferred, non-blocking)
-      this.cleanupOldClips().catch(() => {});
-      
-      // Notify content scripts about settings change (non-blocking)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'settingsUpdated',
-              settings: { ...this.quickPasteSettings, theme: this.theme }
-            }).catch(() => {}); // Ignore errors for tabs without content script
-          });
-        });
-      } catch (error) {
-        console.log('Could not notify content scripts about settings:', error);
-      }
-    } catch (error) {
-      // Rollback on any failure
-      console.error('❌ Settings save failed, rolling back:', error);
-      await rollback();
-      if (!silent) {
-        this.showToast(`❌ Failed to save settings: ${error.message || 'Unknown error'}`, 'error');
-      }
-    }
+  async saveSettings(silent = false, skipAuthPrefs = false) {
+    return this.settingsFeature.storage.saveSettings(silent, skipAuthPrefs);
   }
 
   syncThemeToggles() {
-    this._themeSyncing = true;
-    try {
-      const settingsToggle = document.getElementById('darkModeToggle');
-      const profileToggle = document.getElementById('profileDarkModeToggle');
-      const isDark = this.theme === 'dark';
-      if (settingsToggle) {
-        settingsToggle.checked = isDark;
-      }
-      if (profileToggle) {
-        profileToggle.checked = isDark;
-      }
-    } finally {
-      this._themeSyncing = false;
-    }
+    return this.settingsFeature.storage.syncThemeToggles();
   }
 
   async saveThemeOnly(nextTheme, silent = false) {
-    // Theme-only save to avoid overwriting other settings with stale UI values.
-    const normalized = nextTheme === 'dark' ? 'dark' : 'light';
-    const prev = this.theme;
-    this.theme = normalized;
-    this.syncThemeToggles();
-
-    try {
-      const settingsUpdatedAt = Date.now();
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ theme: this.theme, settingsUpdatedAt });
-      });
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ theme: this.theme, settingsUpdatedAt }, resolve));
-      } catch (_) {}
-
-      const verification = await chrome.storage.local.get(['theme']);
-      if (verification.theme !== this.theme) {
-        throw new Error('Verification failed: theme not persisted correctly');
-      }
-
-      // Best-effort cloud sync
-      const settingsData = {
-        autoDeletePeriod: this.autoDeletePeriod,
-        theme: this.theme,
-        quickPasteSettings: this.quickPasteSettings,
-        albumAttachmentOpenMode: this.albumAttachmentOpenMode
-      };
-      pasteCraftSupabase.syncSettingsToSupabase(settingsData).catch(() => {});
-
-      // Nudge content scripts (Quick Paste reads theme too)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'settingsUpdated',
-              settings: { theme: this.theme }
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      if (!silent) this.showToast('✅ Theme updated!', 'success');
-      return true;
-    } catch (e) {
-      this.theme = prev;
-      this.syncThemeToggles();
-      if (!silent) this.showToast(`❌ Theme update failed: ${e.message}`, 'error');
-      return false;
-    }
+    return this.settingsFeature.storage.saveThemeOnly(nextTheme, silent);
   }
 
   async getCurrentProfileImageForWidget() {
-    // Prefer stable URL; allow small data:image as fallback.
-    try {
-      if (!this.userProfile) {
-        const res = await chrome.storage.local.get(['userProfile']);
-        this.userProfile = res ? res.userProfile : null;
-      }
-    } catch (_) {}
-
-    const url = typeof this.userProfile?.profileImageUrl === 'string' ? this.userProfile.profileImageUrl : '';
-    if (url) return url;
-
-    const b64 = typeof this.userProfile?.profileImageBase64 === 'string' ? this.userProfile.profileImageBase64 : '';
-    if (b64 && b64.startsWith('data:image/') && b64.length <= 250000) return b64;
-    return '';
+    return this.settingsFeature.storage.getCurrentProfileImageForWidget();
   }
 
   async saveWidgetIconUseProfileImage(enabled, silent = false) {
-    // Persist into widgetSettings so content-script widget can react instantly.
-    const snapshot = await chrome.storage.local.get(['widgetSettings']);
-    const prev = snapshot && snapshot.widgetSettings && typeof snapshot.widgetSettings === 'object' ? snapshot.widgetSettings : {};
+    return this.settingsFeature.storage.saveWidgetIconUseProfileImage(enabled, silent);
+  }
 
-    const rollback = async () => {
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ widgetSettings: prev });
-        });
-      } catch (e) {
-        console.error('❌ Widget icon rollback failed:', e);
-      }
-    };
+  async exportBackupToJson() {
+    return this.settingsFeature.backup.exportBackupToJson();
+  }
 
-    try {
-      // PRACTICE #1: VALIDATION
-      const nextEnabled = !!enabled;
+  async exportClipsToCsv() {
+    return this.settingsFeature.backup.exportClipsToCsv();
+  }
 
-      // PRACTICE #2: SAFE DEFAULTS
-      const next = { ...prev, widgetIconUseProfileImage: nextEnabled };
-
-      // PRACTICE #3: RETRY LOGIC
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({ widgetSettings: next, pc_local_updatedAt: Date.now() });
-      });
-
-      // Best-effort: persist to sync as well (cross-device)
-      try {
-        await new Promise((resolve) => chrome.storage.sync.set({ widgetSettings: next }, resolve));
-      } catch (_) {}
-
-      // PRACTICE #5: VERIFICATION
-      const verification = await chrome.storage.local.get(['widgetSettings']);
-      const ok = !!verification.widgetSettings && verification.widgetSettings.widgetIconUseProfileImage === nextEnabled;
-      if (!ok) throw new Error('Verification failed: widget icon preference not persisted');
-
-      // Notify content scripts immediately (non-blocking)
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'widgetSettingsUpdated',
-              widgetSettings: { widgetIconUseProfileImage: nextEnabled }
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      if (!silent) this.showToast('✅ Widget icon preference saved');
-      return true;
-    } catch (e) {
-      console.error('❌ Failed to save widget icon preference:', e);
-      await rollback();
-      if (!silent) this.showToast(`❌ Failed to save: ${e.message || 'Unknown error'}`, 'error');
-      return false;
-    }
+  async importBackupFromJsonMerge(file) {
+    return this.settingsFeature.backup.importBackupFromJsonMerge(file);
   }
 
   async showSettingsModal() {
-    const startTime = Date.now();
-    // OPTIMIZATION: Show modal immediately with cached values, then update in background
-    // This prevents the delay users experience when clicking Settings
-
-    // Reset PIN toggle "userTouched" flags for this open session so the
-    // background refresh can reflect fresh config without clobbering input.
-    try {
-      const _a = document.getElementById('pinAskEachBrowserOpen');
-      const _b = document.getElementById('pinUnlimitedSession');
-      if (_a) delete _a.dataset.userTouched;
-      if (_b) delete _b.dataset.userTouched;
-    } catch (_) {}
-
-    // Update storage statistics
-    this.updateStorageStats();
-    
-    // Set current auto-delete period (use cached values)
-    document.getElementById('autoDeletePeriod').value = this.autoDeletePeriod || 'never';
-
-    // Theme toggle (single source of truth)
-    const darkModeToggle = document.getElementById('darkModeToggle');
-    if (darkModeToggle) {
-      if (this.darkModeComingSoon) {
-        darkModeToggle.checked = false;
-        darkModeToggle.disabled = true;
-      } else {
-        darkModeToggle.disabled = false;
-        darkModeToggle.checked = this.theme === 'dark';
-      }
-    }
-    // Profile dark mode toggle (coming soon)
-    const profileDarkModeToggle = document.getElementById('profileDarkModeToggle');
-    if (profileDarkModeToggle) {
-      if (this.darkModeComingSoon) {
-        profileDarkModeToggle.checked = false;
-        profileDarkModeToggle.disabled = true;
-      } else {
-        profileDarkModeToggle.disabled = false;
-        profileDarkModeToggle.checked = this.theme === 'dark';
-      }
-    }
-    
-    // Set current quick paste settings (use cached values)
-    document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings?.autoHide !== false;
-    document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings?.showTimestamps !== false;
-    document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings?.maxClipsDisplay || 20;
-
-    const albumAttachmentOpenModeEl = document.getElementById('albumAttachmentOpenMode');
-    if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
-
-    // PIN lock UI - reflect cached config immediately (fresh values refreshed
-    // in the background Promise.all below to avoid blocking modal show).
-    try {
-      const enabled = !!this._pinConfig?.enabled;
-      const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-
-      const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-      const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-
-      if (browserScopeEl) {
-        browserScopeEl.checked = enabled && !isUnlimited;
-        browserScopeEl.disabled = !enabled;
-      }
-      if (unlimitedToggle) {
-        unlimitedToggle.checked = isUnlimited;
-        unlimitedToggle.disabled = !enabled;
-      }
-
-      const disableBtn = document.getElementById('disablePinBtn');
-      if (disableBtn) disableBtn.disabled = !enabled;
-    } catch (_) {}
-
-    // Auth prefs UI
-    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
-
-    // Restore UI (preview + button state)
-    try {
-      const restoreWindowSelect = document.getElementById('restoreWindowSelect');
-      if (restoreWindowSelect && !restoreWindowSelect.value) restoreWindowSelect.value = '1week';
-
-      const previewEl = document.getElementById('restorePreviewText');
-      if (previewEl) previewEl.textContent = 'Select a window to preview what will be restored.';
-
-      const syncBtn = document.getElementById('syncRestoredToCloudBtn');
-      if (syncBtn) syncBtn.disabled = !(this._lastAppliedRestore && this._lastAppliedRestore.point);
-
-      // Best-effort initial preview (keeps UI informative)
-      const key = restoreWindowSelect ? restoreWindowSelect.value : '1week';
-      Promise.resolve().then(() => this.previewRestore(key)).catch(() => {});
-    } catch (_) {}
-    
-    // Show modal immediately
-    document.getElementById('settingsModal').style.display = 'flex';
-    
-    const modalShownTime = Date.now();
-
-    // Load fresh settings in background and update UI when ready (non-blocking)
-    Promise.all([
-      this.loadSettings().catch(() => {}),
-      this.loadPinConfig().catch(() => {})
-    ]).then(() => {
-      const loadCompleteTime = Date.now();
-
-      // Update UI with fresh values
-      document.getElementById('autoDeletePeriod').value = this.autoDeletePeriod || 'never';
-      const darkModeToggle = document.getElementById('darkModeToggle');
-      if (darkModeToggle) darkModeToggle.checked = this.theme === 'dark';
-      document.getElementById('quickPasteAutoHidePopup').checked = this.quickPasteSettings?.autoHide !== false;
-      document.getElementById('quickPasteShowTimestampsPopup').checked = this.quickPasteSettings?.showTimestamps !== false;
-      document.getElementById('quickPasteMaxClipsPopup').value = this.quickPasteSettings?.maxClipsDisplay || 20;
-      
-      if (albumAttachmentOpenModeEl) albumAttachmentOpenModeEl.value = this.albumAttachmentOpenMode || 'edgePopup';
-
-      // Reflect fresh PIN config now that loadPinConfig() has resolved. We
-      // skip when the user has already toggled to avoid clobbering input.
-      try {
-        const enabled = !!this._pinConfig?.enabled;
-        const isUnlimited = enabled && !!this._pinConfig?.unlimitedSession;
-        const browserScopeEl = document.getElementById('pinAskEachBrowserOpen');
-        const unlimitedToggle = document.getElementById('pinUnlimitedSession');
-        const disableBtn = document.getElementById('disablePinBtn');
-        if (browserScopeEl && !browserScopeEl.dataset.userTouched) {
-          browserScopeEl.checked = enabled && !isUnlimited;
-          browserScopeEl.disabled = !enabled;
-        }
-        if (unlimitedToggle && !unlimitedToggle.dataset.userTouched) {
-          unlimitedToggle.checked = isUnlimited;
-          unlimitedToggle.disabled = !enabled;
-        }
-        if (disableBtn) disableBtn.disabled = !enabled;
-      } catch (_) {}
-    }).catch(() => {});
+    return this.settingsFeature.render.showSettingsModal();
   }
 
   hideSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
+    return this.settingsFeature.render.hideSettingsModal();
   }
-  
+
   showHelpModal() {
-    console.log('🔍 Help modal requested');
-    document.getElementById('helpModal').style.display = 'flex';
-    console.log('✅ Help modal shown');
+    return this.settingsFeature.render.showHelpModal();
   }
-  
+
   hideHelpModal() {
-    console.log('🙈 Help modal hidden');
-    document.getElementById('helpModal').style.display = 'none';
+    return this.settingsFeature.render.hideHelpModal();
   }
-  
 
   updateStorageStats() {
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const totalClips = allClips.length;
-    const categorizedClips = allClips.filter(clip => clip.category !== 'Uncategorized').length;
-    const uncategorizedClips = totalClips - categorizedClips;
-
-    document.getElementById('totalClipsCount').textContent = `${totalClips} (${this.clips.length} active, ${this.searchOnlyClips.length} archived)`;
-    document.getElementById('categorizedClipsCount').textContent = categorizedClips;
-    document.getElementById('uncategorizedClipsCount').textContent = uncategorizedClips;
+    return this.settingsFeature.render.updateStorageStats();
   }
 
-  // Auto-Delete Functions
   async cleanupOldClips() {
-    if (this.autoDeletePeriod === 'never') return;
-
-    const cutoffTime = this.getCutoffTime(this.autoDeletePeriod);
-    const toDelete = (Array.isArray(this.clips) ? this.clips : [])
-      .filter(clip => clip?.category === 'Uncategorized' && clip.timestamp < cutoffTime)
-      .map(clip => this._clipIdKey(clip?.id))
-      .filter(Boolean);
-
-    if (toDelete.length > 0) {
-      await this.deleteClipsByIdKeys(toDelete, {
-        includeArchived: false,
-        reason: 'auto-delete:uncategorized',
-        clearSelection: false,
-        rerender: true
-      });
-      console.log(`🗑️ Auto-deleted ${toDelete.length} old uncategorized clips`);
-    }
+    return this.settingsFeature.storage.cleanupOldClips();
   }
 
   getCutoffTime(period) {
-    const now = Date.now();
-    const periods = {
-      '1day': 24 * 60 * 60 * 1000,
-      '1week': 7 * 24 * 60 * 60 * 1000,
-      '1month': 30 * 24 * 60 * 60 * 1000,
-      '3months': 90 * 24 * 60 * 60 * 1000,
-      '6months': 180 * 24 * 60 * 60 * 1000,
-      '1year': 365 * 24 * 60 * 60 * 1000
-    };
-    
-    return now - (periods[period] || 0);
+    return this.settingsFeature.storage.getCutoffTime(period);
   }
 
   // Category Dropdown Functions
   createCategoryClipsHTML(clips, categoryId) {
-    if (clips.length === 0) {
-      return '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>';
-    }
-
-    return clips.map(clip => {
-      const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
-      const timeAgo = this.getTimeAgo(clip.timestamp);
-      const isSelected = this.selectedCategoryClips.has(this._clipIdKey(clip.id));
-      const clipTitle = this._clipTitle(clip);
-      const displayTitle = clipTitle || this._clipFallbackTitle(clip, 46);
-      const cMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-      const cBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, cMeta) : '';
-      const cPreview = (typeof PCMarkup !== 'undefined') ? PCMarkup.renderMarkupPreview(clip.text, cMeta, 120) : '';
-      const catTextContent = cPreview
-        ? `<div class="pc-cat-preview">${cPreview}</div>`
-        : this.escapeHtml(truncatedText);
-      
-      const html = `
-        <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}">
-          <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
-          <div class="category-clip-content">
-            <div class="category-clip-text pc-clip-title-stack">
-              <div class="pc-clip-title" title="${this.escapeHtml(displayTitle)}">${this.escapeHtml(displayTitle)}</div>
-              <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
-            </div>
-            <div class="category-clip-time">${timeAgo}</div>
-          </div>
-          <div class="category-clip-actions">
-            <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil"></i></button>
-            <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
-            <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
-            <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
-            <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-            <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-            <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy"><i data-lucide="clipboard"></i></button>
-          </div>
-        </div>
-      `;
-      console.log(`🏗️ Creating category clip with ID: ${clip.id} (type: ${typeof clip.id})`);
-      return html;
-    }).join('');
+    return this.clipsFeature.render.createCategoryClipsHTML(this, clips, categoryId);
   }
 
   toggleCategoryDropdown(categoryItem, category) {
-    const dropdown = categoryItem.querySelector('.category-dropdown');
-    const isExpanded = categoryItem.classList.contains('expanded');
-    const categoryIdKey = this._categoryIdKey(category);
-    
-    // Close all other dropdowns
-    document.querySelectorAll('.category-item.expanded').forEach(item => {
-      if (item !== categoryItem) {
-        item.classList.remove('expanded');
-        item.querySelector('.category-dropdown').classList.remove('expanded');
-        const otherId = item.dataset.categoryId ? String(item.dataset.categoryId) : '';
-        if (otherId) this.expandedCategoryIds.delete(otherId);
-      }
-    });
-    
-    if (isExpanded) {
-      // Collapse this dropdown
-      categoryItem.classList.remove('expanded');
-      dropdown.classList.remove('expanded');
-      this.expandedCategoryIds.delete(categoryIdKey);
-    } else {
-      // Expand this dropdown
-      categoryItem.classList.add('expanded');
-      dropdown.classList.add('expanded');
-      if (categoryIdKey) this.expandedCategoryIds.add(categoryIdKey);
-      
-      // Add click handlers to clips in dropdown
-      this.attachClipHandlers(dropdown, category);
-    }
+    return this.categoriesFeature.render.toggleCategoryDropdown(this, categoryItem, category);
   }
 
   /**
@@ -10111,89 +5557,7 @@ class PasteCraftPopup {
    * from `setupEventListeners()` don't stack listeners.
    */
   setupCategoryClipDelegation() {
-    if (this._categoryClipDelegationAttached) return;
-    const container = document.getElementById('categoriesList');
-    if (!container) return;
-
-    container.addEventListener('click', async (e) => {
-      const row = e.target.closest('.category-clip');
-      if (!row || !container.contains(row)) return;
-
-      const clipIdKey = this._clipIdKey(row.dataset.clipId);
-      if (!clipIdKey) return;
-
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      const clip = allClips.find((c) => this._clipIdKey(c?.id) === clipIdKey);
-
-      const breakdownBtn = e.target.closest('.category-clip-breakdown-btn');
-      const openBtn     = e.target.closest('.category-clip-open-btn');
-      const shareBtn    = e.target.closest('.category-clip-share-btn');
-      const summaryBtn  = e.target.closest('.category-clip-summary-btn');
-      const notesBtn    = e.target.closest('.category-clip-notes-btn');
-      const copyBtn     = e.target.closest('.category-clip-copy-btn');
-      const titleBtn    = e.target.closest('.category-clip-title-btn');
-      const checkbox    = e.target.classList && e.target.classList.contains('category-checkbox')
-        ? e.target
-        : null;
-
-      if (titleBtn) {
-        e.stopPropagation();
-        this.promptEditClipTitle(clipIdKey);
-        return;
-      }
-      if (breakdownBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-        this.showBreakdownModal(textToSend);
-        return;
-      }
-      if (openBtn) {
-        e.stopPropagation();
-        if (clip && typeof this.openClipViewer === 'function') {
-          this.openClipViewer(clip);
-        }
-        return;
-      }
-      if (shareBtn) {
-        e.stopPropagation();
-        if (clip) this.showShareMenuForClip(clip);
-        return;
-      }
-      if (summaryBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        const textToSend = this.getSelectedOrCurrentText(clip.text, 'categories');
-        this.showSummaryModal(textToSend);
-        return;
-      }
-      if (notesBtn) {
-        e.stopPropagation();
-        if (!clip) return;
-        await this.loadNotes();
-        this.showAlbumPicker();
-        this.pendingClipForNotes = clip;
-        return;
-      }
-      if (copyBtn) {
-        e.stopPropagation();
-        if (clip) this.copyClipToClipboard(clip.text);
-        return;
-      }
-      if (checkbox) {
-        e.stopPropagation();
-        this.toggleCategoryClip(clipIdKey, row);
-        return;
-      }
-
-      // Bare row click (no button, no checkbox) = toggle selection
-      if (!e.target.closest('.category-clip-actions')) {
-        e.stopPropagation();
-        this.toggleCategoryClip(clipIdKey, row);
-      }
-    });
-
-    this._categoryClipDelegationAttached = true;
+    return this.clipsFeature.events.setupCategoryClipDelegation(this);
   }
 
   toggleClipSelection(clipElement, category) {
@@ -10368,299 +5732,39 @@ class PasteCraftPopup {
   }
 
   updatePreviewFromSelection() {
-    console.log('🔄 Updating preview from selection:', this.selectedCategoryClips?.size || 0, 'clips selected');
-    
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) {
-      // Don't wipe user edits when nothing is selected
-      if (!this.previewIsManual && this.previewLastAutoValue) {
-        document.getElementById('previewArea').value = '';
-        this.previewLastAutoValue = '';
-      }
-      console.log('📄 Preview cleared - no clips selected');
-      this.updateCategoryBulkActions();
-      return;
-    }
-
-    // Get selected clips
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    console.log('🔍 All clips available:', allClips.map(c => ({id: c.id, text: c.text.substring(0, 20)})));
-    console.log('🎯 Selected clip IDs:', Array.from(this.selectedCategoryClips));
-
-    // Preserve CURRENT UI ORDER (DOM order in expanded category dropdowns)
-    const orderedSelectedIds = this.getSelectedCategoryClipIdsInUiOrder();
-    const selectedClips = orderedSelectedIds
-      .map((clipId) => {
-        const found = allClips.find(clip => clip.id === clipId);
-        console.log(`🔎 Looking for clip ${clipId} (${typeof clipId}), found:`, found ? found.text.substring(0, 20) : 'NOT FOUND');
-        return found;
-      })
-      .filter(Boolean);
-
-    console.log('📋 Found selected clips:', selectedClips.length);
-
-    // Apply formatting
-    let processedTexts = selectedClips.map(clip => clip.text);
-    
-    // Apply transformations
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-      console.log('🔄 Applied deduplication');
-    }
-    
-    if (this.options.sort) {
-      processedTexts.sort();
-      console.log('⬆️ Applied sorting');
-    }
-    
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(text => text.toUpperCase());
-      console.log('🔤 Applied uppercase');
-    }
-
-    // Apply delimiter
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    
-    const delimiter = delimiters[this.delimiter] || delimiters.comma;
-    const formattedText = processedTexts.join(delimiter);
-    
-    document.getElementById('previewArea').value = formattedText;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = formattedText;
-    console.log('✅ Preview updated with formatted text:', formattedText.substring(0, 50) + '...');
-    this.updateCategoryBulkActions();
+    return this.clipsFeature.state.updatePreviewFromSelection(this);
   }
 
   getSelectedCategoryClipIdsInUiOrder() {
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return [];
-
-    const selected = this.selectedCategoryClips;
-    const ordered = [];
-
-    // Prefer DOM order of expanded dropdowns (true UI order)
-    const domClips = document.querySelectorAll('.category-item.expanded .category-clip');
-    if (domClips && domClips.length > 0) {
-      domClips.forEach(el => {
-        const id = this._clipIdKey(el.dataset.clipId);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: stable data order from storage if DOM not available
-    if (ordered.length === 0) {
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      allClips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedCategoryClipIdsInUiOrder(this);
   }
 
   updateCategoryBulkActions() {
-    const bar = document.getElementById('categoryBulkActions');
-    const countEl = document.getElementById('categoryBulkCount');
-    const aiBar = document.getElementById('categoriesBulkAiActions');
-    if (!bar || !countEl) return;
-
-    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
-    const isCategoriesTab = this.currentTab === 'categories';
-
-    if (isCategoriesTab && count > 0) {
-      bar.style.display = 'flex';
-      countEl.textContent = `${count} selected`;
-    } else {
-      bar.style.display = 'none';
-      countEl.textContent = '';
-      const copyBtn = document.getElementById('categoryBulkCopyBtn');
-      if (copyBtn) copyBtn.classList.remove('success');
-    }
-
-    if (aiBar) {
-      aiBar.style.display = (isCategoriesTab && count > 1) ? 'flex' : 'none';
-    }
+    return this.clipsFeature.render.updateCategoryBulkActions(this);
   }
 
   async handleCategoryBulkCopy() {
-    if (!this.selectedCategoryClips || this.selectedCategoryClips.size === 0) return;
-
-    // Ensure preview matches selection + UI order + delimiter/options
-    this.updatePreviewFromSelection();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? previewArea.value : '';
-    if (!textToCopy) return;
-
-    const copyBtn = document.getElementById('categoryBulkCopyBtn');
-    const originalText = copyBtn ? copyBtn.textContent : 'copy';
-
-    try {
-      await this.copyToClipboardFallback(textToCopy);
-      if (copyBtn) {
-        copyBtn.textContent = 'copied ✓';
-        copyBtn.classList.add('success');
-      }
-      setTimeout(() => {
-        if (copyBtn) {
-          copyBtn.textContent = originalText;
-          copyBtn.classList.remove('success');
-        }
-      }, 1400);
-    } catch (error) {
-      console.error('❌ Category bulk copy failed:', error);
-      if (copyBtn) {
-        copyBtn.textContent = 'failed';
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-        }, 1400);
-      }
-    }
+    return this.clipsFeature.service.handleCategoryBulkCopy(this);
   }
 
   async handleCategoryBulkDelete() {
-    const count = this.selectedCategoryClips ? this.selectedCategoryClips.size : 0;
-    if (count === 0) return;
-
-    if (!confirm(`Delete ${count} selected clip${count === 1 ? '' : 's'}?`)) return;
-
-    const ids = Array.from(this.selectedCategoryClips || []).map(id => this._clipIdKey(id));
-    const result = await this.deleteClipsByIdKeys(ids, {
-      includeArchived: true,
-      reason: 'delete:handleCategoryBulkDelete',
-      closeCategoryModal: false,
-      clearSelection: true,
-      rerender: true
-    });
-
-    const previewArea = document.getElementById('previewArea');
-    if (previewArea) previewArea.value = '';
-    this.previewIsManual = false;
-    this.previewLastAutoValue = '';
-
-    this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+    return this.clipsFeature.service.handleCategoryBulkDelete(this);
   }
 
   getSelectedSearchClipIdsInUiOrder() {
-    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return [];
-
-    const selected = this.selectedSearchClips;
-    const ordered = [];
-
-    // UI order = DOM order of current search results
-    const domItems = document.querySelectorAll('#searchResults .search-result-item');
-    if (domItems && domItems.length > 0) {
-      domItems.forEach(el => {
-        const id = this._clipIdKey(el.dataset.clipId);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    // Fallback: storage order
-    if (ordered.length === 0) {
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      allClips.forEach(c => {
-        const id = this._clipIdKey(c?.id);
-        if (selected.has(id)) ordered.push(id);
-      });
-    }
-
-    return ordered;
+    return this.clipsFeature.state.getSelectedSearchClipIdsInUiOrder(this);
   }
 
   updatePreviewFromSearchSelection() {
-    if (!this.selectedSearchClips || this.selectedSearchClips.size === 0) return;
-
-    const previewArea = document.getElementById('previewArea');
-    if (!previewArea) return;
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
-    const selectedClips = orderedIds.map(id => allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(id))).filter(Boolean);
-
-    if (selectedClips.length === 0) return;
-
-    let processedTexts = selectedClips.map(c => c.text);
-
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-    }
-    if (this.options.sort) {
-      processedTexts.sort();
-    }
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(t => t.toUpperCase());
-    }
-
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    const delimiter = delimiters[this.delimiter] || delimiters.comma;
-    const formattedText = processedTexts.join(delimiter);
-
-    previewArea.value = formattedText;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = formattedText;
+    return this.clipsFeature.state.updatePreviewFromSearchSelection(this);
   }
 
   updateSearchBulkActions() {
-    const bar = document.getElementById('searchBulkActions');
-    const countEl = document.getElementById('searchBulkCount');
-    if (!bar || !countEl) return;
-
-    const visibleSelectedCount = this.getSelectedSearchClipIdsInUiOrder().length;
-
-    if (this.currentTab === 'search' && visibleSelectedCount > 1) {
-      bar.style.display = 'flex';
-      countEl.textContent = `${visibleSelectedCount} selected`;
-    } else {
-      bar.style.display = 'none';
-      countEl.textContent = '';
-      const copyBtn = document.getElementById('searchBulkCopyBtn');
-      if (copyBtn) copyBtn.classList.remove('success');
-    }
+    return this.clipsFeature.render.updateSearchBulkActions(this);
   }
 
   async handleSearchBulkCopy() {
-    const orderedIds = this.getSelectedSearchClipIdsInUiOrder();
-    if (orderedIds.length <= 1) return; // only show/copy for 2+
-
-    // Ensure preview matches current selection + options + delimiter
-    this.updatePreviewFromSearchSelection();
-    const previewArea = document.getElementById('previewArea');
-    const textToCopy = previewArea ? previewArea.value : '';
-    if (!textToCopy) return;
-
-    const copyBtn = document.getElementById('searchBulkCopyBtn');
-    const originalText = copyBtn ? copyBtn.textContent : 'copy';
-
-    try {
-      await this.copyToClipboardFallback(textToCopy);
-      if (copyBtn) {
-        copyBtn.textContent = 'copied ✓';
-        copyBtn.classList.add('success');
-      }
-      setTimeout(() => {
-        if (copyBtn) {
-          copyBtn.textContent = originalText;
-          copyBtn.classList.remove('success');
-        }
-      }, 1400);
-    } catch (error) {
-      console.error('❌ Search bulk copy failed:', error);
-      if (copyBtn) {
-        copyBtn.textContent = 'failed';
-        setTimeout(() => {
-          copyBtn.textContent = originalText;
-        }, 1400);
-      }
-    }
+    return this.clipsFeature.service.handleSearchBulkCopy(this);
   }
 
   // Search-Only Storage Management
@@ -12302,6 +7406,14 @@ class PasteCraftPopup {
     const breakdownTextLength = document.getElementById('breakdownTextLength');
 
     if (breakdownModal && breakdownOriginalText) {
+      this.currentBreakdownText = text;
+      this.currentBreakdownLevel = null;
+      this.breakdownCache = {};
+      this.breakdownThreads = [];
+      this.currentBreakdownThreadIndex = 0;
+      this._activeBreakdownHistoryId = null;
+      this.selectedFollowupLevel = null;
+
       // Show FULL text, not truncated - let CSS handle scrolling
       breakdownOriginalText.textContent = text;
       
@@ -12309,9 +7421,6 @@ class PasteCraftPopup {
         const wordCount = text.trim().split(/\s+/).length;
         breakdownTextLength.textContent = `${wordCount} words`;
       }
-      
-      // Store the full text for analysis
-      this.currentBreakdownText = text;
       
       // Force reflow to ensure scrollbar appears correctly
       breakdownOriginalText.style.display = 'none';
@@ -12329,6 +7438,12 @@ class PasteCraftPopup {
       if (breakdownResult) {
         breakdownResult.innerHTML = '';
       }
+      const loadingEl = document.getElementById('breakdownLoading');
+      const followupContainer = document.getElementById('breakdownFollowupContainer');
+      const paginationContainer = document.getElementById('breakdownThreadPagination');
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (followupContainer) followupContainer.style.display = 'none';
+      if (paginationContainer) paginationContainer.style.display = 'none';
       
       // Reset tabs - no active tab initially
       document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
@@ -12407,41 +7522,7 @@ class PasteCraftPopup {
   }
 
   formatClipViewerPlainText(text) {
-    const normalized = String(text || '').replace(/\r\n?/g, '\n').trim();
-    if (!normalized) {
-      return '<div class="clip-viewer-empty">This clip is empty.</div>';
-    }
-
-    let paragraphs = normalized
-      .split(/\n\s*\n+/)
-      .map(part => part.trim())
-      .filter(Boolean);
-
-    if (paragraphs.length === 1 && !normalized.includes('\n') && normalized.length > 220) {
-      const sentences = normalized.match(/[^.!?]+[.!?]+(?:["')\]]+)?|[^.!?]+$/g) || [normalized];
-      paragraphs = [];
-      let current = '';
-
-      sentences.forEach((sentence) => {
-        const next = sentence.trim();
-        if (!next) return;
-        if (current && (current.length + next.length) > 260) {
-          paragraphs.push(current);
-          current = next;
-          return;
-        }
-        current = current ? `${current} ${next}` : next;
-      });
-
-      if (current) paragraphs.push(current);
-    }
-
-    const html = paragraphs.map((paragraph) => {
-      const lineHtml = this.escapeHtml(paragraph).replace(/\n/g, '<br>');
-      return `<p>${lineHtml}</p>`;
-    }).join('');
-
-    return `<div class="clip-viewer-message">${html}</div>`;
+    return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
   }
 
   openClipViewer(clip) {
@@ -12700,8 +7781,14 @@ class PasteCraftPopup {
   }
   
   showBreakdownModalWithLevel(text, level) {
-    // Show the breakdown modal with pre-selected level
     this.showBreakdownModal(text);
+    this.currentBreakdownLevel = level;
+
+    document.querySelectorAll('.breakdown-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.level === level);
+    });
+    this.updateLevelInfo(level);
+    this.generateBreakdown(level);
   }
   
   // ==================== SESSION PERSISTENCE ====================
@@ -12877,17 +7964,7 @@ class PasteCraftPopup {
   // or exceeds `ms`. Keeps the underlying fetch alive in the background, so
   // the second call (or a visibility refresh) can use the warmed-up result.
   _withTimeout(promise, ms, fallback = undefined, label = '') {
-    const wrapped = Promise.resolve()
-      .then(() => promise)
-      .catch((e) => {
-        if (label) console.warn(`${label} failed:`, e);
-        return fallback;
-      });
-    const timer = new Promise((resolve) => setTimeout(() => {
-      if (label) console.warn(`${label} timed out after ${ms}ms — using fallback`);
-      resolve(fallback);
-    }, ms));
-    return Promise.race([wrapped, timer]);
+    return PasteCraftAsyncUtils.withTimeout(promise, { ms, fallback, label });
   }
 
   async _restoreSessionState() {
@@ -12927,8 +8004,8 @@ class PasteCraftPopup {
             await this._withTimeout(this.loadNotes(), 3000, undefined, 'loadNotes');
             this.renderNotes();
           } else if (savedTab === 'activity') {
-            await this._withTimeout(this.loadActivityLog(), 3000, undefined, 'loadActivityLog');
-            this.renderActivityList();
+            await this._withTimeout(this.activityFeature.service.loadActivityLog(this), 3000, undefined, 'loadActivityLog');
+            this.activityFeature.render.renderActivityList(this);
           } else if (savedTab === 'aiHistory') {
             await this._withTimeout(this.loadAiHistory(), 3000, undefined, 'loadAiHistory');
             this.renderAiHistoryList();
@@ -13155,672 +8232,68 @@ class PasteCraftPopup {
 
   /** Load AI history entries from local + cloud (merged) */
   async loadAiHistory() {
-    try {
-      const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-      let localHistory = pc_aiHistory_v1;
-
-      // If user is authenticated, merge with cloud history
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
-        try {
-          const remoteHistory = await pasteCraftSupabase.fetchAiHistoryFromSupabase();
-          if (remoteHistory && remoteHistory.length > 0) {
-            localHistory = pasteCraftSupabase.mergeAiHistory(localHistory, remoteHistory);
-            await chrome.storage.local.set({ pc_aiHistory_v1: localHistory });
-          }
-        } catch (_) {}
-      }
-
-      this.aiHistoryEntries = localHistory;
-      return localHistory;
-    } catch (_) {
-      this.aiHistoryEntries = [];
-      return [];
-    }
+    return this.aiLabFeature.history.loadAiHistory.call(this);
   }
 
-  /** Persist AI history entries to local + cloud */
   async _persistAiHistory() {
-    try {
-      // Keep max 50 entries
-      if (this.aiHistoryEntries.length > 50) {
-        this.aiHistoryEntries.splice(50);
-      }
-      await chrome.storage.local.set({ pc_aiHistory_v1: this.aiHistoryEntries });
-
-      // Sync to cloud if authenticated (non-blocking)
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
-        pasteCraftSupabase.syncAiHistoryToSupabase(this.aiHistoryEntries).catch(() => {});
-      }
-    } catch (_) {}
+    return this.aiLabFeature.history._persistAiHistory.call(this);
   }
 
-  /**
-   * Save or update an AI conversation in history.
-   * Creates new entry on first call, updates existing on follow-ups.
-   */
   async saveAiHistory(type, originalText, threads) {
-    try {
-      if (!threads || threads.length === 0) {
-        console.warn('saveAiHistory: no threads to save');
-        return;
-      }
-
-      await this.loadAiHistory();
-
-      // Use separate active IDs for breakdown vs summary
-      const activeId = type === 'breakdown' ? this._activeBreakdownHistoryId : this._activeSummaryHistoryId;
-
-      // Check if we should update an existing entry (active conversation)
-      if (activeId) {
-        const idx = this.aiHistoryEntries.findIndex(e => e.id === activeId);
-        if (idx !== -1) {
-          // Update existing entry with latest threads
-          this.aiHistoryEntries[idx].threads = threads.map(t => ({
-            question: t.question || '',
-            answer: t.answer || '',
-            level: t.level || null,
-            timestamp: t.timestamp || Date.now()
-          }));
-          this.aiHistoryEntries[idx].updatedAt = Date.now();
-          await this._persistAiHistory();
-          console.log('📜 AI History updated:', activeId, 'threads:', threads.length);
-          return this.aiHistoryEntries[idx];
-        }
-      }
-
-      // Create new entry with placeholder title
-      const placeholderTitle = (originalText || '').substring(0, 40).replace(/\n/g, ' ').trim() || 'Untitled';
-      const entry = {
-        id: Date.now(),
-        type,
-        title: placeholderTitle + '...',
-        originalText: (originalText || '').substring(0, 2000),
-        threads: threads.map(t => ({
-          question: t.question || '',
-          answer: t.answer || '',
-          level: t.level || null,
-          timestamp: t.timestamp || Date.now()
-        })),
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-
-      // Add to front of list
-      this.aiHistoryEntries.unshift(entry);
-
-      // Track active conversation per type
-      if (type === 'breakdown') {
-        this._activeBreakdownHistoryId = entry.id;
-      } else {
-        this._activeSummaryHistoryId = entry.id;
-      }
-
-      await this._persistAiHistory();
-      console.log('📜 AI History saved new entry:', entry.id, type, 'threads:', threads.length);
-
-      // Fire async AI title generation (non-blocking)
-      this._generateAiHistoryTitle(entry.id, originalText);
-
-      return entry;
-    } catch (err) {
-      console.error('saveAiHistory failed:', err);
-    }
+    return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads);
   }
 
-  /** Async: generate an AI title for a history entry */
   async _generateAiHistoryTitle(entryId, originalText) {
-    try {
-      const snippet = (originalText || '').substring(0, 300);
-      const title = await pasteCraftSupabase.generateSummary(
-        snippet,
-        'Generate a concise 3-5 word title for this text. Return ONLY the title text, nothing else. No quotes, no punctuation at the end.'
-      );
-      if (title && typeof title === 'string' && title.trim()) {
-        const cleanTitle = title.trim().replace(/^["']|["']$/g, '').substring(0, 60);
-        // Update the entry in the array
-        const idx = this.aiHistoryEntries.findIndex(e => e.id === entryId);
-        if (idx !== -1) {
-          this.aiHistoryEntries[idx].title = cleanTitle;
-          await this._persistAiHistory();
-          // Re-render list if the AI History tab is active
-          if (this.currentTab === 'aiHistory') {
-            this.renderAiHistoryList();
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('AI history title generation failed:', err);
-    }
+    return this.aiLabFeature.history._generateAiHistoryTitle.call(this, entryId, originalText);
   }
 
-  /** Render the AI History list in the tab */
   renderAiHistoryList() {
-    const container = document.getElementById('aiHistoryList');
-    if (!container) return;
-
-    let entries = this.aiHistoryEntries || [];
-
-    // Apply type filter
-    const filterType = this._aiHistoryFilterType || 'all';
-    if (filterType !== 'all') {
-      entries = entries.filter(e => e.type === filterType);
-    }
-
-    // Apply search query
-    const query = (this._aiHistorySearchQuery || '').toLowerCase();
-    if (query) {
-      entries = entries.filter(e => {
-        const title = (e.title || '').toLowerCase();
-        const text = (e.originalText || '').toLowerCase();
-        const answers = (e.threads || []).map(t => (t.answer || '').toLowerCase()).join(' ');
-        return title.includes(query) || text.includes(query) || answers.includes(query);
-      });
-    }
-
-    if (!entries || entries.length === 0) {
-      const msg = query ? 'No results match your search' : 'Your AI Summary and Breakdown conversations will appear here';
-      const heading = query ? 'No matches' : 'No history yet';
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
-          <h3>${heading}</h3>
-          <p>${msg}</p>
-        </div>`;
-      return;
-    }
-
-    container.innerHTML = entries.map(entry => {
-      const icon = entry.type === 'breakdown' ? '🧠' : '📝';
-      const badgeClass = entry.type === 'breakdown' ? 'breakdown' : 'summary';
-      const badgeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-      const threadCount = (entry.threads || []).length;
-      const timeStr = this.getTimeAgo ? this.getTimeAgo(entry.createdAt) : new Date(entry.createdAt).toLocaleDateString();
-
-      return `
-        <div class="ai-history-entry" data-history-id="${entry.id}">
-          <span class="ai-history-entry-icon">${icon}</span>
-          <div class="ai-history-entry-info">
-            <div class="ai-history-entry-title">${this.escapeHtml ? this.escapeHtml(entry.title || 'Untitled') : (entry.title || 'Untitled')}</div>
-            <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
-          </div>
-          <span class="ai-history-entry-badge ${badgeClass}">${badgeLabel}</span>
-          <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete"><i data-lucide="trash-2"></i></button>
-        </div>`;
-    }).join('');
-
-    // Attach click handlers
-    container.querySelectorAll('.ai-history-entry').forEach(el => {
-      el.addEventListener('click', (e) => {
-        // Don't open modal if delete button clicked
-        if (e.target.closest('.ai-history-entry-delete')) return;
-        const id = parseInt(el.dataset.historyId);
-        const entry = this.aiHistoryEntries.find(e => e.id === id);
-        if (entry) this.openAiHistoryModal(entry);
-      });
-    });
-
-    // Attach delete handlers
-    container.querySelectorAll('.ai-history-entry-delete').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = parseInt(btn.dataset.deleteId);
-        this.aiHistoryEntries = this.aiHistoryEntries.filter(e => e.id !== id);
-        await this._persistAiHistory();
-        this.renderAiHistoryList();
-        this.showToast('History entry deleted');
-      });
-    });
+    return this.aiLabFeature.history.renderAiHistoryList.call(this);
   }
 
-  /** Open the AI History viewer modal for a specific entry */
   async openAiHistoryModal(entry) {
-    if (!entry) return;
-    this.currentHistoryEntry = entry;
-    this.currentHistoryThreadIndex = 0;
-
-    const modal = document.getElementById('aiHistoryModal');
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const subtitleEl = document.getElementById('aiHistoryModalSubtitle');
-    const resultEl = document.getElementById('aiHistoryResultContent');
-    const paginationEl = document.getElementById('aiHistoryThreadPagination');
-
-    if (!modal) return;
-
-    // Reset edit title state
-    this._cancelEditHistoryTitle();
-
-    // Set title and subtitle
-    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
-    const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-    if (titleEl) titleEl.textContent = `${typeIcon} ${entry.title || 'Untitled'}`;
-    if (subtitleEl) subtitleEl.textContent = `${typeLabel} — ${(entry.threads || []).length} response(s)`;
-
-    // Show modal
-    modal.style.display = 'flex';
-
-    // Render first thread
-    if (entry.threads && entry.threads.length > 0) {
-      if (resultEl) {
-        resultEl.innerHTML = await this._renderAiResponse(entry.threads[0].answer);
-      }
-    } else {
-      if (resultEl) resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
-    }
-
-    // Render pagination
-    this._renderHistoryPagination();
+    return this.aiLabFeature.history.openAiHistoryModal.call(this, entry);
   }
 
-  /** Render pagination boxes for the AI History viewer modal */
   _renderHistoryPagination() {
-    const entry = this.currentHistoryEntry;
-    const paginationEl = document.getElementById('aiHistoryThreadPagination');
-    if (!paginationEl || !entry) return;
-
-    const threads = entry.threads || [];
-    if (threads.length < 2) {
-      paginationEl.style.display = 'none';
-      return;
-    }
-
-    paginationEl.style.display = 'flex';
-    paginationEl.style.gap = '8px';
-    paginationEl.innerHTML = '';
-
-    threads.forEach((thread, index) => {
-      const box = document.createElement('div');
-      box.className = `thread-box ${index === this.currentHistoryThreadIndex ? 'active' : ''}`;
-      box.textContent = index + 1;
-      box.style.cssText = `
-        width: 32px; height: 32px; border-radius: 6px;
-        background: ${index === this.currentHistoryThreadIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
-        border: 2px solid ${index === this.currentHistoryThreadIndex ? '#2563eb' : '#cbd5e1'};
-        cursor: pointer; display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 700;
-        color: ${index === this.currentHistoryThreadIndex ? 'white' : '#64748b'};
-        transition: all 0.25s ease;
-      `;
-
-      const question = thread.question || 'Response';
-      const tipText = question.length > 30 ? question.substring(0, 30) + '...' : question;
-      box.title = `${index + 1}. ${tipText}`;
-
-      box.addEventListener('click', () => this.navigateHistoryThread(index));
-      paginationEl.appendChild(box);
-    });
+    return this.aiLabFeature.history._renderHistoryPagination.call(this);
   }
 
-  /** Navigate to a specific thread in the history viewer */
   async navigateHistoryThread(index) {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads || index < 0 || index >= entry.threads.length) return;
-
-    this.currentHistoryThreadIndex = index;
-    const resultEl = document.getElementById('aiHistoryResultContent');
-    if (resultEl) {
-      resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
-    }
-    this._renderHistoryPagination();
+    return this.aiLabFeature.history.navigateHistoryThread.call(this, index);
   }
 
-  /** Copy the current thread's answer from the history viewer */
   copyHistoryContent() {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads) return;
-    const thread = entry.threads[this.currentHistoryThreadIndex];
-    if (thread && thread.answer) {
-      navigator.clipboard.writeText(thread.answer);
-      this.showToast('Copied to clipboard!');
-    }
+    return this.aiLabFeature.history.copyHistoryContent.call(this);
   }
 
-  /** Start editing the AI history entry title */
   _startEditHistoryTitle() {
-    const entry = this.currentHistoryEntry;
-    if (!entry) return;
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
-    const titleInput = document.getElementById('aiHistoryTitleInput');
-    const editBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (!titleEl || !editContainer || !titleInput) return;
-    // Hide display title, show edit input
-    titleEl.style.display = 'none';
-    editContainer.style.display = 'flex';
-    if (editBtn) editBtn.style.display = 'none';
-    // Pre-fill with current title (strip icon prefix)
-    const rawTitle = entry.title || 'Untitled';
-    titleInput.value = rawTitle;
-    titleInput.focus();
-    titleInput.select();
+    return this.aiLabFeature.history._startEditHistoryTitle.call(this);
   }
 
-  /** Save the edited AI history entry title */
   async _saveEditHistoryTitle() {
-    const entry = this.currentHistoryEntry;
-    const titleInput = document.getElementById('aiHistoryTitleInput');
-    if (!entry || !titleInput) return;
-    const newTitle = titleInput.value.trim().substring(0, 60);
-    if (!newTitle) {
-      this.showToast('Title cannot be empty');
-      return;
-    }
-    // Update entry in memory and persist
-    entry.title = newTitle;
-    const idx = this.aiHistoryEntries.findIndex(e => e.id === entry.id);
-    if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
-    await this._persistAiHistory();
-    // Update displayed title
-    const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
-    this._cancelEditHistoryTitle();
-    this.renderAiHistoryList();
-    this.showToast('Title updated');
+    return this.aiLabFeature.history._saveEditHistoryTitle.call(this);
   }
 
-  /** Cancel editing the AI history entry title */
   _cancelEditHistoryTitle() {
-    const titleEl = document.getElementById('aiHistoryModalTitle');
-    const editContainer = document.getElementById('aiHistoryTitleEditContainer');
-    const editBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (titleEl) titleEl.style.display = '';
-    if (editContainer) editContainer.style.display = 'none';
-    if (editBtn) editBtn.style.display = '';
+    return this.aiLabFeature.history._cancelEditHistoryTitle.call(this);
   }
 
-  /** Continue a conversation from AI history — restores state and navigates to AI Lab */
   async continueHistoryConversation() {
-    const entry = this.currentHistoryEntry;
-    if (!entry || !entry.threads || entry.threads.length === 0) {
-      this.showToast('No conversation to continue');
-      return;
-    }
-
-    // Close the history modal
-    const modal = document.getElementById('aiHistoryModal');
-    if (modal) modal.style.display = 'none';
-
-    if (entry.type === 'summary') {
-      // Restore summary state
-      this.currentSummaryText = entry.originalText || '';
-      this.summaryThreads = entry.threads.map(t => ({
-        question: t.question || '',
-        answer: t.answer || '',
-        timestamp: t.timestamp || Date.now()
-      }));
-      this.currentSummaryThreadIndex = this.summaryThreads.length - 1;
-      this._activeSummaryHistoryId = entry.id;
-
-      // Navigate to AI Lab > Summary tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      const aiTab = document.querySelector('[data-tab="ai"]');
-      if (aiTab) aiTab.classList.add('active');
-      const aiTabEl = document.getElementById('aiTab');
-      if (aiTabEl) aiTabEl.classList.add('active');
-      this.currentTab = 'ai';
-
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
-      if (summarySubTab) summarySubTab.classList.add('active');
-      const summarySection = document.getElementById('aiSummarySection');
-      if (summarySection) summarySection.classList.add('active');
-      this._currentAiLabSubTab = 'summary';
-
-      // Show result section with last thread
-      this.showSummarySection('result');
-      const lastThread = this.summaryThreads[this.currentSummaryThreadIndex];
-      const summaryContent = document.getElementById('summaryResultContent');
-      if (summaryContent && lastThread) {
-        summaryContent.innerHTML = await this._renderAiResponse(lastThread.answer);
-      }
-
-      // Show follow-up container
-      const followupContainer = document.getElementById('summaryFollowupContainer');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Render pagination if multiple threads
-      if (this.summaryThreads.length >= 2) {
-        this.renderThreadPagination('summary');
-      }
-
-      // Persist
-      this._currentSummarySection = 'result';
-      this._saveSummaryState();
-      this._saveActiveTabState();
-      this.showToast('Conversation restored — ask a follow-up!');
-
-    } else if (entry.type === 'breakdown') {
-      // Restore breakdown state
-      this.currentBreakdownText = entry.originalText || '';
-      this.breakdownThreads = entry.threads.map(t => ({
-        question: t.question || '',
-        answer: t.answer || '',
-        level: t.level || null,
-        timestamp: t.timestamp || Date.now()
-      }));
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-      this._activeBreakdownHistoryId = entry.id;
-      this.currentBreakdownLevel = entry.threads[0]?.level || null;
-
-      // Navigate to AI Lab > Breakdown tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      const aiTab = document.querySelector('[data-tab="ai"]');
-      if (aiTab) aiTab.classList.add('active');
-      const aiTabEl = document.getElementById('aiTab');
-      if (aiTabEl) aiTabEl.classList.add('active');
-      this.currentTab = 'ai';
-
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      const breakdownSubTab = document.querySelector('[data-ai-tab="breakdown"]');
-      if (breakdownSubTab) breakdownSubTab.classList.add('active');
-      const breakdownSection = document.getElementById('aiBreakdownSection');
-      if (breakdownSection) breakdownSection.classList.add('active');
-      this._currentAiLabSubTab = 'breakdown';
-
-      // Open the breakdown modal with the last thread content
-      const breakdownModal = document.getElementById('breakdownModal');
-      if (breakdownModal) breakdownModal.style.display = 'flex';
-
-      // Populate the original text box (was missing — caused blank display)
-      const breakdownOriginalText = document.getElementById('breakdownOriginalText');
-      if (breakdownOriginalText) {
-        breakdownOriginalText.textContent = this.currentBreakdownText;
-      }
-      const breakdownTextLength = document.getElementById('breakdownTextLength');
-      if (breakdownTextLength && this.currentBreakdownText) {
-        const wordCount = this.currentBreakdownText.trim().split(/\s+/).length;
-        breakdownTextLength.textContent = `${wordCount} words`;
-      }
-
-      const resultEl = document.getElementById('breakdownResult');
-      const lastThread = this.breakdownThreads[this.currentBreakdownThreadIndex];
-      if (resultEl && lastThread) {
-        resultEl.innerHTML = await this._renderAiResponse(lastThread.answer);
-      }
-
-      // Show follow-up container
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      if (followupContainer) followupContainer.style.display = 'block';
-
-      // Render pagination if multiple threads
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Persist
-      this._saveBreakdownModalState();
-      this._saveActiveTabState();
-      this.showToast('Conversation restored — ask a follow-up!');
-    }
+    return this.aiLabFeature.history.continueHistoryConversation.call(this);
   }
 
   /** Delete all AI history entries */
   async clearAllAiHistory() {
-    this.aiHistoryEntries = [];
-    this._activeBreakdownHistoryId = null;
-    this._activeSummaryHistoryId = null;
-    await this._persistAiHistory();
-    this.renderAiHistoryList();
-    this.showToast('AI history cleared');
+    return this.aiLabFeature.history.clearAllAiHistory.call(this);
   }
 
-  // ==================== NOTES SYSTEM ====================
-  
   async loadNotes() {
-    await this._ensureIndexedDbReadyAndMigrate();
-    let {
-      notes = [],
-      notesViewMode = 'notes',
-      notesPageIndex = 0,
-      notesAiEnabled = false
-    } = await chrome.storage.local.get(['notes', 'notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
-    if (this._idbReady && this.idb) {
-      const idbNotes = await this.idb.getAllPayloads('notes');
-      // Prefer IDB if it has data (handles Chrome storage quota exceeded case)
-      // Use whichever source has more notes to handle partial saves
-      if (Array.isArray(idbNotes) && idbNotes.length >= (notes?.length || 0)) {
-        notes = idbNotes;
-      }
-    }
-
-    // ── DEMO SEED: 2 notes + 2 albums (PC 1.0 release) ──
-    // Starter examples to showcase Notes & Albums. Users should delete them.
-    if (notes.length === 0) {
-      const now = Date.now();
-      const N1 = now - 400000;
-      const N2 = now - 300000;
-      const A1 = now - 200000;
-      const A2 = now - 100000;
-
-      notes = [
-        // ── NOTE 1: Welcome to PasteCraft ──
-        {
-          id: N1, type: 'note',
-          title: 'Welcome to PasteCraft',
-          description: 'Getting started guide — delete anytime',
-          body: 'PasteCraft auto-detects 20+ markup languages including Markdown, LaTeX, Mermaid diagrams, and code with syntax highlighting. Copy anything and it renders automatically!\n\nTry the preset categories to organize your clips, or create your own.',
-          clips: [
-            { type: 'clip', id: now - 399000, text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** These are examples — delete them anytime!', addedDate: now - 399000 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 398000, url: 'https://pastecraft.com/docs', title: 'PasteCraft Documentation', addedDate: now - 398000 }
-          ],
-          createdAt: N1, updatedAt: N1
-        },
-        // ── NOTE 2: Meeting Notes Template ──
-        {
-          id: N2, type: 'note',
-          title: 'Meeting Notes Template',
-          description: 'Reusable meeting template — delete anytime',
-          body: 'Use this as a starting point for meeting notes. Attach clips, links, and images to keep everything in one place.',
-          clips: [
-            { type: 'clip', id: now - 299000, text: '# Meeting Notes — [Date]\n\n**Attendees:** [names]\n**Agenda:**\n1. Status updates\n2. Blockers\n3. Action items\n\n## Notes\n- \n\n## Action Items\n- [ ] [Owner] — [Task] — Due: [Date]', addedDate: now - 299000 }
-          ],
-          images: [],
-          urls: [],
-          createdAt: N2, updatedAt: N2
-        },
-        // ── ALBUM 1: Developer Toolkit ──
-        {
-          id: A1, type: 'album',
-          title: 'Developer Toolkit',
-          description: 'Code snippets & diagram references — delete anytime',
-          body: 'A collection of useful developer clips. Albums group related notes together for quick access.',
-          clips: [
-            { type: 'clip', id: now - 199000, text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', addedDate: now - 199000 },
-            { type: 'clip', id: now - 198000, text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', addedDate: now - 198000 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 197000, url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript', title: 'MDN Web Docs', addedDate: now - 197000 }
-          ],
-          noteRefs: [N1],
-          sourceNoteIds: [N1],
-          createdAt: A1, updatedAt: A1
-        },
-        // ── ALBUM 2: Research & References ──
-        {
-          id: A2, type: 'album',
-          title: 'Research & References',
-          description: 'Formulas, links & templates — delete anytime',
-          body: 'Collect research materials in albums. Group notes, clips, and links for any project or topic.',
-          clips: [
-            { type: 'clip', id: now - 99000, text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', addedDate: now - 99000 }
-          ],
-          images: [],
-          urls: [
-            { type: 'url', id: now - 98000, url: 'https://www.overleaf.com/learn/latex/Mathematical_expressions', title: 'Overleaf - LaTeX Math Guide', addedDate: now - 98000 },
-            { type: 'url', id: now - 97000, url: 'https://mermaid.js.org/intro/', title: 'Mermaid Docs', addedDate: now - 97000 }
-          ],
-          noteRefs: [N2],
-          sourceNoteIds: [N2],
-          createdAt: A2, updatedAt: A2
-        }
-      ];
-      await chrome.storage.local.set({ notes });
-      console.log('🧪 Seeded 2 notes + 2 albums (PC 1.0)');
-    }
-    // ── END DEMO SEED ──
-
-    this.notes = notes;
-    if (this._idbReady && this.idb) {
-      await this.idb.syncEntityFromLocalStorage('notes', this.notes);
-    }
-    this.notesViewMode = notesViewMode;
-    this.notesPageIndex = typeof notesPageIndex === 'number' ? notesPageIndex : 0;
-    this.notesAiEnabled = !!notesAiEnabled;
-
-    const viewAlbumsBtn = document.getElementById('viewAlbumsBtn');
-    if (viewAlbumsBtn) viewAlbumsBtn.classList.toggle('active', this.notesViewMode === 'albums');
-    const notesAiToggle = document.getElementById('notesAiToggle');
-    if (notesAiToggle) notesAiToggle.checked = this.notesAiEnabled;
-
-    // Initialize tiered storage for notes (non-blocking)
-    this._initializeTieredNotesStorage().catch(e => {
-      console.warn('Notes tiered storage initialization failed:', e);
-    });
-
-    console.log(`📝 Loaded ${notes.length} notes`);
-    return notes;
+    return this.notesFeature.service.loadNotes(this);
   }
 
-  /**
-   * Initialize tiered storage for notes and get remote count
-   * @private
-   */
   async _initializeTieredNotesStorage() {
-    if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
-      return;
-    }
-
-    try {
-      this.tieredNotesStore = tieredStorageManager.getStore('notes', {
-        pageSize: 6, // Grid view page size
-        localStorageKey: 'notes',
-        supabaseTable: 'notes',
-        timestampField: 'updated_at'
-      });
-      await this.tieredNotesStore.initialize();
-      this.tieredNotesStore.localCount = this.notes.length;
-
-      // Get remote count if authenticated
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const notesCount = await pasteCraftSupabase.getNotesCount().catch(() => 0);
-        this.totalNotesCount = Math.max(notesCount, this.notes.length);
-        this.tieredNotesStore.totalCount = this.totalNotesCount;
-        console.log(`📝 Notes tiered storage: ${this.notes.length} local, ${this.totalNotesCount} total`);
-      } else {
-        this.totalNotesCount = this.notes.length;
-      }
-    } catch (e) {
-      console.warn('Failed to initialize notes tiered storage:', e);
-      this.totalNotesCount = this.notes.length;
-    }
+    return this.notesFeature.service.initializeTieredNotesStorage(this);
   }
 
   /**
@@ -13943,2797 +8416,140 @@ class PasteCraftPopup {
   }
 
   _getNoteContentForHash(note) {
-    if (!note) return '';
-    const title = String(note.title || '').trim();
-    const description = String(note.description || '').trim();
-    const body = String(note.body || '').trim();
-    return `${title}|${description}|${body}`.toLowerCase();
+    return this.notesFeature.service.getNoteContentForHash(note);
   }
 
   async saveNotes() {
-    // Use CRUD utility for reliable notes save with retry and verification
-    const snapshot = PasteCraftCRUD.createSnapshot(this.notes);
-    let savedToIdbOnly = false;
-    
-    try {
-      // Try Chrome storage first
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({ notes: this.notes });
-        });
-      } catch (storageError) {
-        // Check if quota exceeded - fallback to IDB only
-        const isQuotaError = storageError?.message?.includes('QUOTA') || 
-                            chrome.runtime.lastError?.message?.includes('QUOTA') ||
-                            storageError?.message?.includes('quota');
-        if (isQuotaError && this._idbReady && this.idb) {
-          console.warn('⚠️ Chrome storage quota exceeded, using IndexedDB only for notes');
-          savedToIdbOnly = true;
-        } else {
-          throw storageError;
-        }
-      }
-
-      // Always sync to IDB (primary storage for large data)
-      if (this._idbReady && this.idb) {
-        await this.idb.syncEntityFromLocalStorage('notes', this.notes);
-      }
-
-      // Verification: check IDB if Chrome storage failed, otherwise check Chrome storage
-      if (savedToIdbOnly) {
-        if (this._idbReady && this.idb) {
-          const idbNotes = await this.idb.getAllPayloads('notes');
-          if (!Array.isArray(idbNotes) || idbNotes.length !== this.notes.length) {
-            throw new Error('Verification failed: IDB notes count mismatch');
-          }
-        }
-      } else {
-        const verification = await chrome.storage.local.get(['notes']);
-        const verifiedNotes = Array.isArray(verification.notes) ? verification.notes : [];
-        if (verifiedNotes.length !== this.notes.length) {
-          throw new Error('Verification failed: notes count mismatch');
-        }
-      }
-
-      console.log(`💾 Saved ${this.notes.length} notes${savedToIdbOnly ? ' (IDB only - quota exceeded)' : ''}`);
-    } catch (error) {
-      // Rollback on failure
-      console.error('❌ Notes save failed, rolling back:', error);
-      this.notes = snapshot;
-      try {
-        await chrome.storage.local.set({ notes: this.notes });
-      } catch (_) {
-        // Ignore quota error on rollback, IDB has the data
-      }
-      if (this._idbReady && this.idb) {
-        await this.idb.syncEntityFromLocalStorage('notes', this.notes);
-      }
-      throw error;
-    }
+    return this.notesFeature.service.saveNotes(this);
   }
 
   async saveNotesPrefs() {
-    await chrome.storage.local.set({
-      notesViewMode: this.notesViewMode,
-      notesPageIndex: this.notesPageIndex,
-      notesAiEnabled: this.notesAiEnabled
-    });
+    return this.notesFeature.service.saveNotesPrefs(this);
   }
 
   renderNotes() {
-    const container = document.getElementById('notesContainer');
-    const paginationEl = document.getElementById('notesPagination');
-    const isListView = !!container?.classList?.contains('list-view');
-    
-    const allNotes = Array.isArray(this.notes) ? this.notes : [];
-    // Filter by search query if present
-    const searchInput = document.getElementById('notesSearchInput');
-    const searchQuery = (searchInput ? searchInput.value.trim().toLowerCase() : '');
-    const filtered = searchQuery
-      ? allNotes.filter(n => {
-          const title = (n.title || '').toLowerCase();
-          const desc = (n.description || '').toLowerCase();
-          const type = (n.type || '').toLowerCase();
-          return title.includes(searchQuery) || desc.includes(searchQuery) || type.includes(searchQuery);
-        })
-      : allNotes;
-
-    // Use total count for pagination when not searching
-    const totalNotes = searchQuery ? filtered.length : Math.max(this.totalNotesCount || 0, filtered.length);
-
-    if (totalNotes === 0) {
-      if (searchQuery) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon"><i data-lucide="search"></i></div>
-            <h3>No results found</h3>
-            <p>No notes or albums match "<strong>${this.escapeHtml(searchQuery)}</strong>"</p>
-          </div>
-        `;
-      } else {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon"><i data-lucide="notebook-pen"></i></div>
-            <h3>No notes yet</h3>
-            <p>Create a note or album to bundle your clips, images, and URLs</p>
-            <div class="demo-hint">
-              <span class="demo-step">📝 Take notes</span>
-              <span class="demo-step">📚 Create albums</span>
-              <span class="demo-step">📤 Export to PDF</span>
-            </div>
-          </div>
-        `;
-      }
-      if (paginationEl) paginationEl.style.display = 'none';
-      return;
-    }
-
-    // Pagination: list shows 3; grid shows 6 (2 columns × 3 rows)
-    const pageSize = isListView ? 3 : 6;
-    const pageCount = Math.max(1, Math.ceil(totalNotes / pageSize));
-    if (this.notesPageIndex < 0) this.notesPageIndex = 0;
-    if (this.notesPageIndex > pageCount - 1) this.notesPageIndex = pageCount - 1;
-    const start = this.notesPageIndex * pageSize;
-
-    // Check if we need lazy loading (beyond local data and not searching)
-    if (!searchQuery && start >= filtered.length && this.tieredNotesStore?.needsLazyLoading()) {
-      this._lazyLoadNotesPage(start, pageSize, container, paginationEl, pageCount);
-      return;
-    }
-
-    const pageItems = filtered.slice(start, Math.min(start + pageSize, filtered.length));
-
-    container.innerHTML = pageItems.map(note => {
-      const noteRefCount = note.type === 'album' ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0) : 0;
-      const clipCount = note.type === 'album' ? 0 : (note.clips?.length || 0);
-      const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
-      const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
-      const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
-      const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
-      const typeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
-      const date = new Date(note.createdAt).toLocaleDateString();
-      const safeTitle = (note.title || '').trim();
-      const safeDesc = (note.description || '').trim();
-      const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
-
-      const sendToAlbumBtn = note.type !== 'album'
-        ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><i data-lucide="folder-plus"></i></button>`
-        : '';
-      
-      return `
-        <div class="${cardClass}" data-note-id="${note.id}">
-          <div class="note-card-header">
-            <span class="note-card-type"><i data-lucide="${typeIcon}"></i></span>
-            <div class="note-card-actions">
-              <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil"></i></button>
-              ${sendToAlbumBtn}
-              <button class="note-action-btn export-note" data-note-id="${note.id}" title="Export"><i data-lucide="download"></i></button>
-              <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><i data-lucide="trash-2"></i></button>
-            </div>
-          </div>
-          <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
-          <p class="note-card-description">${this.escapeHtml(safeDesc)}</p>
-          <div class="note-card-meta">
-            <div class="note-card-count">
-              ${note.type === 'album' && noteRefCount > 0 ? `<span><i data-lucide="notebook"></i> ${noteRefCount}</span>` : ''}
-              ${clipCount > 0 ? `<span><i data-lucide="clipboard"></i> ${clipCount}</span>` : ''}
-              ${imageCount > 0 ? `<span><i data-lucide="image"></i> ${imageCount}</span>` : ''}
-              ${urlCount > 0 ? `<span><i data-lucide="link"></i> ${urlCount}</span>` : ''}
-              ${totalItems === 0 ? '<span style="color: #9ca3af;">Empty</span>' : ''}
-            </div>
-            <span>${date}</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Render pagination controls (0..N-1)
-    if (paginationEl) {
-      if (pageCount <= 1) {
-        paginationEl.style.display = 'none';
-      } else {
-        paginationEl.style.display = 'flex';
-        paginationEl.innerHTML = Array.from({ length: pageCount }).map((_, idx) => {
-          const active = idx === this.notesPageIndex ? 'active' : '';
-          return `<button class="notes-page-btn ${active}" data-page="${idx}" title="Page ${idx}">${idx}</button>`;
-        }).join('');
-
-        paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const nextPage = parseInt(btn.dataset.page, 10);
-            if (!Number.isNaN(nextPage)) {
-              this.notesPageIndex = nextPage;
-              await this.saveNotesPrefs();
-              this.renderNotes();
-            }
-          });
-        });
-      }
-    }
-
-    // Add event listeners to note cards
-    container.querySelectorAll('.note-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        if (!e.target.closest('.note-action-btn')) {
-          const noteId = card.dataset.noteId;
-          this.openNoteViewer(noteId);
-        }
-      });
-    });
-
-    // Edit buttons
-    container.querySelectorAll('.edit-note').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.openNoteEditor('note', noteId);
-      });
-    });
-
-    // Export buttons
-    container.querySelectorAll('.export-note').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.exportNoteToPDF(noteId);
-      });
-    });
-
-    // Delete buttons
-    container.querySelectorAll('.delete-note').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.deleteNote(noteId);
-      });
-    });
-
-    // Send to Album buttons
-    container.querySelectorAll('.send-to-album-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        const note = this.notes.find(n => n.id == noteId);
-        if (note) {
-          this.pendingNoteForAlbum = note;
-          await this.loadNotes();
-          this.showAlbumPickerForNote();
-        }
-      });
-    });
+    return this.notesFeature.render.renderNotes(this);
   }
 
-  /**
-   * Lazy load a page of notes from Supabase
-   * @private
-   */
   async _lazyLoadNotesPage(startIndex, pageSize, container, paginationEl, pageCount) {
-    // Check if we're offline first
-    if (!navigator.onLine) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">📡</div>
-          <h3>You're offline</h3>
-          <p>Connect to the internet to view older notes</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.notesPageIndex = 0; window.pasteCraftPopup.renderNotes();">
-            Go to first page
-          </button>
-        </div>
-      `;
-      return;
-    }
-
-    // Show loading state
-    this._isLazyLoading = true;
-    container.innerHTML = `
-      <div class="lazy-load-indicator">
-        <div class="lazy-load-spinner"></div>
-        <p>Loading notes...</p>
-      </div>
-    `;
-    
-    // Render pagination while loading
-    if (paginationEl) {
-      paginationEl.style.display = 'flex';
-      paginationEl.innerHTML = Array.from({ length: pageCount }).map((_, idx) => {
-        const active = idx === this.notesPageIndex ? 'active' : '';
-        return `<button class="notes-page-btn ${active}" data-page="${idx}" title="Page ${idx}">${idx}</button>`;
-      }).join('');
-      
-      paginationEl.querySelectorAll('.notes-page-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const nextPage = parseInt(btn.dataset.page, 10);
-          if (!Number.isNaN(nextPage)) {
-            this.notesPageIndex = nextPage;
-            await this.saveNotesPrefs();
-            this.renderNotes();
-          }
-        });
-      });
-    }
-
-    try {
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const remoteNotes = await pasteCraftSupabase.fetchNotesPage(startIndex, pageSize);
-        
-        if (remoteNotes && remoteNotes.length > 0) {
-          // Render the remote notes using the same card template
-          const isListView = !!container?.classList?.contains('list-view');
-          container.innerHTML = remoteNotes.map(note => this._renderNoteCard(note)).join('');
-          
-          // Re-attach event listeners
-          this._attachNoteCardListeners(container);
-        } else {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-state-icon">📭</div>
-              <h3>No more notes</h3>
-              <p>You've reached the end of your notes</p>
-            </div>
-          `;
-        }
-      } else {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">☁️</div>
-            <h3>Sign in to view more</h3>
-            <p>Older notes are stored in the cloud</p>
-          </div>
-        `;
-      }
-    } catch (e) {
-      console.error('Failed to lazy load notes:', e);
-      const isNetworkError = e.message?.includes('network') || e.message?.includes('fetch') || !navigator.onLine;
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
-          <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
-          <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
-          <button class="btn-secondary" onclick="window.pasteCraftPopup.renderNotes();">
-            Retry
-          </button>
-        </div>
-      `;
-    } finally {
-      this._isLazyLoading = false;
-    }
+    return this.notesFeature.service.lazyLoadNotesPage(this, { startIndex, pageSize, container, paginationEl, pageCount });
   }
 
-  /**
-   * Render a single note card HTML
-   * @private
-   */
   _renderNoteCard(note) {
-    const noteRefCount = note.type === 'album' ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0) : 0;
-    const clipCount = note.type === 'album' ? 0 : (note.clips?.length || 0);
-    const imageCount = note.type === 'album' ? 0 : (note.images?.length || 0);
-    const urlCount = note.type === 'album' ? 0 : (note.urls?.length || 0);
-    const totalItems = note.type === 'album' ? noteRefCount : (clipCount + imageCount + urlCount);
-    const cardClass = note.type === 'album' ? 'note-card album' : 'note-card';
-    const typeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
-    const date = new Date(note.createdAt).toLocaleDateString();
-    const safeTitle = (note.title || '').trim();
-    const safeDesc = (note.description || '').trim();
-    const displayTitle = safeTitle ? safeTitle : (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
-
-    const sendToAlbumBtn = note.type !== 'album'
-      ? `<button class="note-action-btn send-to-album-btn" data-note-id="${note.id}" title="Send/Create Album"><i data-lucide="folder-plus"></i></button>`
-      : '';
-    
-    return `
-      <div class="${cardClass}" data-note-id="${note.id}">
-        <div class="note-card-header">
-          <span class="note-card-type"><i data-lucide="${typeIcon}"></i></span>
-          <div class="note-card-actions">
-            <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil"></i></button>
-            <button class="note-action-btn export-note-pdf" data-note-id="${note.id}" title="Export to PDF"><i data-lucide="file-down"></i></button>
-            ${sendToAlbumBtn}
-            <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><i data-lucide="trash-2"></i></button>
-          </div>
-        </div>
-        <h4 class="note-card-title">${this.escapeHtml(displayTitle)}</h4>
-        <p class="note-card-description">${safeDesc ? this.escapeHtml(safeDesc) : '<em>No description</em>'}</p>
-        <div class="note-card-footer">
-          <span class="note-card-date">${date}</span>
-          <span class="note-card-count">${totalItems} item${totalItems !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-    `;
+    return this.notesFeature.render.renderNoteCard(note, this);
   }
 
-  /**
-   * Attach event listeners to note cards
-   * @private
-   */
   _attachNoteCardListeners(container) {
-    // Note card click -> open viewer
-    container.querySelectorAll('.note-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        if (!e.target.closest('.note-action-btn')) {
-          const noteId = card.dataset.noteId;
-          this.openNoteViewer(noteId);
-        }
-      });
-    });
-
-    // Edit buttons
-    container.querySelectorAll('.edit-note').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.openNoteEditor(noteId);
-      });
-    });
-
-    // Export to PDF buttons
-    container.querySelectorAll('.export-note-pdf').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.exportNoteToPDF(noteId);
-      });
-    });
-
-    // Delete buttons
-    container.querySelectorAll('.delete-note').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        this.deleteNote(noteId);
-      });
-    });
-
-    // Send to Album buttons
-    container.querySelectorAll('.send-to-album-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const noteId = btn.dataset.noteId;
-        const note = this.notes.find(n => n.id == noteId);
-        if (note) {
-          this.pendingNoteForAlbum = note;
-          await this.loadNotes();
-          this.showAlbumPickerForNote();
-        }
-      });
-    });
+    return this.notesFeature.render.attachNoteCardListeners(this, container);
   }
 
   updateNoteAiControls() {
-    const aiTitleBtn = document.getElementById('aiTitleBtn');
-    const aiDescBtn = document.getElementById('aiDescBtn');
-    const bodyInput = document.getElementById('noteBodyInput');
-
-    if (!aiTitleBtn || !aiDescBtn || !bodyInput) return;
-
-    const hasContent = !!bodyInput.value.trim();
-    const shouldShow = !!this.notesAiEnabled;
-
-    aiTitleBtn.style.display = shouldShow ? 'inline-flex' : 'none';
-    aiDescBtn.style.display = shouldShow ? 'inline-flex' : 'none';
-
-    aiTitleBtn.disabled = !hasContent;
-    aiDescBtn.disabled = !hasContent;
+    return this.notesFeature.render.updateNoteAiControls(this);
   }
 
   async generateNoteTitleFromContent() {
-    const bodyInput = document.getElementById('noteBodyInput');
-    const titleInput = document.getElementById('noteTitleInput');
-    const aiTitleBtn = document.getElementById('aiTitleBtn');
-    if (!bodyInput || !titleInput || !aiTitleBtn) return;
-
-    const content = bodyInput.value.trim();
-    if (!content) {
-      this.showToast('Add content first');
-      this.updateNoteAiControls();
-      return;
-    }
-
-    // Premium check (reuse Summary gating)
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-      return;
-    }
-
-    try {
-      aiTitleBtn.disabled = true;
-      const question = 'Generate a short note title (max 6 words). Return ONLY the title, no quotes.';
-      const result = await pasteCraftSupabase.generateSummary(content.substring(0, 3000), question);
-      const cleaned = (result || '').trim().replace(/^["'“”]+|["'“”]+$/g, '');
-      if (cleaned) titleInput.value = cleaned;
-      this.showToast('Title generated');
-    } catch (e) {
-      console.error('Failed to generate title:', e);
-      this.showToast('Failed to generate title');
-    } finally {
-      aiTitleBtn.disabled = false;
-      this.updateNoteAiControls();
-    }
+    return this.notesFeature.editor.generateNoteTitleFromContent(this);
   }
 
   async generateNoteDescriptionFromContent() {
-    const bodyInput = document.getElementById('noteBodyInput');
-    const descInput = document.getElementById('noteDescriptionInput');
-    const aiDescBtn = document.getElementById('aiDescBtn');
-    if (!bodyInput || !descInput || !aiDescBtn) return;
-
-    const content = bodyInput.value.trim();
-    if (!content) {
-      this.showToast('Add content first');
-      this.updateNoteAiControls();
-      return;
-    }
-
-    // Premium check (reuse Summary gating)
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-      return;
-    }
-
-    try {
-      aiDescBtn.disabled = true;
-      const question = 'Generate a one-sentence description for this note (max 140 characters). Return ONLY the description.';
-      const result = await pasteCraftSupabase.generateSummary(content.substring(0, 3000), question);
-      const cleaned = (result || '').trim().replace(/^["'“”]+|["'“”]+$/g, '');
-      if (cleaned) descInput.value = cleaned;
-      this.showToast('Description generated');
-    } catch (e) {
-      console.error('Failed to generate description:', e);
-      this.showToast('Failed to generate description');
-    } finally {
-      aiDescBtn.disabled = false;
-      this.updateNoteAiControls();
-    }
+    return this.notesFeature.editor.generateNoteDescriptionFromContent(this);
   }
 
   openNoteEditor(type = 'note', noteId = null, showBack = false) {
-    this.currentNoteType = type;
-    this.currentNoteId = noteId;
-    this.currentNoteAttachments = [];
-
-    const modal = document.getElementById('noteEditorModal');
-    const titleInput = document.getElementById('noteTitleInput');
-    const descInput = document.getElementById('noteDescriptionInput');
-    const bodyInput = document.getElementById('noteBodyInput');
-    const attachmentsList = document.getElementById('noteAttachmentsList');
-    const attachmentsSection = document.getElementById('noteEditorAttachmentsSection');
-    const editorType = document.getElementById('noteEditorType');
-    const aiToggle = document.getElementById('notesAiToggle');
-    const saveBtn = document.getElementById('saveNote');
-
-    // Show/hide back button
-    if (showBack) {
-      this.showBackToAlbumPicker();
-    } else {
-      this.hideBackToAlbumPicker();
-    }
-
-    if (noteId) {
-      // Edit existing note
-      const note = this.notes.find(n => n.id == noteId);
-      if (note) {
-        this.currentNoteType = note.type;
-        titleInput.value = note.title;
-        descInput.value = note.description;
-        bodyInput.value = note.body;
-        this.currentNoteAttachments = note.type === 'album'
-          ? []
-          : [
-              ...(note.clips || []),
-              ...(note.images || []),
-              ...(note.urls || [])
-            ];
-        editorType.textContent = note.type === 'album' ? 'Edit Album' : 'Edit Note';
-      }
-    } else {
-      // New note
-      titleInput.value = '';
-      descInput.value = '';
-      bodyInput.value = '';
-      this.currentNoteAttachments = [];
-      editorType.textContent = type === 'album' ? 'New Album' : 'New Note';
-    }
-
-    // Set AI toggle state
-    if (aiToggle) aiToggle.checked = this.notesAiEnabled;
-
-    // Albums do not take attachments
-    if (attachmentsSection) attachmentsSection.style.display = this.currentNoteType === 'album' ? 'none' : 'block';
-    if (saveBtn) saveBtn.textContent = this.currentNoteType === 'album' ? 'Save Album' : 'Save Note';
-
-    if (this.currentNoteType !== 'album') {
-      this.renderNoteAttachments();
-    } else if (attachmentsList) {
-      attachmentsList.innerHTML = '';
-    }
-    this.updateNoteAiControls();
-    modal.style.display = 'flex';
+    return this.notesFeature.editor.openNoteEditor(this, type, noteId, showBack);
   }
 
   closeNoteEditor() {
-    document.getElementById('noteEditorModal').style.display = 'none';
-    this.currentNoteId = null;
-    this.currentNoteType = 'note';
-    this.currentNoteAttachments = [];
-    this.hideBackToAlbumPicker();
+    return this.notesFeature.editor.closeNoteEditor(this);
   }
 
   renderNoteAttachments() {
-    const attachmentsList = document.getElementById('noteAttachmentsList');
-    
-    if (this.currentNoteAttachments.length === 0) {
-      attachmentsList.innerHTML = '<p style="text-align: center; color: #9ca3af; font-size: 13px;">No attachments yet</p>';
-      return;
-    }
-
-    attachmentsList.innerHTML = this.currentNoteAttachments.map((att, index) => {
-      const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
-      const text = att.type === 'url' ? att.url : att.text?.substring(0, 50) + '...';
-      const date = att.addedDate ? new Date(att.addedDate).toLocaleDateString() : '';
-
-      return `
-        <div class="attachment-item">
-          <div class="attachment-info">
-            <span>${icon}</span>
-            <span class="attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(text)}</span>
-            ${date ? `<span class="attachment-date">${date}</span>` : ''}
-          </div>
-          <button class="attachment-remove" data-index="${index}">✕</button>
-        </div>
-      `;
-    }).join('');
-
-    // Add remove handlers
-    attachmentsList.querySelectorAll('.attachment-remove').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const index = parseInt(btn.dataset.index);
-        this.currentNoteAttachments.splice(index, 1);
-        this.renderNoteAttachments();
-      });
-    });
+    return this.notesFeature.render.renderNoteAttachments(this);
   }
 
   async saveNote() {
-    const isUpdate = !!this.currentNoteId;
-    const title = document.getElementById('noteTitleInput').value.trim();
-    const description = document.getElementById('noteDescriptionInput').value.trim();
-    const body = document.getElementById('noteBodyInput').value.trim();
-
-    const existing = this.currentNoteId ? this.notes.find(n => n.id == this.currentNoteId) : null;
-    const noteData = {
-      id: this.currentNoteId || Date.now(),
-      type: this.currentNoteType,
-      title,
-      description,
-      body,
-      ...(this.currentNoteType === 'album'
-        ? { noteRefs: Array.isArray(existing?.noteRefs) ? existing.noteRefs : [] }
-        : {
-            clips: this.currentNoteAttachments.filter(a => a.type === 'clip'),
-            images: this.currentNoteAttachments.filter(a => a.type === 'image'),
-            urls: this.currentNoteAttachments.filter(a => a.type === 'url')
-          }),
-      createdAt: this.currentNoteId ? (this.notes.find(n => n.id == this.currentNoteId)?.createdAt || Date.now()) : Date.now(),
-      updatedAt: Date.now()
-    };
-
-    if (this.currentNoteId) {
-      // Update existing note
-      const index = this.notes.findIndex(n => n.id == this.currentNoteId);
-      if (index !== -1) {
-        this.notes[index] = noteData;
-      }
-    } else {
-      // Add new note
-      this.notes.unshift(noteData);
-      // Always jump to first page so the newly created note appears immediately (top-left in grid)
-      this.notesPageIndex = 0;
-    }
-
-    // If this note is included in any albums, refresh those albums immediately.
-    if (noteData.type !== 'album') {
-      this.refreshAlbumsForNote(noteData);
-    }
-
-    await this.saveNotes();
-    await this.saveNotesPrefs();
-    this.renderNotes();
-    this.closeNoteEditor();
-
-    // If album was created from the picker, re-open picker so user can continue
-    if (this.createdFromPicker) {
-      this.createdFromPicker = false;
-      this.showAlbumPicker();
-    }
-
-    this.showToast(isUpdate ? 'Note updated!' : 'Note created!');
-
-    try {
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue('syncNotes', this.notes, pasteCraftSupabase.syncNotesToSupabase))
-        .catch(() => {});
-    } catch (_) {
-      // ignore
-    }
+    return this.notesFeature.editor.saveNote(this);
   }
 
   refreshAlbumsForNote(sourceNote) {
-    if (!sourceNote || sourceNote.type === 'album') return;
-
-    const sourceNoteId = sourceNote.id;
-    const safeTitle = (sourceNote.title || '').trim();
-    const displayTitle = safeTitle ? safeTitle : 'Untitled Note';
-    const bodyPrefix = `[From: ${displayTitle}]`;
-
-    const sourceAttachmentIds = new Set();
-    (sourceNote.clips || []).forEach(c => {
-      if (c && c.id != null) sourceAttachmentIds.add(c.id);
-    });
-    (sourceNote.urls || []).forEach(u => {
-      if (u && u.id != null) sourceAttachmentIds.add(u.id);
-    });
-    (sourceNote.images || []).forEach(i => {
-      if (i && i.id != null) sourceAttachmentIds.add(i.id);
-    });
-
-    const updatedAlbumIds = new Set();
-
-    const containsSourceNoteId = (arr) =>
-      Array.isArray(arr) && arr.some(x => x && x.sourceNoteId == sourceNoteId);
-    const containsAnySourceAttachmentId = (arr) =>
-      Array.isArray(arr) && arr.some(x => x && sourceAttachmentIds.has(x.id));
-
-    for (const album of (this.notes || [])) {
-      if (!album || album.type !== 'album') continue;
-
-      const isLinked =
-        containsSourceNoteId(album.clips) ||
-        containsSourceNoteId(album.urls) ||
-        containsSourceNoteId(album.images) ||
-        containsAnySourceAttachmentId(album.clips) ||
-        containsAnySourceAttachmentId(album.urls) ||
-        containsAnySourceAttachmentId(album.images);
-
-      if (!isLinked) continue;
-
-      if (!Array.isArray(album.clips)) album.clips = [];
-      if (!Array.isArray(album.urls)) album.urls = [];
-      if (!Array.isArray(album.images)) album.images = [];
-
-      // Remove previous synced items for this note (tagged items) and best-effort cleanup for legacy (id match / body prefix).
-      album.clips = album.clips.filter(c => {
-        if (!c) return false;
-        if (c.sourceNoteId == sourceNoteId) return false;
-        if (sourceAttachmentIds.has(c.id)) return false;
-        if (typeof c.text === 'string' && c.text.startsWith(bodyPrefix)) return false;
-        return true;
-      });
-      album.urls = album.urls.filter(u => {
-        if (!u) return false;
-        if (u.sourceNoteId == sourceNoteId) return false;
-        if (sourceAttachmentIds.has(u.id)) return false;
-        return true;
-      });
-      album.images = album.images.filter(i => {
-        if (!i) return false;
-        if (i.sourceNoteId == sourceNoteId) return false;
-        if (sourceAttachmentIds.has(i.id)) return false;
-        return true;
-      });
-
-      // Re-copy current note content into album with tagging.
-      const now = Date.now();
-      if (sourceNote.body && sourceNote.body.trim()) {
-        album.clips.push({
-          type: 'clip',
-          id: now + Math.random(),
-          text: `${bodyPrefix}\n\n${sourceNote.body}`,
-          addedDate: now,
-          sourceNoteId
-        });
-      }
-
-      if (sourceNote.clips?.length > 0) {
-        album.clips.push(...sourceNote.clips.map(c => ({
-          ...c,
-          addedDate: now,
-          sourceNoteId
-        })));
-      }
-
-      if (sourceNote.urls?.length > 0) {
-        album.urls.push(...sourceNote.urls.map(u => ({
-          ...u,
-          addedDate: now,
-          sourceNoteId
-        })));
-      }
-
-      if (sourceNote.images?.length > 0) {
-        album.images.push(...sourceNote.images.map(i => ({
-          ...i,
-          addedDate: now,
-          sourceNoteId
-        })));
-      }
-
-      album.updatedAt = now;
-      if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
-      if (!album.sourceNoteIds.includes(sourceNoteId)) album.sourceNoteIds.push(sourceNoteId);
-
-      updatedAlbumIds.add(album.id);
-    }
-
-    if (this.currentViewerNoteId && updatedAlbumIds.has(this.currentViewerNoteId)) {
-      this.openNoteViewer(this.currentViewerNoteId);
-    }
-  }
-
-  async deleteNote(noteId) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
-
-    const confirmed = confirm(`Delete "${note.title}"?`);
-    if (!confirmed) return;
-
-    return await PasteCraftCRUD.deleteOperation({
-      entityId: noteId,
-      entityName: note.title,
-      entityType: 'note',
-      stateGetter: () => ({ notes: this.notes }),
-      stateSetter: async (newState) => {
-        this.notes = newState.notes;
-      },
-      stateKeys: ['notes'],
-      validator: (entity, state) => {
-        const exists = Array.isArray(state.notes) && state.notes.some(n => n.id == entity.id);
-        return { valid: exists, error: exists ? null : 'Note not found' };
-      },
-      idempotencyCheck: (entityId, state) => {
-        return !Array.isArray(state.notes) || !state.notes.some(n => n.id == entityId);
-      },
-      storageKeys: ['notes'],
-      storageWriter: async (data) => {
-        await chrome.storage.local.set(data);
-      },
-      deleteFromArray: (items, entityId) => items.filter(n => n.id != entityId),
-      updateRelatedEntities: (state, entity) => {
-        // No related entities to update for notes
-      },
-      verifier: async (entityId) => {
-        const verification = await chrome.storage.local.get(['notes']);
-        const notes = Array.isArray(verification.notes) ? verification.notes : [];
-        return !notes.some(n => n.id == entityId);
-      },
-      uiUpdater: () => {
-        this.renderNotes();
-      },
-      backgroundSync: async (entity, deletedAt) => {
-        // Tombstone already recorded by deleteOperation (tombstoneStorageKey).
-        await pasteCraftSupabase.syncWithQueue('syncDeletedNotes', [{
-          ...note,
-          deletedAt,
-          updatedAt: deletedAt
-        }], pasteCraftSupabase.syncDeletedNotesToSupabase);
-        await pasteCraftSupabase.syncWithQueue('syncNotes', this.notes, pasteCraftSupabase.syncNotesToSupabase);
-      },
-      successMessage: (entity) => `✅ Note "${entity.name}" deleted`,
-      errorMessage: (error) => `❌ Failed to delete note: ${error.message || 'Unknown error'}`,
-      showToast: (msg, type) => this.showToast(msg, type)
-    });
-  }
-
-  showClipPickerForNote() {
-    if (this.clips.length === 0 && this.searchOnlyClips.length === 0) {
-      this.showToast('No clips available. Create some clips first!');
-      return;
-    }
-
-    this.selectedPickerClips.clear();
-    this.updateClipPickerFooter();
-    
-    const modal = document.getElementById('clipPickerModal');
-    if (modal) {
-      modal.style.display = 'flex';
-      this.switchClipPickerTab('clips');
-      this.renderClipPickerRecentClips();
-    }
-  }
-
-  closeClipPicker() {
-    const modal = document.getElementById('clipPickerModal');
-    if (modal) {
-      modal.style.display = 'none';
-      this.selectedPickerClips.clear();
-    }
-  }
-
-  updateClipPickerFooter() {
-    const countEl = document.getElementById('clipPickerSelectionCount');
-    const addBtn = document.getElementById('clipPickerAddBtn');
-    
-    if (countEl) {
-      const count = this.selectedPickerClips.size;
-      countEl.textContent = count === 1 ? '1 selected' : `${count} selected`;
-    }
-    
-    if (addBtn) {
-      addBtn.disabled = this.selectedPickerClips.size === 0;
-    }
-  }
-
-  togglePickerClip(clipId, itemElement) {
-    const checkbox = itemElement.querySelector('.clip-picker-checkbox, .clip-picker-checkbox-sm, .search-checkbox, .category-checkbox');
-    
-    if (this.selectedPickerClips.has(clipId)) {
-      this.selectedPickerClips.delete(clipId);
-      itemElement.classList.remove('selected');
-      if (checkbox) checkbox.checked = false;
-    } else {
-      this.selectedPickerClips.add(clipId);
-      itemElement.classList.add('selected');
-      if (checkbox) checkbox.checked = true;
-    }
-    
-    this.updateClipPickerFooter();
-  }
-
-  normalizePickerText(text) {
-    return String(text || '').replace(/\s+/g, ' ').trim();
-  }
-
-  createPickerSearchRowHTML(clip) {
-    const category = clip.category || 'Uncategorized';
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const normalized = this.normalizePickerText(clip.text);
-    const truncatedText = normalized.length > 110 ? normalized.substring(0, 110) + '...' : normalized;
-    const isSelected = this.selectedPickerClips.has(clip.id);
-    const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
-    const selectedClass = isSelected ? 'selected' : '';
-    const addedClass = alreadyAdded ? 'already-added' : '';
-
-    return `
-      <div class="search-result-item ${selectedClass} ${addedClass}" data-clip-id="${clip.id}">
-        <input type="checkbox" class="search-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
-        <div class="search-result-content">
-          <div class="search-result-text">${this.escapeHtml(truncatedText)}</div>
-          <div class="search-result-meta">
-            <span class="search-result-category">${this.escapeHtml(category)}</span>
-            <span>${timeAgo}</span>
-            ${alreadyAdded ? '<span class="already-added-badge">✓ Added</span>' : ''}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  createPickerChipElement(clip) {
-    const chip = document.createElement('div');
-    chip.className = 'chip animate-slide-in';
-    chip.dataset.clipId = clip.id;
-
-    const timeAgo = this.getTimeAgo(clip.timestamp);
-    const normalized = this.normalizePickerText(clip.text);
-    const truncatedText = normalized.length > 30 ? normalized.substring(0, 30) + '...' : normalized;
-
-    const isSelected = this.selectedPickerClips.has(clip.id);
-    const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
-
-    const pMeta = (clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const pBadge = (typeof PCMarkup !== 'undefined') ? PCMarkup.getMarkupBadgeForClip(clip.text, pMeta) : '';
-
-    chip.innerHTML = `
-      <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
-      ${pBadge}
-      <span class="chip-text" title="${this.escapeHtml(normalized)}">${this.escapeHtml(truncatedText)}</span>
-      <span class="chip-time">${timeAgo}</span>
-      ${alreadyAdded ? '<span class="already-added-badge-sm">✓</span>' : ''}
-    `;
-
-    if (isSelected) chip.classList.add('selected');
-    if (alreadyAdded) chip.classList.add('already-added');
-
-    if (!alreadyAdded) {
-      const checkbox = chip.querySelector('.chip-checkbox');
-      checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.togglePickerClip(clip.id, chip);
-      });
-
-      chip.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('chip-checkbox')) {
-          this.togglePickerClip(clip.id, chip);
-        }
-      });
-    }
-
-    return chip;
-  }
-
-  attachPickerSearchRowHandlers(container) {
-    container.querySelectorAll('.search-result-item').forEach(item => {
-      const alreadyAdded = item.classList.contains('already-added');
-      if (alreadyAdded) return;
-
-      const checkbox = item.querySelector('.search-checkbox');
-      checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const clipId = item.dataset.clipId;
-        this.togglePickerClip(clipId, item);
-      });
-
-      item.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('search-checkbox')) {
-          const clipId = item.dataset.clipId;
-          this.togglePickerClip(clipId, item);
-        }
-      });
-    });
-  }
-
-  switchClipPickerTab(tabName) {
-    const contentIds = ['clipPickerClipsTab','clipPickerSearchTab','clipPickerCategoriesTab'];
-    const before = contentIds.map(id => {
-      const el = document.getElementById(id);
-      return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
-    });
-
-    document.querySelectorAll('.clip-picker-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.pickerTab === tabName);
-    });
-
-    document.querySelectorAll('.clip-picker-tab-content').forEach(content => {
-      content.classList.remove('active');
-      // Force hide to avoid CSS conflicts causing all panes to stay visible
-      content.style.display = 'none';
-    });
-
-    const targetContent = document.getElementById(`clipPicker${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Tab`);
-    if (targetContent) {
-      targetContent.classList.add('active');
-      // Force show target pane
-      targetContent.style.display = 'block';
-    }
-
-    const after = contentIds.map(id => {
-      const el = document.getElementById(id);
-      return {id,hasEl:!!el,active:!!el?.classList?.contains('active'),display:el?getComputedStyle(el).display:null};
-    });
-
-    if (tabName === 'clips') {
-      this.renderClipPickerRecentClips();
-    } else if (tabName === 'categories') {
-      this.renderClipPickerCategories();
-    } else if (tabName === 'search') {
-      const searchInput = document.getElementById('clipPickerSearchInput');
-      if (searchInput) searchInput.value = '';
-      this.renderClipPickerSearchResults([]);
-    }
-  }
-
-  renderClipPickerRecentClips() {
-    const container = document.getElementById('clipPickerRecentList');
-    if (!container) return;
-
-    const recentClips = this.clips.slice(0, 20);
-
-    if (recentClips.length === 0) {
-      container.innerHTML = `
-        <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon"><i data-lucide="clipboard"></i></div>
-          <p>No recent clips available</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    recentClips.forEach(clip => {
-      container.appendChild(this.createPickerChipElement(clip));
-    });
-  }
-
-  searchClipsInPicker(query) {
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    
-    if (!query.trim()) {
-      this.renderClipPickerSearchResults([]);
-      return;
-    }
-
-    const lowerQuery = query.toLowerCase();
-    const results = allClips.filter(clip => 
-      (clip.text || '').toLowerCase().includes(lowerQuery) ||
-      (clip.category && clip.category.toLowerCase().includes(lowerQuery))
-    );
-
-    this.renderClipPickerSearchResults(results.slice(0, 50));
-  }
-
-  renderClipPickerSearchResults(results) {
-    const container = document.getElementById('clipPickerSearchList');
-    if (!container) return;
-
-    if (results.length === 0) {
-      container.innerHTML = `
-        <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon"><i data-lucide="search"></i></div>
-          <p>No clips found matching your search</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = results.map(clip => this.createPickerSearchRowHTML(clip)).join('');
-    this.attachPickerSearchRowHandlers(container);
-  }
-
-  renderClipPickerCategories() {
-    const container = document.getElementById('clipPickerCategoriesList');
-    if (!container) return;
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    const categories = this.categories || [];
-    const uncategorizedClips = allClips.filter(c => (c.category || 'Uncategorized') === 'Uncategorized');
-
-    const pickerCategories = [
-      { id: 'uncategorized', name: 'Uncategorized', icon: '📁', isVirtual: true, clips: uncategorizedClips },
-      ...categories.map(c => ({
-        id: c.id,
-        name: c.name,
-        icon: c.icon || '📁',
-        isVirtual: false,
-        clips: allClips.filter(cl => cl.category === c.name)
-      }))
-    ].filter(c => c.clips.length > 0);
-
-    if (pickerCategories.length === 0) {
-      container.innerHTML = `
-        <div class="clip-picker-empty">
-          <div class="clip-picker-empty-icon"><i data-lucide="folder"></i></div>
-          <p>No clips found in categories</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = pickerCategories.map(cat => {
-      const clipCount = cat.clips.length;
-      const dropdownId = `picker-dropdown-${cat.id}`;
-      const clipsHtml = cat.clips.slice(0, 25).map(clip => {
-        const timeAgo = this.getTimeAgo(clip.timestamp);
-        const normalized = this.normalizePickerText(clip.text);
-        const truncatedText = normalized.length > 60 ? normalized.substring(0, 60) + '...' : normalized;
-        const isSelected = this.selectedPickerClips.has(clip.id);
-        const alreadyAdded = this.currentNoteAttachments.some(att => att.type === 'clip' && att.id == clip.id);
-
-        return `
-          <div class="category-clip ${isSelected ? 'selected' : ''} ${alreadyAdded ? 'already-added' : ''}" data-clip-id="${clip.id}">
-            <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''} ${alreadyAdded ? 'disabled' : ''}>
-            <div class="category-clip-content">
-              <div class="category-clip-text">${this.escapeHtml(truncatedText)}</div>
-              <div class="category-clip-time">${timeAgo}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      return `
-        <div class="category-item" data-picker-category-id="${cat.id}">
-          <div class="category-header">
-            <div class="category-info">
-              <div class="category-icon">${this.escapeHtml(cat.icon)}</div>
-              <div class="category-details">
-                <h4>${this.escapeHtml(cat.name)}</h4>
-                <p>${clipCount} clips</p>
-              </div>
-            </div>
-            <div class="category-header-actions">
-              <span class="category-expand-icon">▶</span>
-            </div>
-          </div>
-          <div class="category-dropdown" id="${dropdownId}">
-            ${clipsHtml || '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>'}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Toggle expand/collapse (scoped to picker only)
-    container.querySelectorAll('.category-item .category-header').forEach(header => {
-      header.addEventListener('click', () => {
-        const item = header.closest('.category-item');
-        const dropdown = item.querySelector('.category-dropdown');
-        const isExpanded = item.classList.contains('expanded');
-
-        // close others in picker
-        container.querySelectorAll('.category-item.expanded').forEach(other => {
-          if (other !== item) {
-            other.classList.remove('expanded');
-            other.querySelector('.category-dropdown')?.classList.remove('expanded');
-          }
-        });
-
-        if (isExpanded) {
-          item.classList.remove('expanded');
-          dropdown.classList.remove('expanded');
-        } else {
-          item.classList.add('expanded');
-          dropdown.classList.add('expanded');
-        }
-      });
-    });
-
-    // Attach selection handlers
-    container.querySelectorAll('.category-clip').forEach(row => {
-      const alreadyAdded = row.classList.contains('already-added');
-      if (alreadyAdded) return;
-
-      const checkbox = row.querySelector('.category-checkbox');
-      checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.togglePickerClip(row.dataset.clipId, row);
-      });
-
-      row.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('category-checkbox')) {
-          this.togglePickerClip(row.dataset.clipId, row);
-        }
-      });
-    });
-  }
-
-  addSelectedClipsToNote() {
-    if (this.selectedPickerClips.size === 0) {
-      this.showToast('No clips selected');
-      return;
-    }
-
-    const allClips = [...this.clips, ...this.searchOnlyClips];
-    let addedCount = 0;
-    let skippedCount = 0;
-
-    this.selectedPickerClips.forEach(clipId => {
-      const clip = allClips.find(c => c.id == clipId);
-      
-      if (!clip) return;
-
-      const alreadyAdded = this.currentNoteAttachments.some(att => 
-        att.type === 'clip' && att.id == clipId
-      );
-
-      if (alreadyAdded) {
-        skippedCount++;
-        return;
-      }
-
-      this.currentNoteAttachments.push({
-        type: 'clip',
-        id: clip.id,
-        text: clip.text,
-        addedDate: Date.now()
-      });
-      addedCount++;
-    });
-
-    this.renderNoteAttachments();
-    this.closeClipPicker();
-    
-    const parts = [];
-    if (addedCount > 0) parts.push(addedCount === 1 ? '✅ 1 clip added' : `✅ ${addedCount} clips added`);
-    if (skippedCount > 0) parts.push(skippedCount === 1 ? '(1 already added)' : `(${skippedCount} already added)`);
-    this.showToast(parts.join(' '));
-  }
-
-  showImagePickerForNote() {
-    this.showToast('Image picker coming soon! Use Add URL for now.');
-  }
-
-  addURLToNote() {
-    const url = prompt('Enter URL:');
-    if (url && url.trim()) {
-      this.currentNoteAttachments.push({
-        type: 'url',
-        id: Date.now(),
-        url: url.trim(),
-        title: url.trim(),
-        addedDate: Date.now()
-      });
-      this.renderNoteAttachments();
-      this.showToast('URL added to note');
-    }
-  }
-
-  exportNoteToPDF(noteId) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
-
-    // Simple text export (PDF generation would require a library)
-    let content = `${note.title}\n\n${note.description}\n\n${note.body}\n\n`;
-    
-    if (note.clips?.length > 0) {
-      content += '\nCLIPS:\n';
-      note.clips.forEach((clip, i) => {
-        content += `${i + 1}. ${clip.text}\n`;
-      });
-    }
-    
-    if (note.urls?.length > 0) {
-      content += '\nLINKS:\n';
-      note.urls.forEach((url, i) => {
-        content += `${i + 1}. ${url.url}\n`;
-      });
-    }
-
-    // Create a blob and download
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${note.title.replace(/[^a-z0-9]/gi, '_')}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    this.showToast('Note exported as text file');
-  }
-
-  // =====================================================
-  // EXPORT / IMPORT (JSON backup + CSV clips)
-  // =====================================================
-
-  _downloadBlob(blob, filename) {
-    const safeName = String(filename || 'pastecraft-export').replace(/[^\w\-.]+/g, '_').slice(0, 120);
-    const a = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    a.href = url;
-    a.download = safeName;
-    a.click();
-    setTimeout(() => {
-      try { URL.revokeObjectURL(url); } catch (_) {}
-    }, 250);
-  }
-
-  async exportBackupToJson() {
-    try {
-      // PRACTICE #1: VALIDATION - load and normalize local data
-      const local = await chrome.storage.local.get([
-        'clips',
-        'categories',
-        'searchOnlyClips',
-        'notes',
-        'notesViewMode',
-        'notesPageIndex',
-        'notesAiEnabled',
-        'settings',
-        'userProfile',
-        'autoDeletePeriod',
-        'albumAttachmentOpenMode',
-        'quickPasteSettings',
-        'theme'
-      ]);
-
-      const payload = {
-        version: 1,
-        exportedAt: Date.now(),
-        clips: Array.isArray(local.clips) ? local.clips : [],
-        searchOnlyClips: Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : [],
-        categories: Array.isArray(local.categories) ? local.categories : [],
-        notes: Array.isArray(local.notes) ? local.notes : [],
-        notesViewMode: local.notesViewMode || 'notes',
-        notesPageIndex: typeof local.notesPageIndex === 'number' ? local.notesPageIndex : 0,
-        notesAiEnabled: !!local.notesAiEnabled,
-        // Settings snapshot (include theme as global single source of truth)
-        settings: local.settings || {},
-        userProfile: local.userProfile || null,
-        autoDeletePeriod: local.autoDeletePeriod || 'never',
-        albumAttachmentOpenMode: local.albumAttachmentOpenMode || 'edgePopup',
-        quickPasteSettings: local.quickPasteSettings || {},
-        theme: (local.theme === 'dark' ? 'dark' : 'light')
-      };
-
-      const day = new Date().toISOString().slice(0, 10);
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      this._downloadBlob(blob, `pastecraft-backup-${day}.json`);
-      this.showToast('✅ Exported JSON backup');
-    } catch (e) {
-      console.error('❌ Export JSON backup failed:', e);
-      this.showToast(`❌ Export failed: ${e.message || 'Unknown error'}`, 'error');
-    }
-  }
-
-  async exportClipsToCsv() {
-    try {
-      const local = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-      const clips = [
-        ...(Array.isArray(local.clips) ? local.clips : []),
-        ...(Array.isArray(local.searchOnlyClips) ? local.searchOnlyClips : [])
-      ];
-
-      const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-      const rows = ['Text,Category,Timestamp,Date,Id'];
-      for (const clip of clips) {
-        const text = clip && typeof clip === 'object' ? (clip.text ?? '') : String(clip ?? '');
-        const category = clip && typeof clip === 'object' ? (clip.category ?? 'Uncategorized') : 'Uncategorized';
-        const ts = clip && typeof clip === 'object' && typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-        const id = clip && typeof clip === 'object' ? (clip.id ?? '') : '';
-        const date = ts ? new Date(ts).toISOString() : '';
-        rows.push([esc(text), esc(category), String(ts || ''), esc(date), esc(id)].join(','));
-      }
-
-      const day = new Date().toISOString().slice(0, 10);
-      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-      this._downloadBlob(blob, `pastecraft-clips-${day}.csv`);
-      this.showToast('✅ Exported Clips CSV');
-    } catch (e) {
-      console.error('❌ Export CSV failed:', e);
-      this.showToast(`❌ Export failed: ${e.message || 'Unknown error'}`, 'error');
-    }
-  }
-
-  async importBackupFromJsonMerge(file) {
-    // MERGE import: keep existing local data, add missing items (best-effort).
-    const snapshot = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes', 'theme', 'quickPasteSettings', 'autoDeletePeriod', 'albumAttachmentOpenMode']);
-    const rollback = async () => {
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({
-            clips: snapshot.clips || [],
-            searchOnlyClips: snapshot.searchOnlyClips || [],
-            categories: snapshot.categories || [],
-            notes: snapshot.notes || [],
-            theme: snapshot.theme || 'light',
-            quickPasteSettings: snapshot.quickPasteSettings || {},
-            autoDeletePeriod: snapshot.autoDeletePeriod || 'never',
-            albumAttachmentOpenMode: snapshot.albumAttachmentOpenMode || 'edgePopup',
-            pc_local_updatedAt: Date.now()
-          });
-        });
-      } catch (e) {
-        console.error('❌ Import rollback failed:', e);
-      }
-    };
-
-    try {
-      if (!file || !(file instanceof File)) throw new Error('No file selected');
-      if (file.size > 10 * 1024 * 1024) throw new Error('File too large (max 10MB)');
-
-      const text = await file.text();
-      const imported = JSON.parse(text);
-      if (!imported || typeof imported !== 'object') throw new Error('Invalid JSON');
-
-      const local = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes', 'quickPasteSettings', 'autoDeletePeriod', 'albumAttachmentOpenMode', 'theme']);
-
-      const mergeById = (curRaw, incRaw, limit) => {
-        const cur = Array.isArray(curRaw) ? curRaw : [];
-        const inc = Array.isArray(incRaw) ? incRaw : [];
-        const out = cur.slice();
-        const seen = new Set(cur.map(x => (x && typeof x === 'object' && x.id != null) ? String(x.id) : ''));
-        for (const item of inc) {
-          if (!item || typeof item !== 'object') continue;
-          if (item.id == null) continue;
-          const k = String(item.id);
-          if (!k || seen.has(k)) continue;
-          out.push(item);
-          seen.add(k);
-          if (limit && out.length >= limit) break;
-        }
-        return out;
-      };
-
-      const nextClips = mergeById(local.clips, imported.clips, 500);
-      const nextArchived = mergeById(local.searchOnlyClips, imported.searchOnlyClips, 1000);
-      const nextCategories = mergeById(local.categories, imported.categories, 300);
-      const nextNotes = mergeById(local.notes, imported.notes, 300);
-
-      // Settings/theme: keep current unless missing; accept theme if valid
-      const nextTheme = (local.theme === 'dark' || local.theme === 'light')
-        ? local.theme
-        : ((imported.theme === 'dark' || imported.theme === 'light') ? imported.theme : 'light');
-
-      const nextQuickPasteSettings = (local.quickPasteSettings && typeof local.quickPasteSettings === 'object')
-        ? local.quickPasteSettings
-        : ((imported.quickPasteSettings && typeof imported.quickPasteSettings === 'object') ? imported.quickPasteSettings : {});
-
-      const nextAutoDelete = local.autoDeletePeriod || imported.autoDeletePeriod || 'never';
-      const nextAlbumOpenMode = (local.albumAttachmentOpenMode === 'overlay' || local.albumAttachmentOpenMode === 'edgePopup')
-        ? local.albumAttachmentOpenMode
-        : (imported.albumAttachmentOpenMode === 'overlay' || imported.albumAttachmentOpenMode === 'edgePopup' ? imported.albumAttachmentOpenMode : 'edgePopup');
-
-      const appliedAt = Date.now();
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({
-          clips: nextClips,
-          searchOnlyClips: nextArchived,
-          categories: nextCategories,
-          notes: nextNotes,
-          theme: nextTheme,
-          quickPasteSettings: nextQuickPasteSettings,
-          autoDeletePeriod: nextAutoDelete,
-          albumAttachmentOpenMode: nextAlbumOpenMode,
-          pc_local_updatedAt: appliedAt
-        });
-      });
-
-      // PRACTICE #5: VERIFICATION
-      const verify = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes']);
-      if (!Array.isArray(verify.clips) || !Array.isArray(verify.categories) || !Array.isArray(verify.notes)) {
-        throw new Error('Verification failed: import did not persist');
-      }
-
-      // Refresh UI + backup to sync (best-effort)
-      await this.loadData();
-      await this.loadNotes();
-      this.renderChips();
-      this.renderCategories();
-      this.renderNotes();
-
-      this.showToast('✅ Import complete (merged)');
-    } catch (e) {
-      console.error('❌ Import failed:', e);
-      await rollback();
-      this.showToast(`❌ Import failed: ${e.message || 'Unknown error'}`, 'error');
-    }
-  }
-
-  // =====================================================
-  // SHARE (Collaboration v1: share-to-media links)
-  // =====================================================
-
-  _sanitizeShareText(raw, maxLen = 1800) {
-    const s = String(raw ?? '');
-    // Strip control chars, normalize whitespace
-    const cleaned = s
-      .replace(/[\u0000-\u001F\u007F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!cleaned) return '';
-    return cleaned.length > maxLen ? cleaned.slice(0, maxLen) : cleaned;
-  }
-
-  async _getActiveTabUrlSafe() {
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const url = tabs && tabs[0] && typeof tabs[0].url === 'string' ? tabs[0].url : '';
-      if (!url) return '';
-      // Avoid sharing chrome-extension:// URLs etc
-      if (!/^https?:\/\//i.test(url)) return '';
-      return url;
-    } catch (_) {
-      return '';
-    }
-  }
-
-  _openUrlInNewTab(url) {
-    try {
-      chrome.tabs.create({ url: String(url) });
-    } catch (e) {
-      console.error('❌ Failed to open share URL:', e);
-    }
-  }
-
-  _closeShareMenu() {
-    const existing = document.getElementById('pcShareMenuOverlay');
-    if (existing) existing.remove();
-  }
-
-  async showShareMenuForClip(clip) {
-    const clipText = clip && typeof clip === 'object' ? (clip.text ?? '') : String(clip ?? '');
-    const text = this._sanitizeShareText(clipText, 2000);
-    if (!text) {
-      this.showToast('Nothing to share', 'error');
-      return;
-    }
-
-    // Build a short title for Reddit/email
-    const title = this._sanitizeShareText(text.split('\n')[0], 80) || 'PasteCraft Clip';
-    const tweetText = this._sanitizeShareText(text, 260);
-
-    const activeUrl = await this._getActiveTabUrlSafe();
-    const fbUrl = activeUrl || 'https://pastecraft.com';
-
-    this._closeShareMenu();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pcShareMenuOverlay';
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 2147483647;
-      background: rgba(0,0,0,0.35);
-      display: flex; align-items: center; justify-content: center;
-      padding: 16px;
-    `;
-
-    const card = document.createElement('div');
-    card.style.cssText = `
-      width: min(520px, 96vw);
-      background: #111827;
-      color: #e5e7eb;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 12px;
-      padding: 14px;
-      box-shadow: 0 14px 40px rgba(0,0,0,0.4);
-    `;
-
-    const preview = text.length > 160 ? `${text.slice(0, 160)}…` : text;
-
-    card.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-weight:700;">Share</div>
-        <button id="pcShareCloseBtn" class="btn-secondary" type="button" style="padding:6px 10px;">Close</button>
-      </div>
-      <div style="margin-top:10px; font-size:12px; color:#9ca3af; line-height:1.4; word-break:break-word;">
-        ${this.escapeHtml(preview)}
-      </div>
-      <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
-        <button id="pcShareCopyBtn" class="btn-primary" type="button">Copy</button>
-        <button id="pcShareWhatsAppBtn" class="btn-secondary" type="button">WhatsApp</button>
-        <button id="pcShareRedditBtn" class="btn-secondary" type="button">Reddit</button>
-        <button id="pcShareXBtn" class="btn-secondary" type="button">X</button>
-        <button id="pcShareEmailBtn" class="btn-secondary" type="button">Email</button>
-        <button id="pcShareSmsBtn" class="btn-secondary" type="button">SMS</button>
-        <button id="pcShareFacebookBtn" class="btn-secondary" type="button">Facebook</button>
-      </div>
-      <div style="margin-top:10px; font-size:11px; color:#9ca3af;">
-        Facebook sharing is URL-based; your clip text is best shared via Copy.
-      </div>
-    `;
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-
-    const close = () => this._closeShareMenu();
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
-    card.querySelector('#pcShareCloseBtn')?.addEventListener('click', close);
-
-    card.querySelector('#pcShareCopyBtn')?.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(text);
-        this.showToast('✅ Copied for sharing');
-      } catch (e) {
-        console.error('❌ Copy failed:', e);
-        this.showToast('❌ Copy failed', 'error');
-      }
-    });
-
-    card.querySelector('#pcShareWhatsAppBtn')?.addEventListener('click', () => {
-      const u = `https://wa.me/?text=${encodeURIComponent(text)}`;
-      this._openUrlInNewTab(u);
-      close();
-    });
-
-    card.querySelector('#pcShareRedditBtn')?.addEventListener('click', () => {
-      const u = `https://www.reddit.com/submit?title=${encodeURIComponent(title)}&text=${encodeURIComponent(text)}`;
-      this._openUrlInNewTab(u);
-      close();
-    });
-
-    card.querySelector('#pcShareXBtn')?.addEventListener('click', () => {
-      const u = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
-      this._openUrlInNewTab(u);
-      close();
-    });
-
-    card.querySelector('#pcShareEmailBtn')?.addEventListener('click', () => {
-      const u = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`;
-      this._openUrlInNewTab(u);
-      close();
-    });
-
-    card.querySelector('#pcShareSmsBtn')?.addEventListener('click', () => {
-      const u = `sms:?&body=${encodeURIComponent(text)}`;
-      this._openUrlInNewTab(u);
-      close();
-    });
-
-    card.querySelector('#pcShareFacebookBtn')?.addEventListener('click', async () => {
-      // Best effort: open URL sharer and also copy text to clipboard
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch (_) {}
-      const u = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fbUrl)}`;
-      this._openUrlInNewTab(u);
-      this.showToast('Copied text. Facebook shares URL.');
-      close();
-    });
-  }
-
-  openNoteViewer(noteId) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
-
-    this.currentViewerNoteId = noteId;
-    const isAlbum = note.type === 'album';
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
-    const modal = document.getElementById('noteViewerModal');
-    const icon = document.getElementById('noteViewerIcon');
-    const titleText = document.getElementById('noteViewerTitleText');
-    const backBtn = document.getElementById('noteViewerBackBtn');
-    const descSection = document.getElementById('noteViewerDescSection');
-    const descText = document.getElementById('noteViewerDesc');
-    const contentText = document.getElementById('noteViewerContent');
-    const attachSection = document.getElementById('noteViewerAttachmentsSection');
-    const attachList = document.getElementById('noteViewerAttachments');
-    const copyAllBtn = document.getElementById('copyAllAttachments');
-    const attachmentsTitle = document.getElementById('noteViewerAttachmentsTitle');
-
-    // Set icon and title
-    icon.textContent = note.type === 'album' ? '📚' : '📝';
-    const safeTitle = (note.title || '').trim();
-    titleText.textContent = safeTitle || (note.type === 'album' ? 'Untitled Album' : 'Untitled Note');
-    if (backBtn) backBtn.style.display = this.noteViewerParentAlbumId && !isAlbum ? 'inline-flex' : 'none';
-    if (isAlbum) this.noteViewerParentAlbumId = null;
-
-    // Description
-    const safeDesc = (note.description || '').trim();
-    if (safeDesc) {
-      descSection.style.display = 'block';
-      descText.textContent = safeDesc;
-    } else {
-      descSection.style.display = 'none';
-    }
-
-    // Content
-    contentText.textContent = note.body || 'No content';
-
-    // Album shows Notes list (references). Notes show Attachments list.
-    if (isAlbum) {
-      if (attachmentsTitle) attachmentsTitle.textContent = 'Notes';
-      if (copyAllBtn) copyAllBtn.style.display = 'none';
-    }
-
-    if (allAttachments.length > 0) {
-      attachSection.style.display = 'block';
-      if (copyAllBtn) copyAllBtn.style.display = isAlbum ? 'none' : '';
-      attachList.innerHTML = allAttachments.map((att, idx) => {
-        const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
-        const liveClip = att.type === 'clip' ? this._findClipLocationById(att.id)?.clip : null;
-        const clipForTitle = liveClip || att;
-        const clipTitle = att.type === 'clip' ? this._clipTitle(clipForTitle) : '';
-        const text = att.type === 'url' ? att.url : (att.text || '').substring(0, 80);
-        const displayText = text.length > 80 ? text + '...' : text;
-        const attachmentHtml = clipTitle
-          ? `<div class="viewer-attachment-title" title="${this.escapeHtml(clipTitle)}">${this.escapeHtml(clipTitle)}</div><div class="viewer-attachment-subtext" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>`
-          : `<div class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(displayText)}</div>`;
-
-        if (isAlbum) {
-          const sourceNoteId = att.sourceNoteId;
-          let sourceNote = sourceNoteId ? this.notes.find(n => n && n.id == sourceNoteId) : null;
-          // Legacy fallback: try to infer source note by matching attachment id.
-          if (!sourceNote && att && att.id != null) {
-            sourceNote = (this.notes || []).find(n => {
-              if (!n || n.type === 'album') return false;
-              const hasClip = Array.isArray(n.clips) && n.clips.some(c => c && c.id == att.id);
-              const hasUrl = Array.isArray(n.urls) && n.urls.some(u => u && u.id == att.id);
-              const hasImage = Array.isArray(n.images) && n.images.some(i => i && i.id == att.id);
-              return hasClip || hasUrl || hasImage;
-            }) || null;
-          }
-          const fromTitle = sourceNote ? ((sourceNote.title || '').trim() || 'Untitled Note') : 'Album';
-          const metaLine = `
-            <div style="margin-top:6px; font-size:11px; color:#6b7280; line-height:1.25;">
-              <div><strong style="color:#4b5563;">From:</strong> ${this.escapeHtml(fromTitle)}</div>
-            </div>
-          `;
-          return `
-            <div class="viewer-attachment-item viewer-attachment-openable" data-index="${idx}" role="button" tabindex="0">
-              <div class="viewer-attachment-info">
-                <span class="viewer-attachment-icon">${icon}</span>
-                <div style="min-width:0;">
-                  ${attachmentHtml}
-                  ${metaLine}
-                </div>
-              </div>
-              <div class="viewer-attachment-actions">
-                <button class="btn-copy-album-attachment" data-index="${idx}" type="button">Copy</button>
-                <button class="btn-open-album-attachment" data-index="${idx}" type="button" title="Open attachment" style="border:none; background:transparent; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:0 2px;">›</button>
-              </div>
-            </div>
-          `;
-        }
-
-        return `
-          <div class="viewer-attachment-item">
-            <div class="viewer-attachment-info">
-              <span class="viewer-attachment-icon">${icon}</span>
-              <div style="min-width:0;">${attachmentHtml}</div>
-            </div>
-            <div class="viewer-attachment-actions">
-              <button class="btn-copy-attachment" data-index="${idx}" type="button">Copy</button>
-            </div>
-          </div>
-        `;
-        }).join('');
-
-      if (isAlbum) {
-        const openSourceNote = (idx) => {
-          const att = allAttachments[idx];
-          if (!att) return;
-          let sourceNoteId = att.sourceNoteId;
-          // Legacy fallback: infer source note by attachment id
-          if (sourceNoteId == null && att.id != null) {
-            const inferred = (this.notes || []).find(n => {
-              if (!n || n.type === 'album') return false;
-              const hasClip = Array.isArray(n.clips) && n.clips.some(c => c && c.id == att.id);
-              const hasUrl = Array.isArray(n.urls) && n.urls.some(u => u && u.id == att.id);
-              const hasImage = Array.isArray(n.images) && n.images.some(i => i && i.id == att.id);
-              return hasClip || hasUrl || hasImage;
-            });
-            if (inferred) sourceNoteId = inferred.id;
-          }
-
-          if (sourceNoteId == null) {
-            this.showToast('No source note for this item');
-            return;
-          }
-          this.openAlbumSourceNoteOverlay(sourceNoteId, noteId);
-        };
-
-        // Copy handlers (albums)
-        attachList.querySelectorAll('.btn-copy-album-attachment').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.index, 10);
-            const att = allAttachments[idx];
-            if (!att) return;
-
-            const copyText =
-              att.type === 'url'
-                ? att.url
-                : att.type === 'image'
-                  ? (att.url || att.src || att.dataUrl)
-                  : att.text;
-
-            if (copyText) {
-              navigator.clipboard.writeText(copyText);
-              this.showToast('Attachment copied!');
-            }
-          });
-        });
-
-        // Explicit open attachment (secondary action)
-        attachList.querySelectorAll('.btn-open-album-attachment').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const idx = parseInt(btn.dataset.index, 10);
-            if (!Number.isNaN(idx)) this.openAlbumAttachment(noteId, idx);
-          });
-        });
-
-        attachList.querySelectorAll('.viewer-attachment-openable').forEach(item => {
-          item.addEventListener('click', () => {
-            const idx = parseInt(item.dataset.index, 10);
-            if (!Number.isNaN(idx)) openSourceNote(idx);
-          });
-          item.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              const idx = parseInt(item.dataset.index, 10);
-              if (!Number.isNaN(idx)) openSourceNote(idx);
-            }
-          });
-        });
-      } else {
-        // Add copy handlers (notes only)
-        attachList.querySelectorAll('.btn-copy-attachment').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.index, 10);
-            const att = allAttachments[idx];
-            if (att) {
-              const copyText = att.type === 'url' ? att.url : att.text;
-              if (copyText) {
-                navigator.clipboard.writeText(copyText);
-                this.showToast('Attachment copied!');
-              }
-            }
-          });
-        });
-      }
-    } else {
-      attachSection.style.display = 'none';
-      if (copyAllBtn) copyAllBtn.style.display = '';
-    }
-
-    modal.style.display = 'flex';
-  }
-
-  closeNoteViewer() {
-    document.getElementById('noteViewerModal').style.display = 'none';
-    this.currentViewerNoteId = null;
-    this.noteViewerParentAlbumId = null;
-  }
-
-  getAlbumAttachmentOpenMode() {
-    return this.albumAttachmentOpenMode === 'overlay' || this.albumAttachmentOpenMode === 'edgePopup'
-      ? this.albumAttachmentOpenMode
-      : 'edgePopup';
-  }
-
-  openAlbumAttachment(noteId, attachmentIndex) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note || note.type !== 'album') return;
-
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
-    const att = allAttachments[attachmentIndex];
-    if (!att) return;
-
-    this.currentAlbumAttachmentContext = { noteId, attachmentIndex };
-
-    const mode = this.getAlbumAttachmentOpenMode();
-    if (mode === 'overlay') {
-      this.openAlbumAttachmentOverlay(note, att);
-      return;
-    }
-
-    this.openAlbumAttachmentInEdgePopup(noteId, attachmentIndex);
-  }
-
-  openAlbumAttachmentInEdgePopup(noteId, attachmentIndex) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note || note.type !== 'album') return;
-
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
-    const att = allAttachments[attachmentIndex];
-    if (!att) return;
-
-    const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
-    const mfName = mf && mf.name ? String(mf.name) : '';
-    const mfDesc = mf && mf.description ? String(mf.description) : '';
-    const isRepoLoader =
-      mfName.includes('Repo Loader') ||
-      mfDesc.includes('repo root') ||
-      mfDesc.includes('Actual extension lives in /extension');
-
-    if (att.type === 'url' && att.url) {
-      try {
-        chrome.runtime.sendMessage({
-          action: 'pcOpenPopupWindow',
-          url: att.url,
-          width: 980,
-          height: 720
-        });
-      } catch (e) {
-        try {
-          chrome.windows.create({
-            url: att.url,
-            type: 'popup',
-            width: 980,
-            height: 720,
-            focused: true
-          });
-        } catch (e2) {
-          console.error('Failed to open URL in popup:', e2);
-          this.showToast('Could not open link');
-        }
-      }
-      return;
-    }
-
-    const viewerPath = isRepoLoader ? 'extension/attachment-viewer.html' : 'attachment-viewer.html';
-    const viewerUrl =
-      chrome.runtime.getURL(viewerPath) +
-      `?noteId=${encodeURIComponent(String(noteId))}&index=${encodeURIComponent(String(attachmentIndex))}`;
-
-    try {
-      chrome.runtime.sendMessage({
-        action: 'pcOpenPopupWindow',
-        url: viewerUrl,
-        width: 980,
-        height: 720
-      });
-    } catch (e) {
-      try {
-        chrome.windows.create({
-          url: viewerUrl,
-          type: 'popup',
-          width: 980,
-          height: 720,
-          focused: true
-        });
-      } catch (e2) {
-        console.error('Failed to open attachment viewer popup:', e2);
-        this.showToast('Could not open attachment');
-      }
-    }
-  }
-
-  openAlbumAttachmentOverlay(note, att) {
-    const modal = document.getElementById('albumAttachmentViewerModal');
-    const titleEl = document.getElementById('albumAttachmentViewerTitle');
-    const metaSection = document.getElementById('albumAttachmentViewerNoteMeta');
-    const albumTitle = document.getElementById('albumAttachmentViewerAlbumTitle');
-    const albumDesc = document.getElementById('albumAttachmentViewerAlbumDesc');
-    const body = document.getElementById('albumAttachmentViewerBody');
-    const openBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
-
-    if (!modal || !titleEl || !metaSection || !albumTitle || !albumDesc || !body) return;
-
-    // Album meta
-    const safeTitle = (note.title || '').trim() || 'Untitled Album';
-    const safeDesc = (note.description || '').trim();
-    metaSection.style.display = 'block';
-    albumTitle.textContent = safeTitle;
-    albumDesc.textContent = safeDesc || '';
-
-    // Attachment content
-    const liveClip = att.type === 'clip' ? this._findClipLocationById(att.id)?.clip : null;
-    const clipTitle = att.type === 'clip' ? this._clipTitle(liveClip || att) : '';
-    const typeLabel = att.type === 'clip' ? (clipTitle || 'Clip') : att.type === 'image' ? 'Image' : 'Link';
-    titleEl.textContent = typeLabel;
-
-    // Always allow open-in-popup as an escape hatch
-    if (openBtn) openBtn.style.display = 'inline-flex';
-
-    if (att.type === 'clip') {
-      body.textContent = att.text || '';
-    } else if (att.type === 'image') {
-      const src = att.dataUrl || att.url || att.src || '';
-      if (src) {
-        body.innerHTML = `<img src="${this.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`;
-      } else {
-        body.textContent = 'Image attachment is missing a source.';
-      }
-    } else {
-      const url = att.url || '';
-      const safeUrl = this.escapeHtml(url);
-      body.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <div style="font-weight:600; color:#111827;">Link</div>
-          <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
-          <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
-        </div>
-      `;
-    }
-
-    modal.style.display = 'flex';
-  }
-
-  closeAlbumAttachmentViewer() {
-    const modal = document.getElementById('albumAttachmentViewerModal');
-    if (modal) modal.style.display = 'none';
-    this.currentAlbumAttachmentContext = null;
-  }
-
-  openAlbumSourceNoteOverlay(sourceNoteId, albumId) {
-    const sourceNote = this.notes.find(n => n && n.id == sourceNoteId && n.type !== 'album');
-    if (!sourceNote) {
-      this.showToast('Source note not found');
-      return;
-    }
-
-    const modal = document.getElementById('albumSourceNoteModal');
-    const titleText = document.getElementById('albumSourceNoteTitleText');
-    const descSection = document.getElementById('albumSourceNoteDescSection');
-    const descText = document.getElementById('albumSourceNoteDesc');
-    const body = document.getElementById('albumSourceNoteBody');
-    const clipsSection = document.getElementById('albumSourceNoteClipsSection');
-    const clipsList = document.getElementById('albumSourceNoteClips');
-    const urlsSection = document.getElementById('albumSourceNoteUrlsSection');
-    const urlsList = document.getElementById('albumSourceNoteUrls');
-    const imagesSection = document.getElementById('albumSourceNoteImagesSection');
-    const imagesList = document.getElementById('albumSourceNoteImages');
-
-    if (!modal || !titleText || !descSection || !descText || !body || !clipsSection || !clipsList || !urlsSection || !urlsList || !imagesSection || !imagesList) {
-      return;
-    }
-
-    this.currentAlbumSourceNoteContext = { sourceNoteId, albumId };
-
-    const safeTitle = (sourceNote.title || '').trim();
-    titleText.textContent = safeTitle || 'Untitled Note';
-
-    const safeDesc = (sourceNote.description || '').trim();
-    if (safeDesc) {
-      descSection.style.display = 'block';
-      descText.textContent = safeDesc;
-    } else {
-      descSection.style.display = 'none';
-    }
-
-    body.textContent = (sourceNote.body || '').trim() || 'No content';
-
-    // Render sections
-    const clips = Array.isArray(sourceNote.clips) ? sourceNote.clips : [];
-    const urls = Array.isArray(sourceNote.urls) ? sourceNote.urls : [];
-    const images = Array.isArray(sourceNote.images) ? sourceNote.images : [];
-
-    clipsSection.style.display = clips.length > 0 ? 'block' : 'none';
-    urlsSection.style.display = urls.length > 0 ? 'block' : 'none';
-    imagesSection.style.display = images.length > 0 ? 'block' : 'none';
-
-    clipsList.innerHTML = clips.map((c, idx) => {
-      const text = (c && c.text) ? String(c.text) : '';
-      const display = text.length > 120 ? text.substring(0, 120) + '...' : text;
-      const liveClip = this._findClipLocationById(c?.id)?.clip;
-      const clipTitle = this._clipTitle(liveClip || c);
-      const clipHtml = clipTitle
-        ? `<div class="viewer-attachment-title" title="${this.escapeHtml(clipTitle)}">${this.escapeHtml(clipTitle)}</div><div class="viewer-attachment-subtext" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</div>`
-        : `<span class="viewer-attachment-text" title="${this.escapeHtml(text)}">${this.escapeHtml(display)}</span>`;
-      return `
-        <div class="viewer-attachment-item" data-type="clip" data-index="${idx}">
-          <div class="viewer-attachment-info">
-            <span class="viewer-attachment-icon">📋</span>
-            <div style="min-width:0;">${clipHtml}</div>
-          </div>
-          <div class="viewer-attachment-actions">
-            <button class="btn-copy-source-note-attachment" data-type="clip" data-index="${idx}" type="button">Copy</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    urlsList.innerHTML = urls.map((u, idx) => {
-      const url = (u && u.url) ? String(u.url) : '';
-      const display = url.length > 120 ? url.substring(0, 120) + '...' : url;
-      return `
-        <div class="viewer-attachment-item" data-type="url" data-index="${idx}">
-          <div class="viewer-attachment-info">
-            <span class="viewer-attachment-icon">🔗</span>
-            <span class="viewer-attachment-text" title="${this.escapeHtml(url)}">${this.escapeHtml(display)}</span>
-          </div>
-          <div class="viewer-attachment-actions">
-            <button class="btn-copy-source-note-attachment" data-type="url" data-index="${idx}" type="button">Copy</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    imagesList.innerHTML = images.map((i, idx) => {
-      const src = (i && (i.url || i.src || i.dataUrl)) ? String(i.url || i.src || i.dataUrl) : '';
-      const display = src.length > 120 ? src.substring(0, 120) + '...' : src;
-      return `
-        <div class="viewer-attachment-item" data-type="image" data-index="${idx}">
-          <div class="viewer-attachment-info">
-            <span class="viewer-attachment-icon">🖼️</span>
-            <span class="viewer-attachment-text" title="${this.escapeHtml(src)}">${this.escapeHtml(display)}</span>
-          </div>
-          <div class="viewer-attachment-actions">
-            <button class="btn-copy-source-note-attachment" data-type="image" data-index="${idx}" type="button">Copy</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Per-attachment copy handlers
-    modal.querySelectorAll('.btn-copy-source-note-attachment').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const type = btn.dataset.type;
-        const idx = parseInt(btn.dataset.index, 10);
-        if (Number.isNaN(idx)) return;
-
-        let copyText = '';
-        if (type === 'clip') {
-          const c = clips[idx];
-          copyText = c && c.text ? String(c.text) : '';
-        } else if (type === 'url') {
-          const u = urls[idx];
-          copyText = u && u.url ? String(u.url) : '';
-        } else if (type === 'image') {
-          const i = images[idx];
-          copyText = i ? String(i.url || i.src || i.dataUrl || '') : '';
-        }
-
-        if (copyText) {
-          navigator.clipboard.writeText(copyText);
-          this.showToast('Attachment copied!');
-        }
-      });
-    });
-
-    modal.style.display = 'flex';
-  }
-
-  closeAlbumSourceNoteOverlay() {
-    const modal = document.getElementById('albumSourceNoteModal');
-    if (modal) modal.style.display = 'none';
-    this.currentAlbumSourceNoteContext = null;
-  }
-
-  getAlbumAttachmentOpenMode() {
-    return this.albumAttachmentOpenMode === 'overlay' || this.albumAttachmentOpenMode === 'edgePopup'
-      ? this.albumAttachmentOpenMode
-      : 'edgePopup';
-  }
-
-  openAlbumAttachment(noteId, attachmentIndex) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note || note.type !== 'album') return;
-
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
-    const att = allAttachments[attachmentIndex];
-    if (!att) return;
-
-    this.currentAlbumAttachmentContext = { noteId, attachmentIndex };
-
-    const mode = this.getAlbumAttachmentOpenMode();
-    if (mode === 'overlay') {
-      this.openAlbumAttachmentOverlay(note, att);
-      return;
-    }
-
-    this.openAlbumAttachmentInEdgePopup(noteId, attachmentIndex);
-  }
-
-  openAlbumAttachmentInEdgePopup(noteId, attachmentIndex) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note || note.type !== 'album') return;
-
-    const allAttachments = [
-      ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-      ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-      ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-    ];
-    const att = allAttachments[attachmentIndex];
-    if (!att) return;
-
-    const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
-    const mfName = mf && mf.name ? String(mf.name) : '';
-    const mfDesc = mf && mf.description ? String(mf.description) : '';
-    const isRepoLoader =
-      mfName.includes('Repo Loader') ||
-      mfDesc.includes('repo root') ||
-      mfDesc.includes('Actual extension lives in /extension');
-
-    if (att.type === 'url' && att.url) {
-      try {
-        chrome.runtime.sendMessage({
-          action: 'pcOpenPopupWindow',
-          url: att.url,
-          width: 980,
-          height: 720
-        });
-      } catch (e) {
-        try {
-          chrome.windows.create({
-            url: att.url,
-            type: 'popup',
-            width: 980,
-            height: 720,
-            focused: true
-          });
-        } catch (e2) {
-          console.error('Failed to open URL in popup:', e2);
-          this.showToast('Could not open link');
-        }
-      }
-      return;
-    }
-
-    const viewerPath = isRepoLoader ? 'extension/attachment-viewer.html' : 'attachment-viewer.html';
-    const viewerUrl =
-      chrome.runtime.getURL(viewerPath) +
-      `?noteId=${encodeURIComponent(String(noteId))}&index=${encodeURIComponent(String(attachmentIndex))}`;
-
-    try {
-      chrome.runtime.sendMessage({
-        action: 'pcOpenPopupWindow',
-        url: viewerUrl,
-        width: 980,
-        height: 720
-      });
-    } catch (e) {
-      try {
-        chrome.windows.create({
-          url: viewerUrl,
-          type: 'popup',
-          width: 980,
-          height: 720,
-          focused: true
-        });
-      } catch (e2) {
-        console.error('Failed to open attachment viewer popup:', e2);
-        this.showToast('Could not open attachment');
-      }
-    }
-  }
-
-  openAlbumAttachmentOverlay(note, att) {
-    const modal = document.getElementById('albumAttachmentViewerModal');
-    const titleEl = document.getElementById('albumAttachmentViewerTitle');
-    const metaSection = document.getElementById('albumAttachmentViewerNoteMeta');
-    const albumTitle = document.getElementById('albumAttachmentViewerAlbumTitle');
-    const albumDesc = document.getElementById('albumAttachmentViewerAlbumDesc');
-    const body = document.getElementById('albumAttachmentViewerBody');
-    const openBtn = document.getElementById('albumAttachmentOpenInPopupBtn');
-
-    if (!modal || !titleEl || !metaSection || !albumTitle || !albumDesc || !body) return;
-
-    // Album meta
-    const safeTitle = (note.title || '').trim() || 'Untitled Album';
-    const safeDesc = (note.description || '').trim();
-    metaSection.style.display = 'block';
-    albumTitle.textContent = safeTitle;
-    albumDesc.textContent = safeDesc || '';
-
-    // Attachment content
-    const typeLabel = att.type === 'clip' ? 'Clip' : att.type === 'image' ? 'Image' : 'Link';
-    titleEl.textContent = typeLabel;
-
-    // Always allow open-in-popup as an escape hatch
-    if (openBtn) openBtn.style.display = 'inline-flex';
-
-    if (att.type === 'clip') {
-      body.textContent = att.text || '';
-    } else if (att.type === 'image') {
-      const src = att.dataUrl || att.url || att.src || '';
-      if (src) {
-        body.innerHTML = `<img src="${this.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`;
-      } else {
-        body.textContent = 'Image attachment is missing a source.';
-      }
-    } else {
-      const url = att.url || '';
-      const safeUrl = this.escapeHtml(url);
-      body.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <div style="font-weight:600; color:#111827;">Link</div>
-          <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
-          <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
-        </div>
-      `;
-    }
-
-    modal.style.display = 'flex';
-  }
-
-  closeAlbumAttachmentViewer() {
-    const modal = document.getElementById('albumAttachmentViewerModal');
-    if (modal) modal.style.display = 'none';
-    this.currentAlbumAttachmentContext = null;
-  }
-
-  copyAllNoteAttachments() {
-    const noteId = this.currentViewerNoteId;
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
-
-    const allText = [
-      ...(note.clips || []).map(c => c.text || ''),
-      ...(note.urls || []).map(u => u.url || '')
-    ].filter(t => t).join('\n\n');
-
-    if (allText) {
-      navigator.clipboard.writeText(allText);
-      this.showToast('All attachments copied!');
-    } else {
-      this.showToast('No attachments to copy');
-    }
+    return this.notesFeature.album.refreshAlbumsForNote(this, sourceNote);
   }
 
   showAlbumPicker() {
-    const modal = document.getElementById('albumPickerModal');
-    this.renderAlbumPicker();
-    modal.style.display = 'flex';
+    return this.notesFeature.album.showAlbumPicker(this);
   }
 
-  showAlbumPickerForNote() {
-    const modal = document.getElementById('albumPickerModal');
-    this.renderAlbumPicker();
-    modal.style.display = 'flex';
+  showAlbumPickerForNote(noteId) {
+    return this.notesFeature.album.showAlbumPickerForNote(this, noteId);
   }
 
   closeAlbumPicker() {
-    document.getElementById('albumPickerModal').style.display = 'none';
-    this.pendingNoteForAlbum = null;
-    this.pendingBulkClipsForNotes = null;
+    return this.notesFeature.album.closeAlbumPicker(this);
   }
 
   showBackToAlbumPicker() {
-    const backBtn = document.getElementById('backToAlbumPicker');
-    if (backBtn) {
-      backBtn.style.display = 'block';
-    }
+    return this.notesFeature.album.showBackToAlbumPicker(this);
   }
 
   hideBackToAlbumPicker() {
-    const backBtn = document.getElementById('backToAlbumPicker');
-    if (backBtn) {
-      backBtn.style.display = 'none';
-    }
+    return this.notesFeature.album.hideBackToAlbumPicker(this);
   }
 
-  renderAlbumPicker(searchTerm = '') {
-    const list = document.getElementById('albumPickerList');
-    
-    // If we have a pending note to send to album, show only albums
-    const showOnlyAlbums = !!this.pendingNoteForAlbum;
-    let filteredNotes = showOnlyAlbums ? this.notes.filter(n => n.type === 'album') : this.notes;
-
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filteredNotes = filteredNotes.filter(n => 
-        n.title.toLowerCase().includes(term) || 
-        n.description.toLowerCase().includes(term)
-      );
-    }
-
-    if (filteredNotes.length === 0) {
-      list.innerHTML = `<p style="text-align: center; color: #9ca3af; padding: 20px;">No ${showOnlyAlbums ? 'albums' : 'notes'} found</p>`;
-      return;
-    }
-
-    list.innerHTML = filteredNotes.map(note => {
-      const pickerTypeIcon = note.type === 'album' ? 'folder-open' : 'notebook';
-      const itemCount =
-        note.type === 'album'
-          ? (Array.isArray(note.noteRefs) ? note.noteRefs.length : 0)
-          : (note.clips?.length || 0) + (note.images?.length || 0) + (note.urls?.length || 0);
-      const itemClass = note.type === 'album' ? 'album-picker-item album' : 'album-picker-item';
-
-      return `
-        <div class="${itemClass}" data-note-id="${note.id}">
-          <div class="album-picker-info">
-            <span class="album-picker-icon"><i data-lucide="${pickerTypeIcon}"></i></span>
-            <div class="album-picker-details">
-              <div class="album-picker-title">${this.escapeHtml(note.title)}</div>
-              <div class="album-picker-meta">${itemCount} items</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Add click handlers
-    list.querySelectorAll('.album-picker-item').forEach(item => {
-      item.addEventListener('click', async () => {
-        const noteId = item.dataset.noteId;
-        
-        // Check if we're adding a note to an album or a clip to a note
-        if (this.pendingNoteForAlbum) {
-          await this.addNoteToAlbum(noteId);
-        } else {
-          await this.addCurrentClipToNote(noteId);
-        }
-      });
-    });
+  renderAlbumPicker(albums, selectedNoteId) {
+    return this.notesFeature.album.renderAlbumPicker(this, albums, selectedNoteId);
   }
 
   filterAlbumPicker(searchTerm) {
-    this.renderAlbumPicker(searchTerm);
+    return this.notesFeature.album.filterAlbumPicker(this, searchTerm);
   }
 
   async addCurrentClipToNote(noteId) {
-    const note = this.notes.find(n => n.id == noteId);
-    if (!note) return;
-
-    if (!note.clips) note.clips = [];
-
-    // Bulk path: add every selected clip individually
-    if (Array.isArray(this.pendingBulkClipsForNotes) && this.pendingBulkClipsForNotes.length > 0) {
-      const now = Date.now();
-      const noteClipCountBefore = note.clips.length;
-      this.pendingBulkClipsForNotes.forEach(clip => {
-        note.clips.push(this._clipAttachment(clip, now));
-      });
-      const count = this.pendingBulkClipsForNotes.length;
-
-      note.updatedAt = now;
-      this.refreshAlbumsForNote(note);
-      await this.saveNotes();
-      await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
-      this.closeAlbumPicker();
-      this.pendingBulkClipsForNotes = null;
-      this.selectedChips.clear();
-      this.updateQuickCopyButton();
-      this.renderChips();
-      this.showToast(`${count} clip${count === 1 ? '' : 's'} added to "${note.title}"`);
-      return;
-    }
-
-    let clipToAdd = this.pendingClipForNotes;
-
-    if (!clipToAdd) {
-      if (this.clips.length === 0) {
-        this.showToast('No clips to add');
-        return;
-      }
-      clipToAdd = this.clips[0];
-    }
-
-    note.clips.push(this._clipAttachment(clipToAdd, Date.now()));
-
-    note.updatedAt = Date.now();
-    this.refreshAlbumsForNote(note);
-    await this.saveNotes();
-    await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
-    this.closeAlbumPicker();
-    this.pendingClipForNotes = null;
-    this.showToast(`Clip added to "${note.title}"`);
+    return this.notesFeature.editor.addCurrentClipToNote(this, noteId);
   }
 
   async addNoteToAlbum(albumId) {
-    const album = this.notes.find(n => n.id == albumId && n.type === 'album');
-    const sourceNote = this.pendingNoteForAlbum;
-    
-    if (!album || !sourceNote) return;
-
-    // Copy content from note to album (keep original note unchanged)
-    if (!album.clips) album.clips = [];
-    if (!album.urls) album.urls = [];
-    if (!album.images) album.images = [];
-    if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
-    if (!album.sourceNoteIds.includes(sourceNote.id)) album.sourceNoteIds.push(sourceNote.id);
-
-    // Add a special "note content" clip if the note has body content
-    if (sourceNote.body && sourceNote.body.trim()) {
-      album.clips.push({
-        type: 'clip',
-        id: Date.now() + Math.random(),
-        title: sourceNote.title || 'Note content',
-        text: `[From: ${sourceNote.title || 'Untitled Note'}]\n\n${sourceNote.body}`,
-        addedDate: Date.now(),
-        sourceNoteId: sourceNote.id
-      });
-    }
-
-    // Copy all attachments from source note
-    if (sourceNote.clips?.length > 0) {
-      album.clips.push(...sourceNote.clips.map(c => ({
-        ...c,
-        addedDate: Date.now(),
-        sourceNoteId: sourceNote.id
-      })));
-    }
-
-    if (sourceNote.urls?.length > 0) {
-      album.urls.push(...sourceNote.urls.map(u => ({
-        ...u,
-        addedDate: Date.now(),
-        sourceNoteId: sourceNote.id
-      })));
-    }
-
-    if (sourceNote.images?.length > 0) {
-      album.images.push(...sourceNote.images.map(i => ({
-        ...i,
-        addedDate: Date.now(),
-        sourceNoteId: sourceNote.id
-      })));
-    }
-
-    album.updatedAt = Date.now();
-    await this.saveNotes();
-    await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(album)], pasteCraftSupabase.syncNotesToSupabase);
-    this.closeAlbumPicker();
-    this.pendingNoteForAlbum = null;
-    this.showToast(`Note added to album "${album.title}"`);
-    this.renderNotes(); // Refresh to show updated counts
+    return this.notesFeature.album.addNoteToAlbum(this, albumId);
   }
 
-  // ==================== ACTIVITY LOG SYSTEM ====================
+  openNoteViewer(noteId) { return this.notesFeature.album.openNoteViewer(this, noteId); }
+  closeNoteViewer() { return this.notesFeature.album.closeNoteViewer(this); }
+  getAlbumAttachmentOpenMode() { return this.notesFeature.album.getAlbumAttachmentOpenMode(this); }
+  openAlbumAttachment(noteId, attachmentIndex) { return this.notesFeature.album.openAlbumAttachment(this, noteId, attachmentIndex); }
+  openAlbumAttachmentInEdgePopup(noteId, attachmentIndex) { return this.notesFeature.album.openAlbumAttachmentInEdgePopup(this, noteId, attachmentIndex); }
+  openAlbumAttachmentOverlay(note, att) { return this.notesFeature.album.openAlbumAttachmentOverlay(this, note, att); }
+  closeAlbumAttachmentViewer() { return this.notesFeature.album.closeAlbumAttachmentViewer(this); }
+  openAlbumSourceNoteOverlay(sourceNoteId, albumId) { return this.notesFeature.album.openAlbumSourceNoteOverlay(this, sourceNoteId, albumId); }
+  closeAlbumSourceNoteOverlay() { return this.notesFeature.album.closeAlbumSourceNoteOverlay(this); }
+  copyAllNoteAttachments() { return this.notesFeature.album.copyAllNoteAttachments(this); }
 
-  /** Load activity log entries from change_audit_log table */
-  async loadActivityLog() {
-    try {
-      this.activityEntries = [];
-      this.activityOffset = 0;
-      this.activityFilter = 'all';
-      this.activityHasMore = true;
+  deleteNote(noteId) { return this.notesFeature.service.deleteNote(this, noteId); }
 
-      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) {
-        console.warn('⚠️ Supabase client not available for activity log');
-        return;
-      }
+  showClipPickerForNote() { return this.notesFeature.editor.showClipPickerForNote(this); }
+  closeClipPicker() { return this.notesFeature.editor.closeClipPicker(this); }
+  updateClipPickerFooter() { return this.notesFeature.editor.updateClipPickerFooter(this); }
+  togglePickerClip(clipId, itemElement) { return this.notesFeature.editor.togglePickerClip(this, clipId, itemElement); }
+  normalizePickerText(text) { return this.notesFeature.editor.normalizePickerText(text); }
+  createPickerSearchRowHTML(clip) { return this.notesFeature.editor.createPickerSearchRowHTML(this, clip); }
+  createPickerChipElement(clip) { return this.notesFeature.editor.createPickerChipElement(this, clip); }
+  attachPickerSearchRowHandlers(container) { return this.notesFeature.editor.attachPickerSearchRowHandlers(this, container); }
+  switchClipPickerTab(tabName) { return this.notesFeature.editor.switchClipPickerTab(this, tabName); }
+  renderClipPickerRecentClips() { return this.notesFeature.editor.renderClipPickerRecentClips(this); }
+  searchClipsInPicker(query) { return this.notesFeature.editor.searchClipsInPicker(this, query); }
+  renderClipPickerSearchResults(results) { return this.notesFeature.editor.renderClipPickerSearchResults(this, results); }
+  renderClipPickerCategories() { return this.notesFeature.editor.renderClipPickerCategories(this); }
+  addSelectedClipsToNote() { return this.notesFeature.editor.addSelectedClipsToNote(this); }
+  showImagePickerForNote() { return this.notesFeature.editor.showImagePickerForNote(this); }
+  addURLToNote() { return this.notesFeature.editor.addURLToNote(this); }
+  async exportNoteToPDF(noteId) { return this.notesFeature.editor.exportNoteToPDF(this, noteId); }
 
-      const supabase = pasteCraftSupabase.client;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.warn('⚠️ User not logged in - activity log unavailable');
-        return;
-      }
+  async loadActivityLog() { return this.activityFeature.service.loadActivityLog(this); }
+  async fetchActivityPage(append = false) { return this.activityFeature.service.fetchActivityPage(this, append); }
+  renderActivityList() { return this.activityFeature.render.renderActivityList(this); }
+  getActivityIcon(operation) { return this.activityFeature.render.getActivityIcon(operation); }
+  getTableBadge(tableName) { return this.activityFeature.render.getTableBadge(tableName); }
+  getActivitySummary(entry) { return this.activityFeature.render.getActivitySummary(entry); }
+  formatTimeAgo(date) { return this.activityFeature.render.formatTimeAgo(date); }
 
-      await this.fetchActivityPage();
-    } catch (error) {
-      console.error('❌ Failed to load activity log:', error);
-    }
-  }
-
-  /** Fetch a page of activity entries */
-  async fetchActivityPage(append = false) {
-    try {
-      if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase?.client) return;
-      const supabase = pasteCraftSupabase.client;
-
-      const pageSize = 20;
-      let query = supabase
-        .from('change_audit_log')
-        .select('id, occurred_at, table_name, operation, row_old, row_new')
-        .order('occurred_at', { ascending: false })
-        .range(this.activityOffset, this.activityOffset + pageSize - 1);
-
-      if (this.activityFilter && this.activityFilter !== 'all') {
-        query = query.eq('operation', this.activityFilter);
-      }
-
-      const dateFrom = document.getElementById('activityDateFrom')?.value;
-      const dateTo = document.getElementById('activityDateTo')?.value;
-      if (dateFrom) {
-        query = query.gte('occurred_at', dateFrom);
-      }
-      if (dateTo) {
-        query = query.lte('occurred_at', dateTo + 'T23:59:59');
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('❌ Activity query error:', error);
-        return;
-      }
-
-      if (append) {
-        this.activityEntries = [...this.activityEntries, ...(data || [])];
-      } else {
-        this.activityEntries = data || [];
-      }
-
-      this.activityHasMore = (data?.length || 0) >= pageSize;
-      this.activityOffset += data?.length || 0;
-
-    } catch (error) {
-      console.error('❌ Failed to fetch activity page:', error);
-    }
-  }
-
-  /** Render activity list UI */
-  renderActivityList() {
-    const container = document.getElementById('activityList');
-    const loadMoreBtn = document.getElementById('loadMoreActivityBtn');
-    if (!container) return;
-
-    if (!this.activityEntries || this.activityEntries.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
-          <h3>No cloud activity yet</h3>
-          <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
-        </div>
-      `;
-      if (loadMoreBtn) loadMoreBtn.style.display = 'none';
-      return;
-    }
-
-    container.innerHTML = this.activityEntries.map(entry => {
-      const icon = this.getActivityIcon(entry.operation);
-      const iconClass = entry.operation.toLowerCase();
-      const tableBadge = this.getTableBadge(entry.table_name);
-      const summary = this.getActivitySummary(entry);
-      const timeAgo = this.formatTimeAgo(new Date(entry.occurred_at));
-
-      return `
-        <div class="activity-entry" data-id="${entry.id}">
-          <div class="activity-entry-icon ${iconClass}">${icon}</div>
-          <div class="activity-entry-info">
-            <div class="activity-entry-title">${summary}</div>
-            <div class="activity-entry-meta">${timeAgo}</div>
-          </div>
-          <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
-        </div>
-      `;
-    }).join('');
-
-    if (loadMoreBtn) {
-      loadMoreBtn.style.display = this.activityHasMore ? 'block' : 'none';
-    }
-  }
-
-  /** Get icon for operation type */
-  getActivityIcon(operation) {
-    switch (operation) {
-      case 'INSERT': return '➕';
-      case 'UPDATE': return '✏️';
-      case 'DELETE': return '🗑️';
-      default: return '📝';
-    }
-  }
-
-  /** Get badge label for table name */
-  getTableBadge(tableName) {
-    const badges = {
-      clips: 'Clip',
-      categories: 'Category',
-      notes: 'Note',
-      settings: 'Settings',
-      user_profiles: 'Profile',
-      archived_clips: 'Archive'
-    };
-    return badges[tableName] || tableName;
-  }
-
-  /** Generate human-readable summary of the activity */
-  getActivitySummary(entry) {
-    const action = entry.operation === 'INSERT' ? 'Created' :
-                   entry.operation === 'UPDATE' ? 'Updated' :
-                   entry.operation === 'DELETE' ? 'Deleted' : 'Modified';
-    
-    const table = this.getTableBadge(entry.table_name).toLowerCase();
-    
-    // Try to extract a meaningful identifier
-    let identifier = '';
-    const data = entry.row_new || entry.row_old;
-    if (data) {
-      if (data.text) {
-        identifier = `: "${data.text.substring(0, 30)}${data.text.length > 30 ? '...' : ''}"`;
-      } else if (data.name) {
-        identifier = `: "${data.name}"`;
-      } else if (data.title) {
-        identifier = `: "${data.title}"`;
-      }
-    }
-
-    return `${action} ${table}${identifier}`;
-  }
-
-  /** Format timestamp as relative time */
-  formatTimeAgo(date) {
-    const now = new Date();
-    const diff = now - date;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    return 'Just now';
-  }
-
-  /** Initialize activity tab event listeners */
-  initActivityEventListeners() {
-    // Refresh button
-    document.getElementById('refreshActivityBtn')?.addEventListener('click', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-      this.showToast('Activity refreshed');
-    });
-
-    // Filter chips
-    document.querySelectorAll('.activity-filter-chip').forEach(chip => {
-      chip.addEventListener('click', async () => {
-        document.querySelectorAll('.activity-filter-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        this.activityFilter = chip.dataset.filter;
-        this.activityOffset = 0;
-        await this.fetchActivityPage();
-        this.renderActivityList();
-      });
-    });
-
-    // Date filters
-    document.getElementById('activityDateFrom')?.addEventListener('change', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-    });
-
-    document.getElementById('activityDateTo')?.addEventListener('change', async () => {
-      this.activityOffset = 0;
-      await this.fetchActivityPage();
-      this.renderActivityList();
-    });
-
-    // Load more button
-    document.getElementById('loadMoreActivityBtn')?.addEventListener('click', async () => {
-      await this.fetchActivityPage(true);
-      this.renderActivityList();
-    });
-  }
 }
 
 // Lucide icon renderer - idempotent, safe to call many times.

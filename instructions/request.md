@@ -550,6 +550,38 @@ state management.
 
 ---
 
+#### 46. Icon Click Hit-Target Fix (Post-Refactor)
+**Priority:** High
+**Status:** Queued — implement after modular refactor is complete
+**Implement After:** Clips-first modular refactor (clips.events.js, categories.events.js, widget events)
+
+**Problem:** Clicking the icon portion of any button does not trigger the action; only clicking the label text works.
+
+**Root Cause Pattern:**
+- Event listeners attached to the text node / inner span rather than the full button container
+- OR icon SVG/img element intercepts pointer events and the click never reaches the handler
+
+**Requirements:**
+- Add `pointer-events: none` to all icon elements (`svg`, `img`, `i`, `.icon`) inside action buttons — lets clicks pass through to the button
+- Ensure all button event handlers are registered on the outermost button/container element, not on inner children
+- Apply fix across all affected surfaces: Popup (Quick Save PDF button, Save Clip button), content widget (Magic wand button), and any other button that contains an icon + label pair
+- Validate fix in `*.events.js` modules during/after refactor extraction — do not patch the monolith `popup.js` just to move it again
+- After fix: clicking anywhere on a button (icon or label) must trigger the same action
+
+---
+
+#### 47. Craft Clips AI Rebuild
+**Priority:** High
+**Status:** Planned
+**Requirements:**
+- Rename/rebuild Magic Clips as Craft Clips with real action cards.
+- AI categorization must analyze all clips and create useful topic names.
+- Settings: categorization + duplicate detection toggles.
+- User can choose only one mode: Enhanced AI or AI Formatted.
+- Full plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
+
+---
+
 #### 45. Comprehensive Hotkey System
 **Priority:** High  
 **Status:** Not started  
@@ -577,6 +609,30 @@ state management.
 
 ---
 
+#### 48. Activity Log — Deleted Item Recovery
+**Priority:** Medium
+**Status:** Not started — depends on Activity Log refactor (done)
+
+**Requirements:**
+- On the Activity Log tab, any DELETE row shows a "Recover" button
+- Recovery window: **7 days max** — entries older than 7 days show Recover button as grayed/hidden
+- Works fully offline — no Supabase dependency for the recovery read path
+- After recovery, show toast and refresh the relevant feature list
+
+**Storage decision — IndexedDB + `navigator.storage.persist()`:**
+- `chrome.storage.local` is a 10MB hard cap — too small; already used by clips/notes/settings
+- Supabase `change_audit_log` cannot be the source of truth: FREE tier has no cloud sync, offline kills recovery, and sync must have already run before the delete is logged
+- IndexedDB has no hard extension cap but is evictable by browser under disk pressure
+- Fix: call `navigator.storage.persist()` at install/startup — browser marks the origin as persistent and **cannot silently evict it** (must prompt user first). PasteCraft already uses IndexedDB, so no new infrastructure needed.
+
+**Implementation notes:**
+- On every delete (clip, note, category, archived clip) — write full item snapshot to IndexedDB `deleted_items` store with `{ item, table_name, deleted_at }`
+- Prune entries older than 7 days on each write (keeps store bounded)
+- Hard cap: 200 items max as a safety valve
+- `activity.service.js`: add `recoverDeletedEntry(entry)` — reads from IndexedDB, re-inserts locally, queues Supabase upsert via existing `syncQueue` if online
+- Call `navigator.storage.persist()` in `background.js` `onInstalled` handler
+
+---
 
 ## 🎯 **PRIORITY ROADMAP**
 
