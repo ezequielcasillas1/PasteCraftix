@@ -175,7 +175,7 @@ class PasteCraftCRUD {
         }
         uiUpdater?.();
       } catch (rollbackError) {
-        console.error(`❌ Rollback failed for ${entityType}:`, rollbackError);
+        console.error(`? Rollback failed for ${entityType}:`, rollbackError);
       }
     };
 
@@ -214,7 +214,7 @@ class PasteCraftCRUD {
       // Step 3b: OPTIMISTIC UI - render the removal immediately so the
       // user sees the item disappear without waiting on storage/IDB/verifier.
       // If any downstream write fails, `rollback()` restores state and re-renders.
-      try { uiUpdater?.(); } catch (uiErr) { console.error(`⚠️ uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
+      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
 
       // Step 4: Persist to storage with retry
       if (storageWriter) {
@@ -238,7 +238,7 @@ class PasteCraftCRUD {
           const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
           await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
         } catch (idbErr) {
-          console.warn(`⚠️ IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
+          console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
         }
       }
 
@@ -258,7 +258,7 @@ class PasteCraftCRUD {
             });
           }
         } catch (tombErr) {
-          console.warn(`⚠️ Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
+          console.warn(`?? Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
         }
       }
 
@@ -273,9 +273,9 @@ class PasteCraftCRUD {
         Promise.resolve()
           .then(() => verifier(entityId))
           .then((ok) => {
-            if (!ok) console.warn(`⚠️ Post-write verification still sees ${entityType}:`, entityId);
+            if (!ok) console.warn(`?? Post-write verification still sees ${entityType}:`, entityId);
           })
-          .catch((verErr) => console.warn(`⚠️ Verifier threw (${entityType} delete):`, verErr));
+          .catch((verErr) => console.warn(`?? Verifier threw (${entityType} delete):`, verErr));
       }
 
       // Background sync (non-blocking)
@@ -283,14 +283,14 @@ class PasteCraftCRUD {
         Promise.resolve()
           .then(() => backgroundSync(entity, deletedAt))
           .catch((error) => {
-            console.error(`⚠️ Background sync failed for ${entityType} (local deletion succeeded):`, error);
+            console.error(`?? Background sync failed for ${entityType} (local deletion succeeded):`, error);
           });
       }
 
       return { success: true, entity };
     } catch (error) {
       // Rollback on any failure
-      console.error(`❌ ${entityType} deletion failed, rolling back:`, error);
+      console.error(`? ${entityType} deletion failed, rolling back:`, error);
       await rollback();
       const msg = errorMessage?.(error) || `Failed to delete ${entityType}: ${error.message || 'Unknown error'}`;
       showToast?.(msg, 'error');
@@ -370,7 +370,7 @@ class PasteCraftCRUD {
         }
         uiUpdater?.();
       } catch (rollbackError) {
-        console.error('❌ Rollback failed:', rollbackError);
+        console.error('? Rollback failed:', rollbackError);
       }
     };
 
@@ -389,7 +389,7 @@ class PasteCraftCRUD {
 
       // Step 3: OPTIMISTIC UI - paint the change immediately so the user
       // sees the new entity without waiting on chrome.storage or verifier I/O.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('⚠️ uiUpdater threw (create, optimistic):', uiErr); }
+      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (create, optimistic):', uiErr); }
 
       // Step 4: Persist with retry (still awaited so rollback fires on real failure)
       if (storageWriter) {
@@ -415,16 +415,16 @@ class PasteCraftCRUD {
         Promise.resolve()
           .then(() => verifier(entity))
           .then((ok) => {
-            if (!ok) console.warn('⚠️ Post-write verification missed entity (create):', entity?.id);
+            if (!ok) console.warn('?? Post-write verification missed entity (create):', entity?.id);
           })
-          .catch((verErr) => console.warn('⚠️ Verifier threw (create):', verErr));
+          .catch((verErr) => console.warn('?? Verifier threw (create):', verErr));
       }
 
       if (backgroundSync) {
         Promise.resolve()
           .then(() => backgroundSync(entity))
           .catch((error) => {
-            console.error('⚠️ Background sync failed (local creation succeeded):', error);
+            console.error('?? Background sync failed (local creation succeeded):', error);
           });
       }
 
@@ -506,7 +506,7 @@ class PasteCraftCRUD {
         }
         uiUpdater?.();
       } catch (rollbackError) {
-        console.error('❌ Rollback failed:', rollbackError);
+        console.error('? Rollback failed:', rollbackError);
       }
     };
 
@@ -524,7 +524,7 @@ class PasteCraftCRUD {
       await stateSetter(currentState);
 
       // Step 3: OPTIMISTIC UI - render the updated entity immediately.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('⚠️ uiUpdater threw (update, optimistic):', uiErr); }
+      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (update, optimistic):', uiErr); }
 
       // Step 4: Persist with retry
       if (storageWriter) {
@@ -548,16 +548,16 @@ class PasteCraftCRUD {
         Promise.resolve()
           .then(() => verifier(entityId, updates))
           .then((ok) => {
-            if (!ok) console.warn('⚠️ Post-write verification failed (update):', entityId);
+            if (!ok) console.warn('?? Post-write verification failed (update):', entityId);
           })
-          .catch((verErr) => console.warn('⚠️ Verifier threw (update):', verErr));
+          .catch((verErr) => console.warn('?? Verifier threw (update):', verErr));
       }
 
       if (backgroundSync) {
         Promise.resolve()
           .then(() => backgroundSync({ ...entity, ...updates }))
           .catch((error) => {
-            console.error('⚠️ Background sync failed (local update succeeded):', error);
+            console.error('?? Background sync failed (local update succeeded):', error);
           });
       }
 
@@ -577,7 +577,7 @@ if (typeof window !== 'undefined') {
 
 class PasteCraftPopup {
   constructor() {
-    console.log('🟢 PasteCraftPopup constructor called');
+    console.log('?? PasteCraftPopup constructor called');
     this.clips = [];
     this.categories = [];
     // NOTE: selectedChips stores stable clip id keys (String(clip.id)), not indices.
@@ -740,7 +740,7 @@ class PasteCraftPopup {
     google: { default: 40, cheapest: 25, gemini_pro: 350, latest: 100 },
   };
 
-  // Provider → preset options mapping (single source of truth)
+  // Provider ? preset options mapping (single source of truth)
   static AI_PROVIDER_PRESETS = {
     openai: [
       { value: 'default',   label: 'Default (4o-mini) · 40 cr' },
@@ -750,7 +750,7 @@ class PasteCraftPopup {
     ],
     google: [
       { value: 'default',        label: 'Default (Gemini 2.0 Flash) · 40 cr' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash‑Lite) · 25 cr' },
+      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) · 25 cr' },
       { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) · 350 cr' },
       { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) · 100 cr' },
     ],
@@ -785,9 +785,7 @@ class PasteCraftPopup {
   // =====================================================
 
   async clearLegacyAuthPrefs() {
-    try {
-      await chrome.storage.local.remove([this._authPrefsKey]);
-    } catch (_) {}
+    return this.authFeature.service.clearLegacyAuthPrefs(this);
   }
 
   _clipIdKey(id) {
@@ -840,7 +838,7 @@ class PasteCraftPopup {
     // throw, hang, or network stall can't freeze the popup in a loading state.
     const watchdog = setTimeout(() => {
       try {
-        console.warn('⏰ init() watchdog fired at 10s — force-hiding overlay');
+        console.warn('? init() watchdog fired at 10s — force-hiding overlay');
         this.hideLoadingOverlay();
         this._showOfflineModeBanner();
       } catch (_) {}
@@ -849,7 +847,7 @@ class PasteCraftPopup {
     try {
       await this._initImpl();
     } catch (e) {
-      console.error('❌ init() failed:', e);
+      console.error('? init() failed:', e);
       try { this._showOfflineModeBanner(); } catch (_) {}
     } finally {
       clearTimeout(watchdog);
@@ -909,19 +907,28 @@ class PasteCraftPopup {
     return this.activityFeature;
   }
 
+  async _initializeAuthFeature() {
+    if (this.authFeature) return this.authFeature;
+    const { initAuthFeature } = await import('./popup/features/auth/auth.controller.js');
+    this.authFeature = initAuthFeature(this);
+    return this.authFeature;
+  }
+
   async _initImpl() {
-    console.log('🚀 Initializing PasteCraft popup...');
+    console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
     await this._initializeCategoriesFeature();
     await this._initializeNotesFeature();
     await this._initializeAiLabFeature();
     await this._initializeSettingsFeature();
     await this._initializeActivityFeature();
+    await this._initializeAuthFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
+    this._setupSupportFormEvents();
 
-    // ─── V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ───
+    // --- V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ---
     let isLocalGuest = false;
     try {
       const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
@@ -951,12 +958,12 @@ class PasteCraftPopup {
       return;
     }
 
-    // ─── CLOUD AUTH PATH (only reached when NOT in local mode) ───
+    // --- CLOUD AUTH PATH (only reached when NOT in local mode) ---
 
     // Check if this is a password reset callback from storage
     const resetCallback = await this.checkPasswordResetCallback();
     if (resetCallback) {
-      console.log('🔑 Password reset callback detected from storage');
+      console.log('?? Password reset callback detected from storage');
       this.hideLoadingOverlay();
       document.getElementById('newPasswordModal').style.display = 'flex';
       return;
@@ -966,7 +973,7 @@ class PasteCraftPopup {
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     
-    console.log('🔍 URL check:', {
+    console.log('?? URL check:', {
       search: window.location.search,
       hash: window.location.hash,
       type: hashParams.get('type'),
@@ -974,7 +981,7 @@ class PasteCraftPopup {
     });
     
     if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
-      console.log('🔑 Password reset callback detected from URL');
+      console.log('?? Password reset callback detected from URL');
       const accessToken = hashParams.get('access_token') || hashParams.get('reset');
       const refreshToken = hashParams.get('refresh_token');
       if (accessToken) {
@@ -1006,7 +1013,7 @@ class PasteCraftPopup {
     }
     
     // User is authenticated, proceed with normal init
-    console.log('✅ User authenticated:', currentUser.email);
+    console.log('? User authenticated:', currentUser.email);
     this.currentUser = currentUser;
 
 
@@ -1018,14 +1025,14 @@ class PasteCraftPopup {
     } catch (_) {
       this.userSubscription = null;
     }
-    console.log('💎 Subscription tier (cached):', this.userSubscription?.subscription_tier);
+    console.log('?? Subscription tier (cached):', this.userSubscription?.subscription_tier);
     // Best-effort credits render from cached subscription snapshot.
     this.updateAiCreditsPills('cached');
     this.updateUpgradeUI();
 
     pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
       this.userSubscription = sub;
-      console.log('💎 Subscription tier (fresh):', this.userSubscription?.subscription_tier);
+      console.log('?? Subscription tier (fresh):', this.userSubscription?.subscription_tier);
       this.updateAiCreditsPills('fresh');
       this.updateUpgradeUI();
     }).catch(() => {});
@@ -1056,7 +1063,7 @@ class PasteCraftPopup {
         if (remoteProfile) {
           this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
           await chrome.storage.local.set({ userProfile: this.userProfile });
-          console.log('✅ Profile hydrated from Supabase on fresh device');
+          console.log('? Profile hydrated from Supabase on fresh device');
         }
       } catch (_) {}
     }
@@ -1075,13 +1082,13 @@ class PasteCraftPopup {
     this.renderCategories();
     this.updateCategoryFilter();
 
-    // 🎯 HIDE LOADING OVERLAY (local data loaded, ready to show).
+    // ?? HIDE LOADING OVERLAY (local data loaded, ready to show).
     // Done BEFORE _restoreSessionState() so a slow Supabase call inside
     // the session-restore path (loadNotes/loadActivityLog/loadAiHistory)
     // cannot stall the visible UI behind the purple overlay.
     this.hideLoadingOverlay();
 
-    // 🔄 RESTORE SESSION STATE (active tab, AI content, etc.) — fire and
+    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) — fire and
     // forget. The restored tab shows its own lightweight inline loading
     // state while its data arrives.
     this._restoreSessionState().catch((e) => {
@@ -1098,10 +1105,10 @@ class PasteCraftPopup {
       .then(() => this.cleanupOldClips())
       .catch(() => {});
     
-    // 🔄 SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
+    // ?? SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
     this.performBackgroundSync();
     
-    // 📦 TIERED STORAGE MIGRATION (move excess data to cloud if needed)
+    // ?? TIERED STORAGE MIGRATION (move excess data to cloud if needed)
     Promise.resolve()
       .then(() => this._maybeMigrateTieredStorage())
       .catch(e => console.warn('Tiered storage migration skipped:', e));
@@ -1115,7 +1122,7 @@ class PasteCraftPopup {
     // Setup sync status listeners
     this.setupSyncStatusListeners();
     
-    console.log('✅ PasteCraft popup initialized successfully');
+    console.log('? PasteCraft popup initialized successfully');
   }
 
   _formatShortDate(isoOrDate) {
@@ -1156,124 +1163,7 @@ class PasteCraftPopup {
   }
 
   setupLocalStorageListener() {
-    try {
-      // Debounce repeated local change events and avoid re-entrancy loops.
-      this._handlingLocalChange = false;
-      this._lastLocalChangeAt = 0;
-      this._localChangeTimerId = null;
-      this._isUpdating = {
-        clips: false,
-        categories: false,
-        notes: false,
-        ai: false,
-        search: false
-      };
-
-      chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName !== 'local') return;
-        if (!changes) return;
-
-        // Detect what changed
-        const clipsChanged = !!(changes.clips || changes.searchOnlyClips);
-        const categoriesChanged = !!changes.categories;
-        const notesChanged = !!changes.notes;
-        const settingsChanged = !!(changes.autoDeletePeriod || changes.quickPasteSettings || changes.albumAttachmentOpenMode || changes.theme);
-        const aiDataChanged = !!(changes.analysisHistory || changes.userProfile);
-
-        // Only react to data we render
-        const relevant = clipsChanged || categoriesChanged || notesChanged || settingsChanged || aiDataChanged;
-        if (!relevant) return;
-        if (this._handlingLocalChange) return;
-
-        // If popup isn't visible, don't do expensive UI work
-        if (document.visibilityState !== 'visible') return;
-
-        const now = Date.now();
-        if (now - this._lastLocalChangeAt < 150) return;
-        this._lastLocalChangeAt = now;
-
-        if (this._localChangeTimerId) clearTimeout(this._localChangeTimerId);
-        this._localChangeTimerId = setTimeout(async () => {
-          if (this._handlingLocalChange) return;
-          this._handlingLocalChange = true;
-          try {
-            await this._mirrorChangedLocalStateToIndexedDb(changes);
-            // Refresh clips/categories if changed
-            if (clipsChanged || categoriesChanged) {
-              await this.loadData();
-            }
-
-            // Refresh notes if changed
-            if (notesChanged) {
-              await this.loadNotes();
-            }
-
-            // Refresh AI data if changed
-            if (aiDataChanged) {
-              await this.loadAnalysisHistory();
-              await this.loadUserProfile();
-            }
-
-            // Update only what's needed for the current view (only if not already updating)
-            if (this.currentTab === 'clips' && clipsChanged && !this._isUpdating.clips) {
-              this._isUpdating.clips = true;
-              try {
-                this.renderChips();
-                this.updateLastCapture();
-                this.updatePreview();
-              } finally {
-                this._isUpdating.clips = false;
-              }
-            } else if (this.currentTab === 'search' && clipsChanged && !this._isUpdating.search) {
-              this._isUpdating.search = true;
-              try {
-                this.renderSearchResults();
-                this.updateSearchBulkActions();
-              } finally {
-                this._isUpdating.search = false;
-              }
-            } else if (this.currentTab === 'categories' && (clipsChanged || categoriesChanged) && !this._isUpdating.categories) {
-              this._isUpdating.categories = true;
-              try {
-                this.renderCategories();
-                this.updateCategoryFilter();
-                this.updateManualInputCategories();
-                this.updateCategoryBulkActions();
-              } finally {
-                this._isUpdating.categories = false;
-              }
-            } else if (this.currentTab === 'notes' && notesChanged && !this._isUpdating.notes) {
-              this._isUpdating.notes = true;
-              try {
-                this.renderNotes();
-              } finally {
-                this._isUpdating.notes = false;
-              }
-            } else if (this.currentTab === 'ai' && aiDataChanged && !this._isUpdating.ai) {
-              this._isUpdating.ai = true;
-              try {
-                this.loadAIGallery();
-              } finally {
-                this._isUpdating.ai = false;
-              }
-            }
-
-            // Settings changes: refresh settings UI if modal is open
-            if (settingsChanged) {
-              const settingsModal = document.getElementById('settingsModal');
-              if (settingsModal && settingsModal.style.display !== 'none') {
-                // Settings modal is open - refresh settings display
-                this.showSettingsModal();
-              }
-            }
-          } finally {
-            this._handlingLocalChange = false;
-          }
-        }, 60);
-      });
-    } catch (_) {
-      // ignore
-    }
+    return this.authFeature.session.setupLocalStorageListener(this);
   }
 
   async _ensureIndexedDbReadyAndMigrate() {
@@ -1289,7 +1179,7 @@ class PasteCraftPopup {
       this._idbReady = true;
     } catch (error) {
       this._idbReady = false;
-      console.warn('⚠️ IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
+      console.warn('?? IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
     }
   }
 
@@ -1306,7 +1196,7 @@ class PasteCraftPopup {
         await this.idb.syncEntityFromLocalStorage('notes', Array.isArray(changes.notes.newValue) ? changes.notes.newValue : []);
       }
     } catch (error) {
-      console.warn('⚠️ Failed mirroring local entities to IndexedDB:', error?.message || error);
+      console.warn('?? Failed mirroring local entities to IndexedDB:', error?.message || error);
     }
   }
 
@@ -1468,7 +1358,7 @@ class PasteCraftPopup {
     const notes = Array.isArray(point.notes) ? point.notes.length : 0;
     const target = new Date(cutoffMs).toLocaleString();
     const reason = point.reason ? ` • ${String(point.reason)}` : '';
-    return `Restore point: ${when}${reason}. Target window: ${windowKey} (≤ ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
+    return `Restore point: ${when}${reason}. Target window: ${windowKey} (= ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
   }
 
   async previewRestore(windowKey) {
@@ -1486,7 +1376,7 @@ class PasteCraftPopup {
     const preview = this._lastPreviewRestore;
     const point = preview && preview.point ? preview.point : null;
     if (!point) {
-      this.showToast('⚠️ No restore point available yet', 'error');
+      this.showToast('?? No restore point available yet', 'error');
       return false;
     }
 
@@ -1528,14 +1418,14 @@ class PasteCraftPopup {
     const btn = document.getElementById('syncRestoredToCloudBtn');
     if (btn) btn.disabled = false;
 
-    this.showToast('✅ Restore complete (local only)');
+    this.showToast('? Restore complete (local only)');
     return true;
   }
 
   async syncRestoredDataToCloud() {
     const applied = this._lastAppliedRestore;
     if (!applied || !applied.point) {
-      this.showToast('⚠️ Restore first, then sync to cloud', 'error');
+      this.showToast('?? Restore first, then sync to cloud', 'error');
       return false;
     }
 
@@ -1545,7 +1435,7 @@ class PasteCraftPopup {
     if (!ok) return false;
 
     await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
-    this.showToast('✅ Synced restored data to cloud');
+    this.showToast('? Synced restored data to cloud');
     return true;
   }
 
@@ -1636,17 +1526,17 @@ class PasteCraftPopup {
           const res = await chrome.storage.local.get([this._lastRestoreAtKey]);
           const lastRestoreAt = typeof res?.[this._lastRestoreAtKey] === 'number' ? res[this._lastRestoreAtKey] : 0;
           if (lastRestoreAt && (Date.now() - lastRestoreAt) < this._restoreSkipCloudSyncWindowMs) {
-            console.log('⏸️ Skipping background sync (recent restore):', { reason, lastRestoreAt });
+            console.log('?? Skipping background sync (recent restore):', { reason, lastRestoreAt });
             return;
           }
         } catch (_) {}
       }
 
-      console.log('🔄 Starting background sync with database...', { reason, force });
+      console.log('?? Starting background sync with database...', { reason, force });
       const syncResult = await pasteCraftSupabase.performFullSync();
       
       if (syncResult.success) {
-        console.log('✅ Background sync complete:', syncResult.stats);
+        console.log('? Background sync complete:', syncResult.stats);
         // Reload data after sync
         await this.loadData();
         this.renderChips();
@@ -1654,15 +1544,15 @@ class PasteCraftPopup {
         this.updateCategoryFilter();
         this.updateManualInputCategories();
         
-        // 🔄 RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
+        // ?? RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
         await this.loadUserProfile();
         // Always refresh top bar identity (name + image) after sync
         this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
       } else {
-        console.warn('⚠️ Background sync failed:', syncResult.message);
+        console.warn('?? Background sync failed:', syncResult.message);
       }
     } catch (error) {
-      console.error('❌ Background sync error:', error);
+      console.error('? Background sync error:', error);
       // Don't block app - local data still works
     }
   }
@@ -1674,12 +1564,12 @@ class PasteCraftPopup {
       overlay.style.transition = 'opacity 0.3s ease';
       setTimeout(() => {
         overlay.style.display = 'none';
-        console.log('✅ Loading overlay hidden');
+        console.log('? Loading overlay hidden');
       }, 300);
     }
   }
 
-  // ── Upgrade UI (Freemium → Basic/Enhanced) ──────────────────────────
+  // -- Upgrade UI (Freemium ? Basic/Enhanced) --------------------------
   _isFreemiumUser() {
     const sub = this.userSubscription;
     if (!sub) return true;
@@ -1757,7 +1647,7 @@ class PasteCraftPopup {
     // Reload data when popup is shown
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible') {
-        console.log('🔄 Popup became visible - reloading data...');
+        console.log('?? Popup became visible - reloading data...');
         await this.loadData();
         await this.loadUserProfile(); // Reload profile too
         this.renderChips();
@@ -1768,7 +1658,7 @@ class PasteCraftPopup {
         
         // Always refresh top bar identity (name + image) on visibility
         this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-        console.log('✅ Data reloaded successfully');
+        console.log('? Data reloaded successfully');
       }
     });
   }
@@ -1846,7 +1736,7 @@ class PasteCraftPopup {
     // Listen for realtime data changes
     window.addEventListener('dataChanged', async (event) => {
       const { type } = event.detail;
-      console.log(`🔔 Realtime change detected: ${type}`);
+      console.log(`?? Realtime change detected: ${type}`);
       
       // Reload and re-render based on data type
       if (type === 'clips' || type === 'archivedClips') {
@@ -1884,9 +1774,9 @@ class PasteCraftPopup {
     indicator.className = `sync-indicator ${status}`;
     
     const statusMessages = {
-      'synced': '🟢 Synced',
-      'syncing': '🟡 Syncing...',
-      'offline': '🔴 Offline'
+      'synced': 'Synced',
+      'syncing': 'Syncing...',
+      'offline': 'Offline'
     };
     
     statusText.textContent = statusMessages[status] || status;
@@ -1935,39 +1825,39 @@ class PasteCraftPopup {
       if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
     }
 
-    // ── DEMO SEED: Preset categories + example clips (PC 1.0 release) ──
+    // -- DEMO SEED: Preset categories + example clips (PC 1.0 release) --
     // Research-backed preset categories based on most commonly copied/pasted
     // clipboard items: code, links, emails, AI prompts, reference info, math,
     // diagrams, and docs. 4 markup demo clips + 4 common-use clips.
     if (clips.length === 0 && categories.length === 0) {
       const now = Date.now();
       categories = [
-        { id: now - 800000, name: '💻 Code Snippets', icon: '💻', createdAt: now - 800000, updatedAt: now - 800000 },
-        { id: now - 700000, name: '🔗 Links & URLs', icon: '🔗', createdAt: now - 700000, updatedAt: now - 700000 },
-        { id: now - 600000, name: '📧 Email Templates', icon: '📧', createdAt: now - 600000, updatedAt: now - 600000 },
-        { id: now - 500000, name: '🤖 AI Prompts', icon: '🤖', createdAt: now - 500000, updatedAt: now - 500000 },
-        { id: now - 400000, name: '📋 Quick Reference', icon: '📋', createdAt: now - 400000, updatedAt: now - 400000 },
-        { id: now - 300000, name: '📐 Math & Formulas', icon: '📐', createdAt: now - 300000, updatedAt: now - 300000 },
-        { id: now - 200000, name: '🔀 Diagrams & Charts', icon: '🔀', createdAt: now - 200000, updatedAt: now - 200000 },
-        { id: now - 100000, name: '📝 Notes & Docs', icon: '📝', createdAt: now - 100000, updatedAt: now - 100000 }
+        { id: now - 800000, name: '?? Code Snippets', icon: '??', createdAt: now - 800000, updatedAt: now - 800000 },
+        { id: now - 700000, name: '?? Links & URLs', icon: '??', createdAt: now - 700000, updatedAt: now - 700000 },
+        { id: now - 600000, name: '?? Email Templates', icon: '??', createdAt: now - 600000, updatedAt: now - 600000 },
+        { id: now - 500000, name: '?? AI Prompts', icon: '??', createdAt: now - 500000, updatedAt: now - 500000 },
+        { id: now - 400000, name: '?? Quick Reference', icon: '??', createdAt: now - 400000, updatedAt: now - 400000 },
+        { id: now - 300000, name: '?? Math & Formulas', icon: '??', createdAt: now - 300000, updatedAt: now - 300000 },
+        { id: now - 200000, name: '?? Diagrams & Charts', icon: '??', createdAt: now - 200000, updatedAt: now - 200000 },
+        { id: now - 100000, name: '?? Notes & Docs', icon: '??', createdAt: now - 100000, updatedAt: now - 100000 }
       ];
       clips = [
-        // ── 4 MARKUP DEMO CLIPS (showcase rendering capabilities) ──
-        { id: 'demo_markup_1', text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '📐 Math & Formulas', timestamp: now - 800000, meta: { markupHint: 'latex' } },
-        { id: 'demo_markup_2', text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '🔀 Diagrams & Charts', timestamp: now - 700000, meta: { markupHint: 'mermaid' } },
-        { id: 'demo_markup_3', text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '💻 Code Snippets', timestamp: now - 600000, meta: { markupHint: 'javascript' } },
-        { id: 'demo_markup_4', text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '📝 Notes & Docs', timestamp: now - 500000, meta: { markupHint: 'markdown' } },
-        // ── 4 COMMON CLIPBOARD CLIPS (research-backed presets) ──
-        { id: 'demo_common_1', text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript\nhttps://stackoverflow.com/questions\nhttps://github.com/trending', category: '🔗 Links & URLs', timestamp: now - 400000 },
-        { id: 'demo_common_2', text: 'Hi [Name],\n\nThank you for reaching out. I wanted to follow up regarding [topic].\n\nPlease let me know if you have any questions.\n\nBest regards,\n[Your Name]', category: '📧 Email Templates', timestamp: now - 300000 },
-        { id: 'demo_common_3', text: 'Act as an expert [role]. I need you to [task]. The context is [context]. Format your response as [format]. Keep it concise and actionable.', category: '🤖 AI Prompts', timestamp: now - 200000 },
-        { id: 'demo_common_4', text: 'Company: PasteCraft Inc.\nSupport: support@pastecraft.com\nDocs: https://pastecraft.com/docs\nVersion: 1.0.0', category: '📋 Quick Reference', timestamp: now - 100000 }
+        // -- 4 MARKUP DEMO CLIPS (showcase rendering capabilities) --
+        { id: 'demo_markup_1', text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '?? Math & Formulas', timestamp: now - 800000, meta: { markupHint: 'latex' } },
+        { id: 'demo_markup_2', text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '?? Diagrams & Charts', timestamp: now - 700000, meta: { markupHint: 'mermaid' } },
+        { id: 'demo_markup_3', text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '?? Code Snippets', timestamp: now - 600000, meta: { markupHint: 'javascript' } },
+        { id: 'demo_markup_4', text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '?? Notes & Docs', timestamp: now - 500000, meta: { markupHint: 'markdown' } },
+        // -- 4 COMMON CLIPBOARD CLIPS (research-backed presets) --
+        { id: 'demo_common_1', text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript\nhttps://stackoverflow.com/questions\nhttps://github.com/trending', category: '?? Links & URLs', timestamp: now - 400000 },
+        { id: 'demo_common_2', text: 'Hi [Name],\n\nThank you for reaching out. I wanted to follow up regarding [topic].\n\nPlease let me know if you have any questions.\n\nBest regards,\n[Your Name]', category: '?? Email Templates', timestamp: now - 300000 },
+        { id: 'demo_common_3', text: 'Act as an expert [role]. I need you to [task]. The context is [context]. Format your response as [format]. Keep it concise and actionable.', category: '?? AI Prompts', timestamp: now - 200000 },
+        { id: 'demo_common_4', text: 'Company: PasteCraft Inc.\nSupport: support@pastecraft.com\nDocs: https://pastecraft.com/docs\nVersion: 1.0.0', category: '?? Quick Reference', timestamp: now - 100000 }
       ];
       await chrome.storage.local.set({ clips, categories, searchOnlyClips });
       normalizedChanged = false;
-      console.log('🧪 Seeded 8 preset categories + 8 example clips (PC 1.0)');
+      console.log('?? Seeded 8 preset categories + 8 example clips (PC 1.0)');
     }
-    // ── END DEMO SEED ──
+    // -- END DEMO SEED --
 
     const hashText = (t) => {
       const s = String(t || '');
@@ -2105,7 +1995,7 @@ class PasteCraftPopup {
         this.tieredClipsStore.totalCount = this.totalClipsCount;
         this.tieredArchivedStore.totalCount = this.totalArchivedCount;
         
-        console.log(`📊 Tiered storage initialized: ${this.clips.length} local clips, ${this.totalClipsCount} total`);
+        console.log(`?? Tiered storage initialized: ${this.clips.length} local clips, ${this.totalClipsCount} total`);
       } else {
         // No Supabase - use local counts
         this.totalClipsCount = this.clips.length;
@@ -2174,35 +2064,35 @@ class PasteCraftPopup {
         
         // Auto-reload data when switching tabs to ensure fresh counts
         if (this.currentTab === 'clips') {
-          console.log('🔄 Clips tab opened - reloading data...');
+          console.log('?? Clips tab opened - reloading data...');
           await this.loadData();
           this.renderChips();
-          console.log('✅ Clips data refreshed');
+          console.log('? Clips data refreshed');
         } else if (this.currentTab === 'categories') {
-          console.log('🔄 Categories tab opened - reloading data...');
+          console.log('?? Categories tab opened - reloading data...');
           await this.loadData();
           this.renderCategories();
           this.updateCategoryBulkActions();
-          console.log('✅ Categories data refreshed');
+          console.log('? Categories data refreshed');
         } else if (this.currentTab === 'search') {
-          console.log('🔄 Search tab opened - reloading data...');
+          console.log('?? Search tab opened - reloading data...');
           await this.loadData();
           this.renderSearchResults();
           this.updateSearchBulkActions();
-          console.log('✅ Search data refreshed');
+          console.log('? Search data refreshed');
         } else if (this.currentTab === 'ai') {
           this.loadAIGallery();
           this.migrateProfileImageToGallery();
         } else if (this.currentTab === 'notes') {
-          console.log('🔄 Notes tab opened - loading notes...');
+          console.log('?? Notes tab opened - loading notes...');
           await this.loadNotes();
           this.renderNotes();
-          console.log('✅ Notes loaded');
+          console.log('? Notes loaded');
         } else if (this.currentTab === 'aiHistory') {
-          console.log('🔄 AI History tab opened - loading history...');
+          console.log('?? AI History tab opened - loading history...');
           await this.loadAiHistory();
           this.renderAiHistoryList();
-          console.log('✅ AI History loaded');
+          console.log('? AI History loaded');
         } else if (this.currentTab === 'activity') {
           await this.activityFeature.service.loadActivityLog(this);
           this.activityFeature.render.renderActivityList(this);
@@ -3172,9 +3062,9 @@ class PasteCraftPopup {
           tab.classList.add('selected');
           // Store selected level
           this.selectedFollowupLevel = tab.dataset.followupLevel;
-          console.log('📊 Selected follow-up level:', this.selectedFollowupLevel);
+          console.log('?? Selected follow-up level:', this.selectedFollowupLevel);
           
-          // ✅ FIX: Auto-submit the followup when level is clicked
+          // ? FIX: Auto-submit the followup when level is clicked
           if (breakdownFollowupInput && this.currentBreakdownText) {
             const followupQuestion = breakdownFollowupInput.value.trim();
             if (followupQuestion) {
@@ -3261,7 +3151,7 @@ class PasteCraftPopup {
       const result = await chrome.storage.local.get('oauth_callback');
       if (result.oauth_callback) {
         const { access_token, refresh_token } = result.oauth_callback;
-        console.log('🔐 Found OAuth callback tokens, completing sign in...');
+        console.log('?? Found OAuth callback tokens, completing sign in...');
         
         // Set session with tokens (timeout to prevent hang)
         try {
@@ -3271,7 +3161,7 @@ class PasteCraftPopup {
           ]);
           
           if (!error) {
-            console.log('✅ OAuth sign in completed!');
+            console.log('? OAuth sign in completed!');
             try {
               const { data: { user } } = await Promise.race([
                 pasteCraftSupabase.client.auth.getUser(),
@@ -3284,34 +3174,34 @@ class PasteCraftPopup {
               }
             } catch (_) {}
           } else {
-            console.error('❌ Failed to set session:', error);
+            console.error('? Failed to set session:', error);
           }
         } catch (timeoutErr) {
-          console.warn('⚠️ setSession timed out, session bridge will handle auth');
+          console.warn('?? setSession timed out, session bridge will handle auth');
         }
         
         // Clear the temporary tokens regardless
         await chrome.storage.local.remove('oauth_callback');
       }
     } catch (error) {
-      console.error('❌ Error checking OAuth callback:', error);
+      console.error('? Error checking OAuth callback:', error);
     }
   }
 
   async checkPasswordResetCallback() {
     try {
       console.log('=================================');
-      console.log('🔍 CHECKING PASSWORD RESET CALLBACK');
+      console.log('?? CHECKING PASSWORD RESET CALLBACK');
       console.log('=================================');
-      console.log('📦 Reading from chrome.storage.local...');
+      console.log('?? Reading from chrome.storage.local...');
       
       const result = await chrome.storage.local.get('password_reset_callback');
-      console.log('📥 Storage result:', result);
+      console.log('?? Storage result:', result);
       
       if (result.password_reset_callback) {
         const { access_token, refresh_token, type, timestamp } = result.password_reset_callback;
-        console.log('✅ Password reset callback data found!');
-        console.log('📦 Data details:', {
+        console.log('? Password reset callback data found!');
+        console.log('?? Data details:', {
           access_token_length: access_token?.length,
           refresh_token_length: refresh_token?.length,
           type: type,
@@ -3320,7 +3210,7 @@ class PasteCraftPopup {
         });
         
         if (type === 'recovery') {
-          console.log('🔑 Type is "recovery" - setting database session...');
+          console.log('?? Type is "recovery" - setting database session...');
           
           // Set session with recovery tokens
           const { error } = await pasteCraftSupabase.client.auth.setSession({
@@ -3329,30 +3219,30 @@ class PasteCraftPopup {
           });
           
           if (!error) {
-            console.log('✅ Password reset session established successfully!');
+            console.log('? Password reset session established successfully!');
             
             // Verify session
             const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
-            console.log('👤 Current user after session:', user?.email);
+            console.log('?? Current user after session:', user?.email);
             
             // Clear the temporary tokens
-            console.log('🧹 Clearing temporary tokens from storage...');
+            console.log('?? Clearing temporary tokens from storage...');
             await chrome.storage.local.remove('password_reset_callback');
-            console.log('✅ Tokens cleared');
+            console.log('? Tokens cleared');
             
             return true;
           } else {
-            console.error('❌ Failed to set password reset session:', error);
+            console.error('? Failed to set password reset session:', error);
             console.error('Error details:', JSON.stringify(error, null, 2));
           }
         } else {
-          console.warn('⚠️ Type is not "recovery":', type);
+          console.warn('?? Type is not "recovery":', type);
         }
       } else {
-        console.log('ℹ️ No password reset callback data in storage');
+        console.log('?? No password reset callback data in storage');
       }
     } catch (error) {
-      console.error('❌ Error checking password reset callback:', error);
+      console.error('? Error checking password reset callback:', error);
       console.error('Error stack:', error.stack);
     }
     return false;
@@ -3360,7 +3250,7 @@ class PasteCraftPopup {
 
   async setPasswordResetSession(accessToken, refreshToken) {
     try {
-      console.log('🔑 Setting password reset session from URL tokens');
+      console.log('?? Setting password reset session from URL tokens');
       
       const { error } = await pasteCraftSupabase.client.auth.setSession({
         access_token: accessToken,
@@ -3368,612 +3258,86 @@ class PasteCraftPopup {
       });
       
       if (!error) {
-        console.log('✅ Password reset session established from URL!');
+        console.log('? Password reset session established from URL!');
       } else {
-        console.error('❌ Failed to set password reset session:', error);
+        console.error('? Failed to set password reset session:', error);
       }
     } catch (error) {
-      console.error('❌ Error setting password reset session:', error);
+      console.error('? Error setting password reset session:', error);
     }
   }
   
   showAuthModal() {
-    console.log('🔐 Showing auth modal...');
-    this.hideLoadingOverlay();
-    document.getElementById('authModal').style.display = 'flex';
+    return this.authFeature.events.showAuthModal(this);
   }
 
   hideAuthModal() {
-    document.getElementById('authModal').style.display = 'none';
+    return this.authFeature.events.hideAuthModal(this);
   }
 
-  // =====================================================
-  // AUTH SESSION RESTORE (from chrome.storage.local bridge)
-  // =====================================================
-
   async _getSessionBridgePayload() {
-    try {
-      const res = await chrome.storage.local.get(['pc_supabase_session_v1']);
-      const p = res?.pc_supabase_session_v1 || null;
-      return {
-        access_token: p?.access_token ? String(p.access_token) : '',
-        refresh_token: p?.refresh_token ? String(p.refresh_token) : '',
-        expires_at: p?.expires_at ?? null,
-        user_id: p?.user_id ? String(p.user_id) : '',
-      };
-    } catch (_) {
-      return { access_token: '', refresh_token: '', expires_at: null, user_id: '' };
-    }
+    return this.authFeature.service._getSessionBridgePayload(this);
   }
 
   async _refreshSupabaseTokenViaBackground(refreshToken) {
-    try {
-      const supabaseUrl = String(PASTECRAFT_CONFIG?.supabase?.url || '');
-      const anonKey = String(PASTECRAFT_CONFIG?.supabase?.anonKey || '');
-      const rt = String(refreshToken || '');
-      if (!supabaseUrl || !anonKey || !rt) return null;
-
-      const result = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          action: 'pcRefreshSupabaseToken',
-          supabaseUrl,
-          anonKey,
-          refreshToken: rt
-        }, (resp) => {
-          const err = chrome.runtime?.lastError?.message ? String(chrome.runtime.lastError.message) : '';
-          if (err) return resolve({ success: false, ok: false, status: 0, error: err });
-          resolve(resp || null);
-        });
-      });
-
-      if (!result || result.success !== true || !result.ok) return null;
-      const data = result.data || {};
-      const nextAccess = data?.access_token ? String(data.access_token) : '';
-      const nextRefresh = data?.refresh_token ? String(data.refresh_token) : rt;
-      const nextExpiresIn = Number(data?.expires_in || 0);
-      const nextExpiresAt = nextExpiresIn ? Math.floor(Date.now() / 1000) + nextExpiresIn : null;
-      const nextUserId = data?.user?.id ? String(data.user.id) : '';
-      if (!nextAccess) return null;
-
-      return { access_token: nextAccess, refresh_token: nextRefresh, expires_at: nextExpiresAt, user_id: nextUserId };
-    } catch (_) {
-      return null;
-    }
+    return this.authFeature.service._refreshSupabaseTokenViaBackground(this, refreshToken);
   }
 
   async restoreSupabaseSessionFromBridge(reason = 'unknown') {
-    try {
-      if (!pasteCraftSupabase?.client?.auth?.getSession || !pasteCraftSupabase?.client?.auth?.setSession) return false;
-
-      const bridge = await this._getSessionBridgePayload();
-      const refreshToken = String(bridge?.refresh_token || '');
-      if (!refreshToken) return false;
-
-      // If we already have a session, do nothing.  3s timeout prevents hang.
-      try {
-        const existing = await Promise.race([
-          pasteCraftSupabase.client.auth.getSession(),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
-        ]);
-        const sess = existing?.data?.session || null;
-        if (sess?.user?.id) return true;
-      } catch (_) {}
-
-      let accessToken = String(bridge?.access_token || '');
-      let expiresAt = bridge?.expires_at;
-
-      const expSec = (typeof expiresAt === 'number') ? expiresAt : Number(expiresAt);
-      const needsRefresh = !accessToken || !Number.isFinite(expSec) || ((expSec * 1000) - Date.now()) < 60000;
-      if (needsRefresh) {
-        const refreshed = await this._refreshSupabaseTokenViaBackground(refreshToken);
-        if (refreshed?.access_token) {
-          accessToken = String(refreshed.access_token);
-          expiresAt = refreshed.expires_at ?? expiresAt;
-          // Update bridge with refreshed tokens so other contexts benefit.
-          try {
-            await chrome.storage.local.set({
-              pc_supabase_session_v1: {
-                access_token: accessToken,
-                refresh_token: refreshed.refresh_token || refreshToken,
-                expires_at: refreshed.expires_at ?? null,
-                user_id: refreshed.user_id || bridge.user_id || null,
-                updated_at: Date.now()
-              }
-            });
-          } catch (_) {}
-        }
-      }
-
-      if (!accessToken) return false;
-
-      // 3s timeout on setSession to prevent hang
-      const result = await Promise.race([
-        pasteCraftSupabase.client.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
-      ]);
-
-      if (result?.error) return false;
-      return true;
-    } catch (_) {
-      return false;
-    }
+    return this.authFeature.service.restoreSupabaseSessionFromBridge(this, reason);
   }
+
   
   setupAuthModalEvents() {
-    console.log('🔧 Setting up auth modal event listeners...');
-    // Sync auth modal defaults (non-blocking)
-    Promise.resolve().then(() => this.applyAuthPrefsToUi()).catch(() => {});
+    return this.authFeature.events.setupAuthModalEvents(this);
+  }
 
-    // Tab switching - support both old and new tab classes
-    document.querySelectorAll('.auth-tab, .auth-tab-new').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        document.querySelectorAll('.auth-tab, .auth-tab-new').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        
-        const targetTab = e.target.dataset.authTab;
-        document.getElementById('signinForm').style.display = targetTab === 'signin' ? 'flex' : 'none';
-        document.getElementById('signupForm').style.display = targetTab === 'signup' ? 'flex' : 'none';
-      });
-    });
+  _setupSupportFormEvents() {
+    this._wireSupportOpenButtons();
+    this._wireSupportFormControls();
+  }
 
-    // Password strength indicator
-    const signupPassword = document.getElementById('signupPassword');
-    if (signupPassword) {
-      signupPassword.addEventListener('input', (e) => {
-        this.updatePasswordStrength(e.target.value);
-      });
+  _openSupportFormSafely(type) {
+    try {
+      this.openSupportForm(type);
+    } catch (e) {
+      console.error('Support form open failed:', e);
+      this.showToast('❌ Could not open support form', 'error');
     }
+  }
 
-    // Resend Verification Email
-    document.getElementById('resendVerificationLink').addEventListener('click', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('signinEmail').value;
-      
-      if (!email) {
-        alert('📧 Please enter your email address in the Sign In form first!');
-        return;
-      }
-      
-      this.showToast('📧 Sending verification email...', 'info');
-      
-      const result = await pasteCraftSupabase.resendVerificationEmail(email);
-      
-      if (result.success) {
-        alert(`✅ Verification Email Sent!\n\nCheck your inbox at: ${email}\n\nThe verification link has been sent. Click it to activate your account.\n\n⚠️ Check your spam folder if you don't see it within a few minutes.`);
-        this.showToast('✅ Verification email sent! Check your inbox.', 'success');
-      } else {
-        this.showToast(`❌ Failed to resend: ${result.error}`, 'error');
-      }
+  _wireSupportOpenButtons() {
+    const pairs = [
+      ['supportTeamBtn', 'team'],
+      ['supportHelpBtn', 'help'],
+      ['supportSupportBtn', 'support'],
+      ['supportImproveBtn', 'howcanweimprove'],
+      ['supportReportBugsBtn', 'reportbugs'],
+    ];
+    pairs.forEach(([id, type]) => {
+      const btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', () => this._openSupportFormSafely(type));
+    });
+  }
+
+  _isSupportModalBackdrop(e) {
+    return !!(e && e.target && e.target.id === 'supportFormModal');
+  }
+
+  _wireSupportFormControls() {
+    const closeBtn = document.getElementById('closeSupportFormModal');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closeSupportForm());
+
+    const cancelBtn = document.getElementById('cancelSupportForm');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeSupportForm());
+
+    const modal = document.getElementById('supportFormModal');
+    if (modal) modal.addEventListener('click', (e) => {
+      if (this._isSupportModalBackdrop(e)) this.closeSupportForm();
     });
 
-    // Sign In Handler Function
-    const handleSignIn = async () => {
-      console.log('🔐 Sign In triggered');
-      const email = document.getElementById('signinEmail').value;
-      const password = document.getElementById('signinPassword').value;
-      
-      if (!email || !password) {
-        this.showToast('⚠️ Please fill in all fields', 'error');
-        return;
-      }
-      
-      const result = await pasteCraftSupabase.signInWithEmail(email, password);
-      
-      if (result.success) {
-        // Clear freemium guest flag on successful sign-in
-        this._isFreemiumGuest = false;
-        chrome.storage.local.remove('pc_freemium_guest');
-        await this.clearLegacyAuthPrefs();
-
-        this.showToast('✅ Welcome back!', 'success');
-
-        this.hideAuthModal();
-        // Reload page to initialize with authenticated user
-        window.location.reload();
-      } else {
-        // Provide helpful error messages
-        let errorMessage = result.error;
-        
-        if (result.error.toLowerCase().includes('email not confirmed') || 
-            result.error.toLowerCase().includes('email_not_confirmed')) {
-          errorMessage = '📧 Email Not Verified!\n\nYou must verify your email before signing in.\n\nCheck your inbox for the verification email and click the link.\n\nCheck spam if needed.';
-          alert(errorMessage);
-        } else if (result.error.toLowerCase().includes('invalid') || 
-                   result.error.toLowerCase().includes('credentials')) {
-          errorMessage = '❌ Invalid email or password.\n\nPlease check your credentials and try again.\n\nIf you just signed up, make sure you verified your email first!';
-        }
-        
-        this.showToast(`❌ ${errorMessage}`, 'error');
-      }
-    };
-    
-    // Sign In Button Click
-    document.getElementById('signinBtn').addEventListener('click', handleSignIn);
-    
-    // Sign In with Enter Key
-    document.getElementById('signinEmail').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSignIn();
-      }
-    });
-    
-    document.getElementById('signinPassword').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSignIn();
-      }
-    });
-
-    // Sign Up Handler Function
-    const handleSignUp = async () => {
-      console.log('📝 Sign Up triggered');
-      const email = document.getElementById('signupEmail').value;
-      const password = document.getElementById('signupPassword').value;
-      const confirmPassword = document.getElementById('signupPasswordConfirm').value;
-      const agreeTerms = document.getElementById('agreeTerms').checked;
-      
-      if (!email || !password || !confirmPassword) {
-        this.showToast('⚠️ Please fill in all fields', 'error');
-        return;
-      }
-      
-      if (password !== confirmPassword) {
-        this.showToast('⚠️ Passwords do not match', 'error');
-        return;
-      }
-      
-      // Validate password requirements
-      if (!this.validatePassword(password)) {
-        this.showToast('⚠️ Password does not meet requirements. Check the red requirements below.', 'error');
-        return;
-      }
-      
-      if (!agreeTerms) {
-        this.showToast('⚠️ Please agree to terms and conditions', 'error');
-        return;
-      }
-      
-      const result = await pasteCraftSupabase.signUpWithEmail(email, password);
-      
-      if (result.success) {
-        // Clear freemium guest flag — user is creating an account
-        this._isFreemiumGuest = false;
-        chrome.storage.local.remove('pc_freemium_guest');
-
-        // Show detailed verification instructions
-        alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
-        this.showToast('✅ Check your email to verify your account!', 'success');
-        // Switch to sign in tab
-        document.querySelector('[data-auth-tab="signin"]').click();
-      } else {
-        this.showToast(`❌ ${result.error}`, 'error');
-      }
-    };
-    
-    // Sign Up Button Click
-    document.getElementById('signupBtn').addEventListener('click', handleSignUp);
-    
-    // Sign Up with Enter Key
-    document.getElementById('signupEmail').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSignUp();
-      }
-    });
-    
-    document.getElementById('signupPassword').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSignUp();
-      }
-    });
-    
-    document.getElementById('signupPasswordConfirm').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleSignUp();
-      }
-    });
-
-    // Google Sign In
-    document.getElementById('googleSigninBtn').addEventListener('click', async () => {
-      console.log('🔵 Google Sign In button clicked');
-      this._isFreemiumGuest = false;
-      chrome.storage.local.remove('pc_freemium_guest');
-      this.showToast('🔵 Opening Google sign in...', 'info');
-      
-      const result = await pasteCraftSupabase.signInWithGoogle();
-      
-      if (result.success) {
-        await this.clearLegacyAuthPrefs();
-        this.showToast('✅ Signed in with Google!', 'success');
-        window.location.reload();
-      } else {
-        this.showToast(`❌ ${result.error}`, 'error');
-      }
-    });
-
-    // Google Sign Up
-    document.getElementById('googleSignupBtn').addEventListener('click', async () => {
-      console.log('🔵 Google Sign Up button clicked');
-      this._isFreemiumGuest = false;
-      chrome.storage.local.remove('pc_freemium_guest');
-      this.showToast('🔵 Opening Google sign up...', 'info');
-      
-      const result = await pasteCraftSupabase.signInWithGoogle();
-      
-      if (result.success) {
-        await this.clearLegacyAuthPrefs();
-        this.showToast('✅ Signed in with Google!', 'success');
-        window.location.reload();
-      } else {
-        this.showToast(`❌ ${result.error}`, 'error');
-      }
-    });
-
-    // =====================================================
-    // SKIP TO FREEMIUM (guest mode)
-    // =====================================================
-    const skipBtn = document.getElementById('skipToFreemiumBtn');
-    if (skipBtn) {
-      skipBtn.addEventListener('click', async () => {
-        console.log('🚀 Skip to PasteCraft (freemium guest) clicked');
-        this._isFreemiumGuest = true;
-        // ─── V2: atomically set local flag + clear cloud state ───
-        await chrome.storage.local.set({ pc_freemium_guest: true });
-        try { await chrome.storage.local.remove(['pc_supabase_session_v1']); } catch (_) {}
-        try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-        this.hideAuthModal();
-        this.currentUser = null;
-        this.userSubscription = null;
-
-        // Show top bar
-        document.getElementById('topBar').style.display = 'flex';
-
-        // Load local-only data
-        await Promise.all([
-          this.loadData(),
-          this.loadSettings(),
-        ]);
-        this.updateTopBarIdentity();
-        this.setupEventListeners();
-        this.renderChips();
-        this.updateLastCapture();
-        this.updatePreview();
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.hideLoadingOverlay();
-        this.showToast('🚀 Welcome to PasteCraft! Using free local mode.', 'success');
-      });
-    }
-
-    // =====================================================
-    // FORGOT PASSWORD FLOW
-    // =====================================================
-
-    // Forgot Password Link Click
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-    if (forgotPasswordLink) {
-      forgotPasswordLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        console.log('🔑 Forgot password link clicked');
-        // Hide main auth modal, show reset modal
-        document.getElementById('authModal').style.display = 'none';
-        document.getElementById('passwordResetModal').style.display = 'flex';
-        
-        // Pre-fill email if user already entered it
-        const signinEmail = document.getElementById('signinEmail').value;
-        if (signinEmail) {
-          document.getElementById('resetEmail').value = signinEmail;
-        }
-      });
-    }
-
-    // Cancel Reset - Back to Sign In
-    document.getElementById('cancelResetBtn').addEventListener('click', () => {
-      console.log('🔙 Cancel reset, back to sign in');
-      document.getElementById('passwordResetModal').style.display = 'none';
-      document.getElementById('authModal').style.display = 'flex';
-    });
-
-    // Password Reset Handler Function
-    const handlePasswordReset = async () => {
-      const email = document.getElementById('resetEmail').value;
-      
-      if (!email) {
-        this.showToast('⚠️ Please enter your email', 'error');
-        return;
-      }
-      
-      console.log('📧 Requesting password reset for:', email);
-      this.showToast('📧 Sending reset link...', 'info');
-      
-      const result = await pasteCraftSupabase.resetPassword(email);
-      
-      if (result.success) {
-        alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ Set your new password on the PasteCraft website\n3️⃣ Return here and sign in with your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
-        this.showToast('✅ Reset email sent! Check your inbox.', 'success');
-        
-        // Hide reset modal, show sign in
-        document.getElementById('passwordResetModal').style.display = 'none';
-        document.getElementById('authModal').style.display = 'flex';
-      } else {
-        this.showToast(`❌ Failed: ${result.error}`, 'error');
-      }
-    };
-    
-    // Submit Reset Request
-    document.getElementById('resetRequestForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await handlePasswordReset();
-    });
-    
-    // Password Reset with Enter Key
-    document.getElementById('resetEmail').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handlePasswordReset();
-      }
-    });
-
-    // =====================================================
-    // NEW PASSWORD FLOW (after clicking email link)
-    // =====================================================
-
-    // Password strength for new password
-    const newPasswordInput = document.getElementById('newPassword');
-    if (newPasswordInput) {
-      newPasswordInput.addEventListener('input', (e) => {
-        this.updateNewPasswordStrength(e.target.value);
-        this.checkPasswordMatch();
-      });
-    }
-
-    // Check password match on confirm password input
-    const confirmNewPasswordInput = document.getElementById('confirmNewPassword');
-    if (confirmNewPasswordInput) {
-      confirmNewPasswordInput.addEventListener('input', () => {
-        this.checkPasswordMatch();
-      });
-    }
-
-    // New Password Handler Function
-    const handleNewPassword = async () => {
-      const newPassword = document.getElementById('newPassword').value;
-      const confirmPassword = document.getElementById('confirmNewPassword').value;
-      
-      // Validate password requirements
-      if (!this.validatePassword(newPassword)) {
-        this.showToast('⚠️ Password does not meet requirements', 'error');
-        return;
-      }
-      
-      // Check if passwords match
-      if (newPassword !== confirmPassword) {
-        this.showToast('⚠️ Passwords do not match', 'error');
-        return;
-      }
-      
-      console.log('🔐 Updating password...');
-      this.showToast('🔄 Updating password...', 'info');
-      
-      const result = await pasteCraftSupabase.updatePassword(newPassword);
-      
-      if (result.success) {
-        alert('✅ Password Updated Successfully!\n\nYou can now sign in with your new password.');
-        this.showToast('✅ Password updated!', 'success');
-        
-        // Hide new password modal, show sign in
-        document.getElementById('newPasswordModal').style.display = 'none';
-        document.getElementById('authModal').style.display = 'flex';
-        
-        // Clear the hash from URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else {
-        this.showToast(`❌ Failed: ${result.error}`, 'error');
-      }
-    };
-    
-    // Submit New Password
-    document.getElementById('newPasswordForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      await handleNewPassword();
-    });
-    
-    // New Password with Enter Key
-    document.getElementById('newPassword').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleNewPassword();
-      }
-    });
-    
-    document.getElementById('confirmNewPassword').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleNewPassword();
-      }
-    });
-
-    // Close App Button
-    document.getElementById('closeAppBtn').addEventListener('click', () => {
-      // If we're in an iframe (content-script overlay), send message to parent
-      if (window.self !== window.top) {
-        const parentOrigin = document.referrer ? new URL(document.referrer).origin : window.location.origin;
-        window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, parentOrigin);
-      } else {
-        // Otherwise just close the window (for standalone popup)
-        window.close();
-      }
-    });
-
-    // Support Forms (Team/Help/Support/Improve/Report Bugs)
-    const openSupport = (type) => {
-      try {
-        this.openSupportForm(type);
-      } catch (e) {
-        console.error('Support form open failed:', e);
-        this.showToast('❌ Could not open support form', 'error');
-      }
-    };
-
-    const teamBtn = document.getElementById('supportTeamBtn');
-    const helpBtn = document.getElementById('supportHelpBtn');
-    const supportBtn = document.getElementById('supportSupportBtn');
-    const improveBtn = document.getElementById('supportImproveBtn');
-    const reportBugsBtn = document.getElementById('supportReportBugsBtn');
-
-    teamBtn && teamBtn.addEventListener('click', () => openSupport('team'));
-    helpBtn && helpBtn.addEventListener('click', () => openSupport('help'));
-    supportBtn && supportBtn.addEventListener('click', () => openSupport('support'));
-    improveBtn && improveBtn.addEventListener('click', () => openSupport('howcanweimprove'));
-    reportBugsBtn && reportBugsBtn.addEventListener('click', () => openSupport('reportbugs'));
-
-    const closeSupportBtn = document.getElementById('closeSupportFormModal');
-    const cancelSupportBtn = document.getElementById('cancelSupportForm');
-    const sendSupportBtn = document.getElementById('sendSupportForm');
-    const supportModal = document.getElementById('supportFormModal');
-
-    closeSupportBtn && closeSupportBtn.addEventListener('click', () => this.closeSupportForm());
-    cancelSupportBtn && cancelSupportBtn.addEventListener('click', () => this.closeSupportForm());
-    supportModal && supportModal.addEventListener('click', (e) => {
-      if (e && e.target && e.target.id === 'supportFormModal') {
-        this.closeSupportForm();
-      }
-    });
-    sendSupportBtn && sendSupportBtn.addEventListener('click', async () => {
-      await this.submitSupportForm();
-    });
-    
-    // Sign Out
-    document.getElementById('signOutBtn').addEventListener('click', async () => {
-      if (confirm('Are you sure you want to sign out?')) {
-        // UI-first: make sign-out feel instant.
-        try {
-          const topBar = document.getElementById('topBar');
-          if (topBar) topBar.style.display = 'none';
-        } catch (_) {}
-
-        this.currentUser = null;
-        this.userSubscription = null;
-        this._isFreemiumGuest = false;
-        // ─── V2: clear ALL auth state atomically ───
-        chrome.storage.local.remove(['pc_freemium_guest', 'pc_supabase_session_v1']);
-        this.showAuthModal();
-        this.showToast('Signed out.', 'success');
-
-        // Best-effort: clear local auth + stop background sync/realtime without blocking UI.
-        pasteCraftSupabase.signOutFast()
-          .catch((e) => {
-            // User is already signed out locally; only surface if useful.
-            console.warn('Sign-out cleanup failed:', e?.message || e);
-          });
-      }
-    });
+    const sendBtn = document.getElementById('sendSupportForm');
+    if (sendBtn) sendBtn.addEventListener('click', () => this.submitSupportForm());
   }
 
   openSupportForm(type) {
@@ -4028,14 +3392,14 @@ class PasteCraftPopup {
     const schema = SUPPORT_FORM_SCHEMAS[type] || { blurb: '', fields: [] };
 
     const titles = {
-      team: '👥 Team',
-      help: '🆘 Help',
-      support: '💬 Support',
-      howcanweimprove: '💡 How can we improve?',
-      reportbugs: '🐞 Report a bug',
+      team: 'Team',
+      help: 'Help',
+      support: 'Support',
+      howcanweimprove: 'How can we improve?',
+      reportbugs: 'Report a bug',
     };
 
-    if (titleEl) titleEl.textContent = `📨 ${titles[type] || 'Contact PasteCraft'}`;
+    if (titleEl) titleEl.textContent = titles[type] || 'Contact PasteCraft';
 
     const userEmail = this.currentUser?.email || '';
     if (infoEl) {
@@ -4173,7 +3537,7 @@ class PasteCraftPopup {
     }
 
     if (!subject || !description) {
-      this.showToast('⚠️ Please add subject and description', 'error');
+      this.showToast('?? Please add subject and description', 'error');
       return;
     }
 
@@ -4192,7 +3556,7 @@ class PasteCraftPopup {
       const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
       const accessToken = session?.access_token;
       if (!accessToken) {
-        this.showToast('❌ Please sign in again', 'error');
+        this.showToast('? Please sign in again', 'error');
         return;
       }
 
@@ -4215,7 +3579,7 @@ class PasteCraftPopup {
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
         console.error('Support ticket failed:', resp.status, text);
-        this.showToast('❌ Could not send message', 'error');
+        this.showToast('? Could not send message', 'error');
         if (statusEl) {
           statusEl.style.display = 'block';
           statusEl.style.color = '#b91c1c';
@@ -4224,7 +3588,7 @@ class PasteCraftPopup {
         return;
       }
 
-      this.showToast('✅ Sent', 'success');
+      this.showToast('? Sent', 'success');
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#065f46';
@@ -4234,7 +3598,7 @@ class PasteCraftPopup {
       setTimeout(() => this.closeSupportForm(), 600);
     } catch (e) {
       console.error('Support ticket error:', e);
-      this.showToast('❌ Could not send message', 'error');
+      this.showToast('? Could not send message', 'error');
       if (statusEl) {
         statusEl.style.display = 'block';
         statusEl.style.color = '#b91c1c';
@@ -4368,7 +3732,7 @@ class PasteCraftPopup {
     
     // For newline, show it visually
     if (this.delimiter === 'newline') {
-      exampleText.textContent = 'apple ↵ banana ↵ cherry';
+      exampleText.textContent = 'apple ? banana ? cherry';
     } else {
       exampleText.textContent = items.join(delimiter);
     }
@@ -4472,57 +3836,57 @@ class PasteCraftPopup {
     }
   }
   
-  // ─── Magic Button: Content Type Detection ───
+  // --- Magic Button: Content Type Detection ---
   _detectContentType(text, meta) {
     return this.aiLabFeature.magic._detectContentType.call(this, text, meta);
   }
 
-  // ─── Magic Button: Category Suggestion ───
+  // --- Magic Button: Category Suggestion ---
   _suggestCategory(contentType) {
     return this.aiLabFeature.magic._suggestCategory.call(this, contentType);
   }
 
-  // ─── Magic Button: Content Enhancement ───
+  // --- Magic Button: Content Enhancement ---
   _enhanceContent(text, contentType) {
     return this.aiLabFeature.magic._enhanceContent.call(this, text, contentType);
   }
 
-  // ─── Magic Button: Type Labels (shared) ───
+  // --- Magic Button: Type Labels (shared) ---
   _magicTypeLabels() {
     return this.aiLabFeature.magic._magicTypeLabels.call(this);
   }
 
-  // ─── Magic Button: Analyze All Clips ───
+  // --- Magic Button: Analyze All Clips ---
   _analyzeMagicClips() {
     return this.aiLabFeature.magic._analyzeMagicClips.call(this);
   }
 
-  // ─── Magic Button: Open Preview Modal ───
+  // --- Magic Button: Open Preview Modal ---
   magicFormat() {
     return this.aiLabFeature.magic.magicFormat.call(this);
   }
 
-  // ─── Magic Button: Render a Page of Clips in Modal ───
+  // --- Magic Button: Render a Page of Clips in Modal ---
   _renderMagicPage(page) {
     return this.aiLabFeature.magic._renderMagicPage.call(this, page);
   }
 
-  // ─── Magic Button: Escape HTML helper ───
+  // --- Magic Button: Escape HTML helper ---
   _escHtml(str) {
     return this.aiLabFeature.magic._escHtml.call(this, str);
   }
 
-  // ─── Magic Button: Pagination Controls ───
+  // --- Magic Button: Pagination Controls ---
   _renderMagicPagination() {
     return this.aiLabFeature.magic._renderMagicPagination.call(this);
   }
 
-  // ─── Magic Button: Update Selected Count ───
+  // --- Magic Button: Update Selected Count ---
   _updateMagicSelectedCount() {
     return this.aiLabFeature.magic._updateMagicSelectedCount.call(this);
   }
 
-  // ─── Magic Button: Check if user has AI (premium) access ───
+  // --- Magic Button: Check if user has AI (premium) access ---
   _hasAiAccess() {
     const sub = this.userSubscription;
     if (!sub) return false;
@@ -4534,27 +3898,27 @@ class PasteCraftPopup {
     return isPaidPremium || hasCouponAi;
   }
 
-  // ─── Magic Button: Content types that should skip AI formatting ───
+  // --- Magic Button: Content types that should skip AI formatting ---
   _skipAiFormatTypes() {
     return this.aiLabFeature.magic._skipAiFormatTypes.call(this);
   }
 
-  // ─── Magic Button: Apply Magic to Specific Clips ───
+  // --- Magic Button: Apply Magic to Specific Clips ---
   async _craftMagic(clipIds) {
     return this.aiLabFeature.magic._craftMagic.call(this, clipIds);
   }
 
-  // ─── Magic Button: Craft All with Undo Snapshot ───
+  // --- Magic Button: Craft All with Undo Snapshot ---
   async _craftAllMagic() {
     return this.aiLabFeature.magic._craftAllMagic.call(this);
   }
 
-  // ─── Magic Button: Undo Last Magic ───
+  // --- Magic Button: Undo Last Magic ---
   async _undoMagic() {
     return this.aiLabFeature.magic._undoMagic.call(this);
   }
 
-  // ─── Magic Button: Show Results Modal ───
+  // --- Magic Button: Show Results Modal ---
   _showMagicResults(stats) {
     return this.aiLabFeature.magic._showMagicResults.call(this, stats);
   }
@@ -4655,7 +4019,7 @@ class PasteCraftPopup {
     return this.categoriesFeature.render.updateManualInputCategories(this);
   }
 
-  // ── PDF Extraction ──────────────────────────────────────────────
+  // -- PDF Extraction ----------------------------------------------
   initPdfExtraction() {
     const pdfBtn = document.getElementById('pdfUploadBtn');
     const pdfInput = document.getElementById('pdfFileInput');
@@ -5142,9 +4506,9 @@ class PasteCraftPopup {
     if (breakdownResult && italicsBtn) {
       const isActive = breakdownResult.classList.toggle('italics');
       italicsBtn.classList.toggle('active');
-      console.log(`✒️ Breakdown Result Italics ${isActive ? 'ENABLED' : 'DISABLED'}`);
+      console.log(`?? Breakdown Result Italics ${isActive ? 'ENABLED' : 'DISABLED'}`);
     } else {
-      console.error('❌ Elements not found:', {breakdownResult, italicsBtn});
+      console.error('? Elements not found:', {breakdownResult, italicsBtn});
     }
   }
 
@@ -5223,7 +4587,7 @@ class PasteCraftPopup {
 
     } catch (error) {
       console.error('Failed to generate breakdown:', error);
-      resultEl.innerHTML = '❌ Failed to generate explanation. Please check your OpenAI API key configuration.';
+      resultEl.innerHTML = '? Failed to generate explanation. Please check your OpenAI API key configuration.';
       loadingEl.style.display = 'none';
       this.showToast('Failed to generate explanation');
     }
@@ -5348,10 +4712,10 @@ class PasteCraftPopup {
     const currentIndex = type === 'summary' ? this.currentSummaryThreadIndex : this.currentBreakdownThreadIndex;
     const paginationContainer = document.getElementById(`${type}ThreadPagination`);
 
-    console.log('🔍 renderThreadPagination called:', { type, threadsLength: threads.length, containerFound: !!paginationContainer });
+    console.log('?? renderThreadPagination called:', { type, threadsLength: threads.length, containerFound: !!paginationContainer });
 
     if (!paginationContainer || threads.length < 2) {
-      console.log('⚠️ Early return:', { containerExists: !!paginationContainer, threadsLength: threads.length });
+      console.log('?? Early return:', { containerExists: !!paginationContainer, threadsLength: threads.length });
       return;
     }
 
@@ -5360,7 +4724,7 @@ class PasteCraftPopup {
     paginationContainer.style.gap = '8px';
     paginationContainer.innerHTML = '';
 
-    console.log('✅ Rendering', threads.length, 'thread boxes for', type);
+    console.log('? Rendering', threads.length, 'thread boxes for', type);
 
     threads.forEach((thread, index) => {
       const box = document.createElement('div');
@@ -5395,10 +4759,10 @@ class PasteCraftPopup {
       });
 
       paginationContainer.appendChild(box);
-      console.log(`✅ Added thread box ${index + 1}, className: "${box.className}"`);
+      console.log(`? Added thread box ${index + 1}, className: "${box.className}"`);
     });
 
-    console.log('✅ Pagination rendered. Container display:', paginationContainer.style.display);
+    console.log('? Pagination rendered. Container display:', paginationContainer.style.display);
   }
 
   // Generate tooltip text for thread box
@@ -5564,16 +4928,16 @@ class PasteCraftPopup {
     const clipId = this._clipIdKey(clipElement.dataset.clipId);
     const isSelected = clipElement.classList.contains('selected');
     
-    console.log(`🎯 Toggling clip selection - ID: ${clipId} (${typeof clipId}), Currently selected: ${isSelected}`);
+    console.log(`?? Toggling clip selection - ID: ${clipId} (${typeof clipId}), Currently selected: ${isSelected}`);
     
     if (isSelected) {
       clipElement.classList.remove('selected');
-      console.log(`❌ Deselecting clip ${clipId}`);
+      console.log(`? Deselecting clip ${clipId}`);
       // Remove from selection tracking
       this.removeClipFromSelection(clipId);
     } else {
       clipElement.classList.add('selected');
-      console.log(`✅ Selecting clip ${clipId}`);
+      console.log(`? Selecting clip ${clipId}`);
       // Add to selection tracking
       this.addClipToSelection(clipId);
     }
@@ -5586,14 +4950,14 @@ class PasteCraftPopup {
       this.selectedCategoryClips = new Set();
     }
     this.selectedCategoryClips.add(this._clipIdKey(clipId));
-    console.log(`✅ Added clip ${clipId} to selection. Total:`, Array.from(this.selectedCategoryClips));
+    console.log(`? Added clip ${clipId} to selection. Total:`, Array.from(this.selectedCategoryClips));
   }
 
   removeClipFromSelection(clipId) {
     if (this.selectedCategoryClips) {
       this.selectedCategoryClips.delete(this._clipIdKey(clipId));
     }
-    console.log(`🗑️ Removed clip ${clipId} from selection. Remaining:`, Array.from(this.selectedCategoryClips));
+    console.log(`??? Removed clip ${clipId} from selection. Remaining:`, Array.from(this.selectedCategoryClips));
   }
 
   _findClipLocationById(clipId) {
@@ -5703,7 +5067,7 @@ class PasteCraftPopup {
           notes: this.notes,
           pc_local_updatedAt: Date.now()
         });
-        console.error('❌ Clip title update failed:', error);
+        console.error('? Clip title update failed:', error);
         this.showToast('Failed to update clip title');
         return false;
       }
@@ -5779,32 +5143,32 @@ class PasteCraftPopup {
     
     this.searchOnlyClips = searchOnlyClips;
     await chrome.storage.local.set({ searchOnlyClips });
-    console.log(`📦 Moved ${overflowClips.length} clips to search-only storage`);
+    console.log(`?? Moved ${overflowClips.length} clips to search-only storage`);
     
-    // 🔄 AUTO-SYNC TO DATABASE
+    // ?? AUTO-SYNC TO DATABASE
     try {
       await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-      console.log('✅ Archived clips synced to database');
+      console.log('? Archived clips synced to database');
     } catch (error) {
-      console.error('⚠️ Failed to sync archived clips to database:', error);
+      console.error('?? Failed to sync archived clips to database:', error);
     }
   }
 
   // Profile Management Functions
   async loadUserProfile() {
     try {
-      console.log('🔄 Loading user profile from chrome.storage.local...');
+      console.log('?? Loading user profile from chrome.storage.local...');
       const { userProfile = null } = await chrome.storage.local.get(['userProfile']);
       this.userProfile = userProfile;
-      console.log('✅ Loaded user profile:', this.userProfile);
+      console.log('? Loaded user profile:', this.userProfile);
       
       if (this.userProfile?.profileImageUrl) {
-        console.log('✅ Profile image URL found:', this.userProfile.profileImageUrl);
+        console.log('? Profile image URL found:', this.userProfile.profileImageUrl);
       } else {
-        console.log('ℹ️ No profile image URL in saved profile');
+        console.log('?? No profile image URL in saved profile');
       }
     } catch (error) {
-      console.error('❌ CRITICAL: Failed to load user profile:', error);
+      console.error('? CRITICAL: Failed to load user profile:', error);
     }
   }
 
@@ -5883,7 +5247,7 @@ class PasteCraftPopup {
         if (displayName && nameEl) {
           // Measure and optionally enable marquee. Retries once if layout
           // hasn't settled (available === 0) which can happen when topBar
-          // transitions from display:none → flex.
+          // transitions from display:none ? flex.
           const applyMarquee = (retryCount = 0) => {
             const available = nameSection.clientWidth;
             const needed = nameEl.scrollWidth;
@@ -5911,33 +5275,33 @@ class PasteCraftPopup {
 
   async saveUserProfile() {
     try {
-      console.log('💾 Attempting to save user profile:', this.userProfile);
+      console.log('?? Attempting to save user profile:', this.userProfile);
 
       await chrome.storage.local.set({ userProfile: this.userProfile });
-      console.log('✅ User profile saved successfully to chrome.storage.local');
+      console.log('? User profile saved successfully to chrome.storage.local');
       
       // Verify the save worked
       const verification = await chrome.storage.local.get(['userProfile']);
-      console.log('🔍 Verification - Profile in storage:', verification.userProfile);
+      console.log('?? Verification - Profile in storage:', verification.userProfile);
       
       if (!verification.userProfile || !verification.userProfile.profileImageUrl) {
-        console.error('⚠️ WARNING: Profile saved but verification failed!');
+        console.error('?? WARNING: Profile saved but verification failed!');
       }
       
-      // 🔄 AUTO-SYNC TO DATABASE
+      // ?? AUTO-SYNC TO DATABASE
       try {
         await pasteCraftSupabase.syncUserProfileToSupabase(this.userProfile);
-        console.log('✅ User profile synced to database');
+        console.log('? User profile synced to database');
       } catch (syncError) {
-        console.error('⚠️ Failed to sync profile to database:', syncError);
+        console.error('?? Failed to sync profile to database:', syncError);
         // Don't fail the whole save if sync fails
       }
 
       // Keep top bar in sync with latest profile data
       this.updateTopBarIdentity();
     } catch (error) {
-      console.error('❌ CRITICAL: Failed to save user profile:', error);
-      this.showToast('❌ Failed to save profile image', 'error');
+      console.error('? CRITICAL: Failed to save user profile:', error);
+      this.showToast('? Failed to save profile image', 'error');
     }
   }
 
@@ -6002,7 +5366,7 @@ class PasteCraftPopup {
       
       // Add listener
       modalBody.addEventListener('scroll', this.profileScrollHandler);
-      console.log('✅ Profile image sticky scroll behavior enabled');
+      console.log('? Profile image sticky scroll behavior enabled');
     }
   }
   
@@ -6010,7 +5374,7 @@ class PasteCraftPopup {
     const generateAnimalBtn = document.getElementById('generateAnimalBtn');
     const generateCartoonBtn = document.getElementById('generateCartoonBtn');
     
-    console.log('🔄 Updating button states...');
+    console.log('?? Updating button states...');
     console.log('AI Generated Name:', this.userProfile?.aiGeneratedName);
     console.log('Photo uploaded:', !!this.userProfile?.profileImageBase64);
     
@@ -6021,20 +5385,20 @@ class PasteCraftPopup {
       if (match) {
         generateAnimalBtn.disabled = false;
         generateAnimalBtn.classList.remove('btn-disabled');
-        generateAnimalBtn.textContent = `🐾 ${match[1]} Avatar`;
+        generateAnimalBtn.textContent = `?? ${match[1]} Avatar`;
         generateAnimalBtn.title = `Generate funky ${match[1]} avatar`;
-        console.log(`✅ Animal Avatar button enabled for ${match[1]}`);
+        console.log(`? Animal Avatar button enabled for ${match[1]}`);
       } else {
         generateAnimalBtn.disabled = true;
         generateAnimalBtn.classList.add('btn-disabled');
         generateAnimalBtn.title = 'No animal detected in funky animal name';
-        console.log('⚠️ AI name has no animal type');
+        console.log('?? AI name has no animal type');
       }
     } else {
       generateAnimalBtn.disabled = true;
       generateAnimalBtn.classList.add('btn-disabled');
       generateAnimalBtn.title = 'Generate funky animal name first';
-      console.log('⚠️ No AI name generated yet');
+      console.log('?? No AI name generated yet');
     }
     
     // Enable My Cartoon if photo is uploaded
@@ -6100,7 +5464,7 @@ class PasteCraftPopup {
     const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
     unsubscribeBtn.replaceWith(newUnsubscribeBtn);
 
-    // ✅ FIX: Clone and replace headers to remove stacked event listeners
+    // ? FIX: Clone and replace headers to remove stacked event listeners
     const newNameRegHeader = nameRegHeader.cloneNode(true);
     nameRegHeader.replaceWith(newNameRegHeader);
     
@@ -6121,7 +5485,7 @@ class PasteCraftPopup {
     const loadingExitBtn = document.getElementById('loadingExitBtn');
     if (loadingExitBtn) {
       loadingExitBtn.addEventListener('click', () => {
-        console.log('⏭️ User clicked exit button - hiding loading overlay');
+        console.log('?? User clicked exit button - hiding loading overlay');
         document.getElementById('profileImageLoading').style.display = 'none';
         // Show placeholder or existing image
         const profileImage = document.getElementById('profileImage');
@@ -6132,7 +5496,7 @@ class PasteCraftPopup {
           placeholder.style.display = 'flex';
         }
         // Generation continues in background
-        console.log('✅ Loading screen closed - generation continues in background');
+        console.log('? Loading screen closed - generation continues in background');
       });
     }
 
@@ -6150,24 +5514,24 @@ class PasteCraftPopup {
     });
 
     // Generate Animal Avatar - attach to NEW cloned button
-    console.log('🔘 Attaching Generate Animal listener');
+    console.log('?? Attaching Generate Animal listener');
     newGenerateAnimalBtn.addEventListener('click', async () => {
-      console.log('🖱️ Generate Animal Avatar button CLICKED!');
+      console.log('??? Generate Animal Avatar button CLICKED!');
       await this.generateAnimalAvatar();
     });
-    console.log('✅ Generate Animal event listener attached');
+    console.log('? Generate Animal event listener attached');
     
     // Generate Cartoon from Photo - attach to NEW cloned button
-    console.log('🔘 Attaching Generate Cartoon listener');
+    console.log('?? Attaching Generate Cartoon listener');
     newGenerateCartoonBtn.addEventListener('click', async () => {
-      console.log('🖱️ Generate My Cartoon button CLICKED!');
+      console.log('??? Generate My Cartoon button CLICKED!');
       await this.generateMyCartoon();
     });
-    console.log('✅ Generate Cartoon event listener attached');
+    console.log('? Generate Cartoon event listener attached');
 
     // Generate AI name - attach to NEW cloned button
     newGenerateNameBtn.addEventListener('click', async () => {
-      console.log('🖱️ Generate Name button CLICKED!');
+      console.log('??? Generate Name button CLICKED!');
       await this.generateAIName();
     });
 
@@ -6176,7 +5540,7 @@ class PasteCraftPopup {
       try {
         const userName = document.getElementById('userName').value.trim();
         if (!userName) {
-          this.showToast('⚠️ Please enter a name first', 'error');
+          this.showToast('?? Please enter a name first', 'error');
           return;
         }
 
@@ -6184,10 +5548,10 @@ class PasteCraftPopup {
         this.userProfile.userName = userName;
 
         await this.saveUserProfile();
-        this.showToast('✅ Name saved', 'success');
+        this.showToast('? Name saved', 'success');
       } catch (error) {
         console.error('Failed to save name:', error);
-        this.showToast('❌ Failed to save name', 'error');
+        this.showToast('? Failed to save name', 'error');
       }
     });
 
@@ -6198,7 +5562,7 @@ class PasteCraftPopup {
         const aiName = aiNameFromUi || (typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '');
 
         if (!aiName || aiName === '-') {
-          this.showToast('⚠️ Please generate a funky animal name first', 'error');
+          this.showToast('?? Please generate a funky animal name first', 'error');
           return;
         }
 
@@ -6207,16 +5571,16 @@ class PasteCraftPopup {
 
         await this.saveUserProfile();
         this.updateAIGenerateButtonState();
-        this.showToast('✅ Funky name saved', 'success');
+        this.showToast('? Funky name saved', 'success');
       } catch (error) {
         console.error('Failed to save funky name:', error);
-        this.showToast('❌ Failed to save funky name', 'error');
+        this.showToast('? Failed to save funky name', 'error');
       }
     });
 
     // Unsubscribe - attach to NEW cloned button
     newUnsubscribeBtn.addEventListener('click', () => {
-      console.log('🖱️ Unsubscribe button CLICKED!');
+      console.log('??? Unsubscribe button CLICKED!');
       this.showUnsubscribeConfirmation();
     });
 
@@ -6236,25 +5600,25 @@ class PasteCraftPopup {
       // Expand
       content.classList.remove('collapsed');
       toggleBtn.classList.remove('collapsed');
-      toggleBtn.textContent = '▼';
+      toggleBtn.textContent = '?';
     } else {
       // Collapse
       content.classList.add('collapsed');
       toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '▶';
+      toggleBtn.textContent = '?';
     }
   }
 
   async handleProfileImageUpload(file) {
     try {
-      this.showToast('📤 Uploading image...', 'info');
+      this.showToast('?? Uploading image...', 'info');
 
       // Convert to base64 for preview
       const reader = new FileReader();
       reader.onload = async (e) => {
         const imageUrl = typeof e?.target?.result === 'string' ? e.target.result : '';
         if (!imageUrl) {
-          this.showToast('❌ Failed to read image file', 'error');
+          this.showToast('? Failed to read image file', 'error');
           return;
         }
         
@@ -6297,18 +5661,18 @@ class PasteCraftPopup {
         // Update AI Generate button state (enable it now)
         this.updateAIGenerateButtonState();
         
-        this.showToast('✅ Profile image uploaded! Now you can generate AI avatar!', 'success');
+        this.showToast('? Profile image uploaded! Now you can generate AI avatar!', 'success');
       };
       reader.readAsDataURL(file);
       
     } catch (error) {
       console.error('Failed to upload profile image:', error);
-      this.showToast('❌ Failed to upload image', 'error');
+      this.showToast('? Failed to upload image', 'error');
     }
   }
 
   async generateAnimalAvatar() {
-    console.log('🐾 generateAnimalAvatar() CALLED!');
+    console.log('?? generateAnimalAvatar() CALLED!');
     
     // Premium check
     let hasAvatarAccess = true;
@@ -6325,14 +5689,14 @@ class PasteCraftPopup {
       const animalMatch = aiGeneratedName?.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       
       if (!userName || !aiGeneratedName) {
-        this.showToast('⚠️ Please generate a funky animal name first', 'error');
+        this.showToast('?? Please generate a funky animal name first', 'error');
         return;
       }
       
       // Extract animal type
       const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
       if (!match) {
-        this.showToast('⚠️ No animal found in your funky animal name', 'error');
+        this.showToast('?? No animal found in your funky animal name', 'error');
         return;
       }
       
@@ -6344,9 +5708,9 @@ class PasteCraftPopup {
       document.getElementById('profileImage').style.display = 'none';
       document.getElementById('profileImagePlaceholder').style.display = 'none';
       
-      this.showToast(`🐾 Creating your funky ${animalType}...`, 'info');
+      this.showToast(`?? Creating your funky ${animalType}...`, 'info');
       document.getElementById('generateAnimalBtn').disabled = true;
-      document.getElementById('generateAnimalBtn').textContent = `⏳ Creating...`;
+      document.getElementById('generateAnimalBtn').textContent = `? Creating...`;
 
       const description = `${userName} - ${animalType} avatar`;
       const gen = await pasteCraftSupabase.generateProfileImage(description, 'animal', aiGeneratedName);
@@ -6359,27 +5723,27 @@ class PasteCraftPopup {
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
         
-        // ✅ AUTO-SAVE TO STORAGE
+        // ? AUTO-SAVE TO STORAGE
         if (!this.userProfile) {
           this.userProfile = {};
         }
         this.userProfile.generatedImageUrl = imageUrl;
         this.userProfile.profileImageUrl = imageUrl; // Set as active profile image
         await this.saveUserProfile();
-        console.log('✅ Animal avatar auto-saved to storage');
+        console.log('? Animal avatar auto-saved to storage');
         
-        // ✅ ADD TO AI GALLERY
+        // ? ADD TO AI GALLERY
         await this.addToGallery(imageUrl, 'profile');
-        console.log('✅ Animal avatar added to AI Gallery');
+        console.log('? Animal avatar added to AI Gallery');
         
-        // ✅ DISPLAY TOP-LEFT
+        // ? DISPLAY TOP-LEFT
         this.displayImageTopLeft(imageUrl);
         
-        // ✅ AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
+        // ? AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
         this.startProfileImageCollapse();
         
         const animalType = match[1];
-        this.showToast(`✅ ${animalType} avatar created and saved!`, 'success');
+        this.showToast(`? ${animalType} avatar created and saved!`, 'success');
         // Best-effort credits refresh after successful generation.
         try {
           this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
@@ -6391,15 +5755,15 @@ class PasteCraftPopup {
       console.error('Failed to generate animal avatar:', error);
       document.getElementById('profileImageLoading').style.display = 'none';
       document.getElementById('profileImagePlaceholder').style.display = 'flex';
-      this.showToast('❌ Failed to generate animal avatar', 'error');
+      this.showToast('? Failed to generate animal avatar', 'error');
     } finally {
       document.getElementById('generateAnimalBtn').disabled = false;
-      document.getElementById('generateAnimalBtn').textContent = '🐾 Animal Avatar';
+      document.getElementById('generateAnimalBtn').textContent = '?? Animal Avatar';
     }
   }
   
   async generateMyCartoon() {
-    console.log('🎨 generateMyCartoon() CALLED!');
+    console.log('?? generateMyCartoon() CALLED!');
     
     // Premium check
     let hasCartoonAccess = true;
@@ -6415,12 +5779,12 @@ class PasteCraftPopup {
       const userImageBase64 = this.userProfile?.profileImageBase64;
       
       if (!userName) {
-        this.showToast('⚠️ Please enter your name first', 'error');
+        this.showToast('?? Please enter your name first', 'error');
         return;
       }
       
       if (!userImageBase64) {
-        this.showToast('⚠️ Please upload a photo first', 'error');
+        this.showToast('?? Please upload a photo first', 'error');
         return;
       }
 
@@ -6430,9 +5794,9 @@ class PasteCraftPopup {
       document.getElementById('profileImage').style.display = 'none';
       document.getElementById('profileImagePlaceholder').style.display = 'none';
       
-      this.showToast('🎨 Creating your cartoon avatar...', 'info');
+      this.showToast('?? Creating your cartoon avatar...', 'info');
       document.getElementById('generateCartoonBtn').disabled = true;
-      document.getElementById('generateCartoonBtn').textContent = '⏳ Creating...';
+      document.getElementById('generateCartoonBtn').textContent = '? Creating...';
 
       const description = `${userName} - cartoon avatar`;
       const gen = await pasteCraftSupabase.generateProfileImage(description, userImageBase64, null);
@@ -6445,29 +5809,29 @@ class PasteCraftPopup {
         document.getElementById('profileImage').style.display = 'block';
         document.getElementById('profileImagePlaceholder').style.display = 'none';
 
-        // ✅ AUTO-SAVE TO STORAGE
+        // ? AUTO-SAVE TO STORAGE
         if (!this.userProfile) {
           this.userProfile = {};
         }
         this.userProfile.profileImageUrl = imageUrl;
         this.userProfile.aiGeneratedImage = true;
         await this.saveUserProfile();
-        console.log('✅ Cartoon image auto-saved to storage');
+        console.log('? Cartoon image auto-saved to storage');
         
-        // ✅ ADD TO AI GALLERY
+        // ? ADD TO AI GALLERY
         await this.addToGallery(imageUrl, 'profile');
-        console.log('✅ Cartoon image added to AI Gallery');
+        console.log('? Cartoon image added to AI Gallery');
         
-        // ✅ DISPLAY TOP-LEFT
+        // ? DISPLAY TOP-LEFT
         this.displayImageTopLeft(imageUrl);
         
-        // ✅ AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
+        // ? AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
         this.startProfileImageCollapse();
         
         if (userImageBase64) {
-          this.showToast('✅ Your funky cartoon remix is ready and saved!', 'success');
+          this.showToast('? Your funky cartoon remix is ready and saved!', 'success');
         } else {
-          this.showToast('✅ AI image generated and saved!', 'success');
+          this.showToast('? AI image generated and saved!', 'success');
         }
 
         // Best-effort credits refresh after successful generation.
@@ -6478,7 +5842,7 @@ class PasteCraftPopup {
       } else {
         document.getElementById('profileImageLoading').style.display = 'none';
         document.getElementById('profileImagePlaceholder').style.display = 'flex';
-        this.showToast('❌ Failed to generate AI image', 'error');
+        this.showToast('? Failed to generate AI image', 'error');
       }
 
     } catch (error) {
@@ -6491,15 +5855,15 @@ class PasteCraftPopup {
       // Show more helpful error message
       const errorMessage = error.message || 'Unknown error';
       if (errorMessage.includes('quota') || errorMessage.includes('billing')) {
-        this.showToast('❌ OpenAI API quota exceeded. Check your billing.', 'error');
+        this.showToast('? OpenAI API quota exceeded. Check your billing.', 'error');
       } else if (errorMessage.includes('invalid')) {
-        this.showToast('❌ Invalid API key. Check config.js', 'error');
+        this.showToast('? Invalid API key. Check config.js', 'error');
       } else {
-        this.showToast(`❌ Error: ${errorMessage}`, 'error');
+        this.showToast(`? Error: ${errorMessage}`, 'error');
       }
     } finally {
       document.getElementById('generateCartoonBtn').disabled = false;
-      document.getElementById('generateCartoonBtn').textContent = '🎨 My Cartoon';
+      document.getElementById('generateCartoonBtn').textContent = '?? My Cartoon';
     }
   }
 
@@ -6513,13 +5877,13 @@ class PasteCraftPopup {
       const userName = document.getElementById('userName').value.trim();
       
       if (!userName) {
-        this.showToast('⚠️ Please enter your name first', 'error');
+        this.showToast('?? Please enter your name first', 'error');
         return;
       }
 
-      this.showToast('🎭 Generating funky animal name...', 'info');
+      this.showToast('?? Generating funky animal name...', 'info');
       document.getElementById('generateNameBtn').disabled = true;
-      document.getElementById('generateNameBtn').textContent = '⏳ Generating...';
+      document.getElementById('generateNameBtn').textContent = '? Generating...';
 
       const aiName = await pasteCraftSupabase.generateAIName(userName);
 
@@ -6540,17 +5904,17 @@ class PasteCraftPopup {
         // Update button states to enable Animal Avatar
         this.updateAIGenerateButtonState();
         
-        // ✅ SHOW COUNTDOWN TIMER AND AUTO-COLLAPSE SECTION
+        // ? SHOW COUNTDOWN TIMER AND AUTO-COLLAPSE SECTION
         this.startNameSectionCollapse();
         
-        this.showToast('✅ Funky animal name generated!', 'success');
+        this.showToast('? Funky animal name generated!', 'success');
       } else {
-        this.showToast('❌ Failed to generate funky animal name', 'error');
+        this.showToast('? Failed to generate funky animal name', 'error');
       }
 
     } catch (error) {
       console.error('Failed to generate AI name:', error);
-      this.showToast('❌ Failed to generate funky animal name', 'error');
+      this.showToast('? Failed to generate funky animal name', 'error');
     } finally {
       document.getElementById('generateNameBtn').disabled = false;
       document.getElementById('generateNameBtn').textContent = 'Generate Funky Animal Name';
@@ -6558,8 +5922,8 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('⚠️ Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n• Delete all your clips\n• Remove all categories\n• Clear your profile data\n• This action cannot be undone!')) {
-      if (confirm('🚨 FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
+    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n• Delete all your clips\n• Remove all categories\n• Clear your profile data\n• This action cannot be undone!')) {
+      if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
         this.handleUnsubscribe();
       }
     }
@@ -6567,7 +5931,7 @@ class PasteCraftPopup {
 
   async handleUnsubscribe() {
     try {
-      this.showToast('🗑️ Deleting all data...', 'info');
+      this.showToast('??? Deleting all data...', 'info');
 
       // Clear all storage
       await chrome.storage.local.clear();
@@ -6585,21 +5949,21 @@ class PasteCraftPopup {
     this.updateManualInputCategories();
       this.hideProfileModal();
 
-      this.showToast('✅ All data deleted. You have been unsubscribed.', 'success');
+      this.showToast('? All data deleted. You have been unsubscribed.', 'success');
 
-      console.log('🗑️ User unsubscribed - all data cleared');
+      console.log('??? User unsubscribed - all data cleared');
 
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
-      this.showToast('❌ Failed to unsubscribe', 'error');
+      this.showToast('? Failed to unsubscribe', 'error');
     }
   }
 
   // Display image and funky name in top bar
   displayImageTopLeft(imageUrl) {
-    console.log('🖼️ displayImageTopLeft() called with URL:', imageUrl);
+    console.log('??? displayImageTopLeft() called with URL:', imageUrl);
     this.updateTopBarIdentity(imageUrl);
-    console.log('✅ Top bar identity updated');
+    console.log('? Top bar identity updated');
   }
 
   // Auto-collapse profile name section after generation
@@ -6617,9 +5981,9 @@ class PasteCraftPopup {
       // Collapse the section
       content.classList.add('collapsed');
       toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '▶';
+      toggleBtn.textContent = '?';
       
-      console.log('✅ Name section auto-collapsed');
+      console.log('? Name section auto-collapsed');
     }
   }
 
@@ -6634,7 +5998,7 @@ class PasteCraftPopup {
     timer.style.display = 'flex';
     countdownValue.textContent = timeLeft;
     
-    console.log(`⏱️ Starting 10-second visible countdown for name section`);
+    console.log(`?? Starting 10-second visible countdown for name section`);
     
     // Clear any existing countdown
     if (this.nameCollapseInterval) {
@@ -6644,7 +6008,7 @@ class PasteCraftPopup {
     this.nameCollapseInterval = setInterval(() => {
       timeLeft--;
       countdownValue.textContent = timeLeft;
-      console.log(`⏱️ Name section collapse in ${timeLeft}s...`);
+      console.log(`?? Name section collapse in ${timeLeft}s...`);
       
       if (timeLeft <= 0) {
         clearInterval(this.nameCollapseInterval);
@@ -6669,9 +6033,9 @@ class PasteCraftPopup {
       // Collapse the section
       content.classList.add('collapsed');
       toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '▶';
+      toggleBtn.textContent = '?';
       
-      console.log('✅ Photo section auto-collapsed');
+      console.log('? Photo section auto-collapsed');
     }
   }
 
@@ -6686,7 +6050,7 @@ class PasteCraftPopup {
     timer.style.display = 'flex';
     countdownValue.textContent = timeLeft;
     
-    console.log(`⏱️ Starting 10-second visible countdown for photo section`);
+    console.log(`?? Starting 10-second visible countdown for photo section`);
     
     // Clear any existing countdown
     if (this.profileCollapseInterval) {
@@ -6696,7 +6060,7 @@ class PasteCraftPopup {
     this.profileCollapseInterval = setInterval(() => {
       timeLeft--;
       countdownValue.textContent = timeLeft;
-      console.log(`⏱️ Photo section collapse in ${timeLeft}s...`);
+      console.log(`?? Photo section collapse in ${timeLeft}s...`);
       
       if (timeLeft <= 0) {
         clearInterval(this.profileCollapseInterval);
@@ -6816,10 +6180,10 @@ class PasteCraftPopup {
     const icon = element.querySelector('.requirement-icon');
     if (isValid) {
       element.classList.add('valid');
-      if (icon) icon.textContent = '✓';
+      if (icon) icon.textContent = '?';
     } else {
       element.classList.remove('valid');
-      if (icon) icon.textContent = '✗';
+      if (icon) icon.textContent = '?';
     }
   }
 
@@ -6883,11 +6247,11 @@ class PasteCraftPopup {
     
     if (confirmPassword.length > 0) {
       if (newPassword === confirmPassword) {
-        matchHint.textContent = '✅ Passwords match';
+        matchHint.textContent = '? Passwords match';
         matchHint.style.color = '#10B981';
         matchHint.style.display = 'block';
       } else {
-        matchHint.textContent = '❌ Passwords do not match';
+        matchHint.textContent = '? Passwords do not match';
         matchHint.style.color = '#DC2626';
         matchHint.style.display = 'block';
       }
@@ -6907,7 +6271,7 @@ class PasteCraftPopup {
       popup.showCategoryModal(false);
     } else if (message.action === 'clipSaved') {
       // Clip was saved externally (e.g., via context menu)
-      console.log('📢 Received clipSaved message - reloading data...');
+      console.log('?? Received clipSaved message - reloading data...');
 
       // Fast-path: apply the clip immediately (optimistic), then reconcile from storage shortly after.
       const incoming = message.clip && typeof message.clip === 'object' ? message.clip : null;
@@ -6947,7 +6311,7 @@ class PasteCraftPopup {
           .catch(() => {});
       }, 120);
 
-      console.log('✅ UI refreshed with new clip data');
+      console.log('? UI refreshed with new clip data');
     }
   }
 
@@ -7009,13 +6373,13 @@ class PasteCraftPopup {
       return `
       <div class="ai-gallery-item ${isCurrentProfile ? 'is-profile' : ''}" data-index="${actualIndex}">
         <img src="${safeImageUrl}" alt="AI Generated ${actualIndex + 1}" />
-        ${isCurrentProfile ? '<div class="ai-profile-badge">✓ Profile</div>' : ''}
+        ${isCurrentProfile ? '<div class="ai-profile-badge">? Profile</div>' : ''}
         <div class="ai-gallery-item-actions">
           <button class="ai-gallery-action-btn set-profile" data-action="set-profile" data-index="${actualIndex}" title="Set as Profile Image">
-            👤
+            ??
           </button>
           <button class="ai-gallery-action-btn delete" data-action="delete" data-index="${actualIndex}" title="Delete">
-            🗑️
+            ???
           </button>
         </div>
       </div>
@@ -7065,7 +6429,7 @@ class PasteCraftPopup {
     paginationHTML += `
       <button class="pagination-btn" ${this.currentGalleryPage === 1 ? 'disabled' : ''} 
         data-page="${this.currentGalleryPage - 1}">
-        ◀
+        ?
       </button>
     `;
     
@@ -7099,7 +6463,7 @@ class PasteCraftPopup {
     paginationHTML += `
       <button class="pagination-btn" ${this.currentGalleryPage === totalPages ? 'disabled' : ''} 
         data-page="${this.currentGalleryPage + 1}">
-        ▶
+        ?
       </button>
     `;
     
@@ -7139,13 +6503,13 @@ class PasteCraftPopup {
     const gallery = result.aiGallery || [];
 
     if (index < 0 || index >= gallery.length) {
-      this.showToast('❌ Invalid gallery image', 'error');
+      this.showToast('? Invalid gallery image', 'error');
       return;
     }
 
     const imageUrl = gallery[index].url;
     if (!imageUrl || typeof imageUrl !== 'string') {
-      this.showToast('❌ Gallery image has no URL', 'error');
+      this.showToast('? Gallery image has no URL', 'error');
       return;
     }
 
@@ -7201,7 +6565,7 @@ class PasteCraftPopup {
       if (!verification.userProfile || verification.userProfile.profileImageUrl !== finalUrl) {
         console.error('Profile image verification failed, rolling back');
         await rollback();
-        this.showToast('❌ Failed to save profile image', 'error');
+        this.showToast('? Failed to save profile image', 'error');
         return;
       }
 
@@ -7218,11 +6582,11 @@ class PasteCraftPopup {
       }
       if (profilePlaceholder) profilePlaceholder.style.display = 'none';
 
-      this.showToast('✓ Profile image updated!', 'success');
+      this.showToast('? Profile image updated!', 'success');
     } catch (error) {
       console.error('Failed to set profile image:', error);
       await rollback();
-      this.showToast('❌ Failed to set profile image', 'error');
+      this.showToast('? Failed to set profile image', 'error');
     }
   }
 
@@ -7236,24 +6600,24 @@ class PasteCraftPopup {
         await chrome.storage.local.set({ aiGallery: gallery });
         
         this.renderAIGallery(gallery);
-        this.showToast('🗑️ Image removed from gallery', 'success');
+        this.showToast('??? Image removed from gallery', 'success');
       }
     } catch (error) {
       console.error('Failed to delete from gallery:', error);
-      this.showToast('❌ Failed to delete image', 'error');
+      this.showToast('? Failed to delete image', 'error');
     }
   }
 
   async generateAIImageFromProfile() {
     try {
       if (!this.userProfile?.aiGeneratedName) {
-        this.showToast('⚠️ Generate your funky name first in Profile!', 'error');
+        this.showToast('?? Generate your funky name first in Profile!', 'error');
         return;
       }
       
-      this.showToast('🎨 Generating AI image...', 'info');
+      this.showToast('?? Generating AI image...', 'info');
       document.getElementById('aiGenerateFromProfileBtn').disabled = true;
-      document.getElementById('aiGenerateFromProfileBtn').textContent = '⏳ Generating...';
+      document.getElementById('aiGenerateFromProfileBtn').textContent = '? Generating...';
       
       const gen = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
       const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
@@ -7262,7 +6626,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'profile');
         
-        this.showToast('✅ AI image generated!', 'success');
+        this.showToast('? AI image generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -7271,22 +6635,22 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('❌ Failed to generate AI image', 'error');
+        this.showToast('? Failed to generate AI image', 'error');
       }
     } catch (error) {
       console.error('Failed to generate AI image:', error);
-      this.showToast('❌ Failed to generate AI image', 'error');
+      this.showToast('? Failed to generate AI image', 'error');
     } finally {
       document.getElementById('aiGenerateFromProfileBtn').disabled = false;
-      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">✨</span><span>Generate from Profile</span>';
+      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">?</span><span>Generate from Profile</span>';
     }
   }
 
   async generateRandomAIImage() {
     try {
-      this.showToast('🎲 Generating random avatar...', 'info');
+      this.showToast('?? Generating random avatar...', 'info');
       document.getElementById('aiGenerateRandomBtn').disabled = true;
-      document.getElementById('aiGenerateRandomBtn').textContent = '⏳ Generating...';
+      document.getElementById('aiGenerateRandomBtn').textContent = '? Generating...';
       
       // Generate a random animal name
       const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
@@ -7300,7 +6664,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'random');
         
-        this.showToast('✅ Random avatar generated!', 'success');
+        this.showToast('? Random avatar generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -7309,14 +6673,14 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('❌ Failed to generate random avatar', 'error');
+        this.showToast('? Failed to generate random avatar', 'error');
       }
     } catch (error) {
       console.error('Failed to generate random avatar:', error);
-      this.showToast('❌ Failed to generate random avatar', 'error');
+      this.showToast('? Failed to generate random avatar', 'error');
     } finally {
       document.getElementById('aiGenerateRandomBtn').disabled = false;
-      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">🎲</span><span>Random Avatar</span>';
+      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">??</span><span>Random Avatar</span>';
     }
   }
 
@@ -7349,10 +6713,10 @@ class PasteCraftPopup {
       const imageExists = gallery.some(item => item.url === this.userProfile.profileImageUrl);
       
       if (!imageExists) {
-        console.log('📸 Migrating existing profile image to gallery...');
+        console.log('?? Migrating existing profile image to gallery...');
         await this.addToGallery(this.userProfile.profileImageUrl, 'profile');
         this.loadAIGallery();
-        console.log('✅ Profile image migrated to gallery');
+        console.log('? Profile image migrated to gallery');
       }
     } catch (error) {
       console.error('Failed to migrate profile image:', error);
@@ -7459,7 +6823,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`🧠 ${clipCount} clips ready for breakdown (scroll to see all)`);
+        this.showToast(`?? ${clipCount} clips ready for breakdown (scroll to see all)`);
       }
       
       // Save to history
@@ -7504,7 +6868,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`📝 ${clipCount} clips added to summary (scroll to see all)`);
+        this.showToast(`?? ${clipCount} clips added to summary (scroll to see all)`);
       }
       
       // Save to history
@@ -7549,12 +6913,12 @@ class PasteCraftPopup {
     const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
 
     titleEl.textContent = clipTitle
-      ? `🔎 ${clipTitle}`
+      ? `?? ${clipTitle}`
       : meta && meta.kind === 'image'
-      ? '🖼️ Clip Viewer'
+      ? '??? Clip Viewer'
       : meta && meta.kind === 'url'
-        ? '🔗 Clip Viewer'
-        : '🔎 Clip Viewer';
+        ? '?? Clip Viewer'
+        : '?? Clip Viewer';
 
     // Meta section
     if (metaEl) {
@@ -7932,12 +7296,12 @@ class PasteCraftPopup {
     container.style.display = 'block';
     container.innerHTML = `
       <div class="open-recent-header">
-        <span class="open-recent-icon">📂</span>
+        <span class="open-recent-icon">??</span>
         <span>Open recent conversation</span>
       </div>
       <div class="open-recent-list">
         ${recent.map(e => {
-          const icon = e.type === 'breakdown' ? '🧠' : '📝';
+          const icon = e.type === 'breakdown' ? '??' : '??';
           const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
           const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '…' : '');
           const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
@@ -7968,191 +7332,7 @@ class PasteCraftPopup {
   }
 
   async _restoreSessionState() {
-    try {
-      const keys = [
-        'pc_activeTab_v1',
-        'pc_aiLabSubTab_v1',
-        'pc_breakdownPageState_v1',
-        'pc_breakdownModalState_v1',
-        'pc_summaryState_v1'
-      ];
-      const stored = await chrome.storage.local.get(keys);
-
-      // 1. Restore active main tab
-      const savedTab = stored.pc_activeTab_v1;
-      if (savedTab && savedTab !== 'clips') {
-        const tabBtn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
-        if (tabBtn) {
-          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-          tabBtn.classList.add('active');
-          this.currentTab = savedTab;
-          const tabEl = document.getElementById(savedTab + 'Tab');
-          if (tabEl) tabEl.classList.add('active');
-
-          // Trigger tab-specific loads
-          if (savedTab === 'categories') {
-            this.renderCategories();
-            this.updateCategoryBulkActions();
-          } else if (savedTab === 'search') {
-            this.renderSearchResults();
-            this.updateSearchBulkActions();
-          } else if (savedTab === 'ai') {
-            this.loadAIGallery();
-            this.migrateProfileImageToGallery();
-          } else if (savedTab === 'notes') {
-            await this._withTimeout(this.loadNotes(), 3000, undefined, 'loadNotes');
-            this.renderNotes();
-          } else if (savedTab === 'activity') {
-            await this._withTimeout(this.activityFeature.service.loadActivityLog(this), 3000, undefined, 'loadActivityLog');
-            this.activityFeature.render.renderActivityList(this);
-          } else if (savedTab === 'aiHistory') {
-            await this._withTimeout(this.loadAiHistory(), 3000, undefined, 'loadAiHistory');
-            this.renderAiHistoryList();
-          }
-        }
-      }
-
-      // 2. Restore AI Lab sub-tab
-      const savedAiSubTab = stored.pc_aiLabSubTab_v1;
-      if (savedAiSubTab && savedAiSubTab !== 'generator') {
-        this._currentAiLabSubTab = savedAiSubTab;
-        const subTabBtn = document.querySelector(`.ai-lab-tab[data-ai-tab="${savedAiSubTab}"]`);
-        if (subTabBtn) {
-          document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-          subTabBtn.classList.add('active');
-
-          if (savedAiSubTab === 'generator') {
-            const el = document.getElementById('aiGeneratorSection');
-            if (el) el.classList.add('active');
-          } else if (savedAiSubTab === 'gallery') {
-            const el = document.getElementById('aiGallerySection');
-            if (el) el.classList.add('active');
-          } else if (savedAiSubTab === 'summary') {
-            const el = document.getElementById('aiSummarySection');
-            if (el) el.classList.add('active');
-          } else if (savedAiSubTab === 'breakdown') {
-            const el = document.getElementById('aiBreakdownSection');
-            if (el) el.classList.add('active');
-          }
-        }
-      }
-
-      // Tab-scoped AI session: only restore Summary/Breakdown when same tab
-      const currentTabId = await this._getCurrentTabId();
-      const shouldRestoreBreakdown = (stored) => {
-        const savedId = stored?.pc_breakdownPageState_v1?.tabId ?? stored?.pc_breakdownModalState_v1?.tabId;
-        return currentTabId != null && savedId != null && currentTabId === savedId;
-      };
-      const shouldRestoreSummary = (stored) => {
-        const savedId = stored?.pc_summaryState_v1?.tabId;
-        return currentTabId != null && savedId != null && currentTabId === savedId;
-      };
-
-      // 3. Restore AI Breakdown page state (input + level) — only if same tab
-      const bdPage = stored.pc_breakdownPageState_v1;
-      if (bdPage && shouldRestoreBreakdown(stored)) {
-        const breakdownInput = document.getElementById('breakdownInput');
-        if (breakdownInput && bdPage.inputText) {
-          breakdownInput.value = bdPage.inputText;
-          breakdownInput.dispatchEvent(new Event('input'));
-        }
-        if (bdPage.selectedLevel) {
-          this.selectedBreakdownLevel = bdPage.selectedLevel;
-          const chip = document.querySelector(`.level-chip[data-level="${bdPage.selectedLevel}"]`);
-          if (chip) {
-            document.querySelectorAll('.level-chip').forEach(c => c.classList.remove('selected'));
-            chip.classList.add('selected');
-          }
-          const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
-          if (analyzeLevelBtn && bdPage.inputText) analyzeLevelBtn.disabled = false;
-        }
-      } else if ((bdPage || stored.pc_breakdownModalState_v1) && !shouldRestoreBreakdown(stored)) {
-        this._resetBreakdownToEmpty();
-      }
-
-      // 4. Restore AI Breakdown modal state (last conversation) — only if same tab
-      const bdModal = stored.pc_breakdownModalState_v1;
-      if (bdModal && bdModal.originalText && bdModal.threads && bdModal.threads.length > 0 && shouldRestoreBreakdown(stored)) {
-        this.currentBreakdownText = bdModal.originalText;
-        this.currentBreakdownLevel = bdModal.activeLevel;
-        this.breakdownCache = bdModal.cache || {};
-        this.breakdownThreads = bdModal.threads || [];
-        this.currentBreakdownThreadIndex = bdModal.threadIndex || 0;
-      }
-
-      // 5. Restore AI Summary state — only if same tab; else start fresh
-      const sum = stored.pc_summaryState_v1;
-      if (sum && shouldRestoreSummary(stored)) {
-        // Restore input text (same-tab restore)
-        const summaryInput = document.getElementById('summaryInput');
-        if (summaryInput && sum.inputText) {
-          summaryInput.value = sum.inputText;
-          summaryInput.dispatchEvent(new Event('input'));
-        }
-
-        // Restore in-memory state
-        if (sum.currentSummaryText) this.currentSummaryText = sum.currentSummaryText;
-        if (sum.generatedQuestions) this.generatedQuestions = sum.generatedQuestions;
-        if (sum.currentQuestion) this.currentSummaryQuestion = sum.currentQuestion;
-        if (sum.threads) this.summaryThreads = sum.threads;
-        if (sum.threadIndex != null) this.currentSummaryThreadIndex = sum.threadIndex;
-
-        // Restore the visible section (input → questions → result)
-        if (sum.activeSection && sum.activeSection !== 'input') {
-          if (sum.activeSection === 'questions' && sum.generatedQuestions && sum.generatedQuestions.length > 0) {
-            this.showSummarySection('questions');
-            const questionsList = document.getElementById('questionsList');
-            if (questionsList) {
-              questionsList.innerHTML = '';
-              sum.generatedQuestions.forEach(question => {
-                const chip = document.createElement('button');
-                chip.className = 'question-chip';
-                chip.textContent = question;
-                chip.addEventListener('click', () => {
-                  this.currentSummaryQuestion = question;
-                  this.generateSummary(this.currentSummaryText || sum.inputText, question);
-                });
-                questionsList.appendChild(chip);
-              });
-            }
-          } else if (sum.activeSection === 'result' && sum.resultContent) {
-            this.showSummarySection('result');
-            const summaryContent = document.getElementById('summaryResultContent');
-            if (summaryContent) {
-              this._renderAiResponse(sum.resultContent).then(html => {
-                summaryContent.innerHTML = html;
-              });
-            }
-
-            // Restore follow-up container visibility
-            const followupContainer = document.getElementById('summaryFollowupContainer');
-            if (followupContainer && sum.threads && sum.threads.length > 0) {
-              followupContainer.style.display = 'block';
-            }
-
-            // Restore thread pagination
-            if (sum.threads && sum.threads.length >= 2) {
-              this.renderThreadPagination('summary');
-            }
-          }
-        }
-      } else {
-        // New tab or new session: start Summary fresh, show Open recent
-        this._resetSummaryToEmpty();
-      }
-
-      console.log('✅ Session state restored:', {
-        tab: savedTab || 'clips',
-        aiSubTab: savedAiSubTab || 'generator',
-        hasBreakdownPage: !!bdPage?.inputText,
-        hasBreakdownModal: !!bdModal?.originalText,
-        hasSummary: !!sum?.inputText
-      });
-    } catch (err) {
-      console.warn('⚠️ Failed to restore session state:', err);
-    }
+    return this.authFeature.session._restoreSessionState(this);
   }
 
   // Analysis History Functions
@@ -8182,7 +7362,7 @@ class PasteCraftPopup {
     await chrome.storage.local.set({ analysisHistory });
     this.analysisHistory = analysisHistory;
     
-    console.log('✅ Saved to analysis history:', historyEntry);
+    console.log('? Saved to analysis history:', historyEntry);
   }
   
   async loadAnalysisHistory() {
@@ -8198,7 +7378,7 @@ class PasteCraftPopup {
     if (history.length === 0) {
       return `
         <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-          <p style="font-size: 48px; margin: 0 0 16px 0;">📊</p>
+          <p style="font-size: 48px; margin: 0 0 16px 0;">??</p>
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
           <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
         </div>
@@ -8206,7 +7386,7 @@ class PasteCraftPopup {
     }
     
     return history.map(entry => {
-      const icon = entry.type === 'breakdown' ? '🧠' : entry.type === 'summary' ? '📝' : '🤖';
+      const icon = entry.type === 'breakdown' ? '??' : entry.type === 'summary' ? '??' : '??';
       const timeAgo = this.getTimeAgo(entry.timestamp);
       const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
       
@@ -8329,8 +7509,8 @@ class PasteCraftPopup {
         return;
       }
 
-      console.log('📦 Starting tiered storage migration...');
-      console.log(`📊 Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
+      console.log('?? Starting tiered storage migration...');
+      console.log(`?? Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
 
       // Calculate budgets
       const budgets = report.budgets;
@@ -8339,7 +7519,7 @@ class PasteCraftPopup {
       // Migrate clips if over budget
       if (this.clips.length > budgets.clips) {
         const excessClips = this.clips.slice(budgets.clips);
-        console.log(`📤 Migrating ${excessClips.length} excess clips to cloud...`);
+        console.log(`?? Migrating ${excessClips.length} excess clips to cloud...`);
         
         // Push excess to Supabase
         try {
@@ -8360,7 +7540,7 @@ class PasteCraftPopup {
       // Migrate notes if over budget
       if (this.notes.length > budgets.notes) {
         const excessNotes = this.notes.slice(budgets.notes);
-        console.log(`📤 Migrating ${excessNotes.length} excess notes to cloud...`);
+        console.log(`?? Migrating ${excessNotes.length} excess notes to cloud...`);
         
         try {
           await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
@@ -8377,7 +7557,7 @@ class PasteCraftPopup {
       // Migrate archived clips if over budget
       if (this.searchOnlyClips.length > budgets.archived) {
         const excessArchived = this.searchOnlyClips.slice(budgets.archived);
-        console.log(`📤 Migrating ${excessArchived.length} excess archived clips to cloud...`);
+        console.log(`?? Migrating ${excessArchived.length} excess archived clips to cloud...`);
         
         try {
           await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
@@ -8397,7 +7577,7 @@ class PasteCraftPopup {
       // Log results
       const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
       if (totalMigrated > 0) {
-        console.log(`✅ Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
+        console.log(`? Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
         
         // Update total counts
         this.totalClipsCount = this.clips.length + migrated.clips;
@@ -8407,7 +7587,7 @@ class PasteCraftPopup {
         // Re-render to show updated pagination
         this.renderChips();
       } else {
-        console.log('✅ Tiered storage migration complete (no migration needed)');
+        console.log('? Tiered storage migration complete (no migration needed)');
       }
 
     } catch (e) {
@@ -8602,12 +7782,12 @@ window.renderLucideIcons = function renderLucideIcons() {
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Popup script loaded');
+  console.log('?? Popup script loaded');
   window.renderLucideIcons();
   try {
     window.pasteCraftPopup = new PasteCraftPopup();
   } catch (error) {
-    console.error('❌ Popup initialization failed:', error);
+    console.error('? Popup initialization failed:', error);
     // Fallback simple interface
     document.body.innerHTML = `
       <div style="padding: 20px; font-family: Arial, sans-serif;">
@@ -8626,7 +7806,7 @@ if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
   try {
     window.pasteCraftPopup = new PasteCraftPopup();
   } catch (error) {
-    console.error('❌ Popup initialization failed (immediate boot):', error);
+    console.error('? Popup initialization failed (immediate boot):', error);
   }
 }
 
