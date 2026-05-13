@@ -914,6 +914,13 @@ class PasteCraftPopup {
     return this.authFeature;
   }
 
+  async _initializeProfileFeature() {
+    if (this.profileFeature) return this.profileFeature;
+    const { initProfileFeature } = await import('./popup/features/profile/profile.controller.js');
+    this.profileFeature = initProfileFeature(this);
+    return this.profileFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
@@ -923,6 +930,7 @@ class PasteCraftPopup {
     await this._initializeSettingsFeature();
     await this._initializeActivityFeature();
     await this._initializeAuthFeature();
+    await this._initializeProfileFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
