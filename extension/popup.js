@@ -5163,22 +5163,7 @@ class PasteCraftPopup {
   }
 
   // Profile Management Functions
-  async loadUserProfile() {
-    try {
-      console.log('?? Loading user profile from chrome.storage.local...');
-      const { userProfile = null } = await chrome.storage.local.get(['userProfile']);
-      this.userProfile = userProfile;
-      console.log('? Loaded user profile:', this.userProfile);
-      
-      if (this.userProfile?.profileImageUrl) {
-        console.log('? Profile image URL found:', this.userProfile.profileImageUrl);
-      } else {
-        console.log('?? No profile image URL in saved profile');
-      }
-    } catch (error) {
-      console.error('? CRITICAL: Failed to load user profile:', error);
-    }
-  }
+  async loadUserProfile() { return this.profileFeature.storage.loadUserProfile(this); }
 
   updateTopBarIdentity(imageUrlOverride = undefined) {
     const topBar = document.getElementById('topBar');
@@ -5281,37 +5266,7 @@ class PasteCraftPopup {
     }
   }
 
-  async saveUserProfile() {
-    try {
-      console.log('?? Attempting to save user profile:', this.userProfile);
-
-      await chrome.storage.local.set({ userProfile: this.userProfile });
-      console.log('? User profile saved successfully to chrome.storage.local');
-      
-      // Verify the save worked
-      const verification = await chrome.storage.local.get(['userProfile']);
-      console.log('?? Verification - Profile in storage:', verification.userProfile);
-      
-      if (!verification.userProfile || !verification.userProfile.profileImageUrl) {
-        console.error('?? WARNING: Profile saved but verification failed!');
-      }
-      
-      // ?? AUTO-SYNC TO DATABASE
-      try {
-        await pasteCraftSupabase.syncUserProfileToSupabase(this.userProfile);
-        console.log('? User profile synced to database');
-      } catch (syncError) {
-        console.error('?? Failed to sync profile to database:', syncError);
-        // Don't fail the whole save if sync fails
-      }
-
-      // Keep top bar in sync with latest profile data
-      this.updateTopBarIdentity();
-    } catch (error) {
-      console.error('? CRITICAL: Failed to save user profile:', error);
-      this.showToast('? Failed to save profile image', 'error');
-    }
-  }
+  async saveUserProfile() { return this.profileFeature.storage.saveUserProfile(this); }
 
   showProfileModal() {
     document.getElementById('profileModal').style.display = 'flex';
@@ -5544,47 +5499,10 @@ class PasteCraftPopup {
     });
 
     // Save user name - attach to NEW cloned button
-    newSaveUserNameBtn.addEventListener('click', async () => {
-      try {
-        const userName = document.getElementById('userName').value.trim();
-        if (!userName) {
-          this.showToast('?? Please enter a name first', 'error');
-          return;
-        }
-
-        if (!this.userProfile) this.userProfile = {};
-        this.userProfile.userName = userName;
-
-        await this.saveUserProfile();
-        this.showToast('? Name saved', 'success');
-      } catch (error) {
-        console.error('Failed to save name:', error);
-        this.showToast('? Failed to save name', 'error');
-      }
-    });
+    newSaveUserNameBtn.addEventListener('click', async () => { await this.saveUserName(); });
 
     // Save funky animal name - attach to NEW cloned button
-    newSaveAiNameBtn.addEventListener('click', async () => {
-      try {
-        const aiNameFromUi = document.getElementById('aiNameValue')?.textContent?.trim() || '';
-        const aiName = aiNameFromUi || (typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '');
-
-        if (!aiName || aiName === '-') {
-          this.showToast('?? Please generate a funky animal name first', 'error');
-          return;
-        }
-
-        if (!this.userProfile) this.userProfile = {};
-        this.userProfile.aiGeneratedName = aiName;
-
-        await this.saveUserProfile();
-        this.updateAIGenerateButtonState();
-        this.showToast('? Funky name saved', 'success');
-      } catch (error) {
-        console.error('Failed to save funky name:', error);
-        this.showToast('? Failed to save funky name', 'error');
-      }
-    });
+    newSaveAiNameBtn.addEventListener('click', async () => { await this.saveAiNameToProfile(); });
 
     // Unsubscribe - attach to NEW cloned button
     newUnsubscribeBtn.addEventListener('click', () => {
@@ -6327,18 +6245,7 @@ class PasteCraftPopup {
   // AI GALLERY & GENERATION METHODS
   // =====================================================
 
-  async loadAIGallery() {
-    try {
-      // Get gallery from storage
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      this.renderAIGallery(gallery);
-
-    } catch (error) {
-      console.error('Failed to load AI gallery:', error);
-    }
-  }
+  async loadAIGallery() { return this.profileFeature.storage.loadAIGallery(this); }
 
   renderAIGallery(gallery) {
     const galleryGrid = document.getElementById('aiGalleryGrid');
@@ -6598,23 +6505,7 @@ class PasteCraftPopup {
     }
   }
 
-  async deleteFromGallery(index) {
-    try {
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      if (index >= 0 && index < gallery.length) {
-        gallery.splice(index, 1);
-        await chrome.storage.local.set({ aiGallery: gallery });
-        
-        this.renderAIGallery(gallery);
-        this.showToast('??? Image removed from gallery', 'success');
-      }
-    } catch (error) {
-      console.error('Failed to delete from gallery:', error);
-      this.showToast('? Failed to delete image', 'error');
-    }
-  }
+  deleteFromGallery(index) { return this.profileFeature.storage.deleteFromGallery(this, index); }
 
   async generateAIImageFromProfile() {
     try {
@@ -6692,44 +6583,11 @@ class PasteCraftPopup {
     }
   }
 
-  async addToGallery(imageUrl, type) {
-    try {
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
+  async addToGallery(url, type) { return this.profileFeature.storage.addToGallery(this, url, type); }
 
-      gallery.push({
-        url: imageUrl,
-        type: type,
-        timestamp: Date.now()
-      });
-      
-      await chrome.storage.local.set({ aiGallery: gallery });
-    } catch (error) {
-      console.error('Failed to add to gallery:', error);
-    }
-  }
-
-  async migrateProfileImageToGallery() {
-    try {
-      if (!this.userProfile?.profileImageUrl) {
-        return;
-      }
-
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      const imageExists = gallery.some(item => item.url === this.userProfile.profileImageUrl);
-      
-      if (!imageExists) {
-        console.log('?? Migrating existing profile image to gallery...');
-        await this.addToGallery(this.userProfile.profileImageUrl, 'profile');
-        this.loadAIGallery();
-        console.log('? Profile image migrated to gallery');
-      }
-    } catch (error) {
-      console.error('Failed to migrate profile image:', error);
-    }
-  }
+  async migrateProfileImageToGallery() { return this.profileFeature.storage.migrateProfileImageToGallery(this); }
+  async saveUserName() { return this.profileFeature.storage.saveUserName(this); }
+  async saveAiNameToProfile() { return this.profileFeature.storage.saveAiNameToProfile(this); }
 
   showAIGenerationTimer() {
     const timer = document.getElementById('aiGenerationTimer');
