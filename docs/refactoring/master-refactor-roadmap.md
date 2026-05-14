@@ -55,6 +55,7 @@ codescene_score_popup: 1.27
 | Activity Log | `activity.constants/service/render/events/controller` | Done |
 | Auth | `auth.constants/selectors/service/session/events/controller` | Done |
 | Profile | `profile.constants/selectors/storage/render/events/generators/gallery/controller` | Done |
+| Billing | `billing.constants/selectors/service/support/controller` | Done |
 
 > **AI History** (`loadAiHistory`, `saveAiHistory`, `renderAiHistoryList`, `openAiHistoryModal`, `continueHistoryConversation`, `clearAllAiHistory`, etc.) is fully delegated to `this.aiLabFeature.history` — already extracted, nothing remaining.
 

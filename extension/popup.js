@@ -921,6 +921,13 @@ class PasteCraftPopup {
     return this.profileFeature;
   }
 
+  async _initializeBillingFeature() {
+    if (this.billingFeature) return this.billingFeature;
+    const { initBillingFeature } = await import('./popup/features/billing/billing.controller.js');
+    this.billingFeature = initBillingFeature(this);
+    return this.billingFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
@@ -931,6 +938,7 @@ class PasteCraftPopup {
     await this._initializeActivityFeature();
     await this._initializeAuthFeature();
     await this._initializeProfileFeature();
+    await this._initializeBillingFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -1601,54 +1609,19 @@ class PasteCraftPopup {
   }
 
   openUpgradeModal() {
-    const modal = document.getElementById('upgradeModal');
-    if (modal) modal.classList.add('active');
+    return this.billingFeature?.service?.openUpgradeModal?.(this);
   }
 
   closeUpgradeModal() {
-    const modal = document.getElementById('upgradeModal');
-    if (modal) modal.classList.remove('active');
+    return this.billingFeature?.service?.closeUpgradeModal?.(this);
   }
 
   _openPricingPage() {
-    chrome.tabs.create({ url: 'https://pastecraft.com/pricing.html' });
+    return this.billingFeature?.service?.openPricingPage?.();
   }
 
   async _createCheckout(priceId) {
-    if (!this.currentUser) {
-      alert('Please sign in to subscribe');
-      return;
-    }
-
-    try {
-      const session = await pasteCraftSupabase.getSession();
-      const accessToken = session?.access_token || '';
-      const supabaseUrl = PASTECRAFT_CONFIG?.supabase?.url || '';
-      const anonKey = PASTECRAFT_CONFIG?.supabase?.anonKey || '';
-
-      if (!supabaseUrl || !anonKey) {
-        alert('Configuration error. Please try again later.');
-        return;
-      }
-
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          action: 'pcCreateCheckout',
-          priceId,
-          accessToken,
-          supabaseUrl,
-          anonKey
-        }, resolve);
-      });
-
-      if (!response?.success) {
-        const errorMsg = response?.error || 'Failed to create checkout session';
-        alert(`Error: ${errorMsg}`);
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('Something went wrong. Please try again.');
-    }
+    return this.billingFeature?.service?.createCheckout?.(this, priceId);
   }
 
   setupVisibilityListener() {
@@ -3301,31 +3274,15 @@ class PasteCraftPopup {
   }
 
   _setupSupportFormEvents() {
-    this._wireSupportOpenButtons();
-    this._wireSupportFormControls();
+    return this.billingFeature?.support?.initSupportEvents?.(this);
   }
 
   _openSupportFormSafely(type) {
-    try {
-      this.openSupportForm(type);
-    } catch (e) {
-      console.error('Support form open failed:', e);
-      this.showToast('❌ Could not open support form', 'error');
-    }
+    return this.billingFeature?.support?.openSupportFormSafely?.(this, type);
   }
 
   _wireSupportOpenButtons() {
-    const pairs = [
-      ['supportTeamBtn', 'team'],
-      ['supportHelpBtn', 'help'],
-      ['supportSupportBtn', 'support'],
-      ['supportImproveBtn', 'howcanweimprove'],
-      ['supportReportBugsBtn', 'reportbugs'],
-    ];
-    pairs.forEach(([id, type]) => {
-      const btn = document.getElementById(id);
-      if (btn) btn.addEventListener('click', () => this._openSupportFormSafely(type));
-    });
+    return this.billingFeature?.support?.initSupportEvents?.(this);
   }
 
   _isSupportModalBackdrop(e) {
@@ -3333,292 +3290,21 @@ class PasteCraftPopup {
   }
 
   _wireSupportFormControls() {
-    const closeBtn = document.getElementById('closeSupportFormModal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closeSupportForm());
-
-    const cancelBtn = document.getElementById('cancelSupportForm');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeSupportForm());
-
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.addEventListener('click', (e) => {
-      if (this._isSupportModalBackdrop(e)) this.closeSupportForm();
-    });
-
-    const sendBtn = document.getElementById('sendSupportForm');
-    if (sendBtn) sendBtn.addEventListener('click', () => this.submitSupportForm());
+    /* now part of initSupportEvents — no-op stub */
   }
 
   openSupportForm(type) {
-    this.currentSupportFormType = type;
-    const titleEl = document.getElementById('supportFormTitle');
-    const infoEl = document.getElementById('supportFormInfo');
-    const fieldsEl = document.getElementById('supportFormFields');
-    const subjectEl = document.getElementById('supportFormSubject');
-    const descEl = document.getElementById('supportFormDescription');
-    const statusEl = document.getElementById('supportFormStatus');
-
-    const SUPPORT_FORM_SCHEMAS = {
-      reportbugs: {
-        blurb: 'Report bugs and UX/UI discrepancies.',
-        fields: [
-          { key: 'where', label: 'Where did it happen? (optional)', type: 'text', maxLen: 160, placeholder: 'Page, feature, or screen' },
-          { key: 'steps', label: 'Steps to reproduce (optional)', type: 'textarea', maxLen: 800, placeholder: '1) …\n2) …\n3) …' },
-          { key: 'expected_vs_actual', label: 'Expected vs actual (optional)', type: 'textarea', maxLen: 800, placeholder: 'Expected …\nActual …' },
-        ],
-      },
-      help: {
-        blurb: 'How do I use the app? Where do I find this feature? Add examples.',
-        fields: [
-          { key: 'feature', label: 'Feature / question (optional)', type: 'text', maxLen: 160, placeholder: 'What are you trying to do?' },
-          { key: 'example', label: 'Example (optional)', type: 'textarea', maxLen: 800, placeholder: 'Example input/output or scenario…' },
-        ],
-      },
-      support: {
-        blurb: 'Login, signup, errors, and account/subscription concerns.',
-        fields: [
-          { key: 'category', label: 'Category (optional)', type: 'select', options: ['Login', 'Signup', 'Error', 'Account', 'Subscription', 'Other'] },
-          { key: 'error_message', label: 'Error message (optional)', type: 'textarea', maxLen: 800, placeholder: 'Paste the exact error message (if any)…' },
-        ],
-      },
-      howcanweimprove: {
-        blurb: 'Feature requests and UX/UI improvements.',
-        fields: [
-          { key: 'request_type', label: 'Request type (optional)', type: 'select', options: ['Feature request', 'UX/UI improvement', 'Other'] },
-          { key: 'why', label: 'Why this matters (optional)', type: 'textarea', maxLen: 800, placeholder: 'What problem does this solve? What would “better” look like?' },
-        ],
-      },
-      team: {
-        blurb: 'Talk to the team, work for us, partnerships, etc.',
-        fields: [
-          { key: 'topic', label: 'Topic (optional)', type: 'select', options: ['Talk to the team', 'Work for us', 'Partnership', 'Press', 'Other'] },
-          { key: 'contact', label: 'Best way to contact you (optional)', type: 'text', maxLen: 160, placeholder: 'Email/phone/link (we’ll reply to your account email by default)' },
-          { key: 'links', label: 'Links (optional)', type: 'textarea', maxLen: 800, placeholder: 'Portfolio, LinkedIn, website, docs…' },
-        ],
-      },
-    };
-
-    const schema = SUPPORT_FORM_SCHEMAS[type] || { blurb: '', fields: [] };
-
-    const titles = {
-      team: 'Team',
-      help: 'Help',
-      support: 'Support',
-      howcanweimprove: 'How can we improve?',
-      reportbugs: 'Report a bug',
-    };
-
-    if (titleEl) titleEl.textContent = titles[type] || 'Contact PasteCraft';
-
-    const userEmail = this.currentUser?.email || '';
-    if (infoEl) {
-      infoEl.innerHTML = '';
-
-      // Freemium guest notice — prompt to create account for email support
-      if (this._isFreemiumGuest) {
-        const notice = document.createElement('div');
-        notice.className = 'freemium-account-notice';
-        notice.innerHTML = '<div class="notice-title">\u26A0\uFE0F Account Required for Email Support</div>'
-          + '<div class="notice-text">Create a free account to get email support priority.<br>Without an account, we cannot reply to your request.</div>'
-          + '<button class="notice-btn" id="freemiumCreateAccountBtn">Create Free Account</button>';
-        infoEl.appendChild(notice);
-        setTimeout(() => {
-          const btn = document.getElementById('freemiumCreateAccountBtn');
-          if (btn) {
-            btn.addEventListener('click', () => {
-              this.closeSupportForm();
-              this._isFreemiumGuest = false;
-              chrome.storage.local.remove('pc_freemium_guest');
-              this.showAuthModal();
-              const signupTab = document.querySelector('[data-auth-tab="signup"]');
-              if (signupTab) signupTab.click();
-            });
-          }
-        }, 0);
-      }
-
-      const line1 = document.createElement('div');
-      line1.textContent = this._isFreemiumGuest
-        ? 'You are using PasteCraft without an account.'
-        : userEmail
-        ? `From: ${userEmail} • We’ll reply to this email.`
-        : `We’ll reply to your PasteCraft account email.`;
-      infoEl.appendChild(line1);
-
-      if (schema.blurb) {
-        const line2 = document.createElement('div');
-        line2.textContent = schema.blurb;
-        line2.style.marginTop = '6px';
-        line2.style.color = '#374151';
-        infoEl.appendChild(line2);
-      }
-    }
-
-    if (fieldsEl) {
-      fieldsEl.innerHTML = '';
-      for (const field of schema.fields || []) {
-        if (!field || !field.key) continue;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'support-form-field';
-
-        const label = document.createElement('label');
-        const inputId = `supportField_${field.key}`;
-        label.htmlFor = inputId;
-        label.textContent = field.label || field.key;
-
-        let inputEl = null;
-        if (field.type === 'textarea') {
-          const ta = document.createElement('textarea');
-          ta.className = 'support-form-textarea';
-          if (field.maxLen) ta.maxLength = field.maxLen;
-          if (field.placeholder) ta.placeholder = field.placeholder;
-          ta.rows = 3;
-          inputEl = ta;
-        } else if (field.type === 'select') {
-          const sel = document.createElement('select');
-          sel.className = 'support-form-input';
-          const optEmpty = document.createElement('option');
-          optEmpty.value = '';
-          optEmpty.textContent = 'Select…';
-          sel.appendChild(optEmpty);
-          for (const opt of field.options || []) {
-            const o = document.createElement('option');
-            o.value = String(opt);
-            o.textContent = String(opt);
-            sel.appendChild(o);
-          }
-          inputEl = sel;
-        } else {
-          const inp = document.createElement('input');
-          inp.className = 'support-form-input';
-          inp.type = 'text';
-          if (field.maxLen) inp.maxLength = field.maxLen;
-          if (field.placeholder) inp.placeholder = field.placeholder;
-          inputEl = inp;
-        }
-
-        inputEl.id = inputId;
-        inputEl.setAttribute('data-support-field', field.key);
-
-        wrapper.appendChild(label);
-        wrapper.appendChild(inputEl);
-        fieldsEl.appendChild(wrapper);
-      }
-    }
-    if (subjectEl) subjectEl.value = '';
-    if (descEl) descEl.value = '';
-    if (statusEl) {
-      statusEl.style.display = 'none';
-      statusEl.textContent = '';
-      statusEl.style.color = '#111827';
-    }
-
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.style.display = 'flex';
+    return this.billingFeature?.support?.openSupportForm?.(this, type);
   }
 
   closeSupportForm() {
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.style.display = 'none';
+    return this.billingFeature?.support?.closeSupportForm?.();
   }
 
   async submitSupportForm() {
-    const type = this.currentSupportFormType;
-    const subjectEl = document.getElementById('supportFormSubject');
-    const descEl = document.getElementById('supportFormDescription');
-    const statusEl = document.getElementById('supportFormStatus');
-    const sendBtn = document.getElementById('sendSupportForm');
-
-    const subject = (subjectEl?.value || '').trim();
-    const description = (descEl?.value || '').trim();
-    const fields = {};
-    try {
-      const fieldEls = document.querySelectorAll('#supportFormFields [data-support-field]');
-      fieldEls.forEach((el) => {
-        const key = el?.getAttribute && el.getAttribute('data-support-field');
-        if (!key) return;
-        const raw = typeof el.value === 'string' ? el.value : '';
-        const val = raw.trim();
-        if (val) fields[key] = val;
-      });
-    } catch (_) {
-      // ignore field collection failures
-    }
-
-    if (!subject || !description) {
-      this.showToast('?? Please add subject and description', 'error');
-      return;
-    }
-
-    try {
-      if (sendBtn) {
-        sendBtn.disabled = true;
-        sendBtn.textContent = 'Sending...';
-      }
-
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#111827';
-        statusEl.textContent = 'Sending…';
-      }
-
-      const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) {
-        this.showToast('? Please sign in again', 'error');
-        return;
-      }
-
-      const endpoint = `https://pastecraft.com/.netlify/functions/support-ticket?v=${Date.now()}`;
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        cache: 'no-store',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          type,
-          subject,
-          description,
-          fields,
-        }),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        console.error('Support ticket failed:', resp.status, text);
-        this.showToast('? Could not send message', 'error');
-        if (statusEl) {
-          statusEl.style.display = 'block';
-          statusEl.style.color = '#b91c1c';
-          statusEl.textContent = resp.status === 429 ? 'Too many requests. Please wait a moment and try again.' : 'Failed to send. Please try again.';
-        }
-        return;
-      }
-
-      this.showToast('? Sent', 'success');
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#065f46';
-        statusEl.textContent = 'Sent successfully.';
-      }
-
-      setTimeout(() => this.closeSupportForm(), 600);
-    } catch (e) {
-      console.error('Support ticket error:', e);
-      this.showToast('? Could not send message', 'error');
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#b91c1c';
-        statusEl.textContent = 'Failed to send. Please try again.';
-      }
-    } finally {
-      if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
-      }
-    }
+    return this.billingFeature?.support?.submitSupportForm?.(this);
   }
+
   
   renderChips() {
     return this.clipsFeature.render.renderChips(this);

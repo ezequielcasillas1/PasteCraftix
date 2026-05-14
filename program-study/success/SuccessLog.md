@@ -437,3 +437,8 @@
 **Status:** SUCCESS
 **Files:** profile.constants.js, profile.selectors.js, profile.storage.js, profile.render.js, profile.events.js, profile.generators.js, profile.gallery.js, profile.controller.js, popup.js, supabase-client.js, supabase/functions/ai-image/index.ts
 **Result:** Full Profile vertical slice extracted (7 modules). setupProfileModalEvents Large Method decomposed to 10.0 CodeScene. generateAnimalAvatar/Cartoon/AIName extracted with premium gating intact. gallery pagination/delegation wired. Bug fixed: dall-e-3 → gpt-image-1 deployed to live Edge Function.
+
+### May 14, 2026 - Billing Slice Refactor
+**Status:** SUCCESS
+**Files:** billing.constants.js, billing.selectors.js, billing.controller.js, billing.service.js, billing.support.js, popup.js
+**Result:** Extracted Checkout and Support features. Decomposed _createCheckout (CC=17), openSupportForm (CC=30), and submitSupportForm (CC=25). CodeScene scores 9.38-10.0. popup.js reduced by ~300 lines.
