@@ -409,7 +409,7 @@ class PasteCraftCRUD {
       showToast?.(msg, 'success');
 
       // Step 5: Verifier is diagnostic-only now (off the critical path).
-      //   If it fails we just warn — we do NOT rollback a write that Chrome
+      //   If it fails we just warn � we do NOT rollback a write that Chrome
       //   acknowledged. This removes the biggest source of perceived lag.
       if (verifier) {
         Promise.resolve()
@@ -743,16 +743,16 @@ class PasteCraftPopup {
   // Provider ? preset options mapping (single source of truth)
   static AI_PROVIDER_PRESETS = {
     openai: [
-      { value: 'default',   label: 'Default (4o-mini) · 40 cr' },
-      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) · 25 cr' },
-      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) · 200 cr' },
-      { value: 'latest',    label: 'Latest (GPT-5.2) · 500 cr' },
+      { value: 'default',   label: 'Default (4o-mini) � 40 cr' },
+      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) � 25 cr' },
+      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) � 200 cr' },
+      { value: 'latest',    label: 'Latest (GPT-5.2) � 500 cr' },
     ],
     google: [
-      { value: 'default',        label: 'Default (Gemini 2.0 Flash) · 40 cr' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) · 25 cr' },
-      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) · 350 cr' },
-      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) · 100 cr' },
+      { value: 'default',        label: 'Default (Gemini 2.0 Flash) � 40 cr' },
+      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) � 25 cr' },
+      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) � 350 cr' },
+      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) � 100 cr' },
     ],
     anthropic: [
       { value: 'default', label: 'Default (Coming Soon)' },
@@ -838,7 +838,7 @@ class PasteCraftPopup {
     // throw, hang, or network stall can't freeze the popup in a loading state.
     const watchdog = setTimeout(() => {
       try {
-        console.warn('? init() watchdog fired at 10s — force-hiding overlay');
+        console.warn('? init() watchdog fired at 10s � force-hiding overlay');
         this.hideLoadingOverlay();
         this._showOfflineModeBanner();
       } catch (_) {}
@@ -860,7 +860,7 @@ class PasteCraftPopup {
     const banner = document.createElement('div');
     banner.id = 'pcOfflineModeBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
-    banner.textContent = 'Loaded in offline mode — click to retry';
+    banner.textContent = 'Loaded in offline mode � click to retry';
     banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
     (document.body || document.documentElement).appendChild(banner);
   }
@@ -928,6 +928,13 @@ class PasteCraftPopup {
     return this.billingFeature;
   }
 
+  async _initializeSyncFeature() {
+    if (this.syncFeature) return this.syncFeature;
+    const { initSyncFeature } = await import('./popup/features/sync/sync.controller.js');
+    this.syncFeature = initSyncFeature(this);
+    return this.syncFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
@@ -939,6 +946,7 @@ class PasteCraftPopup {
     await this._initializeAuthFeature();
     await this._initializeProfileFeature();
     await this._initializeBillingFeature();
+    await this._initializeSyncFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -955,7 +963,7 @@ class PasteCraftPopup {
       // Actively clear any stale cloud auth state so it can't interfere later
       try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
       try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-      // Go straight to local mode — no cloud auth calls at all
+      // Go straight to local mode � no cloud auth calls at all
       this._isFreemiumGuest = true;
       this.currentUser = null;
       this.userSubscription = null;
@@ -1023,7 +1031,7 @@ class PasteCraftPopup {
     const currentUser = await pasteCraftSupabase.getCurrentUser();
 
     if (!currentUser) {
-      // Show auth modal (no freemium fallback here — that's handled by the mode gate above)
+      // Show auth modal (no freemium fallback here � that's handled by the mode gate above)
       this.showAuthModal();
       return;
     }
@@ -1069,7 +1077,7 @@ class PasteCraftPopup {
     ]);
 
     // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
-    // Profile is identity data — not gated by cloud sync tier. Timeout to prevent hanging.
+    // Profile is identity data � not gated by cloud sync tier. Timeout to prevent hanging.
     if (!this.userProfile?.userName && !this.userProfile?.aiGeneratedName && !this.userProfile?.profileImageUrl) {
       try {
         const remoteProfile = await Promise.race([
@@ -1104,7 +1112,7 @@ class PasteCraftPopup {
     // cannot stall the visible UI behind the purple overlay.
     this.hideLoadingOverlay();
 
-    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) — fire and
+    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) � fire and
     // forget. The restored tab shows its own lightweight inline loading
     // state while its data arrives.
     this._restoreSessionState().catch((e) => {
@@ -1183,37 +1191,11 @@ class PasteCraftPopup {
   }
 
   async _ensureIndexedDbReadyAndMigrate() {
-    if (!this.idb || this._idbReady) return;
-    try {
-      await this.idb.open();
-      const seedData = await chrome.storage.local.get(['clips', 'categories', 'notes']);
-      await this.idb.importIfNeededFromStorage({
-        clips: Array.isArray(seedData?.clips) ? seedData.clips : [],
-        categories: Array.isArray(seedData?.categories) ? seedData.categories : [],
-        notes: Array.isArray(seedData?.notes) ? seedData.notes : []
-      });
-      this._idbReady = true;
-    } catch (error) {
-      this._idbReady = false;
-      console.warn('?? IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
-    }
+    return this.syncFeature?.storage?.ensureIndexedDbReadyAndMigrate?.(this);
   }
 
   async _mirrorChangedLocalStateToIndexedDb(changes) {
-    if (!this._idbReady || !this.idb || !changes) return;
-    try {
-      if (changes.clips) {
-        await this.idb.syncEntityFromLocalStorage('clips', Array.isArray(changes.clips.newValue) ? changes.clips.newValue : []);
-      }
-      if (changes.categories) {
-        await this.idb.syncEntityFromLocalStorage('categories', Array.isArray(changes.categories.newValue) ? changes.categories.newValue : []);
-      }
-      if (changes.notes) {
-        await this.idb.syncEntityFromLocalStorage('notes', Array.isArray(changes.notes.newValue) ? changes.notes.newValue : []);
-      }
-    } catch (error) {
-      console.warn('?? Failed mirroring local entities to IndexedDB:', error?.message || error);
-    }
+    return this.syncFeature?.storage?.mirrorChangedLocalStateToIndexedDb?.(this, changes);
   }
 
   // =====================================================
@@ -1373,7 +1355,7 @@ class PasteCraftPopup {
     const categories = Array.isArray(point.categories) ? point.categories.length : 0;
     const notes = Array.isArray(point.notes) ? point.notes.length : 0;
     const target = new Date(cutoffMs).toLocaleString();
-    const reason = point.reason ? ` • ${String(point.reason)}` : '';
+    const reason = point.reason ? ` � ${String(point.reason)}` : '';
     return `Restore point: ${when}${reason}. Target window: ${windowKey} (= ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
   }
 
@@ -1400,7 +1382,7 @@ class PasteCraftPopup {
     try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
 
     const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click “Sync restored data to cloud”.\n\nProceed?'
+      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click �Sync restored data to cloud�.\n\nProceed?'
     );
     if (!ok) return false;
 
@@ -1534,43 +1516,8 @@ class PasteCraftPopup {
     };
   }
   
-  async performBackgroundSync({ force = false, reason = 'background-sync' } = {}) {
-    try {
-      // Guardrail: after a local restore, don't auto-sync for a short window unless explicitly forced.
-      if (!force) {
-        try {
-          const res = await chrome.storage.local.get([this._lastRestoreAtKey]);
-          const lastRestoreAt = typeof res?.[this._lastRestoreAtKey] === 'number' ? res[this._lastRestoreAtKey] : 0;
-          if (lastRestoreAt && (Date.now() - lastRestoreAt) < this._restoreSkipCloudSyncWindowMs) {
-            console.log('?? Skipping background sync (recent restore):', { reason, lastRestoreAt });
-            return;
-          }
-        } catch (_) {}
-      }
-
-      console.log('?? Starting background sync with database...', { reason, force });
-      const syncResult = await pasteCraftSupabase.performFullSync();
-      
-      if (syncResult.success) {
-        console.log('? Background sync complete:', syncResult.stats);
-        // Reload data after sync
-        await this.loadData();
-        this.renderChips();
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.updateManualInputCategories();
-        
-        // ?? RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
-        await this.loadUserProfile();
-        // Always refresh top bar identity (name + image) after sync
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-      } else {
-        console.warn('?? Background sync failed:', syncResult.message);
-      }
-    } catch (error) {
-      console.error('? Background sync error:', error);
-      // Don't block app - local data still works
-    }
+  async performBackgroundSync(options) {
+    return this.syncFeature?.listener?.performBackgroundSync?.(this, options);
   }
   
   hideLoadingOverlay() {
@@ -1645,291 +1592,39 @@ class PasteCraftPopup {
   }
   
   setupSyncStatusListeners() {
-    // Listen for sync status changes
-    window.addEventListener('syncStatusChanged', (event) => {
-      const { status, queueLength } = event.detail;
-      this.updateSyncIndicator(status, queueLength);
-    });
-    
-    // Listen for sync progress updates
-    window.addEventListener('syncProgress', (event) => {
-      const { current, total, percentage } = event.detail;
-      this.updateSyncProgress(current, total, percentage);
-    });
+    return this.syncFeature?.listener?.setupSyncStatusListeners?.(this);
   }
 
   _clearSyncAutoRefresh() {
-    if (this._syncAutoRefreshTimeout) {
-      clearTimeout(this._syncAutoRefreshTimeout);
-      this._syncAutoRefreshTimeout = null;
-    }
+    return this.syncFeature?.listener?.clearSyncAutoRefresh?.(this);
   }
 
   _isSyncProgressVisible() {
-    const el = document.getElementById('syncProgressContainer');
-    if (!el) return false;
-    const style = window.getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+    return this.syncFeature?.listener?.isSyncProgressVisible?.() ?? false;
   }
 
   _scheduleSyncAutoRefreshTick() {
-    if (this._syncAutoRefreshTimeout) return;
-    this._syncAutoRefreshTimeout = setTimeout(() => {
-      this._runSyncAutoRefreshTick().catch(() => {});
-    }, this._syncAutoRefreshIntervalMs);
+    return this.syncFeature?.listener?.scheduleSyncAutoRefreshTick?.(this);
   }
 
   async _runSyncAutoRefreshTick() {
-    // clear first so we can reschedule in finally
-    this._syncAutoRefreshTimeout = null;
-
-    if (!this._isSyncProgressVisible()) return;
-    if (this._syncAutoRefreshInFlight) {
-      this._scheduleSyncAutoRefreshTick();
-      return;
-    }
-
-    this._syncAutoRefreshInFlight = true;
-    try {
-      // Soft refresh: reload from storage + re-render (avoid killing in-flight sync work)
-      await this.loadData();
-      await this.loadUserProfile();
-      this.renderChips();
-      this.updateLastCapture();
-      this.updatePreview();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.renderSearchResults();
-
-      // Always refresh top bar identity (name + image) after sync
-      this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-    } finally {
-      this._syncAutoRefreshInFlight = false;
-    }
-
-    // Keep refreshing every 5s while progress bar is visible
-    if (this._isSyncProgressVisible()) {
-      this._scheduleSyncAutoRefreshTick();
-    }
+    return this.syncFeature?.listener?.runSyncAutoRefreshTick?.(this);
   }
   
   setupRealtimeListeners() {
-    // Listen for realtime data changes
-    window.addEventListener('dataChanged', async (event) => {
-      const { type } = event.detail;
-      console.log(`?? Realtime change detected: ${type}`);
-      
-      // Reload and re-render based on data type
-      if (type === 'clips' || type === 'archivedClips') {
-        await this.loadData();
-        this.renderChips();
-        this.updateLastCapture();
-        this.renderSearchResults();
-      } else if (type === 'categories') {
-        await this.loadData();
-        this.renderCategories();
-        this.updateCategoryFilter();
-      } else if (type === 'settings') {
-        await this.loadSettings();
-      } else if (type === 'profile') {
-        await this.loadUserProfile();
-        // Always refresh top bar identity (name + image) on profile change
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-      }
-    });
+    return this.syncFeature?.listener?.setupRealtimeListeners?.(this);
   }
   
   updateSyncIndicator(status, queueLength = 0) {
-    const indicator = document.getElementById('syncIndicator');
-    const statusText = document.getElementById('syncStatusText');
-    const queueCount = document.getElementById('syncQueueCount');
-    
-    if (!indicator || !statusText) return;
-
-    // If we’re no longer syncing, stop any auto-refresh loop.
-    if (status !== 'syncing') {
-      this._clearSyncAutoRefresh();
-    }
-    
-    // Update indicator color and status text
-    indicator.className = `sync-indicator ${status}`;
-    
-    const statusMessages = {
-      'synced': 'Synced',
-      'syncing': 'Syncing...',
-      'offline': 'Offline'
-    };
-    
-    statusText.textContent = statusMessages[status] || status;
-    
-    // Show queue count if pending operations
-    if (queueLength > 0 && queueCount) {
-      queueCount.textContent = `${queueLength} pending`;
-      queueCount.style.display = 'inline-block';
-    } else if (queueCount) {
-      queueCount.style.display = 'none';
-    }
+    return this.syncFeature?.listener?.updateSyncIndicator?.(this, status, queueLength);
   }
   
   updateSyncProgress(current, total, percentage) {
-    const progressContainer = document.getElementById('syncProgressContainer');
-    const progressFill = document.getElementById('syncProgressFill');
-    const progressText = document.getElementById('syncProgressText');
-    
-    if (!progressContainer || !progressFill || !progressText) return;
-    
-    // Show progress bar if syncing large dataset
-    if (total > 100 && current < total) {
-      progressContainer.style.display = 'block';
-      progressFill.style.width = `${percentage}%`;
-      progressText.textContent = `${current} / ${total} (${percentage}%)`;
-      this._scheduleSyncAutoRefreshTick();
-    } else {
-      // Hide progress bar when done
-      progressContainer.style.display = 'none';
-      this._clearSyncAutoRefresh();
-    }
+    return this.syncFeature?.listener?.updateSyncProgress?.(this, current, total, percentage);
   }
 
   async loadData() {
-    await this._ensureIndexedDbReadyAndMigrate();
-    const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
-    
-    let { clips = [], categories = [], searchOnlyClips = [] } = result;
-    let normalizedChanged = false;
-    if (this._idbReady && this.idb) {
-      const [idbClips, idbCategories] = await Promise.all([
-        this.idb.getAllPayloads('clips'),
-        this.idb.getAllPayloads('categories')
-      ]);
-      if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-      if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
-    }
-
-    // -- DEMO SEED: Preset categories + example clips (PC 1.0 release) --
-    // Research-backed preset categories based on most commonly copied/pasted
-    // clipboard items: code, links, emails, AI prompts, reference info, math,
-    // diagrams, and docs. 4 markup demo clips + 4 common-use clips.
-    if (clips.length === 0 && categories.length === 0) {
-      const now = Date.now();
-      categories = [
-        { id: now - 800000, name: '?? Code Snippets', icon: '??', createdAt: now - 800000, updatedAt: now - 800000 },
-        { id: now - 700000, name: '?? Links & URLs', icon: '??', createdAt: now - 700000, updatedAt: now - 700000 },
-        { id: now - 600000, name: '?? Email Templates', icon: '??', createdAt: now - 600000, updatedAt: now - 600000 },
-        { id: now - 500000, name: '?? AI Prompts', icon: '??', createdAt: now - 500000, updatedAt: now - 500000 },
-        { id: now - 400000, name: '?? Quick Reference', icon: '??', createdAt: now - 400000, updatedAt: now - 400000 },
-        { id: now - 300000, name: '?? Math & Formulas', icon: '??', createdAt: now - 300000, updatedAt: now - 300000 },
-        { id: now - 200000, name: '?? Diagrams & Charts', icon: '??', createdAt: now - 200000, updatedAt: now - 200000 },
-        { id: now - 100000, name: '?? Notes & Docs', icon: '??', createdAt: now - 100000, updatedAt: now - 100000 }
-      ];
-      clips = [
-        // -- 4 MARKUP DEMO CLIPS (showcase rendering capabilities) --
-        { id: 'demo_markup_1', text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '?? Math & Formulas', timestamp: now - 800000, meta: { markupHint: 'latex' } },
-        { id: 'demo_markup_2', text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '?? Diagrams & Charts', timestamp: now - 700000, meta: { markupHint: 'mermaid' } },
-        { id: 'demo_markup_3', text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '?? Code Snippets', timestamp: now - 600000, meta: { markupHint: 'javascript' } },
-        { id: 'demo_markup_4', text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '?? Notes & Docs', timestamp: now - 500000, meta: { markupHint: 'markdown' } },
-        // -- 4 COMMON CLIPBOARD CLIPS (research-backed presets) --
-        { id: 'demo_common_1', text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript\nhttps://stackoverflow.com/questions\nhttps://github.com/trending', category: '?? Links & URLs', timestamp: now - 400000 },
-        { id: 'demo_common_2', text: 'Hi [Name],\n\nThank you for reaching out. I wanted to follow up regarding [topic].\n\nPlease let me know if you have any questions.\n\nBest regards,\n[Your Name]', category: '?? Email Templates', timestamp: now - 300000 },
-        { id: 'demo_common_3', text: 'Act as an expert [role]. I need you to [task]. The context is [context]. Format your response as [format]. Keep it concise and actionable.', category: '?? AI Prompts', timestamp: now - 200000 },
-        { id: 'demo_common_4', text: 'Company: PasteCraft Inc.\nSupport: support@pastecraft.com\nDocs: https://pastecraft.com/docs\nVersion: 1.0.0', category: '?? Quick Reference', timestamp: now - 100000 }
-      ];
-      await chrome.storage.local.set({ clips, categories, searchOnlyClips });
-      normalizedChanged = false;
-      console.log('?? Seeded 8 preset categories + 8 example clips (PC 1.0)');
-    }
-    // -- END DEMO SEED --
-
-    const hashText = (t) => {
-      const s = String(t || '');
-      let h = 2166136261;
-      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-      return (h >>> 0).toString(36);
-    };
-    
-    // Load active clips (max 20, shown in clips tab and quick paste)
-    this.clips = clips.map(clip => {
-      // Handle both old string format and new object format
-      if (typeof clip === 'string') {
-        normalizedChanged = true;
-        const ts = Date.now();
-        return {
-          id: `${ts}_${hashText(clip)}`,
-          text: clip,
-          category: 'Uncategorized',
-          timestamp: ts
-        };
-      } else {
-        const text = clip?.text || clip;
-        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
-        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
-        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
-        return {
-          id,
-          text,
-          title: this._clipTitle(clip),
-          category: clip?.category || 'Uncategorized',
-          timestamp: ts,
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
-          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
-          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
-        };
-      }
-    });
-    // Always sort newest first (IndexedDB returns key order, storage order can vary)
-    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-    // Load search-only clips (archived clips, only shown in search)
-    this.searchOnlyClips = searchOnlyClips.map(clip => {
-      if (typeof clip === 'string') {
-        normalizedChanged = true;
-        const ts = Date.now();
-        return {
-          id: `${ts}_${hashText(clip)}`,
-          text: clip,
-          category: 'Uncategorized',
-          timestamp: ts
-        };
-      } else {
-        const text = clip?.text || clip;
-        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
-        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
-        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
-        return {
-          id,
-          text,
-          title: this._clipTitle(clip),
-          category: clip?.category || 'Uncategorized',
-          timestamp: ts,
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
-          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
-          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
-        };
-      }
-    });
-    
-    this.categories = categories;
-
-    if (normalizedChanged) {
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips
-      });
-    }
-    if (this._idbReady && this.idb) {
-      await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-      await this.idb.syncEntityFromLocalStorage('categories', this.categories);
-    }
-
-    // Enforce pagination clip limit
-    await this.enforceClipLimit();
-
-    // Initialize tiered storage for lazy loading (non-blocking)
-    this._initializeTieredStorage().catch(e => {
-      console.warn('Tiered storage initialization failed (will use local only):', e);
-    });
+    return this.syncFeature?.loader?.loadData?.(this);
   }
 
   /**
@@ -1937,56 +1632,7 @@ class PasteCraftPopup {
    * @private
    */
   async _initializeTieredStorage() {
-    // Only initialize if StorageMeter and TieredStorage are available
-    if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
-      return;
-    }
-
-    try {
-      // Initialize clips tiered storage
-      this.tieredClipsStore = tieredStorageManager.getStore('clips', {
-        pageSize: this.clipsPerPage,
-        localStorageKey: 'clips',
-        supabaseTable: 'clips',
-        timestampField: 'timestamp'
-      });
-      await this.tieredClipsStore.initialize();
-      this.tieredClipsStore.localCount = this.clips.length;
-
-      // Initialize archived clips tiered storage
-      this.tieredArchivedStore = tieredStorageManager.getStore('archived', {
-        pageSize: 20,
-        localStorageKey: 'searchOnlyClips',
-        supabaseTable: 'archived_clips',
-        timestampField: 'timestamp'
-      });
-      await this.tieredArchivedStore.initialize();
-      this.tieredArchivedStore.localCount = this.searchOnlyClips.length;
-
-      // Get remote counts if authenticated (for accurate pagination)
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const [clipsCount, archivedCount] = await Promise.all([
-          pasteCraftSupabase.getClipsCount().catch(() => 0),
-          pasteCraftSupabase.getArchivedClipsCount().catch(() => 0)
-        ]);
-        
-        this.totalClipsCount = Math.max(clipsCount, this.clips.length);
-        this.totalArchivedCount = Math.max(archivedCount, this.searchOnlyClips.length);
-        
-        this.tieredClipsStore.totalCount = this.totalClipsCount;
-        this.tieredArchivedStore.totalCount = this.totalArchivedCount;
-        
-        console.log(`?? Tiered storage initialized: ${this.clips.length} local clips, ${this.totalClipsCount} total`);
-      } else {
-        // No Supabase - use local counts
-        this.totalClipsCount = this.clips.length;
-        this.totalArchivedCount = this.searchOnlyClips.length;
-      }
-    } catch (e) {
-      console.warn('Failed to initialize tiered storage:', e);
-      this.totalClipsCount = this.clips.length;
-      this.totalArchivedCount = this.searchOnlyClips.length;
-    }
+    return this.syncFeature?.storage?.initializeTieredStorage?.(this);
   }
   
   async enforceClipLimit() {
@@ -1994,7 +1640,7 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
-    // Category-page clip action delegation — one listener on the stable
+    // Category-page clip action delegation � one listener on the stable
     // parent container survives every renderCategories() re-render.
     this.setupCategoryClipDelegation();
 
@@ -2106,7 +1752,7 @@ class PasteCraftPopup {
       if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
       if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
       if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving…' : 'Save Clip';
+      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving�' : 'Save Clip';
     };
 
     const manualInputMarkup = document.getElementById('manualInputMarkup');
@@ -2247,7 +1893,7 @@ class PasteCraftPopup {
       this.hideProfileModal();
     });
 
-    // Settings events — delegated to settingsFeature
+    // Settings events � delegated to settingsFeature
     if (this.settingsFeature?.events?.initSettingsEvents) {
       try {
         this.settingsFeature.events.initSettingsEvents();
@@ -2481,12 +2127,12 @@ class PasteCraftPopup {
       this.copyToClipboard();
     });
     
-    // Magic wand — opens preview modal
+    // Magic wand � opens preview modal
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
     });
 
-    // Magic info button — opens info modal
+    // Magic info button � opens info modal
     const magicInfoBtn = document.getElementById('magicInfoBtn');
     if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
       document.getElementById('magicInfoModal').style.display = 'flex';
@@ -3092,7 +2738,7 @@ class PasteCraftPopup {
       });
     }
 
-    // Bulk AI Actions (2+ selected clips) — modularized so Clips and Categories reuse the same wiring
+    // Bulk AI Actions (2+ selected clips) � modularized so Clips and Categories reuse the same wiring
     this._wireBulkAiButtons({
       summaryBtnId: 'bulkAiSummaryBtn',
       sendCategoriesBtnId: 'bulkSendCategoriesBtn',
@@ -3290,7 +2936,7 @@ class PasteCraftPopup {
   }
 
   _wireSupportFormControls() {
-    /* now part of initSupportEvents — no-op stub */
+    /* now part of initSupportEvents � no-op stub */
   }
 
   openSupportForm(type) {
@@ -3748,7 +3394,7 @@ class PasteCraftPopup {
         const mode = radio.value;
         if (mode !== 'selectedPage' && typeof this._pdfActiveTab !== 'number') return;
         if (mode === 'selectedPage' && this._pdfActiveTab === 'all') {
-          // Nudge user to pick a page — switch to P1
+          // Nudge user to pick a page � switch to P1
           if (this._pdfPages && this._pdfPages.length > 0) {
             this.switchPdfTab(0);
           }
@@ -3771,7 +3417,7 @@ class PasteCraftPopup {
     this._pdfPages = [];
     this._pdfActiveTab = 'all';
     if (fileNameEl) fileNameEl.textContent = file.name;
-    if (pageCountEl) pageCountEl.textContent = '…';
+    if (pageCountEl) pageCountEl.textContent = '�';
     if (saveBtn) saveBtn.disabled = true;
     if (loading) loading.style.display = 'flex';
     if (options) options.style.display = 'none';
@@ -3782,10 +3428,10 @@ class PasteCraftPopup {
     this.populatePdfCategoryDropdown();
 
     try {
-      if (loadingText) loadingText.textContent = 'Reading PDF…';
+      if (loadingText) loadingText.textContent = 'Reading PDF�';
       const arrayBuffer = await file.arrayBuffer();
 
-      if (loadingText) loadingText.textContent = 'Extracting text…';
+      if (loadingText) loadingText.textContent = 'Extracting text�';
       const pages = await this.extractPdfText(arrayBuffer);
       this._pdfPages = pages;
 
@@ -3796,7 +3442,7 @@ class PasteCraftPopup {
 
       // Show all text by default
       const textarea = document.getElementById('pdfPreviewTextarea');
-      if (textarea) textarea.value = pages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+      if (textarea) textarea.value = pages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
 
       if (loading) loading.style.display = 'none';
       if (options) options.style.display = 'flex';
@@ -3860,7 +3506,7 @@ class PasteCraftPopup {
     if (!textarea) return;
 
     if (pageIndex === 'all') {
-      textarea.value = this._pdfPages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+      textarea.value = this._pdfPages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
       tabs[0]?.classList.add('active');
     } else {
       textarea.value = this._pdfPages[pageIndex] || '';
@@ -3899,7 +3545,7 @@ class PasteCraftPopup {
     const label = document.getElementById('pdfSaveLabel');
     if (saveBtn) saveBtn.disabled = true;
     if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving…';
+    if (label) label.textContent = 'Saving�';
 
     try {
       const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
@@ -3923,7 +3569,7 @@ class PasteCraftPopup {
         // Save only the currently selected page tab
         const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
         if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, …) first.');
+          this.showToast('Please select a specific page tab (P1, P2, �) first.');
           if (saveBtn) saveBtn.disabled = false;
           if (spinner) spinner.style.display = 'none';
           if (label) label.textContent = 'Save to Clips';
@@ -4517,7 +4163,7 @@ class PasteCraftPopup {
     return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
-  // Settings Management Functions — delegated to settingsFeature
+  // Settings Management Functions � delegated to settingsFeature
   async loadSettings() {
     return this.settingsFeature.storage.loadSettings();
   }
@@ -4595,7 +4241,7 @@ class PasteCraftPopup {
    * Category-page clip handlers are wired via a single delegated click listener
    * on `#categoriesList` (see `setupCategoryClipDelegation`). This method is
    * kept as a no-op stub so existing callers (`toggleCategoryDropdown`) stay
-   * safe — delegation survives every `renderCategories()` re-render, unlike
+   * safe � delegation survives every `renderCategories()` re-render, unlike
    * the previous per-button listeners which detached whenever the list was
    * re-rendered while a dropdown was open.
    */
@@ -4894,7 +4540,7 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n• Delete all your clips\n• Remove all categories\n• Clear your profile data\n• This action cannot be undone!')) {
+    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n� Delete all your clips\n� Remove all categories\n� Clear your profile data\n� This action cannot be undone!')) {
       if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
         this.handleUnsubscribe();
       }
@@ -5895,12 +5541,12 @@ class PasteCraftPopup {
         ${recent.map(e => {
           const icon = e.type === 'breakdown' ? '??' : '??';
           const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '…' : '');
+          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '�' : '');
           const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
           return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
             <span class="open-recent-item-icon">${icon}</span>
             <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} · ${timeStr}</span>
+            <span class="open-recent-item-meta">${label} � ${timeStr}</span>
           </button>`;
         }).join('')}
       </div>
@@ -6074,117 +5720,7 @@ class PasteCraftPopup {
    * @private
    */
   async _maybeMigrateTieredStorage() {
-    // Check if StorageMeter is available
-    if (typeof StorageMeter === 'undefined') {
-      return;
-    }
-
-    // Check if already migrated
-    const { pc_tiered_storage_migrated_v1 } = await chrome.storage.local.get(['pc_tiered_storage_migrated_v1']);
-    if (pc_tiered_storage_migrated_v1) {
-      return;
-    }
-
-    // Check if user is authenticated (needed to push to cloud)
-    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.isAuthenticated?.()) {
-      return;
-    }
-
-    try {
-      // Get storage report
-      const report = await StorageMeter.getStorageReport();
-      
-      // Only migrate if storage is at 70%+ capacity
-      if (report.total.percentage < 0.7) {
-        // Mark as migrated (no migration needed)
-        await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
-        return;
-      }
-
-      console.log('?? Starting tiered storage migration...');
-      console.log(`?? Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
-
-      // Calculate budgets
-      const budgets = report.budgets;
-      let migrated = { clips: 0, notes: 0, archived: 0 };
-
-      // Migrate clips if over budget
-      if (this.clips.length > budgets.clips) {
-        const excessClips = this.clips.slice(budgets.clips);
-        console.log(`?? Migrating ${excessClips.length} excess clips to cloud...`);
-        
-        // Push excess to Supabase
-        try {
-          await pasteCraftSupabase.syncClipsToSupabase(excessClips);
-          migrated.clips = excessClips.length;
-          
-          // Keep only budget amount locally
-          this.clips = this.clips.slice(0, budgets.clips);
-          await chrome.storage.local.set({ clips: this.clips });
-          if (this._idbReady && this.idb) {
-            await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-          }
-        } catch (e) {
-          console.warn('Failed to migrate clips:', e);
-        }
-      }
-
-      // Migrate notes if over budget
-      if (this.notes.length > budgets.notes) {
-        const excessNotes = this.notes.slice(budgets.notes);
-        console.log(`?? Migrating ${excessNotes.length} excess notes to cloud...`);
-        
-        try {
-          await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
-          migrated.notes = excessNotes.length;
-          
-          // Keep only budget amount locally
-          this.notes = this.notes.slice(0, budgets.notes);
-          await this.saveNotes();
-        } catch (e) {
-          console.warn('Failed to migrate notes:', e);
-        }
-      }
-
-      // Migrate archived clips if over budget
-      if (this.searchOnlyClips.length > budgets.archived) {
-        const excessArchived = this.searchOnlyClips.slice(budgets.archived);
-        console.log(`?? Migrating ${excessArchived.length} excess archived clips to cloud...`);
-        
-        try {
-          await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
-          migrated.archived = excessArchived.length;
-          
-          // Keep only budget amount locally
-          this.searchOnlyClips = this.searchOnlyClips.slice(0, budgets.archived);
-          await chrome.storage.local.set({ searchOnlyClips: this.searchOnlyClips });
-        } catch (e) {
-          console.warn('Failed to migrate archived clips:', e);
-        }
-      }
-
-      // Mark migration as complete
-      await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
-
-      // Log results
-      const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
-      if (totalMigrated > 0) {
-        console.log(`? Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
-        
-        // Update total counts
-        this.totalClipsCount = this.clips.length + migrated.clips;
-        this.totalNotesCount = this.notes.length + migrated.notes;
-        this.totalArchivedCount = this.searchOnlyClips.length + migrated.archived;
-        
-        // Re-render to show updated pagination
-        this.renderChips();
-      } else {
-        console.log('? Tiered storage migration complete (no migration needed)');
-      }
-
-    } catch (e) {
-      console.error('Tiered storage migration failed:', e);
-    }
+    return this.syncFeature?.storage?.maybeMigrateTieredStorage?.(this);
   }
 
   _getNoteContentForHash(note) {

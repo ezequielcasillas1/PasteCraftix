@@ -442,3 +442,13 @@
 **Status:** SUCCESS
 **Files:** billing.constants.js, billing.selectors.js, billing.controller.js, billing.service.js, billing.support.js, popup.js
 **Result:** Extracted Checkout and Support features. Decomposed _createCheckout (CC=17), openSupportForm (CC=30), and submitSupportForm (CC=25). CodeScene scores 9.38-10.0. popup.js reduced by ~300 lines.
+
+### May 15, 2026 - Sync/Data Slice Refactor
+**Status:** SUCCESS
+**Files:** sync.constants.js, sync.storage.js, sync.loader.js, sync.listener.js, sync.controller.js, popup.js
+**Result:** Extracted Sync/Data into 5 modules. Decomposed loadData (CC=73) into 6 helpers (CC≤9). Demo seed, IndexedDB migration, storage listener, and realtime sync fully delegated. Phase 1 popup.js refactor complete.
+
+### May 15, 2026 - Quick View Refresh + Billing Syntax Fix
+**Status:** SUCCESS
+**Files:** background.js, content-script.js, popup.html, styles.css, billing.support.js
+**Result:** Fixed Extension context invalidated crash in sync.loader.js. Fixed Quick View refresh reading stale local storage vs IndexedDB. Fixed billing.support.js SyntaxError (we'll quote). Fixed pointer-events on icon buttons.
