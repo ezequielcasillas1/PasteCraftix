@@ -1846,6 +1846,28 @@
             display: inline-block;
             flex-shrink: 0;
         }
+
+        /* Icon buttons should receive clicks on the button, not on SVG/path/img children. */
+        button > svg,
+        button > svg *,
+        button > [data-lucide],
+        button > [data-lucide] *,
+        button > i[data-lucide],
+        button > img,
+        button .lucide,
+        button .lucide *,
+        button .btn-icon,
+        button .btn-icon *,
+        button .tab-icon,
+        button .tab-icon *,
+        .support-icon-btn img,
+        [role="button"] > svg,
+        [role="button"] > svg *,
+        [role="button"] > [data-lucide],
+        [role="button"] > [data-lucide] * {
+            pointer-events: none;
+        }
+
         .tab-icon svg.lucide,
         .tab-icon [data-lucide] {
             width: 18px;

@@ -46,7 +46,7 @@ const SUPPORT_FORM_SCHEMAS = Object.freeze({
     blurb: 'Talk to the team, work for us, partnerships, etc.',
     fields: [
       { key: 'topic', label: 'Topic (optional)', type: 'select', options: ['Talk to the team', 'Work for us', 'Partnership', 'Press', 'Other'] },
-      { key: 'contact', label: 'Best way to contact you (optional)', type: 'text', maxLen: 160, placeholder: 'Email/phone/link (we'll reply to your account email by default)' },
+      { key: 'contact', label: 'Best way to contact you (optional)', type: 'text', maxLen: 160, placeholder: "Email/phone/link (we'll reply to your account email by default)" },
       { key: 'links', label: 'Links (optional)', type: 'textarea', maxLen: 800, placeholder: 'Portfolio, LinkedIn, website, docs…' },
     ],
   },
