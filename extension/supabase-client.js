@@ -1592,6 +1592,13 @@ class PasteCraftSupabase {
       };
 
     } catch (error) {
+      const msg = String(error?.message || error || '');
+      if (msg.includes('does not exist') || msg.includes('no such model') || msg.includes('model')) {
+        const wrapped = new Error('Image generation model unavailable. Please try again later.');
+        wrapped.cause = error;
+        console.error('Failed to generate profile image:', wrapped);
+        throw wrapped;
+      }
       console.error('Failed to generate profile image:', error);
       throw error;
     }

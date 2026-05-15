@@ -3934,6 +3934,24 @@ body {
   opacity: 1;
 }
 
+/* Shared guard: icon children should not steal clicks from their action button. */
+button > svg,
+button > svg *,
+button > [data-lucide],
+button > [data-lucide] *,
+button > i[data-lucide],
+button > img,
+button .lucide,
+button .lucide *,
+button .btn-icon,
+button .btn-icon *,
+[role="button"] > svg,
+[role="button"] > svg *,
+[role="button"] > [data-lucide],
+[role="button"] > [data-lucide] * {
+  pointer-events: none;
+}
+
 /* Summary result header adjustment for pagination */
 .summary-result-header {
   display: flex;

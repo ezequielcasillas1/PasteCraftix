@@ -432,3 +432,23 @@
 **Status:** SUCCESS
 **Files:** ai-lab.magic.js (new), ai-lab.history.js, ai-lab.controller.js, popup.js
 **Result:** Extracted Magic feature (14 methods) and decomposed _craftMagic CC63→orchestrator CC1. Decomposed continueHistoryConversation CC38→router CC4. ai-lab.magic.js scored 10.0 optimal. popup.js improved 1.09→1.23. All CodeScene gates passed.
+
+### May 13, 2026 - Profile Slice Refactor
+**Status:** SUCCESS
+**Files:** profile.constants.js, profile.selectors.js, profile.storage.js, profile.render.js, profile.events.js, profile.generators.js, profile.gallery.js, profile.controller.js, popup.js, supabase-client.js, supabase/functions/ai-image/index.ts
+**Result:** Full Profile vertical slice extracted (7 modules). setupProfileModalEvents Large Method decomposed to 10.0 CodeScene. generateAnimalAvatar/Cartoon/AIName extracted with premium gating intact. gallery pagination/delegation wired. Bug fixed: dall-e-3 → gpt-image-1 deployed to live Edge Function.
+
+### May 14, 2026 - Billing Slice Refactor
+**Status:** SUCCESS
+**Files:** billing.constants.js, billing.selectors.js, billing.controller.js, billing.service.js, billing.support.js, popup.js
+**Result:** Extracted Checkout and Support features. Decomposed _createCheckout (CC=17), openSupportForm (CC=30), and submitSupportForm (CC=25). CodeScene scores 9.38-10.0. popup.js reduced by ~300 lines.
+
+### May 15, 2026 - Sync/Data Slice Refactor
+**Status:** SUCCESS
+**Files:** sync.constants.js, sync.storage.js, sync.loader.js, sync.listener.js, sync.controller.js, popup.js
+**Result:** Extracted Sync/Data into 5 modules. Decomposed loadData (CC=73) into 6 helpers (CC≤9). Demo seed, IndexedDB migration, storage listener, and realtime sync fully delegated. Phase 1 popup.js refactor complete.
+
+### May 15, 2026 - Quick View Refresh + Billing Syntax Fix
+**Status:** SUCCESS
+**Files:** background.js, content-script.js, popup.html, styles.css, billing.support.js
+**Result:** Fixed Extension context invalidated crash in sync.loader.js. Fixed Quick View refresh reading stale local storage vs IndexedDB. Fixed billing.support.js SyntaxError (we'll quote). Fixed pointer-events on icon buttons.

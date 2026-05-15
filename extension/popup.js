@@ -409,7 +409,7 @@ class PasteCraftCRUD {
       showToast?.(msg, 'success');
 
       // Step 5: Verifier is diagnostic-only now (off the critical path).
-      //   If it fails we just warn — we do NOT rollback a write that Chrome
+      //   If it fails we just warn � we do NOT rollback a write that Chrome
       //   acknowledged. This removes the biggest source of perceived lag.
       if (verifier) {
         Promise.resolve()
@@ -743,16 +743,16 @@ class PasteCraftPopup {
   // Provider ? preset options mapping (single source of truth)
   static AI_PROVIDER_PRESETS = {
     openai: [
-      { value: 'default',   label: 'Default (4o-mini) · 40 cr' },
-      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) · 25 cr' },
-      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) · 200 cr' },
-      { value: 'latest',    label: 'Latest (GPT-5.2) · 500 cr' },
+      { value: 'default',   label: 'Default (4o-mini) � 40 cr' },
+      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) � 25 cr' },
+      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) � 200 cr' },
+      { value: 'latest',    label: 'Latest (GPT-5.2) � 500 cr' },
     ],
     google: [
-      { value: 'default',        label: 'Default (Gemini 2.0 Flash) · 40 cr' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) · 25 cr' },
-      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) · 350 cr' },
-      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) · 100 cr' },
+      { value: 'default',        label: 'Default (Gemini 2.0 Flash) � 40 cr' },
+      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) � 25 cr' },
+      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) � 350 cr' },
+      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) � 100 cr' },
     ],
     anthropic: [
       { value: 'default', label: 'Default (Coming Soon)' },
@@ -838,7 +838,7 @@ class PasteCraftPopup {
     // throw, hang, or network stall can't freeze the popup in a loading state.
     const watchdog = setTimeout(() => {
       try {
-        console.warn('? init() watchdog fired at 10s — force-hiding overlay');
+        console.warn('? init() watchdog fired at 10s � force-hiding overlay');
         this.hideLoadingOverlay();
         this._showOfflineModeBanner();
       } catch (_) {}
@@ -860,7 +860,7 @@ class PasteCraftPopup {
     const banner = document.createElement('div');
     banner.id = 'pcOfflineModeBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
-    banner.textContent = 'Loaded in offline mode — click to retry';
+    banner.textContent = 'Loaded in offline mode � click to retry';
     banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
     (document.body || document.documentElement).appendChild(banner);
   }
@@ -914,6 +914,27 @@ class PasteCraftPopup {
     return this.authFeature;
   }
 
+  async _initializeProfileFeature() {
+    if (this.profileFeature) return this.profileFeature;
+    const { initProfileFeature } = await import('./popup/features/profile/profile.controller.js');
+    this.profileFeature = initProfileFeature(this);
+    return this.profileFeature;
+  }
+
+  async _initializeBillingFeature() {
+    if (this.billingFeature) return this.billingFeature;
+    const { initBillingFeature } = await import('./popup/features/billing/billing.controller.js');
+    this.billingFeature = initBillingFeature(this);
+    return this.billingFeature;
+  }
+
+  async _initializeSyncFeature() {
+    if (this.syncFeature) return this.syncFeature;
+    const { initSyncFeature } = await import('./popup/features/sync/sync.controller.js');
+    this.syncFeature = initSyncFeature(this);
+    return this.syncFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
@@ -923,6 +944,9 @@ class PasteCraftPopup {
     await this._initializeSettingsFeature();
     await this._initializeActivityFeature();
     await this._initializeAuthFeature();
+    await this._initializeProfileFeature();
+    await this._initializeBillingFeature();
+    await this._initializeSyncFeature();
 
     // Setup auth modal events FIRST (before checking auth)
     this.setupAuthModalEvents();
@@ -939,7 +963,7 @@ class PasteCraftPopup {
       // Actively clear any stale cloud auth state so it can't interfere later
       try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
       try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-      // Go straight to local mode — no cloud auth calls at all
+      // Go straight to local mode � no cloud auth calls at all
       this._isFreemiumGuest = true;
       this.currentUser = null;
       this.userSubscription = null;
@@ -1007,7 +1031,7 @@ class PasteCraftPopup {
     const currentUser = await pasteCraftSupabase.getCurrentUser();
 
     if (!currentUser) {
-      // Show auth modal (no freemium fallback here — that's handled by the mode gate above)
+      // Show auth modal (no freemium fallback here � that's handled by the mode gate above)
       this.showAuthModal();
       return;
     }
@@ -1053,7 +1077,7 @@ class PasteCraftPopup {
     ]);
 
     // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
-    // Profile is identity data — not gated by cloud sync tier. Timeout to prevent hanging.
+    // Profile is identity data � not gated by cloud sync tier. Timeout to prevent hanging.
     if (!this.userProfile?.userName && !this.userProfile?.aiGeneratedName && !this.userProfile?.profileImageUrl) {
       try {
         const remoteProfile = await Promise.race([
@@ -1088,7 +1112,7 @@ class PasteCraftPopup {
     // cannot stall the visible UI behind the purple overlay.
     this.hideLoadingOverlay();
 
-    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) — fire and
+    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) � fire and
     // forget. The restored tab shows its own lightweight inline loading
     // state while its data arrives.
     this._restoreSessionState().catch((e) => {
@@ -1167,37 +1191,11 @@ class PasteCraftPopup {
   }
 
   async _ensureIndexedDbReadyAndMigrate() {
-    if (!this.idb || this._idbReady) return;
-    try {
-      await this.idb.open();
-      const seedData = await chrome.storage.local.get(['clips', 'categories', 'notes']);
-      await this.idb.importIfNeededFromStorage({
-        clips: Array.isArray(seedData?.clips) ? seedData.clips : [],
-        categories: Array.isArray(seedData?.categories) ? seedData.categories : [],
-        notes: Array.isArray(seedData?.notes) ? seedData.notes : []
-      });
-      this._idbReady = true;
-    } catch (error) {
-      this._idbReady = false;
-      console.warn('?? IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
-    }
+    return this.syncFeature?.storage?.ensureIndexedDbReadyAndMigrate?.(this);
   }
 
   async _mirrorChangedLocalStateToIndexedDb(changes) {
-    if (!this._idbReady || !this.idb || !changes) return;
-    try {
-      if (changes.clips) {
-        await this.idb.syncEntityFromLocalStorage('clips', Array.isArray(changes.clips.newValue) ? changes.clips.newValue : []);
-      }
-      if (changes.categories) {
-        await this.idb.syncEntityFromLocalStorage('categories', Array.isArray(changes.categories.newValue) ? changes.categories.newValue : []);
-      }
-      if (changes.notes) {
-        await this.idb.syncEntityFromLocalStorage('notes', Array.isArray(changes.notes.newValue) ? changes.notes.newValue : []);
-      }
-    } catch (error) {
-      console.warn('?? Failed mirroring local entities to IndexedDB:', error?.message || error);
-    }
+    return this.syncFeature?.storage?.mirrorChangedLocalStateToIndexedDb?.(this, changes);
   }
 
   // =====================================================
@@ -1357,7 +1355,7 @@ class PasteCraftPopup {
     const categories = Array.isArray(point.categories) ? point.categories.length : 0;
     const notes = Array.isArray(point.notes) ? point.notes.length : 0;
     const target = new Date(cutoffMs).toLocaleString();
-    const reason = point.reason ? ` • ${String(point.reason)}` : '';
+    const reason = point.reason ? ` � ${String(point.reason)}` : '';
     return `Restore point: ${when}${reason}. Target window: ${windowKey} (= ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
   }
 
@@ -1384,7 +1382,7 @@ class PasteCraftPopup {
     try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
 
     const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click “Sync restored data to cloud”.\n\nProceed?'
+      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click �Sync restored data to cloud�.\n\nProceed?'
     );
     if (!ok) return false;
 
@@ -1518,43 +1516,8 @@ class PasteCraftPopup {
     };
   }
   
-  async performBackgroundSync({ force = false, reason = 'background-sync' } = {}) {
-    try {
-      // Guardrail: after a local restore, don't auto-sync for a short window unless explicitly forced.
-      if (!force) {
-        try {
-          const res = await chrome.storage.local.get([this._lastRestoreAtKey]);
-          const lastRestoreAt = typeof res?.[this._lastRestoreAtKey] === 'number' ? res[this._lastRestoreAtKey] : 0;
-          if (lastRestoreAt && (Date.now() - lastRestoreAt) < this._restoreSkipCloudSyncWindowMs) {
-            console.log('?? Skipping background sync (recent restore):', { reason, lastRestoreAt });
-            return;
-          }
-        } catch (_) {}
-      }
-
-      console.log('?? Starting background sync with database...', { reason, force });
-      const syncResult = await pasteCraftSupabase.performFullSync();
-      
-      if (syncResult.success) {
-        console.log('? Background sync complete:', syncResult.stats);
-        // Reload data after sync
-        await this.loadData();
-        this.renderChips();
-        this.renderCategories();
-        this.updateCategoryFilter();
-        this.updateManualInputCategories();
-        
-        // ?? RELOAD USER PROFILE AFTER SYNC (fixes image disappearing after cache clear)
-        await this.loadUserProfile();
-        // Always refresh top bar identity (name + image) after sync
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-      } else {
-        console.warn('?? Background sync failed:', syncResult.message);
-      }
-    } catch (error) {
-      console.error('? Background sync error:', error);
-      // Don't block app - local data still works
-    }
+  async performBackgroundSync(options) {
+    return this.syncFeature?.listener?.performBackgroundSync?.(this, options);
   }
   
   hideLoadingOverlay() {
@@ -1593,54 +1556,19 @@ class PasteCraftPopup {
   }
 
   openUpgradeModal() {
-    const modal = document.getElementById('upgradeModal');
-    if (modal) modal.classList.add('active');
+    return this.billingFeature?.service?.openUpgradeModal?.(this);
   }
 
   closeUpgradeModal() {
-    const modal = document.getElementById('upgradeModal');
-    if (modal) modal.classList.remove('active');
+    return this.billingFeature?.service?.closeUpgradeModal?.(this);
   }
 
   _openPricingPage() {
-    chrome.tabs.create({ url: 'https://pastecraft.com/pricing.html' });
+    return this.billingFeature?.service?.openPricingPage?.();
   }
 
   async _createCheckout(priceId) {
-    if (!this.currentUser) {
-      alert('Please sign in to subscribe');
-      return;
-    }
-
-    try {
-      const session = await pasteCraftSupabase.getSession();
-      const accessToken = session?.access_token || '';
-      const supabaseUrl = PASTECRAFT_CONFIG?.supabase?.url || '';
-      const anonKey = PASTECRAFT_CONFIG?.supabase?.anonKey || '';
-
-      if (!supabaseUrl || !anonKey) {
-        alert('Configuration error. Please try again later.');
-        return;
-      }
-
-      const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({
-          action: 'pcCreateCheckout',
-          priceId,
-          accessToken,
-          supabaseUrl,
-          anonKey
-        }, resolve);
-      });
-
-      if (!response?.success) {
-        const errorMsg = response?.error || 'Failed to create checkout session';
-        alert(`Error: ${errorMsg}`);
-      }
-    } catch (error) {
-      console.error('Checkout error:', error);
-      alert('Something went wrong. Please try again.');
-    }
+    return this.billingFeature?.service?.createCheckout?.(this, priceId);
   }
 
   setupVisibilityListener() {
@@ -1664,291 +1592,39 @@ class PasteCraftPopup {
   }
   
   setupSyncStatusListeners() {
-    // Listen for sync status changes
-    window.addEventListener('syncStatusChanged', (event) => {
-      const { status, queueLength } = event.detail;
-      this.updateSyncIndicator(status, queueLength);
-    });
-    
-    // Listen for sync progress updates
-    window.addEventListener('syncProgress', (event) => {
-      const { current, total, percentage } = event.detail;
-      this.updateSyncProgress(current, total, percentage);
-    });
+    return this.syncFeature?.listener?.setupSyncStatusListeners?.(this);
   }
 
   _clearSyncAutoRefresh() {
-    if (this._syncAutoRefreshTimeout) {
-      clearTimeout(this._syncAutoRefreshTimeout);
-      this._syncAutoRefreshTimeout = null;
-    }
+    return this.syncFeature?.listener?.clearSyncAutoRefresh?.(this);
   }
 
   _isSyncProgressVisible() {
-    const el = document.getElementById('syncProgressContainer');
-    if (!el) return false;
-    const style = window.getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+    return this.syncFeature?.listener?.isSyncProgressVisible?.() ?? false;
   }
 
   _scheduleSyncAutoRefreshTick() {
-    if (this._syncAutoRefreshTimeout) return;
-    this._syncAutoRefreshTimeout = setTimeout(() => {
-      this._runSyncAutoRefreshTick().catch(() => {});
-    }, this._syncAutoRefreshIntervalMs);
+    return this.syncFeature?.listener?.scheduleSyncAutoRefreshTick?.(this);
   }
 
   async _runSyncAutoRefreshTick() {
-    // clear first so we can reschedule in finally
-    this._syncAutoRefreshTimeout = null;
-
-    if (!this._isSyncProgressVisible()) return;
-    if (this._syncAutoRefreshInFlight) {
-      this._scheduleSyncAutoRefreshTick();
-      return;
-    }
-
-    this._syncAutoRefreshInFlight = true;
-    try {
-      // Soft refresh: reload from storage + re-render (avoid killing in-flight sync work)
-      await this.loadData();
-      await this.loadUserProfile();
-      this.renderChips();
-      this.updateLastCapture();
-      this.updatePreview();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.renderSearchResults();
-
-      // Always refresh top bar identity (name + image) after sync
-      this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-    } finally {
-      this._syncAutoRefreshInFlight = false;
-    }
-
-    // Keep refreshing every 5s while progress bar is visible
-    if (this._isSyncProgressVisible()) {
-      this._scheduleSyncAutoRefreshTick();
-    }
+    return this.syncFeature?.listener?.runSyncAutoRefreshTick?.(this);
   }
   
   setupRealtimeListeners() {
-    // Listen for realtime data changes
-    window.addEventListener('dataChanged', async (event) => {
-      const { type } = event.detail;
-      console.log(`?? Realtime change detected: ${type}`);
-      
-      // Reload and re-render based on data type
-      if (type === 'clips' || type === 'archivedClips') {
-        await this.loadData();
-        this.renderChips();
-        this.updateLastCapture();
-        this.renderSearchResults();
-      } else if (type === 'categories') {
-        await this.loadData();
-        this.renderCategories();
-        this.updateCategoryFilter();
-      } else if (type === 'settings') {
-        await this.loadSettings();
-      } else if (type === 'profile') {
-        await this.loadUserProfile();
-        // Always refresh top bar identity (name + image) on profile change
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-      }
-    });
+    return this.syncFeature?.listener?.setupRealtimeListeners?.(this);
   }
   
   updateSyncIndicator(status, queueLength = 0) {
-    const indicator = document.getElementById('syncIndicator');
-    const statusText = document.getElementById('syncStatusText');
-    const queueCount = document.getElementById('syncQueueCount');
-    
-    if (!indicator || !statusText) return;
-
-    // If we’re no longer syncing, stop any auto-refresh loop.
-    if (status !== 'syncing') {
-      this._clearSyncAutoRefresh();
-    }
-    
-    // Update indicator color and status text
-    indicator.className = `sync-indicator ${status}`;
-    
-    const statusMessages = {
-      'synced': 'Synced',
-      'syncing': 'Syncing...',
-      'offline': 'Offline'
-    };
-    
-    statusText.textContent = statusMessages[status] || status;
-    
-    // Show queue count if pending operations
-    if (queueLength > 0 && queueCount) {
-      queueCount.textContent = `${queueLength} pending`;
-      queueCount.style.display = 'inline-block';
-    } else if (queueCount) {
-      queueCount.style.display = 'none';
-    }
+    return this.syncFeature?.listener?.updateSyncIndicator?.(this, status, queueLength);
   }
   
   updateSyncProgress(current, total, percentage) {
-    const progressContainer = document.getElementById('syncProgressContainer');
-    const progressFill = document.getElementById('syncProgressFill');
-    const progressText = document.getElementById('syncProgressText');
-    
-    if (!progressContainer || !progressFill || !progressText) return;
-    
-    // Show progress bar if syncing large dataset
-    if (total > 100 && current < total) {
-      progressContainer.style.display = 'block';
-      progressFill.style.width = `${percentage}%`;
-      progressText.textContent = `${current} / ${total} (${percentage}%)`;
-      this._scheduleSyncAutoRefreshTick();
-    } else {
-      // Hide progress bar when done
-      progressContainer.style.display = 'none';
-      this._clearSyncAutoRefresh();
-    }
+    return this.syncFeature?.listener?.updateSyncProgress?.(this, current, total, percentage);
   }
 
   async loadData() {
-    await this._ensureIndexedDbReadyAndMigrate();
-    const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
-    
-    let { clips = [], categories = [], searchOnlyClips = [] } = result;
-    let normalizedChanged = false;
-    if (this._idbReady && this.idb) {
-      const [idbClips, idbCategories] = await Promise.all([
-        this.idb.getAllPayloads('clips'),
-        this.idb.getAllPayloads('categories')
-      ]);
-      if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-      if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
-    }
-
-    // -- DEMO SEED: Preset categories + example clips (PC 1.0 release) --
-    // Research-backed preset categories based on most commonly copied/pasted
-    // clipboard items: code, links, emails, AI prompts, reference info, math,
-    // diagrams, and docs. 4 markup demo clips + 4 common-use clips.
-    if (clips.length === 0 && categories.length === 0) {
-      const now = Date.now();
-      categories = [
-        { id: now - 800000, name: '?? Code Snippets', icon: '??', createdAt: now - 800000, updatedAt: now - 800000 },
-        { id: now - 700000, name: '?? Links & URLs', icon: '??', createdAt: now - 700000, updatedAt: now - 700000 },
-        { id: now - 600000, name: '?? Email Templates', icon: '??', createdAt: now - 600000, updatedAt: now - 600000 },
-        { id: now - 500000, name: '?? AI Prompts', icon: '??', createdAt: now - 500000, updatedAt: now - 500000 },
-        { id: now - 400000, name: '?? Quick Reference', icon: '??', createdAt: now - 400000, updatedAt: now - 400000 },
-        { id: now - 300000, name: '?? Math & Formulas', icon: '??', createdAt: now - 300000, updatedAt: now - 300000 },
-        { id: now - 200000, name: '?? Diagrams & Charts', icon: '??', createdAt: now - 200000, updatedAt: now - 200000 },
-        { id: now - 100000, name: '?? Notes & Docs', icon: '??', createdAt: now - 100000, updatedAt: now - 100000 }
-      ];
-      clips = [
-        // -- 4 MARKUP DEMO CLIPS (showcase rendering capabilities) --
-        { id: 'demo_markup_1', text: '\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}\n\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}', category: '?? Math & Formulas', timestamp: now - 800000, meta: { markupHint: 'latex' } },
-        { id: 'demo_markup_2', text: 'graph TD\n  A[Start] --> B{Decision}\n  B -->|Yes| C[Process]\n  B -->|No| D[End]\n  C --> D', category: '?? Diagrams & Charts', timestamp: now - 700000, meta: { markupHint: 'mermaid' } },
-        { id: 'demo_markup_3', text: 'async function fetchJSON(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(res.statusText);\n    return await res.json();\n  } catch (err) {\n    console.error("Fetch failed:", err);\n    return null;\n  }\n}', category: '?? Code Snippets', timestamp: now - 600000, meta: { markupHint: 'javascript' } },
-        { id: 'demo_markup_4', text: '# Quick Notes\n\n## Today\'s Tasks\n- [ ] Review pull request\n- [x] Update dependencies\n- [ ] Write unit tests\n\n> **Tip:** PasteCraft auto-detects markup like Markdown, LaTeX, and code.\n\nDelete these examples anytime — they\'re just here to show what\'s possible!', category: '?? Notes & Docs', timestamp: now - 500000, meta: { markupHint: 'markdown' } },
-        // -- 4 COMMON CLIPBOARD CLIPS (research-backed presets) --
-        { id: 'demo_common_1', text: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript\nhttps://stackoverflow.com/questions\nhttps://github.com/trending', category: '?? Links & URLs', timestamp: now - 400000 },
-        { id: 'demo_common_2', text: 'Hi [Name],\n\nThank you for reaching out. I wanted to follow up regarding [topic].\n\nPlease let me know if you have any questions.\n\nBest regards,\n[Your Name]', category: '?? Email Templates', timestamp: now - 300000 },
-        { id: 'demo_common_3', text: 'Act as an expert [role]. I need you to [task]. The context is [context]. Format your response as [format]. Keep it concise and actionable.', category: '?? AI Prompts', timestamp: now - 200000 },
-        { id: 'demo_common_4', text: 'Company: PasteCraft Inc.\nSupport: support@pastecraft.com\nDocs: https://pastecraft.com/docs\nVersion: 1.0.0', category: '?? Quick Reference', timestamp: now - 100000 }
-      ];
-      await chrome.storage.local.set({ clips, categories, searchOnlyClips });
-      normalizedChanged = false;
-      console.log('?? Seeded 8 preset categories + 8 example clips (PC 1.0)');
-    }
-    // -- END DEMO SEED --
-
-    const hashText = (t) => {
-      const s = String(t || '');
-      let h = 2166136261;
-      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-      return (h >>> 0).toString(36);
-    };
-    
-    // Load active clips (max 20, shown in clips tab and quick paste)
-    this.clips = clips.map(clip => {
-      // Handle both old string format and new object format
-      if (typeof clip === 'string') {
-        normalizedChanged = true;
-        const ts = Date.now();
-        return {
-          id: `${ts}_${hashText(clip)}`,
-          text: clip,
-          category: 'Uncategorized',
-          timestamp: ts
-        };
-      } else {
-        const text = clip?.text || clip;
-        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
-        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
-        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
-        return {
-          id,
-          text,
-          title: this._clipTitle(clip),
-          category: clip?.category || 'Uncategorized',
-          timestamp: ts,
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
-          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
-          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
-        };
-      }
-    });
-    // Always sort newest first (IndexedDB returns key order, storage order can vary)
-    this.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-    // Load search-only clips (archived clips, only shown in search)
-    this.searchOnlyClips = searchOnlyClips.map(clip => {
-      if (typeof clip === 'string') {
-        normalizedChanged = true;
-        const ts = Date.now();
-        return {
-          id: `${ts}_${hashText(clip)}`,
-          text: clip,
-          category: 'Uncategorized',
-          timestamp: ts
-        };
-      } else {
-        const text = clip?.text || clip;
-        const ts = (typeof clip?.timestamp === 'number') ? clip.timestamp : Date.now();
-        const id = clip?.id ?? clip?.clip_id ?? clip?.clipId ?? `${ts}_${hashText(text)}`;
-        if (clip?.id == null || typeof clip?.timestamp !== 'number') normalizedChanged = true;
-        return {
-          id,
-          text,
-          title: this._clipTitle(clip),
-          category: clip?.category || 'Uncategorized',
-          timestamp: ts,
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.updatedAt ?? clip.updated_at) ? { updatedAt: Number(clip.updatedAt ?? clip.updated_at) } : {}),
-          ...(clip && typeof clip === 'object' && Number.isFinite(clip.deletedAt ?? clip.deleted_at) ? { deletedAt: Number(clip.deletedAt ?? clip.deleted_at) } : {}),
-          ...(clip && typeof clip === 'object' && (clip.deviceId || clip.device_id) ? { deviceId: clip.deviceId || clip.device_id } : {}),
-          ...(clip && typeof clip === 'object' && clip.meta ? { meta: clip.meta } : {})
-        };
-      }
-    });
-    
-    this.categories = categories;
-
-    if (normalizedChanged) {
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips
-      });
-    }
-    if (this._idbReady && this.idb) {
-      await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-      await this.idb.syncEntityFromLocalStorage('categories', this.categories);
-    }
-
-    // Enforce pagination clip limit
-    await this.enforceClipLimit();
-
-    // Initialize tiered storage for lazy loading (non-blocking)
-    this._initializeTieredStorage().catch(e => {
-      console.warn('Tiered storage initialization failed (will use local only):', e);
-    });
+    return this.syncFeature?.loader?.loadData?.(this);
   }
 
   /**
@@ -1956,56 +1632,7 @@ class PasteCraftPopup {
    * @private
    */
   async _initializeTieredStorage() {
-    // Only initialize if StorageMeter and TieredStorage are available
-    if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
-      return;
-    }
-
-    try {
-      // Initialize clips tiered storage
-      this.tieredClipsStore = tieredStorageManager.getStore('clips', {
-        pageSize: this.clipsPerPage,
-        localStorageKey: 'clips',
-        supabaseTable: 'clips',
-        timestampField: 'timestamp'
-      });
-      await this.tieredClipsStore.initialize();
-      this.tieredClipsStore.localCount = this.clips.length;
-
-      // Initialize archived clips tiered storage
-      this.tieredArchivedStore = tieredStorageManager.getStore('archived', {
-        pageSize: 20,
-        localStorageKey: 'searchOnlyClips',
-        supabaseTable: 'archived_clips',
-        timestampField: 'timestamp'
-      });
-      await this.tieredArchivedStore.initialize();
-      this.tieredArchivedStore.localCount = this.searchOnlyClips.length;
-
-      // Get remote counts if authenticated (for accurate pagination)
-      if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-        const [clipsCount, archivedCount] = await Promise.all([
-          pasteCraftSupabase.getClipsCount().catch(() => 0),
-          pasteCraftSupabase.getArchivedClipsCount().catch(() => 0)
-        ]);
-        
-        this.totalClipsCount = Math.max(clipsCount, this.clips.length);
-        this.totalArchivedCount = Math.max(archivedCount, this.searchOnlyClips.length);
-        
-        this.tieredClipsStore.totalCount = this.totalClipsCount;
-        this.tieredArchivedStore.totalCount = this.totalArchivedCount;
-        
-        console.log(`?? Tiered storage initialized: ${this.clips.length} local clips, ${this.totalClipsCount} total`);
-      } else {
-        // No Supabase - use local counts
-        this.totalClipsCount = this.clips.length;
-        this.totalArchivedCount = this.searchOnlyClips.length;
-      }
-    } catch (e) {
-      console.warn('Failed to initialize tiered storage:', e);
-      this.totalClipsCount = this.clips.length;
-      this.totalArchivedCount = this.searchOnlyClips.length;
-    }
+    return this.syncFeature?.storage?.initializeTieredStorage?.(this);
   }
   
   async enforceClipLimit() {
@@ -2013,7 +1640,7 @@ class PasteCraftPopup {
   }
   
   setupEventListeners() {
-    // Category-page clip action delegation — one listener on the stable
+    // Category-page clip action delegation � one listener on the stable
     // parent container survives every renderCategories() re-render.
     this.setupCategoryClipDelegation();
 
@@ -2125,7 +1752,7 @@ class PasteCraftPopup {
       if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
       if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
       if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving…' : 'Save Clip';
+      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving�' : 'Save Clip';
     };
 
     const manualInputMarkup = document.getElementById('manualInputMarkup');
@@ -2266,7 +1893,7 @@ class PasteCraftPopup {
       this.hideProfileModal();
     });
 
-    // Settings events — delegated to settingsFeature
+    // Settings events � delegated to settingsFeature
     if (this.settingsFeature?.events?.initSettingsEvents) {
       try {
         this.settingsFeature.events.initSettingsEvents();
@@ -2500,12 +2127,12 @@ class PasteCraftPopup {
       this.copyToClipboard();
     });
     
-    // Magic wand — opens preview modal
+    // Magic wand � opens preview modal
     document.getElementById('magicWand').addEventListener('click', () => {
       this.magicFormat();
     });
 
-    // Magic info button — opens info modal
+    // Magic info button � opens info modal
     const magicInfoBtn = document.getElementById('magicInfoBtn');
     if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
       document.getElementById('magicInfoModal').style.display = 'flex';
@@ -3111,7 +2738,7 @@ class PasteCraftPopup {
       });
     }
 
-    // Bulk AI Actions (2+ selected clips) — modularized so Clips and Categories reuse the same wiring
+    // Bulk AI Actions (2+ selected clips) � modularized so Clips and Categories reuse the same wiring
     this._wireBulkAiButtons({
       summaryBtnId: 'bulkAiSummaryBtn',
       sendCategoriesBtnId: 'bulkSendCategoriesBtn',
@@ -3293,31 +2920,15 @@ class PasteCraftPopup {
   }
 
   _setupSupportFormEvents() {
-    this._wireSupportOpenButtons();
-    this._wireSupportFormControls();
+    return this.billingFeature?.support?.initSupportEvents?.(this);
   }
 
   _openSupportFormSafely(type) {
-    try {
-      this.openSupportForm(type);
-    } catch (e) {
-      console.error('Support form open failed:', e);
-      this.showToast('❌ Could not open support form', 'error');
-    }
+    return this.billingFeature?.support?.openSupportFormSafely?.(this, type);
   }
 
   _wireSupportOpenButtons() {
-    const pairs = [
-      ['supportTeamBtn', 'team'],
-      ['supportHelpBtn', 'help'],
-      ['supportSupportBtn', 'support'],
-      ['supportImproveBtn', 'howcanweimprove'],
-      ['supportReportBugsBtn', 'reportbugs'],
-    ];
-    pairs.forEach(([id, type]) => {
-      const btn = document.getElementById(id);
-      if (btn) btn.addEventListener('click', () => this._openSupportFormSafely(type));
-    });
+    return this.billingFeature?.support?.initSupportEvents?.(this);
   }
 
   _isSupportModalBackdrop(e) {
@@ -3325,292 +2936,21 @@ class PasteCraftPopup {
   }
 
   _wireSupportFormControls() {
-    const closeBtn = document.getElementById('closeSupportFormModal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closeSupportForm());
-
-    const cancelBtn = document.getElementById('cancelSupportForm');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeSupportForm());
-
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.addEventListener('click', (e) => {
-      if (this._isSupportModalBackdrop(e)) this.closeSupportForm();
-    });
-
-    const sendBtn = document.getElementById('sendSupportForm');
-    if (sendBtn) sendBtn.addEventListener('click', () => this.submitSupportForm());
+    /* now part of initSupportEvents � no-op stub */
   }
 
   openSupportForm(type) {
-    this.currentSupportFormType = type;
-    const titleEl = document.getElementById('supportFormTitle');
-    const infoEl = document.getElementById('supportFormInfo');
-    const fieldsEl = document.getElementById('supportFormFields');
-    const subjectEl = document.getElementById('supportFormSubject');
-    const descEl = document.getElementById('supportFormDescription');
-    const statusEl = document.getElementById('supportFormStatus');
-
-    const SUPPORT_FORM_SCHEMAS = {
-      reportbugs: {
-        blurb: 'Report bugs and UX/UI discrepancies.',
-        fields: [
-          { key: 'where', label: 'Where did it happen? (optional)', type: 'text', maxLen: 160, placeholder: 'Page, feature, or screen' },
-          { key: 'steps', label: 'Steps to reproduce (optional)', type: 'textarea', maxLen: 800, placeholder: '1) …\n2) …\n3) …' },
-          { key: 'expected_vs_actual', label: 'Expected vs actual (optional)', type: 'textarea', maxLen: 800, placeholder: 'Expected …\nActual …' },
-        ],
-      },
-      help: {
-        blurb: 'How do I use the app? Where do I find this feature? Add examples.',
-        fields: [
-          { key: 'feature', label: 'Feature / question (optional)', type: 'text', maxLen: 160, placeholder: 'What are you trying to do?' },
-          { key: 'example', label: 'Example (optional)', type: 'textarea', maxLen: 800, placeholder: 'Example input/output or scenario…' },
-        ],
-      },
-      support: {
-        blurb: 'Login, signup, errors, and account/subscription concerns.',
-        fields: [
-          { key: 'category', label: 'Category (optional)', type: 'select', options: ['Login', 'Signup', 'Error', 'Account', 'Subscription', 'Other'] },
-          { key: 'error_message', label: 'Error message (optional)', type: 'textarea', maxLen: 800, placeholder: 'Paste the exact error message (if any)…' },
-        ],
-      },
-      howcanweimprove: {
-        blurb: 'Feature requests and UX/UI improvements.',
-        fields: [
-          { key: 'request_type', label: 'Request type (optional)', type: 'select', options: ['Feature request', 'UX/UI improvement', 'Other'] },
-          { key: 'why', label: 'Why this matters (optional)', type: 'textarea', maxLen: 800, placeholder: 'What problem does this solve? What would “better” look like?' },
-        ],
-      },
-      team: {
-        blurb: 'Talk to the team, work for us, partnerships, etc.',
-        fields: [
-          { key: 'topic', label: 'Topic (optional)', type: 'select', options: ['Talk to the team', 'Work for us', 'Partnership', 'Press', 'Other'] },
-          { key: 'contact', label: 'Best way to contact you (optional)', type: 'text', maxLen: 160, placeholder: 'Email/phone/link (we’ll reply to your account email by default)' },
-          { key: 'links', label: 'Links (optional)', type: 'textarea', maxLen: 800, placeholder: 'Portfolio, LinkedIn, website, docs…' },
-        ],
-      },
-    };
-
-    const schema = SUPPORT_FORM_SCHEMAS[type] || { blurb: '', fields: [] };
-
-    const titles = {
-      team: 'Team',
-      help: 'Help',
-      support: 'Support',
-      howcanweimprove: 'How can we improve?',
-      reportbugs: 'Report a bug',
-    };
-
-    if (titleEl) titleEl.textContent = titles[type] || 'Contact PasteCraft';
-
-    const userEmail = this.currentUser?.email || '';
-    if (infoEl) {
-      infoEl.innerHTML = '';
-
-      // Freemium guest notice — prompt to create account for email support
-      if (this._isFreemiumGuest) {
-        const notice = document.createElement('div');
-        notice.className = 'freemium-account-notice';
-        notice.innerHTML = '<div class="notice-title">\u26A0\uFE0F Account Required for Email Support</div>'
-          + '<div class="notice-text">Create a free account to get email support priority.<br>Without an account, we cannot reply to your request.</div>'
-          + '<button class="notice-btn" id="freemiumCreateAccountBtn">Create Free Account</button>';
-        infoEl.appendChild(notice);
-        setTimeout(() => {
-          const btn = document.getElementById('freemiumCreateAccountBtn');
-          if (btn) {
-            btn.addEventListener('click', () => {
-              this.closeSupportForm();
-              this._isFreemiumGuest = false;
-              chrome.storage.local.remove('pc_freemium_guest');
-              this.showAuthModal();
-              const signupTab = document.querySelector('[data-auth-tab="signup"]');
-              if (signupTab) signupTab.click();
-            });
-          }
-        }, 0);
-      }
-
-      const line1 = document.createElement('div');
-      line1.textContent = this._isFreemiumGuest
-        ? 'You are using PasteCraft without an account.'
-        : userEmail
-        ? `From: ${userEmail} • We’ll reply to this email.`
-        : `We’ll reply to your PasteCraft account email.`;
-      infoEl.appendChild(line1);
-
-      if (schema.blurb) {
-        const line2 = document.createElement('div');
-        line2.textContent = schema.blurb;
-        line2.style.marginTop = '6px';
-        line2.style.color = '#374151';
-        infoEl.appendChild(line2);
-      }
-    }
-
-    if (fieldsEl) {
-      fieldsEl.innerHTML = '';
-      for (const field of schema.fields || []) {
-        if (!field || !field.key) continue;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'support-form-field';
-
-        const label = document.createElement('label');
-        const inputId = `supportField_${field.key}`;
-        label.htmlFor = inputId;
-        label.textContent = field.label || field.key;
-
-        let inputEl = null;
-        if (field.type === 'textarea') {
-          const ta = document.createElement('textarea');
-          ta.className = 'support-form-textarea';
-          if (field.maxLen) ta.maxLength = field.maxLen;
-          if (field.placeholder) ta.placeholder = field.placeholder;
-          ta.rows = 3;
-          inputEl = ta;
-        } else if (field.type === 'select') {
-          const sel = document.createElement('select');
-          sel.className = 'support-form-input';
-          const optEmpty = document.createElement('option');
-          optEmpty.value = '';
-          optEmpty.textContent = 'Select…';
-          sel.appendChild(optEmpty);
-          for (const opt of field.options || []) {
-            const o = document.createElement('option');
-            o.value = String(opt);
-            o.textContent = String(opt);
-            sel.appendChild(o);
-          }
-          inputEl = sel;
-        } else {
-          const inp = document.createElement('input');
-          inp.className = 'support-form-input';
-          inp.type = 'text';
-          if (field.maxLen) inp.maxLength = field.maxLen;
-          if (field.placeholder) inp.placeholder = field.placeholder;
-          inputEl = inp;
-        }
-
-        inputEl.id = inputId;
-        inputEl.setAttribute('data-support-field', field.key);
-
-        wrapper.appendChild(label);
-        wrapper.appendChild(inputEl);
-        fieldsEl.appendChild(wrapper);
-      }
-    }
-    if (subjectEl) subjectEl.value = '';
-    if (descEl) descEl.value = '';
-    if (statusEl) {
-      statusEl.style.display = 'none';
-      statusEl.textContent = '';
-      statusEl.style.color = '#111827';
-    }
-
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.style.display = 'flex';
+    return this.billingFeature?.support?.openSupportForm?.(this, type);
   }
 
   closeSupportForm() {
-    const modal = document.getElementById('supportFormModal');
-    if (modal) modal.style.display = 'none';
+    return this.billingFeature?.support?.closeSupportForm?.();
   }
 
   async submitSupportForm() {
-    const type = this.currentSupportFormType;
-    const subjectEl = document.getElementById('supportFormSubject');
-    const descEl = document.getElementById('supportFormDescription');
-    const statusEl = document.getElementById('supportFormStatus');
-    const sendBtn = document.getElementById('sendSupportForm');
-
-    const subject = (subjectEl?.value || '').trim();
-    const description = (descEl?.value || '').trim();
-    const fields = {};
-    try {
-      const fieldEls = document.querySelectorAll('#supportFormFields [data-support-field]');
-      fieldEls.forEach((el) => {
-        const key = el?.getAttribute && el.getAttribute('data-support-field');
-        if (!key) return;
-        const raw = typeof el.value === 'string' ? el.value : '';
-        const val = raw.trim();
-        if (val) fields[key] = val;
-      });
-    } catch (_) {
-      // ignore field collection failures
-    }
-
-    if (!subject || !description) {
-      this.showToast('?? Please add subject and description', 'error');
-      return;
-    }
-
-    try {
-      if (sendBtn) {
-        sendBtn.disabled = true;
-        sendBtn.textContent = 'Sending...';
-      }
-
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#111827';
-        statusEl.textContent = 'Sending…';
-      }
-
-      const { data: { session } } = await pasteCraftSupabase.client.auth.getSession();
-      const accessToken = session?.access_token;
-      if (!accessToken) {
-        this.showToast('? Please sign in again', 'error');
-        return;
-      }
-
-      const endpoint = `https://pastecraft.com/.netlify/functions/support-ticket?v=${Date.now()}`;
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        cache: 'no-store',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          type,
-          subject,
-          description,
-          fields,
-        }),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        console.error('Support ticket failed:', resp.status, text);
-        this.showToast('? Could not send message', 'error');
-        if (statusEl) {
-          statusEl.style.display = 'block';
-          statusEl.style.color = '#b91c1c';
-          statusEl.textContent = resp.status === 429 ? 'Too many requests. Please wait a moment and try again.' : 'Failed to send. Please try again.';
-        }
-        return;
-      }
-
-      this.showToast('? Sent', 'success');
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#065f46';
-        statusEl.textContent = 'Sent successfully.';
-      }
-
-      setTimeout(() => this.closeSupportForm(), 600);
-    } catch (e) {
-      console.error('Support ticket error:', e);
-      this.showToast('? Could not send message', 'error');
-      if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.style.color = '#b91c1c';
-        statusEl.textContent = 'Failed to send. Please try again.';
-      }
-    } finally {
-      if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
-      }
-    }
+    return this.billingFeature?.support?.submitSupportForm?.(this);
   }
+
   
   renderChips() {
     return this.clipsFeature.render.renderChips(this);
@@ -4054,7 +3394,7 @@ class PasteCraftPopup {
         const mode = radio.value;
         if (mode !== 'selectedPage' && typeof this._pdfActiveTab !== 'number') return;
         if (mode === 'selectedPage' && this._pdfActiveTab === 'all') {
-          // Nudge user to pick a page — switch to P1
+          // Nudge user to pick a page � switch to P1
           if (this._pdfPages && this._pdfPages.length > 0) {
             this.switchPdfTab(0);
           }
@@ -4077,7 +3417,7 @@ class PasteCraftPopup {
     this._pdfPages = [];
     this._pdfActiveTab = 'all';
     if (fileNameEl) fileNameEl.textContent = file.name;
-    if (pageCountEl) pageCountEl.textContent = '…';
+    if (pageCountEl) pageCountEl.textContent = '�';
     if (saveBtn) saveBtn.disabled = true;
     if (loading) loading.style.display = 'flex';
     if (options) options.style.display = 'none';
@@ -4088,10 +3428,10 @@ class PasteCraftPopup {
     this.populatePdfCategoryDropdown();
 
     try {
-      if (loadingText) loadingText.textContent = 'Reading PDF…';
+      if (loadingText) loadingText.textContent = 'Reading PDF�';
       const arrayBuffer = await file.arrayBuffer();
 
-      if (loadingText) loadingText.textContent = 'Extracting text…';
+      if (loadingText) loadingText.textContent = 'Extracting text�';
       const pages = await this.extractPdfText(arrayBuffer);
       this._pdfPages = pages;
 
@@ -4102,7 +3442,7 @@ class PasteCraftPopup {
 
       // Show all text by default
       const textarea = document.getElementById('pdfPreviewTextarea');
-      if (textarea) textarea.value = pages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+      if (textarea) textarea.value = pages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
 
       if (loading) loading.style.display = 'none';
       if (options) options.style.display = 'flex';
@@ -4166,7 +3506,7 @@ class PasteCraftPopup {
     if (!textarea) return;
 
     if (pageIndex === 'all') {
-      textarea.value = this._pdfPages.map((p, i) => `— Page ${i + 1} —\n${p}`).join('\n\n');
+      textarea.value = this._pdfPages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
       tabs[0]?.classList.add('active');
     } else {
       textarea.value = this._pdfPages[pageIndex] || '';
@@ -4205,7 +3545,7 @@ class PasteCraftPopup {
     const label = document.getElementById('pdfSaveLabel');
     if (saveBtn) saveBtn.disabled = true;
     if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving…';
+    if (label) label.textContent = 'Saving�';
 
     try {
       const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
@@ -4229,7 +3569,7 @@ class PasteCraftPopup {
         // Save only the currently selected page tab
         const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
         if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, …) first.');
+          this.showToast('Please select a specific page tab (P1, P2, �) first.');
           if (saveBtn) saveBtn.disabled = false;
           if (spinner) spinner.style.display = 'none';
           if (label) label.textContent = 'Save to Clips';
@@ -4823,7 +4163,7 @@ class PasteCraftPopup {
     return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
-  // Settings Management Functions — delegated to settingsFeature
+  // Settings Management Functions � delegated to settingsFeature
   async loadSettings() {
     return this.settingsFeature.storage.loadSettings();
   }
@@ -4901,7 +4241,7 @@ class PasteCraftPopup {
    * Category-page clip handlers are wired via a single delegated click listener
    * on `#categoriesList` (see `setupCategoryClipDelegation`). This method is
    * kept as a no-op stub so existing callers (`toggleCategoryDropdown`) stay
-   * safe — delegation survives every `renderCategories()` re-render, unlike
+   * safe � delegation survives every `renderCategories()` re-render, unlike
    * the previous per-button listeners which detached whenever the list was
    * re-rendered while a dropdown was open.
    */
@@ -5155,774 +4495,52 @@ class PasteCraftPopup {
   }
 
   // Profile Management Functions
-  async loadUserProfile() {
-    try {
-      console.log('?? Loading user profile from chrome.storage.local...');
-      const { userProfile = null } = await chrome.storage.local.get(['userProfile']);
-      this.userProfile = userProfile;
-      console.log('? Loaded user profile:', this.userProfile);
-      
-      if (this.userProfile?.profileImageUrl) {
-        console.log('? Profile image URL found:', this.userProfile.profileImageUrl);
-      } else {
-        console.log('?? No profile image URL in saved profile');
-      }
-    } catch (error) {
-      console.error('? CRITICAL: Failed to load user profile:', error);
-    }
-  }
+  async loadUserProfile() { return this.profileFeature.storage.loadUserProfile(this); }
 
   updateTopBarIdentity(imageUrlOverride = undefined) {
-    const topBar = document.getElementById('topBar');
-    const topLeftContainer = document.getElementById('topLeftProfileImage');
-    const topLeftImg = document.getElementById('topLeftProfileImg');
-    const topLeftPlaceholder = document.getElementById('topLeftProfilePlaceholder');
-    const nameEl = document.getElementById('topBarFunkyName');
-    const nameSection = nameEl?.closest?.('.top-bar-name-section') || null;
-
-    if (!topBar || !topLeftContainer) return;
-
-    // Always show top bar when authenticated
-    topBar.style.display = 'flex';
-    topLeftContainer.style.display = 'flex';
-
-    const profileImageUrl =
-      (typeof imageUrlOverride === 'string' ? imageUrlOverride : null) ??
-      this.userProfile?.profileImageUrl ??
-      '';
-
-    // Image / placeholder
-    if (!profileImageUrl) {
-      if (topLeftImg) {
-        topLeftImg.src = '';
-        topLeftImg.style.display = 'none';
-      }
-      if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'flex';
-    } else if (topLeftImg) {
-      topLeftImg.src = profileImageUrl;
-      topLeftImg.style.display = 'block';
-      if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'none';
-
-      topLeftImg.onerror = () => {
-        // Fallback: if URL fails, try local base64 before placeholder
-        try {
-          const b = typeof this.userProfile?.profileImageBase64 === 'string' ? this.userProfile.profileImageBase64 : '';
-          if (b && b.startsWith('data:image/') && topLeftImg.src !== b) {
-            topLeftImg.src = b;
-            topLeftImg.style.display = 'block';
-            if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'none';
-            return;
-          }
-        } catch (_) {}
-        topLeftImg.style.display = 'none';
-        if (topLeftPlaceholder) topLeftPlaceholder.style.display = 'flex';
-      };
-    }
-
-    // Display name: prefer funky animal name (top-left), then user's name, then email prefix
-    const userName = typeof this.userProfile?.userName === 'string' ? this.userProfile.userName.trim() : '';
-    const funkyName = typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '';
-    const emailPrefix = typeof this.currentUser?.email === 'string' ? this.currentUser.email.split('@')[0] : '';
-    const displayName = funkyName || userName || emailPrefix || (this._isFreemiumGuest ? 'Guest' : '');
-
-    if (nameEl) {
-      nameEl.textContent = displayName;
-      // Must be inline-block BEFORE measuring scrollWidth
-      nameEl.style.display = displayName ? 'inline-block' : 'none';
-    }
-
-    // Enable marquee only if name overflows.
-    // IDEMPOTENT: skip teardown if marquee is already running with the same name
-    // to prevent repeated storage-change calls from resetting the CSS animation.
-    if (nameSection) {
-      const prevMarqueeName = nameSection.dataset.pcMarqueeName || '';
-      if (nameSection.classList.contains('is-marquee') && displayName && prevMarqueeName === displayName) {
-        // Already animating this name — do nothing.
-      } else {
-        nameSection.classList.remove('is-marquee');
-        nameSection.style.removeProperty('--pc-marquee-distance');
-        nameSection.style.removeProperty('--pc-marquee-duration');
-        nameSection.dataset.pcMarqueeName = '';
-
-        if (displayName && nameEl) {
-          // Measure and optionally enable marquee. Retries once if layout
-          // hasn't settled (available === 0) which can happen when topBar
-          // transitions from display:none ? flex.
-          const applyMarquee = (retryCount = 0) => {
-            const available = nameSection.clientWidth;
-            const needed = nameEl.scrollWidth;
-            if (available === 0 && retryCount < 2) {
-              setTimeout(() => applyMarquee(retryCount + 1), 120);
-              return;
-            }
-            const distance = Math.max(0, needed - available);
-            if (distance > 6) {
-              const duration = Math.min(18, Math.max(8, distance / 30));
-              nameSection.style.setProperty('--pc-marquee-distance', String(distance));
-              nameSection.style.setProperty('--pc-marquee-duration', `${duration}s`);
-              nameSection.classList.add('is-marquee');
-              nameSection.dataset.pcMarqueeName = displayName;
-            }
-          };
-          // Double-rAF: first rAF schedules layout, second rAF measures after paint.
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => applyMarquee(0));
-          });
-        }
-      }
-    }
+    return this.profileFeature?.render?.updateTopBarIdentity?.(this, imageUrlOverride);
   }
 
-  async saveUserProfile() {
-    try {
-      console.log('?? Attempting to save user profile:', this.userProfile);
-
-      await chrome.storage.local.set({ userProfile: this.userProfile });
-      console.log('? User profile saved successfully to chrome.storage.local');
-      
-      // Verify the save worked
-      const verification = await chrome.storage.local.get(['userProfile']);
-      console.log('?? Verification - Profile in storage:', verification.userProfile);
-      
-      if (!verification.userProfile || !verification.userProfile.profileImageUrl) {
-        console.error('?? WARNING: Profile saved but verification failed!');
-      }
-      
-      // ?? AUTO-SYNC TO DATABASE
-      try {
-        await pasteCraftSupabase.syncUserProfileToSupabase(this.userProfile);
-        console.log('? User profile synced to database');
-      } catch (syncError) {
-        console.error('?? Failed to sync profile to database:', syncError);
-        // Don't fail the whole save if sync fails
-      }
-
-      // Keep top bar in sync with latest profile data
-      this.updateTopBarIdentity();
-    } catch (error) {
-      console.error('? CRITICAL: Failed to save user profile:', error);
-      this.showToast('? Failed to save profile image', 'error');
-    }
-  }
+  async saveUserProfile() { return this.profileFeature.storage.saveUserProfile(this); }
 
   showProfileModal() {
-    document.getElementById('profileModal').style.display = 'flex';
-
-    // Keep theme toggle in sync (single source of truth)
-    try {
-      const profileToggle = document.getElementById('profileDarkModeToggle');
-      if (profileToggle) profileToggle.checked = this.theme === 'dark';
-    } catch (_) {}
-
-    // Keep widget icon toggle in sync
-    try {
-      const widgetIconToggle = document.getElementById('widgetIconUseProfileToggle');
-      if (widgetIconToggle) {
-        chrome.storage.local.get(['widgetSettings'], (res) => {
-          const ws = res && res.widgetSettings && typeof res.widgetSettings === 'object' ? res.widgetSettings : {};
-          widgetIconToggle.checked = !!ws.widgetIconUseProfileImage;
-        });
-      }
-    } catch (_) {}
-    
-    // Load existing profile data
-    if (this.userProfile) {
-      if (this.userProfile.userName) {
-        document.getElementById('userName').value = this.userProfile.userName;
-      }
-      if (this.userProfile.aiGeneratedName) {
-        document.getElementById('aiNameValue').textContent = this.userProfile.aiGeneratedName;
-        document.getElementById('aiNameDisplay').style.display = 'flex';
-      }
-      if (this.userProfile.profileImageUrl) {
-        document.getElementById('profileImage').src = this.userProfile.profileImageUrl;
-        document.getElementById('profileImage').style.display = 'block';
-        document.getElementById('profileImagePlaceholder').style.display = 'none';
-      }
-    }
-
-    // Update AI Generate button state based on uploaded photo
-    this.updateAIGenerateButtonState();
-
-    // Setup profile modal event listeners
-    this.setupProfileModalEvents();
-    
-    // Add scroll listener for sticky profile image effect
-    const modalBody = document.querySelector('#profileModal .modal-body');
-    const imageContainer = document.querySelector('.profile-image-container');
-    
-    if (modalBody && imageContainer) {
-      // Remove old listener if exists
-      modalBody.removeEventListener('scroll', this.profileScrollHandler);
-      
-      // Create new handler
-      this.profileScrollHandler = () => {
-        if (modalBody.scrollTop > 50) {
-          imageContainer.classList.add('scrolled');
-        } else {
-          imageContainer.classList.remove('scrolled');
-        }
-      };
-      
-      // Add listener
-      modalBody.addEventListener('scroll', this.profileScrollHandler);
-      console.log('? Profile image sticky scroll behavior enabled');
-    }
+    return this.profileFeature?.render?.showProfileModal?.(this);
   }
   
   updateAIGenerateButtonState() {
-    const generateAnimalBtn = document.getElementById('generateAnimalBtn');
-    const generateCartoonBtn = document.getElementById('generateCartoonBtn');
-    
-    console.log('?? Updating button states...');
-    console.log('AI Generated Name:', this.userProfile?.aiGeneratedName);
-    console.log('Photo uploaded:', !!this.userProfile?.profileImageBase64);
-    
-    // Enable Animal Avatar if AI name is generated
-    if (this.userProfile && this.userProfile.aiGeneratedName) {
-      const match = this.userProfile.aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
-      console.log('Animal match found:', match ? match[1] : 'none');
-      if (match) {
-        generateAnimalBtn.disabled = false;
-        generateAnimalBtn.classList.remove('btn-disabled');
-        generateAnimalBtn.textContent = `?? ${match[1]} Avatar`;
-        generateAnimalBtn.title = `Generate funky ${match[1]} avatar`;
-        console.log(`? Animal Avatar button enabled for ${match[1]}`);
-      } else {
-        generateAnimalBtn.disabled = true;
-        generateAnimalBtn.classList.add('btn-disabled');
-        generateAnimalBtn.title = 'No animal detected in funky animal name';
-        console.log('?? AI name has no animal type');
-      }
-    } else {
-      generateAnimalBtn.disabled = true;
-      generateAnimalBtn.classList.add('btn-disabled');
-      generateAnimalBtn.title = 'Generate funky animal name first';
-      console.log('?? No AI name generated yet');
-    }
-    
-    // Enable My Cartoon if photo is uploaded
-    if (this.userProfile && this.userProfile.profileImageBase64) {
-      generateCartoonBtn.disabled = false;
-      generateCartoonBtn.classList.remove('btn-disabled');
-      generateCartoonBtn.title = 'Generate cartoon from your photo';
-    } else {
-      generateCartoonBtn.disabled = true;
-      generateCartoonBtn.classList.add('btn-disabled');
-      generateCartoonBtn.title = 'Upload a photo first';
-    }
+    return this.profileFeature?.render?.updateAIGenerateButtonState?.(this);
   }
 
   hideProfileModal() {
-    document.getElementById('profileModal').style.display = 'none';
+    return this.profileFeature?.render?.hideProfileModal?.();
   }
 
   setupProfileModalEvents() {
-    // Idempotent: bind once per popup lifetime. Re-running on every modal
-    // open forced expensive cloneNode(true)+replaceWith on ~9 nodes, which
-    // caused perceptible lag when opening Profile.
-    if (this._profileModalEventsBound) return;
-    this._profileModalEventsBound = true;
-    // Prevent multiple event listener attachments
-    const profileModal = document.getElementById('profileModal');
-    const uploadImageBtn = document.getElementById('uploadImageBtn');
-    const generateImageBtn = document.getElementById('generateImageBtn');
-    const generateNameBtn = document.getElementById('generateNameBtn');
-    const saveUserNameBtn = document.getElementById('saveUserNameBtn');
-    const saveAiNameBtn = document.getElementById('saveAiNameBtn');
-    const unsubscribeBtn = document.getElementById('unsubscribeBtn');
-    const profileImageUpload = document.getElementById('profileImageUpload');
-    const nameToggleBtn = document.getElementById('nameToggleBtn');
-    const photoToggleBtn = document.getElementById('photoToggleBtn');
-    const nameRegHeader = document.getElementById('nameRegHeader');
-    const photoCreationHeader = document.getElementById('photoCreationHeader');
-
-    // Get new buttons
-    const generateAnimalBtn = document.getElementById('generateAnimalBtn');
-    const generateCartoonBtn = document.getElementById('generateCartoonBtn');
-
-    
-    // Remove old listeners by cloning and replacing nodes (for buttons)
-    const newUploadBtn = uploadImageBtn.cloneNode(true);
-    uploadImageBtn.replaceWith(newUploadBtn);
-    
-    const newGenerateAnimalBtn = generateAnimalBtn.cloneNode(true);
-    generateAnimalBtn.replaceWith(newGenerateAnimalBtn);
-    
-    const newGenerateCartoonBtn = generateCartoonBtn.cloneNode(true);
-    generateCartoonBtn.replaceWith(newGenerateCartoonBtn);
-    
-    const newSaveUserNameBtn = saveUserNameBtn.cloneNode(true);
-    saveUserNameBtn.replaceWith(newSaveUserNameBtn);
-
-    const newGenerateNameBtn = generateNameBtn.cloneNode(true);
-    generateNameBtn.replaceWith(newGenerateNameBtn);
-
-    const newSaveAiNameBtn = saveAiNameBtn.cloneNode(true);
-    saveAiNameBtn.replaceWith(newSaveAiNameBtn);
-    
-    const newUnsubscribeBtn = unsubscribeBtn.cloneNode(true);
-    unsubscribeBtn.replaceWith(newUnsubscribeBtn);
-
-    // ? FIX: Clone and replace headers to remove stacked event listeners
-    const newNameRegHeader = nameRegHeader.cloneNode(true);
-    nameRegHeader.replaceWith(newNameRegHeader);
-    
-    const newPhotoCreationHeader = photoCreationHeader.cloneNode(true);
-    photoCreationHeader.replaceWith(newPhotoCreationHeader);
-
-    // Collapse/Expand handlers for Name Registration (using new cloned element)
-    newNameRegHeader.addEventListener('click', () => {
-      this.toggleSection('nameRegContent', 'nameToggleBtn');
-    });
-
-    // Collapse/Expand handlers for Photo Creation (using new cloned element)
-    newPhotoCreationHeader.addEventListener('click', () => {
-      this.toggleSection('photoCreationContent', 'photoToggleBtn');
-    });
-
-    // Loading exit button - allows user to skip waiting
-    const loadingExitBtn = document.getElementById('loadingExitBtn');
-    if (loadingExitBtn) {
-      loadingExitBtn.addEventListener('click', () => {
-        console.log('?? User clicked exit button - hiding loading overlay');
-        document.getElementById('profileImageLoading').style.display = 'none';
-        // Show placeholder or existing image
-        const profileImage = document.getElementById('profileImage');
-        const placeholder = document.getElementById('profileImagePlaceholder');
-        if (profileImage && profileImage.src) {
-          profileImage.style.display = 'block';
-        } else if (placeholder) {
-          placeholder.style.display = 'flex';
-        }
-        // Generation continues in background
-        console.log('? Loading screen closed - generation continues in background');
-      });
-    }
-
-    // Upload image button - attach to NEW cloned button
-    newUploadBtn.addEventListener('click', (e) => {
-      profileImageUpload.click();
-    });
-
-    // Profile image upload
-    profileImageUpload.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        await this.handleProfileImageUpload(file);
-      }
-    });
-
-    // Generate Animal Avatar - attach to NEW cloned button
-    console.log('?? Attaching Generate Animal listener');
-    newGenerateAnimalBtn.addEventListener('click', async () => {
-      console.log('??? Generate Animal Avatar button CLICKED!');
-      await this.generateAnimalAvatar();
-    });
-    console.log('? Generate Animal event listener attached');
-    
-    // Generate Cartoon from Photo - attach to NEW cloned button
-    console.log('?? Attaching Generate Cartoon listener');
-    newGenerateCartoonBtn.addEventListener('click', async () => {
-      console.log('??? Generate My Cartoon button CLICKED!');
-      await this.generateMyCartoon();
-    });
-    console.log('? Generate Cartoon event listener attached');
-
-    // Generate AI name - attach to NEW cloned button
-    newGenerateNameBtn.addEventListener('click', async () => {
-      console.log('??? Generate Name button CLICKED!');
-      await this.generateAIName();
-    });
-
-    // Save user name - attach to NEW cloned button
-    newSaveUserNameBtn.addEventListener('click', async () => {
-      try {
-        const userName = document.getElementById('userName').value.trim();
-        if (!userName) {
-          this.showToast('?? Please enter a name first', 'error');
-          return;
-        }
-
-        if (!this.userProfile) this.userProfile = {};
-        this.userProfile.userName = userName;
-
-        await this.saveUserProfile();
-        this.showToast('? Name saved', 'success');
-      } catch (error) {
-        console.error('Failed to save name:', error);
-        this.showToast('? Failed to save name', 'error');
-      }
-    });
-
-    // Save funky animal name - attach to NEW cloned button
-    newSaveAiNameBtn.addEventListener('click', async () => {
-      try {
-        const aiNameFromUi = document.getElementById('aiNameValue')?.textContent?.trim() || '';
-        const aiName = aiNameFromUi || (typeof this.userProfile?.aiGeneratedName === 'string' ? this.userProfile.aiGeneratedName.trim() : '');
-
-        if (!aiName || aiName === '-') {
-          this.showToast('?? Please generate a funky animal name first', 'error');
-          return;
-        }
-
-        if (!this.userProfile) this.userProfile = {};
-        this.userProfile.aiGeneratedName = aiName;
-
-        await this.saveUserProfile();
-        this.updateAIGenerateButtonState();
-        this.showToast('? Funky name saved', 'success');
-      } catch (error) {
-        console.error('Failed to save funky name:', error);
-        this.showToast('? Failed to save funky name', 'error');
-      }
-    });
-
-    // Unsubscribe - attach to NEW cloned button
-    newUnsubscribeBtn.addEventListener('click', () => {
-      console.log('??? Unsubscribe button CLICKED!');
-      this.showUnsubscribeConfirmation();
-    });
-
-    // Modal overlay click to close
-    profileModal.addEventListener('click', (e) => {
-      if (e.target.id === 'profileModal') {
-        this.hideProfileModal();
-      }
-    });
+    return this.profileFeature?.events?.setupProfileModalEvents?.(this);
   }
   
   toggleSection(contentId, toggleBtnId) {
-    const content = document.getElementById(contentId);
-    const toggleBtn = document.getElementById(toggleBtnId);
-    
-    if (content.classList.contains('collapsed')) {
-      // Expand
-      content.classList.remove('collapsed');
-      toggleBtn.classList.remove('collapsed');
-      toggleBtn.textContent = '?';
-    } else {
-      // Collapse
-      content.classList.add('collapsed');
-      toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '?';
-    }
+    return this.profileFeature?.render?.toggleSection?.(contentId, toggleBtnId);
   }
 
   async handleProfileImageUpload(file) {
-    try {
-      this.showToast('?? Uploading image...', 'info');
-
-      // Convert to base64 for preview
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const imageUrl = typeof e?.target?.result === 'string' ? e.target.result : '';
-        if (!imageUrl) {
-          this.showToast('? Failed to read image file', 'error');
-          return;
-        }
-        
-        // Display image
-        document.getElementById('profileImage').src = imageUrl;
-        document.getElementById('profileImage').style.display = 'block';
-        document.getElementById('profileImagePlaceholder').style.display = 'none';
-        
-        // Save to profile
-        if (!this.userProfile) {
-          this.userProfile = {};
-        }
-        this.userProfile.profileImageBase64 = imageUrl;
-
-        // Prefer storing a stable (non-data) URL to avoid gallery/storage issues.
-        let finalUrl = imageUrl;
-        try {
-          const userIdForUpload = (this.currentUser && this.currentUser.id)
-            ? this.currentUser.id
-            : await pasteCraftSupabase.getChromeUserId();
-          const converted = await pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
-          if (typeof converted === 'string' && converted) {
-            finalUrl = converted;
-          }
-        } catch (_) {}
-
-        this.userProfile.profileImageUrl = finalUrl;
-        
-        await this.saveUserProfile();
-
-        // Keep top-left in sync immediately.
-        this.displayImageTopLeft(finalUrl || imageUrl);
-
-        // Ensure it appears in the AI Gallery right away (using stable URL if available).
-        try {
-          await this.addToGallery(finalUrl || imageUrl, 'upload');
-          this.loadAIGallery();
-        } catch (_) {}
-        
-        // Update AI Generate button state (enable it now)
-        this.updateAIGenerateButtonState();
-        
-        this.showToast('? Profile image uploaded! Now you can generate AI avatar!', 'success');
-      };
-      reader.readAsDataURL(file);
-      
-    } catch (error) {
-      console.error('Failed to upload profile image:', error);
-      this.showToast('? Failed to upload image', 'error');
-    }
+    return this.profileFeature?.events?.handleProfileImageUpload?.(this, file);
   }
 
   async generateAnimalAvatar() {
-    console.log('?? generateAnimalAvatar() CALLED!');
-    
-    // Premium check
-    let hasAvatarAccess = true;
-    if (this.currentUser) {
-      hasAvatarAccess = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'avatar');
-    }
-    if (!hasAvatarAccess) {
-      return;
-    }
-
-    try {
-      const userName = document.getElementById('userName').value.trim();
-      const aiGeneratedName = this.userProfile?.aiGeneratedName;
-      const animalMatch = aiGeneratedName?.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
-      
-      if (!userName || !aiGeneratedName) {
-        this.showToast('?? Please generate a funky animal name first', 'error');
-        return;
-      }
-      
-      // Extract animal type
-      const match = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
-      if (!match) {
-        this.showToast('?? No animal found in your funky animal name', 'error');
-        return;
-      }
-      
-      const animalType = match[1];
-      
-      // Show loading animation
-      document.getElementById('profileImageLoading').style.display = 'flex';
-      document.querySelector('.loading-text').textContent = `Creating your ${animalType}...`;
-      document.getElementById('profileImage').style.display = 'none';
-      document.getElementById('profileImagePlaceholder').style.display = 'none';
-      
-      this.showToast(`?? Creating your funky ${animalType}...`, 'info');
-      document.getElementById('generateAnimalBtn').disabled = true;
-      document.getElementById('generateAnimalBtn').textContent = `? Creating...`;
-
-      const description = `${userName} - ${animalType} avatar`;
-      const gen = await pasteCraftSupabase.generateProfileImage(description, 'animal', aiGeneratedName);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-
-      if (imageUrl) {
-        // Hide loading, display generated image
-        document.getElementById('profileImageLoading').style.display = 'none';
-        document.getElementById('profileImage').src = imageUrl;
-        document.getElementById('profileImage').style.display = 'block';
-        document.getElementById('profileImagePlaceholder').style.display = 'none';
-        
-        // ? AUTO-SAVE TO STORAGE
-        if (!this.userProfile) {
-          this.userProfile = {};
-        }
-        this.userProfile.generatedImageUrl = imageUrl;
-        this.userProfile.profileImageUrl = imageUrl; // Set as active profile image
-        await this.saveUserProfile();
-        console.log('? Animal avatar auto-saved to storage');
-        
-        // ? ADD TO AI GALLERY
-        await this.addToGallery(imageUrl, 'profile');
-        console.log('? Animal avatar added to AI Gallery');
-        
-        // ? DISPLAY TOP-LEFT
-        this.displayImageTopLeft(imageUrl);
-        
-        // ? AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
-        this.startProfileImageCollapse();
-        
-        const animalType = match[1];
-        this.showToast(`? ${animalType} avatar created and saved!`, 'success');
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      }
-      
-    } catch (error) {
-      console.error('Failed to generate animal avatar:', error);
-      document.getElementById('profileImageLoading').style.display = 'none';
-      document.getElementById('profileImagePlaceholder').style.display = 'flex';
-      this.showToast('? Failed to generate animal avatar', 'error');
-    } finally {
-      document.getElementById('generateAnimalBtn').disabled = false;
-      document.getElementById('generateAnimalBtn').textContent = '?? Animal Avatar';
-    }
+    return this.profileFeature?.generators?.generateAnimalAvatar?.(this);
   }
   
   async generateMyCartoon() {
-    console.log('?? generateMyCartoon() CALLED!');
-    
-    // Premium check
-    let hasCartoonAccess = true;
-    if (this.currentUser) {
-      hasCartoonAccess = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'cartoon');
-    }
-    if (!hasCartoonAccess) {
-      return;
-    }
-
-    try {
-      const userName = document.getElementById('userName').value.trim();
-      const userImageBase64 = this.userProfile?.profileImageBase64;
-      
-      if (!userName) {
-        this.showToast('?? Please enter your name first', 'error');
-        return;
-      }
-      
-      if (!userImageBase64) {
-        this.showToast('?? Please upload a photo first', 'error');
-        return;
-      }
-
-      // Show loading animation
-      document.getElementById('profileImageLoading').style.display = 'flex';
-      document.querySelector('.loading-text').textContent = 'Creating your cartoon...';
-      document.getElementById('profileImage').style.display = 'none';
-      document.getElementById('profileImagePlaceholder').style.display = 'none';
-      
-      this.showToast('?? Creating your cartoon avatar...', 'info');
-      document.getElementById('generateCartoonBtn').disabled = true;
-      document.getElementById('generateCartoonBtn').textContent = '? Creating...';
-
-      const description = `${userName} - cartoon avatar`;
-      const gen = await pasteCraftSupabase.generateProfileImage(description, userImageBase64, null);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-
-      if (imageUrl) {
-        // Hide loading, display generated image
-        document.getElementById('profileImageLoading').style.display = 'none';
-        document.getElementById('profileImage').src = imageUrl;
-        document.getElementById('profileImage').style.display = 'block';
-        document.getElementById('profileImagePlaceholder').style.display = 'none';
-
-        // ? AUTO-SAVE TO STORAGE
-        if (!this.userProfile) {
-          this.userProfile = {};
-        }
-        this.userProfile.profileImageUrl = imageUrl;
-        this.userProfile.aiGeneratedImage = true;
-        await this.saveUserProfile();
-        console.log('? Cartoon image auto-saved to storage');
-        
-        // ? ADD TO AI GALLERY
-        await this.addToGallery(imageUrl, 'profile');
-        console.log('? Cartoon image added to AI Gallery');
-        
-        // ? DISPLAY TOP-LEFT
-        this.displayImageTopLeft(imageUrl);
-        
-        // ? AUTO-COLLAPSE SECTION AFTER 10 SECONDS (with timer countdown)
-        this.startProfileImageCollapse();
-        
-        if (userImageBase64) {
-          this.showToast('? Your funky cartoon remix is ready and saved!', 'success');
-        } else {
-          this.showToast('? AI image generated and saved!', 'success');
-        }
-
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      } else {
-        document.getElementById('profileImageLoading').style.display = 'none';
-        document.getElementById('profileImagePlaceholder').style.display = 'flex';
-        this.showToast('? Failed to generate AI image', 'error');
-      }
-
-    } catch (error) {
-      console.error('Failed to generate AI profile image:', error);
-      
-      // Hide loading on error
-      document.getElementById('profileImageLoading').style.display = 'none';
-      document.getElementById('profileImagePlaceholder').style.display = 'flex';
-      
-      // Show more helpful error message
-      const errorMessage = error.message || 'Unknown error';
-      if (errorMessage.includes('quota') || errorMessage.includes('billing')) {
-        this.showToast('? OpenAI API quota exceeded. Check your billing.', 'error');
-      } else if (errorMessage.includes('invalid')) {
-        this.showToast('? Invalid API key. Check config.js', 'error');
-      } else {
-        this.showToast(`? Error: ${errorMessage}`, 'error');
-      }
-    } finally {
-      document.getElementById('generateCartoonBtn').disabled = false;
-      document.getElementById('generateCartoonBtn').textContent = '?? My Cartoon';
-    }
+    return this.profileFeature?.generators?.generateMyCartoon?.(this);
   }
 
   async generateAIName() {
-    // Premium check
-    if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'name')) {
-      return;
-    }
-
-    try {
-      const userName = document.getElementById('userName').value.trim();
-      
-      if (!userName) {
-        this.showToast('?? Please enter your name first', 'error');
-        return;
-      }
-
-      this.showToast('?? Generating funky animal name...', 'info');
-      document.getElementById('generateNameBtn').disabled = true;
-      document.getElementById('generateNameBtn').textContent = '? Generating...';
-
-      const aiName = await pasteCraftSupabase.generateAIName(userName);
-
-      if (aiName) {
-        // Display AI name
-        document.getElementById('aiNameValue').textContent = aiName;
-        document.getElementById('aiNameDisplay').style.display = 'flex';
-
-        // Save to profile
-        if (!this.userProfile) {
-          this.userProfile = {};
-        }
-        this.userProfile.userName = userName;
-        this.userProfile.aiGeneratedName = aiName; // Fixed: was aiName, now aiGeneratedName
-        
-        await this.saveUserProfile();
-        
-        // Update button states to enable Animal Avatar
-        this.updateAIGenerateButtonState();
-        
-        // ? SHOW COUNTDOWN TIMER AND AUTO-COLLAPSE SECTION
-        this.startNameSectionCollapse();
-        
-        this.showToast('? Funky animal name generated!', 'success');
-      } else {
-        this.showToast('? Failed to generate funky animal name', 'error');
-      }
-
-    } catch (error) {
-      console.error('Failed to generate AI name:', error);
-      this.showToast('? Failed to generate funky animal name', 'error');
-    } finally {
-      document.getElementById('generateNameBtn').disabled = false;
-      document.getElementById('generateNameBtn').textContent = 'Generate Funky Animal Name';
-    }
+    return this.profileFeature?.generators?.generateAIName?.(this);
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n• Delete all your clips\n• Remove all categories\n• Clear your profile data\n• This action cannot be undone!')) {
+    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n� Delete all your clips\n� Remove all categories\n� Clear your profile data\n� This action cannot be undone!')) {
       if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
         this.handleUnsubscribe();
       }
@@ -5961,113 +4579,27 @@ class PasteCraftPopup {
 
   // Display image and funky name in top bar
   displayImageTopLeft(imageUrl) {
-    console.log('??? displayImageTopLeft() called with URL:', imageUrl);
-    this.updateTopBarIdentity(imageUrl);
-    console.log('? Top bar identity updated');
+    return this.profileFeature?.render?.displayImageTopLeft?.(this, imageUrl);
   }
 
   // Auto-collapse profile name section after generation
   autoCollapseNameSection() {
-    const content = document.getElementById('nameRegContent');
-    const toggleBtn = document.getElementById('nameToggleBtn');
-    const timer = document.getElementById('nameCountdownTimer');
-    
-    if (content && toggleBtn && !content.classList.contains('collapsed')) {
-      // Hide countdown timer
-      if (timer) {
-        timer.style.display = 'none';
-      }
-      
-      // Collapse the section
-      content.classList.add('collapsed');
-      toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '?';
-      
-      console.log('? Name section auto-collapsed');
-    }
+    return this.profileFeature?.render?.autoCollapseNameSection?.();
   }
 
   // Start 10-second countdown with visible timer before collapsing name section
   startNameSectionCollapse() {
-    const timer = document.getElementById('nameCountdownTimer');
-    const countdownValue = document.getElementById('nameCountdownValue');
-    
-    if (!timer || !countdownValue) return;
-    
-    let timeLeft = 10;
-    timer.style.display = 'flex';
-    countdownValue.textContent = timeLeft;
-    
-    console.log(`?? Starting 10-second visible countdown for name section`);
-    
-    // Clear any existing countdown
-    if (this.nameCollapseInterval) {
-      clearInterval(this.nameCollapseInterval);
-    }
-    
-    this.nameCollapseInterval = setInterval(() => {
-      timeLeft--;
-      countdownValue.textContent = timeLeft;
-      console.log(`?? Name section collapse in ${timeLeft}s...`);
-      
-      if (timeLeft <= 0) {
-        clearInterval(this.nameCollapseInterval);
-        this.nameCollapseInterval = null;
-        this.autoCollapseNameSection();
-      }
-    }, 1000);
+    return this.profileFeature?.render?.startNameSectionCollapse?.(this);
   }
 
   // Auto-collapse profile photo section after generation
   autoCollapsePhotoSection() {
-    const content = document.getElementById('photoCreationContent');
-    const toggleBtn = document.getElementById('photoToggleBtn');
-    const timer = document.getElementById('photoCountdownTimer');
-    
-    if (content && toggleBtn && !content.classList.contains('collapsed')) {
-      // Hide countdown timer
-      if (timer) {
-        timer.style.display = 'none';
-      }
-      
-      // Collapse the section
-      content.classList.add('collapsed');
-      toggleBtn.classList.add('collapsed');
-      toggleBtn.textContent = '?';
-      
-      console.log('? Photo section auto-collapsed');
-    }
+    return this.profileFeature?.render?.autoCollapsePhotoSection?.();
   }
 
   // Start 10-second countdown with visible timer before collapsing profile image section
   startProfileImageCollapse() {
-    const timer = document.getElementById('photoCountdownTimer');
-    const countdownValue = document.getElementById('photoCountdownValue');
-    
-    if (!timer || !countdownValue) return;
-    
-    let timeLeft = 10;
-    timer.style.display = 'flex';
-    countdownValue.textContent = timeLeft;
-    
-    console.log(`?? Starting 10-second visible countdown for photo section`);
-    
-    // Clear any existing countdown
-    if (this.profileCollapseInterval) {
-      clearInterval(this.profileCollapseInterval);
-    }
-    
-    this.profileCollapseInterval = setInterval(() => {
-      timeLeft--;
-      countdownValue.textContent = timeLeft;
-      console.log(`?? Photo section collapse in ${timeLeft}s...`);
-      
-      if (timeLeft <= 0) {
-        clearInterval(this.profileCollapseInterval);
-        this.profileCollapseInterval = null;
-        this.autoCollapsePhotoSection();
-      }
-    }, 1000);
+    return this.profileFeature?.render?.startProfileImageCollapse?.(this);
   }
 
   // Setup Image Viewer for expanded view
@@ -6319,294 +4851,33 @@ class PasteCraftPopup {
   // AI GALLERY & GENERATION METHODS
   // =====================================================
 
-  async loadAIGallery() {
-    try {
-      // Get gallery from storage
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      this.renderAIGallery(gallery);
-
-    } catch (error) {
-      console.error('Failed to load AI gallery:', error);
-    }
-  }
+  async loadAIGallery() { return this.profileFeature.storage.loadAIGallery(this); }
 
   renderAIGallery(gallery) {
-    const galleryGrid = document.getElementById('aiGalleryGrid');
-    const galleryCount = document.getElementById('aiGalleryCount');
-    const paginationContainer = document.getElementById('aiGalleryPagination');
-    
-    if (!galleryGrid || !galleryCount) return;
-    
-    const imagesPerPage = 4;
-    const totalPages = Math.ceil(gallery.length / imagesPerPage);
-    
-    if (!this.currentGalleryPage) this.currentGalleryPage = 1;
-    if (this.currentGalleryPage > totalPages && totalPages > 0) this.currentGalleryPage = totalPages;
-    
-    galleryCount.textContent = `${gallery.length} image${gallery.length !== 1 ? 's' : ''}`;
-    
-    if (gallery.length === 0) {
-      galleryGrid.innerHTML = `
-        <div class="ai-gallery-empty">
-          <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
-          <h4>No images yet</h4>
-          <p>Generate your first AI image to start your gallery</p>
-        </div>
-      `;
-      if (paginationContainer) paginationContainer.style.display = 'none';
-      return;
-    }
-    
-    const startIndex = (this.currentGalleryPage - 1) * imagesPerPage;
-    const endIndex = startIndex + imagesPerPage;
-    const currentPageImages = gallery.slice(startIndex, endIndex);
-    const currentProfileUrl = this.userProfile?.profileImageUrl;
-    
-    galleryGrid.innerHTML = currentPageImages.map((item, pageIndex) => {
-      const actualIndex = startIndex + pageIndex;
-      const isCurrentProfile = item.url === currentProfileUrl;
-      const safeImageUrl = /^(https?:\/\/|data:image\/)/i.test(String(item.url || ''))
-        ? this.escapeHtml(item.url || '')
-        : '';
-      return `
-      <div class="ai-gallery-item ${isCurrentProfile ? 'is-profile' : ''}" data-index="${actualIndex}">
-        <img src="${safeImageUrl}" alt="AI Generated ${actualIndex + 1}" />
-        ${isCurrentProfile ? '<div class="ai-profile-badge">? Profile</div>' : ''}
-        <div class="ai-gallery-item-actions">
-          <button class="ai-gallery-action-btn set-profile" data-action="set-profile" data-index="${actualIndex}" title="Set as Profile Image">
-            ??
-          </button>
-          <button class="ai-gallery-action-btn delete" data-action="delete" data-index="${actualIndex}" title="Delete">
-            ???
-          </button>
-        </div>
-      </div>
-    `;
-    }).join('');
-    
-    this.setupGalleryEventListeners();
-    this.renderGalleryPagination(totalPages);
+    return this.profileFeature?.gallery?.renderAIGallery?.(this, gallery);
   }
 
   setupGalleryEventListeners() {
-    const galleryGrid = document.getElementById('aiGalleryGrid');
-    if (!galleryGrid) return;
-    
-    galleryGrid.removeEventListener('click', this.handleGalleryClick);
-    this.handleGalleryClick = (e) => {
-      const button = e.target.closest('.ai-gallery-action-btn');
-      if (!button) return;
-      
-      e.stopPropagation();
-      const action = button.dataset.action;
-      const index = parseInt(button.dataset.index);
-
-      if (action === 'set-profile') {
-        this.setAsProfile(index);
-      } else if (action === 'delete') {
-        this.deleteFromGallery(index);
-      }
-    };
-    
-    galleryGrid.addEventListener('click', this.handleGalleryClick);
+    return this.profileFeature?.gallery?.setupGalleryEventListeners?.(this);
   }
 
   renderGalleryPagination(totalPages) {
-    const paginationContainer = document.getElementById('aiGalleryPagination');
-    if (!paginationContainer) return;
-    
-    if (totalPages <= 1) {
-      paginationContainer.style.display = 'none';
-      return;
-    }
-    
-    paginationContainer.style.display = 'flex';
-    
-    let paginationHTML = '';
-    
-    paginationHTML += `
-      <button class="pagination-btn" ${this.currentGalleryPage === 1 ? 'disabled' : ''} 
-        data-page="${this.currentGalleryPage - 1}">
-        ?
-      </button>
-    `;
-    
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, this.currentGalleryPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage < maxVisiblePages - 1) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-    
-    if (startPage > 1) {
-      paginationHTML += `<button class="pagination-btn" data-page="1">1</button>`;
-      if (startPage > 2) paginationHTML += `<span class="pagination-ellipsis">...</span>`;
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-      paginationHTML += `
-        <button class="pagination-btn ${i === this.currentGalleryPage ? 'active' : ''}" 
-          data-page="${i}">
-          ${i}
-        </button>
-      `;
-    }
-    
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) paginationHTML += `<span class="pagination-ellipsis">...</span>`;
-      paginationHTML += `<button class="pagination-btn" data-page="${totalPages}">${totalPages}</button>`;
-    }
-    
-    paginationHTML += `
-      <button class="pagination-btn" ${this.currentGalleryPage === totalPages ? 'disabled' : ''} 
-        data-page="${this.currentGalleryPage + 1}">
-        ?
-      </button>
-    `;
-    
-    paginationContainer.innerHTML = paginationHTML;
-    
-    this.setupPaginationEventListeners();
+    return this.profileFeature?.gallery?.renderGalleryPagination?.(this, totalPages);
   }
 
   setupPaginationEventListeners() {
-    const paginationContainer = document.getElementById('aiGalleryPagination');
-    if (!paginationContainer) return;
-    
-    paginationContainer.removeEventListener('click', this.handlePaginationClick);
-    this.handlePaginationClick = (e) => {
-      const button = e.target.closest('.pagination-btn');
-      if (!button || button.disabled) return;
-      
-      const page = parseInt(button.dataset.page);
-      if (!isNaN(page)) {
-        this.goToGalleryPage(page);
-      }
-    };
-    
-    paginationContainer.addEventListener('click', this.handlePaginationClick);
+    return this.profileFeature?.gallery?.setupPaginationEventListeners?.(this);
   }
 
   async goToGalleryPage(page) {
-    this.currentGalleryPage = page;
-    const result = await chrome.storage.local.get('aiGallery');
-    const gallery = result.aiGallery || [];
-    this.renderAIGallery(gallery);
+    return this.profileFeature?.gallery?.goToGalleryPage?.(this, page);
   }
 
   async setAsProfile(index) {
-    // PRACTICE #1: VALIDATION - Verify gallery image exists and URL is valid
-    const result = await chrome.storage.local.get('aiGallery');
-    const gallery = result.aiGallery || [];
-
-    if (index < 0 || index >= gallery.length) {
-      this.showToast('? Invalid gallery image', 'error');
-      return;
-    }
-
-    const imageUrl = gallery[index].url;
-    if (!imageUrl || typeof imageUrl !== 'string') {
-      this.showToast('? Gallery image has no URL', 'error');
-      return;
-    }
-
-    // PRACTICE #2: SNAPSHOT / ROLLBACK - Capture previous state before mutation
-    if (!this.userProfile) this.userProfile = {};
-    const previousImageUrl = this.userProfile.profileImageUrl || '';
-
-    const rollback = async () => {
-      try {
-        this.userProfile.profileImageUrl = previousImageUrl;
-        await chrome.storage.local.set({ userProfile: this.userProfile });
-        this.updateTopBarIdentity(previousImageUrl || undefined);
-        this.renderAIGallery(gallery);
-      } catch (_) {}
-    };
-
-    try {
-      // PRACTICE #5: OPTIMISTIC UI - Immediately show the image in top bar
-      this.displayImageTopLeft(imageUrl);
-      this.userProfile.profileImageUrl = imageUrl;
-
-      // Convert to permanent URL (with retry)
-      const userIdForUpload = (this.currentUser && this.currentUser.id)
-        ? this.currentUser.id
-        : await pasteCraftSupabase.getChromeUserId();
-
-      // PRACTICE #3: RETRY - Wrap URL conversion in retry logic
-      let finalUrl = imageUrl;
-      try {
-        finalUrl = await PasteCraftCRUD.retryOperation(async () => {
-          const converted = await pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
-          return converted || imageUrl;
-        }, 2, 500);
-      } catch (_) {
-        finalUrl = imageUrl; // Fallback to original URL on conversion failure
-      }
-
-      // Update gallery entry with stable URL if it changed
-      if (finalUrl && finalUrl !== imageUrl) {
-        gallery[index].url = finalUrl;
-        try { await chrome.storage.local.set({ aiGallery: gallery }); } catch (_) {}
-      }
-
-      this.userProfile.profileImageUrl = finalUrl;
-
-      // PRACTICE #3: RETRY - Save profile with retry
-      await PasteCraftCRUD.retryOperation(async () => {
-        await this.saveUserProfile();
-      }, 2, 300);
-
-      // PRACTICE #4: VERIFICATION - Confirm the profile image persisted
-      const verification = await chrome.storage.local.get(['userProfile']);
-      if (!verification.userProfile || verification.userProfile.profileImageUrl !== finalUrl) {
-        console.error('Profile image verification failed, rolling back');
-        await rollback();
-        this.showToast('? Failed to save profile image', 'error');
-        return;
-      }
-
-      // Update UI with final stable URL
-      this.displayImageTopLeft(finalUrl);
-      this.renderAIGallery(gallery);
-
-      // PRACTICE #5: SYNC ALL UI CONSUMERS - update profile modal image too
-      const profileImg = document.getElementById('profileImage');
-      const profilePlaceholder = document.getElementById('profileImagePlaceholder');
-      if (profileImg) {
-        profileImg.src = finalUrl;
-        profileImg.style.display = 'block';
-      }
-      if (profilePlaceholder) profilePlaceholder.style.display = 'none';
-
-      this.showToast('? Profile image updated!', 'success');
-    } catch (error) {
-      console.error('Failed to set profile image:', error);
-      await rollback();
-      this.showToast('? Failed to set profile image', 'error');
-    }
+    return this.profileFeature?.gallery?.setAsProfile?.(this, index);
   }
 
-  async deleteFromGallery(index) {
-    try {
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      if (index >= 0 && index < gallery.length) {
-        gallery.splice(index, 1);
-        await chrome.storage.local.set({ aiGallery: gallery });
-        
-        this.renderAIGallery(gallery);
-        this.showToast('??? Image removed from gallery', 'success');
-      }
-    } catch (error) {
-      console.error('Failed to delete from gallery:', error);
-      this.showToast('? Failed to delete image', 'error');
-    }
-  }
+  deleteFromGallery(index) { return this.profileFeature.storage.deleteFromGallery(this, index); }
 
   async generateAIImageFromProfile() {
     try {
@@ -6684,44 +4955,11 @@ class PasteCraftPopup {
     }
   }
 
-  async addToGallery(imageUrl, type) {
-    try {
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
+  async addToGallery(url, type) { return this.profileFeature.storage.addToGallery(this, url, type); }
 
-      gallery.push({
-        url: imageUrl,
-        type: type,
-        timestamp: Date.now()
-      });
-      
-      await chrome.storage.local.set({ aiGallery: gallery });
-    } catch (error) {
-      console.error('Failed to add to gallery:', error);
-    }
-  }
-
-  async migrateProfileImageToGallery() {
-    try {
-      if (!this.userProfile?.profileImageUrl) {
-        return;
-      }
-
-      const result = await chrome.storage.local.get('aiGallery');
-      const gallery = result.aiGallery || [];
-      
-      const imageExists = gallery.some(item => item.url === this.userProfile.profileImageUrl);
-      
-      if (!imageExists) {
-        console.log('?? Migrating existing profile image to gallery...');
-        await this.addToGallery(this.userProfile.profileImageUrl, 'profile');
-        this.loadAIGallery();
-        console.log('? Profile image migrated to gallery');
-      }
-    } catch (error) {
-      console.error('Failed to migrate profile image:', error);
-    }
-  }
+  async migrateProfileImageToGallery() { return this.profileFeature.storage.migrateProfileImageToGallery(this); }
+  async saveUserName() { return this.profileFeature.storage.saveUserName(this); }
+  async saveAiNameToProfile() { return this.profileFeature.storage.saveAiNameToProfile(this); }
 
   showAIGenerationTimer() {
     const timer = document.getElementById('aiGenerationTimer');
@@ -7303,12 +5541,12 @@ class PasteCraftPopup {
         ${recent.map(e => {
           const icon = e.type === 'breakdown' ? '??' : '??';
           const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '…' : '');
+          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '�' : '');
           const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
           return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
             <span class="open-recent-item-icon">${icon}</span>
             <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} · ${timeStr}</span>
+            <span class="open-recent-item-meta">${label} � ${timeStr}</span>
           </button>`;
         }).join('')}
       </div>
@@ -7482,117 +5720,7 @@ class PasteCraftPopup {
    * @private
    */
   async _maybeMigrateTieredStorage() {
-    // Check if StorageMeter is available
-    if (typeof StorageMeter === 'undefined') {
-      return;
-    }
-
-    // Check if already migrated
-    const { pc_tiered_storage_migrated_v1 } = await chrome.storage.local.get(['pc_tiered_storage_migrated_v1']);
-    if (pc_tiered_storage_migrated_v1) {
-      return;
-    }
-
-    // Check if user is authenticated (needed to push to cloud)
-    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.isAuthenticated?.()) {
-      return;
-    }
-
-    try {
-      // Get storage report
-      const report = await StorageMeter.getStorageReport();
-      
-      // Only migrate if storage is at 70%+ capacity
-      if (report.total.percentage < 0.7) {
-        // Mark as migrated (no migration needed)
-        await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
-        return;
-      }
-
-      console.log('?? Starting tiered storage migration...');
-      console.log(`?? Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
-
-      // Calculate budgets
-      const budgets = report.budgets;
-      let migrated = { clips: 0, notes: 0, archived: 0 };
-
-      // Migrate clips if over budget
-      if (this.clips.length > budgets.clips) {
-        const excessClips = this.clips.slice(budgets.clips);
-        console.log(`?? Migrating ${excessClips.length} excess clips to cloud...`);
-        
-        // Push excess to Supabase
-        try {
-          await pasteCraftSupabase.syncClipsToSupabase(excessClips);
-          migrated.clips = excessClips.length;
-          
-          // Keep only budget amount locally
-          this.clips = this.clips.slice(0, budgets.clips);
-          await chrome.storage.local.set({ clips: this.clips });
-          if (this._idbReady && this.idb) {
-            await this.idb.syncEntityFromLocalStorage('clips', this.clips);
-          }
-        } catch (e) {
-          console.warn('Failed to migrate clips:', e);
-        }
-      }
-
-      // Migrate notes if over budget
-      if (this.notes.length > budgets.notes) {
-        const excessNotes = this.notes.slice(budgets.notes);
-        console.log(`?? Migrating ${excessNotes.length} excess notes to cloud...`);
-        
-        try {
-          await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
-          migrated.notes = excessNotes.length;
-          
-          // Keep only budget amount locally
-          this.notes = this.notes.slice(0, budgets.notes);
-          await this.saveNotes();
-        } catch (e) {
-          console.warn('Failed to migrate notes:', e);
-        }
-      }
-
-      // Migrate archived clips if over budget
-      if (this.searchOnlyClips.length > budgets.archived) {
-        const excessArchived = this.searchOnlyClips.slice(budgets.archived);
-        console.log(`?? Migrating ${excessArchived.length} excess archived clips to cloud...`);
-        
-        try {
-          await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
-          migrated.archived = excessArchived.length;
-          
-          // Keep only budget amount locally
-          this.searchOnlyClips = this.searchOnlyClips.slice(0, budgets.archived);
-          await chrome.storage.local.set({ searchOnlyClips: this.searchOnlyClips });
-        } catch (e) {
-          console.warn('Failed to migrate archived clips:', e);
-        }
-      }
-
-      // Mark migration as complete
-      await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
-
-      // Log results
-      const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
-      if (totalMigrated > 0) {
-        console.log(`? Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
-        
-        // Update total counts
-        this.totalClipsCount = this.clips.length + migrated.clips;
-        this.totalNotesCount = this.notes.length + migrated.notes;
-        this.totalArchivedCount = this.searchOnlyClips.length + migrated.archived;
-        
-        // Re-render to show updated pagination
-        this.renderChips();
-      } else {
-        console.log('? Tiered storage migration complete (no migration needed)');
-      }
-
-    } catch (e) {
-      console.error('Tiered storage migration failed:', e);
-    }
+    return this.syncFeature?.storage?.maybeMigrateTieredStorage?.(this);
   }
 
   _getNoteContentForHash(note) {

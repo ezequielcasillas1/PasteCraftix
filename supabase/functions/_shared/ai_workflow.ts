@@ -56,16 +56,16 @@ function resolveOpenAi(preset: AiWorkflowPreset): ResolvedAiModels {
   const base = { provider: 'openai' as const, apiBaseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY' };
 
   if (preset === 'cheapest') {
-    return { ...base, preset, chatTextModel: 'gpt-5-nano', chatVisionModel: 'gpt-5-nano', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gpt-5-nano', chatVisionModel: 'gpt-5-nano', imageGenerationModel: 'gpt-image-1' };
   }
   if (preset === 'gpt5_mini') {
-    return { ...base, preset, chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini', imageGenerationModel: 'gpt-image-1' };
   }
   if (preset === 'latest') {
-    return { ...base, preset, chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2', imageGenerationModel: 'gpt-image-1' };
   }
   // default
-  return { ...base, preset: 'default', chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o', imageGenerationModel: 'dall-e-3' };
+  return { ...base, preset: 'default', chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o', imageGenerationModel: 'gpt-image-1' };
 }
 
 // ── Google Gemini model resolution (OpenAI-compatible endpoint) ──
@@ -73,16 +73,16 @@ function resolveGoogle(preset: AiWorkflowPreset): ResolvedAiModels {
   const base = { provider: 'google' as const, apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKeyEnv: 'GOOGLE_AI_KEY' };
 
   if (preset === 'cheapest') {
-    return { ...base, preset, chatTextModel: 'gemini-2.0-flash-lite', chatVisionModel: 'gemini-2.0-flash-lite', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gemini-2.0-flash-lite', chatVisionModel: 'gemini-2.0-flash-lite', imageGenerationModel: 'gpt-image-1' };
   }
   if (preset === 'gemini_pro') {
-    return { ...base, preset, chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06', imageGenerationModel: 'gpt-image-1' };
   }
   if (preset === 'latest') {
-    return { ...base, preset, chatTextModel: 'gemini-2.5-flash-preview-04-17', chatVisionModel: 'gemini-2.5-flash-preview-04-17', imageGenerationModel: 'dall-e-3' };
+    return { ...base, preset, chatTextModel: 'gemini-2.5-flash-preview-04-17', chatVisionModel: 'gemini-2.5-flash-preview-04-17', imageGenerationModel: 'gpt-image-1' };
   }
   // default
-  return { ...base, preset: 'default', chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash', imageGenerationModel: 'dall-e-3' };
+  return { ...base, preset: 'default', chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash', imageGenerationModel: 'gpt-image-1' };
 }
 
 export function resolveModelsFromWorkflow(workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null): ResolvedAiModels {

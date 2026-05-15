@@ -46,6 +46,107 @@ async function getAppOpenMode() {
   }
 }
 
+function hashTextForQuickView(value) {
+  const text = String(value || '');
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function normalizeQuickViewClip(clip, index, source) {
+  if (typeof clip === 'string') {
+    const timestamp = Date.now();
+    return {
+      id: `${timestamp}_${hashTextForQuickView(clip)}_${index}`,
+      text: clip,
+      category: 'Uncategorized',
+      timestamp,
+      source
+    };
+  }
+
+  if (!clip || typeof clip !== 'object') return null;
+  const text = clip.text ?? clip;
+  if (!text) return null;
+  const timestamp = typeof clip.timestamp === 'number' ? clip.timestamp : Date.now();
+  const id = clip.id ?? clip.clip_id ?? clip.clipId ?? `${timestamp}_${hashTextForQuickView(text)}_${index}`;
+
+  return {
+    ...clip,
+    id: String(id),
+    text: String(text),
+    category: clip.category || 'Uncategorized',
+    timestamp,
+    source
+  };
+}
+
+async function readIndexedDbPayloads(storeName) {
+  if (typeof indexedDB === 'undefined') return [];
+
+  return new Promise((resolve) => {
+    const request = indexedDB.open('pastecraft_local_v1', 1);
+    request.onerror = () => {
+      resolve([]);
+    };
+    request.onupgradeneeded = () => {
+      try { request.transaction.abort(); } catch (_) {}
+      resolve([]);
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      try {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.close();
+          resolve([]);
+          return;
+        }
+
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const getAll = store.getAll();
+        getAll.onsuccess = () => {
+          const records = Array.isArray(getAll.result) ? getAll.result : [];
+          db.close();
+          resolve(records.map((record) => record && record.payload).filter(Boolean));
+        };
+        getAll.onerror = () => {
+          db.close();
+          resolve([]);
+        };
+      } catch (_) {
+        try { db.close(); } catch (_) {}
+        resolve([]);
+      }
+    };
+  });
+}
+
+async function getQuickViewClips() {
+  const [storage, idbClips] = await Promise.all([
+    chrome.storage.local.get(['clips', 'searchOnlyClips']),
+    readIndexedDbPayloads('clips')
+  ]);
+
+  const localActive = Array.isArray(storage?.clips) ? storage.clips : [];
+  const active = Array.isArray(idbClips) && idbClips.length > 0 ? idbClips : localActive;
+  const archived = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
+
+  const merged = [
+    ...active.map((clip, index) => normalizeQuickViewClip(clip, index, 'active')).filter(Boolean),
+    ...archived
+      .map((clip, index) => normalizeQuickViewClip(clip, index, 'archived'))
+      .filter(Boolean)
+      .map((clip) => ({ ...clip, archived: true }))
+  ];
+
+  merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
+  return merged.slice(0, 200);
+}
+
 async function openAppPopupWindow() {
   const url = getExtensionPageUrl('popup.html');
   return chrome.windows.create({
@@ -694,6 +795,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: error.message });
       });
     return true; // Keep message channel open for async response
+  }
+
+  if (message.action === 'pcGetQuickViewClips') {
+    getQuickViewClips()
+      .then((clips) => {
+        sendResponse({ success: true, clips });
+      })
+      .catch((error) => {
+        console.error('❌ Failed to get Quick View clips:', error);
+        sendResponse({ success: false, error: error?.message || String(error), clips: [] });
+      });
+    return true;
   }
   
   if (message.action === 'refreshClips' || message.action === 'clipsUpdated') {
