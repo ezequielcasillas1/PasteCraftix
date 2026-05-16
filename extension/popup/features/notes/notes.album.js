@@ -1,6 +1,13 @@
 // ── shared helpers ─────────────────────────────────────────────────────────
 
-function _collectNoteAttachments(note) {
+function _collectNoteAttachments(note, allNotes = []) {
+  if (note.type === 'album') {
+    if (!Array.isArray(note.sourceNoteIds)) return [];
+    return note.sourceNoteIds
+      .map(id => allNotes.find(n => n.id == id))
+      .filter(Boolean)
+      .map(n => ({ ...n, isReferencedNote: true }));
+  }
   return [
     ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
     ...(note.images || []).map(i => ({ ...i, type: 'image' })),
@@ -121,6 +128,27 @@ function _buildAttachmentInnerHtml(app, att) {
 }
 
 function _buildAlbumAttachmentRow(app, att, idx) {
+  if (att.isReferencedNote) {
+    const title = (att.title || '').trim() || 'Untitled Note';
+    const desc = (att.description || '').trim();
+    const descHtml = desc ? `<div class="viewer-attachment-subtext" title="${app.escapeHtml(desc)}">${app.escapeHtml(_truncateForDisplay(desc))}</div>` : '';
+    
+    return `
+      <div class="viewer-attachment-item viewer-attachment-openable" data-index="${idx}" role="button" tabindex="0">
+        <div class="viewer-attachment-info">
+          <span class="viewer-attachment-icon">📝</span>
+          <div style="min-width:0;">
+            <div class="viewer-attachment-title" title="${app.escapeHtml(title)}">${app.escapeHtml(title)}</div>
+            ${descHtml}
+          </div>
+        </div>
+        <div class="viewer-attachment-actions">
+          <button class="btn-open-album-attachment" data-index="${idx}" type="button" title="Open note" style="border:none; background:transparent; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:0 2px;">›</button>
+        </div>
+      </div>
+    `;
+  }
+
   const attIcon = _resolveAttachmentIcon(att);
   const attachmentHtml = _buildAttachmentInnerHtml(app, att);
   const sourceNote = _resolveSourceNote(app.notes, att);
@@ -196,6 +224,11 @@ function _attachAlbumOpenHandlers(app, attachList, albumId) {
 function _openAlbumSourceFromIndex(app, allAttachments, idx, albumId) {
   const att = allAttachments[idx];
   if (!att) return;
+  if (att.isReferencedNote) {
+    app.noteViewerParentAlbumId = albumId;
+    app.openNoteViewer(att.id);
+    return;
+  }
   const sourceNoteId = _resolveSourceNoteIdForAttachment(app, att);
   if (sourceNoteId == null) { app.showToast('No source note for this item'); return; }
   app.openAlbumSourceNoteOverlay(sourceNoteId, albumId);
@@ -272,7 +305,7 @@ export function openNoteViewer(app, noteId) {
 
   app.currentViewerNoteId = noteId;
   const isAlbum = note.type === 'album';
-  const allAttachments = _collectNoteAttachments(note);
+  const allAttachments = _collectNoteAttachments(note, app.notes);
   const els = _getViewerElements();
 
   _setViewerHeader(app, els, note, isAlbum);
@@ -306,9 +339,15 @@ export function openAlbumAttachment(app, noteId, attachmentIndex) {
   const note = app.notes.find(n => n.id == noteId);
   if (!note || note.type !== 'album') return;
 
-  const allAttachments = _collectNoteAttachments(note);
+  const allAttachments = _collectNoteAttachments(note, app.notes);
   const att = allAttachments[attachmentIndex];
   if (!att) return;
+
+  if (att.isReferencedNote) {
+    app.noteViewerParentAlbumId = noteId;
+    app.openNoteViewer(att.id);
+    return;
+  }
 
   app.currentAlbumAttachmentContext = { noteId, attachmentIndex };
 
@@ -736,10 +775,7 @@ function _mergeSourceArrayIntoAlbum(targetArray, sourceArray, sourceNoteId) {
 }
 
 function _mergeSourceContentIntoAlbum(album, sourceNote) {
-  _appendSourceBodyAsClip(album, sourceNote);
-  _mergeSourceArrayIntoAlbum(album.clips, sourceNote.clips, sourceNote.id);
-  _mergeSourceArrayIntoAlbum(album.urls, sourceNote.urls, sourceNote.id);
-  _mergeSourceArrayIntoAlbum(album.images, sourceNote.images, sourceNote.id);
+  // No longer duplicating content into albums
 }
 
 // ── refreshAlbumsForNote ──────────────────────────────────────────────────
@@ -753,61 +789,15 @@ function _collectSourceAttachmentIds(sourceNote) {
 }
 
 function _albumIsLinkedToSource(album, sourceNoteId, sourceAttachmentIds) {
-  const containsSourceNoteId = (arr) =>
-    Array.isArray(arr) && arr.some(x => x && x.sourceNoteId == sourceNoteId);
-  const containsAnyAttachmentId = (arr) =>
-    Array.isArray(arr) && arr.some(x => x && sourceAttachmentIds.has(x.id));
-  return (
-    containsSourceNoteId(album.clips) ||
-    containsSourceNoteId(album.urls) ||
-    containsSourceNoteId(album.images) ||
-    containsAnyAttachmentId(album.clips) ||
-    containsAnyAttachmentId(album.urls) ||
-    containsAnyAttachmentId(album.images)
-  );
+  return Array.isArray(album.sourceNoteIds) && album.sourceNoteIds.includes(sourceNoteId);
 }
 
 function _stripPreviousSourceContent(album, sourceNoteId, sourceAttachmentIds, bodyPrefix) {
-  album.clips = album.clips.filter(c => {
-    if (!c) return false;
-    if (c.sourceNoteId == sourceNoteId) return false;
-    if (sourceAttachmentIds.has(c.id)) return false;
-    if (typeof c.text === 'string' && c.text.startsWith(bodyPrefix)) return false;
-    return true;
-  });
-  album.urls = album.urls.filter(u => {
-    if (!u) return false;
-    if (u.sourceNoteId == sourceNoteId) return false;
-    if (sourceAttachmentIds.has(u.id)) return false;
-    return true;
-  });
-  album.images = album.images.filter(i => {
-    if (!i) return false;
-    if (i.sourceNoteId == sourceNoteId) return false;
-    if (sourceAttachmentIds.has(i.id)) return false;
-    return true;
-  });
+  // No longer duplicating content into albums
 }
 
 function _reCopySourceContent(album, sourceNote, sourceNoteId, bodyPrefix, now) {
-  if (sourceNote.body && sourceNote.body.trim()) {
-    album.clips.push({
-      type: 'clip',
-      id: now + Math.random(),
-      text: `${bodyPrefix}\n\n${sourceNote.body}`,
-      addedDate: now,
-      sourceNoteId
-    });
-  }
-  if (sourceNote.clips?.length > 0) {
-    album.clips.push(...sourceNote.clips.map(c => ({ ...c, addedDate: now, sourceNoteId })));
-  }
-  if (sourceNote.urls?.length > 0) {
-    album.urls.push(...sourceNote.urls.map(u => ({ ...u, addedDate: now, sourceNoteId })));
-  }
-  if (sourceNote.images?.length > 0) {
-    album.images.push(...sourceNote.images.map(i => ({ ...i, addedDate: now, sourceNoteId })));
-  }
+  // No longer duplicating content into albums
 }
 
 export function refreshAlbumsForNote(app, sourceNote) {

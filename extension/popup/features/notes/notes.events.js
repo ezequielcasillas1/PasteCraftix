@@ -174,6 +174,33 @@ export function registerNotesEvents(app) {
     if (content) { navigator.clipboard.writeText(content); app.showToast('Content copied!'); }
   });
 
+  const noteViewerTitleText = document.getElementById('noteViewerTitleText');
+  if (noteViewerTitleText) {
+    noteViewerTitleText.classList.add('copyable-text');
+    noteViewerTitleText.addEventListener('click', () => {
+      const content = noteViewerTitleText.textContent;
+      if (content) { navigator.clipboard.writeText(content); app.showToast('Title copied!'); }
+    });
+  }
+
+  const noteViewerDesc = document.getElementById('noteViewerDesc');
+  if (noteViewerDesc) {
+    noteViewerDesc.classList.add('copyable-text');
+    noteViewerDesc.addEventListener('click', () => {
+      const content = noteViewerDesc.textContent;
+      if (content) { navigator.clipboard.writeText(content); app.showToast('Description copied!'); }
+    });
+  }
+
+  const noteViewerContent = document.getElementById('noteViewerContent');
+  if (noteViewerContent) {
+    noteViewerContent.classList.add('copyable-text');
+    noteViewerContent.addEventListener('click', () => {
+      const content = noteViewerContent.textContent;
+      if (content) { navigator.clipboard.writeText(content); app.showToast('Content copied!'); }
+    });
+  }
+
   document.getElementById('copyAllAttachments').addEventListener('click', () => app.copyAllNoteAttachments());
 
   // Album attachment viewer
