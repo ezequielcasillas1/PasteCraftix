@@ -23,19 +23,38 @@ export function renderCategories(app) {
   const { categoriesList: container } = getCategoryListElements();
   if (!container) return;
 
-  if (app.categories.length === 0) {
-    container.innerHTML = `
-      <div class="empty-categories">
-        <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
-        <h3>No categories yet</h3>
-        <p>Create your first category to organize clips</p>
-      </div>
-    `;
+  let categoriesToRender = app.categories || [];
+  
+  if (app.selectedFileId) {
+    const fileCatIds = new Set((app.fileCategories || [])
+      .filter(fc => fc.fileId === app.selectedFileId)
+      .map(fc => fc.categoryId));
+    categoriesToRender = categoriesToRender.filter(cat => fileCatIds.has(cat.id));
+  }
+
+  if (categoriesToRender.length === 0) {
+    if (app.selectedFileId) {
+      container.innerHTML = `
+        <div class="empty-categories">
+          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
+          <h3>No categories in this file</h3>
+          <p>Click "Manage Categories" on the file to add some</p>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="empty-categories">
+          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
+          <h3>No categories yet</h3>
+          <p>Create your first category to organize clips</p>
+        </div>
+      `;
+    }
     return;
   }
 
   container.innerHTML = '';
-  const categoriesSorted = [...app.categories].sort((a, b) => {
+  const categoriesSorted = [...categoriesToRender].sort((a, b) => {
     const aTs = Number(a?.created ?? a?.id ?? 0);
     const bTs = Number(b?.created ?? b?.id ?? 0);
     return bTs - aTs;

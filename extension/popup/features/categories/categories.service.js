@@ -164,6 +164,9 @@ function buildDeleteCategoryOpts(app, category) {
       app.renderChips();
     },
     backgroundSync: async (entity, deletedAt) => {
+      if (app.idb && typeof app.idb.saveDeletedItem === 'function') {
+        await app.idb.saveDeletedItem(entity, 'categories').catch(e => console.error('Failed to save deleted category:', e));
+      }
       try { await window.pasteCraftSupabase.deleteCategoryFromSupabase(String(category?.id ?? '')); } catch (_) {}
       await window.pasteCraftSupabase.syncWithQueue('syncDeletedCategories', [{
         ...category, deletedAt, updatedAt: deletedAt,

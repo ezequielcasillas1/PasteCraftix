@@ -1,7 +1,13 @@
 export async function ensureIndexedDbReadyAndMigrate(app) {
   if (!app.idb || app._idbReady) return;
   try {
-    await app.idb.open();
+    // Add a 5 second timeout so IDB issues don't block the entire popup
+    const openWithTimeout = Promise.race([
+      app.idb.open(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('IndexedDB open timeout')), 5000))
+    ]);
+    await openWithTimeout;
+    
     const seedData = await chrome.storage.local.get(['clips', 'categories', 'notes']);
     await app.idb.importIfNeededFromStorage({
       clips: Array.isArray(seedData?.clips) ? seedData.clips : [],
@@ -11,7 +17,7 @@ export async function ensureIndexedDbReadyAndMigrate(app) {
     app._idbReady = true;
   } catch (error) {
     app._idbReady = false;
-    console.warn('?? IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
+    console.warn('[PasteCraft] IndexedDB unavailable, falling back to chrome.storage.local:', error?.message || error);
   }
 }
 
@@ -28,7 +34,7 @@ export async function mirrorChangedLocalStateToIndexedDb(app, changes) {
       await app.idb.syncEntityFromLocalStorage('notes', Array.isArray(changes.notes.newValue) ? changes.notes.newValue : []);
     }
   } catch (error) {
-    console.warn('?? Failed mirroring local entities to IndexedDB:', error?.message || error);
+      console.warn('[PasteCraft] Failed mirroring local entities to IndexedDB:', error?.message || error);
   }
 }
 
@@ -72,7 +78,7 @@ export async function initializeTieredStorage(app) {
       app.tieredClipsStore.totalCount = app.totalClipsCount;
       app.tieredArchivedStore.totalCount = app.totalArchivedCount;
       
-      console.log(`?? Tiered storage initialized: ${app.clips.length} local clips, ${app.totalClipsCount} total`);
+      console.log(`[PasteCraft] Tiered storage initialized: ${app.clips.length} local clips, ${app.totalClipsCount} total`);
     } else {
       // No Supabase - use local counts
       app.totalClipsCount = app.clips.length;
@@ -113,8 +119,8 @@ export async function maybeMigrateTieredStorage(app) {
       return;
     }
 
-    console.log('?? Starting tiered storage migration...');
-    console.log(`?? Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
+    console.log('[PasteCraft] Starting tiered storage migration...');
+    console.log(`[PasteCraft] Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
 
     // Calculate budgets
     const budgets = report.budgets;
@@ -123,7 +129,7 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate clips if over budget
     if (app.clips.length > budgets.clips) {
       const excessClips = app.clips.slice(budgets.clips);
-      console.log(`?? Migrating ${excessClips.length} excess clips to cloud...`);
+      console.log(`[PasteCraft] Migrating ${excessClips.length} excess clips to cloud...`);
       
       // Push excess to Supabase
       try {
@@ -144,7 +150,7 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate notes if over budget
     if (app.notes.length > budgets.notes) {
       const excessNotes = app.notes.slice(budgets.notes);
-      console.log(`?? Migrating ${excessNotes.length} excess notes to cloud...`);
+      console.log(`[PasteCraft] Migrating ${excessNotes.length} excess notes to cloud...`);
       
       try {
         await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
@@ -161,7 +167,7 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate archived clips if over budget
     if (app.searchOnlyClips.length > budgets.archived) {
       const excessArchived = app.searchOnlyClips.slice(budgets.archived);
-      console.log(`?? Migrating ${excessArchived.length} excess archived clips to cloud...`);
+      console.log(`[PasteCraft] Migrating ${excessArchived.length} excess archived clips to cloud...`);
       
       try {
         await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);

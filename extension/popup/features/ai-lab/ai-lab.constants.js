@@ -30,3 +30,11 @@ export const AI_STORAGE_KEYS = {
   WORKFLOW: 'pc_ai_workflow_v1',
   HISTORY: 'pc_aiHistory_v1',
 };
+
+/** Native tooltips for recent-conversation icons (matches popup.html lucide naming). */
+export const OPEN_RECENT_CONVERSATION_TOOLTIPS = Object.freeze({
+  breakdown:
+    'AI Breakdown: step-by-step explanations of your text at the comprehension level you pick.',
+  summary:
+    'AI Summary: shorter overview plus suggested questions from your selected clips or text.',
+});

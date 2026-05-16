@@ -1,8 +1,8 @@
 // PasteCraft IndexedDB data layer for primary local entities.
 (function initPasteCraftIndexedDB(globalScope) {
   const DB_NAME = 'pastecraft_local_v1';
-  const DB_VERSION = 1;
-  const STORES = ['clips', 'categories', 'notes'];
+  const DB_VERSION = 3;
+  const STORES = ['clips', 'categories', 'notes', 'deleted_items', 'category_files', 'file_categories'];
 
   class PasteCraftIndexedDB {
     constructor() {
@@ -18,7 +18,24 @@
 
       this._openPromise = new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = () => {
+        let blockedTimeout = null;
+        
+        req.onblocked = () => {
+          console.warn('[PasteCraft] Database upgrade blocked - will retry after closing stale connections');
+          // Set a timeout to force-proceed after old connections should have closed
+          blockedTimeout = setTimeout(() => {
+            console.warn('[PasteCraft] Blocked timeout reached, forcing database close and retry');
+            if (req.result) {
+              req.result.close();
+            }
+            this._db = null;
+            this._openPromise = null;
+            // Retry open after a small delay
+            setTimeout(() => this.open().then(resolve).catch(reject), 100);
+          }, 3000);
+        };
+        req.onupgradeneeded = (event) => {
+          if (blockedTimeout) clearTimeout(blockedTimeout);
           const db = req.result;
           for (const storeName of STORES) {
             if (!db.objectStoreNames.contains(storeName)) {
@@ -27,14 +44,28 @@
               store.createIndex('by_hash', 'content_hash', { unique: false });
               store.createIndex('by_origin_item', 'origin_item_key', { unique: false });
               store.createIndex('by_updated_at', 'updated_at', { unique: false });
+              
+              if (storeName === 'deleted_items') {
+                store.createIndex('by_deleted_at', 'deleted_at', { unique: false });
+              }
             }
           }
         };
         req.onsuccess = () => {
+          if (blockedTimeout) clearTimeout(blockedTimeout);
           this._db = req.result;
+          // Handle version change events from other tabs
+          this._db.onversionchange = () => {
+            this._db.close();
+            this._db = null;
+            this._openPromise = null;
+          };
           resolve(this._db);
         };
-        req.onerror = () => reject(req.error || new Error('Failed to open IndexedDB'));
+        req.onerror = () => {
+          if (blockedTimeout) clearTimeout(blockedTimeout);
+          reject(req.error || new Error('Failed to open IndexedDB'));
+        };
       });
 
       return this._openPromise;
@@ -285,7 +316,107 @@
             payload: { ...(note || {}), id, createdAt: createdMs, updatedAt: updatedMs }
           };
         });
+        return;
       }
+
+      if (storeName === 'category_files') {
+        await this.replaceFromAppItems('category_files', items, (file) => {
+          const id = String(file?.id ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+          const createdMs = Number(file?.createdAt || Date.now());
+          const updatedMs = Number(file?.updatedAt || createdMs);
+          return {
+            pk: `category_files:${id}`,
+            id,
+            origin_device_id: String(file?.origin_device_id || deviceId),
+            content_hash: '',
+            created_at: new Date(createdMs).toISOString(),
+            updated_at: new Date(updatedMs).toISOString(),
+            origin_item_key: `${file?.origin_device_id || deviceId}:${id}`,
+            payload: { ...(file || {}), id, createdAt: createdMs, updatedAt: updatedMs }
+          };
+        });
+        return;
+      }
+
+      if (storeName === 'file_categories') {
+        await this.replaceFromAppItems('file_categories', items, (mapping) => {
+          const id = String(mapping?.id ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+          const createdMs = Number(mapping?.createdAt || Date.now());
+          return {
+            pk: `file_categories:${id}`,
+            id,
+            origin_device_id: String(mapping?.origin_device_id || deviceId),
+            content_hash: '',
+            created_at: new Date(createdMs).toISOString(),
+            updated_at: new Date(createdMs).toISOString(),
+            origin_item_key: `${mapping?.origin_device_id || deviceId}:${id}`,
+            payload: { ...(mapping || {}), id, createdAt: createdMs }
+          };
+        });
+      }
+    }
+
+    async saveDeletedItem(item, tableName) {
+      if (!item || !item.id) return false;
+      const db = await this.open();
+      const deletedAt = Date.now();
+      const record = {
+        pk: `deleted:${tableName}:${item.id}`,
+        id: item.id,
+        table_name: tableName,
+        deleted_at: deletedAt,
+        payload: item
+      };
+      
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('deleted_items', 'readwrite');
+        const store = tx.objectStore('deleted_items');
+        store.put(record);
+        
+        // Prune older than 7 days
+        const sevenDaysAgo = deletedAt - (7 * 24 * 60 * 60 * 1000);
+        const index = store.index('by_deleted_at');
+        const range = IDBKeyRange.upperBound(sevenDaysAgo);
+        const cursorReq = index.openCursor(range);
+        
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          }
+        };
+        
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error || new Error('Failed to save deleted item'));
+      }).then(async () => {
+        // Enforce hard cap of 200
+        const all = await this.getAllRecords('deleted_items');
+        if (all.length > 200) {
+          all.sort((a, b) => b.deleted_at - a.deleted_at);
+          const toDelete = all.slice(200);
+          const db2 = await this.open();
+          return new Promise((resolve) => {
+            const tx2 = db2.transaction('deleted_items', 'readwrite');
+            const store2 = tx2.objectStore('deleted_items');
+            toDelete.forEach(r => store2.delete(r.pk));
+            tx2.oncomplete = () => resolve(true);
+            tx2.onerror = () => resolve(false);
+          });
+        }
+        return true;
+      });
+    }
+
+    async removeDeletedItem(pk) {
+      const db = await this.open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('deleted_items', 'readwrite');
+        const store = tx.objectStore('deleted_items');
+        store.delete(pk);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
     }
 
     async sha256(value) {

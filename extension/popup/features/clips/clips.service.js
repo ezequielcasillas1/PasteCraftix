@@ -20,8 +20,14 @@ function createDeleteState(app, ids, includeArchived, crud) {
   const idSet = new Set(ids);
   const { active, archived } = getStoredClipArrays(app);
 
+  const deletedClips = [
+    ...active.filter(c => idSet.has(getClipIdKey(c?.id))),
+    ...(includeArchived ? archived.filter(c => idSet.has(getClipIdKey(c?.id))) : [])
+  ];
+
   return {
     idSet,
+    deletedClips,
     beforeActive: active.length,
     beforeArchived: archived.length,
     nextClips: active.filter(c => !idSet.has(getClipIdKey(c?.id))),
@@ -122,6 +128,13 @@ async function applyClipDeletion(app, crud, state, options) {
 
   if (!(await verifyDeletedClipIds(state.idSet, includeArchived))) {
     throw new Error('Verification failed: clips still exist in storage');
+  }
+
+  // Save to deleted_items store
+  if (app.idb && typeof app.idb.saveDeletedItem === 'function') {
+    for (const clip of state.deletedClips) {
+      await app.idb.saveDeletedItem(clip, 'clips').catch(e => console.error('Failed to save deleted clip:', e));
+    }
   }
 
   if (clearSelection) clearDeletedClipSelections(app, ids);

@@ -608,6 +608,18 @@ class PasteCraftSupabase {
       case 'syncSettings':
         result = await this.syncSettingsToSupabase(operation.data);
         break;
+      case 'syncCategoryFiles':
+        result = await this.syncCategoryFilesToSupabase(operation.data);
+        break;
+      case 'syncDeletedCategoryFiles':
+        result = await this.syncDeletedCategoryFilesToSupabase(operation.data);
+        break;
+      case 'syncFileCategories':
+        result = await this.syncFileCategoriesToSupabase(operation.data);
+        break;
+      case 'syncDeletedFileCategories':
+        result = await this.syncDeletedFileCategoriesToSupabase(operation.data);
+        break;
       case 'syncProfile':
         result = await this.syncUserProfileToSupabase(operation.data);
         break;
@@ -4662,6 +4674,179 @@ class PasteCraftSupabase {
     })();
 
     return await this._fullSyncPromise;
+  }
+
+  // =====================================================
+  // FILES SYNC LOGIC
+  // =====================================================
+
+  async syncCategoryFilesToSupabase(localFiles) {
+    if (!this.client) return false;
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const dbFiles = (localFiles || []).map(file => ({
+        user_id: userId,
+        id: file.id,
+        name: file.name,
+        color_accent: file.colorAccent || '#3b82f6',
+        updated_at: new Date(file.updatedAt || Date.now()).toISOString(),
+        deleted_at: file.deletedAt ? new Date(file.deletedAt).toISOString() : null,
+        device_id: deviceId
+      }));
+
+      if (dbFiles.length === 0) return true;
+
+      const { data, error } = await this.client
+        .from('category_files')
+        .upsert(dbFiles, { onConflict: 'id' });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync category files to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncDeletedCategoryFilesToSupabase(deletedFiles) {
+    if (!this.client || !deletedFiles || deletedFiles.length === 0) return true;
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const dbFiles = deletedFiles.map(id => ({
+        user_id: userId,
+        id: id,
+        name: 'Deleted File', // dummy name for tombstone
+        deleted_at: new Date().toISOString(),
+        device_id: deviceId
+      }));
+
+      const { error } = await this.client
+        .from('category_files')
+        .upsert(dbFiles, { onConflict: 'id' });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted category files to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncFileCategoriesToSupabase(localFileCategories) {
+    if (!this.client) return false;
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const dbMappings = (localFileCategories || []).map(mapping => ({
+        user_id: userId,
+        id: mapping.id,
+        file_id: mapping.fileId,
+        category_id: mapping.categoryId,
+        created_at: new Date(mapping.createdAt || Date.now()).toISOString(),
+        deleted_at: mapping.deletedAt ? new Date(mapping.deletedAt).toISOString() : null,
+        device_id: deviceId
+      }));
+
+      if (dbMappings.length === 0) return true;
+
+      const { data, error } = await this.client
+        .from('file_categories')
+        .upsert(dbMappings, { onConflict: 'id' });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync file categories to Supabase:', error);
+      return false;
+    }
+  }
+
+  async syncDeletedFileCategoriesToSupabase(deletedMappings) {
+    if (!this.client || !deletedMappings || deletedMappings.length === 0) return true;
+    try {
+      const userId = await this.getSyncUserId();
+      const deviceId = await this.getDeviceId();
+      await this.setUserContext(userId);
+
+      const dbMappings = deletedMappings.map(id => ({
+        user_id: userId,
+        id: id,
+        file_id: '00000000-0000-0000-0000-000000000000', // dummy
+        category_id: '00000000-0000-0000-0000-000000000000', // dummy
+        deleted_at: new Date().toISOString(),
+        device_id: deviceId
+      }));
+
+      const { error } = await this.client
+        .from('file_categories')
+        .upsert(dbMappings, { onConflict: 'id' });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to sync deleted file categories to Supabase:', error);
+      return false;
+    }
+  }
+
+  async fetchCategoryFilesFromSupabase() {
+    if (!this.client) return;
+    try {
+      const userId = await this.getSyncUserId();
+      const { data, error } = await this.client
+        .from('category_files')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (error) throw error;
+
+      const localFiles = (data || []).map(row => ({
+        id: row.id,
+        name: row.name,
+        colorAccent: row.color_accent,
+        updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now(),
+        deviceId: row.device_id
+      }));
+
+      await this._safeStorageSet({ category_files: localFiles });
+    } catch (error) {
+      console.error('❌ Failed to fetch category files from Supabase:', error);
+    }
+  }
+
+  async fetchFileCategoriesFromSupabase() {
+    if (!this.client) return;
+    try {
+      const userId = await this.getSyncUserId();
+      const { data, error } = await this.client
+        .from('file_categories')
+        .select('*')
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (error) throw error;
+
+      const localMappings = (data || []).map(row => ({
+        id: row.id,
+        fileId: row.file_id,
+        categoryId: row.category_id,
+        createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
+        deviceId: row.device_id
+      }));
+
+      await this._safeStorageSet({ file_categories: localMappings });
+    } catch (error) {
+      console.error('❌ Failed to fetch file categories from Supabase:', error);
+    }
   }
 }
 

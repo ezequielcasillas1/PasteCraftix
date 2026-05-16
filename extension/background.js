@@ -257,6 +257,15 @@ async function runStorageMigrations(previousVersion) {
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   createContextMenus();
+  
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(granted => {
+      console.log('💾 Storage persist granted:', granted);
+    }).catch(err => {
+      console.error('💾 Storage persist failed:', err);
+    });
+  }
+
   if (details.reason === 'install') {
     console.log('🎉 PasteCraft installed — welcome!');
     try {
@@ -272,6 +281,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   createContextMenus();
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(()=>{});
+  }
 });
 
 // Force create immediately

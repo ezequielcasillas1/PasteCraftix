@@ -461,6 +461,9 @@ export async function deleteNote(app, noteId) {
     },
     uiUpdater: () => { app.renderNotes(); },
     backgroundSync: async (_entity, deletedAt) => {
+      if (app.idb && typeof app.idb.saveDeletedItem === 'function') {
+        await app.idb.saveDeletedItem(note, 'notes').catch(e => console.error('Failed to save deleted note:', e));
+      }
       await pasteCraftSupabase.syncWithQueue('syncDeletedNotes', [{
         ...note,
         deletedAt,

@@ -3114,6 +3114,7 @@ class PasteCraftFloatingWidget {
         border-radius: 6px;
         font-size: 12px;
         white-space: nowrap;
+        width: max-content;
         opacity: 0;
         pointer-events: none;
         transition: all 0.3s ease;
@@ -3898,19 +3899,43 @@ class PasteCraftFloatingWidget {
       }
 
       .pc-settings-select {
-        padding: 8px 10px;
-        border-radius: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
         border: 1px solid #e5e7eb;
         background: #ffffff;
         color: #0f172a;
         font-size: 13px;
         outline: none;
-        min-width: 140px;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+      }
+
+      .pc-settings-select:hover {
+        border-color: #cbd5e1;
       }
 
       .pc-settings-select:focus {
-        border-color: rgba(59, 130, 246, 0.75);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.20);
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      }
+
+      .pc-settings-select option {
+        padding: 10px 12px;
+        background: #ffffff;
+        color: #0f172a;
+      }
+
+      .pc-settings-select option:checked,
+      .pc-settings-select option:hover {
+        background: #3b82f6;
+        color: #ffffff;
       }
       
       .settings-section {
@@ -3933,15 +3958,27 @@ class PasteCraftFloatingWidget {
         justify-content: space-between;
         padding: 16px 0;
         border-bottom: 1px solid #f1f5f9;
+        gap: 16px;
       }
       
       .setting-item:last-child {
         border-bottom: none;
       }
+
+      /* Setting item with select - stack vertically */
+      .setting-item:has(.pc-settings-select) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+
+      .setting-item:has(.pc-settings-select) .setting-info {
+        margin-right: 0;
+      }
       
       .setting-info {
         flex: 1;
-        margin-right: 16px;
+        min-width: 0;
       }
       
       .setting-info label {

@@ -54,15 +54,13 @@ export async function loadActivityLog(app) {
     app.activityHasMore = true;
 
     const supabase = getSupabaseClient();
-    if (!supabase) {
-      console.warn('⚠️ Supabase client not available for activity log');
-      return;
-    }
-
-    const user = await getAuthenticatedUser(supabase);
-    if (!user) {
-      console.warn('⚠️ User not logged in - activity log unavailable');
-      return;
+    if (supabase) {
+      const user = await getAuthenticatedUser(supabase).catch(() => null);
+      if (!user) {
+        console.warn('⚠️ User not logged in - cloud activity log unavailable, showing local deletes only');
+      }
+    } else {
+      console.warn('⚠️ Supabase client not available - showing local deletes only');
     }
 
     await fetchActivityPage(app);
@@ -74,14 +72,62 @@ export async function loadActivityLog(app) {
 export async function fetchActivityPage(app, append = false) {
   try {
     const supabase = getSupabaseClient();
-    if (!supabase) return;
+    let data = [];
+    
+    if (supabase) {
+      const query = buildActivityQuery(supabase, app);
+      const { data: remoteData, error } = await query;
+      
+      if (error) {
+        console.error('❌ Activity query error:', error);
+      } else {
+        data = remoteData || [];
+      }
+    }
 
-    const query = buildActivityQuery(supabase, app);
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('❌ Activity query error:', error);
-      return;
+    // Always fetch local deletes and merge them if on the first page
+    if (app.activityOffset === 0 && app.idb && typeof app.idb.getAllRecords === 'function') {
+      try {
+        const localDeletes = await app.idb.getAllRecords('deleted_items');
+        if (localDeletes && localDeletes.length > 0) {
+          const formattedLocalDeletes = localDeletes.map(record => ({
+            id: `local_del_${record.id}`,
+            occurred_at: new Date(record.deleted_at).toISOString(),
+            table_name: record.table_name,
+            operation: 'DELETE',
+            row_old: record.payload,
+            row_new: null,
+            is_local_delete: true
+          }));
+          
+          // Filter by date if needed
+          const filters = readDateFilters();
+          let filteredDeletes = formattedLocalDeletes;
+          if (filters.from) {
+            filteredDeletes = filteredDeletes.filter(d => d.occurred_at >= filters.from);
+          }
+          if (filters.to) {
+            const toDate = filters.to + 'T23:59:59';
+            filteredDeletes = filteredDeletes.filter(d => d.occurred_at <= toDate);
+          }
+          
+          // Filter by operation if needed
+          if (app.activityFilter && app.activityFilter !== ACTIVITY_FILTERS.ALL && app.activityFilter !== 'DELETE') {
+            filteredDeletes = [];
+          } else if (app.activityFilter === 'DELETE') {
+            // Keep them
+          }
+          
+          // Merge and deduplicate
+          const existingIds = new Set(data.map(d => `${d.table_name}:${d.row_old?.id}`));
+          const uniqueDeletes = filteredDeletes.filter(d => !existingIds.has(`${d.table_name}:${d.row_old?.id}`));
+          
+          data = [...data, ...uniqueDeletes];
+          data.sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+        }
+      } catch (e) {
+        console.error('Failed to fetch local deletes:', e);
+      }
     }
 
     mergeActivityEntries(app, data, append);

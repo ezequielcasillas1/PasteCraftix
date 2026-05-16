@@ -935,10 +935,18 @@ class PasteCraftPopup {
     return this.syncFeature;
   }
 
+  async _initializeFilesFeature() {
+    if (this.filesFeature) return this.filesFeature;
+    const { initFilesFeature } = await import('./popup/features/files/files.controller.js');
+    this.filesFeature = initFilesFeature(this);
+    return this.filesFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
     await this._initializeCategoriesFeature();
+    await this._initializeFilesFeature();
     await this._initializeNotesFeature();
     await this._initializeAiLabFeature();
     await this._initializeSettingsFeature();
@@ -1087,7 +1095,7 @@ class PasteCraftPopup {
         if (remoteProfile) {
           this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
           await chrome.storage.local.set({ userProfile: this.userProfile });
-          console.log('? Profile hydrated from Supabase on fresh device');
+          console.log('✅ Profile hydrated from Supabase on fresh device');
         }
       } catch (_) {}
     }
@@ -1374,7 +1382,7 @@ class PasteCraftPopup {
     const preview = this._lastPreviewRestore;
     const point = preview && preview.point ? preview.point : null;
     if (!point) {
-      this.showToast('?? No restore point available yet', 'error');
+      this.showToast('No restore point available yet', 'error');
       return false;
     }
 
@@ -1382,7 +1390,7 @@ class PasteCraftPopup {
     try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
 
     const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click �Sync restored data to cloud�.\n\nProceed?'
+      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click "Sync restored data to cloud".\n\nProceed?'
     );
     if (!ok) return false;
 
@@ -1416,14 +1424,14 @@ class PasteCraftPopup {
     const btn = document.getElementById('syncRestoredToCloudBtn');
     if (btn) btn.disabled = false;
 
-    this.showToast('? Restore complete (local only)');
+    this.showToast('Restore complete (local only)');
     return true;
   }
 
   async syncRestoredDataToCloud() {
     const applied = this._lastAppliedRestore;
     if (!applied || !applied.point) {
-      this.showToast('?? Restore first, then sync to cloud', 'error');
+      this.showToast('Restore first, then sync to cloud', 'error');
       return false;
     }
 
@@ -1433,7 +1441,7 @@ class PasteCraftPopup {
     if (!ok) return false;
 
     await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
-    this.showToast('? Synced restored data to cloud');
+    this.showToast('Synced restored data to cloud');
     return true;
   }
 
@@ -1752,7 +1760,7 @@ class PasteCraftPopup {
       if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
       if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
       if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving�' : 'Save Clip';
+      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving…' : 'Save Clip';
     };
 
     const manualInputMarkup = document.getElementById('manualInputMarkup');
@@ -3545,7 +3553,7 @@ class PasteCraftPopup {
     const label = document.getElementById('pdfSaveLabel');
     if (saveBtn) saveBtn.disabled = true;
     if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving�';
+    if (label) label.textContent = 'Saving…';
 
     try {
       const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
@@ -3569,7 +3577,7 @@ class PasteCraftPopup {
         // Save only the currently selected page tab
         const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
         if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, �) first.');
+          this.showToast('Please select a specific page tab (P1, P2, …) first.');
           if (saveBtn) saveBtn.disabled = false;
           if (spinner) spinner.style.display = 'none';
           if (label) label.textContent = 'Save to Clips';
@@ -3927,7 +3935,7 @@ class PasteCraftPopup {
 
     } catch (error) {
       console.error('Failed to generate breakdown:', error);
-      resultEl.innerHTML = '? Failed to generate explanation. Please check your OpenAI API key configuration.';
+      resultEl.innerHTML = 'Failed to generate explanation. Please check your OpenAI API key configuration.';
       loadingEl.style.display = 'none';
       this.showToast('Failed to generate explanation');
     }
@@ -4540,8 +4548,8 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n� Delete all your clips\n� Remove all categories\n� Clear your profile data\n� This action cannot be undone!')) {
-      if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
+    if (confirm('Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n- Delete all your clips\n- Remove all categories\n- Clear your profile data\n- This action cannot be undone.')) {
+      if (confirm('FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
         this.handleUnsubscribe();
       }
     }
@@ -4549,7 +4557,7 @@ class PasteCraftPopup {
 
   async handleUnsubscribe() {
     try {
-      this.showToast('??? Deleting all data...', 'info');
+      this.showToast('Deleting all data…', 'info');
 
       // Clear all storage
       await chrome.storage.local.clear();
@@ -4567,13 +4575,13 @@ class PasteCraftPopup {
     this.updateManualInputCategories();
       this.hideProfileModal();
 
-      this.showToast('? All data deleted. You have been unsubscribed.', 'success');
+      this.showToast('All data deleted. You have been unsubscribed.', 'success');
 
-      console.log('??? User unsubscribed - all data cleared');
+      console.log('User unsubscribed - all local data cleared');
 
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
-      this.showToast('? Failed to unsubscribe', 'error');
+      this.showToast('Failed to unsubscribe', 'error');
     }
   }
 
@@ -4712,10 +4720,10 @@ class PasteCraftPopup {
     const icon = element.querySelector('.requirement-icon');
     if (isValid) {
       element.classList.add('valid');
-      if (icon) icon.textContent = '?';
+      if (icon) icon.textContent = '\u2713';
     } else {
       element.classList.remove('valid');
-      if (icon) icon.textContent = '?';
+      if (icon) icon.textContent = '\u2717';
     }
   }
 
@@ -4779,11 +4787,11 @@ class PasteCraftPopup {
     
     if (confirmPassword.length > 0) {
       if (newPassword === confirmPassword) {
-        matchHint.textContent = '? Passwords match';
+        matchHint.textContent = 'Passwords match';
         matchHint.style.color = '#10B981';
         matchHint.style.display = 'block';
       } else {
-        matchHint.textContent = '? Passwords do not match';
+        matchHint.textContent = 'Passwords do not match';
         matchHint.style.color = '#DC2626';
         matchHint.style.display = 'block';
       }
@@ -4882,13 +4890,13 @@ class PasteCraftPopup {
   async generateAIImageFromProfile() {
     try {
       if (!this.userProfile?.aiGeneratedName) {
-        this.showToast('?? Generate your funky name first in Profile!', 'error');
+        this.showToast('Generate your funky name first in Profile!', 'error');
         return;
       }
       
-      this.showToast('?? Generating AI image...', 'info');
+      this.showToast('Generating AI image…', 'info');
       document.getElementById('aiGenerateFromProfileBtn').disabled = true;
-      document.getElementById('aiGenerateFromProfileBtn').textContent = '? Generating...';
+      document.getElementById('aiGenerateFromProfileBtn').textContent = 'Generating…';
       
       const gen = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
       const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
@@ -4897,7 +4905,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'profile');
         
-        this.showToast('? AI image generated!', 'success');
+        this.showToast('AI image generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -4906,22 +4914,22 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('? Failed to generate AI image', 'error');
+        this.showToast('Failed to generate AI image', 'error');
       }
     } catch (error) {
       console.error('Failed to generate AI image:', error);
-      this.showToast('? Failed to generate AI image', 'error');
+      this.showToast('Failed to generate AI image', 'error');
     } finally {
       document.getElementById('aiGenerateFromProfileBtn').disabled = false;
-      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">?</span><span>Generate from Profile</span>';
+      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Generate from Profile</span>';
     }
   }
 
   async generateRandomAIImage() {
     try {
-      this.showToast('?? Generating random avatar...', 'info');
+      this.showToast('Generating random avatar…', 'info');
       document.getElementById('aiGenerateRandomBtn').disabled = true;
-      document.getElementById('aiGenerateRandomBtn').textContent = '? Generating...';
+      document.getElementById('aiGenerateRandomBtn').textContent = 'Generating…';
       
       // Generate a random animal name
       const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
@@ -4935,7 +4943,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'random');
         
-        this.showToast('? Random avatar generated!', 'success');
+        this.showToast('Random avatar generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -4944,14 +4952,14 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('? Failed to generate random avatar', 'error');
+        this.showToast('Failed to generate random avatar', 'error');
       }
     } catch (error) {
       console.error('Failed to generate random avatar:', error);
-      this.showToast('? Failed to generate random avatar', 'error');
+      this.showToast('Failed to generate random avatar', 'error');
     } finally {
       document.getElementById('aiGenerateRandomBtn').disabled = false;
-      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">??</span><span>Random Avatar</span>';
+      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Random Avatar</span>';
     }
   }
 
@@ -5061,7 +5069,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips ready for breakdown (scroll to see all)`);
+        this.showToast(`${clipCount} clips ready for breakdown (scroll to see all)`);
       }
       
       // Save to history
@@ -5106,7 +5114,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips added to summary (scroll to see all)`);
+        this.showToast(`${clipCount} clips added to summary (scroll to see all)`);
       }
       
       // Save to history
@@ -5127,56 +5135,54 @@ class PasteCraftPopup {
     return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
   }
 
-  openClipViewer(clip) {
-    const modal = document.getElementById('clipViewerModal');
-    const titleEl = document.getElementById('clipViewerTitle');
-    const metaEl = document.getElementById('clipViewerMeta');
-    const bodyEl = document.getElementById('clipViewerBody');
-    const renderedEl = document.getElementById('clipViewerRendered');
-    const rawEl = document.getElementById('clipViewerRaw');
-    const htmlDetails = document.getElementById('clipViewerHtmlDetails');
-    const htmlPre = document.getElementById('clipViewerHtml');
-    const toggleBtn = document.getElementById('clipViewerToggleRaw');
+  _getClipViewerElements() {
+    return {
+      modal: document.getElementById('clipViewerModal'),
+      titleEl: document.getElementById('clipViewerTitle'),
+      metaEl: document.getElementById('clipViewerMeta'),
+      bodyEl: document.getElementById('clipViewerBody'),
+      renderedEl: document.getElementById('clipViewerRendered'),
+      rawEl: document.getElementById('clipViewerRaw'),
+      htmlDetails: document.getElementById('clipViewerHtmlDetails'),
+      htmlPre: document.getElementById('clipViewerHtml'),
+      toggleBtn: document.getElementById('clipViewerToggleRaw')
+    };
+  }
 
-    if (!modal || !titleEl || !bodyEl) return;
-
-    this.currentClipViewerClip = clip || null;
-    this._clipViewerShowingRaw = false;
-
+  _buildClipViewerContext(clip) {
     const text = (clip && clip.text != null) ? String(clip.text) : '';
     const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
     const clipTitle = this._clipTitle(clip);
-
-    // Detect markup type
     const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
+    return { text, meta, clipTitle, markupType };
+  }
 
-    titleEl.textContent = clipTitle
-      ? `?? ${clipTitle}`
-      : meta && meta.kind === 'image'
-      ? '??? Clip Viewer'
-      : meta && meta.kind === 'url'
-        ? '?? Clip Viewer'
-        : '?? Clip Viewer';
+  _resolveClipViewerTitle(clipTitle, meta) {
+    const trimmed = clipTitle ? String(clipTitle).trim() : '';
+    if (trimmed) return trimmed;
+    if (meta && meta.kind === 'image') return 'Clip viewer · Image';
+    if (meta && meta.kind === 'url') return 'Clip viewer · Link';
+    return 'Clip viewer';
+  }
 
-    // Meta section
-    if (metaEl) {
-      const bits = [];
-      if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
-      if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
-      if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
-      if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
+  _renderClipViewerMeta(metaEl, meta, markupType, clip) {
+    if (!metaEl) return;
+    const bits = [];
+    if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
+    if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
+    if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
+    if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
 
-      if (bits.length) {
-        metaEl.innerHTML = bits.join('<br>');
-        metaEl.style.display = 'block';
-      } else {
-        metaEl.textContent = '';
-        metaEl.style.display = 'none';
-      }
+    if (bits.length) {
+      metaEl.innerHTML = bits.join('<br>');
+      metaEl.style.display = 'block';
+      return;
     }
+    metaEl.textContent = '';
+    metaEl.style.display = 'none';
+  }
 
-    // Body
-    const safeText = this.escapeHtml(text);
+  _extractClipViewerSource(meta) {
     let srcHtml = '';
     let url = '';
     let imgSrc = '';
@@ -5189,15 +5195,20 @@ class PasteCraftPopup {
       }
     }
 
-    const headerParts = [];
+    return { srcHtml, url, imgSrc };
+  }
 
-    // URL link section
-    if (!url) {
+  _buildClipViewerHeaderParts(text, meta, url, imgSrc) {
+    const headerParts = [];
+    let resolvedUrl = url;
+
+    if (!resolvedUrl) {
       const raw = String(text || '').trim();
-      if (/^https?:\/\/\S+$/i.test(raw)) url = raw;
+      if (/^https?:\/\/\S+$/i.test(raw)) resolvedUrl = raw;
     }
-    if (url) {
-      const safeUrl = this.escapeHtml(url);
+
+    if (resolvedUrl) {
+      const safeUrl = this.escapeHtml(resolvedUrl);
       headerParts.push(`
         <div class="clip-viewer-link-card">
           <div class="clip-viewer-section-label">Link</div>
@@ -5206,7 +5217,6 @@ class PasteCraftPopup {
       `);
     }
 
-    // Image section
     const isRenderableImageSrc = imgSrc && (
       imgSrc.startsWith('data:image/') ||
       imgSrc.startsWith('http://') ||
@@ -5224,90 +5234,120 @@ class PasteCraftPopup {
       }
     }
 
-    // Render markup content
+    return headerParts;
+  }
+
+  _renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText) {
     const hasMarkup = markupType !== 'text' && typeof PCMarkup !== 'undefined';
+    if (!renderedEl) return hasMarkup;
 
-    if (renderedEl) {
-      if (hasMarkup) {
-        const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
-        if (rendered && typeof rendered.then === 'function') {
-          renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
-          rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
-            .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
-        } else {
-          renderedEl.innerHTML = headerParts.join('') + rendered;
-        }
-        renderedEl.style.display = 'block';
+    if (hasMarkup) {
+      const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
+      if (rendered && typeof rendered.then === 'function') {
+        renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
+        rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
+          .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
       } else {
-        renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
-        renderedEl.style.display = 'block';
+        renderedEl.innerHTML = headerParts.join('') + rendered;
       }
+      renderedEl.style.display = 'block';
+      return hasMarkup;
     }
 
-    // Raw view
-    if (rawEl) {
-      rawEl.textContent = text;
-      rawEl.style.display = 'none';
+    renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
+    renderedEl.style.display = 'block';
+    return hasMarkup;
+  }
+
+  _renderClipViewerRawContent(rawEl, text) {
+    if (!rawEl) return;
+    rawEl.textContent = text;
+    rawEl.style.display = 'none';
+  }
+
+  _bindClipViewerToggle(toggleBtn, hasMarkup) {
+    if (!toggleBtn) return;
+    if (!hasMarkup) {
+      toggleBtn.style.display = 'none';
+      return;
     }
 
-    // Toggle button (View Raw / View Rendered)
-    if (toggleBtn) {
-      if (hasMarkup) {
-        toggleBtn.style.display = '';
-        toggleBtn.querySelector('span:last-child').textContent = 'View Raw';
-        const newBtn = toggleBtn.cloneNode(true);
-        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-        newBtn.addEventListener('click', () => {
-          this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
-          const rEl = document.getElementById('clipViewerRendered');
-          const rwEl = document.getElementById('clipViewerRaw');
-          const tBtn = document.getElementById('clipViewerToggleRaw');
-          if (this._clipViewerShowingRaw) {
-            if (rEl) rEl.style.display = 'none';
-            if (rwEl) rwEl.style.display = 'block';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Rendered';
-          } else {
-            if (rEl) rEl.style.display = 'block';
-            if (rwEl) rwEl.style.display = 'none';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Raw';
+    toggleBtn.style.display = '';
+    const toggleLabel = toggleBtn.querySelector('span:last-child');
+    if (toggleLabel) toggleLabel.textContent = 'View Raw';
+    const newBtn = toggleBtn.cloneNode(true);
+    if (!toggleBtn.parentNode) return;
+    toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+    newBtn.addEventListener('click', () => {
+      this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
+      const renderedEl = document.getElementById('clipViewerRendered');
+      const rawEl = document.getElementById('clipViewerRaw');
+      const activeToggleBtn = document.getElementById('clipViewerToggleRaw');
+      const activeLabel = activeToggleBtn ? activeToggleBtn.querySelector('span:last-child') : null;
+      if (this._clipViewerShowingRaw) {
+        if (renderedEl) renderedEl.style.display = 'none';
+        if (rawEl) rawEl.style.display = 'block';
+        if (activeLabel) activeLabel.textContent = 'View Rendered';
+      } else {
+        if (renderedEl) renderedEl.style.display = 'block';
+        if (rawEl) rawEl.style.display = 'none';
+        if (activeLabel) activeLabel.textContent = 'View Raw';
+      }
+    });
+  }
+
+  _bindClipViewerLinkHandler(bodyEl) {
+    try {
+      if (this._clipViewerLinkHandlerAttached || !bodyEl) return;
+      bodyEl.addEventListener('click', (e) => {
+        const link = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
+        if (!link) return;
+        e.preventDefault();
+        const targetUrl = String(link.getAttribute('href') || '').trim();
+        if (!targetUrl) return;
+        chrome.tabs.create({ url: targetUrl, active: true }, () => {
+          if (chrome.runtime.lastError) {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
           }
         });
-      } else {
-        toggleBtn.style.display = 'none';
-      }
-    }
-
-    // Ensure link opens in a new TAB
-    try {
-      if (!this._clipViewerLinkHandlerAttached) {
-        bodyEl.addEventListener('click', (e) => {
-          const a = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
-          if (!a) return;
-          e.preventDefault();
-          const targetUrl = String(a.getAttribute('href') || '').trim();
-          if (!targetUrl) return;
-          chrome.tabs.create({ url: targetUrl, active: true }, () => {
-            if (chrome.runtime.lastError) {
-              window.open(targetUrl, '_blank', 'noopener,noreferrer');
-            }
-          });
-        });
-        this._clipViewerLinkHandlerAttached = true;
-      }
+      });
+      this._clipViewerLinkHandlerAttached = true;
     } catch (e) {
       // Non-fatal
     }
+  }
 
-    // Source HTML (collapsed)
-    if (htmlDetails && htmlPre) {
-      if (srcHtml) {
-        htmlPre.textContent = String(srcHtml);
-        htmlDetails.style.display = 'block';
-      } else {
-        htmlPre.textContent = '';
-        htmlDetails.style.display = 'none';
-      }
+  _renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
+    if (!htmlDetails || !htmlPre) return;
+    if (srcHtml) {
+      htmlPre.textContent = String(srcHtml);
+      htmlDetails.style.display = 'block';
+      return;
     }
+    htmlPre.textContent = '';
+    htmlDetails.style.display = 'none';
+  }
+
+  openClipViewer(clip) {
+    const { modal, titleEl, metaEl, bodyEl, renderedEl, rawEl, htmlDetails, htmlPre, toggleBtn } = this._getClipViewerElements();
+
+    if (!modal || !titleEl || !bodyEl) return;
+
+    this.currentClipViewerClip = clip || null;
+    this._clipViewerShowingRaw = false;
+
+    const { text, meta, clipTitle, markupType } = this._buildClipViewerContext(clip);
+    titleEl.textContent = this._resolveClipViewerTitle(clipTitle, meta);
+    this._renderClipViewerMeta(metaEl, meta, markupType, clip);
+
+    const safeText = this.escapeHtml(text);
+    const { srcHtml, url, imgSrc } = this._extractClipViewerSource(meta);
+    const headerParts = this._buildClipViewerHeaderParts(text, meta, url, imgSrc);
+    const hasMarkup = this._renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText);
+    this._renderClipViewerRawContent(rawEl, text);
+    this._bindClipViewerToggle(toggleBtn, hasMarkup);
+    this._bindClipViewerLinkHandler(bodyEl);
+    this._renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
 
     modal.style.display = 'flex';
   }
@@ -5520,45 +5560,10 @@ class PasteCraftPopup {
     if (breakdownCharCounter) breakdownCharCounter.textContent = '0 characters';
   }
 
-  /** Render "Open recent conversation" in empty Summary state */
+  /** Render "Open recent conversation" in empty Summary state (AI Lab Summary module). */
   async _renderOpenRecentConversation() {
-    const container = document.getElementById('openRecentConversationContainer');
-    if (!container) return;
-    const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-    const recent = (pc_aiHistory_v1 || []).slice(0, 5);
-    if (recent.length === 0) {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      return;
-    }
-    container.style.display = 'block';
-    container.innerHTML = `
-      <div class="open-recent-header">
-        <span class="open-recent-icon">??</span>
-        <span>Open recent conversation</span>
-      </div>
-      <div class="open-recent-list">
-        ${recent.map(e => {
-          const icon = e.type === 'breakdown' ? '??' : '??';
-          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '�' : '');
-          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
-          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
-            <span class="open-recent-item-icon">${icon}</span>
-            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} � ${timeStr}</span>
-          </button>`;
-        }).join('')}
-      </div>
-    `;
-    this.aiHistoryEntries = pc_aiHistory_v1;
-    container.querySelectorAll('.open-recent-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.historyId);
-        const entry = this.aiHistoryEntries?.find(e => e.id === id);
-        if (entry) this.openAiHistoryModal(entry);
-      });
-    });
+    await this._initializeAiLabFeature();
+    return this.aiLabFeature.summary.renderOpenRecentConversation(this);
   }
 
   /** Restore all persisted UI state on popup open */
@@ -5616,7 +5621,7 @@ class PasteCraftPopup {
     if (history.length === 0) {
       return `
         <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-          <p style="font-size: 48px; margin: 0 0 16px 0;">??</p>
+          <p style="font-size: 48px; margin: 0 0 16px 0; line-height: 1;" aria-hidden="true">\u2014</p>
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
           <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
         </div>
@@ -5624,14 +5629,14 @@ class PasteCraftPopup {
     }
     
     return history.map(entry => {
-      const icon = entry.type === 'breakdown' ? '??' : entry.type === 'summary' ? '??' : '??';
+      const iconName = entry.type === 'breakdown' ? 'brain' : entry.type === 'summary' ? 'notebook-pen' : 'scroll-text';
       const timeAgo = this.getTimeAgo(entry.timestamp);
       const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
       
       return `
         <div class="history-entry" style="padding: 16px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" data-entry-id="${entry.id}">
           <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <span style="font-size: 24px;">${icon}</span>
+            <span style="font-size: 24px;" aria-hidden="true"><i data-lucide="${iconName}"></i></span>
             <div style="flex: 1; min-width: 0;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                 <span style="font-size: 13px; font-weight: 600; color: #1f2937; text-transform: capitalize;">${entry.type}</span>

@@ -3906,6 +3906,7 @@ body {
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
+  width: max-content;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;

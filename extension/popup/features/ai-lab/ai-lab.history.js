@@ -182,9 +182,13 @@ export async function _saveEditHistoryTitle() {
   if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
   await this._persistAiHistory();
 
-  const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
+  const typeIcon = entry.type === 'breakdown' ? '<i data-lucide="brain"></i>' : '<i data-lucide="notebook-pen"></i>';
+  const iconClass = entry.type === 'breakdown' ? 'icon-breakdown' : 'icon-summary';
   const titleEl = document.getElementById('aiHistoryModalTitle');
-  if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
+  if (titleEl) {
+    titleEl.innerHTML = `<span class="${iconClass}" style="display:flex;align-items:center;">${typeIcon}</span><span class="ai-history-modal-title-text"></span>`;
+    titleEl.querySelector('.ai-history-modal-title-text').textContent = newTitle;
+  }
   this._cancelEditHistoryTitle();
   this.renderAiHistoryList();
   this.showToast('Title updated');
@@ -302,7 +306,7 @@ function _renderEmptyHistory(app) {
 }
 
 function _renderHistoryEntry(app, entry) {
-  const icon = entry.type === 'breakdown' ? '🧠' : '📝';
+  const icon = entry.type === 'breakdown' ? '<i data-lucide="brain"></i>' : '<i data-lucide="notebook-pen"></i>';
   const badgeClass = entry.type === 'breakdown' ? 'breakdown' : 'summary';
   const badgeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
   const threadCount = (entry.threads || []).length;
@@ -311,7 +315,7 @@ function _renderHistoryEntry(app, entry) {
 
   return `
     <div class="ai-history-entry" data-history-id="${entry.id}">
-      <span class="ai-history-entry-icon">${icon}</span>
+      <span class="ai-history-entry-icon ${badgeClass}">${icon}</span>
       <div class="ai-history-entry-info">
         <div class="ai-history-entry-title">${title}</div>
         <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
@@ -344,9 +348,13 @@ function _attachHistoryListHandlers(app, container) {
 }
 
 function _renderHistoryModalHeader(entry, titleEl, subtitleEl) {
-  const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
+  const typeIcon = entry.type === 'breakdown' ? '<i data-lucide="brain"></i>' : '<i data-lucide="notebook-pen"></i>';
   const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-  if (titleEl) titleEl.textContent = `${typeIcon} ${entry.title || 'Untitled'}`;
+  const iconClass = entry.type === 'breakdown' ? 'icon-breakdown' : 'icon-summary';
+  if (titleEl) {
+    titleEl.innerHTML = `<span class="${iconClass}" style="display:flex;align-items:center;">${typeIcon}</span><span class="ai-history-modal-title-text"></span>`;
+    titleEl.querySelector('.ai-history-modal-title-text').textContent = entry.title || 'Untitled';
+  }
   if (subtitleEl) subtitleEl.textContent = `${typeLabel} — ${(entry.threads || []).length} response(s)`;
 }
 

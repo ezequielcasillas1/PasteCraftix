@@ -43,12 +43,39 @@ export function formatTimeAgo(date) {
   return 'Just now';
 }
 
-function buildEntryHTML(entry) {
+function buildEntryHTML(entry, app) {
   const icon = getActivityIcon(entry.operation);
   const iconClass = entry.operation.toLowerCase();
   const tableBadge = getTableBadge(entry.table_name);
   const summary = getActivitySummary(entry);
   const timeAgo = formatTimeAgo(new Date(entry.occurred_at));
+  
+  let recoverBtn = '';
+  if (entry.operation === 'DELETE') {
+    const isRecoverable = (Date.now() - new Date(entry.occurred_at).getTime()) <= (7 * 24 * 60 * 60 * 1000);
+    
+    // Check if already recovered (exists in current state)
+    let alreadyRecovered = false;
+    if (entry.row_old && entry.row_old.id) {
+      if (entry.table_name === 'clips') {
+        alreadyRecovered = (app.clips && app.clips.some(c => c.id == entry.row_old.id)) || 
+                          (app.searchOnlyClips && app.searchOnlyClips.some(c => c.id == entry.row_old.id));
+      } else if (entry.table_name === 'categories' && app.categories) {
+        alreadyRecovered = app.categories.some(c => c.id == entry.row_old.id);
+      } else if (entry.table_name === 'notes' && app.notes) {
+        alreadyRecovered = app.notes.some(n => n.id == entry.row_old.id);
+      }
+    }
+    
+    const disabledAttr = (!isRecoverable || alreadyRecovered) ? 'disabled' : '';
+    let titleAttr = 'Recover this item';
+    if (!isRecoverable) titleAttr = 'Cannot recover items older than 7 days';
+    if (alreadyRecovered) titleAttr = 'Item already recovered';
+    
+    const btnText = alreadyRecovered ? 'Recovered' : 'Recover';
+    
+    recoverBtn = `<button class="activity-recover-btn" data-id="${entry.id}" ${disabledAttr} title="${titleAttr}">${btnText}</button>`;
+  }
 
   return `
     <div class="activity-entry" data-id="${entry.id}">
@@ -57,7 +84,10 @@ function buildEntryHTML(entry) {
         <div class="activity-entry-title">${summary}</div>
         <div class="activity-entry-meta">${timeAgo}</div>
       </div>
-      <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+      <div class="activity-entry-actions">
+        <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+        ${recoverBtn}
+      </div>
     </div>
   `;
 }
@@ -83,7 +113,7 @@ export function renderActivityList(app) {
     return;
   }
 
-  container.innerHTML = app.activityEntries.map(buildEntryHTML).join('');
+  container.innerHTML = app.activityEntries.map(entry => buildEntryHTML(entry, app)).join('');
   if (loadMoreBtn) {
     loadMoreBtn.style.display = app.activityHasMore ? 'block' : 'none';
   }
