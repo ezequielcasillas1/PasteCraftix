@@ -2879,6 +2879,7 @@ class PasteCraftFloatingWidget {
         top: 50%;
         transform: translateY(-50%);
         width: 60px;
+        overflow: visible;
         /* 70% transparent background (alpha 0.3) */
         background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 50%, rgba(29, 78, 216, 0.3) 100%);
         border-radius: 12px 0 0 12px;
@@ -2900,6 +2901,7 @@ class PasteCraftFloatingWidget {
         flex-direction: column;
         gap: 12px;
         align-items: center;
+        overflow: visible;
       }
       
       /* Widget Components */
@@ -3101,44 +3103,49 @@ class PasteCraftFloatingWidget {
         }
       }
       
-      /* Tooltips - appear on LEFT side since widget is to left of popup */
+      /* Tooltips */
       .widget-component[data-tooltip]::before {
-        content: attr(data-tooltip);
-        position: absolute;
-        right: calc(100% + 12px);
-        top: 50%;
-        transform: translateY(-50%) translateX(10px);
-        background: rgba(30, 64, 175, 0.95);
-        color: white;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        white-space: nowrap;
-        width: max-content;
-        opacity: 0;
-        pointer-events: none;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        z-index: 1;
+        all: initial !important;
+        content: attr(data-tooltip) !important;
+        position: absolute !important;
+        right: calc(100% + 10px) !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        background: rgba(15, 23, 42, 0.92) !important;
+        color: #e2e8f0 !important;
+        padding: 5px 10px !important;
+        border-radius: 6px !important;
+        font-size: 11px !important;
+        font-family: system-ui, sans-serif !important;
+        font-weight: 500 !important;
+        line-height: 1.4 !important;
+        white-space: nowrap !important;
+        letter-spacing: 0.02em !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transition: opacity 0.18s ease !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+        z-index: 10 !important;
       }
-      
+
       .widget-component[data-tooltip]::after {
-        content: '';
-        position: absolute;
-        right: calc(100% + 6px);
-        top: 50%;
-        transform: translateY(-50%);
-        border: 6px solid transparent;
-        border-left-color: rgba(30, 64, 175, 0.95);
-        opacity: 0;
-        pointer-events: none;
-        transition: all 0.3s ease;
+        all: initial !important;
+        content: '' !important;
+        position: absolute !important;
+        right: calc(100% + 4px) !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        border: 5px solid transparent !important;
+        border-left-color: rgba(15, 23, 42, 0.92) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transition: opacity 0.18s ease !important;
+        z-index: 10 !important;
       }
-      
+
       .widget-component:hover[data-tooltip]::before,
       .widget-component:hover[data-tooltip]::after {
-        opacity: 1;
-        transform: translateY(-50%) translateX(0);
+        opacity: 1 !important;
       }
       
       /* Animations - slides in from right */
