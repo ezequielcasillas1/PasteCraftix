@@ -8,6 +8,15 @@ export function getTableBadge(tableName) {
   return ACTIVITY_TABLE_BADGES[tableName] || tableName;
 }
 
+function escapeHTML(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function extractIdentifier(data) {
   if (!data) return '';
   if (data.text) return `: "${data.text.substring(0, 30)}${data.text.length > 30 ? '...' : ''}"`;
@@ -48,6 +57,8 @@ function buildEntryHTML(entry, app) {
   const iconClass = entry.operation.toLowerCase();
   const tableBadge = getTableBadge(entry.table_name);
   const summary = getActivitySummary(entry);
+  const safeSummary = escapeHTML(summary);
+  const safeTableBadge = escapeHTML(tableBadge);
   const timeAgo = formatTimeAgo(new Date(entry.occurred_at));
   
   let recoverBtn = '';
@@ -81,11 +92,11 @@ function buildEntryHTML(entry, app) {
     <div class="activity-entry" data-id="${entry.id}">
       <div class="activity-entry-icon ${iconClass}">${icon}</div>
       <div class="activity-entry-info">
-        <div class="activity-entry-title">${summary}</div>
+        <div class="activity-entry-title">${safeSummary}</div>
         <div class="activity-entry-meta">${timeAgo}</div>
       </div>
       <div class="activity-entry-actions">
-        <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+        <span class="activity-entry-badge ${entry.table_name}">${safeTableBadge}</span>
         ${recoverBtn}
       </div>
     </div>
@@ -114,6 +125,7 @@ export function renderActivityList(app) {
   }
 
   container.innerHTML = app.activityEntries.map(entry => buildEntryHTML(entry, app)).join('');
+
   if (loadMoreBtn) {
     loadMoreBtn.style.display = app.activityHasMore ? 'block' : 'none';
   }
