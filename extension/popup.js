@@ -942,10 +942,18 @@ class PasteCraftPopup {
     return this.syncFeature;
   }
 
+  async _initializeFilesFeature() {
+    if (this.filesFeature) return this.filesFeature;
+    const { initFilesFeature } = await import('./popup/features/files/files.controller.js');
+    this.filesFeature = initFilesFeature(this);
+    return this.filesFeature;
+  }
+
   async _initImpl() {
     console.log('?? Initializing PasteCraft popup...');
     await this._initializeClipsFeature();
     await this._initializeCategoriesFeature();
+    await this._initializeFilesFeature();
     await this._initializeNotesFeature();
     await this._initializeAiLabFeature();
     await this._initializeSettingsFeature();
@@ -977,7 +985,7 @@ class PasteCraftPopup {
       document.getElementById('topBar').style.display = 'flex';
       await Promise.all([this.loadData(), this.loadSettings()]);
       this.updateTopBarIdentity();
-      this.setupEventListeners();
+      await this.setupEventListeners();
       this.renderChips();
       this.updateLastCapture();
       this.updatePreview();
@@ -1094,7 +1102,7 @@ class PasteCraftPopup {
         if (remoteProfile) {
           this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
           await chrome.storage.local.set({ userProfile: this.userProfile });
-          console.log('? Profile hydrated from Supabase on fresh device');
+          console.log('✅ Profile hydrated from Supabase on fresh device');
         }
       } catch (_) {}
     }
@@ -1106,7 +1114,7 @@ class PasteCraftPopup {
       this.displayImageTopLeft(this.userProfile.profileImageUrl);
     }
     
-    this.setupEventListeners();
+    await this.setupEventListeners();
     this.renderChips();
     this.updateLastCapture();
     this.updatePreview();
@@ -1381,7 +1389,7 @@ class PasteCraftPopup {
     const preview = this._lastPreviewRestore;
     const point = preview && preview.point ? preview.point : null;
     if (!point) {
-      this.showToast('?? No restore point available yet', 'error');
+      this.showToast('No restore point available yet', 'error');
       return false;
     }
 
@@ -1389,7 +1397,7 @@ class PasteCraftPopup {
     try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
 
     const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click �Sync restored data to cloud�.\n\nProceed?'
+      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click "Sync restored data to cloud".\n\nProceed?'
     );
     if (!ok) return false;
 
@@ -1423,14 +1431,14 @@ class PasteCraftPopup {
     const btn = document.getElementById('syncRestoredToCloudBtn');
     if (btn) btn.disabled = false;
 
-    this.showToast('? Restore complete (local only)');
+    this.showToast('Restore complete (local only)');
     return true;
   }
 
   async syncRestoredDataToCloud() {
     const applied = this._lastAppliedRestore;
     if (!applied || !applied.point) {
-      this.showToast('?? Restore first, then sync to cloud', 'error');
+      this.showToast('Restore first, then sync to cloud', 'error');
       return false;
     }
 
@@ -1440,7 +1448,7 @@ class PasteCraftPopup {
     if (!ok) return false;
 
     await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
-    this.showToast('? Synced restored data to cloud');
+    this.showToast('Synced restored data to cloud');
     return true;
   }
 
@@ -1646,1134 +1654,9 @@ class PasteCraftPopup {
     return this.clipsFeature.service.enforceClipLimit(this);
   }
   
-  setupEventListeners() {
-    // Category-page clip action delegation � one listener on the stable
-    // parent container survives every renderCategories() re-render.
-    this.setupCategoryClipDelegation();
-
-    // Upgrade banner + modal (must run on init; banner is visible for freemium users)
-    const upgradeBanner = document.getElementById('upgradeBanner');
-    if (upgradeBanner) {
-      upgradeBanner.addEventListener('click', () => this.openUpgradeModal());
-      upgradeBanner.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openUpgradeModal(); } });
-    }
-    const upgradeSubBtn = document.getElementById('upgradeSubBtn');
-    if (upgradeSubBtn) upgradeSubBtn.addEventListener('click', () => this.openUpgradeModal());
-    const upgradeModalClose = document.getElementById('upgradeModalClose');
-    if (upgradeModalClose) upgradeModalClose.addEventListener('click', () => this.closeUpgradeModal());
-    const upgradeModal = document.getElementById('upgradeModal');
-    if (upgradeModal) upgradeModal.addEventListener('click', (e) => {
-      if (e.target === upgradeModal) this.closeUpgradeModal();
-    });
-    const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
-    if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._createCheckout('price_1SsbTZLOdeLTrjap9UnXhu0M');
-    });
-    const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
-    if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._createCheckout('price_1SUYs3LOdeLTrjapCFFDe7td');
-    });
-
-    // Tab navigation
-    document.querySelector('.tab-nav').addEventListener('click', async (e) => {
-      const target = e.target;
-      const tabBtn = (target && target.closest)
-        ? target.closest('.tab-btn')
-        : (target && target.classList && target.classList.contains('tab-btn') ? target : null);
-
-      if (tabBtn) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        tabBtn.classList.add('active');
-        this.currentTab = tabBtn.dataset.tab;
-        document.getElementById(this.currentTab + 'Tab').classList.add('active');
-        
-        // Persist active tab so it survives popup close
-        this._saveActiveTabState();
-        
-        // Format controls, preview, and magic wand are always visible across all tabs
-        
-        // Auto-reload data when switching tabs to ensure fresh counts
-        if (this.currentTab === 'clips') {
-          console.log('?? Clips tab opened - reloading data...');
-          await this.loadData();
-          this.renderChips();
-          console.log('? Clips data refreshed');
-        } else if (this.currentTab === 'categories') {
-          console.log('?? Categories tab opened - reloading data...');
-          await this.loadData();
-          this.renderCategories();
-          this.updateCategoryBulkActions();
-          console.log('? Categories data refreshed');
-        } else if (this.currentTab === 'search') {
-          console.log('?? Search tab opened - reloading data...');
-          await this.loadData();
-          this.renderSearchResults();
-          this.updateSearchBulkActions();
-          console.log('? Search data refreshed');
-        } else if (this.currentTab === 'ai') {
-          this.loadAIGallery();
-          this.migrateProfileImageToGallery();
-        } else if (this.currentTab === 'notes') {
-          console.log('?? Notes tab opened - loading notes...');
-          await this.loadNotes();
-          this.renderNotes();
-          console.log('? Notes loaded');
-        } else if (this.currentTab === 'aiHistory') {
-          console.log('?? AI History tab opened - loading history...');
-          await this.loadAiHistory();
-          this.renderAiHistoryList();
-          console.log('? AI History loaded');
-        } else if (this.currentTab === 'activity') {
-          await this.activityFeature.service.loadActivityLog(this);
-          this.activityFeature.render.renderActivityList(this);
-        }
-      }
-    });
-
-    // Manual Text Input functionality
-    const manualInputToggle = document.getElementById('manualInputToggle');
-    const manualInputBody = document.getElementById('manualInputBody');
-    const manualInputHeader = document.querySelector('.manual-input-header');
-    
-    if (manualInputToggle && manualInputBody && manualInputHeader) {
-      manualInputHeader.addEventListener('click', () => {
-        const isVisible = manualInputBody.style.display !== 'none';
-        manualInputBody.style.display = isVisible ? 'none' : 'block';
-        manualInputToggle.classList.toggle('active', !isVisible);
-      });
-    }
-
-    const manualInputSaveBtn = document.getElementById('manualInputSaveBtn');
-    const manualInputTextarea = document.getElementById('manualInputTextarea');
-    const manualInputCategory = document.getElementById('manualInputCategory');
-    const manualInputClearBtn = document.getElementById('manualInputClearBtn');
-    const manualInputSaveSpinner = document.getElementById('manualInputSaveSpinner');
-    const manualInputSaveIcon = document.getElementById('manualInputSaveIcon');
-    const manualInputSaveLabel = document.getElementById('manualInputSaveLabel');
-
-    const setManualInputSavingState = (isSaving) => {
-      if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
-      if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
-      if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving�' : 'Save Clip';
-    };
-
-    const manualInputMarkup = document.getElementById('manualInputMarkup');
-
-    if (manualInputSaveBtn && manualInputTextarea && manualInputCategory) {
-      manualInputSaveBtn.addEventListener('click', async () => {
-        if (this.manualClipSaveInProgress) return;
-
-        const text = manualInputTextarea.value.trim();
-        if (!text) {
-          this.showToast('Please enter some text to save');
-          return;
-        }
-
-        const category = manualInputCategory.value || 'Uncategorized';
-        
-        // Check category limit (Uncategorized = unlimited, others = 150 max)
-        if (category !== 'Uncategorized') {
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clipsInCategory = allClips.filter(clip => clip.category === category);
-          
-          if (clipsInCategory.length >= 150) {
-            this.showToast(`Category "${category}" is full (150 clips max)`);
-            return;
-          }
-        }
-
-        // Build meta with markup hint if user selected a specific format
-        const selectedMarkup = manualInputMarkup ? manualInputMarkup.value : 'auto';
-        const clipMeta = selectedMarkup && selectedMarkup !== 'auto'
-          ? { markupHint: selectedMarkup }
-          : null;
-
-        try {
-          setManualInputSavingState(true);
-          this.manualClipSaveInProgress = true;
-
-          const newClip = {
-            id: Date.now() + Math.random(),
-            text: text,
-            category: category,
-            timestamp: Date.now(),
-            ...(clipMeta ? { meta: clipMeta } : {})
-          };
-
-          this.clips.unshift(newClip);
-          
-          await this.enforceClipLimit();
-
-          this.currentPage = 0; // Jump to first page so new clip is visible
-
-          // Persist immediately (fast path)
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            pc_local_updatedAt: Date.now()
-          });
-          
-          // Notify content scripts (without auto-showing Quick View)
-          try {
-            chrome.tabs.query({}, (tabs) => {
-              tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, {
-                  action: 'clipSaved',
-                  clip: newClip,
-                  autoShow: false
-                }).catch(() => {});
-              });
-            });
-          } catch (error) {
-            console.log('Could not notify content scripts:', error);
-          }
-          
-          this.renderChips();
-          this.renderCategories();
-          this.updateCategoryFilter();
-          this.updateManualInputCategories();
-          this.showToast(`Saved to ${category}!`);
-          
-          // Clear textarea
-          manualInputTextarea.value = '';
-
-          // Background sync (do NOT block UI on network)
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-            .catch(() => {});
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-            .catch(() => {});
-          
-        } finally {
-          this.manualClipSaveInProgress = false;
-          setManualInputSavingState(false);
-        }
-      });
-    }
-
-    if (manualInputClearBtn && manualInputTextarea) {
-      manualInputClearBtn.addEventListener('click', () => {
-        manualInputTextarea.value = '';
-        manualInputTextarea.focus();
-      });
-    }
-
-    // PDF Upload functionality
-    this.initPdfExtraction();
-
-    // Populate category dropdown
-    this.updateManualInputCategories();
-
-    // Notes functionality
-    this.notesFeature.events.registerNotesEvents(this);
-
-    this.clipsFeature.events.registerClipEvents(this);
-
-    // Category management
-    document.getElementById('createCategoryBtn').addEventListener('click', () => {
-      this.showCreateCategoryDialog();
-    });
-
-    // Crafted Output is editable: mark as manual when user types
-    const previewArea = document.getElementById('previewArea');
-    if (previewArea) {
-      previewArea.addEventListener('input', () => {
-        this.previewIsManual = true;
-      });
-    }
-
-    // Category modal events
-    this.categoriesFeature.events.registerCategoryModalEvents(this);
-
-    // Profile modal events
-    document.getElementById('profileBtn').addEventListener('click', () => {
-      this.showProfileModal();
-    });
-
-    document.getElementById('closeProfileModal').addEventListener('click', () => {
-      this.hideProfileModal();
-    });
-
-    // Settings events � delegated to settingsFeature
-    if (this.settingsFeature?.events?.initSettingsEvents) {
-      try {
-        this.settingsFeature.events.initSettingsEvents();
-      } catch (e) {
-        console.error('[Popup] Settings event init failed:', e);
-      }
-    } else {
-      console.error('[Popup] settingsFeature not initialized');
-    }
-
-    // Breakdown modal events
-    document.getElementById('closeBreakdownModal').addEventListener('click', () => {
-      this.hideBreakdownModal();
-    });
-
-    document.getElementById('closeBreakdownBtn').addEventListener('click', () => {
-      this.hideBreakdownModal();
-    });
-
-    document.getElementById('copyBreakdownBtn').addEventListener('click', () => {
-      this.copyBreakdownText();
-    });
-
-    // Italics toggle button
-    document.getElementById('breakdownItalicsBtn').addEventListener('click', () => {
-      this.toggleBreakdownItalics();
-    });
-
-    // Breakdown modal overlay click to close
-    document.getElementById('breakdownModal').addEventListener('click', (e) => {
-      if (e.target.id === 'breakdownModal') {
-        this.hideBreakdownModal();
-      }
-    });
-
-    // AI History modal events
-    const closeAiHistoryModal = document.getElementById('closeAiHistoryModal');
-    if (closeAiHistoryModal) {
-      closeAiHistoryModal.addEventListener('click', () => {
-        document.getElementById('aiHistoryModal').style.display = 'none';
-      });
-    }
-    const closeAiHistoryModalBtn = document.getElementById('closeAiHistoryModalBtn');
-    if (closeAiHistoryModalBtn) {
-      closeAiHistoryModalBtn.addEventListener('click', () => {
-        document.getElementById('aiHistoryModal').style.display = 'none';
-      });
-    }
-    const copyAiHistoryBtn = document.getElementById('copyAiHistoryBtn');
-    if (copyAiHistoryBtn) {
-      copyAiHistoryBtn.addEventListener('click', () => {
-        this.copyHistoryContent();
-      });
-    }
-    // Edit title button
-    const editAiHistoryTitleBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (editAiHistoryTitleBtn) {
-      editAiHistoryTitleBtn.addEventListener('click', () => this._startEditHistoryTitle());
-    }
-    const aiHistoryTitleSaveBtn = document.getElementById('aiHistoryTitleSaveBtn');
-    if (aiHistoryTitleSaveBtn) {
-      aiHistoryTitleSaveBtn.addEventListener('click', () => this._saveEditHistoryTitle());
-    }
-    const aiHistoryTitleCancelBtn = document.getElementById('aiHistoryTitleCancelBtn');
-    if (aiHistoryTitleCancelBtn) {
-      aiHistoryTitleCancelBtn.addEventListener('click', () => this._cancelEditHistoryTitle());
-    }
-    const aiHistoryTitleInput = document.getElementById('aiHistoryTitleInput');
-    if (aiHistoryTitleInput) {
-      aiHistoryTitleInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this._saveEditHistoryTitle();
-        if (e.key === 'Escape') this._cancelEditHistoryTitle();
-      });
-    }
-    // Continue conversation button
-    const continueConversationBtn = document.getElementById('continueConversationBtn');
-    if (continueConversationBtn) {
-      continueConversationBtn.addEventListener('click', () => this.continueHistoryConversation());
-    }
-    const aiHistoryModal = document.getElementById('aiHistoryModal');
-    if (aiHistoryModal) {
-      aiHistoryModal.addEventListener('click', (e) => {
-        if (e.target.id === 'aiHistoryModal') {
-          aiHistoryModal.style.display = 'none';
-        }
-      });
-    }
-    // Clear all AI history button
-    const clearAiHistoryBtn = document.getElementById('clearAiHistoryBtn');
-    if (clearAiHistoryBtn) {
-      clearAiHistoryBtn.addEventListener('click', () => {
-        this.clearAllAiHistory();
-      });
-    }
-
-    // AI History search bar
-    const aiHistorySearchInput = document.getElementById('aiHistorySearchInput');
-    const aiHistorySearchClear = document.getElementById('aiHistorySearchClear');
-    if (aiHistorySearchInput) {
-      aiHistorySearchInput.addEventListener('input', () => {
-        this._aiHistorySearchQuery = aiHistorySearchInput.value.trim().toLowerCase();
-        this.renderAiHistoryList();
-      });
-    }
-    if (aiHistorySearchClear) {
-      aiHistorySearchClear.addEventListener('click', () => {
-        if (aiHistorySearchInput) aiHistorySearchInput.value = '';
-        this._aiHistorySearchQuery = '';
-        this.renderAiHistoryList();
-      });
-    }
-
-    // AI History filter chips
-    document.querySelectorAll('.ai-history-filter-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('.ai-history-filter-chip').forEach(c => {
-          c.classList.remove('active');
-          c.style.background = '#f8fafc';
-          c.style.color = '#64748b';
-          c.style.borderColor = '#e5e7eb';
-        });
-        chip.classList.add('active');
-        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-        chip.style.color = 'white';
-        chip.style.borderColor = '#3b82f6';
-        this._aiHistoryFilterType = chip.dataset.filter;
-        this.renderAiHistoryList();
-      });
-      // Style the initial active chip
-      if (chip.classList.contains('active')) {
-        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-        chip.style.color = 'white';
-        chip.style.borderColor = '#3b82f6';
-      }
-    });
-
-    // Clip Viewer modal events
-    const closeClipViewerModal = document.getElementById('closeClipViewerModal');
-    if (closeClipViewerModal) {
-      closeClipViewerModal.addEventListener('click', () => this.hideClipViewerModal());
-    }
-    const closeClipViewerBtn = document.getElementById('closeClipViewerBtn');
-    if (closeClipViewerBtn) {
-      closeClipViewerBtn.addEventListener('click', () => this.hideClipViewerModal());
-    }
-    const copyClipViewerBtn = document.getElementById('copyClipViewerBtn');
-    if (copyClipViewerBtn) {
-      copyClipViewerBtn.addEventListener('click', () => this.copyClipViewerText());
-    }
-    const clipViewerModal = document.getElementById('clipViewerModal');
-    if (clipViewerModal) {
-      clipViewerModal.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'clipViewerModal') {
-          this.hideClipViewerModal();
-        }
-      });
-    }
-
-    // Breakdown tab switching
-    document.querySelector('.breakdown-tabs').addEventListener('click', (e) => {
-      const tab = e.target.closest('.breakdown-tab');
-      if (tab) {
-        const level = tab.dataset.level;
-        
-        // Update active tab
-        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Update level info text
-        this.updateLevelInfo(level);
-        
-        // Generate breakdown for this level
-        this.currentBreakdownLevel = level;
-        this.generateBreakdown(level);
-      }
-    });
-
-    // settingsModal overlay click handled by settingsFeature.events.initSettingsEvents()
-
-    // Delimiter controls
-    document.getElementById('delimiterControl').addEventListener('click', (e) => {
-      if (e.target.classList.contains('segment-btn')) {
-        document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        this.delimiter = e.target.dataset.delimiter;
-        this.updatePreview();
-        this.updatePreviewFromSelection(); // Also update category selection preview
-        this.updateDelimiterExample(); // Update example text
-        
-        // Handle custom delimiter
-        const customInput = document.getElementById('customDelimiter');
-        if (this.delimiter === 'custom') {
-          customInput.style.display = 'block';
-          customInput.focus();
-        } else {
-          customInput.style.display = 'none';
-        }
-      }
-    });
-    
-    // Custom delimiter input
-    document.getElementById('customDelimiter').addEventListener('input', () => {
-      if (this.delimiter === 'custom') {
-        this.updatePreview();
-        this.updatePreviewFromSelection();
-        this.updateDelimiterExample(); // Update example text
-      }
-    });
-    
-    // Toggle controls
-    document.getElementById('deduplicateToggle').addEventListener('change', (e) => {
-      this.options.deduplicate = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    document.getElementById('sortToggle').addEventListener('change', (e) => {
-      this.options.sort = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    document.getElementById('uppercaseToggle').addEventListener('change', (e) => {
-      this.options.uppercase = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    // Copy button
-    document.getElementById('copyBtn').addEventListener('click', () => {
-      this.copyToClipboard();
-    });
-    
-    // Magic wand � opens preview modal
-    document.getElementById('magicWand').addEventListener('click', () => {
-      this.magicFormat();
-    });
-
-    // Magic info button � opens info modal
-    const magicInfoBtn = document.getElementById('magicInfoBtn');
-    if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'flex';
-    });
-    const closeMagicInfo = document.getElementById('closeMagicInfo');
-    if (closeMagicInfo) closeMagicInfo.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'none';
-    });
-    const magicInfoDone = document.getElementById('magicInfoDone');
-    if (magicInfoDone) magicInfoDone.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'none';
-    });
-    const magicInfoOverlay = document.getElementById('magicInfoModal');
-    if (magicInfoOverlay) magicInfoOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicInfoModal') magicInfoOverlay.style.display = 'none';
-    });
-
-    // Magic preview modal: close / cancel
-    const closeMagicPreview = document.getElementById('closeMagicPreview');
-    if (closeMagicPreview) closeMagicPreview.addEventListener('click', () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-    });
-    const magicCancelBtn = document.getElementById('magicCancelBtn');
-    if (magicCancelBtn) magicCancelBtn.addEventListener('click', () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-    });
-    const magicPreviewOverlay = document.getElementById('magicPreviewModal');
-    if (magicPreviewOverlay) magicPreviewOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicPreviewModal') magicPreviewOverlay.style.display = 'none';
-    });
-
-    // Magic preview: Craft the Magic (selected only)
-    const craftSelectedBtn = document.getElementById('magicCraftSelectedBtn');
-    if (craftSelectedBtn) craftSelectedBtn.addEventListener('click', async () => {
-      if (this._magicSelected.size === 0) return;
-      document.getElementById('magicPreviewModal').style.display = 'none';
-      const stats = await this._craftMagic([...this._magicSelected]);
-      this._showMagicResults(stats);
-    });
-
-    // Magic preview: Craft all Magic to clips
-    const craftAllBtn = document.getElementById('magicCraftAllBtn');
-    if (craftAllBtn) craftAllBtn.addEventListener('click', async () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-      const stats = await this._craftAllMagic();
-      this._showMagicResults(stats);
-    });
-
-    // Magic preview: Undo
-    const magicUndoBtn = document.getElementById('magicUndoBtn');
-    if (magicUndoBtn) magicUndoBtn.addEventListener('click', () => {
-      this._undoMagic();
-    });
-
-    // Magic results modal: close
-    const closeMagicResults = document.getElementById('closeMagicResults');
-    if (closeMagicResults) closeMagicResults.addEventListener('click', () => {
-      document.getElementById('magicResultsModal').style.display = 'none';
-    });
-    const magicDoneBtn = document.getElementById('magicResultsDone');
-    if (magicDoneBtn) magicDoneBtn.addEventListener('click', () => {
-      document.getElementById('magicResultsModal').style.display = 'none';
-    });
-    const magicResultsOverlay = document.getElementById('magicResultsModal');
-    if (magicResultsOverlay) magicResultsOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicResultsModal') magicResultsOverlay.style.display = 'none';
-    });
-    
-    // AI button and tab handlers
-    const aiBtn = document.getElementById('aiBtn');
-    if (aiBtn) {
-      aiBtn.addEventListener('click', () => {
-        // Switch to AI tab
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        const aiTabBtn = document.querySelector('.tab-btn[data-tab="ai"]');
-        if (aiTabBtn) {
-          aiTabBtn.classList.add('active');
-        }
-        
-        this.currentTab = 'ai';
-        document.getElementById('aiTab').classList.add('active');
-
-        // Persist active tab
-        this._saveActiveTabState();
-
-        // Refresh credits view when entering AI Lab.
-        this.updateAiCreditsPills('ai-tab');
-
-        // Defer heavy work one frame so the tab-switch paints first. Avoids
-        // a stutter where layout + gallery network reads happen in the same
-        // frame as the CSS class change.
-        requestAnimationFrame(() => {
-          this.loadAIGallery();
-          this.migrateProfileImageToGallery();
-        });
-      });
-    }
-
-    // AI Lab internal tab navigation
-    const aiLabTabsContainer = document.querySelector('.ai-lab-tabs');
-    if (aiLabTabsContainer) {
-      aiLabTabsContainer.addEventListener('click', (e) => {
-        const clickedTab = e.target.closest('.ai-lab-tab');
-        if (clickedTab) {
-          // Remove active class from all AI Lab tabs
-          document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
-          document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
-          
-          // Add active class to clicked tab
-          clickedTab.classList.add('active');
-          
-          // Show corresponding section
-          const tabName = clickedTab.dataset.aiTab;
-          this._currentAiLabSubTab = tabName;
-          this._saveActiveTabState();
-
-          if (tabName === 'generator') {
-            document.getElementById('aiGeneratorSection').classList.add('active');
-          } else if (tabName === 'gallery') {
-            document.getElementById('aiGallerySection').classList.add('active');
-            this.loadAIGallery();
-            this.migrateProfileImageToGallery();
-          } else if (tabName === 'summary') {
-            document.getElementById('aiSummarySection').classList.add('active');
-          }
-        }
-      });
-    }
-
-    // AI Breakdown standalone button
-    const breakdownButton = document.querySelector('.ai-breakdown-feature');
-    if (breakdownButton) {
-      breakdownButton.addEventListener('click', () => {
-        // Remove active class from all tabs and sections
-        document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
-        
-        // Show breakdown section
-        document.getElementById('aiBreakdownSection').classList.add('active');
-        this._currentAiLabSubTab = 'breakdown';
-        this._saveActiveTabState();
-      });
-    }
-
-    // AI Workflow controls (toggle + selects)
-    try {
-      const overrideToggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-
-      const onChange = () => {
-        // Clear stale AI result caches when model/preset changes
-        this.breakdownCache = {};
-        // Save quietly, then ensure UI enabled/disabled state is correct.
-        this.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      // When provider changes, rebuild presets then save
-      const onProviderChange = () => {
-        const selectedProvider = providerEl ? providerEl.value : 'openai';
-        this.aiWorkflow.provider = selectedProvider;
-        this.aiWorkflow.preset = 'default'; // reset preset on provider switch
-        // Clear stale AI result caches when provider changes
-        this.breakdownCache = {};
-        this.applyAiWorkflowToUi();
-        // Refresh tooltip with new provider's credit costs
-        this.updateAiCreditsPills('provider-change');
-        // Immediately sync cache so any in-flight AI call uses new provider
-        if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
-          pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
-        }
-        this.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      if (overrideToggle) overrideToggle.addEventListener('change', onChange);
-      if (providerEl) providerEl.addEventListener('change', onProviderChange);
-      if (presetEl) presetEl.addEventListener('change', onChange);
-
-      // Initial UI state
-      this.applyAiWorkflowToUi();
-    } catch (_) {}
-
-    // AI Breakdown page state
-    this.selectedBreakdownLevel = null;
-
-    // AI Breakdown page event listeners
-    const clearBreakdownInput = document.getElementById('clearBreakdownInput');
-    const breakdownInput = document.getElementById('breakdownInput');
-    const charCounter = document.getElementById('breakdownCharCounter');
-    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
-    const levelChips = document.querySelectorAll('.level-chip');
-    const levelSelectionHint = document.getElementById('levelSelectionHint');
-
-    if (clearBreakdownInput && breakdownInput) {
-      clearBreakdownInput.addEventListener('click', () => {
-        breakdownInput.value = '';
-        if (charCounter) charCounter.textContent = '0 characters';
-        this.selectedBreakdownLevel = null;
-        
-        // Disable and deselect all level chips
-        levelChips.forEach(chip => {
-          chip.disabled = true;
-          chip.classList.remove('selected');
-        });
-        
-        // Disable analyze button
-        if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-        
-        // Reset hint
-        if (levelSelectionHint) {
-          levelSelectionHint.textContent = 'Type at least one sentence above to enable levels';
-        }
-        
-        // Hide inline results
-        const bdInlineResults = document.getElementById('bdInlineResults');
-        if (bdInlineResults) bdInlineResults.style.display = 'none';
-        this.inlineBreakdownCache = {};
-        this.inlineBreakdownThreads = [];
-        this.currentInlineBreakdownThreadIndex = 0;
-
-        breakdownInput.focus();
-        // Persist cleared state
-        this._saveBreakdownPageState();
-      });
-    }
-
-    // Character counter and level chip enabler
-    if (breakdownInput && charCounter) {
-      // Debounce timer for persisting breakdown input
-      let _bdInputSaveTimer = null;
-
-      breakdownInput.addEventListener('input', () => {
-        const text = breakdownInput.value.trim();
-        const length = breakdownInput.value.length;
-        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
-        
-        charCounter.textContent = `${length} character${length !== 1 ? 's' : ''}`;
-        
-        // Enable level chips if at least 5 words (roughly one sentence)
-        const hasEnoughText = wordCount >= 5;
-        
-        levelChips.forEach(chip => {
-          chip.disabled = !hasEnoughText;
-        });
-        
-        // Update hint text
-        if (levelSelectionHint) {
-          if (hasEnoughText) {
-            levelSelectionHint.textContent = 'Select a level below to continue';
-          } else {
-            const remaining = 5 - wordCount;
-            levelSelectionHint.textContent = `Type ${remaining} more word${remaining !== 1 ? 's' : ''} to enable levels`;
-          }
-        }
-        
-        // If text is cleared, disable analyze button and reset selection
-        if (!hasEnoughText) {
-          this.selectedBreakdownLevel = null;
-          levelChips.forEach(chip => chip.classList.remove('selected'));
-          if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-        }
-
-        // Persist breakdown input (debounced)
-        clearTimeout(_bdInputSaveTimer);
-        _bdInputSaveTimer = setTimeout(() => this._saveBreakdownPageState(), 400);
-      });
-    }
-
-    // Level chip selection
-    levelChips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        if (!chip.disabled) {
-          // Deselect all chips
-          levelChips.forEach(c => c.classList.remove('selected'));
-          
-          // Select this chip
-          chip.classList.add('selected');
-          this.selectedBreakdownLevel = chip.dataset.level;
-          
-          // Enable analyze button
-          if (analyzeLevelBtn) analyzeLevelBtn.disabled = false;
-          
-          // Update hint
-          if (levelSelectionHint) {
-            const levelName = chip.querySelector('strong').textContent;
-            levelSelectionHint.textContent = `${levelName} level selected - Click analyze button below`;
-          }
-
-          // Persist selected level
-          this._saveBreakdownPageState();
-        }
-      });
-    });
-
-    // Analyze button - renders INLINE (not in modal) when from AI Lab page
-    if (analyzeLevelBtn && breakdownInput) {
-      analyzeLevelBtn.addEventListener('click', () => {
-        const text = breakdownInput.value.trim();
-        if (text && this.selectedBreakdownLevel) {
-          this.startInlineBreakdown(text, this.selectedBreakdownLevel);
-        }
-      });
-    }
-
-    // Inline level tab clicks (switch levels inside inline results)
-    document.querySelectorAll('.bd-inline-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const level = tab.dataset.inlineLevel;
-        if (!level || !this.currentBreakdownText) return;
-
-        // Update active tab
-        document.querySelectorAll('.bd-inline-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        // Also update Step 2 chip selection
-        const levelChips = document.querySelectorAll('.level-chip');
-        levelChips.forEach(c => c.classList.remove('selected'));
-        const matchingChip = document.querySelector(`.level-chip[data-level="${level}"]`);
-        if (matchingChip) matchingChip.classList.add('selected');
-
-        this.selectedBreakdownLevel = level;
-        this.currentBreakdownLevel = level;
-
-        // Update badge
-        const badge = document.getElementById('bdInlineLevelBadge');
-        const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
-        if (badge) badge.textContent = levelNames[level] || level;
-
-        // Generate for this level
-        this.generateBreakdownInline(level);
-      });
-    });
-
-    // Inline follow-up button
-    const bdInlineFollowupBtn = document.getElementById('bdInlineFollowupBtn');
-    const bdInlineFollowupInput = document.getElementById('bdInlineFollowupInput');
-    if (bdInlineFollowupBtn && bdInlineFollowupInput) {
-      const sendInlineFollowup = () => {
-        const question = bdInlineFollowupInput.value.trim();
-        if (!question || !this.currentBreakdownText) return;
-        bdInlineFollowupInput.value = '';
-        this.sendInlineBreakdownFollowup(question);
-      };
-      bdInlineFollowupBtn.addEventListener('click', sendInlineFollowup);
-      bdInlineFollowupInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendInlineFollowup();
-      });
-    }
-
-    // AI Summary page event listeners
-    const summaryInput = document.getElementById('summaryInput');
-    const summaryCharCounter = document.getElementById('summaryCharCounter');
-    const clearSummaryInput = document.getElementById('clearSummaryInput');
-    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
-    const customQuestionInput = document.getElementById('customQuestionInput');
-    const customQuestionBtn = document.getElementById('customQuestionBtn');
-    const backToInputBtn = document.getElementById('backToInputBtn');
-    const newQuestionBtn = document.getElementById('newQuestionBtn');
-    const newSummaryBtn = document.getElementById('newSummaryBtn');
-    const copySummaryBtn = document.getElementById('copySummaryBtn');
-
-    // Summary input character counter
-    // Debounce timer for persisting summary input
-    let _sumInputSaveTimer = null;
-
-    if (summaryInput && summaryCharCounter) {
-      summaryInput.addEventListener('input', () => {
-        const length = summaryInput.value.length;
-        const wordCount = summaryInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
-        summaryCharCounter.textContent = `${length} characters`;
-        
-        // Enable generate questions button if enough text (at least 5 words)
-        if (generateQuestionsBtn) {
-          generateQuestionsBtn.disabled = wordCount < 5;
-        }
-
-        // Persist summary input (debounced)
-        clearTimeout(_sumInputSaveTimer);
-        _sumInputSaveTimer = setTimeout(() => {
-          this._currentSummarySection = 'input';
-          this._saveSummaryState();
-        }, 400);
-      });
-    }
-
-    // Clear summary input
-    if (clearSummaryInput && summaryInput) {
-      clearSummaryInput.addEventListener('click', () => {
-        summaryInput.value = '';
-        if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
-        if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-        summaryInput.focus();
-        // Persist cleared state
-        this._currentSummarySection = 'input';
-        this._saveSummaryState();
-      });
-    }
-
-    // Generate questions button
-    if (generateQuestionsBtn) {
-      generateQuestionsBtn.addEventListener('click', () => {
-        const text = summaryInput.value.trim();
-        if (text) {
-          this.currentSummaryText = text;
-          this.generateSummaryQuestions(text);
-        }
-      });
-    }
-
-    // Custom question input
-    if (customQuestionInput && customQuestionBtn) {
-      customQuestionInput.addEventListener('input', () => {
-        customQuestionBtn.disabled = customQuestionInput.value.trim().length < 5;
-      });
-      
-      customQuestionInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !customQuestionBtn.disabled) {
-          customQuestionBtn.click();
-        }
-      });
-    }
-
-    // Custom question button
-    if (customQuestionBtn) {
-      customQuestionBtn.addEventListener('click', () => {
-        const question = customQuestionInput.value.trim();
-        if (question && this.currentSummaryText) {
-          this.currentSummaryQuestion = question;
-          this.generateSummary(this.currentSummaryText, question);
-        }
-      });
-    }
-
-    // Back to input button
-    if (backToInputBtn) {
-      backToInputBtn.addEventListener('click', () => {
-        this.showSummarySection('input');
-        this.currentSummaryText = null;
-        this.generatedQuestions = [];
-        this._currentSummarySection = 'input';
-        this._saveSummaryState();
-      });
-    }
-
-    // New question button
-    if (newQuestionBtn) {
-      newQuestionBtn.addEventListener('click', () => {
-        this.showSummarySection('questions');
-        this._currentSummarySection = 'questions';
-        this._saveSummaryState();
-      });
-    }
-
-    // New summary button
-    if (newSummaryBtn) {
-      newSummaryBtn.addEventListener('click', () => {
-        this._resetSummaryToEmpty();
-        this._saveSummaryState();
-      });
-    }
-
-    // Copy summary button
-    if (copySummaryBtn) {
-      copySummaryBtn.addEventListener('click', async () => {
-        const content = document.getElementById('summaryResultContent').textContent;
-        if (content) {
-          try {
-            await this.copyToClipboardFallback(content);
-            this.showToast('Summary copied to clipboard!');
-          } catch (error) {
-            console.error('Summary copy failed:', error);
-            this.showToast('Failed to copy summary', 'error');
-          }
-        }
-      });
-    }
-
-    // Summary follow-up handlers
-    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
-    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
-
-    if (summaryFollowupInput) {
-      summaryFollowupInput.addEventListener('input', (e) => {
-        if (summaryFollowupBtn) {
-          summaryFollowupBtn.disabled = e.target.value.trim() === '';
-        }
-      });
-
-      summaryFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && this.currentSummaryText) {
-          this.handleSummaryFollowup(e.target.value.trim());
-        }
-      });
-    }
-
-    if (summaryFollowupBtn) {
-      summaryFollowupBtn.disabled = true;
-      summaryFollowupBtn.addEventListener('click', () => {
-        if (summaryFollowupInput && this.currentSummaryText) {
-          const followupQuestion = summaryFollowupInput.value.trim();
-          if (followupQuestion) {
-            this.handleSummaryFollowup(followupQuestion);
-          }
-        }
-      });
-    }
-
-    // Breakdown follow-up handlers
-    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
-    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
-
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.addEventListener('input', (e) => {
-        const hasText = e.target.value.trim() !== '';
-        
-        // Enable/disable send button
-        if (breakdownFollowupBtn) {
-          breakdownFollowupBtn.disabled = !hasText;
-        }
-        
-        // Enable/disable level tabs
-        this.toggleFollowupLevelTabs(hasText);
-      });
-
-      breakdownFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && this.currentBreakdownText) {
-          this.handleBreakdownFollowup(e.target.value.trim());
-        }
-      });
-    }
-
-    if (breakdownFollowupBtn) {
-      breakdownFollowupBtn.disabled = true;
-      breakdownFollowupBtn.addEventListener('click', () => {
-        if (breakdownFollowupInput && this.currentBreakdownText) {
-          const followupQuestion = breakdownFollowupInput.value.trim();
-          if (followupQuestion) {
-            this.handleBreakdownFollowup(followupQuestion);
-          }
-        }
-      });
-    }
-
-    // Follow-up level tab handlers
-    const followupLevelTabs = document.querySelectorAll('.followup-level-tab');
-    followupLevelTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        if (!tab.classList.contains('disabled')) {
-          // Remove selected from all
-          followupLevelTabs.forEach(t => t.classList.remove('selected'));
-          // Add selected to clicked
-          tab.classList.add('selected');
-          // Store selected level
-          this.selectedFollowupLevel = tab.dataset.followupLevel;
-          console.log('?? Selected follow-up level:', this.selectedFollowupLevel);
-          
-          // ? FIX: Auto-submit the followup when level is clicked
-          if (breakdownFollowupInput && this.currentBreakdownText) {
-            const followupQuestion = breakdownFollowupInput.value.trim();
-            if (followupQuestion) {
-              this.handleBreakdownFollowup(followupQuestion);
-            }
-          }
-        }
-      });
-    });
-    
-    // AI generation buttons
-    const aiGenerateFromProfileBtn = document.getElementById('aiGenerateFromProfileBtn');
-    const aiGenerateRandomBtn = document.getElementById('aiGenerateRandomBtn');
-    const aiTimerDismiss = document.getElementById('aiTimerDismiss');
-    
-    if (aiGenerateFromProfileBtn) {
-      aiGenerateFromProfileBtn.addEventListener('click', () => {
-        this.generateAIImageFromProfile();
-      });
-    }
-    
-    if (aiGenerateRandomBtn) {
-      aiGenerateRandomBtn.addEventListener('click', () => {
-        this.generateRandomAIImage();
-      });
-    }
-    
-    if (aiTimerDismiss) {
-      aiTimerDismiss.addEventListener('click', () => {
-        this.hideAIGenerationTimer();
-      });
-    }
-    
-    // Quick Copy Button
-    document.getElementById('quickCopyBtn').addEventListener('click', () => {
-      this.handleQuickCopy();
-    });
-
-    // Quick Delete Button (2+ selected)
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    if (quickDeleteBtn) {
-      quickDeleteBtn.addEventListener('click', () => {
-        this.handleQuickDelete();
-      });
-    }
-
-    // Bulk AI Actions (2+ selected clips) � modularized so Clips and Categories reuse the same wiring
-    this._wireBulkAiButtons({
-      summaryBtnId: 'bulkAiSummaryBtn',
-      sendCategoriesBtnId: 'bulkSendCategoriesBtn',
-      sendNotesBtnId: 'bulkSendNotesBtn',
-      breakdownBtnId: 'bulkAiBreakdownBtn',
-      getText: () => this._getSelectedClipsText(),
-      getIdKeys: () => this._getSelectedClipIdKeys(),
-      getClipObjects: () => this._getSelectedClipObjects()
-    });
-
-    this._wireBulkAiButtons({
-      summaryBtnId: 'categoriesBulkAiSummaryBtn',
-      sendCategoriesBtnId: 'categoriesBulkSendCategoriesBtn',
-      sendNotesBtnId: 'categoriesBulkSendNotesBtn',
-      breakdownBtnId: 'categoriesBulkAiBreakdownBtn',
-      getText: () => this._getSelectedCategoryClipsText(),
-      getIdKeys: () => this._getSelectedCategoryClipIdKeys(),
-      getClipObjects: () => this._getSelectedCategoryClipObjects()
-    });
-
-    // Setup image viewer for expanded view
-    this.setupImageViewer();
-    
-    // Initialize delimiter example text
-    this.updateDelimiterExample();
-
-    // Activity log event listeners
-    this.activityFeature.events.initActivityEventListeners(this);
+  async setupEventListeners() {
+    const { registerPopupEventListeners } = await import('./popup/popup.events.js');
+    registerPopupEventListeners(this);
   }
   
   // =====================================================
@@ -3552,7 +2435,7 @@ class PasteCraftPopup {
     const label = document.getElementById('pdfSaveLabel');
     if (saveBtn) saveBtn.disabled = true;
     if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving�';
+    if (label) label.textContent = 'Saving…';
 
     try {
       const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
@@ -3576,7 +2459,7 @@ class PasteCraftPopup {
         // Save only the currently selected page tab
         const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
         if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, �) first.');
+          this.showToast('Please select a specific page tab (P1, P2, …) first.');
           if (saveBtn) saveBtn.disabled = false;
           if (spinner) spinner.style.display = 'none';
           if (label) label.textContent = 'Save to Clips';
@@ -3934,7 +2817,7 @@ class PasteCraftPopup {
 
     } catch (error) {
       console.error('Failed to generate breakdown:', error);
-      resultEl.innerHTML = '? Failed to generate explanation. Please check your OpenAI API key configuration.';
+      resultEl.innerHTML = 'Failed to generate explanation. Please check your OpenAI API key configuration.';
       loadingEl.style.display = 'none';
       this.showToast('Failed to generate explanation');
     }
@@ -4547,8 +3430,8 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n� Delete all your clips\n� Remove all categories\n� Clear your profile data\n� This action cannot be undone!')) {
-      if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
+    if (confirm('Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n- Delete all your clips\n- Remove all categories\n- Clear your profile data\n- This action cannot be undone.')) {
+      if (confirm('FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
         this.handleUnsubscribe();
       }
     }
@@ -4556,7 +3439,7 @@ class PasteCraftPopup {
 
   async handleUnsubscribe() {
     try {
-      this.showToast('??? Deleting all data...', 'info');
+      this.showToast('Deleting all data…', 'info');
 
       // Clear all storage
       await chrome.storage.local.clear();
@@ -4574,13 +3457,13 @@ class PasteCraftPopup {
     this.updateManualInputCategories();
       this.hideProfileModal();
 
-      this.showToast('? All data deleted. You have been unsubscribed.', 'success');
+      this.showToast('All data deleted. You have been unsubscribed.', 'success');
 
-      console.log('??? User unsubscribed - all data cleared');
+      console.log('User unsubscribed - all local data cleared');
 
     } catch (error) {
       console.error('Failed to unsubscribe:', error);
-      this.showToast('? Failed to unsubscribe', 'error');
+      this.showToast('Failed to unsubscribe', 'error');
     }
   }
 
@@ -4719,10 +3602,10 @@ class PasteCraftPopup {
     const icon = element.querySelector('.requirement-icon');
     if (isValid) {
       element.classList.add('valid');
-      if (icon) icon.textContent = '?';
+      if (icon) icon.textContent = '\u2713';
     } else {
       element.classList.remove('valid');
-      if (icon) icon.textContent = '?';
+      if (icon) icon.textContent = '\u2717';
     }
   }
 
@@ -4786,11 +3669,11 @@ class PasteCraftPopup {
     
     if (confirmPassword.length > 0) {
       if (newPassword === confirmPassword) {
-        matchHint.textContent = '? Passwords match';
+        matchHint.textContent = 'Passwords match';
         matchHint.style.color = '#10B981';
         matchHint.style.display = 'block';
       } else {
-        matchHint.textContent = '? Passwords do not match';
+        matchHint.textContent = 'Passwords do not match';
         matchHint.style.color = '#DC2626';
         matchHint.style.display = 'block';
       }
@@ -4889,13 +3772,13 @@ class PasteCraftPopup {
   async generateAIImageFromProfile() {
     try {
       if (!this.userProfile?.aiGeneratedName) {
-        this.showToast('?? Generate your funky name first in Profile!', 'error');
+        this.showToast('Generate your funky name first in Profile!', 'error');
         return;
       }
       
-      this.showToast('?? Generating AI image...', 'info');
+      this.showToast('Generating AI image…', 'info');
       document.getElementById('aiGenerateFromProfileBtn').disabled = true;
-      document.getElementById('aiGenerateFromProfileBtn').textContent = '? Generating...';
+      document.getElementById('aiGenerateFromProfileBtn').textContent = 'Generating…';
       
       const gen = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
       const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
@@ -4904,7 +3787,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'profile');
         
-        this.showToast('? AI image generated!', 'success');
+        this.showToast('AI image generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -4913,22 +3796,22 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('? Failed to generate AI image', 'error');
+        this.showToast('Failed to generate AI image', 'error');
       }
     } catch (error) {
       console.error('Failed to generate AI image:', error);
-      this.showToast('? Failed to generate AI image', 'error');
+      this.showToast('Failed to generate AI image', 'error');
     } finally {
       document.getElementById('aiGenerateFromProfileBtn').disabled = false;
-      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">?</span><span>Generate from Profile</span>';
+      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Generate from Profile</span>';
     }
   }
 
   async generateRandomAIImage() {
     try {
-      this.showToast('?? Generating random avatar...', 'info');
+      this.showToast('Generating random avatar…', 'info');
       document.getElementById('aiGenerateRandomBtn').disabled = true;
-      document.getElementById('aiGenerateRandomBtn').textContent = '? Generating...';
+      document.getElementById('aiGenerateRandomBtn').textContent = 'Generating…';
       
       // Generate a random animal name
       const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
@@ -4942,7 +3825,7 @@ class PasteCraftPopup {
         // Add to gallery
         await this.addToGallery(imageUrl, 'random');
         
-        this.showToast('? Random avatar generated!', 'success');
+        this.showToast('Random avatar generated!', 'success');
         this.showAIGenerationTimer();
         this.loadAIGallery();
         // Best-effort credits refresh after successful generation.
@@ -4951,14 +3834,14 @@ class PasteCraftPopup {
         } catch (_) {}
         this.updateAiCreditsPills('post-gen');
       } else {
-        this.showToast('? Failed to generate random avatar', 'error');
+        this.showToast('Failed to generate random avatar', 'error');
       }
     } catch (error) {
       console.error('Failed to generate random avatar:', error);
-      this.showToast('? Failed to generate random avatar', 'error');
+      this.showToast('Failed to generate random avatar', 'error');
     } finally {
       document.getElementById('aiGenerateRandomBtn').disabled = false;
-      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">??</span><span>Random Avatar</span>';
+      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Random Avatar</span>';
     }
   }
 
@@ -5068,7 +3951,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips ready for breakdown (scroll to see all)`);
+        this.showToast(`${clipCount} clips ready for breakdown (scroll to see all)`);
       }
       
       // Save to history
@@ -5113,7 +3996,7 @@ class PasteCraftPopup {
       // Show toast if multiple clips were added
       const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
       if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips added to summary (scroll to see all)`);
+        this.showToast(`${clipCount} clips added to summary (scroll to see all)`);
       }
       
       // Save to history
@@ -5134,56 +4017,54 @@ class PasteCraftPopup {
     return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
   }
 
-  openClipViewer(clip) {
-    const modal = document.getElementById('clipViewerModal');
-    const titleEl = document.getElementById('clipViewerTitle');
-    const metaEl = document.getElementById('clipViewerMeta');
-    const bodyEl = document.getElementById('clipViewerBody');
-    const renderedEl = document.getElementById('clipViewerRendered');
-    const rawEl = document.getElementById('clipViewerRaw');
-    const htmlDetails = document.getElementById('clipViewerHtmlDetails');
-    const htmlPre = document.getElementById('clipViewerHtml');
-    const toggleBtn = document.getElementById('clipViewerToggleRaw');
+  _getClipViewerElements() {
+    return {
+      modal: document.getElementById('clipViewerModal'),
+      titleEl: document.getElementById('clipViewerTitle'),
+      metaEl: document.getElementById('clipViewerMeta'),
+      bodyEl: document.getElementById('clipViewerBody'),
+      renderedEl: document.getElementById('clipViewerRendered'),
+      rawEl: document.getElementById('clipViewerRaw'),
+      htmlDetails: document.getElementById('clipViewerHtmlDetails'),
+      htmlPre: document.getElementById('clipViewerHtml'),
+      toggleBtn: document.getElementById('clipViewerToggleRaw')
+    };
+  }
 
-    if (!modal || !titleEl || !bodyEl) return;
-
-    this.currentClipViewerClip = clip || null;
-    this._clipViewerShowingRaw = false;
-
+  _buildClipViewerContext(clip) {
     const text = (clip && clip.text != null) ? String(clip.text) : '';
     const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
     const clipTitle = this._clipTitle(clip);
-
-    // Detect markup type
     const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
+    return { text, meta, clipTitle, markupType };
+  }
 
-    titleEl.textContent = clipTitle
-      ? `?? ${clipTitle}`
-      : meta && meta.kind === 'image'
-      ? '??? Clip Viewer'
-      : meta && meta.kind === 'url'
-        ? '?? Clip Viewer'
-        : '?? Clip Viewer';
+  _resolveClipViewerTitle(clipTitle, meta) {
+    const trimmed = clipTitle ? String(clipTitle).trim() : '';
+    if (trimmed) return trimmed;
+    if (meta && meta.kind === 'image') return 'Clip viewer · Image';
+    if (meta && meta.kind === 'url') return 'Clip viewer · Link';
+    return 'Clip viewer';
+  }
 
-    // Meta section
-    if (metaEl) {
-      const bits = [];
-      if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
-      if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
-      if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
-      if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
+  _renderClipViewerMeta(metaEl, meta, markupType, clip) {
+    if (!metaEl) return;
+    const bits = [];
+    if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
+    if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
+    if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
+    if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
 
-      if (bits.length) {
-        metaEl.innerHTML = bits.join('<br>');
-        metaEl.style.display = 'block';
-      } else {
-        metaEl.textContent = '';
-        metaEl.style.display = 'none';
-      }
+    if (bits.length) {
+      metaEl.innerHTML = bits.join('<br>');
+      metaEl.style.display = 'block';
+      return;
     }
+    metaEl.textContent = '';
+    metaEl.style.display = 'none';
+  }
 
-    // Body
-    const safeText = this.escapeHtml(text);
+  _extractClipViewerSource(meta) {
     let srcHtml = '';
     let url = '';
     let imgSrc = '';
@@ -5196,15 +4077,20 @@ class PasteCraftPopup {
       }
     }
 
-    const headerParts = [];
+    return { srcHtml, url, imgSrc };
+  }
 
-    // URL link section
-    if (!url) {
+  _buildClipViewerHeaderParts(text, meta, url, imgSrc) {
+    const headerParts = [];
+    let resolvedUrl = url;
+
+    if (!resolvedUrl) {
       const raw = String(text || '').trim();
-      if (/^https?:\/\/\S+$/i.test(raw)) url = raw;
+      if (/^https?:\/\/\S+$/i.test(raw)) resolvedUrl = raw;
     }
-    if (url) {
-      const safeUrl = this.escapeHtml(url);
+
+    if (resolvedUrl) {
+      const safeUrl = this.escapeHtml(resolvedUrl);
       headerParts.push(`
         <div class="clip-viewer-link-card">
           <div class="clip-viewer-section-label">Link</div>
@@ -5213,7 +4099,6 @@ class PasteCraftPopup {
       `);
     }
 
-    // Image section
     const isRenderableImageSrc = imgSrc && (
       imgSrc.startsWith('data:image/') ||
       imgSrc.startsWith('http://') ||
@@ -5231,90 +4116,120 @@ class PasteCraftPopup {
       }
     }
 
-    // Render markup content
+    return headerParts;
+  }
+
+  _renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText) {
     const hasMarkup = markupType !== 'text' && typeof PCMarkup !== 'undefined';
+    if (!renderedEl) return hasMarkup;
 
-    if (renderedEl) {
-      if (hasMarkup) {
-        const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
-        if (rendered && typeof rendered.then === 'function') {
-          renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
-          rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
-            .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
-        } else {
-          renderedEl.innerHTML = headerParts.join('') + rendered;
-        }
-        renderedEl.style.display = 'block';
+    if (hasMarkup) {
+      const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
+      if (rendered && typeof rendered.then === 'function') {
+        renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
+        rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
+          .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
       } else {
-        renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
-        renderedEl.style.display = 'block';
+        renderedEl.innerHTML = headerParts.join('') + rendered;
       }
+      renderedEl.style.display = 'block';
+      return hasMarkup;
     }
 
-    // Raw view
-    if (rawEl) {
-      rawEl.textContent = text;
-      rawEl.style.display = 'none';
+    renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
+    renderedEl.style.display = 'block';
+    return hasMarkup;
+  }
+
+  _renderClipViewerRawContent(rawEl, text) {
+    if (!rawEl) return;
+    rawEl.textContent = text;
+    rawEl.style.display = 'none';
+  }
+
+  _bindClipViewerToggle(toggleBtn, hasMarkup) {
+    if (!toggleBtn) return;
+    if (!hasMarkup) {
+      toggleBtn.style.display = 'none';
+      return;
     }
 
-    // Toggle button (View Raw / View Rendered)
-    if (toggleBtn) {
-      if (hasMarkup) {
-        toggleBtn.style.display = '';
-        toggleBtn.querySelector('span:last-child').textContent = 'View Raw';
-        const newBtn = toggleBtn.cloneNode(true);
-        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-        newBtn.addEventListener('click', () => {
-          this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
-          const rEl = document.getElementById('clipViewerRendered');
-          const rwEl = document.getElementById('clipViewerRaw');
-          const tBtn = document.getElementById('clipViewerToggleRaw');
-          if (this._clipViewerShowingRaw) {
-            if (rEl) rEl.style.display = 'none';
-            if (rwEl) rwEl.style.display = 'block';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Rendered';
-          } else {
-            if (rEl) rEl.style.display = 'block';
-            if (rwEl) rwEl.style.display = 'none';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Raw';
+    toggleBtn.style.display = '';
+    const toggleLabel = toggleBtn.querySelector('span:last-child');
+    if (toggleLabel) toggleLabel.textContent = 'View Raw';
+    const newBtn = toggleBtn.cloneNode(true);
+    if (!toggleBtn.parentNode) return;
+    toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+    newBtn.addEventListener('click', () => {
+      this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
+      const renderedEl = document.getElementById('clipViewerRendered');
+      const rawEl = document.getElementById('clipViewerRaw');
+      const activeToggleBtn = document.getElementById('clipViewerToggleRaw');
+      const activeLabel = activeToggleBtn ? activeToggleBtn.querySelector('span:last-child') : null;
+      if (this._clipViewerShowingRaw) {
+        if (renderedEl) renderedEl.style.display = 'none';
+        if (rawEl) rawEl.style.display = 'block';
+        if (activeLabel) activeLabel.textContent = 'View Rendered';
+      } else {
+        if (renderedEl) renderedEl.style.display = 'block';
+        if (rawEl) rawEl.style.display = 'none';
+        if (activeLabel) activeLabel.textContent = 'View Raw';
+      }
+    });
+  }
+
+  _bindClipViewerLinkHandler(bodyEl) {
+    try {
+      if (this._clipViewerLinkHandlerAttached || !bodyEl) return;
+      bodyEl.addEventListener('click', (e) => {
+        const link = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
+        if (!link) return;
+        e.preventDefault();
+        const targetUrl = String(link.getAttribute('href') || '').trim();
+        if (!targetUrl) return;
+        chrome.tabs.create({ url: targetUrl, active: true }, () => {
+          if (chrome.runtime.lastError) {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
           }
         });
-      } else {
-        toggleBtn.style.display = 'none';
-      }
-    }
-
-    // Ensure link opens in a new TAB
-    try {
-      if (!this._clipViewerLinkHandlerAttached) {
-        bodyEl.addEventListener('click', (e) => {
-          const a = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
-          if (!a) return;
-          e.preventDefault();
-          const targetUrl = String(a.getAttribute('href') || '').trim();
-          if (!targetUrl) return;
-          chrome.tabs.create({ url: targetUrl, active: true }, () => {
-            if (chrome.runtime.lastError) {
-              window.open(targetUrl, '_blank', 'noopener,noreferrer');
-            }
-          });
-        });
-        this._clipViewerLinkHandlerAttached = true;
-      }
+      });
+      this._clipViewerLinkHandlerAttached = true;
     } catch (e) {
       // Non-fatal
     }
+  }
 
-    // Source HTML (collapsed)
-    if (htmlDetails && htmlPre) {
-      if (srcHtml) {
-        htmlPre.textContent = String(srcHtml);
-        htmlDetails.style.display = 'block';
-      } else {
-        htmlPre.textContent = '';
-        htmlDetails.style.display = 'none';
-      }
+  _renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
+    if (!htmlDetails || !htmlPre) return;
+    if (srcHtml) {
+      htmlPre.textContent = String(srcHtml);
+      htmlDetails.style.display = 'block';
+      return;
     }
+    htmlPre.textContent = '';
+    htmlDetails.style.display = 'none';
+  }
+
+  openClipViewer(clip) {
+    const { modal, titleEl, metaEl, bodyEl, renderedEl, rawEl, htmlDetails, htmlPre, toggleBtn } = this._getClipViewerElements();
+
+    if (!modal || !titleEl || !bodyEl) return;
+
+    this.currentClipViewerClip = clip || null;
+    this._clipViewerShowingRaw = false;
+
+    const { text, meta, clipTitle, markupType } = this._buildClipViewerContext(clip);
+    titleEl.textContent = this._resolveClipViewerTitle(clipTitle, meta);
+    this._renderClipViewerMeta(metaEl, meta, markupType, clip);
+
+    const safeText = this.escapeHtml(text);
+    const { srcHtml, url, imgSrc } = this._extractClipViewerSource(meta);
+    const headerParts = this._buildClipViewerHeaderParts(text, meta, url, imgSrc);
+    const hasMarkup = this._renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText);
+    this._renderClipViewerRawContent(rawEl, text);
+    this._bindClipViewerToggle(toggleBtn, hasMarkup);
+    this._bindClipViewerLinkHandler(bodyEl);
+    this._renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
 
     modal.style.display = 'flex';
   }
@@ -5527,45 +4442,10 @@ class PasteCraftPopup {
     if (breakdownCharCounter) breakdownCharCounter.textContent = '0 characters';
   }
 
-  /** Render "Open recent conversation" in empty Summary state */
+  /** Render "Open recent conversation" in empty Summary state (AI Lab Summary module). */
   async _renderOpenRecentConversation() {
-    const container = document.getElementById('openRecentConversationContainer');
-    if (!container) return;
-    const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-    const recent = (pc_aiHistory_v1 || []).slice(0, 5);
-    if (recent.length === 0) {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      return;
-    }
-    container.style.display = 'block';
-    container.innerHTML = `
-      <div class="open-recent-header">
-        <span class="open-recent-icon">??</span>
-        <span>Open recent conversation</span>
-      </div>
-      <div class="open-recent-list">
-        ${recent.map(e => {
-          const icon = e.type === 'breakdown' ? '??' : '??';
-          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '�' : '');
-          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
-          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
-            <span class="open-recent-item-icon">${icon}</span>
-            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} � ${timeStr}</span>
-          </button>`;
-        }).join('')}
-      </div>
-    `;
-    this.aiHistoryEntries = pc_aiHistory_v1;
-    container.querySelectorAll('.open-recent-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.historyId);
-        const entry = this.aiHistoryEntries?.find(e => e.id === id);
-        if (entry) this.openAiHistoryModal(entry);
-      });
-    });
+    await this._initializeAiLabFeature();
+    return this.aiLabFeature.summary.renderOpenRecentConversation(this);
   }
 
   /** Restore all persisted UI state on popup open */
@@ -5623,7 +4503,7 @@ class PasteCraftPopup {
     if (history.length === 0) {
       return `
         <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-          <p style="font-size: 48px; margin: 0 0 16px 0;">??</p>
+          <p style="font-size: 48px; margin: 0 0 16px 0; line-height: 1;" aria-hidden="true">\u2014</p>
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
           <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
         </div>
@@ -5631,14 +4511,14 @@ class PasteCraftPopup {
     }
     
     return history.map(entry => {
-      const icon = entry.type === 'breakdown' ? '??' : entry.type === 'summary' ? '??' : '??';
+      const iconName = entry.type === 'breakdown' ? 'brain' : entry.type === 'summary' ? 'notebook-pen' : 'scroll-text';
       const timeAgo = this.getTimeAgo(entry.timestamp);
       const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
       
       return `
         <div class="history-entry" style="padding: 16px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" data-entry-id="${entry.id}">
           <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <span style="font-size: 24px;">${icon}</span>
+            <span style="font-size: 24px;" aria-hidden="true"><i data-lucide="${iconName}"></i></span>
             <div style="flex: 1; min-width: 0;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                 <span style="font-size: 13px; font-weight: 600; color: #1f2937; text-transform: capitalize;">${entry.type}</span>
