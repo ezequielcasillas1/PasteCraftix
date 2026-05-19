@@ -63,10 +63,30 @@ function _idbHasMoreNotes(idbNotes, currentNotes) {
   return idbNotes.length >= (currentNotes?.length || 0);
 }
 
+async function _loadDeletedNoteIdSet() {
+  try {
+    const { pc_deleted_notes } = await chrome.storage.local.get(['pc_deleted_notes']);
+    const list = Array.isArray(pc_deleted_notes) ? pc_deleted_notes : [];
+    return new Set(list.map((t) => String(t?.id)).filter(Boolean));
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function _filterTombstonedNotes(notes, deletedIds) {
+  if (!deletedIds?.size) return Array.isArray(notes) ? notes : [];
+  return (Array.isArray(notes) ? notes : []).filter(
+    (n) => n?.id != null && !deletedIds.has(String(n.id))
+  );
+}
+
 async function _resolveNotesFromIdb(app, currentNotes) {
-  if (!_hasIdb(app)) return currentNotes;
+  const deletedIds = await _loadDeletedNoteIdSet();
+  const chromeNotes = _filterTombstonedNotes(currentNotes, deletedIds);
+  if (!_hasIdb(app)) return chromeNotes;
   const idbNotes = await app.idb.getAllPayloads('notes');
-  return _idbHasMoreNotes(idbNotes, currentNotes) ? idbNotes : currentNotes;
+  const idbFiltered = _filterTombstonedNotes(idbNotes, deletedIds);
+  return _idbHasMoreNotes(idbFiltered, chromeNotes) ? idbFiltered : chromeNotes;
 }
 
 async function _seedDemoNotesIfEmpty(notes) {
@@ -436,8 +456,10 @@ export async function deleteNote(app, noteId) {
   const confirmed = confirm(`Delete "${note.title}"?`);
   if (!confirmed) return;
 
+  const entityId = note.id;
+
   return await PasteCraftCRUD.deleteOperation({
-    entityId: noteId,
+    entityId,
     entityName: note.title,
     entityType: 'note',
     stateGetter: () => ({ notes: app.notes }),
@@ -452,15 +474,31 @@ export async function deleteNote(app, noteId) {
     },
     storageKeys: ['notes'],
     storageWriter: async (data) => { await chrome.storage.local.set(data); },
+    idbStoreName: 'notes',
+    tombstoneStorageKey: 'pc_deleted_notes',
     deleteFromArray: (items, entityId) => items.filter(n => n.id != entityId),
     updateRelatedEntities: (_state, _entity) => {},
     verifier: async (entityId) => {
-      const verification = await chrome.storage.local.get(['notes']);
+      const verification = await chrome.storage.local.get(['notes', 'pc_deleted_notes']);
+      const tombs = Array.isArray(verification.pc_deleted_notes) ? verification.pc_deleted_notes : [];
+      const tombstoned = tombs.some((t) => t?.id == entityId);
       const notes = Array.isArray(verification.notes) ? verification.notes : [];
-      return !notes.some(n => n.id == entityId);
+      const inChrome = notes.some((n) => n.id == entityId);
+      let inIdb = false;
+      try {
+        if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+          const idbNotes = await window.pasteCraftIndexedDB.getAllPayloads('notes');
+          inIdb = Array.isArray(idbNotes) && idbNotes.some((n) => n.id == entityId);
+        }
+      } catch (_) {}
+      if (tombstoned && !inChrome) return true;
+      return !inChrome && !inIdb;
     },
     uiUpdater: () => { app.renderNotes(); },
     backgroundSync: async (_entity, deletedAt) => {
+      if (app.idb && typeof app.idb.saveDeletedItem === 'function') {
+        await app.idb.saveDeletedItem(note, 'notes').catch(e => console.error('Failed to save deleted note:', e));
+      }
       await pasteCraftSupabase.syncWithQueue('syncDeletedNotes', [{
         ...note,
         deletedAt,

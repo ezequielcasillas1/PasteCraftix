@@ -200,7 +200,10 @@ class PasteCraftCRUD {
       // PRACTICE #4: IDEMPOTENCY CHECK - Verify entity was removed
       const stillExists = stateKeys.some(key => {
         if (Array.isArray(currentState[key])) {
-          return currentState[key].some(item => item.id === entityId);
+          return currentState[key].some((item) => {
+            if (entityType === 'note') return item.id == entityId;
+            return item.id === entityId;
+          });
         }
         return false;
       });
@@ -237,6 +240,10 @@ class PasteCraftCRUD {
         try {
           const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
           await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
+          const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+          if (idbStateKey && Array.isArray(currentState[idbStateKey]) && typeof window.pasteCraftIndexedDB.syncEntityFromLocalStorage === 'function') {
+            await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(idbStoreName, currentState[idbStateKey]);
+          }
         } catch (idbErr) {
           console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
         }
