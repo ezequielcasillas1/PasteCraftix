@@ -59,6 +59,9 @@ export function registerAiLabPageEvents(app) {
             app.migrateProfileImageToGallery();
           } else if (tabName === 'summary') {
             document.getElementById('aiSummarySection').classList.add('active');
+            if (app._currentSummarySection === 'input' || !app._currentSummarySection) {
+              app._renderOpenRecentConversation();
+            }
           }
         }
       });
@@ -376,6 +379,7 @@ export function registerAiLabPageEvents(app) {
         app.generatedQuestions = [];
         app._currentSummarySection = 'input';
         app._saveSummaryState();
+        app._renderOpenRecentConversation();
       });
     }
 

@@ -3,6 +3,7 @@ import * as clipRender from './clips.render.js';
 import * as clipEvents from './clips.events.js';
 import * as clipService from './clips.service.js';
 import * as clipState from './clips.state.js';
+import * as clipViewer from './clips.viewer.js';
 
 export function initClipsFeature(app) {
   app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
@@ -14,5 +15,6 @@ export function initClipsFeature(app) {
     events: clipEvents,
     service: clipService,
     state: clipState,
+    viewer: clipViewer,
   };
 }

@@ -1,8 +1,20 @@
+function isExtensionContextValid() {
+  try {
+    return Boolean(chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureStorageReady(app) {
+  if (!isExtensionContextValid()) return;
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
 export async function fetchRawData(app) {
+  if (!isExtensionContextValid()) {
+    throw new Error('Extension context invalidated');
+  }
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
 
@@ -159,6 +171,7 @@ export async function loadStorageData(app) {
 }
 
 export async function loadData(app) {
+  if (!isExtensionContextValid()) return;
   await loadStorageData(app);
   
   if (typeof app.loadSettings === 'function') {

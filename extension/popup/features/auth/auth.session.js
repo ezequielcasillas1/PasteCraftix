@@ -241,6 +241,9 @@ function _restoreSummary(app, stored, canRestore) {
   }
   _hydrateSummaryFields(app, sum);
   _restoreSummarySection(app, sum);
+  if (!sum.activeSection || sum.activeSection === 'input') {
+    app._renderOpenRecentConversation();
+  }
 }
 
 function _logSessionRestore(stored) {

@@ -1,7 +1,8 @@
 // PasteCraft IndexedDB data layer for primary local entities.
 (function initPasteCraftIndexedDB(globalScope) {
   const DB_NAME = 'pastecraft_local_v1';
-  const DB_VERSION = 1;
+  // Must be >= existing DB on disk (dev builds may already be at 3).
+  const DB_VERSION = 3;
   const STORES = ['clips', 'categories', 'notes'];
 
   class PasteCraftIndexedDB {

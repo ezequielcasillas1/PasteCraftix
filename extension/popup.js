@@ -1089,6 +1089,7 @@ class PasteCraftPopup {
       this.loadAiWorkflow(),
       this.loadUserProfile(),
       this.loadAnalysisHistory(),
+      this.loadAiHistory(),
     ]);
 
     // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
@@ -4013,246 +4014,18 @@ class PasteCraftPopup {
     }
   }
 
-  formatClipViewerPlainText(text) {
-    return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
-  }
-
-  _getClipViewerElements() {
-    return {
-      modal: document.getElementById('clipViewerModal'),
-      titleEl: document.getElementById('clipViewerTitle'),
-      metaEl: document.getElementById('clipViewerMeta'),
-      bodyEl: document.getElementById('clipViewerBody'),
-      renderedEl: document.getElementById('clipViewerRendered'),
-      rawEl: document.getElementById('clipViewerRaw'),
-      htmlDetails: document.getElementById('clipViewerHtmlDetails'),
-      htmlPre: document.getElementById('clipViewerHtml'),
-      toggleBtn: document.getElementById('clipViewerToggleRaw')
-    };
-  }
-
-  _buildClipViewerContext(clip) {
-    const text = (clip && clip.text != null) ? String(clip.text) : '';
-    const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const clipTitle = this._clipTitle(clip);
-    const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
-    return { text, meta, clipTitle, markupType };
-  }
-
-  _resolveClipViewerTitle(clipTitle, meta) {
-    const trimmed = clipTitle ? String(clipTitle).trim() : '';
-    if (trimmed) return trimmed;
-    if (meta && meta.kind === 'image') return 'Clip viewer · Image';
-    if (meta && meta.kind === 'url') return 'Clip viewer · Link';
-    return 'Clip viewer';
-  }
-
-  _renderClipViewerMeta(metaEl, meta, markupType, clip) {
-    if (!metaEl) return;
-    const bits = [];
-    if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
-    if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
-    if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
-    if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
-
-    if (bits.length) {
-      metaEl.innerHTML = bits.join('<br>');
-      metaEl.style.display = 'block';
-      return;
-    }
-    metaEl.textContent = '';
-    metaEl.style.display = 'none';
-  }
-
-  _extractClipViewerSource(meta) {
-    let srcHtml = '';
-    let url = '';
-    let imgSrc = '';
-
-    if (meta) {
-      if (typeof meta.html === 'string' && meta.html.trim()) srcHtml = meta.html;
-      if (typeof meta.url === 'string' && meta.url.trim()) url = meta.url.trim();
-      if (meta.image && typeof meta.image === 'object') {
-        imgSrc = (meta.image.dataUrl || meta.image.srcUrl || '').trim();
-      }
-    }
-
-    return { srcHtml, url, imgSrc };
-  }
-
-  _buildClipViewerHeaderParts(text, meta, url, imgSrc) {
-    const headerParts = [];
-    let resolvedUrl = url;
-
-    if (!resolvedUrl) {
-      const raw = String(text || '').trim();
-      if (/^https?:\/\/\S+$/i.test(raw)) resolvedUrl = raw;
-    }
-
-    if (resolvedUrl) {
-      const safeUrl = this.escapeHtml(resolvedUrl);
-      headerParts.push(`
-        <div class="clip-viewer-link-card">
-          <div class="clip-viewer-section-label">Link</div>
-          <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer">${safeUrl}</a>
-        </div>
-      `);
-    }
-
-    const isRenderableImageSrc = imgSrc && (
-      imgSrc.startsWith('data:image/') ||
-      imgSrc.startsWith('http://') ||
-      imgSrc.startsWith('https://'));
-
-    if (imgSrc && !isRenderableImageSrc) {
-      headerParts.push('<div class="clip-viewer-note">Image preview unavailable (non-renderable source).</div>');
-    } else if (imgSrc && isRenderableImageSrc) {
-      headerParts.push(`<img class="clip-viewer-image" src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
-      if (meta && meta.image && meta.image.tooLarge) {
-        headerParts.push('<div class="clip-viewer-note">Image payload too large to embed; showing what is available.</div>');
-      }
-      if (meta && meta.image && meta.image.exportFailed) {
-        headerParts.push('<div class="clip-viewer-note">Image export blocked by the page (canvas/security restrictions).</div>');
-      }
-    }
-
-    return headerParts;
-  }
-
-  _renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText) {
-    const hasMarkup = markupType !== 'text' && typeof PCMarkup !== 'undefined';
-    if (!renderedEl) return hasMarkup;
-
-    if (hasMarkup) {
-      const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
-      if (rendered && typeof rendered.then === 'function') {
-        renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
-        rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
-          .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
-      } else {
-        renderedEl.innerHTML = headerParts.join('') + rendered;
-      }
-      renderedEl.style.display = 'block';
-      return hasMarkup;
-    }
-
-    renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
-    renderedEl.style.display = 'block';
-    return hasMarkup;
-  }
-
-  _renderClipViewerRawContent(rawEl, text) {
-    if (!rawEl) return;
-    rawEl.textContent = text;
-    rawEl.style.display = 'none';
-  }
-
-  _bindClipViewerToggle(toggleBtn, hasMarkup) {
-    if (!toggleBtn) return;
-    if (!hasMarkup) {
-      toggleBtn.style.display = 'none';
-      return;
-    }
-
-    toggleBtn.style.display = '';
-    const toggleLabel = toggleBtn.querySelector('span:last-child');
-    if (toggleLabel) toggleLabel.textContent = 'View Raw';
-    const newBtn = toggleBtn.cloneNode(true);
-    if (!toggleBtn.parentNode) return;
-    toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-    newBtn.addEventListener('click', () => {
-      this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
-      const renderedEl = document.getElementById('clipViewerRendered');
-      const rawEl = document.getElementById('clipViewerRaw');
-      const activeToggleBtn = document.getElementById('clipViewerToggleRaw');
-      const activeLabel = activeToggleBtn ? activeToggleBtn.querySelector('span:last-child') : null;
-      if (this._clipViewerShowingRaw) {
-        if (renderedEl) renderedEl.style.display = 'none';
-        if (rawEl) rawEl.style.display = 'block';
-        if (activeLabel) activeLabel.textContent = 'View Rendered';
-      } else {
-        if (renderedEl) renderedEl.style.display = 'block';
-        if (rawEl) rawEl.style.display = 'none';
-        if (activeLabel) activeLabel.textContent = 'View Raw';
-      }
-    });
-  }
-
-  _bindClipViewerLinkHandler(bodyEl) {
-    try {
-      if (this._clipViewerLinkHandlerAttached || !bodyEl) return;
-      bodyEl.addEventListener('click', (e) => {
-        const link = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
-        if (!link) return;
-        e.preventDefault();
-        const targetUrl = String(link.getAttribute('href') || '').trim();
-        if (!targetUrl) return;
-        chrome.tabs.create({ url: targetUrl, active: true }, () => {
-          if (chrome.runtime.lastError) {
-            window.open(targetUrl, '_blank', 'noopener,noreferrer');
-          }
-        });
-      });
-      this._clipViewerLinkHandlerAttached = true;
-    } catch (e) {
-      // Non-fatal
-    }
-  }
-
-  _renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
-    if (!htmlDetails || !htmlPre) return;
-    if (srcHtml) {
-      htmlPre.textContent = String(srcHtml);
-      htmlDetails.style.display = 'block';
-      return;
-    }
-    htmlPre.textContent = '';
-    htmlDetails.style.display = 'none';
-  }
-
   openClipViewer(clip) {
-    const { modal, titleEl, metaEl, bodyEl, renderedEl, rawEl, htmlDetails, htmlPre, toggleBtn } = this._getClipViewerElements();
-
-    if (!modal || !titleEl || !bodyEl) return;
-
-    this.currentClipViewerClip = clip || null;
-    this._clipViewerShowingRaw = false;
-
-    const { text, meta, clipTitle, markupType } = this._buildClipViewerContext(clip);
-    titleEl.textContent = this._resolveClipViewerTitle(clipTitle, meta);
-    this._renderClipViewerMeta(metaEl, meta, markupType, clip);
-
-    const safeText = this.escapeHtml(text);
-    const { srcHtml, url, imgSrc } = this._extractClipViewerSource(meta);
-    const headerParts = this._buildClipViewerHeaderParts(text, meta, url, imgSrc);
-    const hasMarkup = this._renderClipViewerMainContent(renderedEl, text, meta, markupType, headerParts, safeText);
-    this._renderClipViewerRawContent(rawEl, text);
-    this._bindClipViewerToggle(toggleBtn, hasMarkup);
-    this._bindClipViewerLinkHandler(bodyEl);
-    this._renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
-
-    modal.style.display = 'flex';
+    return this.clipsFeature.viewer.open(this, clip);
   }
 
   hideClipViewerModal() {
-    const modal = document.getElementById('clipViewerModal');
-    if (modal) modal.style.display = 'none';
-    this.currentClipViewerClip = null;
+    return this.clipsFeature.viewer.hide(this);
   }
 
   async copyClipViewerText() {
-    const clip = this.currentClipViewerClip;
-    const text = (clip && clip.text != null) ? String(clip.text) : '';
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      this.showToast('Content copied!');
-    } catch (e) {
-      console.error('Copy failed:', e);
-      this.showToast('Copy failed');
-    }
+    return this.clipsFeature.viewer.copyText(this);
   }
-  
+
   clearAllSelections() {
     this.selectedChips.clear();
     this.selectedSearchClips.clear();
@@ -4445,7 +4218,60 @@ class PasteCraftPopup {
   /** Render "Open recent conversation" in empty Summary state (AI Lab Summary module). */
   async _renderOpenRecentConversation() {
     await this._initializeAiLabFeature();
-    return this.aiLabFeature.summary.renderOpenRecentConversation(this);
+    const renderFn =
+      this.aiLabFeature?.summary?.renderOpenRecentConversation
+      || this.aiLabFeature?.history?.renderOpenRecentConversation;
+    if (typeof renderFn === 'function') {
+      return renderFn(this);
+    }
+    return this._renderOpenRecentConversationFallback();
+  }
+
+  /** Inline fallback when ai-lab.summary module cache is stale after extension reload. */
+  async _renderOpenRecentConversationFallback() {
+    const container = document.getElementById('openRecentConversationContainer');
+    if (!container) return;
+
+    const entries = typeof this.loadAiHistory === 'function'
+      ? await this.loadAiHistory()
+      : (await chrome.storage.local.get(['pc_aiHistory_v1'])).pc_aiHistory_v1 || [];
+    const recent = (entries || []).slice(0, 5);
+
+    if (recent.length === 0) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    container.innerHTML = `
+      <div class="open-recent-header">
+        <span class="open-recent-icon" aria-hidden="true">\u2192</span>
+        <span>Open recent conversation</span>
+      </div>
+      <div class="open-recent-list">
+        ${recent.map((e) => {
+          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
+          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '\u2026' : '');
+          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
+          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
+            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
+            <span class="open-recent-item-meta">${label} \u00b7 ${timeStr}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    `;
+
+    this.aiHistoryEntries = entries;
+    container.querySelectorAll('.open-recent-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = parseInt(btn.dataset.historyId, 10);
+        const entry = this.aiHistoryEntries?.find((x) => x.id === id);
+        if (entry && typeof this.openAiHistoryModal === 'function') {
+          this.openAiHistoryModal(entry);
+        }
+      });
+    });
   }
 
   /** Restore all persisted UI state on popup open */

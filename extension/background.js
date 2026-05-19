@@ -705,6 +705,19 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 Internal message received:', message.action);
 
+  if (message.action === 'pcCopyText') {
+    const text = String(message.text || '');
+    (async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
+
   if (message.action === 'pcOpenPopupWindow') {
     try {
       const rawUrl = message && typeof message.url === 'string' ? message.url : '';

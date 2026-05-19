@@ -182,9 +182,34 @@ export async function enforceClipLimit(app) {
   console.log(`✅ Archived ${clipsToArchive.length} clips to search. Active: ${app.clips.length}, Archived: ${app.searchOnlyClips.length}`);
 }
 
+function copyViaBackground(text) {
+  return new Promise((resolve, reject) => {
+    if (!chrome?.runtime?.id) {
+      reject(new Error('Extension context invalidated'));
+      return;
+    }
+    chrome.runtime.sendMessage(
+      { action: 'pcCopyText', text: String(text || '') },
+      (resp) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (resp?.success) {
+          resolve(true);
+          return;
+        }
+        reject(new Error(resp?.error || 'Copy failed'));
+      },
+    );
+  });
+}
+
 export async function copyToClipboardFallback(text) {
+  const value = String(text || '');
+
   const textarea = document.createElement('textarea');
-  textarea.value = text;
+  textarea.value = value;
   textarea.style.position = 'fixed';
   textarea.style.left = '-9999px';
   textarea.style.top = '-9999px';
@@ -195,18 +220,17 @@ export async function copyToClipboardFallback(text) {
   try {
     const success = document.execCommand('copy');
     document.body.removeChild(textarea);
-    if (!success) throw new Error('execCommand copy failed');
-    return true;
+    if (success) return true;
   } catch (e) {
     if (textarea.parentNode) document.body.removeChild(textarea);
   }
 
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch (e) {
-    throw e;
+  if (chrome?.runtime?.id) {
+    return copyViaBackground(value);
   }
+
+  await navigator.clipboard.writeText(value);
+  return true;
 }
 
 export async function copyToClipboard(app) {
@@ -391,9 +415,10 @@ export async function removeChip(app, clipIdKey) {
 
 export async function copyClipToClipboard(app, text) {
   try {
-    await navigator.clipboard.writeText(text);
-    app.showToast('Copied to clipboard!');
+    await copyToClipboardFallback(text);
+    app.showToast('Content copied!');
   } catch (error) {
     console.error('Failed to copy:', error);
+    app.showToast('Copy failed');
   }
 }

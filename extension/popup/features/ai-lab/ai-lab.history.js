@@ -1,6 +1,8 @@
 import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
 import { getHistoryModalElements } from './ai-lab.selectors.js';
 
+export { renderOpenRecentConversation } from './ai-lab.summary.js';
+
 export async function loadAiHistory() {
   try {
     const { [AI_STORAGE_KEYS.HISTORY]: localEntries = [] } = await chrome.storage.local.get([AI_STORAGE_KEYS.HISTORY]);
@@ -87,6 +89,9 @@ export function renderAiHistoryList() {
 
   container.innerHTML = entries.map(entry => _renderHistoryEntry(this, entry)).join('');
   _attachHistoryListHandlers(this, container);
+  if (typeof this.renderLucideIcons === 'function') {
+    this.renderLucideIcons();
+  }
 }
 
 export async function openAiHistoryModal(entry) {
