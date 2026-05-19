@@ -1,0 +1,87 @@
+---
+description: Before every commit/push, branch name must match the work in the diff—not an old unrelated branch.
+alwaysApply: true
+---
+
+# Git Commit & Push — Branch Alignment (Mandatory)
+
+Every `git commit` and `git push` must land on a **task branch whose name matches what is in the commit**. Do not reuse whatever branch happens to be checked out.
+
+## Wrong vs right
+
+| Wrong | Why |
+|---|---|
+| Commit note-delete fix on `fix/activity-history-html-escape` | Branch topic ≠ diff topic; PR/review/history become misleading |
+| One branch named `ui` for weeks of mixed work | Cannot review, revert, or ship one change safely |
+| Push to `main` without explicit user approval | Breaks stable default branch policy |
+
+| Right | Example |
+|---|---|
+| Bug fix branch for bug fix work | `fix/notes-delete-persistence` |
+| Refactor branch for refactor work | `refactor/popup-events-extraction` |
+| Two focused branches when two unrelated ships | `fix/notes-delete` + `refactor/popup-event-listeners` |
+
+## Before staging (agent checklist)
+
+1. Run `git branch --show-current` and `git status --short`.
+2. **Name the work** in 1–2 short phrases from the actual diff (not the old branch name).
+3. **Compare** current branch to that name:
+   - If it matches → proceed.
+   - If it does not match → **stop**; do not commit on the wrong branch.
+4. Decide **one branch or two**:
+   - **One branch** — single user-visible outcome or one refactor slice (preferred).
+   - **Two branches** — two independent outcomes (e.g. `fix/…` + `refactor/…`) that can merge separately; split via cherry-pick or separate commits, not one mixed commit.
+
+## Creating or switching branches
+
+From latest `main` (or agreed base):
+
+```bash
+git fetch origin
+git checkout main
+git pull origin main
+git checkout -b fix/notes-delete-persistence   # example
+```
+
+If work already exists on the wrong branch:
+
+- Create the correct branch from current HEAD: `git checkout -b fix/correct-topic`
+- Or move commits: cherry-pick onto new branches; leave the misnamed branch for user to delete after merge.
+
+Tell the user when a branch mismatch is detected **before** committing.
+
+## Commit & push sequence (every time)
+
+1. Confirm branch aligns with diff (above).
+2. Stage only files for this task (user said “commit all” → still exclude secrets and unrelated files).
+3. Conventional commit message: `type: short description` (see `git-workflow.mdc`).
+4. `git commit` → report SHA.
+5. `git push -u origin HEAD` only on the **task** branch, never `main` unless user explicitly requests.
+
+## Branch naming map (PasteCraft)
+
+| Work in diff | Branch prefix | Example |
+|---|---|---|
+| Bug / regression | `fix/` | `fix/notes-delete-persistence` |
+| New capability | `feat/` | `feat/activity-log-recover` |
+| Structure move, no behavior change | `refactor/` | `refactor/popup-events-extraction` |
+| Tests only | `test/` | `test/popup-events-smoke` |
+| Docs / rules only | `docs/` | `docs/git-branch-alignment` |
+| Tooling, deps, CI | `chore/` | `chore/npm-test-script` |
+
+Use **kebab-case** after the prefix; 2–5 words; no dates in the name.
+
+## When user says “git commit all”
+
+1. Still run branch alignment check first.
+2. If diff contains **two unrelated** areas (e.g. bug fix + large refactor), **ask** whether to split into two branches before one commit.
+3. Draft commit message from the **diff**, not from the current branch name.
+4. Push to `origin` on the aligned branch only.
+
+## Agent must say out loud
+
+Before commit:
+
+> Branch: `<current>`. Work: `<summary>`. Aligned: yes/no. Action: `<commit here | create branch X | split into two branches>`.
+
+This prevents repeats of committing popup/notes work on an activity-history branch.

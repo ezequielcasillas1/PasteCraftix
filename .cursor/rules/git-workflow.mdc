@@ -1,0 +1,76 @@
+---
+alwaysApply: true
+---
+
+# Git Workflow
+
+Rules for commits, branches, and pushes on PasteCraft. Source: `ArchiGuide/git-commit-push-mastery.md` and `ArchiGuide/git-commits-branches-guide.md`.
+
+**Before every commit/push:** follow `git-commit-branch-alignment.mdc` — branch name must match the work in the diff (never commit on an unrelated checked-out branch).
+
+## Commit Message Format
+
+Always use Conventional Commits:
+
+```
+type: short description
+```
+
+| Type | When to use |
+|---|---|
+| `feat` | New feature or capability |
+| `fix` | Bug fix |
+| `refactor` | Code restructure, no behavior change |
+| `docs` | Documentation only |
+| `chore` | Config, tooling, dependency updates |
+| `test` | Tests added or updated |
+
+**Good:** `refactor: extract Categories feature into vertical slice modules`
+**Bad:** `✅ SUCCESS: changes`, `update`, `final fix`, `stuff`
+
+## Branch Naming
+
+One branch per focused task:
+
+```
+feature/paste-search-ui
+fix/supabase-auth-loop
+refactor/popup-settings-layer
+docs/git-workflow
+chore/update-manifest-version
+```
+
+- Never commit directly to `main`
+- Keep branches short-lived (one task, then merge + delete)
+- Never reuse generic names like `ui`, `backend`, `testing`
+
+## What Belongs on `main`
+
+Only merge when:
+- The feature works and was manually verified
+- No secrets, `.env`, or local-only files included
+- Commit messages are clear
+- Unrelated files are excluded
+
+## Commit Checklist (run mentally before every commit)
+
+1. One clear purpose?
+2. App still runs in changed area?
+3. No secrets included?
+4. No unrelated files staged?
+5. Message follows `type: description` format?
+
+## Push Checklist
+
+1. On the correct task branch?
+2. Branch named for the task?
+3. Only stable, safe work?
+4. `main` only receives verified code?
+
+## PR Standard
+
+Every merge into `main` should go through a pull request with:
+- What changed
+- Why it changed
+- How it was tested
+- Any risks or follow-up work
