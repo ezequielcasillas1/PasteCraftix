@@ -1,3 +1,23 @@
+### May 19, 2026 - Popup console fixes v2 (3.0.7)
+**Status:** Fixed (pending reload test)
+**Files:** popup.js, clips.service.js, background.js, sync.loader.js, manifest.json (3.0.7)
+**Result:** `renderOpenRecentConversation` typeof guard + inline fallback; copy via execCommand then `pcCopyText` in SW; sync loader skips when context invalidated; reload from `extension/` folder required.
+
+### May 19, 2026 - AI History not showing in popup
+**Status:** Fixed (pending reload test)
+**Files:** ai-lab.summary.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.js, manifest.json
+**Result:** Open-recent only ran on summary reset, not on Summary tab/back-to-input; render now calls `loadAiHistory()` (cloud merge). History list renders Lucide icons. Startup preloads history. v3.0.7.
+
+### May 19, 2026 - Post-reload popup console fixes
+**Status:** Fixed (pending reload test)
+**Files:** ai-lab.summary.js, ai-lab.constants.js, clips.viewer.js, clips.service.js, files.events.js, indexeddb-store.js
+**Result:** Restored missing `renderOpenRecentConversation`; clip viewer copy uses `copyToClipboardFallback`; silenced files manage-btn warn when DOM absent; IDB `DB_VERSION` raised to 3 to match existing stores.
+
+### May 19, 2026 - Files Feature Module Missing (Popup init crash)
+**Status:** Fixed (pending reload test)
+**Files:** extension/popup/features/files/* (restored from 0b3faad)
+**Result:** `popup.js` imported `files.controller.js` but `extension/popup/features/files/` was missing on disk — `init()` failed. Restored 5 modules from git `0b3faad`.
+
 ### 2026-04-19 - Deleted Categories Resurrect Across Browsers
 **Status:** SUCCESS
 **Files:** extension/supabase-client.js, extension/popup.js, extension/indexeddb-store.js

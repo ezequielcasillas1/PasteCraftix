@@ -1,3 +1,8 @@
+### May 19, 2026 - Clip Viewer Modular Extraction
+**Status:** Pending verification
+**Files:** extension/popup/features/clips/clips.viewer.js, clips.controller.js, extension/popup.js
+**Result:** Moved clip viewer (~240 lines) from popup.js into clips.viewer.js. Public API unchanged: app.openClipViewer, hideClipViewerModal, copyClipViewerText. Events stay in modals-shared.events.js.
+
 ### Apr 19, 2026 - Publishing Safety + Cross-Browser Data Parity
 **Status:** SUCCESS
 **Files:** .cursor/rules/production-publishing-safety.mdc, extension/background.js, docs/publishing/CROSS_BROWSER_AUTH.md
