@@ -1,3 +1,28 @@
+### May 21, 2026 - Magic Clips / Craft Clips coordination (docs only)
+**Status:** PENDING USER VERIFY
+**Files:** instructions/request.md, implementations.md, docs/refactoring/craft-clips-ai-implementation-plan.md
+**Result:** Mapped current Magic Wand (`extension/popup/features/ai-lab/ai-lab.magic.js`, `magicClipList`, `aiCategorize`/`aiFormat`) vs planned Craft Clips revamp. Gaps: detect-only dupes, no action cards/settings toggles, dual AI modes, client category IDs. No refresh.md entry (no confirmed magic-only bug). Not implementation success.
+
+### May 21, 2026 - Clip row Share + Open delegates
+**Status:** SUCCESS
+**Files:** clips.share.js, clips.controller.js, clips.events.js, clips.render.js, popup.js
+**Result:** Restored `showShareMenuForClip` / `openClipViewer` thin delegates after popup refactor. Share overlay module extracted. User verified.
+
+### May 21, 2026 - Profile AI image data URL upload (CSP)
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** `downloadAndUploadImage` skips fetch for `data:image/` URLs; uses base64 upload path. User verified.
+
+### May 21, 2026 - AI conversation history load-more pagination
+**Status:** SUCCESS
+**Files:** ai-lab.history.js, ai-lab.constants.js, popup.html, popup.js, modals-shared.events.js, tab-nav.events.js
+**Result:** AI History tab shows 7 entries initially; Load More reveals next 7 from in-memory list (max 50). Button hidden when total ≤7. Resets on search/filter/tab open. User verified.
+
+### May 21, 2026 - popup.js final orchestrator slice (batch 3 close-out)
+**Status:** SUCCESS
+**Files:** popup.js, popup.boot.js, popup.features.js, popup.init.js, ai-lab.analysis-history.js, ai-lab.controller.js, ai-lab.summary.js, clips.state.js, categories.service.js, profile.generation-timer.js, profile.controller.js
+**Result:** Extracted analysis history, selection helpers (getSelectedOrCurrentText, clearAllSelections), boot/messaging, feature loader registry, profile AI timer, dead code removed (appendDeletedItems, moveToSearchStorage, toggleClipSelection). popup.js ~1898 → ~1549 lines. Fixed missing showSummaryModal/getSelectedOrCurrentText delegates. User verified.
+
 ### May 21, 2026 - popup.js final slice (init, auth, breakdown, profile)
 **Status:** SUCCESS
 **Files:** popup.init.js, auth.callbacks.js, auth.password-strength.js, billing.unsubscribe.js, profile.ai-image.js, profile.viewer.js, ai-lab.breakdown.js, ai-lab.summary-modal.js, popup-icons.js, popup.js, popup.html, auth/billing/profile/ai-lab controllers

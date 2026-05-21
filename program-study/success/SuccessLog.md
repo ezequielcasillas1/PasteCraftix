@@ -1,3 +1,23 @@
+### May 21, 2026 - Clip row Share + Open delegates
+**Status:** SUCCESS
+**Files:** clips.share.js, clips.controller.js, clips.events.js, clips.render.js, popup.js
+**Result:** Refactor dropped `showShareMenuForClip` on `PasteCraftPopup`; Share threw TypeError. Extracted share overlay module; restored thin delegates for open/viewer/share. User verified.
+
+### May 21, 2026 - Profile AI image data URL CSP
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** `downloadAndUploadImage` no longer fetches `data:image/...`; routes through `uploadDataUrlToProfileImages` (base64 decode). MV3 `connect-src` CSP fix for random AI / profile image flow. User verified.
+
+### May 21, 2026 - AI History load-more pagination
+**Status:** SUCCESS
+**Files:** ai-lab.history.js, ai-lab.constants.js, popup.html, modals-shared.events.js, tab-nav.events.js, popup.js
+**Result:** AI History tab shows 7 entries; Load More reveals next 7 (max 50). Button hidden when total ≤7. User verified.
+
+### May 21, 2026 - Popup orchestrator trim (batch 3 close-out)
+**Status:** SUCCESS
+**Files:** popup.js, popup.boot.js, popup.features.js, popup.init.js, ai-lab.analysis-history.js, ai-lab.summary.js, clips.state.js, categories.service.js, profile.generation-timer.js, profile.controller.js
+**Result:** Extracted analysis history, boot/messaging, feature loader registry, selection helpers, profile AI timer; removed dead code. popup.js ~1898 → ~1549 lines. User verified.
+
 ### May 21, 2026 - Supabase sync RLS grants + session guard
 **Status:** SUCCESS
 **Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js

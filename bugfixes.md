@@ -1,3 +1,8 @@
+### May 21, 2026 - Clip Share + Profile AI image CSP
+**Status:** SUCCESS (user verified)
+**Files:** popup.js, clips.share.js, clips.controller.js, clips.render.js, clips.events.js, supabase-client.js
+**Result:** Share: refactor dropped `showShareMenuForClip` on `PasteCraftPopup`; category row called missing method (`TypeError`). Restored delegates + `clips.share.js`. Profile AI: `downloadAndUploadImage` fetched `data:image/...` URLs; MV3 CSP `connect-src` blocks `data:`. Route data URLs through `uploadDataUrlToProfileImages` (base64 decode, no fetch).
+
 ### May 21, 2026 - Supabase sync 42501 user_is_not_banned
 **Status:** Fixed (verified)
 **Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
