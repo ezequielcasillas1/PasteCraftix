@@ -4,6 +4,9 @@ import * as clipEvents from './clips.events.js';
 import * as clipService from './clips.service.js';
 import * as clipState from './clips.state.js';
 import * as clipViewer from './clips.viewer.js';
+import * as clipPreview from './clips.preview.js';
+import * as clipPdf from './clips.pdf.js';
+import * as clipTitle from './clips.title.js';
 
 export function initClipsFeature(app) {
   app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
@@ -16,5 +19,8 @@ export function initClipsFeature(app) {
     service: clipService,
     state: clipState,
     viewer: clipViewer,
+    preview: clipPreview,
+    pdf: clipPdf,
+    title: clipTitle,
   };
 }
