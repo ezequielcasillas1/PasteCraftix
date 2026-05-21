@@ -521,7 +521,26 @@ export async function renderOpenRecentConversation(app) {
 
   if (typeof app.renderLucideIcons === 'function') {
     app.renderLucideIcons();
-  } else if (typeof window.renderLucideIcons === 'function') {
+  } else   if (typeof window.renderLucideIcons === 'function') {
     window.renderLucideIcons();
+  }
+}
+
+export async function handleSummaryFollowup(app, followupQuestion) {
+  const summaryFollowupInput = document.getElementById('summaryFollowupInput');
+  if (summaryFollowupInput) {
+    summaryFollowupInput.value = '';
+    summaryFollowupInput.disabled = true;
+  }
+
+  const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
+  if (summaryFollowupBtn) {
+    summaryFollowupBtn.disabled = true;
+  }
+
+  await app.generateSummary(app.currentSummaryText, followupQuestion);
+
+  if (summaryFollowupInput) {
+    summaryFollowupInput.disabled = false;
   }
 }

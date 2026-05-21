@@ -383,3 +383,18 @@ export function showCreateCategoryFromModal(app) {
     });
   }
 }
+
+export async function handleClipDelete(app) {
+  if (!app.pendingClipId) return;
+
+  if (confirm('Delete this clip permanently?')) {
+    const result = await app.deleteClipsByIdKeys([app.pendingClipId], {
+      includeArchived: true,
+      reason: 'delete:handleClipDelete',
+      closeCategoryModal: true,
+      clearSelection: true,
+      rerender: true,
+    });
+    app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
+  }
+}

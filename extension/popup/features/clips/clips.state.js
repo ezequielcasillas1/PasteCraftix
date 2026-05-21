@@ -196,6 +196,60 @@ export function updatePreviewFromSelection(app) {
   app.updateCategoryBulkActions();
 }
 
+export function getSelectedClipsText(app) {
+  return getSelectedClipObjects(app).map(c => c.text).join('\n\n');
+}
+
+export function getSelectedCategoryClipsText(app) {
+  return getSelectedCategoryClipObjects(app).map(c => c.text).join('\n\n');
+}
+
+/** Combined selected-clip text for AI actions, or single-clip fallback. */
+export function getSelectedOrCurrentText(app, clipText, context) {
+  const fallback = String(clipText || '');
+
+  if (context === 'clips') {
+    const keys = getSelectedClipIdKeys(app);
+    if (!keys.length) return fallback;
+    const text = getSelectedClipsText(app);
+    return text || fallback;
+  }
+
+  if (context === 'categories') {
+    const keys = getSelectedCategoryClipIdKeys(app);
+    if (!keys.length) return fallback;
+    const text = getSelectedCategoryClipsText(app);
+    return text || fallback;
+  }
+
+  if (context === 'search') {
+    const keys = getSelectedSearchClipIdsInUiOrder(app);
+    if (!keys.length) return fallback;
+    const allClips = [...(app.clips || []), ...(app.searchOnlyClips || [])];
+    const text = keys
+      .map((id) => allClips.find((c) => getClipIdKey(c?.id) === getClipIdKey(id))?.text)
+      .filter(Boolean)
+      .join('\n\n');
+    return text || fallback;
+  }
+
+  return fallback;
+}
+
+export function clearAllSelections(app) {
+  app.selectedChips?.clear?.();
+  app.selectedCategoryClips?.clear?.();
+  app.selectedSearchClips?.clear?.();
+
+  app.updateQuickCopyButton?.();
+  app.updateCategoryBulkActions?.();
+  app.updateSearchBulkActions?.();
+
+  if (app.currentTab === 'clips') app.renderChips?.();
+  else if (app.currentTab === 'categories') app.renderCategories?.();
+  else if (app.currentTab === 'search') app.renderSearchResults?.();
+}
+
 export function updatePreviewFromSearchSelection(app) {
   if (!app.selectedSearchClips || app.selectedSearchClips.size === 0) return;
 

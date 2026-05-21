@@ -114,7 +114,7 @@ export function resetBreakdownToEmpty(app) {
 }
 
 export async function renderOpenRecentConversation(app) {
-  await app._initializeAiLabFeature();
+  if (!app.aiLabFeature) return;
   const renderFn =
     app.aiLabFeature?.summary?.renderOpenRecentConversation
     || app.aiLabFeature?.history?.renderOpenRecentConversation;

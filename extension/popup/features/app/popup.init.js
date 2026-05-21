@@ -1,18 +1,10 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
+import { initializeAllPopupFeatures } from './popup.features.js';
+
 export async function runPopupInit(app) {
   console.log('?? Initializing PasteCraft popup...');
-  await app._initializeClipsFeature();
-  await app._initializeCategoriesFeature();
-  await app._initializeFilesFeature();
-  await app._initializeNotesFeature();
-  await app._initializeAiLabFeature();
-  await app._initializeSettingsFeature();
-  await app._initializeActivityFeature();
-  await app._initializeAuthFeature();
-  await app._initializeProfileFeature();
-  await app._initializeBillingFeature();
-  await app._initializeSyncFeature();
+  await initializeAllPopupFeatures(app);
 
   app.setupAuthModalEvents();
   app._setupSupportFormEvents();

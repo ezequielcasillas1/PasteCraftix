@@ -127,6 +127,7 @@ class PasteCraftPopup {
     this._activeSummaryHistoryId = null;   // tracks active summary conversation
     this._aiHistorySearchQuery = '';
     this._aiHistoryFilterType = 'all';
+    this._aiHistoryVisibleCount = 7;
     
     // Notes system
     this.notes = [];
@@ -173,45 +174,11 @@ class PasteCraftPopup {
       updatedAt: 0
     };
     
-    // BroadcastChannel is initialized by settingsFeature in _initializeSettingsFeature()
+    // BroadcastChannel is initialized by settingsFeature during popup init
     this._broadcastChannel = null;
     
     this.init();
   }
-
-  // =====================================================
-  // AI WORKFLOW (provider + preset) - versioned storage
-  // =====================================================
-
-  // Weighted credit cost per AI text call (mirrors server CREDIT_COST map)
-  static AI_CREDIT_COSTS = {
-    openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500 },
-    google: { default: 40, cheapest: 25, gemini_pro: 350, latest: 100 },
-  };
-
-  // Provider ? preset options mapping (single source of truth)
-  static AI_PROVIDER_PRESETS = {
-    openai: [
-      { value: 'default',   label: 'Default (4o-mini) � 40 cr' },
-      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) � 25 cr' },
-      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) � 200 cr' },
-      { value: 'latest',    label: 'Latest (GPT-5.2) � 500 cr' },
-    ],
-    google: [
-      { value: 'default',        label: 'Default (Gemini 2.0 Flash) � 40 cr' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) � 25 cr' },
-      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) � 350 cr' },
-      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) � 100 cr' },
-    ],
-    anthropic: [
-      { value: 'default', label: 'Default (Coming Soon)' },
-    ],
-    groq: [
-      { value: 'default', label: 'Default (Coming Soon)' },
-    ],
-  };
-
-  static AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
 
   _normalizeAiWorkflow(raw) {
     return this.aiLabFeature.credits._normalizeAiWorkflow.call(this, raw);
@@ -312,83 +279,6 @@ class PasteCraftPopup {
     banner.textContent = 'Loaded in offline mode � click to retry';
     banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
     (document.body || document.documentElement).appendChild(banner);
-  }
-
-  async _initializeClipsFeature() {
-    if (this.clipsFeature) return this.clipsFeature;
-    const { initClipsFeature } = await import('./popup/features/clips/clips.controller.js');
-    this.clipsFeature = initClipsFeature(this);
-    return this.clipsFeature;
-  }
-
-  async _initializeCategoriesFeature() {
-    if (this.categoriesFeature) return this.categoriesFeature;
-    const { initCategoriesFeature } = await import('./popup/features/categories/categories.controller.js');
-    this.categoriesFeature = initCategoriesFeature(this);
-    return this.categoriesFeature;
-  }
-
-  async _initializeNotesFeature() {
-    if (this.notesFeature) return this.notesFeature;
-    const { initNotesFeature } = await import('./popup/features/notes/notes.controller.js');
-    this.notesFeature = initNotesFeature(this);
-    return this.notesFeature;
-  }
-
-  async _initializeAiLabFeature() {
-    if (this.aiLabFeature) return this.aiLabFeature;
-    const { initAiLabFeature } = await import('./popup/features/ai-lab/ai-lab.controller.js');
-    this.aiLabFeature = initAiLabFeature(this);
-    return this.aiLabFeature;
-  }
-
-  async _initializeSettingsFeature() {
-    if (this.settingsFeature) return this.settingsFeature;
-    const { initSettingsFeature } = await import('./popup/features/settings/settings.controller.js');
-    this.settingsFeature = initSettingsFeature(this);
-    return this.settingsFeature;
-  }
-
-  async _initializeActivityFeature() {
-    if (this.activityFeature) return this.activityFeature;
-    const { initActivityFeature } = await import('./popup/features/activity/activity.controller.js');
-    this.activityFeature = initActivityFeature(this);
-    return this.activityFeature;
-  }
-
-  async _initializeAuthFeature() {
-    if (this.authFeature) return this.authFeature;
-    const { initAuthFeature } = await import('./popup/features/auth/auth.controller.js');
-    this.authFeature = initAuthFeature(this);
-    return this.authFeature;
-  }
-
-  async _initializeProfileFeature() {
-    if (this.profileFeature) return this.profileFeature;
-    const { initProfileFeature } = await import('./popup/features/profile/profile.controller.js');
-    this.profileFeature = initProfileFeature(this);
-    return this.profileFeature;
-  }
-
-  async _initializeBillingFeature() {
-    if (this.billingFeature) return this.billingFeature;
-    const { initBillingFeature } = await import('./popup/features/billing/billing.controller.js');
-    this.billingFeature = initBillingFeature(this);
-    return this.billingFeature;
-  }
-
-  async _initializeSyncFeature() {
-    if (this.syncFeature) return this.syncFeature;
-    const { initSyncFeature } = await import('./popup/features/sync/sync.controller.js');
-    this.syncFeature = initSyncFeature(this);
-    return this.syncFeature;
-  }
-
-  async _initializeFilesFeature() {
-    if (this.filesFeature) return this.filesFeature;
-    const { initFilesFeature } = await import('./popup/features/files/files.controller.js');
-    this.filesFeature = initFilesFeature(this);
-    return this.filesFeature;
   }
 
   async _initImpl() {
@@ -715,8 +605,20 @@ class PasteCraftPopup {
     return this.clipsFeature.render.updateQuickCopyButton(this);
   }
 
+  getSelectedOrCurrentText(clipText, context) {
+    return this.clipsFeature.state.getSelectedOrCurrentText(this, clipText, context);
+  }
+
+  clearAllSelections() {
+    return this.clipsFeature.state.clearAllSelections(this);
+  }
+
+  showSummaryModal(text) {
+    return this.aiLabFeature.summaryModal.showSummaryModal(this, text);
+  }
+
   _getSelectedClipsText() {
-    return this._getSelectedClipObjects().map(c => c.text).join('\n\n');
+    return this.clipsFeature.state.getSelectedClipsText(this);
   }
 
   _getSelectedClipIdKeys() {
@@ -736,7 +638,7 @@ class PasteCraftPopup {
   }
 
   _getSelectedCategoryClipsText() {
-    return this._getSelectedCategoryClipObjects().map(c => c.text).join('\n\n');
+    return this.clipsFeature.state.getSelectedCategoryClipsText(this);
   }
 
   _wireBulkAiButtons(config) {
@@ -923,30 +825,28 @@ class PasteCraftPopup {
     return this.clipsFeature?.pdf?.closePdfModal?.(this);
   }
 
-  // Utility Functions
-  // getTimeAgo moved up to line ~1483 to avoid duplication
-
-  async appendDeletedItems(storageKey, items) {
-    if (!storageKey || !Array.isArray(items) || items.length === 0) {
-      return;
-    }
-
-    try {
-      const result = await chrome.storage.local.get([storageKey]);
-      const existing = Array.isArray(result[storageKey]) ? result[storageKey] : [];
-      const merged = [...existing, ...items];
-      await chrome.storage.local.set({ [storageKey]: merged });
-    } catch (error) {
-      throw error;
-    }
-  }
-
   escapeHtml(text) {
     return PasteCraftPopupUi.escapeHtml(text);
   }
 
   async copyClipToClipboard(text) {
     return this.clipsFeature.service.copyClipToClipboard(this, text);
+  }
+
+  openClipViewer(clip) {
+    return this.clipsFeature?.viewer?.open?.(this, clip);
+  }
+
+  hideClipViewerModal() {
+    return this.clipsFeature?.viewer?.hide?.(this);
+  }
+
+  async copyClipViewerText() {
+    return this.clipsFeature?.viewer?.copyText?.(this);
+  }
+
+  async showShareMenuForClip(clip) {
+    return this.clipsFeature?.share?.showShareMenuForClip?.(this, clip);
   }
 
   showToast(message, type) {
@@ -1028,22 +928,7 @@ class PasteCraftPopup {
   }
 
   async handleSummaryFollowup(followupQuestion) {
-    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
-    if (summaryFollowupInput) {
-      summaryFollowupInput.value = '';
-      summaryFollowupInput.disabled = true;
-    }
-
-    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
-    if (summaryFollowupBtn) {
-      summaryFollowupBtn.disabled = true;
-    }
-
-    await this.generateSummary(this.currentSummaryText, followupQuestion);
-
-    if (summaryFollowupInput) {
-      summaryFollowupInput.disabled = false;
-    }
+    return this.aiLabFeature.summary.handleSummaryFollowup(this, followupQuestion);
   }
 
   async handleBreakdownFollowup(followupQuestion) {
@@ -1071,18 +956,7 @@ class PasteCraftPopup {
   }
 
   async handleClipDelete() {
-    if (!this.pendingClipId) return;
-    
-    if (confirm('Delete this clip permanently?')) {
-      const result = await this.deleteClipsByIdKeys([this.pendingClipId], {
-        includeArchived: true,
-        reason: 'delete:handleClipDelete',
-        closeCategoryModal: true,
-        clearSelection: true,
-        rerender: true
-      });
-      this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
-    }
+    return this.categoriesFeature.service.handleClipDelete(this);
   }
 
   async saveTextWithCategory() {
@@ -1194,42 +1068,6 @@ class PasteCraftPopup {
     return this.clipsFeature.events.setupCategoryClipDelegation(this);
   }
 
-  toggleClipSelection(clipElement, category) {
-    const clipId = this._clipIdKey(clipElement.dataset.clipId);
-    const isSelected = clipElement.classList.contains('selected');
-    
-    console.log(`?? Toggling clip selection - ID: ${clipId} (${typeof clipId}), Currently selected: ${isSelected}`);
-    
-    if (isSelected) {
-      clipElement.classList.remove('selected');
-      console.log(`? Deselecting clip ${clipId}`);
-      // Remove from selection tracking
-      this.removeClipFromSelection(clipId);
-    } else {
-      clipElement.classList.add('selected');
-      console.log(`? Selecting clip ${clipId}`);
-      // Add to selection tracking
-      this.addClipToSelection(clipId);
-    }
-    
-    this.updatePreviewFromSelection();
-  }
-
-  addClipToSelection(clipId) {
-    if (!this.selectedCategoryClips) {
-      this.selectedCategoryClips = new Set();
-    }
-    this.selectedCategoryClips.add(this._clipIdKey(clipId));
-    console.log(`? Added clip ${clipId} to selection. Total:`, Array.from(this.selectedCategoryClips));
-  }
-
-  removeClipFromSelection(clipId) {
-    if (this.selectedCategoryClips) {
-      this.selectedCategoryClips.delete(this._clipIdKey(clipId));
-    }
-    console.log(`??? Removed clip ${clipId} from selection. Remaining:`, Array.from(this.selectedCategoryClips));
-  }
-
   _findClipLocationById(clipId) {
     return this.clipsFeature?.title?.findClipLocationById?.(this, clipId) ?? null;
   }
@@ -1280,29 +1118,6 @@ class PasteCraftPopup {
 
   async handleSearchBulkCopy() {
     return this.clipsFeature.service.handleSearchBulkCopy(this);
-  }
-
-  // Search-Only Storage Management
-  async moveToSearchStorage(overflowClips) {
-    const { searchOnlyClips = [] } = await chrome.storage.local.get(['searchOnlyClips']);
-    searchOnlyClips.unshift(...overflowClips);
-    
-    // Keep search storage reasonable (max 1000 total archived clips)
-    if (searchOnlyClips.length > 1000) {
-      searchOnlyClips.splice(1000);
-    }
-    
-    this.searchOnlyClips = searchOnlyClips;
-    await chrome.storage.local.set({ searchOnlyClips });
-    console.log(`?? Moved ${overflowClips.length} clips to search-only storage`);
-    
-    // ?? AUTO-SYNC TO DATABASE
-    try {
-      await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-      console.log('? Archived clips synced to database');
-    } catch (error) {
-      console.error('?? Failed to sync archived clips to database:', error);
-    }
   }
 
   // Profile Management Functions
@@ -1462,45 +1277,13 @@ class PasteCraftPopup {
   async saveAiNameToProfile() { return this.profileFeature.storage.saveAiNameToProfile(this); }
 
   showAIGenerationTimer() {
-    const timer = document.getElementById('aiGenerationTimer');
-    const countdown = document.getElementById('aiTimerCountdown');
-    
-    if (!timer || !countdown) return;
-    
-    timer.style.display = 'flex';
-    
-    let timeLeft = 10;
-    countdown.textContent = timeLeft;
-    
-    // Clear any existing timer
-    if (this.aiGenerationTimerInterval) {
-      clearInterval(this.aiGenerationTimerInterval);
-    }
-    
-    this.aiGenerationTimerInterval = setInterval(() => {
-      timeLeft--;
-      countdown.textContent = timeLeft;
-      
-      if (timeLeft <= 0) {
-        clearInterval(this.aiGenerationTimerInterval);
-        this.aiGenerationTimerInterval = null;
-        this.hideAIGenerationTimer();
-      }
-    }, 1000);
+    return this.profileFeature.generationTimer.showAIGenerationTimer(this);
   }
 
   hideAIGenerationTimer() {
-    const timer = document.getElementById('aiGenerationTimer');
-    if (timer) {
-      timer.style.display = 'none';
-    }
-    
-    if (this.aiGenerationTimerInterval) {
-      clearInterval(this.aiGenerationTimerInterval);
-      this.aiGenerationTimerInterval = null;
-    }
+    return this.profileFeature.generationTimer.hideAIGenerationTimer(this);
   }
-  
+
   // ==================== SESSION PERSISTENCE ====================
 
   async _saveActiveTabState() {
@@ -1551,77 +1334,16 @@ class PasteCraftPopup {
     return this.authFeature.session._restoreSessionState(this);
   }
 
-  // Analysis History Functions
   async saveToAnalysisHistory(text, type, level = null, result = null) {
-    const historyEntry = {
-      id: Date.now(),
-      text: text.substring(0, 500), // Store first 500 chars
-      type,
-      level,
-      result: result ? result.substring(0, 1000) : null,
-      timestamp: Date.now(),
-      source: this.currentTab
-    };
-    
-    // Load existing history
-    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
-    
-    // Add new entry at the beginning
-    analysisHistory.unshift(historyEntry);
-    
-    // Keep only last 50 entries
-    if (analysisHistory.length > 50) {
-      analysisHistory.splice(50);
-    }
-    
-    // Save to storage
-    await chrome.storage.local.set({ analysisHistory });
-    this.analysisHistory = analysisHistory;
-    
-    console.log('? Saved to analysis history:', historyEntry);
+    return this.aiLabFeature.analysisHistory.saveToAnalysisHistory(this, text, type, level, result);
   }
-  
+
   async loadAnalysisHistory() {
-    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
-    this.analysisHistory = analysisHistory;
-    return analysisHistory;
+    return this.aiLabFeature.analysisHistory.loadAnalysisHistory(this);
   }
-  
+
   renderAnalysisHistory() {
-    // This will be called when user navigates to AI Lab, Breakdown, or Summary tabs
-    const history = this.analysisHistory;
-    
-    if (history.length === 0) {
-      return `
-        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-          <p style="font-size: 48px; margin: 0 0 16px 0; line-height: 1;" aria-hidden="true">\u2014</p>
-          <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
-          <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
-        </div>
-      `;
-    }
-    
-    return history.map(entry => {
-      const iconName = entry.type === 'breakdown' ? 'brain' : entry.type === 'summary' ? 'notebook-pen' : 'scroll-text';
-      const timeAgo = this.getTimeAgo(entry.timestamp);
-      const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
-      
-      return `
-        <div class="history-entry" style="padding: 16px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" data-entry-id="${entry.id}">
-          <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <span style="font-size: 24px;" aria-hidden="true"><i data-lucide="${iconName}"></i></span>
-            <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <span style="font-size: 13px; font-weight: 600; color: #1f2937; text-transform: capitalize;">${entry.type}</span>
-                ${levelBadge}
-                <span style="font-size: 12px; color: #9ca3af; margin-left: auto;">${timeAgo}</span>
-              </div>
-              <p style="margin: 0; font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(entry.text.substring(0, 100))}...</p>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    return this.aiLabFeature.analysisHistory.renderAnalysisHistory(this);
   }
 
   // ==================== AI HISTORY SYSTEM ====================
@@ -1645,6 +1367,14 @@ class PasteCraftPopup {
 
   renderAiHistoryList() {
     return this.aiLabFeature.history.renderAiHistoryList.call(this);
+  }
+
+  resetAiHistoryListPagination() {
+    return this.aiLabFeature.history.resetAiHistoryListPagination.call(this);
+  }
+
+  loadMoreAiHistoryList() {
+    return this.aiLabFeature.history.loadMoreAiHistoryList.call(this);
   }
 
   async openAiHistoryModal(entry) {
@@ -1838,60 +1568,6 @@ class PasteCraftPopup {
 
 }
 
-// Initialize when DOM loads
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('?? Popup script loaded');
-  window.renderLucideIcons();
-  try {
-    window.pasteCraftPopup = new PasteCraftPopup();
-  } catch (error) {
-    console.error('? Popup initialization failed:', error);
-    // Fallback simple interface
-    document.body.innerHTML = `
-      <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h2><i data-lucide="clipboard"></i> PasteCraft</h2>
-        <div id="simpleClips"></div>
-        <p style="color: #666; font-size: 12px;">Right-click selected text to save clips</p>
-      </div>
-    `;
-    loadSimpleClips();
-  }
-  window.renderLucideIcons();
+import('./popup/features/app/popup.boot.js').then(({ bootPopupPage }) => {
+  bootPopupPage(PasteCraftPopup);
 });
-
-// Also boot immediately if DOMContentLoaded already fired (resilience for any non-blocking script load edge-cases)
-if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
-  try {
-    window.pasteCraftPopup = new PasteCraftPopup();
-  } catch (error) {
-    console.error('? Popup initialization failed (immediate boot):', error);
-  }
-}
-
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  PasteCraftPopup.handleMessage(message);
-  sendResponse(true);
-});
-
-async function loadSimpleClips() {
-  const { clips = [] } = await chrome.storage.local.get(['clips']);
-  const container = document.getElementById('simpleClips');
-  
-  if (clips.length === 0) {
-    container.innerHTML = '<p style="color: #999;">No clips yet</p>';
-    return;
-  }
-  
-  clips.forEach((clip, index) => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background: #f0f0f0; margin: 8px 0; padding: 8px; border-radius: 4px; cursor: pointer;';
-    div.textContent = clip.text.substring(0, 50) + (clip.text.length > 50 ? '...' : '');
-    div.onclick = async () => {
-      await navigator.clipboard.writeText(clip.text);
-      div.style.background = '#90EE90';
-      setTimeout(() => div.style.background = '#f0f0f0', 500);
-    };
-    container.appendChild(div);
-  });
-}
