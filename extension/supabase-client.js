@@ -1,7 +1,7 @@
-// Backward-compat barrel — global singleton for popup.html script order
-import { pasteCraftSupabase, PasteCraftSupabase } from './supabase/index.js';
-
-globalThis.pasteCraftSupabase = pasteCraftSupabase;
-globalThis.PasteCraftSupabase = PasteCraftSupabase;
-
-export { pasteCraftSupabase, PasteCraftSupabase };
+// Backward-compat: optional early load via dynamic import (popup.boot is primary)
+import('./supabase/index.js')
+  .then(({ pasteCraftSupabase, PasteCraftSupabase }) => {
+    globalThis.pasteCraftSupabase = pasteCraftSupabase;
+    globalThis.PasteCraftSupabase = PasteCraftSupabase;
+  })
+  .catch((err) => console.error('[supabase-client] load failed:', err));

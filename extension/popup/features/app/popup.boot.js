@@ -1,31 +1,39 @@
 /** DOM boot, fallback UI, and background message listener. */
 
-export function bootPopupPage(PasteCraftPopupClass) {
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('?? Popup script loaded');
-    window.renderLucideIcons?.();
-    try {
-      window.pasteCraftPopup = new PasteCraftPopupClass();
-    } catch (error) {
-      console.error('? Popup initialization failed:', error);
-      document.body.innerHTML = `
+async function ensureSupabaseGlobals() {
+  if (globalThis.pasteCraftSupabase) return;
+  const mod = await import('../../../supabase/index.js');
+  globalThis.pasteCraftSupabase = mod.pasteCraftSupabase;
+  globalThis.PasteCraftSupabase = mod.PasteCraftSupabase;
+}
+
+async function startPopup(PasteCraftPopupClass) {
+  await ensureSupabaseGlobals();
+  window.renderLucideIcons?.();
+  try {
+    window.pasteCraftPopup = new PasteCraftPopupClass();
+  } catch (error) {
+    console.error('? Popup initialization failed:', error);
+    document.body.innerHTML = `
       <div style="padding: 20px; font-family: Arial, sans-serif;">
         <h2><i data-lucide="clipboard"></i> PasteCraft</h2>
         <div id="simpleClips"></div>
         <p style="color: #666; font-size: 12px;">Right-click selected text to save clips</p>
       </div>
     `;
-      loadSimpleClips();
-    }
-    window.renderLucideIcons?.();
+    loadSimpleClips();
+  }
+  window.renderLucideIcons?.();
+}
+
+export function bootPopupPage(PasteCraftPopupClass) {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('?? Popup script loaded');
+    startPopup(PasteCraftPopupClass);
   });
 
   if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
-    try {
-      window.pasteCraftPopup = new PasteCraftPopupClass();
-    } catch (error) {
-      console.error('? Popup initialization failed (immediate boot):', error);
-    }
+    startPopup(PasteCraftPopupClass);
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

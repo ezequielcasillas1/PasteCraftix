@@ -114,6 +114,46 @@ async aiCategorize(clips) {
   }
 }
 
+async aiCategorizeSuggestions(clips) {
+  try {
+    if (!Array.isArray(clips) || clips.length === 0) return [];
+
+    let accessToken = '';
+    try {
+      const s = await this.client?.auth?.getSession?.();
+      accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+    } catch (_) {}
+
+    const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-categorize`;
+    const body = {
+      mode: 'suggestions',
+      clips: clips.map(c => ({ text: String(c.text || '').slice(0, 200) })),
+    };
+
+    const response = await this._fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': accessToken
+          ? `Bearer ${accessToken}`
+          : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+      },
+      body: JSON.stringify(body)
+    }, 20000, 'AI category suggestions timed out');
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'AI category suggestions failed');
+    }
+
+    const data = await response.json();
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch (error) {
+    console.error('AI categorize suggestions failed:', error);
+    return [];
+  }
+}
+
 // ─── AI Smart Format (Magic Wand) ───
 async aiFormat(clips) {
   try {
