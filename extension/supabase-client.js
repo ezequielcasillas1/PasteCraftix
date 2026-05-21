@@ -4387,9 +4387,21 @@ class PasteCraftSupabase {
   }
 
   async getEffectiveAccessState(userId) {
-    // RPC function 'get_effective_access_state' does not exist in Supabase
-    // Return null to use fallback subscription-based access checks
-    return null;
+    if (!userId || !this.client) return null;
+    try {
+      const { data, error } = await this.client.rpc('get_effective_access_state', {
+        p_user_id: userId,
+      });
+      if (error) {
+        console.warn('get_effective_access_state:', error.message);
+        return null;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      return row && typeof row === 'object' ? row : null;
+    } catch (err) {
+      console.warn('get_effective_access_state failed:', err?.message || err);
+      return null;
+    }
   }
 
   /**
