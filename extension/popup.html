@@ -9728,6 +9728,24 @@ Multiple clips are separated by:
             </div>
         </div>
 
+        <!-- Craft Clips: AI category pick (before results) -->
+        <div class="modal-overlay" id="craftCategoryPickModal" style="display: none;">
+            <div class="modal-content craft-category-pick-modal">
+                <div class="modal-header craft-category-pick-header">
+                    <h3><i data-lucide="folder"></i> Pick a category</h3>
+                    <button class="modal-close" id="closeCraftCategoryPick" type="button" aria-label="Close">✕</button>
+                </div>
+                <div class="modal-body craft-category-pick-body">
+                    <p class="craft-category-pick-hint">AI suggested titles for your crafted clips. Select one to apply.</p>
+                    <div class="craft-category-pick-list" id="craftCategoryPickList" role="radiogroup" aria-label="Category suggestions"></div>
+                </div>
+                <div class="modal-footer craft-category-pick-footer">
+                    <button type="button" class="btn-secondary" id="craftCategoryPickSkip">Keep Uncategorized</button>
+                    <button type="button" class="btn-primary" id="craftCategoryPickApply" disabled>Apply category</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Craft Clips Results Modal -->
         <div class="modal-overlay" id="magicResultsModal" style="display: none;">
             <div class="modal-content magic-results-modal">
@@ -9784,7 +9802,7 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="folder"></i></div>
                         <div class="magic-info-detail">
                             <h4>Smart Categorization</h4>
-                            <p>Automatically assigns categories to uncategorized clips. Premium users get <strong>AI-powered</strong> categorization with smart, reusable titles.</p>
+                            <p>After craft, premium users choose from <strong>5 AI category titles</strong> (up to 7 words each) before results.</p>
                             <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
                         </div>
                     </div>
@@ -11141,7 +11159,6 @@ alice@email.com</div>
 
     <!-- Config and Database Client -->
     <script src="config.js"></script>
-    <script src="supabase-client.js"></script>
     <script src="indexeddb-store.js"></script>
     <!-- Tiered Storage (lazy loading) -->
     <script src="storage-meter.js"></script>
