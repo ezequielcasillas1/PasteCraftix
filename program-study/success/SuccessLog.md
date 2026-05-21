@@ -1,3 +1,8 @@
+### May 21, 2026 - Popup refactor batch 3
+**Status:** SUCCESS
+**Files:** extension/popup/features/clips/clips.pdf.js, clips.title.js, billing.upgrade-ui.js, ai-lab.bulk.js, ai-lab.session-state.js, clips.controller.js, billing.controller.js, ai-lab.controller.js, extension/popup.js
+**Result:** PDF, billing upgrade UI, clip titles, AI bulk, session state extracted; popup.js ~621 lines slimmer
+
 ### 2026-05-19 - Notes Delete Persistence
 **Status:** SUCCESS
 **Files:** extension/popup/features/notes/notes.service.js, extension/popup/features/notes/notes.render.js, extension/popup.js

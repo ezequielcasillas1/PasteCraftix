@@ -1,3 +1,23 @@
+### May 21, 2026 - popup.js batch 3 (pdf, billing, titles, bulk AI, session)
+**Status:** SUCCESS
+**Files:** clips.pdf.js, clips.title.js, billing.upgrade-ui.js, ai-lab.bulk.js, ai-lab.session-state.js, clips.controller.js, billing.controller.js, ai-lab.controller.js, popup.js
+**Result:** Extracted PDF modal (~310 LoC), freemium upgrade UI (~20), clip title CRUD (~130), bulk AI button wiring (~50), AI Lab session persistence (~185). popup.js ~620 lines slimmer; thin delegates retained.
+
+### May 21, 2026 - popup.js batch 2 (restore, repair, visibility)
+**Status:** Pending verification
+**Files:** settings.restore.js, sync.repair.js, sync.visibility.js, settings.controller.js, sync.controller.js, popup-ui.js, popup.js
+**Result:** Extracted restore points (~240 LoC), repairLocalClipIds (~80), setupVisibilityListener, setActionButtonLoading. popup.js ~314 lines slimmer; delegates on settingsFeature.restore + syncFeature.
+
+### May 19, 2026 - PasteCraftCRUD Shared Module Extraction
+**Status:** Pending verification
+**Files:** extension/popup/shared/pastecraft-crud.js, extension/popup.html, extension/popup.js
+**Result:** Moved PasteCraftCRUD (~560 lines) out of popup.js into IIFE shared script (async-utils pattern). popup.html loads pastecraft-crud.js before popup.js. CodeScene popup.js 2.34 → 2.78; new file 4.51. Feature modules unchanged (window.PasteCraftCRUD).
+
+### May 19, 2026 - Supabase SECURITY DEFINER RPC Hardening
+**Status:** Applied (pending advisor recount + extension smoke test)
+**Files:** db/migrations/20260519_harden_security_definer_rpc_grants.sql, extension/supabase-client.js
+**Result:** Dropped `set_config`; revoked EXECUTE on internal/admin SECURITY DEFINER RPCs from anon/PUBLIC; granted `get_effective_access_state` to authenticated (SECURITY INVOKER, uuid cast fix). **Follow-up:** `user_is_not_banned` must keep EXECUTE for `authenticated` (RLS ban_gate policies). Security advisor: 31 → ~2 warnings (`pg_net` + optional `user_is_not_banned` RPC lint).
+
 ### May 19, 2026 - Clip Viewer Modular Extraction
 **Status:** Pending verification
 **Files:** extension/popup/features/clips/clips.viewer.js, clips.controller.js, extension/popup.js
@@ -182,3 +202,8 @@
 **Status:** SUCCESS
 **Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
 **Result:** AI history syncs to Supabase. Added `ai_history` table + RLS. View always allowed regardless of subscription. `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()` added. No custom RLS plumbing — queries by user_id, lets RLS handle auth.
+
+### May 21, 2026 - popup.js safe slice batch (non-risky)
+**Status:** PENDING USER VERIFY
+**Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
+**Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.

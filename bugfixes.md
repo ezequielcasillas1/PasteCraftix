@@ -1,3 +1,13 @@
+### May 21, 2026 - Popup delete toast + craft toggles regression
+**Status:** Fixed (pending reload test)
+**Files:** popup-ui.js, popup.js, clips.preview.js, clips.state.js, clips.service.js, craft-toolbar.events.js
+**Result:** Chip × delete had no toast (`removeChip`); `showToast` accepts type again. Craft toggles called `updatePreviewFromSelection` on Clips tab and wiped preview/joiner UX; guarded to Categories-only + tab-aware preview updates.
+
+### May 19, 2026 - Supabase hardening broke sync (user_is_not_banned)
+**Status:** Fixed (pending reload test)
+**Files:** db/migrations/20260519_fix_rls_helper_function_grants.sql (applied via MCP)
+**Result:** Revoking EXECUTE on `user_is_not_banned` caused 403 on clips/settings/ai_history (`permission denied for function user_is_not_banned`). RLS ban_gate_* policies need authenticated EXECUTE. Also fixed `get_effective_access_state` uuid vs text (`user_subscriptions.user_id` is uuid).
+
 ### May 19, 2026 - Popup console fixes v2 (3.0.7)
 **Status:** Fixed (pending reload test)
 **Files:** popup.js, clips.service.js, background.js, sync.loader.js, manifest.json (3.0.7)
