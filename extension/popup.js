@@ -22,565 +22,7 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
   console.info = pastecraftNoop;
 }
 
-/**
- * =====================================================
- * CRUD UTILITY CLASS - 5 Best Practices Implementation
- * =====================================================
- * 
- * Provides reliable CRUD operations with:
- * 1. Validation - Verify inputs and state before operations
- * 2. Transaction-like State Snapshot - Save state for rollback
- * 3. Retry Logic - Retry failed operations with exponential backoff
- * 4. Idempotency - Safe to retry operations
- * 5. Verification - Verify operations succeeded before proceeding
- */
-class PasteCraftCRUD {
-  /**
-   * Retry operation with exponential backoff
-   */
-  static async retryOperation(operation, maxRetries = 3, baseDelay = 100) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        if (attempt === maxRetries - 1) throw error;
-        const delay = baseDelay * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  /**
-   * Create state snapshot for rollback
-   */
-  static createSnapshot(data) {
-    return JSON.parse(JSON.stringify(data));
-  }
-
-  /**
-   * Restore state from snapshot
-   */
-  static restoreSnapshot(target, snapshot) {
-    Object.keys(snapshot).forEach(key => {
-      target[key] = snapshot[key];
-    });
-  }
-
-  /**
-   * Generic CRUD DELETE operation with all 5 best practices
-   */
-  static async deleteOperation({
-    // Entity identification
-    entityId,
-    entityName,
-    entityType, // 'clip', 'category', 'note', 'setting', etc.
-    
-    // State management
-    stateGetter, // () => ({ items: [], ... })
-    stateSetter, // (newState) => Promise<void>
-    stateKeys, // ['clips', 'categories'] - keys to snapshot
-    
-    // Validation
-    validator, // (entity, state) => { valid: boolean, error?: string }
-    idempotencyCheck, // (entityId, newState) => boolean - returns true if already deleted
-    
-    // Storage operations
-    storageKeys, // ['clips', 'searchOnlyClips'] - keys to write to storage
-    storageWriter, // (data) => Promise<void> - custom storage writer
-    
-    // Deletion logic
-    deleteFromArray, // (items, entityId) => items - filter function
-    updateRelatedEntities, // (state, entity) => state - update related data
-    
-    // Atomic secondary-store hard-delete (optional).
-    // When provided, runs in the SAME step as storageWriter so IndexedDB
-    // can never shadow chrome.storage on the next loadData().
-    idbStoreName, // e.g. 'categories' | 'clips' | 'notes'
-    idbExtraIds, // optional extra ids to hard-delete from IDB
-    
-    // Local tombstone bookkeeping (optional).
-    // When provided, the tombstone is written BEFORE the background sync
-    // so the mergeX helpers honor it even if a realtime echo races.
-    tombstoneStorageKey, // e.g. 'pc_deleted_categories'
-    
-    // Verification
-    verifier, // (entityId, storedData) => boolean - verify deletion persisted
-    
-    // UI updates
-    uiUpdater, // () => void - update UI after successful deletion
-    
-    // Background sync (optional, non-blocking)
-    backgroundSync, // (entity, deletedAt) => Promise<void>
-    
-    // User feedback
-    successMessage, // string or (entity) => string
-    errorMessage, // string or (error) => string
-    showToast // (message, type) => void
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entityId) {
-      const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot delete';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity ID' };
-    }
-
-    const currentState = stateGetter();
-    if (!currentState || typeof currentState !== 'object') {
-      const msg = errorMessage?.('Invalid state') || 'Invalid state - cannot delete';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid state' };
-    }
-
-    // Custom validation
-    if (validator) {
-      const validation = validator({ id: entityId, name: entityName }, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // Idempotency check - already deleted?
-    if (idempotencyCheck) {
-      const alreadyDeleted = idempotencyCheck(entityId, currentState);
-      if (alreadyDeleted) {
-        const msg = successMessage?.({ id: entityId, name: entityName }) || 'Already deleted';
-        showToast?.(msg, 'success');
-        return { success: true, skipped: true };
-      }
-    }
-
-    // PRACTICE #2: TRANSACTION-LIKE STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          await PasteCraftCRUD.retryOperation(async () => {
-            const storageData = {};
-            storageKeys.forEach(key => {
-              if (currentState[key] !== undefined) {
-                storageData[key] = currentState[key];
-              }
-            });
-            await storageWriter(storageData);
-          });
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error(`? Rollback failed for ${entityType}:`, rollbackError);
-      }
-    };
-
-    try {
-      const deletedAt = Date.now();
-      const entity = { id: entityId, name: entityName, deletedAt };
-
-      // Step 1: Update related entities (e.g., move clips to Uncategorized)
-      if (updateRelatedEntities) {
-        updateRelatedEntities(currentState, entity);
-      }
-
-      // Step 2: Remove from array
-      if (deleteFromArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = deleteFromArray(currentState[key], entityId);
-          }
-        });
-      }
-
-      // PRACTICE #4: IDEMPOTENCY CHECK - Verify entity was removed
-      const stillExists = stateKeys.some(key => {
-        if (Array.isArray(currentState[key])) {
-          return currentState[key].some((item) => {
-            if (entityType === 'note') return item.id == entityId;
-            return item.id === entityId;
-          });
-        }
-        return false;
-      });
-      if (stillExists) {
-        throw new Error(`${entityType} still exists after deletion operation`);
-      }
-
-      // Step 3: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3b: OPTIMISTIC UI - render the removal immediately so the
-      // user sees the item disappear without waiting on storage/IDB/verifier.
-      // If any downstream write fails, `rollback()` restores state and re-renders.
-      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
-
-      // Step 4: Persist to storage with retry
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      // Step 4b: ATOMIC SECONDARY-STORE HARD DELETE
-      // Without this, IndexedDB can still contain the row and overwrite
-      // chrome.storage on the next loadData() (see popup.js loadData IDB merge).
-      if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-        try {
-          const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
-          await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
-          const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
-          if (idbStateKey && Array.isArray(currentState[idbStateKey]) && typeof window.pasteCraftIndexedDB.syncEntityFromLocalStorage === 'function') {
-            await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(idbStoreName, currentState[idbStateKey]);
-          }
-        } catch (idbErr) {
-          console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
-        }
-      }
-
-      // Step 4c: RECORD LOCAL TOMBSTONE BEFORE BACKGROUND SYNC
-      // Ensures mergeX helpers honor the delete even if a realtime echo races.
-      if (tombstoneStorageKey) {
-        try {
-          const existing = await new Promise((resolve) => {
-            chrome.storage.local.get([tombstoneStorageKey], (res) => resolve(res || {}));
-          });
-          const prev = Array.isArray(existing[tombstoneStorageKey]) ? existing[tombstoneStorageKey] : [];
-          const already = prev.some((t) => t && String(t.id) === String(entityId));
-          if (!already) {
-            const tombstone = { id: entityId, name: entityName, deletedAt, updatedAt: deletedAt };
-            await new Promise((resolve) => {
-              chrome.storage.local.set({ [tombstoneStorageKey]: [...prev, tombstone] }, resolve);
-            });
-          }
-        } catch (tombErr) {
-          console.warn(`?? Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
-        }
-      }
-
-      const msg = successMessage?.({ id: entityId, name: entityName }) || `${entityType} deleted`;
-      showToast?.(msg, 'success');
-
-      // PRACTICE #5: VERIFICATION - diagnostic only, off the critical path.
-      // chrome.storage + IDB writes above already acknowledged; re-reading
-      // storage just to block the UI was the main lag source, so we now
-      // only log mismatches instead of throwing.
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entityId))
-          .then((ok) => {
-            if (!ok) console.warn(`?? Post-write verification still sees ${entityType}:`, entityId);
-          })
-          .catch((verErr) => console.warn(`?? Verifier threw (${entityType} delete):`, verErr));
-      }
-
-      // Background sync (non-blocking)
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync(entity, deletedAt))
-          .catch((error) => {
-            console.error(`?? Background sync failed for ${entityType} (local deletion succeeded):`, error);
-          });
-      }
-
-      return { success: true, entity };
-    } catch (error) {
-      // Rollback on any failure
-      console.error(`? ${entityType} deletion failed, rolling back:`, error);
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to delete ${entityType}: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-
-  /**
-   * Generic CRUD CREATE operation with all 5 best practices
-   */
-  static async createOperation({
-    entity,
-    stateGetter,
-    stateSetter,
-    stateKeys,
-    validator,
-    duplicateCheck, // (entity, state) => boolean - returns true if duplicate exists
-    storageKeys,
-    storageWriter,
-    addToArray, // (items, entity) => items - add function
-    verifier, // (entity, storedData) => boolean
-    uiUpdater,
-    backgroundSync,
-    successMessage,
-    errorMessage,
-    showToast
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entity || !entity.id) {
-      const msg = errorMessage?.('Invalid entity') || 'Invalid entity - cannot create';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity' };
-    }
-
-    const currentState = stateGetter();
-    if (!currentState || typeof currentState !== 'object') {
-      const msg = errorMessage?.('Invalid state') || 'Invalid state - cannot create';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid state' };
-    }
-
-    if (validator) {
-      const validation = validator(entity, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // Duplicate check
-    if (duplicateCheck && duplicateCheck(entity, currentState)) {
-      const msg = errorMessage?.('Duplicate entity') || 'Entity already exists';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Duplicate entity' };
-    }
-
-    // PRACTICE #2: STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          await storageWriter(storageData);
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error('? Rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // Step 1: Add to array
-      if (addToArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = addToArray(currentState[key], entity);
-          }
-        });
-      }
-
-      // Step 2: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3: OPTIMISTIC UI - paint the change immediately so the user
-      // sees the new entity without waiting on chrome.storage or verifier I/O.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (create, optimistic):', uiErr); }
-
-      // Step 4: Persist with retry (still awaited so rollback fires on real failure)
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      const msg = successMessage?.(entity) || 'Entity created';
-      showToast?.(msg, 'success');
-
-      // Step 5: Verifier is diagnostic-only now (off the critical path).
-      //   If it fails we just warn � we do NOT rollback a write that Chrome
-      //   acknowledged. This removes the biggest source of perceived lag.
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entity))
-          .then((ok) => {
-            if (!ok) console.warn('?? Post-write verification missed entity (create):', entity?.id);
-          })
-          .catch((verErr) => console.warn('?? Verifier threw (create):', verErr));
-      }
-
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync(entity))
-          .catch((error) => {
-            console.error('?? Background sync failed (local creation succeeded):', error);
-          });
-      }
-
-      return { success: true, entity };
-    } catch (error) {
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to create: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-
-  /**
-   * Generic CRUD UPDATE operation with all 5 best practices
-   */
-  static async updateOperation({
-    entityId,
-    updates,
-    stateGetter,
-    stateSetter,
-    stateKeys,
-    validator,
-    storageKeys,
-    storageWriter,
-    updateInArray, // (items, entityId, updates) => items
-    verifier,
-    uiUpdater,
-    backgroundSync,
-    successMessage,
-    errorMessage,
-    showToast
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entityId) {
-      const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot update';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity ID' };
-    }
-
-    const currentState = stateGetter();
-    const entity = stateKeys
-      .map(key => Array.isArray(currentState[key]) ? currentState[key].find(item => item.id === entityId) : null)
-      .find(item => item !== null);
-
-    if (!entity) {
-      const msg = errorMessage?.('Entity not found') || 'Entity not found';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Entity not found' };
-    }
-
-    if (validator) {
-      const validation = validator({ ...entity, ...updates }, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // PRACTICE #2: STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          await storageWriter(storageData);
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error('? Rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // Step 1: Update in array
-      if (updateInArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = updateInArray(currentState[key], entityId, updates);
-          }
-        });
-      }
-
-      // Step 2: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3: OPTIMISTIC UI - render the updated entity immediately.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (update, optimistic):', uiErr); }
-
-      // Step 4: Persist with retry
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      const msg = successMessage?.({ ...entity, ...updates }) || 'Entity updated';
-      showToast?.(msg, 'success');
-
-      // Step 5: Verifier is diagnostic-only now (off the critical path).
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entityId, updates))
-          .then((ok) => {
-            if (!ok) console.warn('?? Post-write verification failed (update):', entityId);
-          })
-          .catch((verErr) => console.warn('?? Verifier threw (update):', verErr));
-      }
-
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync({ ...entity, ...updates }))
-          .catch((error) => {
-            console.error('?? Background sync failed (local update succeeded):', error);
-          });
-      }
-
-      return { success: true, entity: { ...entity, ...updates } };
-    } catch (error) {
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to update: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-}
-
-if (typeof window !== 'undefined') {
-  window.PasteCraftCRUD = PasteCraftCRUD;
-}
+// PasteCraftCRUD — loaded from popup/shared/pastecraft-crud.js (before popup.js)
 
 class PasteCraftPopup {
   constructor() {
@@ -1218,357 +660,45 @@ class PasteCraftPopup {
   // RESTORE POINTS (Local daily snapshots)
   // =====================================================
 
-  _restoreWindowToMs(windowKey) {
-    const m = {
-      '1day': 24 * 60 * 60 * 1000,
-      '1week': 7 * 24 * 60 * 60 * 1000,
-      '2weeks': 14 * 24 * 60 * 60 * 1000,
-      '4weeks': 28 * 24 * 60 * 60 * 1000
-    };
-    return m[windowKey] || m['1week'];
-  }
-
-  _localDateKey(ts) {
-    const d = new Date(typeof ts === 'number' ? ts : Date.now());
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  async _loadRestorePoints() {
-    try {
-      const res = await chrome.storage.local.get([this._restorePointsKey]);
-      const raw = res ? res[this._restorePointsKey] : null;
-      return Array.isArray(raw) ? raw : [];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  async _saveRestorePoints(points) {
-    try {
-      await chrome.storage.local.set({ [this._restorePointsKey]: points });
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  _pruneRestorePoints(points) {
-    const arr = Array.isArray(points) ? points : [];
-    const valid = arr
-      .filter(p => p && typeof p === 'object')
-      .map(p => ({
-        ...p,
-        createdAt: typeof p.createdAt === 'number' ? p.createdAt : 0,
-        kind: typeof p.kind === 'string' ? p.kind : 'daily',
-        dateKey: typeof p.dateKey === 'string' ? p.dateKey : ''
-      }))
-      .filter(p => p.createdAt > 0);
-
-    // Sort newest first
-    valid.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    // Keep unique daily points by dateKey, newest wins
-    const dailyByDate = new Map();
-    const manual = [];
-    for (const p of valid) {
-      if (p.kind === 'manual') {
-        manual.push(p);
-        continue;
-      }
-      const k = p.dateKey || this._localDateKey(p.createdAt);
-      if (!dailyByDate.has(k)) dailyByDate.set(k, { ...p, dateKey: k, kind: 'daily' });
-    }
-
-    const daily = Array.from(dailyByDate.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const keptDaily = daily.slice(0, 28);
-    const keptManual = manual.slice(0, 5);
-
-    const out = [...keptManual, ...keptDaily].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    return out;
-  }
-
-  _buildRestoreSnapshotFromLocal(local) {
-    const source = local && typeof local === 'object' ? local : {};
-    const repaired = this.repairLocalClipIds(source.clips, source.searchOnlyClips);
-    const clips = Array.isArray(repaired.clips) ? repaired.clips.slice(0, 500) : [];
-    const searchOnlyClips = Array.isArray(repaired.searchOnlyClips) ? repaired.searchOnlyClips.slice(0, 1000) : [];
-    const categories = Array.isArray(source.categories) ? source.categories.slice(0, 300) : [];
-    const notes = Array.isArray(source.notes) ? source.notes.slice(0, 300) : [];
-    return { clips, searchOnlyClips, categories, notes };
-  }
-
   async maybeCreateDailyRestorePoint(reason = 'daily', localOverride = null) {
-    // Create at most one daily restore point per local day.
-    const now = Date.now();
-    const todayKey = this._localDateKey(now);
-
-    const points = await this._loadRestorePoints();
-    const hasToday = points.some(p => p && p.kind !== 'manual' && (p.dateKey === todayKey || this._localDateKey(p.createdAt) === todayKey));
-    if (hasToday) return false;
-
-    let local = localOverride;
-    if (!local) {
-      local = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'notes']);
-    }
-
-    const snap = this._buildRestoreSnapshotFromLocal(local);
-    const point = {
-      id: `rp_${now}_${Math.random().toString(36).slice(2, 8)}`,
-      kind: 'daily',
-      reason: String(reason || 'daily').slice(0, 60),
-      createdAt: now,
-      dateKey: todayKey,
-      ...snap
-    };
-
-    const next = this._pruneRestorePoints([point, ...(Array.isArray(points) ? points : [])]);
-    await this._saveRestorePoints(next);
-    return true;
+    return this.settingsFeature?.restore?.maybeCreateDailyRestorePoint?.(reason, localOverride);
   }
 
   async createManualRestorePoint(reason = 'manual') {
-    const now = Date.now();
-    const points = await this._loadRestorePoints();
-    const local = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'notes']);
-    const snap = this._buildRestoreSnapshotFromLocal(local);
-
-    const point = {
-      id: `rp_${now}_${Math.random().toString(36).slice(2, 8)}`,
-      kind: 'manual',
-      reason: String(reason || 'manual').slice(0, 60),
-      createdAt: now,
-      dateKey: this._localDateKey(now),
-      ...snap
-    };
-
-    const next = this._pruneRestorePoints([point, ...(Array.isArray(points) ? points : [])]);
-    await this._saveRestorePoints(next);
-    return point;
-  }
-
-  _selectRestorePointForWindow(points, windowKey) {
-    const arr = Array.isArray(points) ? points.slice() : [];
-    if (arr.length === 0) return { point: null, cutoffMs: 0 };
-
-    arr.sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
-    const cutoffMs = Date.now() - this._restoreWindowToMs(windowKey);
-
-    const match = arr.find(p => p && typeof p.createdAt === 'number' && p.createdAt <= cutoffMs) || null;
-    if (match) return { point: match, cutoffMs };
-
-    // No point old enough: fall back to the oldest available.
-    const oldest = arr[arr.length - 1] || null;
-    return { point: oldest, cutoffMs };
-  }
-
-  _formatRestorePreview(point, windowKey, cutoffMs) {
-    if (!point) return 'No restore points found yet.';
-    const when = new Date(point.createdAt).toLocaleString();
-    const active = Array.isArray(point.clips) ? point.clips.length : 0;
-    const archived = Array.isArray(point.searchOnlyClips) ? point.searchOnlyClips.length : 0;
-    const categories = Array.isArray(point.categories) ? point.categories.length : 0;
-    const notes = Array.isArray(point.notes) ? point.notes.length : 0;
-    const target = new Date(cutoffMs).toLocaleString();
-    const reason = point.reason ? ` � ${String(point.reason)}` : '';
-    return `Restore point: ${when}${reason}. Target window: ${windowKey} (= ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
+    return this.settingsFeature?.restore?.createManualRestorePoint?.(reason);
   }
 
   async previewRestore(windowKey) {
-    const points = await this._loadRestorePoints();
-    const { point, cutoffMs } = this._selectRestorePointForWindow(points, windowKey);
-    this._lastPreviewRestore = { point, cutoffMs, windowKey };
-
-    const el = document.getElementById('restorePreviewText');
-    if (el) el.textContent = this._formatRestorePreview(point, windowKey, cutoffMs);
-
-    return { point, cutoffMs };
+    return this.settingsFeature?.restore?.previewRestore?.(windowKey);
   }
 
   async applyRestoreFromPreview() {
-    const preview = this._lastPreviewRestore;
-    const point = preview && preview.point ? preview.point : null;
-    if (!point) {
-      this.showToast('No restore point available yet', 'error');
-      return false;
-    }
-
-    // Safety net: create a manual restore point before overwriting local storage.
-    try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
-
-    const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click "Sync restored data to cloud".\n\nProceed?'
-    );
-    if (!ok) return false;
-
-    const clips = Array.isArray(point.clips) ? point.clips.slice(0, 500) : [];
-    const searchOnlyClips = Array.isArray(point.searchOnlyClips) ? point.searchOnlyClips.slice(0, 1000) : [];
-    const categories = Array.isArray(point.categories) ? point.categories.slice(0, 300) : [];
-    const notes = Array.isArray(point.notes) ? point.notes.slice(0, 300) : [];
-
-    const appliedAt = Date.now();
-    await chrome.storage.local.set({
-      clips,
-      searchOnlyClips,
-      categories,
-      notes,
-      pc_local_updatedAt: appliedAt,
-      [this._lastRestoreAtKey]: appliedAt,
-      [this._lastRestorePointIdKey]: point.id || ''
-    });
-
-    // Update in-memory state + UI
-    await this.loadData();
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-    this.updatePreview();
-    this.updateLastCapture();
-    try { this.updateStorageStats(); } catch (_) {}
-
-    this._lastAppliedRestore = { point, appliedAt };
-    const btn = document.getElementById('syncRestoredToCloudBtn');
-    if (btn) btn.disabled = false;
-
-    this.showToast('Restore complete (local only)');
-    return true;
+    return this.settingsFeature?.restore?.applyRestoreFromPreview?.();
   }
 
   async syncRestoredDataToCloud() {
-    const applied = this._lastAppliedRestore;
-    if (!applied || !applied.point) {
-      this.showToast('Restore first, then sync to cloud', 'error');
-      return false;
-    }
-
-    const ok = confirm(
-      'This will sync your CURRENT local state to the cloud.\n\nThis may overwrite cloud clips to match the restored snapshot.\n\nProceed?'
-    );
-    if (!ok) return false;
-
-    await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
-    this.showToast('Synced restored data to cloud');
-    return true;
+    return this.settingsFeature?.restore?.syncRestoredDataToCloud?.();
   }
 
   repairLocalClipIds(clipsRaw, searchOnlyRaw) {
-    const normalize = (raw) => {
-      const arr = Array.isArray(raw) ? raw : [];
-      const seen = new Set();
-      let changed = false;
-
-      const hashText = (t) => {
-        const s = String(t || '');
-        let h = 2166136261;
-        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-        return (h >>> 0).toString(36);
-      };
-
-      const toObj = (clip, i) => {
-        if (typeof clip === 'string') {
-          changed = true;
-          const ts = Date.now();
-          return {
-            id: `${ts}_${hashText(clip)}_${i}`,
-            text: clip,
-            category: 'Uncategorized',
-            timestamp: ts
-          };
-        }
-        if (clip && typeof clip === 'object') return { ...clip };
-        changed = true;
-        return null;
-      };
-
-      const out = [];
-      for (let i = 0; i < arr.length; i++) {
-        const c = toObj(arr[i], i);
-        if (!c) continue;
-        if (!c.text) { changed = true; continue; }
-
-        const ts = typeof c.timestamp === 'number' ? c.timestamp : Date.now();
-        if (typeof c.timestamp !== 'number') { c.timestamp = ts; changed = true; }
-
-        let id = c.id ?? c.clip_id ?? c.clipId ?? null;
-        if (id == null) {
-          id = `${ts}_${hashText(c.text)}_${i}`;
-          c.id = id;
-          changed = true;
-        } else {
-          if (c.id == null) { c.id = id; changed = true; }
-        }
-
-        const key = String(c.id);
-        if (seen.has(key)) {
-          // If duplicate id is actually the same clip content, drop it to prevent user-visible dupes.
-          // Otherwise, mint a stable-ish new id.
-          const contentKey = `${hashText(c.text)}:${Math.floor(ts / 3000)}:${String(c.category || 'Uncategorized')}`;
-          const hasSameContentAlready = out.some(x => `${hashText(x.text)}:${Math.floor((x.timestamp || 0) / 3000)}:${String(x.category || 'Uncategorized')}` === contentKey);
-          if (hasSameContentAlready) {
-            changed = true;
-            continue;
-          }
-          c.id = `${key}__r${ts}_${i}`;
-          changed = true;
-        }
-        seen.add(String(c.id));
-        out.push(c);
-      }
-
-      return { out, changed };
-    };
-
-    const active = normalize(clipsRaw);
-    const archived = normalize(searchOnlyRaw);
-
-    return {
-      changed: !!(active.changed || archived.changed),
-      activeChanged: !!active.changed,
-      archivedChanged: !!archived.changed,
-      clips: active.out,
-      searchOnlyClips: archived.out
-    };
+    return this.syncFeature?.repair?.repairLocalClipIds?.(clipsRaw, searchOnlyRaw);
   }
-  
+
   async performBackgroundSync(options) {
     return this.syncFeature?.listener?.performBackgroundSync?.(this, options);
   }
   
   hideLoadingOverlay() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-      overlay.style.opacity = '0';
-      overlay.style.transition = 'opacity 0.3s ease';
-      setTimeout(() => {
-        overlay.style.display = 'none';
-        console.log('? Loading overlay hidden');
-      }, 300);
-    }
+    return PasteCraftPopupUi.hideLoadingOverlay();
   }
 
   // -- Upgrade UI (Freemium ? Basic/Enhanced) --------------------------
   _isFreemiumUser() {
-    const sub = this.userSubscription;
-    if (!sub) return true;
-    const tier = String(sub.subscription_tier || '').toLowerCase();
-    const status = String(sub.subscription_status || '').toLowerCase();
-    if (tier === 'admin') return false;
-    if ((tier === 'premium' || tier === 'basic') && (status === 'active' || status === 'past_due')) return false;
-    // Coupon-based AI access counts as paid
-    if (sub.has_unlimited_ai === true) return false;
-    const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
-    if (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) return false;
-    return true;
+    return this.billingFeature?.upgradeUi?.isFreemiumUser?.(this) ?? true;
   }
 
   updateUpgradeUI() {
-    const isFree = this._isFreemiumUser();
-    const banner = document.getElementById('upgradeBanner');
-    const profileBtn = document.getElementById('upgradeSubBtn');
-    if (banner) banner.style.display = isFree ? 'flex' : 'none';
-    if (profileBtn) profileBtn.style.display = isFree ? 'block' : 'none';
+    return this.billingFeature?.upgradeUi?.updateUpgradeUI?.(this);
   }
 
   openUpgradeModal() {
@@ -1588,23 +718,7 @@ class PasteCraftPopup {
   }
 
   setupVisibilityListener() {
-    // Reload data when popup is shown
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('?? Popup became visible - reloading data...');
-        await this.loadData();
-        await this.loadUserProfile(); // Reload profile too
-        this.renderChips();
-        this.updateLastCapture();
-        this.updatePreview();
-        this.renderCategories();
-        this.updateCategoryFilter();
-        
-        // Always refresh top bar identity (name + image) on visibility
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-        console.log('? Data reloaded successfully');
-      }
-    });
+    return this.syncFeature?.visibility?.setupVisibilityListener?.(this);
   }
   
   setupSyncStatusListeners() {
@@ -1876,14 +990,7 @@ class PasteCraftPopup {
   }
   
   syncOptionToggles() {
-    // Sync UI toggle states with internal options
-    const deduplicateToggle = document.getElementById('deduplicateToggle');
-    const sortToggle = document.getElementById('sortToggle');
-    const uppercaseToggle = document.getElementById('uppercaseToggle');
-    
-    if (deduplicateToggle) deduplicateToggle.checked = this.options.deduplicate;
-    if (sortToggle) sortToggle.checked = this.options.sort;
-    if (uppercaseToggle) uppercaseToggle.checked = this.options.uppercase;
+    return this.clipsFeature.preview.syncOptionToggles(this);
   }
   
   async removeChip(clipIdKey) {
@@ -1899,74 +1006,11 @@ class PasteCraftPopup {
   }
   
   updatePreview() {
-    const previewArea = document.getElementById('previewArea');
-    const orderedIds = this.getSelectedClipIdsInUiOrder();
-    const selectedTexts = orderedIds
-      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id)?.text)
-      .filter(Boolean);
-    
-    if (selectedTexts.length === 0) {
-      // Don't wipe user edits when nothing is selected
-      if (!this.previewIsManual && this.previewLastAutoValue) {
-        previewArea.value = '';
-        this.previewLastAutoValue = '';
-      }
-      return;
-    }
-    
-    let processedTexts = [...selectedTexts];
-    
-    // Apply transformations
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-    }
-    
-    if (this.options.sort) {
-      processedTexts.sort();
-    }
-    
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(t => t.toUpperCase());
-    }
-    
-    // Apply delimiter
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      pipe: ' | ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    
-    const output = processedTexts.join(delimiters[this.delimiter] || ', ');
-    previewArea.value = output;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = output;
-    
-    // Update quick copy button visibility
-    this.updateQuickCopyButton();
+    return this.clipsFeature.preview.updatePreview(this);
   }
-  
+
   updateDelimiterExample() {
-    const exampleText = document.querySelector('.example-text');
-    if (!exampleText) return;
-    
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ' | '
-    };
-    
-    const delimiter = delimiters[this.delimiter] || ', ';
-    const items = ['apple', 'banana', 'cherry'];
-    
-    // For newline, show it visually
-    if (this.delimiter === 'newline') {
-      exampleText.textContent = 'apple ? banana ? cherry';
-    } else {
-      exampleText.textContent = items.join(delimiter);
-    }
+    return this.clipsFeature.preview.updateDelimiterExample(this);
   }
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
@@ -2015,56 +1059,7 @@ class PasteCraftPopup {
   }
 
   _wireBulkAiButtons(config) {
-    if (!config) return;
-    const {
-      summaryBtnId,
-      sendCategoriesBtnId,
-      sendNotesBtnId,
-      breakdownBtnId,
-      getText,
-      getIdKeys,
-      getClipObjects
-    } = config;
-
-    const summaryBtn = summaryBtnId ? document.getElementById(summaryBtnId) : null;
-    if (summaryBtn && typeof getText === 'function') {
-      summaryBtn.addEventListener('click', () => {
-        const text = getText();
-        if (text) this.showSummaryModal(text);
-      });
-    }
-
-    const sendCategoriesBtn = sendCategoriesBtnId ? document.getElementById(sendCategoriesBtnId) : null;
-    if (sendCategoriesBtn && typeof getIdKeys === 'function') {
-      sendCategoriesBtn.addEventListener('click', () => {
-        const ids = getIdKeys();
-        if (!ids || ids.length === 0) return;
-        this.pendingBulkClipIds = ids;
-        this.pendingText = null;
-        this.pendingClipId = null;
-        this.showCategoryModal(true);
-      });
-    }
-
-    const sendNotesBtn = sendNotesBtnId ? document.getElementById(sendNotesBtnId) : null;
-    if (sendNotesBtn && typeof getClipObjects === 'function') {
-      sendNotesBtn.addEventListener('click', async () => {
-        const clips = getClipObjects();
-        if (!clips || clips.length === 0) return;
-        await this.loadNotes();
-        this.pendingBulkClipsForNotes = clips;
-        this.pendingClipForNotes = null;
-        this.showAlbumPicker();
-      });
-    }
-
-    const breakdownBtn = breakdownBtnId ? document.getElementById(breakdownBtnId) : null;
-    if (breakdownBtn && typeof getText === 'function') {
-      breakdownBtn.addEventListener('click', () => {
-        const text = getText();
-        if (text) this.showBreakdownModal(text);
-      });
-    }
+    return this.aiLabFeature?.bulk?.wireBulkAiButtons?.(this, config);
   }
   
   // --- Magic Button: Content Type Detection ---
@@ -2156,29 +1151,7 @@ class PasteCraftPopup {
 
   
   showConfetti() {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-    const container = document.body;
-    
-    for (let i = 0; i < 30; i++) {
-      setTimeout(() => {
-        const confetti = document.createElement('div');
-        confetti.style.cssText = `
-          position: fixed;
-          width: 6px;
-          height: 6px;
-          background: ${colors[Math.floor(Math.random() * colors.length)]};
-          left: ${Math.random() * 100}vw;
-          top: -10px;
-          border-radius: 50%;
-          pointer-events: none;
-          z-index: 9999;
-          animation: confetti 3s linear forwards;
-        `;
-        
-        container.appendChild(confetti);
-        setTimeout(() => confetti.remove(), 3000);
-      }, i * 50);
-    }
+    return PasteCraftPopupUi.showConfetti();
   }
 
   // Search and Filter Functions
@@ -2213,21 +1186,7 @@ class PasteCraftPopup {
   }
 
   setActionButtonLoading(buttonId, isLoading, loadingText = 'Loading...') {
-    if (!buttonId) return;
-    const btn = document.getElementById(buttonId);
-    if (!btn) return;
-
-    if (!btn.dataset.originalHtml) {
-      btn.dataset.originalHtml = btn.innerHTML;
-    }
-
-    if (isLoading) {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-loading-spinner" aria-hidden="true"></span>${this.escapeHtml(loadingText)}`;
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = btn.dataset.originalHtml;
-    }
+    return PasteCraftPopupUi.setActionButtonLoading(this, buttonId, isLoading, loadingText);
   }
 
   async createCategory(name, icon, options = {}) {
@@ -2252,314 +1211,35 @@ class PasteCraftPopup {
 
   // -- PDF Extraction ----------------------------------------------
   initPdfExtraction() {
-    const pdfBtn = document.getElementById('pdfUploadBtn');
-    const pdfInput = document.getElementById('pdfFileInput');
-    if (!pdfBtn || !pdfInput) return;
-
-    pdfBtn.addEventListener('click', () => pdfInput.click());
-
-    pdfInput.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      pdfInput.value = ''; // reset so same file can be re-selected
-      await this.openPdfExtractModal(file);
-    });
-
-    // Modal controls
-    const closeBtn = document.getElementById('pdfExtractCloseBtn');
-    const cancelBtn = document.getElementById('pdfExtractCancelBtn');
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const modal = document.getElementById('pdfExtractModal');
-
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closePdfModal());
-    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closePdfModal());
-    if (modal) modal.addEventListener('click', (e) => {
-      if (e.target === modal) this.closePdfModal();
-    });
-    if (saveBtn) saveBtn.addEventListener('click', () => this.savePdfClips());
-
-    // Radio change: update save label + auto-switch to "All" tab when not in selectedPage mode
-    document.querySelectorAll('input[name="pdfSaveMode"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        this._updatePdfSaveLabel();
-        const mode = radio.value;
-        if (mode !== 'selectedPage' && typeof this._pdfActiveTab !== 'number') return;
-        if (mode === 'selectedPage' && this._pdfActiveTab === 'all') {
-          // Nudge user to pick a page � switch to P1
-          if (this._pdfPages && this._pdfPages.length > 0) {
-            this.switchPdfTab(0);
-          }
-        }
-      });
-    });
+    return this.clipsFeature?.pdf?.initPdfExtraction?.(this);
   }
 
   async openPdfExtractModal(file) {
-    const modal = document.getElementById('pdfExtractModal');
-    const loading = document.getElementById('pdfExtractLoading');
-    const options = document.getElementById('pdfExtractOptions');
-    const preview = document.getElementById('pdfExtractPreview');
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const fileNameEl = document.getElementById('pdfFileName');
-    const pageCountEl = document.getElementById('pdfPageCount');
-    const loadingText = document.getElementById('pdfLoadingText');
-
-    // Reset state
-    this._pdfPages = [];
-    this._pdfActiveTab = 'all';
-    if (fileNameEl) fileNameEl.textContent = file.name;
-    if (pageCountEl) pageCountEl.textContent = '�';
-    if (saveBtn) saveBtn.disabled = true;
-    if (loading) loading.style.display = 'flex';
-    if (options) options.style.display = 'none';
-    if (preview) preview.style.display = 'none';
-    if (modal) modal.style.display = 'flex';
-
-    // Populate category dropdown in modal
-    this.populatePdfCategoryDropdown();
-
-    try {
-      if (loadingText) loadingText.textContent = 'Reading PDF�';
-      const arrayBuffer = await file.arrayBuffer();
-
-      if (loadingText) loadingText.textContent = 'Extracting text�';
-      const pages = await this.extractPdfText(arrayBuffer);
-      this._pdfPages = pages;
-
-      if (pageCountEl) pageCountEl.textContent = `${pages.length} page${pages.length !== 1 ? 's' : ''}`;
-
-      // Build page tabs
-      this.buildPdfPageTabs(pages);
-
-      // Show all text by default
-      const textarea = document.getElementById('pdfPreviewTextarea');
-      if (textarea) textarea.value = pages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
-
-      if (loading) loading.style.display = 'none';
-      if (options) options.style.display = 'flex';
-      if (preview) preview.style.display = 'flex';
-      if (saveBtn) saveBtn.disabled = false;
-    } catch (err) {
-      console.error('PDF extraction failed:', err);
-      if (loading) loading.style.display = 'none';
-      this.showToast('Failed to extract PDF text. The file may be scanned/image-only.');
-      this.closePdfModal();
-    }
+    return this.clipsFeature?.pdf?.openPdfExtractModal?.(this, file);
   }
 
   async extractPdfText(arrayBuffer) {
-    // Configure pdf.js worker
-    if (typeof pdfjsLib !== 'undefined') {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
-    }
-
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pages = [];
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str);
-      pages.push(strings.join(' ').replace(/\s{2,}/g, ' ').trim());
-    }
-    return pages;
+    return this.clipsFeature?.pdf?.extractPdfText?.(arrayBuffer);
   }
 
   buildPdfPageTabs(pages) {
-    const container = document.getElementById('pdfPreviewTabs');
-    if (!container) return;
-    container.innerHTML = '';
-
-    // "All" tab
-    const allTab = document.createElement('button');
-    allTab.className = 'pdf-page-tab active';
-    allTab.textContent = 'All';
-    allTab.dataset.page = 'all';
-    allTab.addEventListener('click', () => this.switchPdfTab('all'));
-    container.appendChild(allTab);
-
-    pages.forEach((_, idx) => {
-      const tab = document.createElement('button');
-      tab.className = 'pdf-page-tab';
-      tab.textContent = `P${idx + 1}`;
-      tab.dataset.page = String(idx);
-      tab.addEventListener('click', () => this.switchPdfTab(idx));
-      container.appendChild(tab);
-    });
+    return this.clipsFeature?.pdf?.buildPdfPageTabs?.(this, pages);
   }
 
   switchPdfTab(pageIndex) {
-    this._pdfActiveTab = pageIndex;
-    const tabs = document.querySelectorAll('.pdf-page-tab');
-    tabs.forEach(t => t.classList.remove('active'));
-
-    const textarea = document.getElementById('pdfPreviewTextarea');
-    if (!textarea) return;
-
-    if (pageIndex === 'all') {
-      textarea.value = this._pdfPages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
-      tabs[0]?.classList.add('active');
-    } else {
-      textarea.value = this._pdfPages[pageIndex] || '';
-      tabs[pageIndex + 1]?.classList.add('active');
-
-      // If "Save selected page" mode is active, auto-switch radio to it when clicking a numbered page tab
-      const selectedPageRadio = document.querySelector('input[name="pdfSaveMode"][value="selectedPage"]');
-      if (selectedPageRadio) {
-        selectedPageRadio.checked = true;
-        this._updatePdfSaveLabel();
-      }
-    }
-  }
-
-  /** Update the Save button label to reflect current mode + selection */
-  _updatePdfSaveLabel() {
-    const label = document.getElementById('pdfSaveLabel');
-    if (!label) return;
-    const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
-    if (mode === 'selectedPage' && typeof this._pdfActiveTab === 'number') {
-      label.textContent = `Save Page ${this._pdfActiveTab + 1} to Clips`;
-    } else {
-      label.textContent = 'Save to Clips';
-    }
+    return this.clipsFeature?.pdf?.switchPdfTab?.(this, pageIndex);
   }
 
   populatePdfCategoryDropdown() {
-    return this.categoriesFeature.render.populatePdfCategoryDropdown(this);
+    return this.clipsFeature?.pdf?.populatePdfCategoryDropdown?.(this);
   }
 
   async savePdfClips() {
-    if (!this._pdfPages || this._pdfPages.length === 0) return;
-
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const spinner = document.getElementById('pdfSaveSpinner');
-    const label = document.getElementById('pdfSaveLabel');
-    if (saveBtn) saveBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving…';
-
-    try {
-      const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
-      const category = document.getElementById('pdfExtractCategory')?.value || 'Uncategorized';
-      const fileName = document.getElementById('pdfFileName')?.textContent || 'PDF';
-
-      let clipsToSave = [];
-
-      if (mode === 'single') {
-        const allText = this._pdfPages.join('\n\n');
-        if (allText.trim()) {
-          clipsToSave.push({
-            id: Date.now() + Math.random(),
-            text: allText.trim(),
-            category,
-            timestamp: Date.now(),
-            meta: { source: 'pdf', fileName }
-          });
-        }
-      } else if (mode === 'selectedPage') {
-        // Save only the currently selected page tab
-        const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
-        if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, …) first.');
-          if (saveBtn) saveBtn.disabled = false;
-          if (spinner) spinner.style.display = 'none';
-          if (label) label.textContent = 'Save to Clips';
-          return;
-        }
-        const pageText = this._pdfPages[pageIdx];
-        if (pageText && pageText.trim()) {
-          clipsToSave.push({
-            id: Date.now() + Math.random(),
-            text: pageText.trim(),
-            category,
-            timestamp: Date.now(),
-            meta: { source: 'pdf', fileName, page: pageIdx + 1 }
-          });
-        }
-      } else {
-        // per-page
-        this._pdfPages.forEach((pageText, idx) => {
-          if (pageText.trim()) {
-            clipsToSave.push({
-              id: Date.now() + Math.random() + idx,
-              text: pageText.trim(),
-              category,
-              timestamp: Date.now() - idx, // slightly stagger timestamps for ordering
-              meta: { source: 'pdf', fileName, page: idx + 1 }
-            });
-          }
-        });
-      }
-
-      if (clipsToSave.length === 0) {
-        this.showToast('No text found in PDF to save.');
-        return;
-      }
-
-      // Category limit check
-      if (category !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const inCat = allClips.filter(c => c.category === category).length;
-        if (inCat + clipsToSave.length > 150) {
-          this.showToast(`Category "${category}" would exceed 150 clip limit.`);
-          return;
-        }
-      }
-
-      // Add clips to the front
-      this.clips.unshift(...clipsToSave);
-      await this.enforceClipLimit();
-
-      this.currentPage = 0; // Jump to first page so new clips are visible
-
-      // Persist
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: Date.now()
-      });
-
-      // Notify content scripts
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'clipSaved',
-              clip: clipsToSave[0],
-              autoShow: false
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      // Refresh UI
-      this.renderChips();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.updateManualInputCategories();
-      this.showToast(`Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`);
-
-      // Background sync
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-        .catch(() => {});
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-        .catch(() => {});
-
-      this.closePdfModal();
-    } finally {
-      if (saveBtn) saveBtn.disabled = false;
-      if (spinner) spinner.style.display = 'none';
-      if (label) label.textContent = 'Save to Clips';
-    }
+    return this.clipsFeature?.pdf?.savePdfClips?.(this);
   }
 
   closePdfModal() {
-    const modal = document.getElementById('pdfExtractModal');
-    if (modal) modal.style.display = 'none';
-    this._pdfPages = [];
-    this._pdfActiveTab = 'all';
+    return this.clipsFeature?.pdf?.closePdfModal?.(this);
   }
 
   // Utility Functions
@@ -2581,83 +1261,15 @@ class PasteCraftPopup {
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return PasteCraftPopupUi.escapeHtml(text);
   }
 
   async copyClipToClipboard(text) {
     return this.clipsFeature.service.copyClipToClipboard(this, text);
   }
 
-  showToast(message) {
-    // Single-instance toast (no stacking) + safe auto-dismiss.
-    const TOAST_DURATION_MS = 3000;
-
-    this._toastState = this._toastState || {
-      el: null,
-      timerId: null,
-      lastMessage: null,
-      lastShownAt: 0
-    };
-
-    const now = Date.now();
-    const msg = String(message ?? '');
-    if (!msg) return;
-
-    // Dedupe: ignore rapid repeats of the same message (prevents "stuck" toasts from re-firing).
-    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < 1200) {
-      return;
-    }
-    this._toastState.lastMessage = msg;
-    this._toastState.lastShownAt = now;
-
-    // Create once, then reuse.
-    if (!this._toastState.el || !this._toastState.el.isConnected) {
-      const toast = document.createElement('div');
-      toast.setAttribute('data-pastecraft-toast', '1');
-      toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-size: 14px;
-        z-index: 10000;
-        opacity: 0;
-        transform: translateY(-6px);
-        transition: opacity 180ms ease, transform 180ms ease;
-        pointer-events: none;
-      `;
-      document.body.appendChild(toast);
-      this._toastState.el = toast;
-    }
-
-    const toast = this._toastState.el;
-    toast.textContent = msg;
-
-    // Reset any pending dismissal.
-    if (this._toastState.timerId) {
-      clearTimeout(this._toastState.timerId);
-      this._toastState.timerId = null;
-    }
-
-    // Show (animate in).
-    requestAnimationFrame(() => {
-      toast.style.opacity = '1';
-      toast.style.transform = 'translateY(0)';
-    });
-
-    // Hide after duration (animate out, then remove).
-    this._toastState.timerId = setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-6px)';
-      setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 220);
-    }, TOAST_DURATION_MS);
+  showToast(message, type) {
+    return PasteCraftPopupUi.showToast(this, message, type);
   }
 
   // Category Modal Functions
@@ -3192,138 +1804,19 @@ class PasteCraftPopup {
   }
 
   _findClipLocationById(clipId) {
-    const idKey = this._clipIdKey(clipId);
-    const activeIndex = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-    if (activeIndex >= 0) return { listName: 'clips', index: activeIndex, clip: this.clips[activeIndex] };
-
-    const archivedIndex = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-    if (archivedIndex >= 0) return { listName: 'searchOnlyClips', index: archivedIndex, clip: this.searchOnlyClips[archivedIndex] };
-
-    return null;
+    return this.clipsFeature?.title?.findClipLocationById?.(this, clipId) ?? null;
   }
 
   promptEditClipTitle(clipId) {
-    const location = this._findClipLocationById(clipId);
-    if (!location?.clip) {
-      this.showToast('Clip not found');
-      return;
-    }
-
-    const currentTitle = this._clipTitle(location.clip);
-    const fallback = this._clipFallbackTitle(location.clip, 80);
-    const nextTitle = prompt('Edit clip title (leave blank to clear):', currentTitle || fallback);
-    if (nextTitle === null) return;
-
-    this.updateClipTitleById(clipId, nextTitle);
+    return this.clipsFeature?.title?.promptEditClipTitle?.(this, clipId);
   }
 
   async updateClipTitleById(clipId, title) {
-    const idKey = this._clipIdKey(clipId);
-    const normalizedTitle = typeof PCClipTitle !== 'undefined'
-      ? PCClipTitle.normalizeTitle(title)
-      : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
-
-    return this._queueClipOp(async () => {
-      const location = this._findClipLocationById(idKey);
-      if (!location?.clip) {
-        this.showToast('Clip not found');
-        return false;
-      }
-
-      const snapshot = {
-        clips: PasteCraftCRUD.createSnapshot(this.clips),
-        searchOnlyClips: PasteCraftCRUD.createSnapshot(this.searchOnlyClips),
-        notes: PasteCraftCRUD.createSnapshot(this.notes)
-      };
-
-      const updatedAt = Date.now();
-      const nextClip = {
-        ...location.clip,
-        title: normalizedTitle,
-        updatedAt
-      };
-
-      if (location.listName === 'clips') {
-        this.clips[location.index] = nextClip;
-      } else {
-        this.searchOnlyClips[location.index] = nextClip;
-      }
-
-      const changedNotes = this._updateNoteClipTitlesById(idKey, normalizedTitle, updatedAt);
-
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            notes: this.notes,
-            pc_local_updatedAt: updatedAt
-          });
-        });
-
-        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-        const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
-        const verifiedClip = verifiedPool.find(c => this._clipIdKey(c?.id) === idKey);
-        if (!verifiedClip || this._clipTitle(verifiedClip) !== normalizedTitle) {
-          throw new Error('Verification failed: clip title was not persisted');
-        }
-
-        const syncName = location.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
-        const syncFn = location.listName === 'clips'
-          ? pasteCraftSupabase.syncClipsToSupabase
-          : pasteCraftSupabase.syncArchivedClipsToSupabase;
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue(syncName, [nextClip], syncFn))
-          .catch((error) => console.error('Failed to sync clip title:', error));
-
-        if (changedNotes.length > 0) {
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncNotes', changedNotes, pasteCraftSupabase.syncNotesToSupabase))
-            .catch((error) => console.error('Failed to sync note clip titles:', error));
-        }
-
-        this.renderChips();
-        this.renderSearchResults();
-        this.renderCategories();
-        this.renderNotes();
-        this.showToast(normalizedTitle ? 'Clip title updated' : 'Clip title cleared');
-        return true;
-      } catch (error) {
-        this.clips = snapshot.clips;
-        this.searchOnlyClips = snapshot.searchOnlyClips;
-        this.notes = snapshot.notes;
-        await chrome.storage.local.set({
-          clips: this.clips,
-          searchOnlyClips: this.searchOnlyClips,
-          notes: this.notes,
-          pc_local_updatedAt: Date.now()
-        });
-        console.error('? Clip title update failed:', error);
-        this.showToast('Failed to update clip title');
-        return false;
-      }
-    });
+    return this.clipsFeature?.title?.updateClipTitleById?.(this, clipId, title);
   }
 
   _updateNoteClipTitlesById(clipId, title, updatedAt) {
-    const changedNotes = [];
-    const idKey = this._clipIdKey(clipId);
-
-    (this.notes || []).forEach(note => {
-      if (!Array.isArray(note?.clips)) return;
-      let changed = false;
-      note.clips = note.clips.map(clip => {
-        if (this._clipIdKey(clip?.id) !== idKey) return clip;
-        changed = true;
-        return { ...clip, title };
-      });
-      if (changed) {
-        note.updatedAt = updatedAt;
-        changedNotes.push(PasteCraftCRUD.createSnapshot(note));
-      }
-    });
-
-    return changedNotes;
+    return this.clipsFeature?.title?.updateNoteClipTitlesById?.(this, clipId, title, updatedAt) ?? [];
   }
 
   updatePreviewFromSelection() {
@@ -3683,59 +2176,12 @@ class PasteCraftPopup {
     }
   }
 
-  // Global message handler for background script
   static async handleMessage(message) {
-    const popup = window.pasteCraftPopup;
-    if (!popup) return;
-    
-    if (message.action === 'showCategoryModal' && message.text) {
-      // This will be called from background script
-      popup.pendingText = message.text;
-      popup.showCategoryModal(false);
-    } else if (message.action === 'clipSaved') {
-      // Clip was saved externally (e.g., via context menu)
-      console.log('?? Received clipSaved message - reloading data...');
-
-      // Fast-path: apply the clip immediately (optimistic), then reconcile from storage shortly after.
-      const incoming = message.clip && typeof message.clip === 'object' ? message.clip : null;
-      if (incoming && incoming.id != null) {
-        const idKey = popup._clipIdKey(incoming.id);
-        const exists = popup.clips && popup.clips.some(c => popup._clipIdKey(c?.id) === idKey);
-        if (!exists) {
-          popup.clips.unshift(incoming);
-          popup.currentPage = 0; // Jump to first page so new clip is visible
-        }
-      }
-
-      if (popup.currentTab === 'clips') {
-        popup.renderChips();
-        popup.updateLastCapture();
-        popup.updatePreview();
-      }
-      popup.renderCategories();
-      popup.updateCategoryFilter();
-      popup.updateManualInputCategories();
-
-      // Reconcile from storage (handles pagination/archive edge cases).
-      setTimeout(() => {
-        Promise.resolve()
-          .then(() => popup.loadData())
-          .then(() => {
-            if (popup.currentTab === 'clips') {
-              popup.renderChips();
-              popup.updateLastCapture();
-              popup.updatePreview();
-            } else if (popup.currentTab === 'search') {
-              popup.renderSearchResults();
-            } else if (popup.currentTab === 'categories') {
-              popup.renderCategories();
-            }
-          })
-          .catch(() => {});
-      }, 120);
-
-      console.log('? UI refreshed with new clip data');
+    if (!PasteCraftPopup._messagingModule) {
+      PasteCraftPopup._messagingModule = import('./popup/shared/popup-messaging.js');
     }
+    const { handlePopupMessage } = await PasteCraftPopup._messagingModule;
+    return handlePopupMessage(message);
   }
 
   // =====================================================
@@ -4089,189 +2535,41 @@ class PasteCraftPopup {
   }
   
   // ==================== SESSION PERSISTENCE ====================
-  // Persist UI state (active tab, AI breakdown/summary content, etc.)
-  // so everything survives popup close, browser restart, sign-out/sign-in.
 
-  /** Save active main tab + AI Lab sub-tab to storage */
   async _saveActiveTabState() {
-    try {
-      await chrome.storage.local.set({
-        pc_activeTab_v1: this.currentTab || 'clips',
-        pc_aiLabSubTab_v1: this._currentAiLabSubTab || 'generator'
-      });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveActiveTabState?.(this);
   }
 
-  /** Get current browser tab ID (for tab-scoped AI session) */
   async _getCurrentTabId() {
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      return tabs?.[0]?.id ?? null;
-    } catch (_) {
-      return null;
-    }
+    return this.aiLabFeature?.sessionState?.getCurrentTabId?.();
   }
 
-  /** Save AI Breakdown page state (input text, selected level, NOT the modal) */
   async _saveBreakdownPageState() {
-    try {
-      const breakdownInput = document.getElementById('breakdownInput');
-      const tabId = await this._getCurrentTabId();
-      const state = {
-        inputText: breakdownInput ? breakdownInput.value : '',
-        selectedLevel: this.selectedBreakdownLevel || null,
-        tabId
-      };
-      await chrome.storage.local.set({ pc_breakdownPageState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveBreakdownPageState?.(this);
   }
 
-  /** Save AI Breakdown modal state (results, threads, cache) */
   async _saveBreakdownModalState() {
-    try {
-      const tabId = await this._getCurrentTabId();
-      const state = {
-        originalText: this.currentBreakdownText || null,
-        activeLevel: this.currentBreakdownLevel || null,
-        cache: this.breakdownCache || {},
-        threads: (this.breakdownThreads || []).slice(0, 20),
-        threadIndex: this.currentBreakdownThreadIndex || 0,
-        timestamp: Date.now(),
-        tabId
-      };
-      await chrome.storage.local.set({ pc_breakdownModalState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveBreakdownModalState?.(this);
   }
 
-  /** Save AI Summary state (input text, questions, result, threads) */
   async _saveSummaryState() {
-    try {
-      const summaryInput = document.getElementById('summaryInput');
-      const tabId = await this._getCurrentTabId();
-      // Use raw text from current thread for persistence (not rendered HTML)
-      const currentThread = this.summaryThreads?.[this.currentSummaryThreadIndex];
-      const rawResult = currentThread?.answer || this._currentRawSummary || '';
-      const state = {
-        inputText: summaryInput ? summaryInput.value : '',
-        currentSummaryText: this.currentSummaryText || null,
-        generatedQuestions: (this.generatedQuestions || []).slice(0, 20),
-        currentQuestion: this.currentSummaryQuestion || null,
-        resultContent: rawResult,
-        threads: (this.summaryThreads || []).slice(0, 20),
-        threadIndex: this.currentSummaryThreadIndex || 0,
-        activeSection: this._currentSummarySection || 'input',
-        timestamp: Date.now(),
-        tabId
-      };
-      await chrome.storage.local.set({ pc_summaryState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveSummaryState?.(this);
   }
 
-  /** Reset AI Summary to empty state (used when opening in new tab) */
   _resetSummaryToEmpty() {
-    this.currentSummaryText = null;
-    this.generatedQuestions = [];
-    this.currentSummaryQuestion = null;
-    this._activeSummaryHistoryId = null;
-    this.summaryThreads = [];
-    this.currentSummaryThreadIndex = 0;
-    this._currentRawSummary = null;
-    this._currentSummarySection = 'input';
-    const summaryInput = document.getElementById('summaryInput');
-    const summaryCharCounter = document.getElementById('summaryCharCounter');
-    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
-    const followupContainer = document.getElementById('summaryFollowupContainer');
-    const paginationContainer = document.getElementById('summaryThreadPagination');
-    if (summaryInput) summaryInput.value = '';
-    if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
-    if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-    if (followupContainer) followupContainer.style.display = 'none';
-    if (paginationContainer) paginationContainer.style.display = 'none';
-    this.showSummarySection('input');
-    this._renderOpenRecentConversation();
+    return this.aiLabFeature?.sessionState?.resetSummaryToEmpty?.(this);
   }
 
-  /** Reset AI Breakdown to empty state (used when opening in new tab) */
   _resetBreakdownToEmpty() {
-    this.currentBreakdownText = null;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {};
-    this.breakdownThreads = [];
-    this.currentBreakdownThreadIndex = 0;
-    this.selectedBreakdownLevel = null;
-    const breakdownInput = document.getElementById('breakdownInput');
-    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
-    const levelChips = document.querySelectorAll('.level-chip');
-    if (breakdownInput) {
-      breakdownInput.value = '';
-      breakdownInput.dispatchEvent(new Event('input'));
-    }
-    if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-    levelChips.forEach(c => {
-      c.classList.remove('selected');
-      c.disabled = true;
-    });
-    const breakdownCharCounter = document.getElementById('breakdownCharCounter');
-    if (breakdownCharCounter) breakdownCharCounter.textContent = '0 characters';
+    return this.aiLabFeature?.sessionState?.resetBreakdownToEmpty?.(this);
   }
 
-  /** Render "Open recent conversation" in empty Summary state (AI Lab Summary module). */
   async _renderOpenRecentConversation() {
-    await this._initializeAiLabFeature();
-    const renderFn =
-      this.aiLabFeature?.summary?.renderOpenRecentConversation
-      || this.aiLabFeature?.history?.renderOpenRecentConversation;
-    if (typeof renderFn === 'function') {
-      return renderFn(this);
-    }
-    return this._renderOpenRecentConversationFallback();
+    return this.aiLabFeature?.sessionState?.renderOpenRecentConversation?.(this);
   }
 
-  /** Inline fallback when ai-lab.summary module cache is stale after extension reload. */
   async _renderOpenRecentConversationFallback() {
-    const container = document.getElementById('openRecentConversationContainer');
-    if (!container) return;
-
-    const entries = typeof this.loadAiHistory === 'function'
-      ? await this.loadAiHistory()
-      : (await chrome.storage.local.get(['pc_aiHistory_v1'])).pc_aiHistory_v1 || [];
-    const recent = (entries || []).slice(0, 5);
-
-    if (recent.length === 0) {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      return;
-    }
-
-    container.style.display = 'block';
-    container.innerHTML = `
-      <div class="open-recent-header">
-        <span class="open-recent-icon" aria-hidden="true">\u2192</span>
-        <span>Open recent conversation</span>
-      </div>
-      <div class="open-recent-list">
-        ${recent.map((e) => {
-          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '\u2026' : '');
-          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
-          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
-            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} \u00b7 ${timeStr}</span>
-          </button>`;
-        }).join('')}
-      </div>
-    `;
-
-    this.aiHistoryEntries = entries;
-    container.querySelectorAll('.open-recent-item').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.historyId, 10);
-        const entry = this.aiHistoryEntries?.find((x) => x.id === id);
-        if (entry && typeof this.openAiHistoryModal === 'function') {
-          this.openAiHistoryModal(entry);
-        }
-      });
-    });
+    return this.aiLabFeature?.sessionState?.renderOpenRecentConversationFallback?.(this);
   }
 
   /** Restore all persisted UI state on popup open */
