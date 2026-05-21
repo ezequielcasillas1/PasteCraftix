@@ -570,15 +570,17 @@ state management.
 
 ---
 
-#### 47. Craft Clips AI Rebuild
+#### 47. Craft Clips AI Rebuild (Magic Wand revamp)
 **Priority:** High
-**Status:** Planned
+**Status:** In progress — ships as **Craft Clips** (`ai-lab.magic.js`, settings in `ai-lab.craft-clips.*`)
 **Requirements:**
-- Rename/rebuild Magic Clips as Craft Clips with real action cards.
-- AI categorization must analyze all clips and create useful topic names.
-- Settings: categorization + duplicate detection toggles.
-- User can choose only one mode: Enhanced AI or AI Formatted.
-- Full plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
+- Rebrand UI/copy: Magic Wand → **Craft Clips**; **action cards** per clip (categorize, format/refactor, cleanup, dedupe)
+- **Smart categorize** toggle: rules + optional `ai-categorize` batch; categories via `createCategory` CRUD
+- **AI modes (one per craft):** **AI Formatted** (`ai-format`, polishes `text`) *or* **AI Refactoring** (`ai-refactor`, levels ELI5–Wise Man, keeps original clip + adds new refactored clip in recents)
+- **Settings:** categorize on/off, archive-duplicates on/off, refactor level chips with ⓘ tooltips
+- **Duplicates:** archive younger copies to `searchOnlyClips` when toggle on; undo restores clips + archived
+- **Storage:** `pc_craft_clips_settings_v1`; refactor fields local on clip; sync archived on craft
+- Plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
 
 ---
 

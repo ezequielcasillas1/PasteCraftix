@@ -1,3 +1,8 @@
+### May 21, 2026 - AI History load-more UX (user feedback)
+**Status:** Fixed (pending verify)
+**Files:** ai-lab.history.js, popup.html, popup.js, modals-shared.events.js
+**Result:** User wanted numbered pages (1, 2, 3…) not cumulative Load More. Switched to page index + clips-style pagination bar.
+
 ### May 21, 2026 - Clip Share + Profile AI image CSP
 **Status:** SUCCESS (user verified)
 **Files:** popup.js, clips.share.js, clips.controller.js, clips.render.js, clips.events.js, supabase-client.js

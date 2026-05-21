@@ -1,5 +1,5 @@
 import { AI_STORAGE_KEYS, AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
-import { getHistoryModalElements } from './ai-lab.selectors.js';
+import { AI_SELECTORS, byId, getHistoryModalElements } from './ai-lab.selectors.js';
 
 export { renderOpenRecentConversation } from './ai-lab.summary.js';
 
@@ -78,58 +78,109 @@ export async function _generateAiHistoryTitle(entryId, originalText) {
 }
 
 export function resetAiHistoryListPagination() {
-  this._aiHistoryVisibleCount = AI_HISTORY_PAGE_SIZE;
+  this._aiHistoryPageIndex = 0;
 }
 
-export function loadMoreAiHistoryList() {
+export function setAiHistoryListPage(pageIndex) {
   const entries = _filterHistoryEntries(this);
-  const total = entries.length;
-  if (total <= AI_HISTORY_PAGE_SIZE) return;
-  this._aiHistoryVisibleCount = Math.min(
-    (this._aiHistoryVisibleCount || AI_HISTORY_PAGE_SIZE) + AI_HISTORY_PAGE_SIZE,
-    total
-  );
+  const totalPages = _getAiHistoryTotalPages(entries.length);
+  const next = Math.max(0, Math.min(pageIndex, totalPages - 1));
+  if (this._aiHistoryPageIndex === next) return;
+  this._aiHistoryPageIndex = next;
   this.renderAiHistoryList();
 }
 
 export function renderAiHistoryList() {
-  const container = document.getElementById('aiHistoryList');
-  const loadMoreBtn = document.getElementById('loadMoreAiHistoryBtn');
+  const container = byId(AI_SELECTORS.historyList);
+  const paginationEl = byId(AI_SELECTORS.historyListPagination);
   if (!container) return;
 
   const entries = _filterHistoryEntries(this);
   if (!entries || entries.length === 0) {
     container.innerHTML = _renderEmptyHistory(this);
-    _updateAiHistoryLoadMore(loadMoreBtn, 0, 0);
+    _renderAiHistoryListPagination(this, paginationEl, 0, 0);
     return;
   }
 
   const total = entries.length;
-  if (!this._aiHistoryVisibleCount || this._aiHistoryVisibleCount < AI_HISTORY_PAGE_SIZE) {
-    this._aiHistoryVisibleCount = AI_HISTORY_PAGE_SIZE;
-  }
-  if (this._aiHistoryVisibleCount > total) {
-    this._aiHistoryVisibleCount = total;
-  }
+  const totalPages = _getAiHistoryTotalPages(total);
+  _clampAiHistoryPageIndex(this, totalPages);
 
-  const visibleEntries = entries.slice(0, this._aiHistoryVisibleCount);
-  container.innerHTML = visibleEntries.map(entry => _renderHistoryEntry(this, entry)).join('');
+  const pageIndex = this._aiHistoryPageIndex || 0;
+  const start = pageIndex * AI_HISTORY_PAGE_SIZE;
+  const pageEntries = entries.slice(start, start + AI_HISTORY_PAGE_SIZE);
+
+  container.innerHTML = pageEntries.map(entry => _renderHistoryEntry(this, entry)).join('');
   _attachHistoryListHandlers(this, container);
-  _updateAiHistoryLoadMore(loadMoreBtn, total, visibleEntries.length);
+  _renderAiHistoryListPagination(this, paginationEl, total, totalPages);
   if (typeof this.renderLucideIcons === 'function') {
     this.renderLucideIcons();
   }
 }
 
-function _updateAiHistoryLoadMore(loadMoreBtn, total, visibleCount) {
-  if (!loadMoreBtn) return;
-  const show = total > AI_HISTORY_PAGE_SIZE && visibleCount < total;
-  loadMoreBtn.style.display = show ? 'block' : 'none';
-  if (show) {
-    const remaining = total - visibleCount;
-    const nextChunk = Math.min(AI_HISTORY_PAGE_SIZE, remaining);
-    loadMoreBtn.textContent = `Load ${nextChunk} more (${remaining} remaining)`;
+function _getAiHistoryTotalPages(totalEntries) {
+  return Math.max(1, Math.ceil(totalEntries / AI_HISTORY_PAGE_SIZE));
+}
+
+function _clampAiHistoryPageIndex(app, totalPages) {
+  const idx = app._aiHistoryPageIndex || 0;
+  if (idx >= totalPages) {
+    app._aiHistoryPageIndex = Math.max(0, totalPages - 1);
+  } else if (idx < 0) {
+    app._aiHistoryPageIndex = 0;
   }
+}
+
+function _getAiHistoryPaginationItems(currentPage, totalPages) {
+  const items = [];
+  const startPage = Math.max(0, currentPage - 2);
+  const endPage = Math.min(totalPages - 1, currentPage + 2);
+
+  if (currentPage > 2) items.push({ type: 'page', page: 0 });
+  if (currentPage > 3) items.push({ type: 'ellipsis' });
+
+  for (let page = startPage; page <= endPage; page++) {
+    items.push({ type: 'page', page });
+  }
+
+  if (currentPage < totalPages - 4) items.push({ type: 'ellipsis' });
+  if (currentPage < totalPages - 3) items.push({ type: 'page', page: totalPages - 1 });
+
+  return items;
+}
+
+function _renderAiHistoryPaginationItem(item, currentPage) {
+  if (item.type === 'ellipsis') return '<span class="pagination-ellipsis">...</span>';
+  const isActive = item.page === currentPage ? 'active' : '';
+  const label = item.page + 1;
+  return `<button type="button" class="pagination-number ${isActive}" data-action="ai-history-page" data-page="${item.page}" aria-label="Page ${label}">${label}</button>`;
+}
+
+function _renderAiHistoryListPagination(app, paginationEl, totalEntries, totalPages) {
+  if (!paginationEl) return;
+
+  if (totalEntries <= AI_HISTORY_PAGE_SIZE) {
+    paginationEl.style.display = 'none';
+    paginationEl.innerHTML = '';
+    return;
+  }
+
+  const currentPage = app._aiHistoryPageIndex || 0;
+  const pageLabel = currentPage + 1;
+
+  let html = '<div class="pagination-wrapper ai-history-pagination-wrapper">';
+  html += `<span class="ai-history-page-label" style="font-size:12px;font-weight:600;color:#64748b;margin-right:4px;">Page ${pageLabel} of ${totalPages}</span>`;
+  html += `<button type="button" class="pagination-btn pagination-prev" data-action="ai-history-page" data-page="${currentPage - 1}" ${currentPage === 0 ? 'disabled' : ''} aria-label="Previous page">‹ Prev</button>`;
+  html += '<div class="pagination-numbers">';
+  html += _getAiHistoryPaginationItems(currentPage, totalPages)
+    .map(item => _renderAiHistoryPaginationItem(item, currentPage))
+    .join('');
+  html += '</div>';
+  html += `<button type="button" class="pagination-btn pagination-next" data-action="ai-history-page" data-page="${currentPage + 1}" ${currentPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Next page">Next ›</button>`;
+  html += '</div>';
+
+  paginationEl.style.display = 'flex';
+  paginationEl.innerHTML = html;
 }
 
 export async function openAiHistoryModal(entry) {

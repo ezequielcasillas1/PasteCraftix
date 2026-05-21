@@ -127,7 +127,7 @@ class PasteCraftPopup {
     this._activeSummaryHistoryId = null;   // tracks active summary conversation
     this._aiHistorySearchQuery = '';
     this._aiHistoryFilterType = 'all';
-    this._aiHistoryVisibleCount = 7;
+    this._aiHistoryPageIndex = 0;
     
     // Notes system
     this.notes = [];
@@ -1373,8 +1373,8 @@ class PasteCraftPopup {
     return this.aiLabFeature.history.resetAiHistoryListPagination.call(this);
   }
 
-  loadMoreAiHistoryList() {
-    return this.aiLabFeature.history.loadMoreAiHistoryList.call(this);
+  setAiHistoryListPage(pageIndex) {
+    return this.aiLabFeature.history.setAiHistoryListPage.call(this, pageIndex);
   }
 
   async openAiHistoryModal(entry) {

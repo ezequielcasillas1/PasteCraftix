@@ -7071,6 +7071,96 @@
             color: #065f46;
         }
 
+        .craft-clips-settings {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+            background: rgba(255, 247, 237, 0.6);
+            font-size: 12px;
+        }
+        .craft-setting-row, .craft-ai-mode-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin-bottom: 6px;
+        }
+        .craft-setting-label { font-weight: 600; color: #9a3412; }
+        .craft-refactor-levels {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 6px;
+            margin-top: 6px;
+        }
+        .craft-refactor-level-chip {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(249, 115, 22, 0.35);
+            background: #fff;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .craft-refactor-level-chip.active {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+            border-color: transparent;
+        }
+        .craft-refactor-level-info {
+            padding: 2px 6px;
+            border: none;
+            background: transparent;
+            color: #c2410c;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .craft-level-info-panel {
+            margin-top: 6px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #fff7ed;
+            color: #7c2d12;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .craft-action-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .craft-action-card {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+        .craft-action-card.craft-action-inactive,
+        .craft-action-card.craft-action-clean {
+            background: rgba(107, 114, 128, 0.1);
+            color: #4b5563;
+            border-color: rgba(107, 114, 128, 0.2);
+        }
+        .craft-action-card.craft-action-categorize { background: rgba(245, 158, 11, 0.15); color: #b45309; border-color: rgba(245, 158, 11, 0.3); }
+        .craft-action-card.craft-action-refactor { background: rgba(139, 92, 246, 0.12); color: #6d28d9; border-color: rgba(139, 92, 246, 0.25); }
+        .craft-action-card.craft-action-dedupe:not(.craft-action-inactive) { background: rgba(239, 68, 68, 0.12); color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+
+        .pc-refactor-badge {
+            display: inline-block;
+            margin-right: 6px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: rgba(139, 92, 246, 0.15);
+            color: #6d28d9;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            vertical-align: middle;
+        }
+
         /* Pagination */
         .magic-preview-pagination {
             display: flex;
@@ -7458,7 +7548,32 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            margin-bottom: 18px;
+            margin-bottom: 12px;
+        }
+
+        .magic-stats-grid .magic-stat-ai-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .magic-results-summary {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 14px;
+            padding: 8px 10px;
+            background: #fff7ed;
+            border-radius: 8px;
+            border: 1px solid rgba(249, 115, 22, 0.25);
+        }
+
+        .magic-stat-card.magic-stat-hidden {
+            display: none !important;
+        }
+
+        .magic-stat-card.magic-stat-highlight .magic-stat-number {
+            color: #ea580c;
         }
 
         .magic-stat-card {
@@ -8573,7 +8688,7 @@
                     <p>Your AI Summary and Breakdown conversations will appear here</p>
                 </div>
             </div>
-            <button type="button" id="loadMoreAiHistoryBtn" class="load-more-btn" data-action="ai-history-load-more" style="display:none;width:100%;padding:10px;margin-top:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;color:#64748b;font-size:13px;cursor:pointer;">Load More</button>
+            <div class="notes-pagination ai-history-pagination" id="aiHistoryListPagination" style="display: none;"></div>
         </section>
 
         <!-- Activity Log Tab -->
@@ -9552,49 +9667,76 @@ Multiple clips are separated by:
             <button class="copy-btn" id="copyBtn">Copy Crafted Output</button>
         </section>
 
-        <!-- Magic Wand (only show for clips and search tabs) -->
-        <button class="magic-wand" id="magicWand" title="Magic: Auto-categorize, enhance, dedupe & organize clips">
+        <!-- Craft Clips (clips and search tabs) -->
+        <button class="magic-wand craft-clips-fab" id="magicWand" title="Craft Clips: categorize, format, refactor, dedupe">
             <span class="wand-icon"><i data-lucide="wand-sparkles"></i></span>
-            <span class="wand-text">Magic</span>
+            <span class="wand-text">Craft</span>
         </button>
 
-        <!-- Magic Preview Modal -->
+        <!-- Craft Clips Preview Modal -->
         <div class="modal-overlay" id="magicPreviewModal" style="display: none;">
-            <div class="modal-content magic-preview-modal">
+            <div class="modal-content magic-preview-modal craft-clips-modal">
                 <div class="modal-header magic-preview-header">
-                    <h3><i data-lucide="wand-sparkles"></i> Magic Preview</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Craft Clips</h3>
                     <span class="magic-selected-count" id="magicSelectedCount">0 selected</span>
-                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Magic do?"><i data-lucide="info"></i></button>
+                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Craft Clips do?"><i data-lucide="info"></i></button>
                     <button class="modal-close" id="closeMagicPreview">✕</button>
                 </div>
-                <!-- Undo banner (hidden by default) -->
+                <div class="craft-clips-settings" id="craftClipsSettings">
+                    <label class="craft-setting-row"><input type="checkbox" id="craftClipsCategorizeToggle" checked> Smart categorize</label>
+                    <label class="craft-setting-row"><input type="checkbox" id="craftClipsDedupeToggle"> Archive duplicate copies</label>
+                    <div class="craft-ai-mode-row">
+                        <span class="craft-setting-label">AI mode (one per craft):</span>
+                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted</label>
+                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiRefactoring" value="refactoring"> AI Refactoring</label>
+                    </div>
+                    <div class="craft-refactor-levels" id="craftClipsRefactorLevels" style="display: none;">
+                        <span class="craft-setting-label">Refactor level:</span>
+                        <button type="button" class="craft-refactor-level-chip" data-level="eli5">ELI5</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="eli5" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="elementary">Elementary</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="elementary" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip active" data-level="college">College</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="college" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="highschool">High School</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="highschool" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="phd">PhD</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="phd" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="wiseman">Wise Man</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="wiseman" title="Level info">ⓘ</button>
+                    </div>
+                    <div class="craft-level-info-panel" id="craftClipsLevelInfoPanel" style="display: none;">
+                        <p id="craftClipsLevelInfoText"></p>
+                    </div>
+                </div>
                 <div class="magic-undo-banner" id="magicUndoBanner" style="display: none;">
-                    <span>Previous magic can be undone</span>
-                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Magic</button>
+                    <span>Previous craft can be undone</span>
+                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Craft</button>
                 </div>
                 <div class="modal-body magic-preview-body">
                     <div class="magic-clip-list" id="magicClipList"></div>
                 </div>
                 <div class="magic-preview-pagination" id="magicPagination"></div>
                 <div class="magic-ai-credit-notice" id="magicAiCreditNotice" style="display: none;">
-                    <span>💎 AI features use ~25 credits each: Smart Categorize + Smart Format</span>
+                    <span>💎 Premium · ~25 credits per batch · AI Formatted (one AI mode per craft)</span>
                 </div>
                 <div class="modal-footer magic-preview-footer">
                     <button class="magic-btn-secondary" id="magicCancelBtn">Cancel</button>
-                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled><i data-lucide="wand-sparkles"></i> Craft the Magic</button>
-                    <button class="magic-btn-craft-all" id="magicCraftAllBtn"><i data-lucide="sparkles"></i> Craft all Magic to clips</button>
+                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled><i data-lucide="wand-sparkles"></i> Craft Selected</button>
+                    <button class="magic-btn-craft-all" id="magicCraftAllBtn"><i data-lucide="sparkles"></i> Craft All Clips</button>
                 </div>
             </div>
         </div>
 
-        <!-- Magic Results Modal -->
+        <!-- Craft Clips Results Modal -->
         <div class="modal-overlay" id="magicResultsModal" style="display: none;">
             <div class="modal-content magic-results-modal">
                 <div class="modal-header magic-results-header">
-                    <h3><i data-lucide="wand-sparkles"></i> Magic Complete</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Craft Clips Complete</h3>
                     <button class="modal-close" id="closeMagicResults">✕</button>
                 </div>
                 <div class="modal-body magic-results-body">
+                    <p class="magic-results-summary" id="magicResultsSummary"></p>
                     <div class="magic-stats-grid">
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatCategorized">0</div>
@@ -9602,15 +9744,21 @@ Multiple clips are separated by:
                         </div>
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatEnhanced">0</div>
-                            <div class="magic-stat-label">Enhanced</div>
-                        </div>
-                        <div class="magic-stat-card">
-                            <div class="magic-stat-number" id="magicStatAiFormatted">0</div>
-                            <div class="magic-stat-label">AI Formatted</div>
+                            <div class="magic-stat-label">Cleanup</div>
                         </div>
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatDupes">0</div>
-                            <div class="magic-stat-label">Dupes Found</div>
+                            <div class="magic-stat-label" id="magicStatDupesLabel">Dupes</div>
+                        </div>
+                        <div class="magic-stat-ai-row">
+                            <div class="magic-stat-card magic-stat-highlight" id="magicStatFormattedCard">
+                                <div class="magic-stat-number" id="magicStatAiFormatted">0</div>
+                                <div class="magic-stat-label">AI Formatted</div>
+                            </div>
+                            <div class="magic-stat-card magic-stat-highlight magic-stat-hidden" id="magicStatRefactoredCard">
+                                <div class="magic-stat-number" id="magicStatAiRefactored">0</div>
+                                <div class="magic-stat-label">AI Refactored</div>
+                            </div>
                         </div>
                     </div>
                     <div class="magic-type-section">
@@ -9628,7 +9776,7 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="magicInfoModal" style="display: none;">
             <div class="modal-content magic-info-modal">
                 <div class="modal-header magic-info-header">
-                    <h3><i data-lucide="wand-sparkles"></i> What Does Magic Do?</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> What Does Craft Clips Do?</h3>
                     <button class="modal-close" id="closeMagicInfo">✕</button>
                 </div>
                 <div class="modal-body magic-info-body">
@@ -9643,9 +9791,17 @@ Multiple clips are separated by:
                     <div class="magic-info-section">
                         <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
-                            <h4>Smart Format</h4>
-                            <p>AI polishes grammar, punctuation, and structure — without changing vocabulary or meaning. Skips code, URLs, and data clips automatically.</p>
-                            <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
+                            <h4>AI Formatted</h4>
+                            <p>Polishes grammar and punctuation in place — same meaning and vocabulary. Skips code, URLs, and data clips. One AI mode per craft.</p>
+                            <p class="magic-info-credit-note">💎 Premium · ~25 AI text credits per batch</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon"><i data-lucide="book-open"></i></div>
+                        <div class="magic-info-detail">
+                            <h4>AI Refactoring</h4>
+                            <p>Rewrites clip text in a level you choose (ELI5 through PhD, Wise Man). Keeps the <strong>original clip</strong> and adds a <strong>new refactored clip</strong> in recents.</p>
+                            <p class="magic-info-credit-note">💎 Premium · ~25 credits · Use ⓘ on each level for when to use it</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
@@ -9658,8 +9814,8 @@ Multiple clips are separated by:
                     <div class="magic-info-section">
                         <div class="magic-info-icon"><i data-lucide="copy"></i></div>
                         <div class="magic-info-detail">
-                            <h4>Duplicate Detection</h4>
-                            <p>Identifies duplicate clips across your collection and flags them so you know which content appears more than once.</p>
+                            <h4>Duplicate Handling</h4>
+                            <p>When enabled, archives younger duplicate copies to search storage and keeps the oldest clip. Undo restores archived clips.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">

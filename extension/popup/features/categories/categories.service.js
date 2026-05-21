@@ -48,9 +48,10 @@ export async function createCategory(app, name, icon, options = {}) {
     backgroundSync: async () => {
       await window.pasteCraftSupabase.syncCategoriesToSupabase(app.categories);
     },
-    successMessage: (entity) => `✅ Category "${entity.name}" created`,
-    errorMessage: (error) => `❌ Failed to create category: ${error.message || 'Unknown error'}`,
+    successMessage: (entity) => (options?.silent ? '' : `✅ Category "${entity.name}" created`),
+    errorMessage: (error) => (options?.silent ? '' : `❌ Failed to create category: ${error.message || 'Unknown error'}`),
     showToast: (msg, type) => {
+      if (options?.silent || !msg) return;
       app.showToast(msg, type);
       app.setActionButtonLoading(originButtonId, false);
     },

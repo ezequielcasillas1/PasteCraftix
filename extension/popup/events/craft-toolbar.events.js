@@ -1,6 +1,9 @@
 /** Extracted from popup.js setupEventListeners — behavior unchanged. */
 
+import { bindCraftClipsSettingsUi } from '../features/ai-lab/ai-lab.craft-clips.settings.js';
+
 export function registerCraftToolbarEvents(app) {
+    bindCraftClipsSettingsUi(app);
     // Breakdown tab switching
     document.querySelector('.breakdown-tabs').addEventListener('click', (e) => {
       const tab = e.target.closest('.breakdown-tab');
@@ -118,10 +121,11 @@ export function registerCraftToolbarEvents(app) {
       if (e.target.id === 'magicPreviewModal') magicPreviewOverlay.style.display = 'none';
     });
 
-    // Magic preview: Craft the Magic (selected only)
+    // Craft Clips: craft selected
     const craftSelectedBtn = document.getElementById('magicCraftSelectedBtn');
     if (craftSelectedBtn) craftSelectedBtn.addEventListener('click', async () => {
       if (app._magicSelected.size === 0) return;
+      app.aiLabFeature.magic.saveMagicUndoSnapshot.call(app);
       document.getElementById('magicPreviewModal').style.display = 'none';
       const stats = await app._craftMagic([...app._magicSelected]);
       app._showMagicResults(stats);

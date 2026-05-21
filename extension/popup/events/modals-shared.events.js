@@ -133,9 +133,11 @@ export function registerSharedModalEvents(app) {
     const aiHistoryTab = document.getElementById('aiHistoryTab');
     if (aiHistoryTab) {
       aiHistoryTab.addEventListener('click', (e) => {
-        if (e.target.closest('[data-action="ai-history-load-more"]')) {
-          app.loadMoreAiHistoryList();
-        }
+        const pageBtn = e.target.closest('[data-action="ai-history-page"]');
+        if (!pageBtn || pageBtn.disabled) return;
+        const page = parseInt(pageBtn.dataset.page, 10);
+        if (Number.isNaN(page)) return;
+        app.setAiHistoryListPage(page);
       });
     }
 

@@ -6,6 +6,7 @@ export const AI_SELECTORS = {
   textCreditsPill: 'aiTextCreditsPill',
   textCreditsCosts: 'aiTextCreditsCosts',
   historyList: 'aiHistoryList',
+  historyListPagination: 'aiHistoryListPagination',
   historyModal: 'aiHistoryModal',
   historyModalTitle: 'aiHistoryModalTitle',
   historyModalSubtitle: 'aiHistoryModalSubtitle',

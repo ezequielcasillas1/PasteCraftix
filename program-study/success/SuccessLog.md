@@ -1,3 +1,8 @@
+### May 21, 2026 - Craft Clips AI + refactor sibling clips
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js, ai-lab.craft-clips.constants.js, ai-lab.craft-clips.settings.js, clips.render.js, supabase-client.js, ai-refactor/, ai_workflow.ts, popup.html, craft-toolbar.events.js, categories.service.js, styles.css
+**Result:** Craft Clips (#47): AI Formatted/Refactoring, settings, dedupe archive. Refactor no longer replaces original—new refactored clip in recents. User verified.
+
 ### May 21, 2026 - Clip row Share + Open delegates
 **Status:** SUCCESS
 **Files:** clips.share.js, clips.controller.js, clips.events.js, clips.render.js, popup.js

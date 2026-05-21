@@ -1,3 +1,8 @@
+### May 21, 2026 - Craft Clips AI Rebuild (#47)
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js, ai-lab.craft-clips.*, craft-toolbar.events.js, popup.html, clips.render.js, supabase-client.js, ai-refactor/index.ts, ai_workflow.ts, categories.service.js, styles.css, request.md
+**Result:** Craft Clips rebrand, action cards, settings, AI Formatted vs AI Refactoring. Refactor keeps original clip + adds sibling refactored clip in recents. ai-refactor Edge deployed; GPT-5 payload fixes. User verified.
+
 ### May 21, 2026 - Magic Clips / Craft Clips coordination (docs only)
 **Status:** PENDING USER VERIFY
 **Files:** instructions/request.md, implementations.md, docs/refactoring/craft-clips-ai-implementation-plan.md
@@ -13,10 +18,15 @@
 **Files:** extension/supabase-client.js
 **Result:** `downloadAndUploadImage` skips fetch for `data:image/` URLs; uses base64 upload path. User verified.
 
+### May 21, 2026 - AI conversation history numbered pagination
+**Status:** PENDING USER VERIFY
+**Files:** ai-lab.history.js, ai-lab.selectors.js, popup.html, popup.js, modals-shared.events.js
+**Result:** Replaced Load More with Prev/numbered pages/Next (7 per page, in-memory max ~50). Bar hidden when filtered total ≤7. `_aiHistoryPageIndex` 0-based; UI labels Page 1 of N. Search/filter/tab reset to page 1.
+
 ### May 21, 2026 - AI conversation history load-more pagination
-**Status:** SUCCESS
+**Status:** SUPERSEDED (numbered pagination May 21)
 **Files:** ai-lab.history.js, ai-lab.constants.js, popup.html, popup.js, modals-shared.events.js, tab-nav.events.js
-**Result:** AI History tab shows 7 entries initially; Load More reveals next 7 from in-memory list (max 50). Button hidden when total ≤7. Resets on search/filter/tab open. User verified.
+**Result:** Prior load-more UX replaced by numbered pages per user feedback.
 
 ### May 21, 2026 - popup.js final orchestrator slice (batch 3 close-out)
 **Status:** SUCCESS
