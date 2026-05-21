@@ -1,7 +1,12 @@
+### May 21, 2026 - Vertical slice refactor (Phases B–D)
+**Status:** PENDING USER VERIFY
+**Files:** extension/supabase/*, extension/supabase-client.js, extension/content/*, extension/content-script.js, extension/background/*, extension/background.js, extension/manifest.json, extension/popup/features/app/popup.boot.js, scripts/split-*.mjs, REFACTOR_REMAINING.md
+**Result:** supabase-client 4755→7-line barrel + 18 slices; content-script 5715→2-line barrel + shared/quick-paste/widget; background 893→2-line barrel + shared/handlers; MV3 module SW + content script; popup loads Supabase via popup.boot dynamic import. Phase A popup already ~1581 lines from batch 3.
+
 ### May 21, 2026 - Craft Clips AI Rebuild (#47)
 **Status:** SUCCESS
 **Files:** ai-lab.magic.js, ai-lab.craft-clips.*, craft-toolbar.events.js, popup.html, clips.render.js, supabase-client.js, ai-refactor/index.ts, ai_workflow.ts, categories.service.js, styles.css, request.md
-**Result:** Craft Clips rebrand, action cards, settings, AI Formatted vs AI Refactoring. Refactor keeps original clip + adds sibling refactored clip in recents. ai-refactor Edge deployed; GPT-5 payload fixes. User verified.
+**Result:** Craft Clips rebrand, action cards, settings, AI Formatted vs AI Refactoring. Refactor keeps original clip + adds sibling refactored clip in recents. Smart categorize: 5 AI title picker modal after craft (premium). ai-categorize suggestions mode deployed.
 
 ### May 21, 2026 - Magic Clips / Craft Clips coordination (docs only)
 **Status:** PENDING USER VERIFY
