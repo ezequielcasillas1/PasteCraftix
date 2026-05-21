@@ -37,12 +37,14 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content-script.js"],
+      "type": "module",
       "run_at": "document_end"
     }
   ],
   "action": {},
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "icons": {
     "16": "icon.png",
