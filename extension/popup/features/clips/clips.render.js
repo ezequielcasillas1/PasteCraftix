@@ -178,7 +178,7 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
     ['.chip-breakdown-btn', () => app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
     ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
-    ['.chip-share-btn', () => app.showShareMenuForClip(clip)],
+    ['.chip-share-btn', () => typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
     ['.chip-summary-btn', () => app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
     ['.chip-notes-btn', async () => {
       await app.loadNotes();
@@ -618,7 +618,7 @@ export function createSearchResultItem(app, clip) {
   });
   item.querySelector('.chip-share-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    app.showShareMenuForClip(clip);
+    if (typeof app.showShareMenuForClip === 'function') app.showShareMenuForClip(clip);
   });
   item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
     e.stopPropagation();

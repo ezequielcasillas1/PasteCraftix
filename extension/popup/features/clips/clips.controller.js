@@ -7,6 +7,7 @@ import * as clipViewer from './clips.viewer.js';
 import * as clipPreview from './clips.preview.js';
 import * as clipPdf from './clips.pdf.js';
 import * as clipTitle from './clips.title.js';
+import * as clipShare from './clips.share.js';
 
 export function initClipsFeature(app) {
   app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
@@ -22,5 +23,6 @@ export function initClipsFeature(app) {
     preview: clipPreview,
     pdf: clipPdf,
     title: clipTitle,
+    share: clipShare,
   };
 }

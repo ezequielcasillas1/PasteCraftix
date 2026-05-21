@@ -26,7 +26,7 @@ function getCategoryClipActionHandlers(app, clip, clipIdKey) {
     ['.category-clip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
     ['.category-clip-breakdown-btn', () => clip && app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
     ['.category-clip-open-btn', () => clip && typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
-    ['.category-clip-share-btn', () => clip && app.showShareMenuForClip(clip)],
+    ['.category-clip-share-btn', () => clip && typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
     ['.category-clip-summary-btn', () => clip && app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
     ['.category-clip-notes-btn', async () => {
       if (!clip) return;
