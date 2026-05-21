@@ -1,3 +1,8 @@
+### May 21, 2026 - Supabase sync 42501 user_is_not_banned
+**Status:** Fixed (verified)
+**Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
+**Result:** Hardening revoked EXECUTE on `user_is_not_banned` used by restrictive `ban_gate_*` RLS; sync failed with 42501/401. Migration re-grants EXECUTE to authenticated, sets INVOKER, confirms archived_clips/ai_history grants. Client skips full sync without live JWT (bridge-only user caused anon RLS failures).
+
 ### May 21, 2026 - Popup delete toast + craft toggles regression
 **Status:** Fixed (pending reload test)
 **Files:** popup-ui.js, popup.js, clips.preview.js, clips.state.js, clips.service.js, craft-toolbar.events.js

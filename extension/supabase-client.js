@@ -1636,6 +1636,16 @@ class PasteCraftSupabase {
    * This preserves legacy cloud data (keyed by chromeUserId) while allowing new devices
    * to recover the same id via chrome.storage.sync once at least one device writes it.
    */
+  async hasActiveAuthSession() {
+    if (!this.client) return false;
+    try {
+      const { data: { session } } = await this.client.auth.getSession();
+      return !!(session?.access_token && session?.user?.id);
+    } catch (_) {
+      return false;
+    }
+  }
+
   async getSyncUserId() {
     // If authenticated, always use auth user UUID as the stable cross-device sync key.
     // If this device has legacy data keyed by chromeUserId, we can migrate it to auth id here.
@@ -4479,6 +4489,14 @@ class PasteCraftSupabase {
     this._isFullSyncRunning = true;
     this._fullSyncPromise = (async () => {
       try {
+      if (!(await this.hasActiveAuthSession())) {
+        console.warn('⚠️ Skipping full sync: no active Supabase session (sign in again)');
+        return {
+          success: false,
+          message: 'Not authenticated'
+        };
+      }
+
       const userId = await this.getSyncUserId();
       
       // Check cloud sync access (FREE tier = local only)
