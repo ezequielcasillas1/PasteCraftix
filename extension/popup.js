@@ -392,220 +392,10 @@ class PasteCraftPopup {
   }
 
   async _initImpl() {
-    console.log('?? Initializing PasteCraft popup...');
-    await this._initializeClipsFeature();
-    await this._initializeCategoriesFeature();
-    await this._initializeFilesFeature();
-    await this._initializeNotesFeature();
-    await this._initializeAiLabFeature();
-    await this._initializeSettingsFeature();
-    await this._initializeActivityFeature();
-    await this._initializeAuthFeature();
-    await this._initializeProfileFeature();
-    await this._initializeBillingFeature();
-    await this._initializeSyncFeature();
-
-    // Setup auth modal events FIRST (before checking auth)
-    this.setupAuthModalEvents();
-    this._setupSupportFormEvents();
-
-    // --- V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ---
-    let isLocalGuest = false;
-    try {
-      const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
-      isLocalGuest = !!pc_freemium_guest;
-    } catch (_) {}
-
-    if (isLocalGuest) {
-      // Actively clear any stale cloud auth state so it can't interfere later
-      try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
-      try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-      // Go straight to local mode � no cloud auth calls at all
-      this._isFreemiumGuest = true;
-      this.currentUser = null;
-      this.userSubscription = null;
-      document.getElementById('topBar').style.display = 'flex';
-      await Promise.all([this.loadData(), this.loadSettings()]);
-      this.updateTopBarIdentity();
-      await this.setupEventListeners();
-      this.renderChips();
-      this.updateLastCapture();
-      this.updatePreview();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.hideLoadingOverlay();
-      this.setupVisibilityListener();
-      Promise.resolve().then(() => this.cleanupOldClips()).catch(() => {});
-      return;
-    }
-
-    // --- CLOUD AUTH PATH (only reached when NOT in local mode) ---
-
-    // Check if this is a password reset callback from storage
-    const resetCallback = await this.checkPasswordResetCallback();
-    if (resetCallback) {
-      console.log('?? Password reset callback detected from storage');
-      this.hideLoadingOverlay();
-      document.getElementById('newPasswordModal').style.display = 'flex';
-      return;
-    }
-    
-    // Check if this is a password reset callback from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    
-    console.log('?? URL check:', {
-      search: window.location.search,
-      hash: window.location.hash,
-      type: hashParams.get('type'),
-      accessToken: hashParams.get('access_token') ? 'present' : 'missing'
-    });
-    
-    if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
-      console.log('?? Password reset callback detected from URL');
-      const accessToken = hashParams.get('access_token') || hashParams.get('reset');
-      const refreshToken = hashParams.get('refresh_token');
-      if (accessToken) {
-        await this.setPasswordResetSession(accessToken, refreshToken);
-      }
-      this.hideLoadingOverlay();
-      document.getElementById('newPasswordModal').style.display = 'flex';
-      return;
-    }
-    
-    // Check for OAuth callback tokens
-    await this.checkOAuthCallback();
-
-    // Restore database auth before the signed-in check. After an OS/browser
-    // restart, supabase-js may start empty while chrome.storage still has the
-    // refresh token bridge needed to rehydrate the session.
-    try {
-      await this.clearLegacyAuthPrefs();
-      await this.restoreSupabaseSessionFromBridge('startup');
-    } catch (_) {}
-
-    // Check if user is authenticated
-    const currentUser = await pasteCraftSupabase.getCurrentUser();
-
-    if (!currentUser) {
-      // Show auth modal (no freemium fallback here � that's handled by the mode gate above)
-      this.showAuthModal();
-      return;
-    }
-    
-    // User is authenticated, proceed with normal init
-    console.log('? User authenticated:', currentUser.email);
-    this.currentUser = currentUser;
-
-
-    // Load subscription info
-    // Do NOT block popup UI on slow network subscription fetch.
-    // Use cached subscription if available, then refresh in background.
-    try {
-      this.userSubscription = await pasteCraftSupabase.getCachedSubscription(currentUser.id);
-    } catch (_) {
-      this.userSubscription = null;
-    }
-    console.log('?? Subscription tier (cached):', this.userSubscription?.subscription_tier);
-    // Best-effort credits render from cached subscription snapshot.
-    this.updateAiCreditsPills('cached');
-    this.updateUpgradeUI();
-
-    pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
-      this.userSubscription = sub;
-      console.log('?? Subscription tier (fresh):', this.userSubscription?.subscription_tier);
-      this.updateAiCreditsPills('fresh');
-      this.updateUpgradeUI();
-    }).catch(() => {});
-    
-    // Show top bar (with sign out button)
-    document.getElementById('topBar').style.display = 'flex';
-    
-    this.setupLocalStorageListener();
-    await this._ensureIndexedDbReadyAndMigrate();
-
-    // Parallelize independent storage reads for faster startup
-    await Promise.all([
-      this.loadData(),
-      this.loadSettings(),
-      this.loadAiWorkflow(),
-      this.loadUserProfile(),
-      this.loadAnalysisHistory(),
-      this.loadAiHistory(),
-    ]);
-
-    // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
-    // Profile is identity data � not gated by cloud sync tier. Timeout to prevent hanging.
-    if (!this.userProfile?.userName && !this.userProfile?.aiGeneratedName && !this.userProfile?.profileImageUrl) {
-      try {
-        const remoteProfile = await Promise.race([
-          pasteCraftSupabase.syncUserProfileFromSupabase(),
-          new Promise((resolve) => setTimeout(() => resolve(null), 3000))
-        ]);
-        if (remoteProfile) {
-          this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
-          await chrome.storage.local.set({ userProfile: this.userProfile });
-          console.log('✅ Profile hydrated from Supabase on fresh device');
-        }
-      } catch (_) {}
-    }
-
-    // Always update top bar name/image (even if no image saved yet)
-    this.updateTopBarIdentity();
-    
-    if (this.userProfile?.profileImageUrl) {
-      this.displayImageTopLeft(this.userProfile.profileImageUrl);
-    }
-    
-    await this.setupEventListeners();
-    this.renderChips();
-    this.updateLastCapture();
-    this.updatePreview();
-    this.renderCategories();
-    this.updateCategoryFilter();
-
-    // ?? HIDE LOADING OVERLAY (local data loaded, ready to show).
-    // Done BEFORE _restoreSessionState() so a slow Supabase call inside
-    // the session-restore path (loadNotes/loadActivityLog/loadAiHistory)
-    // cannot stall the visible UI behind the purple overlay.
-    this.hideLoadingOverlay();
-
-    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) � fire and
-    // forget. The restored tab shows its own lightweight inline loading
-    // state while its data arrives.
-    this._restoreSessionState().catch((e) => {
-      console.warn('Session restore failed:', e);
-    });
-
-    // Run potentially heavy maintenance tasks in background (do not block popup render)
-    Promise.resolve()
-      .then(() => this.maybeCreateDailyRestorePoint('startup'))
-      .catch(() => {});
-
-    // Auto-delete cleanup can be slow with large clip sets; run in background.
-    Promise.resolve()
-      .then(() => this.cleanupOldClips())
-      .catch(() => {});
-    
-    // ?? SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
-    this.performBackgroundSync();
-    
-    // ?? TIERED STORAGE MIGRATION (move excess data to cloud if needed)
-    Promise.resolve()
-      .then(() => this._maybeMigrateTieredStorage())
-      .catch(e => console.warn('Tiered storage migration skipped:', e));
-    
-    // Reload data whenever popup becomes visible
-    this.setupVisibilityListener();
-    
-    // Setup realtime data sync listeners
-    this.setupRealtimeListeners();
-    
-    // Setup sync status listeners
-    this.setupSyncStatusListeners();
-    
-    console.log('? PasteCraft popup initialized successfully');
+    const { runPopupInit } = await import('./popup/features/app/popup.init.js');
+    return runPopupInit(this);
   }
+
 
   _formatShortDate(isoOrDate) {
     try {
@@ -779,124 +569,15 @@ class PasteCraftPopup {
   // =====================================================
   
   async checkOAuthCallback() {
-    try {
-      const result = await chrome.storage.local.get('oauth_callback');
-      if (result.oauth_callback) {
-        const { access_token, refresh_token } = result.oauth_callback;
-        console.log('?? Found OAuth callback tokens, completing sign in...');
-        
-        // Set session with tokens (timeout to prevent hang)
-        try {
-          const { error } = await Promise.race([
-            pasteCraftSupabase.client.auth.setSession({ access_token, refresh_token }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('setSession timeout')), 3000))
-          ]);
-          
-          if (!error) {
-            console.log('? OAuth sign in completed!');
-            try {
-              const { data: { user } } = await Promise.race([
-                pasteCraftSupabase.client.auth.getUser(),
-                new Promise((_, rej) => setTimeout(() => rej(new Error('getUser timeout')), 3000))
-              ]);
-              
-              // Create subscription for new user
-              if (user) {
-                await pasteCraftSupabase.createUserSubscription(user.id, user.email);
-              }
-            } catch (_) {}
-          } else {
-            console.error('? Failed to set session:', error);
-          }
-        } catch (timeoutErr) {
-          console.warn('?? setSession timed out, session bridge will handle auth');
-        }
-        
-        // Clear the temporary tokens regardless
-        await chrome.storage.local.remove('oauth_callback');
-      }
-    } catch (error) {
-      console.error('? Error checking OAuth callback:', error);
-    }
+    return this.authFeature.callbacks.checkOAuthCallback();
   }
 
   async checkPasswordResetCallback() {
-    try {
-      console.log('=================================');
-      console.log('?? CHECKING PASSWORD RESET CALLBACK');
-      console.log('=================================');
-      console.log('?? Reading from chrome.storage.local...');
-      
-      const result = await chrome.storage.local.get('password_reset_callback');
-      console.log('?? Storage result:', result);
-      
-      if (result.password_reset_callback) {
-        const { access_token, refresh_token, type, timestamp } = result.password_reset_callback;
-        console.log('? Password reset callback data found!');
-        console.log('?? Data details:', {
-          access_token_length: access_token?.length,
-          refresh_token_length: refresh_token?.length,
-          type: type,
-          timestamp: new Date(timestamp).toISOString(),
-          age_seconds: (Date.now() - timestamp) / 1000
-        });
-        
-        if (type === 'recovery') {
-          console.log('?? Type is "recovery" - setting database session...');
-          
-          // Set session with recovery tokens
-          const { error } = await pasteCraftSupabase.client.auth.setSession({
-            access_token,
-            refresh_token
-          });
-          
-          if (!error) {
-            console.log('? Password reset session established successfully!');
-            
-            // Verify session
-            const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
-            console.log('?? Current user after session:', user?.email);
-            
-            // Clear the temporary tokens
-            console.log('?? Clearing temporary tokens from storage...');
-            await chrome.storage.local.remove('password_reset_callback');
-            console.log('? Tokens cleared');
-            
-            return true;
-          } else {
-            console.error('? Failed to set password reset session:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
-          }
-        } else {
-          console.warn('?? Type is not "recovery":', type);
-        }
-      } else {
-        console.log('?? No password reset callback data in storage');
-      }
-    } catch (error) {
-      console.error('? Error checking password reset callback:', error);
-      console.error('Error stack:', error.stack);
-    }
-    return false;
+    return this.authFeature.callbacks.checkPasswordResetCallback();
   }
 
   async setPasswordResetSession(accessToken, refreshToken) {
-    try {
-      console.log('?? Setting password reset session from URL tokens');
-      
-      const { error } = await pasteCraftSupabase.client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-      
-      if (!error) {
-        console.log('? Password reset session established from URL!');
-      } else {
-        console.error('? Failed to set password reset session:', error);
-      }
-    } catch (error) {
-      console.error('? Error setting password reset session:', error);
-    }
+    return this.authFeature.callbacks.setPasswordResetSession(accessToken, refreshToken);
   }
   
   showAuthModal() {
@@ -1282,200 +963,36 @@ class PasteCraftPopup {
   }
 
   // Breakdown Modal Functions
+  showBreakdownModal(text) {
+    return this.aiLabFeature.breakdown.showBreakdownModal(this, text);
+  }
+
   showBreakdownModalWithLevel(text, level) {
-    this.currentBreakdownText = text;
-    this.currentBreakdownLevel = level;
-    this.breakdownCache = {}; // Cache explanations to avoid re-generating
-    this._activeBreakdownHistoryId = null; // New breakdown conversation
-    
-    // Set original text
-    document.getElementById('breakdownOriginalText').textContent = text;
-    
-    // Set text length
-    const wordCount = text.trim().split(/\s+/).length;
-    document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
-    
-    // Clear previous result
-    document.getElementById('breakdownResult').innerHTML = '';
-    
-    // Set active tab to the selected level
-    document.querySelectorAll('.breakdown-tab').forEach(tab => {
-      if (tab.dataset.level === level) {
-        tab.classList.add('active');
-      } else {
-        tab.classList.remove('active');
-      }
-    });
-    
-    // Update level info for the pre-selected level
-    this.updateLevelInfo(level);
-    
-    // Show modal
-    document.getElementById('breakdownModal').style.display = 'flex';
-    
-    // Auto-generate explanation for the selected level
-    this.generateBreakdown(level);
+    return this.aiLabFeature.breakdown.showBreakdownModalWithLevel(this, text, level);
   }
 
   hideBreakdownModal() {
-    document.getElementById('breakdownModal').style.display = 'none';
-    this.currentBreakdownText = null;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {};
-    
-    // Reset threads
-    this.breakdownThreads = [];
-    this.currentBreakdownThreadIndex = 0;
-    
-    // Hide follow-up and pagination
-    const followupContainer = document.getElementById('breakdownFollowupContainer');
-    const paginationContainer = document.getElementById('breakdownThreadPagination');
-    if (followupContainer) followupContainer.style.display = 'none';
-    if (paginationContainer) paginationContainer.style.display = 'none';
-    
-    // Reset italics state
-    const breakdownResult = document.getElementById('breakdownResult');
-    const italicsBtn = document.getElementById('breakdownItalicsBtn');
-    if (breakdownResult && italicsBtn) {
-      breakdownResult.classList.remove('italics');
-      italicsBtn.classList.remove('active');
-    }
+    return this.aiLabFeature.breakdown.hideBreakdownModal(this);
   }
 
   toggleBreakdownItalics() {
-    const breakdownResult = document.getElementById('breakdownResult');
-    const italicsBtn = document.getElementById('breakdownItalicsBtn');
-    
-    if (breakdownResult && italicsBtn) {
-      const isActive = breakdownResult.classList.toggle('italics');
-      italicsBtn.classList.toggle('active');
-      console.log(`?? Breakdown Result Italics ${isActive ? 'ENABLED' : 'DISABLED'}`);
-    } else {
-      console.error('? Elements not found:', {breakdownResult, italicsBtn});
-    }
+    return this.aiLabFeature.breakdown.toggleBreakdownItalics();
   }
 
   updateLevelInfo(level) {
-    const levelDescriptions = {
-      eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
-      elementary: '<strong>Elementary School Level:</strong> Clear explanation for kids ages 8-11 with relatable examples',
-      highschool: '<strong>High School Level:</strong> More sophisticated explanation with relevant concepts for teenagers',
-      college: '<strong>College Level:</strong> Academic explanation with detailed analysis and nuanced understanding',
-      phd: '<strong>PhD/Expert Level:</strong> Technical analysis with advanced concepts and scholarly depth',
-      wiseman: '<strong>Wise Man:</strong> Philosophical wisdom with metaphors, life lessons, and profound insights'
-    };
-
-    document.getElementById('levelInfoText').innerHTML = levelDescriptions[level] || '';
+    return this.aiLabFeature.breakdown.updateLevelInfo(level);
   }
 
   async generateBreakdown(level) {
-    // Premium check
-    let _premiumOk = true;
-    if (this.currentUser) {
-      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown');
-    }
-    if (!_premiumOk) return;
-
-    // Check cache first
-    if (this.breakdownCache[level]) {
-      const resultEl = document.getElementById('breakdownResult');
-      resultEl.innerHTML = await this._renderAiResponse(this.breakdownCache[level]);
-      return;
-    }
-
-    const loadingEl = document.getElementById('breakdownLoading');
-    const resultEl = document.getElementById('breakdownResult');
-
-    try {
-      // Show loading
-      loadingEl.style.display = 'flex';
-      resultEl.innerHTML = '';
-
-      // Generate explanation
-      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
-
-      // Cache the raw result (for copy + persistence)
-      const formatted = this._formatAiOutput(explanation);
-      this.breakdownCache[level] = formatted;
-
-      // Render as rich HTML and display
-      resultEl.innerHTML = await this._renderAiResponse(formatted);
-      loadingEl.style.display = 'none';
-
-      // Add to threads (store raw text)
-      this.breakdownThreads.push({
-        question: `Breakdown at ${level} level`,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-
-      // Show follow-up input after first response
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      if (followupContainer) {
-        followupContainer.style.display = 'block';
-      }
-
-      // Update thread pagination (only show after 2nd response)
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Persist breakdown modal state (results + threads)
-      this._saveBreakdownModalState();
-
-      // Save to AI history
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate breakdown:', error);
-      resultEl.innerHTML = 'Failed to generate explanation. Please check your OpenAI API key configuration.';
-      loadingEl.style.display = 'none';
-      this.showToast('Failed to generate explanation');
-    }
+    return this.aiLabFeature.breakdown.generateBreakdown.call(this, level);
   }
 
   copyBreakdownText() {
-    const text = document.getElementById('breakdownResult').textContent;
-    if (text) {
-      this.copyToClipboardFallback(text)
-        .then(() => this.showToast('Explanation copied to clipboard!'))
-        .catch((error) => {
-          console.error('Breakdown copy failed:', error);
-          this.showToast('Failed to copy explanation', 'error');
-        });
-    }
+    return this.aiLabFeature.breakdown.copyBreakdownText(this);
   }
 
-  // ==================== INLINE BREAKDOWN (AI Lab Page) ====================
-
   startInlineBreakdown(text, level) {
-    this.currentBreakdownText = text;
-    this.currentBreakdownLevel = level;
-    this.inlineBreakdownCache = {};
-    this.inlineBreakdownThreads = [];
-    this.currentInlineBreakdownThreadIndex = 0;
-
-    // Show the results section
-    const resultsSection = document.getElementById('bdInlineResults');
-    if (resultsSection) {
-      resultsSection.style.display = 'block';
-      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // Set active tab
-    document.querySelectorAll('.bd-inline-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.inlineLevel === level);
-    });
-
-    // Update badge
-    const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
-    const badge = document.getElementById('bdInlineLevelBadge');
-    if (badge) badge.textContent = levelNames[level] || level;
-
-    // Generate
-    this.generateBreakdownInline(level);
+    return this.aiLabFeature.breakdown.startInlineBreakdown(this, text, level);
   }
 
   async generateBreakdownInline(level) {
@@ -1516,127 +1033,37 @@ class PasteCraftPopup {
       summaryFollowupInput.value = '';
       summaryFollowupInput.disabled = true;
     }
-    
+
     const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
     if (summaryFollowupBtn) {
       summaryFollowupBtn.disabled = true;
     }
 
-    // Generate summary with follow-up question
     await this.generateSummary(this.currentSummaryText, followupQuestion);
 
-    // Re-enable input
     if (summaryFollowupInput) {
       summaryFollowupInput.disabled = false;
     }
   }
 
-  // Handle Breakdown Follow-up
   async handleBreakdownFollowup(followupQuestion) {
     return this.aiLabFeature.summary.handleBreakdownFollowup.call(this, followupQuestion);
   }
 
   toggleFollowupLevelTabs(enable) {
-    const tabs = document.querySelectorAll('.followup-level-tab');
-    tabs.forEach(tab => {
-      if (enable) {
-        tab.classList.remove('disabled');
-        tab.disabled = false;
-      } else {
-        tab.classList.add('disabled');
-        tab.disabled = true;
-      }
-    });
+    return this.aiLabFeature.breakdown.toggleFollowupLevelTabs(enable);
   }
 
-  // Render Thread Pagination Boxes
   renderThreadPagination(type) {
-    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
-    const currentIndex = type === 'summary' ? this.currentSummaryThreadIndex : this.currentBreakdownThreadIndex;
-    const paginationContainer = document.getElementById(`${type}ThreadPagination`);
-
-    console.log('?? renderThreadPagination called:', { type, threadsLength: threads.length, containerFound: !!paginationContainer });
-
-    if (!paginationContainer || threads.length < 2) {
-      console.log('?? Early return:', { containerExists: !!paginationContainer, threadsLength: threads.length });
-      return;
-    }
-
-    // Show pagination
-    paginationContainer.style.display = 'flex';
-    paginationContainer.style.gap = '8px';
-    paginationContainer.innerHTML = '';
-
-    console.log('? Rendering', threads.length, 'thread boxes for', type);
-
-    threads.forEach((thread, index) => {
-      const box = document.createElement('div');
-      box.className = `thread-box ${index === currentIndex ? 'active' : ''}`;
-      box.textContent = index + 1;
-      
-      // Force styling inline as fallback
-      box.style.cssText = `
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: ${index === currentIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
-        border: 2px solid ${index === currentIndex ? '#2563eb' : '#cbd5e1'};
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 700;
-        color: ${index === currentIndex ? 'white' : '#64748b'};
-        transition: all 0.25s ease;
-        position: relative;
-      `;
-      
-      // Generate tooltip with AI summary title
-      const tooltipText = this.generateThreadTooltip(thread, index + 1);
-      box.setAttribute('data-tooltip', tooltipText);
-      box.setAttribute('title', tooltipText); // Fallback native tooltip
-      
-      box.addEventListener('click', () => {
-        this.navigateToThread(type, index);
-      });
-
-      paginationContainer.appendChild(box);
-      console.log(`? Added thread box ${index + 1}, className: "${box.className}"`);
-    });
-
-    console.log('? Pagination rendered. Container display:', paginationContainer.style.display);
+    return this.aiLabFeature.breakdown.renderThreadPagination.call(this, type);
   }
 
-  // Generate tooltip text for thread box
   generateThreadTooltip(thread, number) {
-    // Extract first few words as summary title
-    const question = thread.question || 'Response';
-    const summaryTitle = question.length > 30 ? question.substring(0, 30) + '...' : question;
-    return `${number}. "${summaryTitle}"`;
+    return this.aiLabFeature.breakdown.generateThreadTooltip(thread, number);
   }
 
-  // Navigate to specific thread
   async navigateToThread(type, index) {
-    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
-    if (index < 0 || index >= threads.length) return;
-
-    const thread = threads[index];
-    const contentEl = document.getElementById(type === 'summary' ? 'summaryResultContent' : 'breakdownResult');
-
-    if (contentEl) {
-      contentEl.innerHTML = await this._renderAiResponse(thread.answer);
-    }
-
-    // Update current index
-    if (type === 'summary') {
-      this.currentSummaryThreadIndex = index;
-    } else {
-      this.currentBreakdownThreadIndex = index;
-    }
-
-    // Re-render pagination to update active state
-    this.renderThreadPagination(type);
+    return this.aiLabFeature.breakdown.navigateToThread.call(this, type, index);
   }
 
   populateCategoryOptions() {
@@ -1924,41 +1351,11 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n- Delete all your clips\n- Remove all categories\n- Clear your profile data\n- This action cannot be undone.')) {
-      if (confirm('FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
-        this.handleUnsubscribe();
-      }
-    }
+    return this.billingFeature.unsubscribe.showUnsubscribeConfirmation(this);
   }
 
   async handleUnsubscribe() {
-    try {
-      this.showToast('Deleting all data…', 'info');
-
-      // Clear all storage
-      await chrome.storage.local.clear();
-
-      // Clear in-memory data
-      this.clips = [];
-      this.searchOnlyClips = [];
-      this.categories = [];
-      this.userProfile = null;
-
-      // Update UI
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-      this.hideProfileModal();
-
-      this.showToast('All data deleted. You have been unsubscribed.', 'success');
-
-      console.log('User unsubscribed - all local data cleared');
-
-    } catch (error) {
-      console.error('Failed to unsubscribe:', error);
-      this.showToast('Failed to unsubscribe', 'error');
-    }
+    return this.billingFeature.unsubscribe.handleUnsubscribe(this);
   }
 
   // Display image and funky name in top bar
@@ -1986,194 +1383,28 @@ class PasteCraftPopup {
     return this.profileFeature?.render?.startProfileImageCollapse?.(this);
   }
 
-  // Setup Image Viewer for expanded view
   setupImageViewer() {
-    const modal = document.getElementById('imageViewerModal');
-    const modalImg = document.getElementById('imageViewerImg');
-    const closeBtn = document.getElementById('imageViewerClose');
-    const profileImage = document.getElementById('profileImage');
-    const topLeftImg = document.getElementById('topLeftProfileImg');
-    
-    // Function to show expanded image
-    const showExpandedImage = (imgSrc) => {
-      if (!imgSrc || imgSrc === '') return;
-      modalImg.src = imgSrc;
-      modal.style.display = 'flex';
-    };
-    
-    // Click on profile image in modal
-    if (profileImage) {
-      profileImage.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent event bubbling
-        if (profileImage.style.display !== 'none') {
-          showExpandedImage(profileImage.src);
-        }
-      });
-    }
-    
-    // Click on top-left profile image
-    if (topLeftImg) {
-      // Remove the old onclick that opens profile modal
-      const topLeftContainer = document.getElementById('topLeftProfileImage');
-      if (topLeftContainer) {
-        topLeftContainer.onclick = null; // Remove old handler
-        topLeftImg.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showExpandedImage(topLeftImg.src);
-        });
-      }
-    }
-    
-    // Close button
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-    }
-    
-    // Click outside image to close
-    if (modal) {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-    }
-    
-    // ESC key to close
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.style.display === 'flex') {
-        modal.style.display = 'none';
-      }
-    });
+    return this.profileFeature.viewer.setupImageViewer();
   }
 
-  // Password strength indicator and validation
   updatePasswordStrength(password) {
-    const strengthBar = document.querySelector('.strength-bar');
-    if (!strengthBar) return;
-
-    let strength = 0;
-    
-    // Check all requirements (matching Supabase settings)
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    // Update requirement indicators
-    this.updateRequirement('req-length', hasLength);
-    this.updateRequirement('req-lowercase', hasLowercase);
-    this.updateRequirement('req-uppercase', hasUppercase);
-    this.updateRequirement('req-number', hasNumber);
-    this.updateRequirement('req-special', hasSpecial);
-    
-    // Calculate strength (20% each requirement)
-    if (hasLength) strength += 20;
-    if (hasLowercase) strength += 20;
-    if (hasUppercase) strength += 20;
-    if (hasNumber) strength += 20;
-    if (hasSpecial) strength += 20;
-    
-    strengthBar.style.width = `${strength}%`;
-    
-    // Color based on strength
-    if (strength < 60) {
-      strengthBar.style.background = '#EF4444'; // Red
-    } else if (strength < 100) {
-      strengthBar.style.background = '#F59E0B'; // Orange
-    } else {
-      strengthBar.style.background = '#10B981'; // Green
-    }
+    return this.authFeature.password.updatePasswordStrength(this, password);
   }
 
-  // Update password requirement indicator
   updateRequirement(elementId, isValid) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    const icon = element.querySelector('.requirement-icon');
-    if (isValid) {
-      element.classList.add('valid');
-      if (icon) icon.textContent = '\u2713';
-    } else {
-      element.classList.remove('valid');
-      if (icon) icon.textContent = '\u2717';
-    }
+    return this.authFeature.password.updateRequirement(this, elementId, isValid);
   }
 
-  // Validate password meets all requirements (matching Supabase settings)
   validatePassword(password) {
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    return hasLength && hasLowercase && hasUppercase && hasNumber && hasSpecial;
+    return this.authFeature.password.validatePassword(password);
   }
 
-  // Update password strength for new password form (matching Supabase settings)
   updateNewPasswordStrength(password) {
-    const strengthBar = document.querySelector('#newPasswordStrength .strength-bar');
-    if (!strengthBar) return;
-
-    let strength = 0;
-    
-    // Check all requirements
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    // Update requirement indicators
-    this.updateRequirement('new-req-length', hasLength);
-    this.updateRequirement('new-req-lowercase', hasLowercase);
-    this.updateRequirement('new-req-uppercase', hasUppercase);
-    this.updateRequirement('new-req-number', hasNumber);
-    this.updateRequirement('new-req-special', hasSpecial);
-    
-    // Calculate strength (20% each requirement)
-    if (hasLength) strength += 20;
-    if (hasLowercase) strength += 20;
-    if (hasUppercase) strength += 20;
-    if (hasNumber) strength += 20;
-    if (hasSpecial) strength += 20;
-    
-    strengthBar.style.width = `${strength}%`;
-    
-    if (strength < 60) {
-      strengthBar.style.background = '#EF4444';
-    } else if (strength < 100) {
-      strengthBar.style.background = '#F59E0B';
-    } else {
-      strengthBar.style.background = '#10B981';
-    }
+    return this.authFeature.password.updateNewPasswordStrength(this, password);
   }
 
-  // Check if passwords match
   checkPasswordMatch() {
-    const newPassword = document.getElementById('newPassword')?.value || '';
-    const confirmPassword = document.getElementById('confirmNewPassword')?.value || '';
-    const matchHint = document.getElementById('passwordMatchHint');
-    
-    if (!matchHint) return;
-    
-    if (confirmPassword.length > 0) {
-      if (newPassword === confirmPassword) {
-        matchHint.textContent = 'Passwords match';
-        matchHint.style.color = '#10B981';
-        matchHint.style.display = 'block';
-      } else {
-        matchHint.textContent = 'Passwords do not match';
-        matchHint.style.color = '#DC2626';
-        matchHint.style.display = 'block';
-      }
-    } else {
-      matchHint.style.display = 'none';
-    }
+    return this.authFeature.password.checkPasswordMatch();
   }
 
   static async handleMessage(message) {
@@ -2217,79 +1448,11 @@ class PasteCraftPopup {
   deleteFromGallery(index) { return this.profileFeature.storage.deleteFromGallery(this, index); }
 
   async generateAIImageFromProfile() {
-    try {
-      if (!this.userProfile?.aiGeneratedName) {
-        this.showToast('Generate your funky name first in Profile!', 'error');
-        return;
-      }
-      
-      this.showToast('Generating AI image…', 'info');
-      document.getElementById('aiGenerateFromProfileBtn').disabled = true;
-      document.getElementById('aiGenerateFromProfileBtn').textContent = 'Generating…';
-      
-      const gen = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-      
-      if (imageUrl) {
-        // Add to gallery
-        await this.addToGallery(imageUrl, 'profile');
-        
-        this.showToast('AI image generated!', 'success');
-        this.showAIGenerationTimer();
-        this.loadAIGallery();
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      } else {
-        this.showToast('Failed to generate AI image', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to generate AI image:', error);
-      this.showToast('Failed to generate AI image', 'error');
-    } finally {
-      document.getElementById('aiGenerateFromProfileBtn').disabled = false;
-      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Generate from Profile</span>';
-    }
+    return this.profileFeature.aiImage.generateAIImageFromProfile(this);
   }
 
   async generateRandomAIImage() {
-    try {
-      this.showToast('Generating random avatar…', 'info');
-      document.getElementById('aiGenerateRandomBtn').disabled = true;
-      document.getElementById('aiGenerateRandomBtn').textContent = 'Generating…';
-      
-      // Generate a random animal name
-      const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
-      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-      const randomName = `Random${randomAnimal}`;
-      
-      const gen = await pasteCraftSupabase.generateProfileImage(null, null, randomName);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-      
-      if (imageUrl) {
-        // Add to gallery
-        await this.addToGallery(imageUrl, 'random');
-        
-        this.showToast('Random avatar generated!', 'success');
-        this.showAIGenerationTimer();
-        this.loadAIGallery();
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      } else {
-        this.showToast('Failed to generate random avatar', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to generate random avatar:', error);
-      this.showToast('Failed to generate random avatar', 'error');
-    } finally {
-      document.getElementById('aiGenerateRandomBtn').disabled = false;
-      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Random Avatar</span>';
-    }
+    return this.profileFeature.aiImage.generateRandomAIImage(this);
   }
 
   async addToGallery(url, type) { return this.profileFeature.storage.addToGallery(this, url, type); }
@@ -2336,202 +1499,6 @@ class PasteCraftPopup {
       clearInterval(this.aiGenerationTimerInterval);
       this.aiGenerationTimerInterval = null;
     }
-  }
-  
-  showBreakdownModal(text) {
-    // Use the existing breakdown modal from the page
-    const breakdownModal = document.getElementById('breakdownModal');
-    const breakdownOriginalText = document.getElementById('breakdownOriginalText');
-    const breakdownTextLength = document.getElementById('breakdownTextLength');
-
-    if (breakdownModal && breakdownOriginalText) {
-      this.currentBreakdownText = text;
-      this.currentBreakdownLevel = null;
-      this.breakdownCache = {};
-      this.breakdownThreads = [];
-      this.currentBreakdownThreadIndex = 0;
-      this._activeBreakdownHistoryId = null;
-      this.selectedFollowupLevel = null;
-
-      // Show FULL text, not truncated - let CSS handle scrolling
-      breakdownOriginalText.textContent = text;
-      
-      if (breakdownTextLength) {
-        const wordCount = text.trim().split(/\s+/).length;
-        breakdownTextLength.textContent = `${wordCount} words`;
-      }
-      
-      // Force reflow to ensure scrollbar appears correctly
-      breakdownOriginalText.style.display = 'none';
-      breakdownOriginalText.offsetHeight; // Trigger reflow
-      breakdownOriginalText.style.display = 'block';
-      
-      // Scroll to top of the original text box
-      breakdownOriginalText.scrollTop = 0;
-      
-      // Show the modal
-      breakdownModal.style.display = 'flex';
-      
-      // Clear any previous result
-      const breakdownResult = document.getElementById('breakdownResult');
-      if (breakdownResult) {
-        breakdownResult.innerHTML = '';
-      }
-      const loadingEl = document.getElementById('breakdownLoading');
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      const paginationContainer = document.getElementById('breakdownThreadPagination');
-      if (loadingEl) loadingEl.style.display = 'none';
-      if (followupContainer) followupContainer.style.display = 'none';
-      if (paginationContainer) paginationContainer.style.display = 'none';
-      
-      // Reset tabs - no active tab initially
-      document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
-      
-      // Show initial level info
-      const levelInfoText = document.getElementById('levelInfoText');
-      if (levelInfoText) {
-        levelInfoText.innerHTML = `
-          <strong>Choose a level:</strong> Select a comprehension level above to get an AI-powered explanation tailored to that audience
-        `;
-      }
-      
-      // Show toast if multiple clips were added
-      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
-      if (clipCount > 1) {
-        this.showToast(`${clipCount} clips ready for breakdown (scroll to see all)`);
-      }
-      
-      // Save to history
-      this.saveToAnalysisHistory(text, 'breakdown-initiated');
-
-      // Persist breakdown page state (input prefilled from clip)
-      this._saveBreakdownPageState();
-      this._currentAiLabSubTab = 'breakdown';
-      this._saveActiveTabState();
-    }
-  }
-  
-  showSummaryModal(text) {
-    // Navigate to AI Lab > Summary tab and pre-fill text
-    const aiTab = document.querySelector('[data-tab="ai"]');
-    const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
-    const summaryInput = document.getElementById('summaryInput');
-    
-    if (aiTab && summarySubTab && summaryInput) {
-      // Switch to AI Lab tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      aiTab.classList.add('active');
-      document.getElementById('aiTab').classList.add('active');
-      
-      // Switch to Summary sub-tab
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      summarySubTab.classList.add('active');
-      document.getElementById('aiSummarySection').classList.add('active');
-      
-      // Pre-fill the text
-      summaryInput.value = text;
-      summaryInput.dispatchEvent(new Event('input'));
-      
-      // Scroll to top of textarea to show the first clip
-      summaryInput.scrollTop = 0;
-      
-      // Focus the textarea
-      summaryInput.focus();
-      
-      // Show toast if multiple clips were added
-      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
-      if (clipCount > 1) {
-        this.showToast(`${clipCount} clips added to summary (scroll to see all)`);
-      }
-      
-      // Save to history
-      this.saveToAnalysisHistory(text, 'summary-initiated');
-
-      // Persist summary state (input prefilled from clip)
-      this._currentSummarySection = 'input';
-      this._saveSummaryState();
-      this._currentAiLabSubTab = 'summary';
-      this._saveActiveTabState();
-      
-      // Clear selections and hide buttons
-      this.clearAllSelections();
-    }
-  }
-
-  openClipViewer(clip) {
-    return this.clipsFeature.viewer.open(this, clip);
-  }
-
-  hideClipViewerModal() {
-    return this.clipsFeature.viewer.hide(this);
-  }
-
-  async copyClipViewerText() {
-    return this.clipsFeature.viewer.copyText(this);
-  }
-
-  clearAllSelections() {
-    this.selectedChips.clear();
-    this.selectedSearchClips.clear();
-    this.selectedCategoryClips.clear();
-    
-    // Re-render to update UI
-    this.renderChips();
-    // Refresh search UI (performSearch was removed/renamed)
-    this.renderSearchResults();
-    this.renderCategories();
-  }
-  
-  getSelectedOrCurrentText(currentClipText, source) {
-    // Check if there are any selected clips based on the source
-    let selectedTexts = [];
-    
-    if (source === 'clips' && this.selectedChips.size > 0) {
-      // Get texts from selected chips
-      this.selectedChips.forEach(idKey => {
-        const clip = this.clips.find(c => this._clipIdKey(c?.id) === String(idKey));
-        if (clip) selectedTexts.push(clip.text);
-      });
-    } else if (source === 'search' && this.selectedSearchClips.size > 0) {
-      // Get texts from selected search clips
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      this.selectedSearchClips.forEach(clipId => {
-        const clip = allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(clipId));
-        if (clip) {
-          selectedTexts.push(clip.text);
-        }
-      });
-    } else if (source === 'categories' && this.selectedCategoryClips.size > 0) {
-      // Get texts from selected category clips
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      this.selectedCategoryClips.forEach(clipId => {
-        const clip = allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(clipId));
-        if (clip) {
-          selectedTexts.push(clip.text);
-        }
-      });
-    }
-    
-    // If we have selected clips, join them with delimiter
-    if (selectedTexts.length > 0) {
-      return selectedTexts.join('\n\n---\n\n');
-    }
-    
-    // Otherwise, return the current clip text
-    return currentClipText;
-  }
-  
-  showBreakdownModalWithLevel(text, level) {
-    this.showBreakdownModal(text);
-    this.currentBreakdownLevel = level;
-
-    document.querySelectorAll('.breakdown-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.level === level);
-    });
-    this.updateLevelInfo(level);
-    this.generateBreakdown(level);
   }
   
   // ==================== SESSION PERSISTENCE ====================
@@ -2870,54 +1837,6 @@ class PasteCraftPopup {
   formatTimeAgo(date) { return this.activityFeature.render.formatTimeAgo(date); }
 
 }
-
-// Lucide icon renderer - idempotent, safe to call many times.
-// Replaces <i data-lucide="name"></i> placeholders with inline SVGs.
-// Observes DOM mutations so dynamically-rendered templates also get icons.
-window.renderLucideIcons = function renderLucideIcons() {
-  try {
-    if (typeof window.lucide === 'undefined' || !window.lucide.createIcons) return;
-    window.lucide.createIcons({
-      icons: window.lucide.icons || window.lucide,
-      attrs: { 'stroke-width': 2, 'aria-hidden': 'true', focusable: 'false' }
-    });
-  } catch (e) {
-    console.warn('Lucide render failed:', e);
-  }
-};
-
-(function initLucideObserver() {
-  if (window.__lucideObserverInstalled) return;
-  window.__lucideObserverInstalled = true;
-  const schedule = (() => {
-    let pending = false;
-    return () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(() => {
-        pending = false;
-        window.renderLucideIcons();
-      });
-    };
-  })();
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.nodeType === 1 && (node.matches?.('[data-lucide]') || node.querySelector?.('[data-lucide]'))) {
-          schedule();
-          return;
-        }
-      }
-    }
-  });
-  if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      observer.observe(document.body, { childList: true, subtree: true });
-    }, { once: true });
-  }
-})();
 
 // Initialize when DOM loads
 document.addEventListener('DOMContentLoaded', () => {

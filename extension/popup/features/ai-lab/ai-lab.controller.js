@@ -4,6 +4,8 @@ import * as history from './ai-lab.history.js';
 import * as magic from './ai-lab.magic.js';
 import * as bulk from './ai-lab.bulk.js';
 import * as sessionState from './ai-lab.session-state.js';
+import * as breakdown from './ai-lab.breakdown.js';
+import * as summaryModal from './ai-lab.summary-modal.js';
 
 export function initAiLabFeature(_app) {
   return {
@@ -13,5 +15,7 @@ export function initAiLabFeature(_app) {
     magic,
     bulk,
     sessionState,
+    breakdown,
+    summaryModal,
   };
 }

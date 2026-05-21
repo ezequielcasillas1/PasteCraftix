@@ -1,3 +1,13 @@
+### May 21, 2026 - Supabase sync RLS grants + session guard
+**Status:** SUCCESS
+**Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
+**Result:** Re-granted EXECUTE on `user_is_not_banned` for ban_gate RLS (42501 fix). `performFullSync` skips without live JWT. User verified.
+
+### May 21, 2026 - Popup refactor final slice (init, auth, AI, profile)
+**Status:** SUCCESS
+**Files:** popup.init.js, auth.callbacks.js, auth.password-strength.js, billing.unsubscribe.js, profile.ai-image.js, profile.viewer.js, ai-lab.breakdown.js, ai-lab.summary-modal.js, popup-icons.js, popup.js, popup.html, auth/billing/profile/ai-lab controllers
+**Result:** Startup, auth callbacks, password UI, unsubscribe, profile AI/viewer, breakdown/summary modals, Lucide boot extracted. popup.js ~2979 → ~1898 lines. User verified.
+
 ### May 21, 2026 - Popup refactor batch 3
 **Status:** SUCCESS
 **Files:** extension/popup/features/clips/clips.pdf.js, clips.title.js, billing.upgrade-ui.js, ai-lab.bulk.js, ai-lab.session-state.js, clips.controller.js, billing.controller.js, ai-lab.controller.js, extension/popup.js

@@ -1,3 +1,13 @@
+### May 21, 2026 - popup.js final slice (init, auth, breakdown, profile)
+**Status:** SUCCESS
+**Files:** popup.init.js, auth.callbacks.js, auth.password-strength.js, billing.unsubscribe.js, profile.ai-image.js, profile.viewer.js, ai-lab.breakdown.js, ai-lab.summary-modal.js, popup-icons.js, popup.js, popup.html, auth/billing/profile/ai-lab controllers
+**Result:** Extracted startup orchestration, auth callbacks, password strength UI, unsubscribe, profile AI images, image viewer, breakdown modal stack, summary modal nav, Lucide boot. popup.js ~2979 → ~1898 lines; thin delegates retained. User verified.
+
+### May 21, 2026 - Supabase sync RLS grants + performFullSync session guard
+**Status:** SUCCESS
+**Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
+**Result:** Migration re-grants `user_is_not_banned` EXECUTE for ban_gate RLS (42501). Client skips full sync without live JWT. User verified.
+
 ### May 21, 2026 - popup.js batch 3 (pdf, billing, titles, bulk AI, session)
 **Status:** SUCCESS
 **Files:** clips.pdf.js, clips.title.js, billing.upgrade-ui.js, ai-lab.bulk.js, ai-lab.session-state.js, clips.controller.js, billing.controller.js, ai-lab.controller.js, popup.js
