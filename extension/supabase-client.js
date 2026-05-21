@@ -1053,6 +1053,11 @@ class PasteCraftSupabase {
       console.warn('⚠️ Supabase not initialized - returning original URL');
       return imageUrl; // Fallback to original URL if Supabase not available
     }
+
+    if (this._pcIsDataImageUrl(imageUrl)) {
+      const uploaded = await this.uploadDataUrlToProfileImages(imageUrl, userId);
+      return uploaded || imageUrl;
+    }
     
     try {
       console.log('📥 Downloading image from temporary URL:', imageUrl);
