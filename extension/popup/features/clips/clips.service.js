@@ -19,13 +19,15 @@ function getStoredClipArrays(app) {
 function createDeleteState(app, ids, includeArchived, crud) {
   const idSet = new Set(ids);
   const { active, archived } = getStoredClipArrays(app);
+  const nextClips = active.filter(c => !idSet.has(getClipIdKey(c?.id)));
+  const nextArchived = includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived;
 
   return {
     idSet,
     beforeActive: active.length,
     beforeArchived: archived.length,
-    nextClips: active.filter(c => !idSet.has(getClipIdKey(c?.id))),
-    nextArchived: includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived,
+    nextClips,
+    nextArchived,
     snapshot: {
       clips: crud.createSnapshot(app.clips),
       searchOnlyClips: crud.createSnapshot(app.searchOnlyClips),
@@ -404,13 +406,16 @@ export async function handleSearchBulkCopy(app) {
 export async function removeChip(app, clipIdKey) {
   const id = String(clipIdKey || '');
   if (!id) return;
-  await deleteClipsByIdKeys(app, [id], {
+  const result = await deleteClipsByIdKeys(app, [id], {
     includeArchived: false,
     reason: 'delete:removeChip',
     closeCategoryModal: false,
     clearSelection: true,
     rerender: true,
   });
+  if (result.deleted > 0) {
+    app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`, 'success');
+  }
 }
 
 export async function copyClipToClipboard(app, text) {

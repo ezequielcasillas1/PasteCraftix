@@ -157,11 +157,15 @@ export function applyClipTextOptions(app, texts) {
 }
 
 export function updatePreviewFromSelection(app) {
+  if (app.currentTab !== 'categories') return;
+
   console.log('🔄 Updating preview from selection:', app.selectedCategoryClips?.size || 0, 'clips selected');
 
+  const previewArea = document.getElementById('previewArea');
+
   if (!app.selectedCategoryClips || app.selectedCategoryClips.size === 0) {
-    if (!app.previewIsManual && app.previewLastAutoValue) {
-      document.getElementById('previewArea').value = '';
+    if (!app.previewIsManual && app.previewLastAutoValue && previewArea) {
+      previewArea.value = '';
       app.previewLastAutoValue = '';
     }
     console.log('📄 Preview cleared - no clips selected');
@@ -184,7 +188,8 @@ export function updatePreviewFromSelection(app) {
 
   console.log('📋 Found selected clips:', selectedClips.length);
   const formattedText = applyClipTextOptions(app, selectedClips.map(clip => clip.text));
-  document.getElementById('previewArea').value = formattedText;
+  if (!previewArea) return;
+  previewArea.value = formattedText;
   app.previewIsManual = false;
   app.previewLastAutoValue = formattedText;
   console.log('✅ Preview updated with formatted text:', formattedText.substring(0, 50) + '...');

@@ -29,7 +29,8 @@ export function registerCraftToolbarEvents(app) {
         e.target.classList.add('active');
         app.delimiter = e.target.dataset.delimiter;
         app.updatePreview();
-        app.updatePreviewFromSelection(); // Also update category selection preview
+        if (app.currentTab === 'categories') app.updatePreviewFromSelection();
+        if (app.currentTab === 'search') app.updatePreviewFromSearchSelection();
         app.updateDelimiterExample(); // Update example text
         
         // Handle custom delimiter
@@ -47,7 +48,8 @@ export function registerCraftToolbarEvents(app) {
     document.getElementById('customDelimiter').addEventListener('input', () => {
       if (app.delimiter === 'custom') {
         app.updatePreview();
-        app.updatePreviewFromSelection();
+        if (app.currentTab === 'categories') app.updatePreviewFromSelection();
+        if (app.currentTab === 'search') app.updatePreviewFromSearchSelection();
         app.updateDelimiterExample(); // Update example text
       }
     });
@@ -56,19 +58,22 @@ export function registerCraftToolbarEvents(app) {
     document.getElementById('deduplicateToggle').addEventListener('change', (e) => {
       app.options.deduplicate = e.target.checked;
       app.updatePreview();
-      app.updatePreviewFromSelection(); // Also update category selection preview
+      if (app.currentTab === 'categories') app.updatePreviewFromSelection();
+      if (app.currentTab === 'search') app.updatePreviewFromSearchSelection();
     });
     
     document.getElementById('sortToggle').addEventListener('change', (e) => {
       app.options.sort = e.target.checked;
       app.updatePreview();
-      app.updatePreviewFromSelection(); // Also update category selection preview
+      if (app.currentTab === 'categories') app.updatePreviewFromSelection();
+      if (app.currentTab === 'search') app.updatePreviewFromSearchSelection();
     });
     
     document.getElementById('uppercaseToggle').addEventListener('change', (e) => {
       app.options.uppercase = e.target.checked;
       app.updatePreview();
-      app.updatePreviewFromSelection(); // Also update category selection preview
+      if (app.currentTab === 'categories') app.updatePreviewFromSelection();
+      if (app.currentTab === 'search') app.updatePreviewFromSearchSelection();
     });
     
     // Copy button
