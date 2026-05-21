@@ -1,4 +1,4 @@
-import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
+import { AI_STORAGE_KEYS, AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
 import { getHistoryModalElements } from './ai-lab.selectors.js';
 
 export { renderOpenRecentConversation } from './ai-lab.summary.js';
@@ -77,20 +77,58 @@ export async function _generateAiHistoryTitle(entryId, originalText) {
   }
 }
 
+export function resetAiHistoryListPagination() {
+  this._aiHistoryVisibleCount = AI_HISTORY_PAGE_SIZE;
+}
+
+export function loadMoreAiHistoryList() {
+  const entries = _filterHistoryEntries(this);
+  const total = entries.length;
+  if (total <= AI_HISTORY_PAGE_SIZE) return;
+  this._aiHistoryVisibleCount = Math.min(
+    (this._aiHistoryVisibleCount || AI_HISTORY_PAGE_SIZE) + AI_HISTORY_PAGE_SIZE,
+    total
+  );
+  this.renderAiHistoryList();
+}
+
 export function renderAiHistoryList() {
   const container = document.getElementById('aiHistoryList');
+  const loadMoreBtn = document.getElementById('loadMoreAiHistoryBtn');
   if (!container) return;
 
   const entries = _filterHistoryEntries(this);
   if (!entries || entries.length === 0) {
     container.innerHTML = _renderEmptyHistory(this);
+    _updateAiHistoryLoadMore(loadMoreBtn, 0, 0);
     return;
   }
 
-  container.innerHTML = entries.map(entry => _renderHistoryEntry(this, entry)).join('');
+  const total = entries.length;
+  if (!this._aiHistoryVisibleCount || this._aiHistoryVisibleCount < AI_HISTORY_PAGE_SIZE) {
+    this._aiHistoryVisibleCount = AI_HISTORY_PAGE_SIZE;
+  }
+  if (this._aiHistoryVisibleCount > total) {
+    this._aiHistoryVisibleCount = total;
+  }
+
+  const visibleEntries = entries.slice(0, this._aiHistoryVisibleCount);
+  container.innerHTML = visibleEntries.map(entry => _renderHistoryEntry(this, entry)).join('');
   _attachHistoryListHandlers(this, container);
+  _updateAiHistoryLoadMore(loadMoreBtn, total, visibleEntries.length);
   if (typeof this.renderLucideIcons === 'function') {
     this.renderLucideIcons();
+  }
+}
+
+function _updateAiHistoryLoadMore(loadMoreBtn, total, visibleCount) {
+  if (!loadMoreBtn) return;
+  const show = total > AI_HISTORY_PAGE_SIZE && visibleCount < total;
+  loadMoreBtn.style.display = show ? 'block' : 'none';
+  if (show) {
+    const remaining = total - visibleCount;
+    const nextChunk = Math.min(AI_HISTORY_PAGE_SIZE, remaining);
+    loadMoreBtn.textContent = `Load ${nextChunk} more (${remaining} remaining)`;
   }
 }
 
@@ -208,6 +246,7 @@ export async function clearAllAiHistory() {
   this.aiHistoryEntries = [];
   this._activeBreakdownHistoryId = null;
   this._activeSummaryHistoryId = null;
+  resetAiHistoryListPagination.call(this);
   await this._persistAiHistory();
   this.renderAiHistoryList();
   this.showToast('AI history cleared');

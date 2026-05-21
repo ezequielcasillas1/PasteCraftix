@@ -31,6 +31,8 @@ export const AI_STORAGE_KEYS = {
   HISTORY: 'pc_aiHistory_v1',
 };
 
+export const AI_HISTORY_PAGE_SIZE = 7;
+
 export const OPEN_RECENT_CONVERSATION_TOOLTIPS = Object.freeze({
   breakdown:
     'AI Breakdown: step-by-step explanations of your text at the comprehension level you pick.',

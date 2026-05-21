@@ -50,6 +50,7 @@ export function registerTabNavEvents(app) {
         } else if (app.currentTab === 'aiHistory') {
           console.log('?? AI History tab opened - loading history...');
           await app.loadAiHistory();
+          app.resetAiHistoryListPagination();
           app.renderAiHistoryList();
           console.log('? AI History loaded');
         } else if (app.currentTab === 'activity') {

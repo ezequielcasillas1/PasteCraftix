@@ -92,6 +92,7 @@ export function registerSharedModalEvents(app) {
     if (aiHistorySearchInput) {
       aiHistorySearchInput.addEventListener('input', () => {
         app._aiHistorySearchQuery = aiHistorySearchInput.value.trim().toLowerCase();
+        app.resetAiHistoryListPagination();
         app.renderAiHistoryList();
       });
     }
@@ -99,6 +100,7 @@ export function registerSharedModalEvents(app) {
       aiHistorySearchClear.addEventListener('click', () => {
         if (aiHistorySearchInput) aiHistorySearchInput.value = '';
         app._aiHistorySearchQuery = '';
+        app.resetAiHistoryListPagination();
         app.renderAiHistoryList();
       });
     }
@@ -117,6 +119,7 @@ export function registerSharedModalEvents(app) {
         chip.style.color = 'white';
         chip.style.borderColor = '#3b82f6';
         app._aiHistoryFilterType = chip.dataset.filter;
+        app.resetAiHistoryListPagination();
         app.renderAiHistoryList();
       });
       // Style the initial active chip
@@ -126,6 +129,15 @@ export function registerSharedModalEvents(app) {
         chip.style.borderColor = '#3b82f6';
       }
     });
+
+    const aiHistoryTab = document.getElementById('aiHistoryTab');
+    if (aiHistoryTab) {
+      aiHistoryTab.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action="ai-history-load-more"]')) {
+          app.loadMoreAiHistoryList();
+        }
+      });
+    }
 
     // Clip Viewer modal events
     const closeClipViewerModal = document.getElementById('closeClipViewerModal');

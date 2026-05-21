@@ -6,6 +6,7 @@ import * as bulk from './ai-lab.bulk.js';
 import * as sessionState from './ai-lab.session-state.js';
 import * as breakdown from './ai-lab.breakdown.js';
 import * as summaryModal from './ai-lab.summary-modal.js';
+import * as analysisHistory from './ai-lab.analysis-history.js';
 
 export function initAiLabFeature(_app) {
   return {
@@ -17,5 +18,6 @@ export function initAiLabFeature(_app) {
     sessionState,
     breakdown,
     summaryModal,
+    analysisHistory,
   };
 }
