@@ -565,7 +565,8 @@ export async function _craftMagic(clipIds) {
   await _syncMagicToSupabase(app);
   _refreshMagicCreditsAndUi(app, stats);
 
-  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING && ctx.refactorNewClips.length > 0) {
+  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
+    && ((ctx.refactorNewClips || []).length > 0 || (ctx.refactorDiagnostics && ctx.refactorDiagnostics.size > 0))) {
     await _saveCraftRefactorHistory(app, ctx);
   }
 
@@ -925,21 +926,41 @@ function _insertRefactoredSiblingClips(app, ctx, targetSet) {
 async function _saveCraftRefactorHistory(app, ctx) {
   if (typeof app.saveRefactorHistory !== 'function') return;
   const records = [];
+  const savedSources = new Set();
+
   for (const newClip of ctx.refactorNewClips || []) {
-    const sourceId = newClip.meta?.craftRefactorSourceId;
-    const sourceClip = app.clips.find((c) => String(c.id) === String(sourceId));
+    const sourceId = String(newClip.meta?.craftRefactorSourceId || '');
+    const sourceClip = app.clips.find((c) => String(c.id) === sourceId);
     const before = String(sourceClip?.text || '').trim();
     const after = String(newClip.text || '').trim();
     if (!before || !after) continue;
+    savedSources.add(sourceId);
     records.push({
       before,
       after,
       refactorLevel: ctx.settings?.refactorLevel || 'college',
-      sourceClipId: String(sourceId || ''),
+      sourceClipId: sourceId,
       newClipId: String(newClip.id),
-      synthesis: ctx.refactorDiagnostics?.get(String(sourceId)) || {},
+      synthesis: ctx.refactorDiagnostics?.get(sourceId) || {},
     });
   }
+
+  for (const [sourceId, synthesis] of ctx.refactorDiagnostics || []) {
+    if (savedSources.has(String(sourceId))) continue;
+    const sourceClip = app.clips.find((c) => String(c.id) === String(sourceId));
+    const before = String(sourceClip?.text || '').trim();
+    if (!before) continue;
+    const after = String(ctx.aiRefactorMap?.get(String(sourceId)) || before).trim();
+    records.push({
+      before,
+      after,
+      refactorLevel: ctx.settings?.refactorLevel || 'college',
+      sourceClipId: String(sourceId),
+      newClipId: '',
+      synthesis: synthesis || {},
+    });
+  }
+
   if (records.length > 0) {
     await app.saveRefactorHistory(records);
   }

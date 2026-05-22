@@ -1,4 +1,18 @@
 /** Vertical slice: ai-history-sync.js */
+
+function _parseHistoryThreads(raw) {
+  const threads = typeof raw === 'string' ? JSON.parse(raw) : (raw || []);
+  return Array.isArray(threads) ? threads : [];
+}
+
+function _restoreOriginalTextFromRow(row) {
+  const threads = _parseHistoryThreads(row?.threads);
+  if (String(row?.type) === 'refactorization' && threads[0]) {
+    return String(threads[0].before || threads[0].question || '').substring(0, 2000);
+  }
+  return '';
+}
+
 export const aiHistorySyncMixin = {
 // AI HISTORY SYNC METHODS
 // =====================================================
@@ -99,19 +113,6 @@ mergeAiHistory(localHistory, remoteHistory) {
   });
 
   return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-}
-
-function _parseHistoryThreads(raw) {
-  const threads = typeof raw === 'string' ? JSON.parse(raw) : (raw || []);
-  return Array.isArray(threads) ? threads : [];
-}
-
-function _restoreOriginalTextFromRow(row) {
-  const threads = _parseHistoryThreads(row?.threads);
-  if (String(row?.type) === 'refactorization' && threads[0]) {
-    return String(threads[0].before || threads[0].question || '').substring(0, 2000);
-  }
-  return '';
 }
 
 // =====================================================

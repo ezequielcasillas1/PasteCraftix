@@ -3492,17 +3492,19 @@ body {
   color: #b45309;
 }
 
-.refactor-history-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.refactor-history-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .refactor-history-pane {
   background: #f8fafc;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 16px 18px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .refactor-history-pane.after {
@@ -3511,22 +3513,36 @@ body {
 }
 
 .refactor-history-pane h4 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 12px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .refactor-history-text {
   margin: 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
-  font-size: 13px;
-  line-height: 1.55;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.65;
   color: #1f2937;
-  max-height: 220px;
+  min-height: 120px;
+  max-height: 280px;
+  overflow-x: hidden;
   overflow-y: auto;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.refactor-history-pane.after .refactor-history-text {
+  background: #faf9ff;
+  border-color: #e9d5ff;
 }
 
 .refactor-history-synthesis {

@@ -33,7 +33,7 @@ export async function saveRefactorHistory(records) {
     for (const record of records) {
       const before = String(record.before || '').trim();
       const after = String(record.after || '').trim();
-      if (!before || !after) continue;
+      if (!before) continue;
 
       const placeholderTitle = before.substring(0, 40).replace(/\n/g, ' ').trim() || 'Refactor';
       const entry = {
@@ -603,14 +603,14 @@ function _renderRefactorCompareHtml(app, thread) {
         <span class="refactor-history-level">${esc(level)} level</span>
         <span class="refactor-history-outcome outcome-${esc(outcome)}">${esc(outcome.replace(/_/g, ' '))}</span>
       </div>
-      <div class="refactor-history-columns">
+      <div class="refactor-history-stack">
         <section class="refactor-history-pane">
           <h4>Before</h4>
-          <pre class="refactor-history-text">${esc(before)}</pre>
+          <div class="refactor-history-text">${esc(before)}</div>
         </section>
         <section class="refactor-history-pane after">
           <h4>After</h4>
-          <pre class="refactor-history-text">${esc(after)}</pre>
+          <div class="refactor-history-text">${esc(after)}</div>
         </section>
       </div>
       ${summary || reasons.length ? `
