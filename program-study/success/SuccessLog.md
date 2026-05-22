@@ -1,3 +1,9 @@
+### May 22, 2026 - Widget popup preload + settings Shadow DOM + loading shell
+**Status:** SUCCESS
+**Commit:** TBD on feature/widget-popup-preload-settings-shadow
+**Files:** extension/content/widget/widget.js
+**Result:** Warm hidden iframe for in-page popup panel; settings panel in closed Shadow DOM; loader gradient paints immediately via inline shell styles and iframe stays visibility:hidden until reveal — removes white blank flash before spinner.
+
 ### May 21, 2026 - AI avatar 3D quality + security hardening + animal deck
 **Status:** SUCCESS
 **Commit:** 5e7dc12 on main

@@ -1,5 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
-import { createClosedShadowHost } from '../safety/shadow-host.js';
+import { createClosedShadowHost, injectShadowStyles } from '../safety/shadow-host.js';
 
 export class PasteCraftFloatingWidget {
   constructor() {
@@ -31,20 +31,29 @@ export class PasteCraftFloatingWidget {
       settings: false,
       quickView: false
     };
+
+    this._settingsShadowMount = null;
+    this._settingsPanelEl = null;
     
     // Auto-copy feature state
     this.autoCopyEnabled = false;
     this.autoCopyCount = 0;
+
+    // In-page popup iframe warm-cache (avoids blank panel on cold tab)
+    this._popupPreloadIframe = null;
+    this._popupRevealTimer = null;
     
     // Initialize synchronously first
     console.log('🔨 Creating widget...');
     this.createWidget();
     console.log('✅ Widget created successfully');
+    this.addOverlayStyles();
     this.loadSavedPosition();
     this.setupWidgetDrag();
     this.setupStorageSync();
     this.setupClickAndDragCapture();
-    
+    requestAnimationFrame(() => this.warmPopupIframe());
+
     // Then load settings asynchronously
     this.initAsync();
   }
@@ -55,7 +64,91 @@ export class PasteCraftFloatingWidget {
     try { await this.applyWidgetIcon(); } catch (_) {}
     await this.loadAutoCopyState();
     this.setupAutoCopyListener();
+    this.warmPopupIframe();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
+  }
+
+  warmPopupIframe() {
+    if (this._popupPreloadIframe?.isConnected) return;
+    if (document.querySelector('[data-pastecraft-popup-preload="1"]')) return;
+
+    const iframe = document.createElement('iframe');
+    iframe.src = pastecraftGetURL('popup.html');
+    iframe.setAttribute('data-pastecraft-popup-preload', '1');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.tabIndex = -1;
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;left:-9999px;top:0;';
+    document.body.appendChild(iframe);
+    this._popupPreloadIframe = iframe;
+  }
+
+  _isPopupIframeReady(iframe) {
+    try {
+      return iframe?.contentDocument?.readyState === 'complete';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  _applyPopupIframeHidden(iframe) {
+    if (!iframe) return;
+    iframe.classList.add('pastecraft-overlay-iframe-loading');
+    iframe.style.opacity = '0';
+    iframe.style.visibility = 'hidden';
+    iframe.style.pointerEvents = 'none';
+  }
+
+  _revealPopupIframe(iframe) {
+    if (!iframe) return;
+    iframe.classList.remove('pastecraft-overlay-iframe-loading');
+    iframe.style.removeProperty('opacity');
+    iframe.style.removeProperty('visibility');
+    iframe.style.removeProperty('pointer-events');
+  }
+
+  _applyPopupLoadingShellStyles(container) {
+    if (!container) return;
+    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    container.style.transform = 'translateX(0)';
+  }
+
+  _takePopupIframe() {
+    const preloaded = this._popupPreloadIframe;
+    if (preloaded?.isConnected) {
+      preloaded.removeAttribute('data-pastecraft-popup-preload');
+      preloaded.removeAttribute('aria-hidden');
+      preloaded.removeAttribute('tabindex');
+      preloaded.className = 'pastecraft-overlay-iframe';
+      preloaded.setAttribute('allowtransparency', 'true');
+      // Keep iframe hidden until reveal — never flash the white popup document.
+      preloaded.style.cssText = 'width:100%;height:100%;border:none;flex:1;min-height:0;opacity:0;visibility:hidden;pointer-events:none;';
+      preloaded.classList.add('pastecraft-overlay-iframe-loading');
+      this._popupPreloadIframe = null;
+      requestAnimationFrame(() => this.warmPopupIframe());
+      return preloaded;
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.src = pastecraftGetURL('popup.html');
+    iframe.className = 'pastecraft-overlay-iframe pastecraft-overlay-iframe-loading';
+    iframe.setAttribute('allowtransparency', 'true');
+    iframe.style.cssText = 'width:100%;height:100%;border:none;flex:1;min-height:0;opacity:0;visibility:hidden;pointer-events:none;';
+    return iframe;
+  }
+
+  _clearPopupRevealTimer() {
+    if (this._popupRevealTimer) {
+      clearTimeout(this._popupRevealTimer);
+      this._popupRevealTimer = null;
+    }
+  }
+
+  _forceRemovePopupOverlayDom() {
+    this._clearPopupRevealTimer();
+    const backdrop = document.getElementById('pastecraft-popup-backdrop');
+    const container = document.getElementById('pastecraft-popup-overlay');
+    if (backdrop) backdrop.remove();
+    if (container) container.remove();
   }
 
   setupStorageSync() {
@@ -810,7 +903,7 @@ export class PasteCraftFloatingWidget {
     // Prefer the currently-open & visible panel, fall back to 476px.
     const candidates = [
       { open: this.openStates?.popup, el: document.getElementById('pastecraft-popup-overlay') },
-      { open: this.openStates?.settings, el: document.getElementById('pastecraft-settings-panel') },
+      { open: this.openStates?.settings, el: this._settingsPanelEl },
       { open: this.openStates?.quickView, el: document.getElementById('pastecraft-quickview-panel') }
     ];
 
@@ -843,64 +936,72 @@ export class PasteCraftFloatingWidget {
 
   openPopupOverlay() {
     console.log('🎨 Opening popup overlay (slide-in from right)');
-    
-    // Check if overlay already exists
+    this.addOverlayStyles();
+
     const existingOverlay = document.getElementById('pastecraft-popup-overlay');
     if (existingOverlay) {
-      console.log('⚠️ Overlay already exists');
-      return;
+      const existingIframe = existingOverlay.querySelector('.pastecraft-overlay-iframe');
+      if (existingOverlay.classList.contains('visible') && this._isPopupIframeReady(existingIframe)) {
+        return;
+      }
+      this._forceRemovePopupOverlayDom();
     }
-    
-    // Set open state
-    this.openStates.popup = true;
-    
-    // Slide widget to the left (attached to panel)
-    this.widget.classList.add('panel-open');
 
-    // Push the website content left (docked mode)
+    this.openStates.popup = true;
+    this.widget.classList.add('panel-open');
     this.syncPageDocking();
-    
-    // Add active class to logo button
+
     const logoButton = this.widget.querySelector('.logo-button');
     if (logoButton) {
       logoButton.classList.add('active');
     }
-    
-    // Create backdrop
+
     const backdrop = document.createElement('div');
     backdrop.id = 'pastecraft-popup-backdrop';
     backdrop.className = 'pastecraft-overlay-backdrop';
-    
-    // Create container (slide-in panel like settings)
+
     const container = document.createElement('div');
     container.id = 'pastecraft-popup-overlay';
-    container.className = 'pastecraft-overlay-panel';
-    
-    // Create close button
+    container.className = 'pastecraft-overlay-panel pastecraft-overlay-panel-loading';
+    this._applyPopupLoadingShellStyles(container);
+
     const closeButton = document.createElement('button');
     closeButton.className = 'pastecraft-overlay-close';
     closeButton.innerHTML = '×';
     closeButton.setAttribute('aria-label', 'Close');
-    
-    // Create iframe
-    const iframe = document.createElement('iframe');
-    iframe.src = pastecraftGetURL('popup.html');
-    iframe.className = 'pastecraft-overlay-iframe';
-    iframe.setAttribute('allowtransparency', 'true');
-    
-    // Assemble overlay
+
+    const loader = document.createElement('div');
+    loader.className = 'pastecraft-overlay-loader';
+    loader.setAttribute('role', 'status');
+    loader.setAttribute('aria-live', 'polite');
+    loader.innerHTML = '<div class="pastecraft-overlay-loader-spinner"></div><div class="pastecraft-overlay-loader-text">Loading PasteCraft…</div>';
+
+    const iframe = this._takePopupIframe();
+    const iframeReady = this._isPopupIframeReady(iframe);
+
     container.appendChild(closeButton);
-    container.appendChild(iframe);
+    if (!iframeReady) {
+      container.appendChild(loader);
+    }
     document.body.appendChild(backdrop);
     document.body.appendChild(container);
-    
-    // Add overlay styles
-    this.addOverlayStyles();
-    
-    // Setup close handlers
+    container.appendChild(iframe);
+
+    const revealPopupPanel = () => {
+      if (!container.isConnected) return;
+      this._clearPopupRevealTimer();
+      loader.remove();
+      this._revealPopupIframe(iframe);
+      container.classList.remove('pastecraft-overlay-panel-loading');
+      container.style.removeProperty('background');
+      container.style.removeProperty('transform');
+      backdrop.classList.add('visible');
+      container.classList.add('visible');
+      this.syncPageDocking();
+    };
+
     closeButton.addEventListener('click', () => this.closePopupOverlay());
-    
-    // Listen for close messages from the overlay iframe only
+
     if (this._popupMessageHandler) {
       window.removeEventListener('message', this._popupMessageHandler);
       this._popupMessageHandler = null;
@@ -912,8 +1013,7 @@ export class PasteCraftFloatingWidget {
       }
     };
     window.addEventListener('message', this._popupMessageHandler);
-    
-    // Close on outside click (without blocking page interaction) if setting allows
+
     if (this._popupOutsidePointerDown) {
       document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
       this._popupOutsidePointerDown = null;
@@ -929,8 +1029,7 @@ export class PasteCraftFloatingWidget {
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
     }
-    
-    // ESC key to close
+
     const escHandler = (e) => {
       if (e.key === 'Escape') {
         this.closePopupOverlay();
@@ -938,19 +1037,20 @@ export class PasteCraftFloatingWidget {
       }
     };
     document.addEventListener('keydown', escHandler);
-    
-    // Animate in
-    setTimeout(() => {
-      backdrop.classList.add('visible');
-      container.classList.add('visible');
-      // Recompute width once visible (responsive cases)
-      this.syncPageDocking();
-    }, 10);
-    
+
+    if (iframeReady) {
+      revealPopupPanel();
+    } else {
+      iframe.addEventListener('load', revealPopupPanel, { once: true });
+      this._popupRevealTimer = setTimeout(revealPopupPanel, 12000);
+    }
+
     console.log('✅ Popup overlay opened');
   }
   
   closePopupOverlay() {
+    this._clearPopupRevealTimer();
+
     const backdrop = document.getElementById('pastecraft-popup-backdrop');
     const container = document.getElementById('pastecraft-popup-overlay');
     
@@ -989,6 +1089,8 @@ export class PasteCraftFloatingWidget {
 
       // Update docked page push based on remaining panels
       this.syncPageDocking();
+
+      setTimeout(() => this.warmPopupIframe(), 400);
       
       console.log('✅ Popup overlay closed');
     }
@@ -1039,8 +1141,45 @@ export class PasteCraftFloatingWidget {
         overflow: hidden;
       }
       
-      .pastecraft-overlay-panel.visible {
+      .pastecraft-overlay-panel.visible,
+      .pastecraft-overlay-panel.pastecraft-overlay-panel-loading {
         transform: translateX(0);
+      }
+
+      .pastecraft-overlay-panel-loading {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+
+      .pastecraft-overlay-loader {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        pointer-events: none;
+      }
+
+      .pastecraft-overlay-loader-spinner {
+        width: 44px;
+        height: 44px;
+        border: 4px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: pastecraft-overlay-spin 1s linear infinite;
+      }
+
+      .pastecraft-overlay-loader-text {
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+
+      @keyframes pastecraft-overlay-spin {
+        to { transform: rotate(360deg); }
       }
       
       /* Close Button - HIDDEN per user request */
@@ -1054,6 +1193,14 @@ export class PasteCraftFloatingWidget {
         height: 100%;
         border: none;
         background: white;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .pastecraft-overlay-iframe.pastecraft-overlay-iframe-loading {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
       }
       
       /* Responsive - Full width on mobile */
@@ -1067,11 +1214,50 @@ export class PasteCraftFloatingWidget {
     document.head.appendChild(styles);
   }
   
+  _ensureSettingsShadowMount() {
+    if (this._settingsShadowMount) return this._settingsShadowMount;
+
+    const mount = createClosedShadowHost('pc-settings-host');
+    mount.host.style.pointerEvents = 'none';
+    this._settingsShadowMount = mount;
+    this.addSettingsStyles(mount.root);
+    return mount;
+  }
+
+  _isPointerInsideSettingsPanel(e) {
+    const mount = this._settingsShadowMount;
+    const panel = this._settingsPanelEl;
+    if (!mount || !panel) return false;
+
+    const target = e?.target;
+    if (target === mount.host) return true;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    if (path.includes(panel) || path.includes(mount.root) || path.includes(mount.host)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  _isPointerInsideWidget(e) {
+    const widgetHost = this.shadowMount?.host;
+    if (!widgetHost) return false;
+
+    const target = e?.target;
+    if (target === widgetHost) return true;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    return path.includes(widgetHost) || (this.widget && path.includes(this.widget));
+  }
+
   openSettings() {
     console.log('⚙️ Opening settings panel');
-    
+
+    const mount = this._ensureSettingsShadowMount();
+
     // Check if panel already exists
-    if (document.getElementById('pastecraft-settings-panel')) {
+    if (mount.root.querySelector('#pastecraft-settings-panel')) {
       return;
     }
     
@@ -1111,12 +1297,12 @@ export class PasteCraftFloatingWidget {
         <div class="settings-section">
           <h4>Open Mode</h4>
           
-          <div class="setting-item">
+          <div class="setting-item setting-item--with-select">
             <div class="setting-info">
-              <label>Open PasteCraft in</label>
+              <label for="appOpenMode">Open PasteCraft in</label>
               <p class="setting-desc">Choose between the in-page panel or a separate popup window</p>
             </div>
-            <select id="appOpenMode" class="pc-settings-select">
+            <select id="appOpenMode" class="pc-settings-select" aria-label="Open PasteCraft in">
               <option value="inPage" ${String(this.settings.appOpenMode || 'inPage') === 'inPage' ? 'selected' : ''}>In-page panel (default)</option>
               <option value="edgePopup" ${String(this.settings.appOpenMode || '') === 'edgePopup' ? 'selected' : ''}>Popup window (separate)</option>
             </select>
@@ -1166,31 +1352,29 @@ export class PasteCraftFloatingWidget {
       </div>
     `;
     
-    // Add settings styles
-    this.addSettingsStyles();
-    
-    // Append to body
-    document.body.appendChild(backdrop);
-    document.body.appendChild(panel);
+    mount.host.style.pointerEvents = 'auto';
+    this._settingsPanelEl = panel;
+
+    // Append inside shadow root (isolates from host-page CSS)
+    mount.root.appendChild(backdrop);
+    mount.root.appendChild(panel);
     
     // Setup event listeners
     const closeBtn = panel.querySelector('.settings-close');
     closeBtn.addEventListener('click', () => this.closeSettings());
     
-    // Close on outside click (without blocking page interaction)
+    // Close on outside click (bubble phase so shadow-internal clicks retarget to host first)
     if (this._settingsOutsidePointerDown) {
-      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, true);
+      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, false);
       this._settingsOutsidePointerDown = null;
     }
     this._settingsOutsidePointerDown = (e) => {
-      const currentPanel = document.getElementById('pastecraft-settings-panel');
-      if (!currentPanel) return;
-      const target = e.target;
-      if (currentPanel.contains(target)) return;
-      if (this.widget && this.widget.contains(target)) return;
+      if (!this.openStates.settings || !this._settingsPanelEl) return;
+      if (this._isPointerInsideSettingsPanel(e)) return;
+      if (this._isPointerInsideWidget(e)) return;
       this.closeSettings();
     };
-    document.addEventListener('pointerdown', this._settingsOutsidePointerDown, true);
+    document.addEventListener('pointerdown', this._settingsOutsidePointerDown, false);
     
     // Toggle handlers
     const keepPopupToggle = panel.querySelector('#keepPopupOpen');
@@ -1235,14 +1419,15 @@ export class PasteCraftFloatingWidget {
   }
   
   closeSettings() {
-    const backdrop = document.getElementById('pastecraft-settings-backdrop');
-    const panel = document.getElementById('pastecraft-settings-panel');
+    const mount = this._settingsShadowMount;
+    const backdrop = mount?.root?.querySelector('#pastecraft-settings-backdrop');
+    const panel = mount?.root?.querySelector('#pastecraft-settings-panel');
     
     if (this._settingsOutsidePointerDown) {
-      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, true);
+      document.removeEventListener('pointerdown', this._settingsOutsidePointerDown, false);
       this._settingsOutsidePointerDown = null;
     }
-    
+
     if (backdrop) backdrop.classList.remove('visible');
     if (panel) panel.classList.remove('visible');
     
@@ -1254,7 +1439,9 @@ export class PasteCraftFloatingWidget {
       
       // Update open state
       this.openStates.settings = false;
-      
+      this._settingsPanelEl = null;
+      if (mount) mount.host.style.pointerEvents = 'none';
+
       // Slide widget back to right edge (if no other panels open)
       if (!this.openStates.popup && !this.openStates.quickView) {
         this.widget.classList.remove('panel-open');
@@ -1271,14 +1458,10 @@ export class PasteCraftFloatingWidget {
     }
   }
   
-  addSettingsStyles() {
-    if (document.getElementById('pastecraft-settings-styles')) {
-      return;
-    }
-    
-    const styles = document.createElement('style');
-    styles.id = 'pastecraft-settings-styles';
-    styles.textContent = `
+  addSettingsStyles(shadowRoot) {
+    if (!shadowRoot) return;
+
+    injectShadowStyles(shadowRoot, `
       /* Settings Backdrop */
       .pastecraft-settings-backdrop {
         position: fixed;
@@ -1312,6 +1495,17 @@ export class PasteCraftFloatingWidget {
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #1f2937;
+        box-sizing: border-box;
+      }
+
+      .pastecraft-settings-panel *,
+      .pastecraft-settings-panel *::before,
+      .pastecraft-settings-panel *::after {
+        box-sizing: border-box;
       }
       
       .pastecraft-settings-panel.visible {
@@ -1362,15 +1556,34 @@ export class PasteCraftFloatingWidget {
         padding: 24px;
       }
 
+      .setting-item--with-select {
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .setting-item--with-select .setting-info {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
       .pc-settings-select {
-        padding: 8px 10px;
+        flex: 0 0 auto;
+        width: 200px;
+        max-width: 42%;
+        min-width: 160px;
+        min-height: 36px;
+        padding: 8px 32px 8px 10px;
         border-radius: 10px;
         border: 1px solid #e5e7eb;
         background: #ffffff;
         color: #0f172a;
         font-size: 13px;
+        font-family: inherit;
+        line-height: 1.3;
         outline: none;
-        min-width: 140px;
+        appearance: auto;
+        -webkit-appearance: menulist;
+        cursor: pointer;
       }
 
       .pc-settings-select:focus {
@@ -1417,12 +1630,13 @@ export class PasteCraftFloatingWidget {
         margin-bottom: 4px;
         cursor: pointer;
       }
-      
+
       .setting-desc {
         font-size: 13px;
         color: #64748b;
         margin: 0;
         line-height: 1.4;
+        display: block;
       }
       
       /* Toggle Switch */
@@ -1477,10 +1691,18 @@ export class PasteCraftFloatingWidget {
         .pastecraft-settings-panel {
           width: 100%;
         }
+
+        .pc-settings-select {
+          width: 100%;
+          max-width: none;
+        }
+
+        .setting-item--with-select {
+          flex-direction: column;
+          align-items: stretch;
+        }
       }
-    `;
-    
-    document.head.appendChild(styles);
+    `, 'pc-settings-styles');
   }
   
   toggleAutoCopy() {
