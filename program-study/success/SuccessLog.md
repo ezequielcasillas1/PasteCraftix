@@ -1,6 +1,7 @@
 ### May 21, 2026 - Production release v3.0.8
 **Status:** SUCCESS
-**Branch:** feature/craft-clips-ai → main
+**Commit:** 3296842, merge 8a3bef2 on main
+**Branch:** feature/craft-clips-ai → main (PR #1)
 **Files:** extension/* (manifest 3.0.8), ai-lab.*, vertical slice refactor, releases/pastecraft-v3.0.8.zip
 **Result:** Craft Clips AI, refactorization panel, AI history pagination, popup/background/content/supabase vertical slices. User verified all SUCCESS. Ready for Chrome + Edge store upload.
 
