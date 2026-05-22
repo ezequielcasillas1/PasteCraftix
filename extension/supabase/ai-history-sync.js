@@ -65,7 +65,8 @@ async fetchAiHistoryFromSupabase() {
       id: Number(row.history_id),
       type: String(row.type || 'summary'),
       title: String(row.title || ''),
-      threads: typeof row.threads === 'string' ? JSON.parse(row.threads) : (row.threads || []),
+      originalText: _restoreOriginalTextFromRow(row),
+      threads: _parseHistoryThreads(row.threads),
       createdAt: row.created_at ? Date.parse(row.created_at) : Date.now(),
       updatedAt: row.updated_at ? Date.parse(row.updated_at) : Date.now()
     }));
@@ -98,6 +99,19 @@ mergeAiHistory(localHistory, remoteHistory) {
   });
 
   return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function _parseHistoryThreads(raw) {
+  const threads = typeof raw === 'string' ? JSON.parse(raw) : (raw || []);
+  return Array.isArray(threads) ? threads : [];
+}
+
+function _restoreOriginalTextFromRow(row) {
+  const threads = _parseHistoryThreads(row?.threads);
+  if (String(row?.type) === 'refactorization' && threads[0]) {
+    return String(threads[0].before || threads[0].question || '').substring(0, 2000);
+  }
+  return '';
 }
 
 // =====================================================

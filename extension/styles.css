@@ -3454,6 +3454,113 @@ body {
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }
 
+.refactor-history-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.refactor-history-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.refactor-history-level,
+.refactor-history-outcome {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.refactor-history-level {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.refactor-history-outcome {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.refactor-history-outcome.outcome-unchanged,
+.refactor-history-outcome.outcome-partial,
+.refactor-history-outcome.outcome-failed {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.refactor-history-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.refactor-history-pane {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.refactor-history-pane.after {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+
+.refactor-history-pane h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.refactor-history-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1f2937;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.refactor-history-synthesis {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.refactor-history-synthesis h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.refactor-history-synthesis p,
+.refactor-history-synthesis li {
+  font-size: 13px;
+  color: #78350f;
+  line-height: 1.5;
+}
+
+.refactor-report-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 72px;
+}
+
 .breakdown-original-text {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 2px solid #e5e7eb;

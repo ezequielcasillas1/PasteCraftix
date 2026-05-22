@@ -1369,6 +1369,14 @@ class PasteCraftPopup {
     return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads);
   }
 
+  async saveRefactorHistory(records) {
+    return this.aiLabFeature.history.saveRefactorHistory.call(this, records);
+  }
+
+  async submitRefactorTicket(message) {
+    return this.aiLabFeature.history.submitRefactorTicket.call(this, message);
+  }
+
   async _generateAiHistoryTitle(entryId, originalText) {
     return this.aiLabFeature.history._generateAiHistoryTitle.call(this, entryId, originalText);
   }

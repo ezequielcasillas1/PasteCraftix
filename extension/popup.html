@@ -7728,6 +7728,11 @@
             color: #db2777;
         }
 
+        .ai-history-entry-badge.refactorization {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+
         .ai-history-entry-delete {
             background: none;
             border: none;
@@ -9047,6 +9052,7 @@
                 <button class="ai-history-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
                 <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="notebook-pen"></i> Summary</button>
                 <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="brain"></i> Breakdown</button>
+                <button class="ai-history-filter-chip" data-filter="refactorization" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="sparkles"></i> AI Refactorization</button>
             </div>
 
             <div class="ai-history-list" id="aiHistoryList">
@@ -9962,6 +9968,21 @@ Multiple clips are separated by:
 
                     <div class="breakdown-content">
                         <div class="breakdown-result" id="aiHistoryResultContent"></div>
+                    </div>
+
+                    <div id="aiRefactorReportWrap" style="display:none;margin-top:12px;">
+                        <button class="btn-secondary" id="aiRefactorReportBtn" type="button">
+                            <span><i data-lucide="flag"></i></span>
+                            <span>Report Ticket</span>
+                        </button>
+                        <form id="aiRefactorReportForm" class="refactor-report-form" style="display:none;margin-top:10px;">
+                            <label for="aiRefactorReportInput" style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;">What was wrong with this refactor?</label>
+                            <textarea id="aiRefactorReportInput" class="refactor-report-input" rows="3" maxlength="2000" placeholder="Tell us what you expected vs what you got…"></textarea>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <button class="btn-primary" id="aiRefactorReportSubmitBtn" type="submit">Send Ticket</button>
+                                <button class="btn-secondary" id="aiRefactorReportCancelBtn" type="button">Cancel</button>
+                            </div>
+                        </form>
                     </div>
 
                     <div class="modal-actions">

@@ -70,6 +70,34 @@ export function registerSharedModalEvents(app) {
     if (continueConversationBtn) {
       continueConversationBtn.addEventListener('click', () => app.continueHistoryConversation());
     }
+    const aiRefactorReportBtn = document.getElementById('aiRefactorReportBtn');
+    const aiRefactorReportForm = document.getElementById('aiRefactorReportForm');
+    const aiRefactorReportCancelBtn = document.getElementById('aiRefactorReportCancelBtn');
+    if (aiRefactorReportBtn && aiRefactorReportForm) {
+      aiRefactorReportBtn.addEventListener('click', () => {
+        aiRefactorReportForm.style.display = 'block';
+        aiRefactorReportBtn.style.display = 'none';
+        document.getElementById('aiRefactorReportInput')?.focus();
+      });
+    }
+    if (aiRefactorReportCancelBtn && aiRefactorReportForm && aiRefactorReportBtn) {
+      aiRefactorReportCancelBtn.addEventListener('click', () => {
+        aiRefactorReportForm.style.display = 'none';
+        aiRefactorReportBtn.style.display = '';
+      });
+    }
+    if (aiRefactorReportForm) {
+      aiRefactorReportForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('aiRefactorReportInput');
+        const ok = await app.submitRefactorTicket(input?.value || '');
+        if (ok) {
+          aiRefactorReportForm.style.display = 'none';
+          if (aiRefactorReportBtn) aiRefactorReportBtn.style.display = 'none';
+          if (input) input.value = '';
+        }
+      });
+    }
     const aiHistoryModal = document.getElementById('aiHistoryModal');
     if (aiHistoryModal) {
       aiHistoryModal.addEventListener('click', (e) => {
