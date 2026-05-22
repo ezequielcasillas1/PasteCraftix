@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { createClosedShadowHost } from '../safety/shadow-host.js';
 
 export class PasteCraftFloatingWidget {
   constructor() {
@@ -259,9 +260,14 @@ export class PasteCraftFloatingWidget {
   }
   
   createWidget() {
-    // Create main widget container
+    if (!this.shadowMount) {
+      this.shadowMount = createClosedShadowHost('pc-widget-host');
+      this.shadowMount.host.style.pointerEvents = 'auto';
+    }
+    const root = this.shadowMount.root;
+
     this.widget = document.createElement('div');
-    this.widget.id = 'pastecraft-floating-widget';
+    this.widget.setAttribute('data-field', 'pastecraft-floating-widget');
     this.widget.className = 'pastecraft-widget';
     
     // Add widget HTML structure
@@ -299,14 +305,12 @@ export class PasteCraftFloatingWidget {
       </div>
     `;
     
-    // Add styles
-    this.addStyles();
+    this.addStyles(root);
     
     // Hide widget until saved position is loaded (prevents flash at default position)
     this.widget.style.visibility = 'hidden';
     
-    // Append to body
-    document.body.appendChild(this.widget);
+    root.appendChild(this.widget);
 
     // Debug: Test if ANY clicks work on the widget
     this.widget.addEventListener('click', (e) => {
@@ -317,15 +321,15 @@ export class PasteCraftFloatingWidget {
     this.setupEventListeners();
   }
   
-  addStyles() {
-    // Remove old styles if they exist to ensure updates take effect
-    const existingStyles = document.getElementById('pastecraft-floating-widget-styles');
+  addStyles(root = this.shadowMount?.root) {
+    if (!root) return;
+    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
     if (existingStyles) {
       existingStyles.remove();
     }
     
     const styles = document.createElement('style');
-    styles.id = 'pastecraft-floating-widget-styles';
+    styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
@@ -630,7 +634,7 @@ export class PasteCraftFloatingWidget {
       }
     `;
     
-    document.head.appendChild(styles);
+    root.appendChild(styles);
   }
   
   setupEventListeners() {

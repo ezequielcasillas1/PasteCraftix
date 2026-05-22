@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "3.0.8",
+  "version": "3.0.10",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Break down text, summarize notes, and organize research clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -16,8 +16,6 @@
   ],
   "host_permissions": [
     "https://*.supabase.co/*",
-    "https://api.openai.com/*",
-    "https://api.replicate.com/*",
     "https://*.blob.core.windows.net/*",
     "https://accounts.google.com/*",
     "https://pastecraft.com/*",
@@ -31,7 +29,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://api.replicate.com https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
   },
   "content_scripts": [
     {
@@ -62,6 +60,7 @@
         "content/*.js",
         "content/quick-paste/*.js",
         "content/widget/*.js",
+        "content/safety/*.js",
         "styles.css",
         "styles/*.css",
         "markup-renderer.js",

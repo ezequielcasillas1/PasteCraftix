@@ -1,4 +1,5 @@
 /** Vertical slice: ai-functions.js */
+import { extractAnimalSuffix } from '../shared/animal-names.js';
 export const aiFunctionsMixin = {
 _buildCategorizeClipPayload(clips, textLimit = 200) {
   return (Array.isArray(clips) ? clips : []).map((c) => {
@@ -28,6 +29,16 @@ _buildCategorizeClipPayload(clips, textLimit = 200) {
 // OpenAI Integration Methods
 async generateAIName(userName) {
   try {
+    if (!this.client) {
+      throw new Error('Supabase not initialized');
+    }
+
+    const { data: { session } } = await this.client.auth.getSession();
+    const accessToken = session?.access_token || '';
+    if (!accessToken) {
+      throw new Error('Please sign in to generate an AI name.');
+    }
+
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-name`, `${baseUrl}/generate-ai-name`];
     const body = await this._withAiWorkflow({ userName });
@@ -38,7 +49,7 @@ async generateAIName(userName) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify(body)
       }, 30000, 'AI name generation timed out');
@@ -53,8 +64,8 @@ async generateAIName(userName) {
     }
     
     const data = await response.json();
-    console.log('✅ Generated AI name:', data.aiName);
-    return data.aiName;
+    console.log('✅ Generated AI name:', data.aiName, data.cycleComplete ? '(cycle complete)' : '');
+    return data;
     
   } catch (error) {
     console.error('Failed to generate AI name:', error);
@@ -433,14 +444,7 @@ async generateProfileImage(description, userImageBase64 = null, aiGeneratedName 
     let requestBody = {};
 
     
-    // Extract animal type from aiGeneratedName if provided
-    let animalType = null;
-    if (aiGeneratedName) {
-      const animalMatch = aiGeneratedName.match(/(Rabbit|Tiger|Dragon|Fox|Wolf|Bear|Panda|Lion|Eagle|Phoenix|Unicorn|Owl|Cat|Dog|Monkey|Penguin|Koala|Raccoon|Racoon|Shark|Dolphin|Cheetah|Leopard|Panther|Otter|Lynx|Jaguar|Cougar|Sloth|Badger|Moose|Bison|Rhino|Elephant|Giraffe|Zebra|Kangaroo|Platypus|Hamster|Ferret|Squirrel|Chipmunk|Hawk|Falcon|Raven|Crow|Parrot|Toucan|Flamingo|Peacock|Swan|Hummingbird|Octopus|Whale|Orca|Seal|Walrus|Seahorse|Stingray|Snake|Gecko|Chameleon|Turtle|Crocodile|Alligator|Griffin|Hydra|Pegasus|Kraken)$/i);
-      if (animalMatch) {
-        animalType = animalMatch[1];
-      }
-    }
+    const animalType = aiGeneratedName ? extractAnimalSuffix(aiGeneratedName) : null;
 
     // Check if this is an animal avatar request (explicit 'animal' flag OR just aiGeneratedName with animal)
     if ((userImageBase64 === 'animal' && aiGeneratedName) || (!userImageBase64 && animalType)) {
@@ -455,7 +459,7 @@ async generateProfileImage(description, userImageBase64 = null, aiGeneratedName 
     // Fallback to generic prompt
     else if (description) {
       console.log('🎨 Creating image from description...');
-      requestBody = { prompt: `Create a single funky cartoon avatar portrait. Style: vibrant, colorful, modern cartoon art with bold outlines. Show only ONE person, centered, portrait style. Theme: ${description}` };
+      requestBody = { prompt: `Create a single premium 3D stylized cartoon avatar portrait. Art style: polished animated movie still with soft studio lighting, smooth textures, vibrant synthwave neons. NOT flat vector art, NOT thick black outlines. Show only ONE person, centered, bust portrait. Theme: ${description}` };
     } else {
       throw new Error('No valid input provided for image generation. Please provide a description, photo, or AI name with animal.');
     }
@@ -464,6 +468,22 @@ async generateProfileImage(description, userImageBase64 = null, aiGeneratedName 
 
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-image`, `${baseUrl}/avatar-generator`];
+
+    try {
+      const sessionResult = await this.client?.auth?.getSession?.();
+      const userId = sessionResult?.data?.session?.user?.id
+        ? String(sessionResult.data.session.user.id)
+        : '';
+      if (userId) {
+        const sub = await this.getUserSubscription(userId);
+        if (!sub) {
+          const email = sessionResult?.data?.session?.user?.email
+            ? String(sessionResult.data.session.user.email)
+            : '';
+          await this.createUserSubscription(userId, email, 'free');
+        }
+      }
+    } catch (_) {}
 
     let response = null;
     for (const url of candidates) {
@@ -492,7 +512,7 @@ async generateProfileImage(description, userImageBase64 = null, aiGeneratedName 
 
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       throw new Error(error.error || 'Image generation failed');
     }
 

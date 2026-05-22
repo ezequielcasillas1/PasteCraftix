@@ -260,12 +260,11 @@ function _hasAiCreditsEntitlement(subscription) {
     subscription.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   );
-  return ((tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due')) || hasCouponAiAccess;
+  return (tier === 'premium' && (status === 'active' || status === 'past_due')) || hasCouponAiAccess;
 }
 
 function _hasUnlimitedAi(subscription) {
-  const tier = String(subscription.subscription_tier || '').toLowerCase();
-  return subscription.has_unlimited_ai === true || tier === 'admin';
+  return subscription.has_unlimited_ai === true;
 }
 
 function _getResetAt(subscription, fieldName) {

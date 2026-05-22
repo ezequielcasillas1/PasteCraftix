@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { createClosedShadowHost } from '../safety/shadow-host.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -124,13 +125,18 @@ export class QuickPasteInterface {
   }
   
   createInterface() {
-    // Remove existing interface if any
     if (this.container) {
       this.container.remove();
     }
-    
+    if (!this.shadowMount) {
+      this.shadowMount = createClosedShadowHost('pc-quick-paste-host');
+      this.shadowMount.host.style.pointerEvents = 'auto';
+    }
+    const root = this.shadowMount.root;
+
     this.container = document.createElement('div');
-    this.container.id = 'pastecraft-quick-paste';
+    this.container.className = 'pastecraft-quick-paste';
+    this.container.setAttribute('data-field', 'pastecraft-quick-paste');
     this.container.innerHTML = `
       <div class="pastecraft-header">
         <div class="pastecraft-logo">📋 PasteCraft</div>
@@ -151,12 +157,11 @@ export class QuickPasteInterface {
       </div>
     `;
     
-    // Add styles
-    this.addStyles();
+    this.addStyles(root);
     
     // Initially hidden
     this.container.style.display = 'none';
-    document.body.appendChild(this.container);
+    root.appendChild(this.container);
     this.applySettings();
   }
   
@@ -198,18 +203,18 @@ export class QuickPasteInterface {
     }).join('');
   }
   
-  addStyles() {
-    const styleId = 'pastecraft-quick-paste-styles';
-    // Remove old styles if they exist to allow updates
-    const existingStyles = document.getElementById(styleId);
+  addStyles(root = this.shadowMount?.root) {
+    if (!root) return;
+    const styleField = 'pastecraft-quick-paste-styles';
+    const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
     if (existingStyles) {
       existingStyles.remove();
     }
     
     const styles = document.createElement('style');
-    styles.id = styleId;
+    styles.setAttribute('data-field', styleField);
     styles.textContent = `
-      #pastecraft-quick-paste {
+      .pastecraft-quick-paste {
         position: fixed;
         top: 50%;
         left: 0;
@@ -1016,7 +1021,7 @@ export class QuickPasteInterface {
       }
       
       /* NUCLEAR STICKY FOOTER FIX */
-      #pastecraft-quick-paste .pastecraft-footer {
+      .pastecraft-quick-paste .pastecraft-footer {
         position: -webkit-sticky !important;
         position: sticky !important;
         bottom: 0px !important;
@@ -1024,7 +1029,7 @@ export class QuickPasteInterface {
         margin-top: auto !important;
       }
       
-      #pastecraft-quick-paste .pastecraft-content {
+      .pastecraft-quick-paste .pastecraft-content {
         display: -webkit-flex !important;
         display: flex !important;
         -webkit-flex-direction: column !important;
@@ -1033,7 +1038,7 @@ export class QuickPasteInterface {
         min-height: 300px !important;
       }
       
-      #pastecraft-quick-paste .pastecraft-clips-container {
+      .pastecraft-quick-paste .pastecraft-clips-container {
         -webkit-flex: 1 !important;
         flex: 1 !important;
         overflow-y: auto !important;
@@ -1041,7 +1046,7 @@ export class QuickPasteInterface {
       }
     `;
     
-    document.head.appendChild(styles);
+    root.appendChild(styles);
   }
   
   setupEventListeners() {

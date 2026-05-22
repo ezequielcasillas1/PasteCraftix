@@ -255,14 +255,19 @@ export async function generateAIName(app) {
     app.showToast('🎲 Generating funky animal name...', 'info');
     _setButton('generateNameBtn', { disabled: true, text: '⏳ Generating...' });
 
-    const aiName = await pasteCraftSupabase.generateAIName(userName);
+    const result = await pasteCraftSupabase.generateAIName(userName);
+    const aiName = typeof result === 'string' ? result : result?.aiName;
 
     if (aiName) {
       _displayAiName(aiName);
       await _persistAiName(app, userName, aiName);
       app.updateAIGenerateButtonState();
       app.startNameSectionCollapse();
-      app.showToast('✅ Funky animal name generated!', 'success');
+      if (result?.cycleComplete) {
+        app.showToast('🔄 Full animal cycle complete — deck reshuffled!', 'success');
+      } else {
+        app.showToast('✅ Funky animal name generated!', 'success');
+      }
     } else {
       app.showToast('❌ Failed to generate funky animal name', 'error');
     }

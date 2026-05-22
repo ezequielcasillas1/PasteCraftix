@@ -15,6 +15,35 @@ function parseBearerToken(authHeader: string | null) {
   return raw.slice(7).trim()
 }
 
+const AVATAR_STYLE_DIRECTIVE = [
+  'Art style: premium 3D stylized character render like a polished animated movie still',
+  'smooth sculpted forms, soft studio lighting, subtle rim light, rich material textures',
+  'vibrant synthwave neons (hot pink, cyan, golden yellow, purple) with tasteful gradients',
+  'NOT flat vector art, NOT thick black outlines, NOT 2D sticker or anime flat shading',
+].join('. ')
+
+function buildAnimalAvatarPrompt(animalType: string, trait: string) {
+  return [
+    `Create a single premium anthropomorphic ${animalType} character avatar portrait.`,
+    `The ${animalType} is ${trait}.`,
+    AVATAR_STYLE_DIRECTIVE,
+    'The character wears trendy streetwear and accessories with an expressive, charismatic face.',
+    'Composition: bust portrait from chest up, centered.',
+    'Background: soft glowing gradient with subtle bokeh.',
+    `Show ONLY ONE ${animalType}, no other animals or people.`,
+  ].join(' ')
+}
+
+function buildCartoonAvatarPrompt(personDescription: string) {
+  return [
+    `Create a single premium 3D stylized cartoon avatar portrait of this person: ${personDescription}.`,
+    AVATAR_STYLE_DIRECTIVE,
+    'Keep their recognizable likeness while making it colorful, fun, and energetic.',
+    'Composition: bust portrait from chest up, centered.',
+    'Show ONLY ONE person.',
+  ].join(' ')
+}
+
 function computeCreditsLimitFallback(resetAtIso: string | null) {
   // Best-effort heuristic based on time remaining.
   // - weekly ≈ <= 10 days → 24 credits
@@ -93,7 +122,15 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (subErr || !sub) {
+    if (subErr) {
+      console.error('[ai-image] subscription lookup failed:', subErr.message, subErr.code)
+      return new Response(
+        JSON.stringify({ error: 'Subscription lookup failed' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
+      )
+    }
+
+    if (!sub) {
       return new Response(
         JSON.stringify({ error: 'Subscription not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
@@ -109,7 +146,7 @@ serve(async (req) => {
       (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
     ))
 
-    const isPaidPremium = (tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due')
+    const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due')
     const entitled = isPaidPremium || hasCouponAiAccess
 
     if (!entitled) {
@@ -119,7 +156,7 @@ serve(async (req) => {
       )
     }
 
-    const unlimited = sub.has_unlimited_ai === true || tier === 'admin'
+    const unlimited = sub.has_unlimited_ai === true
 
     // Determine reset timestamp (next billing / next refresh)
     const stripePeriodEndIso = sub.stripe_current_period_end
@@ -214,10 +251,27 @@ serve(async (req) => {
         'Phoenix': 'mythical, reborn from fire, radiant, immortal',
         'Owl': 'wise, nocturnal, mysterious, with big eyes',
         'Cat': 'independent, graceful, mysterious, with whiskers',
-        'Dog': 'loyal, friendly, playful, mans best friend'
+        'Dog': 'loyal, friendly, playful, mans best friend',
+        'Cheetah': 'fast, sleek, athletic, with spotted coat',
+        'Chameleon': 'colorful, adaptive, quirky, with expressive eyes',
+        'Zebra': 'bold, striped, confident, with striking pattern',
+        'Leopard': 'stealthy, spotted, elegant predator',
+        'Panther': 'sleek, mysterious, powerful night hunter',
+        'Dolphin': 'playful, intelligent, ocean spirit',
+        'Penguin': 'charming, tuxedo-clad, waddling cool',
+        'Koala': 'chill, cuddly, laid-back tree dweller',
+        'Hawk': 'focused, sharp, soaring predator',
+        'Parrot': 'vibrant, talkative, tropical flair',
+        'Flamingo': 'fabulous, pink, standing tall',
+        'Peacock': 'glamorous, iridescent, show-stopping plumage',
+        'Unicorn': 'magical, radiant, mythical grace',
       }
-      const trait = animalTraits[animalType] || 'cool, funky, energetic'
-      finalPrompt = `Create a single ultra-funky cartoon ${animalType} character avatar. The ${animalType} is ${trait}. Style: vibrant neon colors (pink, cyan, yellow, purple), bold thick black outlines, modern animated/anime style, playful and full of energy. The ${animalType} is anthropomorphic - standing upright on two legs, wearing cool streetwear or accessories, expressive face with personality. Background: simple gradient or solid color. Composition: portrait style, centered, showing character from chest up. Make it colorful, fun, and bursting with character! Show ONLY ONE ${animalType}, no other animals or people.`
+      const normalizedAnimal = String(animalType || '').trim()
+      const traitKey = Object.keys(animalTraits).find(
+        (key) => key.toLowerCase() === normalizedAnimal.toLowerCase()
+      )
+      const trait = traitKey ? animalTraits[traitKey] : 'cool, funky, energetic'
+      finalPrompt = buildAnimalAvatarPrompt(normalizedAnimal, trait)
     } else if (type === 'cartoon' && imageBase64) {
       // Analyze uploaded photo first
       const visionPayload = {
@@ -242,7 +296,7 @@ serve(async (req) => {
       const { data: visionData } = await fetchChatCompletionsWithModelFallback(apiKey, visionPayload, models.chatVisionModel, models)
       const personDescription = String(visionData?.choices?.[0]?.message?.content || '').trim()
 
-      finalPrompt = `Create a single funky cartoon avatar portrait of this person: ${personDescription}. Style: vibrant colors, bold black outlines, modern cartoon/animated character style, playful and fun. Show ONLY ONE person, centered, portrait orientation. Make it colorful and energetic while keeping their recognizable features.`
+      finalPrompt = buildCartoonAvatarPrompt(personDescription)
     } else if (prompt) {
       finalPrompt = prompt
     } else {
@@ -261,7 +315,7 @@ serve(async (req) => {
         prompt: finalPrompt,
         n: 1,
         size: '1024x1024',
-        quality: 'auto'
+        quality: 'high'
       })
     })
 

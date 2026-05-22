@@ -3,7 +3,6 @@ export function isFreemiumUser(app) {
   if (!sub) return true;
   const tier = String(sub.subscription_tier || '').toLowerCase();
   const status = String(sub.subscription_status || '').toLowerCase();
-  if (tier === 'admin') return false;
   if ((tier === 'premium' || tier === 'basic') && (status === 'active' || status === 'past_due')) return false;
   if (sub.has_unlimited_ai === true) return false;
   const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;

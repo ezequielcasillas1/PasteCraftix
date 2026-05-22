@@ -137,6 +137,13 @@ async signInWithEmail(email, password) {
 
     if (error) throw error;
 
+    if (data.user) {
+      const existing = await this.getUserSubscription(data.user.id);
+      if (!existing) {
+        await this.createUserSubscription(data.user.id, data.user.email || email, 'free');
+      }
+    }
+
     console.log('✅ User signed in successfully');
     return { success: true, user: data.user, session: data.session };
   } catch (error) {
@@ -486,7 +493,7 @@ async isPremiumUser(userId) {
   if (cached) {
     const cachedExpiresAtMs = cached?.ai_access_expires_at ? Date.parse(cached.ai_access_expires_at) : NaN;
     const cachedIsPaidPremium = !!(cached &&
-      (cached.subscription_tier === 'premium' || cached.subscription_tier === 'admin') &&
+      (cached.subscription_tier === 'premium') &&
       cached.subscription_status === 'active'
     );
     const cachedHasCouponAiAccess = !!(cached && (
@@ -501,7 +508,7 @@ async isPremiumUser(userId) {
 
   const subscription = await this.getUserSubscription(userId);
   const isPaidPremium = !!(subscription &&
-    (subscription.subscription_tier === 'premium' || subscription.subscription_tier === 'admin') &&
+    (subscription.subscription_tier === 'premium') &&
     subscription.subscription_status === 'active'
   );
 
@@ -542,7 +549,7 @@ async hasCloudSyncAccess(userId) {
   
   // Allow cloud sync for basic and premium tiers (active status)
   // Also allow past_due (grace period) for better UX
-  const allowedTiers = ['basic', 'premium', 'admin'];
+  const allowedTiers = ['basic', 'premium'];
   const allowedStatuses = ['active', 'past_due'];
   const hasPaidTierAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
   const hasAccess = hasPaidTierAccess || hasCouponCloudAccess;
@@ -598,26 +605,6 @@ async checkPremiumAccess(userId, featureName = 'feature') {
   }
   
   return true;
-},
-
-/**
- * Admin sign in (checks for admin tier)
- */
-async signInAsAdmin(email, password) {
-  const result = await this.signInWithEmail(email, password);
-  
-  if (result.success) {
-    const subscription = await this.getUserSubscription(result.user.id);
-    
-    if (subscription && subscription.subscription_tier === 'admin') {
-      return { success: true, user: result.user, isAdmin: true };
-    } else {
-      await this.signOut();
-      return { success: false, error: 'Unauthorized: Admin access required' };
-    }
-  }
-  
-  return result;
 }
 
 // =====================================================

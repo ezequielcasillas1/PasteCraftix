@@ -1,4 +1,13 @@
-### May 21, 2026 - AI Lab Refactorization panel + tab sizing
+### May 21, 2026 - AI avatar image quality restore
+**Status:** SUCCESS
+**Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js
+**Result:** Prompt asked for thick black outlines + flat anime style (caused ugly 2D stickers). Switched to premium 3D stylized render prompts, quality high, expanded animal traits. Redeploy `ai-image` required.
+
+### May 22, 2026 - Security hardening pass (P0–P3)
+**Status:** SUCCESS
+**Files:** db/migrations/20260522_*.sql, admin-api, admin-alerts, ai-name, ai_workflow, security-gate, cors.ts, create-checkout, extension auth/ai-functions/messages/widget/quick-paste/site-guard, website _headers + supabase.min.js, manifest 3.0.9
+**Result:** Locked user_subscriptions RLS; admin-alerts cron auth; ai-name JWT gate; removed extension admin sign-in; localhost-only admin-api CORS; site-guard blocklist; Shadow DOM for widget/quick-paste; coupon RLS; admin_actions audit. Migrations applied to prod (page_views skipped — table absent). Edge deploy via CLI.
+
 **Status:** SUCCESS
 **Files:** ai-lab.refactorization.js, ai-lab.magic.js, ai-lab.controller.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.html, popup.js
 **Result:** Standalone AI Lab path for refactor-ready clips (levels ELI5–Wise Man); reuses craft refactor pipeline. Larger Generator/Gallery/Summary tabs. User verified.

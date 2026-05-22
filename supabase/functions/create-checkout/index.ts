@@ -8,6 +8,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function isAllowedRedirectUrl(raw: string): boolean {
+  try {
+    const u = new URL(String(raw || ''))
+    if (u.protocol !== 'https:') return false
+    const host = u.hostname.toLowerCase()
+    if (host === 'pastecraft.com' || host.endsWith('.pastecraft.com')) return true
+    if (host.endsWith('.chromiumapp.org')) return true
+    return false
+  } catch (_) {
+    return false
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -85,12 +98,19 @@ serve(async (req) => {
       throw new Error('Price ID is required')
     }
 
+    const safeSuccess = isAllowedRedirectUrl(successUrl)
+      ? successUrl
+      : 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}'
+    const safeCancel = isAllowedRedirectUrl(cancelUrl)
+      ? cancelUrl
+      : 'https://pastecraft.com/pricing.html'
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      success_url: safeSuccess,
+      cancel_url: safeCancel,
       metadata: { supabase_user_id: user.id },
     })
 

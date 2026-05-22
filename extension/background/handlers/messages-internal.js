@@ -9,6 +9,20 @@ import {
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
 // =====================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!sender || sender.id !== chrome.runtime.id) {
+    sendResponse?.({ success: false, error: 'invalid_sender' });
+    return false;
+  }
+
+  const isExtensionPage = (() => {
+    try {
+      const url = String(sender.url || sender.tab?.url || '');
+      return url.startsWith(chrome.runtime.getURL(''));
+    } catch (_) {
+      return false;
+    }
+  })();
+
   console.log('📨 Internal message received:', message.action);
 
   if (message.action === 'pcCopyText') {
@@ -60,6 +74,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'pcRefreshSupabaseToken') {
+    if (!isExtensionPage) {
+      sendResponse({ success: false, error: 'forbidden_context' });
+      return false;
+    }
     (async () => {
       try {
         const supabaseUrl = String(message.supabaseUrl || '');
@@ -142,6 +160,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'pcCreateCheckout') {
+    if (!isExtensionPage) {
+      sendResponse({ success: false, error: 'forbidden_context' });
+      return false;
+    }
     (async () => {
       try {
         const priceId = String(message.priceId || '');

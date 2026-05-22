@@ -1,8 +1,8 @@
-// admin-alerts
+﻿// admin-alerts
 // Called every 10 min by pg_cron. Sends three tiers of Resend emails:
 //   T1 immediate : one email per brand-new quarantine_events row
 //   T2 hourly    : one digest when a user crosses the rate-violation or security-event threshold
-//   T3 daily     : one rollup email at 09:00 CST (≈15:00 UTC) summarizing the day
+//   T3 daily     : one rollup email at 09:00 CST (Γëê15:00 UTC) summarizing the day
 //
 // Dedup: every notification path stamps `notified_at` or `alert_state.last_alert_at`
 // so a cron re-run never re-sends. A 60-min cooldown applies to T2.
@@ -10,19 +10,20 @@
 import { serve }        from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// ── Config ───────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Config ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 const RESEND_API_KEY   = Deno.env.get('RESEND_API_KEY')   || ''
 const RESEND_FROM      = Deno.env.get('RESEND_FROM')      || 'PasteCraft Alerts <alerts@pastecraft.com>'
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')     || ''
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const CRON_SECRET      = Deno.env.get('ADMIN_ALERTS_CRON_SECRET') || ''
 
 // Tier-2 thresholds (in the last 60 minutes, same user)
 const T2_RATE_VIOLATION_THRESHOLD = 5
 const T2_SECURITY_EVENT_THRESHOLD = 3
 const T2_COOLDOWN_MINUTES         = 60
 
-// Tier-3 daily summary send-window. 09:00 CST ≈ 15:00 UTC (standard time).
-// Non-DST by design — we check HOUR >= 15 AND HOUR < 16 to fire once per day.
+// Tier-3 daily summary send-window. 09:00 CST Γëê 15:00 UTC (standard time).
+// Non-DST by design ΓÇö we check HOUR >= 15 AND HOUR < 16 to fire once per day.
 const T3_DAILY_UTC_HOUR = 15
 
 const CORS = {
@@ -31,9 +32,18 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇ Handler ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  const cronOk = token && (
+    (CRON_SECRET && token === CRON_SECRET) ||
+    (SERVICE_ROLE_KEY && token === SERVICE_ROLE_KEY)
+  )
+  if (!cronOk) {
+    return json({ ok: false, error: 'Unauthorized' }, 401)
+  }
 
   try {
     if (!RESEND_API_KEY) return json({ ok: false, error: 'RESEND_API_KEY not set' }, 500)
@@ -54,9 +64,9 @@ serve(async (req) => {
   }
 })
 
-// ────────────────────────────────────────────────────────────────────────────
-// Tier 1 — Immediate: brand-new quarantine events
-// ────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Tier 1 ΓÇö Immediate: brand-new quarantine events
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 async function sendTier1Quarantine(supabase: any, recipients: string[]) {
   const { data: events, error } = await supabase
     .from('quarantine_events')
@@ -89,7 +99,7 @@ async function sendTier1Quarantine(supabase: any, recipients: string[]) {
       </div>`
     const ok = await resendSend({
       to:      recipients,
-      subject: `[PasteCraft] Quarantine — ${email} / ${ev.table_name} (${ev.row_count} rows)`,
+      subject: `[PasteCraft] Quarantine ΓÇö ${email} / ${ev.table_name} (${ev.row_count} rows)`,
       html,
     })
     if (ok) {
@@ -100,9 +110,9 @@ async function sendTier1Quarantine(supabase: any, recipients: string[]) {
   return { sent, total: events.length }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Tier 2 — Hourly digest: threshold-crossed rate violations + security events
-// ────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Tier 2 ΓÇö Hourly digest: threshold-crossed rate violations + security events
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 async function sendTier2Digests(supabase: any, recipients: string[]) {
   const sinceIso = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   let sent = 0
@@ -120,10 +130,10 @@ async function sendTier2Digests(supabase: any, recipients: string[]) {
     if (await inCooldown(supabase, userId, 'rate_violation')) continue
     const email = (await emailMapForUsers(supabase, [userId])).get(userId) || userId
     const html = buildDigestHtml('Rate-limit digest', email, rows.map((r: any) =>
-      `${fmt(r.attempted_at)} — <code>${esc(r.table_name)}</code> · ${r.daily_count}/${r.limit_value}`))
+      `${fmt(r.attempted_at)} ΓÇö <code>${esc(r.table_name)}</code> ┬╖ ${r.daily_count}/${r.limit_value}`))
     const ok = await resendSend({
       to: recipients,
-      subject: `[PasteCraft] ${rows.length} rate violations — ${email} (last 1h)`,
+      subject: `[PasteCraft] ${rows.length} rate violations ΓÇö ${email} (last 1h)`,
       html,
     })
     if (ok) { await stampCooldown(supabase, userId, 'rate_violation', rows.length); sent++ }
@@ -143,10 +153,10 @@ async function sendTier2Digests(supabase: any, recipients: string[]) {
     if (await inCooldown(supabase, userId, 'security_event')) continue
     const email = (await emailMapForUsers(supabase, [userId])).get(userId) || userId
     const html = buildDigestHtml('Security events digest', email, rows.map((r: any) =>
-      `${fmt(r.triggered_at)} — <b>${esc(r.event_type)}</b> (${esc(r.severity || '—')})`))
+      `${fmt(r.triggered_at)} ΓÇö <b>${esc(r.event_type)}</b> (${esc(r.severity || 'ΓÇö')})`))
     const ok = await resendSend({
       to: recipients,
-      subject: `[PasteCraft] ${rows.length} security events — ${email} (last 1h)`,
+      subject: `[PasteCraft] ${rows.length} security events ΓÇö ${email} (last 1h)`,
       html,
     })
     if (ok) { await stampCooldown(supabase, userId, 'security_event', rows.length); sent++ }
@@ -155,9 +165,9 @@ async function sendTier2Digests(supabase: any, recipients: string[]) {
   return { sent }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Tier 3 — Daily summary at 09:00 CST (~15:00 UTC)
-// ────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// Tier 3 ΓÇö Daily summary at 09:00 CST (~15:00 UTC)
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 async function maybeSendTier3DailySummary(supabase: any, recipients: string[]) {
   const now = new Date()
   if (now.getUTCHours() !== T3_DAILY_UTC_HOUR) return { sent: 0, reason: 'out-of-window' }
@@ -180,7 +190,7 @@ async function maybeSendTier3DailySummary(supabase: any, recipients: string[]) {
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:560px">
       <h2 style="margin:0 0 8px">PasteCraft daily summary</h2>
-      <p style="color:#666;margin:0 0 16px">Last 24 hours · generated ${fmt(now.toISOString())}</p>
+      <p style="color:#666;margin:0 0 16px">Last 24 hours ┬╖ generated ${fmt(now.toISOString())}</p>
       <table style="border-collapse:collapse;font-size:14px">
         <tr><td style="padding:4px 16px 4px 0;color:#666">New signups</td><td><b>${newUsers}</b></td></tr>
         <tr><td style="padding:4px 16px 4px 0;color:#666">Quarantine events</td><td><b>${qCount}</b></td></tr>
@@ -191,7 +201,7 @@ async function maybeSendTier3DailySummary(supabase: any, recipients: string[]) {
     </div>`
   const ok = await resendSend({
     to: recipients,
-    subject: `[PasteCraft] Daily summary — ${today}`,
+    subject: `[PasteCraft] Daily summary ΓÇö ${today}`,
     html,
   })
   if (ok) {
@@ -201,9 +211,9 @@ async function maybeSendTier3DailySummary(supabase: any, recipients: string[]) {
   return { sent: 0, reason: 'resend-failed' }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 // Helpers
-// ────────────────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 async function loadRecipients(supabase: any): Promise<string[]> {
   const { data } = await supabase.from('alert_recipients').select('email').eq('enabled', true)
   return (data || []).map((r: any) => r.email).filter(Boolean)
@@ -279,7 +289,7 @@ function buildDigestHtml(title: string, subject: string, lines: string[]) {
       <ul style="padding-left:18px;color:#333;font-size:14px">
         ${lines.slice(0, 20).map((l) => `<li style="margin:4px 0">${l}</li>`).join('')}
       </ul>
-      ${lines.length > 20 ? `<p style="color:#888;font-size:12px">…and ${lines.length - 20} more</p>` : ''}
+      ${lines.length > 20 ? `<p style="color:#888;font-size:12px">ΓÇªand ${lines.length - 20} more</p>` : ''}
       <p style="margin:16px 0 0;color:#444">Open the admin dashboard to review.</p>
     </div>`
 }

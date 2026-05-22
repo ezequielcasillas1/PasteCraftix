@@ -336,7 +336,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     sub.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   ));
-  const isPaidPremium = (tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due');
+  const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
   const entitled = isPaidPremium || hasCouponAiAccess;
 
   if (!entitled) {
@@ -346,7 +346,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     );
   }
 
-  const unlimited = sub.has_unlimited_ai === true || tier === 'admin';
+  const unlimited = sub.has_unlimited_ai === true;
 
   const stripePeriodEndIso = sub.stripe_current_period_end
     ? new Date(sub.stripe_current_period_end).toISOString()
@@ -485,4 +485,73 @@ export async function decrementTextCredits(gate: TextCreditGate, cost: number = 
   const creditsRemaining = Math.max(0, finalLimit - Math.max(0, finalUsed));
 
   return { creditsRemaining, creditsLimit: creditsLimitOut, creditsResetAt };
+}
+
+export type AuthenticatedUserGate = {
+  user: { id: string; email?: string | null };
+  userId: string;
+  supabase: ReturnType<typeof createClient>;
+};
+
+/** JWT required + ban gate. No premium required (e.g. ai-name). */
+export async function requireAuthenticatedUser(req: Request): Promise<AuthenticatedUserGate | Response> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !serviceRoleKey) {
+    return new Response(
+      JSON.stringify({ error: 'Supabase env not configured' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 500 },
+    );
+  }
+
+  const token = parseBearerToken(req.headers.get('authorization'));
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 401 },
+    );
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+  const user = userData?.user || null;
+  if (userErr || !user) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 401 },
+    );
+  }
+
+  const banResponse = await requireNotBanned(user.id, supabase);
+  if (banResponse) return banResponse;
+
+  return { user, userId: user.id, supabase };
+}
+
+const AI_NAME_HOURLY_LIMIT = 20;
+
+export async function checkAiNameRateLimit(supabase: any, userId: string): Promise<Response | null> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from('ai_name_attempt_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('attempted_at', oneHourAgo);
+
+  if (error) {
+    return new Response(
+      JSON.stringify({ error: 'Rate limit check failed' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 503 },
+    );
+  }
+
+  if ((count ?? 0) >= AI_NAME_HOURLY_LIMIT) {
+    return new Response(
+      JSON.stringify({ error: 'Too many AI name requests. Try again later.' }),
+      { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 429 },
+    );
+  }
+
+  await supabase.from('ai_name_attempt_log').insert({ user_id: userId });
+  return null;
 }

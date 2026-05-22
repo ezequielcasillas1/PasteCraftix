@@ -80,7 +80,7 @@ export function createCategoryItem(app, category) {
   item.innerHTML = `
     <div class="category-header">
       <div class="category-info">
-        <div class="category-icon">${category.icon}</div>
+        <div class="category-icon">${app.escapeHtml(category.icon || '')}</div>
         <div class="category-details">
           <h4>${app.escapeHtml(category.name)}</h4>
           <p>${clipCount}/150 clips</p>
@@ -210,7 +210,7 @@ export function populateCategoryOptions(app) {
     option.className = `category-option ${isFull ? 'category-full' : ''}`;
     option.dataset.category = category.name;
     option.innerHTML = `
-      <div class="category-option-icon">${category.icon}</div>
+      <div class="category-option-icon">${app.escapeHtml(category.icon || '')}</div>
       <span>${app.escapeHtml(category.name)} (${clipsInCategory}/${CATEGORIES_DEFAULTS.MAX_CLIPS_PER_CATEGORY})</span>
       ${isFull ? '<span class="full-indicator">FULL</span>' : ''}
       <button class="category-delete-btn" title="Delete this clip"><i data-lucide="trash-2"></i></button>

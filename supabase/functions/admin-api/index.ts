@@ -1,28 +1,42 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logUsage } from '../_shared/usage-log.ts'
+import { corsHeadersForOrigin, preflightResponse, isLocalhostAdminOrigin } from '../_shared/cors.ts'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function respond(data: unknown, status = 200) {
+function respond(data: unknown, origin: string | null, status = 200) {
   return new Response(JSON.stringify(data), {
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...corsHeadersForOrigin(origin, 'admin'), 'Content-Type': 'application/json' },
     status,
   })
 }
 
+async function logAdminAction(supabase: any, adminUserId: string, action: string, targetUserId: string | null, payload: Record<string, unknown> = {}) {
+  try {
+    await supabase.from('admin_actions').insert({
+      admin_user_id: adminUserId,
+      action,
+      target_user_id: targetUserId,
+      payload,
+    })
+  } catch (err) {
+    console.error('[admin-api] audit log failed', action, err)
+  }
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+  const origin = req.headers.get('Origin')
+
+  if (req.method === 'OPTIONS') return preflightResponse(origin, 'admin')
+
+  if (origin && !isLocalhostAdminOrigin(origin)) {
+    return respond({ ok: false, error: 'Forbidden: admin-api is localhost-only' }, origin, 403)
+  }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     if (!supabaseUrl || !serviceRoleKey) {
-      return respond({ ok: false, error: 'Server env not configured' }, 500)
+      return respond({ ok: false, error: 'Server env not configured' }, origin, 500)
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey)
@@ -30,10 +44,10 @@ serve(async (req) => {
     // Auth: extract + verify Bearer token
     const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-    if (!token) return respond({ ok: false, error: 'Unauthorized' }, 401)
+    if (!token) return respond({ ok: false, error: 'Unauthorized' }, origin, 401)
 
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-    if (authErr || !user) return respond({ ok: false, error: 'Unauthorized' }, 401)
+    if (authErr || !user) return respond({ ok: false, error: 'Unauthorized' }, origin, 401)
 
     // Admin gate: user must be in admin_users table
     const { data: adminRow } = await supabase
@@ -42,7 +56,7 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    if (!adminRow) return respond({ ok: false, error: 'Forbidden: not an admin' }, 403)
+    if (!adminRow) return respond({ ok: false, error: 'Forbidden: not an admin' }, origin, 403)
 
     const body = await req.json().catch(() => ({}))
     const { action, payload = {} } = body
@@ -50,31 +64,33 @@ serve(async (req) => {
     logUsage('admin-api', String(action || 'unknown'), user.id)
 
     switch (action) {
-      case 'list_users':      return respond({ ok: true, data: await listUsers(supabase) })
-      case 'list_events':     return respond({ ok: true, data: await listEvents(supabase, payload) })
-      case 'list_violations': return respond({ ok: true, data: await listViolations(supabase) })
-      case 'get_user':        return respond({ ok: true, data: await getUserDetail(supabase, payload.user_id) })
-      case 'ban_user':        return respond({ ok: true, data: await doBanUser(supabase, payload, user.id) })
-      case 'unban_user':      return respond({ ok: true, data: await doUnbanUser(supabase, payload.user_id) })
-      case 'adjust_limit':    return respond({ ok: true, data: await doAdjustLimit(supabase, payload) })
-      case 'resolve_event':   return respond({ ok: true, data: await doResolveEvent(supabase, payload.event_id, user.id) })
-      case 'delete_user':     return respond({ ok: true, data: await doDeleteUser(supabase, payload.user_id) })
-      case 'get_stats':       return respond({ ok: true, data: await getStats(supabase) })
-      case 'get_usage':       return respond({ ok: true, data: await getUsage(supabase, payload) })
-      case 'list_quarantine': return respond({ ok: true, data: await listQuarantine(supabase) })
+      case 'list_users':      return respond({ ok: true, data: await listUsers(supabase) }, origin)
+      case 'list_events':     return respond({ ok: true, data: await listEvents(supabase, payload) }, origin)
+      case 'list_violations': return respond({ ok: true, data: await listViolations(supabase) }, origin)
+      case 'get_user':        return respond({ ok: true, data: await getUserDetail(supabase, payload.user_id) }, origin)
+      case 'ban_user':        return respond({ ok: true, data: await doBanUser(supabase, payload, user.id) }, origin)
+      case 'unban_user':      return respond({ ok: true, data: await doUnbanUser(supabase, payload.user_id, user.id) }, origin)
+      case 'adjust_limit':    return respond({ ok: true, data: await doAdjustLimit(supabase, payload, user.id) }, origin)
+      case 'resolve_event':   return respond({ ok: true, data: await doResolveEvent(supabase, payload.event_id, user.id) }, origin)
+      case 'delete_user':     return respond({ ok: true, data: await doDeleteUser(supabase, payload.user_id, user.id) }, origin)
+      case 'get_stats':       return respond({ ok: true, data: await getStats(supabase) }, origin)
+      case 'get_usage':       return respond({ ok: true, data: await getUsage(supabase, payload) }, origin)
+      case 'list_quarantine': return respond({ ok: true, data: await listQuarantine(supabase) }, origin)
       case 'restore_quarantine':
-        return respond({ ok: true, data: await restoreQuarantine(supabase, payload.user_id) })
+        return respond({ ok: true, data: await restoreQuarantine(supabase, payload.user_id, user.id) }, origin)
       case 'confirm_delete_quarantine':
-        return respond({ ok: true, data: await confirmDeleteQuarantine(supabase, payload.user_id) })
+        return respond({ ok: true, data: await confirmDeleteQuarantine(supabase, payload.user_id, user.id) }, origin)
       case 'list_refactor_tickets':
-        return respond({ ok: true, data: await listRefactorTickets(supabase, payload) })
+        return respond({ ok: true, data: await listRefactorTickets(supabase, payload) }, origin)
+      case 'get_refactor_ticket':
+        return respond({ ok: true, data: await getRefactorTicket(supabase, payload.ticket_id, user.id) }, origin)
       case 'resolve_refactor_ticket':
-        return respond({ ok: true, data: await resolveRefactorTicket(supabase, payload.ticket_id, user.id) })
-      default: return respond({ ok: false, error: `Unknown action: ${action}` }, 400)
+        return respond({ ok: true, data: await resolveRefactorTicket(supabase, payload.ticket_id, user.id) }, origin)
+      default: return respond({ ok: false, error: `Unknown action: ${action}` }, origin, 400)
     }
   } catch (err) {
     console.error('[admin-api]', err)
-    return respond({ ok: false, error: String(err?.message ?? err) }, 500)
+    return respond({ ok: false, error: String(err?.message ?? err) }, origin, 500)
   }
 })
 
@@ -258,11 +274,13 @@ async function doBanUser(supabase: any, payload: any, adminUserId: string) {
     auto_banned: false,
   })
 
+  await logAdminAction(supabase, adminUserId, 'ban_user', user_id, { reason, ban_expires_at: ban_expires_at || null })
+
   return { banned: true }
 }
 
 // ── Unban a user ───────────────────────────────────────────────────────────────
-async function doUnbanUser(supabase: any, userId: string) {
+async function doUnbanUser(supabase: any, userId: string, adminUserId: string) {
   if (!userId) throw new Error('user_id required')
   const { error } = await supabase
     .from('user_profiles')
@@ -275,11 +293,12 @@ async function doUnbanUser(supabase: any, userId: string) {
     })
     .eq('user_id', userId)
   if (error) throw new Error('doUnbanUser: ' + error.message)
+  await logAdminAction(supabase, adminUserId, 'unban_user', userId, {})
   return { unbanned: true }
 }
 
 // ── Adjust daily clip limit ────────────────────────────────────────────────────
-async function doAdjustLimit(supabase: any, payload: any) {
+async function doAdjustLimit(supabase: any, payload: any, adminUserId: string) {
   const { user_id, daily_clip_limit } = payload
   if (!user_id || daily_clip_limit === undefined) throw new Error('user_id and daily_clip_limit required')
   const limit = Number(daily_clip_limit)
@@ -289,6 +308,7 @@ async function doAdjustLimit(supabase: any, payload: any) {
     .update({ daily_clip_limit: limit })
     .eq('user_id', user_id)
   if (error) throw new Error('doAdjustLimit: ' + error.message)
+  await logAdminAction(supabase, adminUserId, 'adjust_limit', user_id, { daily_clip_limit: limit })
   return { daily_clip_limit: limit }
 }
 
@@ -399,10 +419,9 @@ async function getStats(supabase: any) {
 }
 
 // ── Delete a user account ──────────────────────────────────────────────────────
-async function doDeleteUser(supabase: any, userId: string) {
+async function doDeleteUser(supabase: any, userId: string, adminUserId: string) {
   if (!userId) throw new Error('user_id required')
 
-  // Fetch auth_user_id (UUID) from profile — used for auth.admin.deleteUser
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('auth_user_id')
@@ -412,6 +431,7 @@ async function doDeleteUser(supabase: any, userId: string) {
   const authUserId = String(profile?.auth_user_id || userId)
   const { error } = await supabase.auth.admin.deleteUser(authUserId)
   if (error) throw new Error('doDeleteUser: ' + error.message)
+  await logAdminAction(supabase, adminUserId, 'delete_user', userId, { auth_user_id: authUserId })
   return { deleted: true, deleted_user_id: userId }
 }
 
@@ -638,25 +658,31 @@ async function listQuarantine(supabase: any) {
   }))
 }
 
-async function restoreQuarantine(supabase: any, userId: string) {
+async function restoreQuarantine(supabase: any, userId: string, adminUserId: string) {
   if (!userId) throw new Error('user_id required')
   const { data, error } = await supabase.rpc('pc_restore_quarantined_user', { target_user: userId })
   if (error) throw new Error(`restore_quarantine: ${error.message}`)
+  await logAdminAction(supabase, adminUserId, 'restore_quarantine', userId, { restored: data ?? 0 })
   return { restored: data ?? 0, user_id: userId }
 }
 
-async function confirmDeleteQuarantine(supabase: any, userId: string) {
+async function confirmDeleteQuarantine(supabase: any, userId: string, adminUserId: string) {
   if (!userId) throw new Error('user_id required')
   const { data, error } = await supabase.rpc('pc_confirm_delete_quarantined_user', { target_user: userId })
   if (error) throw new Error(`confirm_delete_quarantine: ${error.message}`)
+  await logAdminAction(supabase, adminUserId, 'confirm_delete_quarantine', userId, { deleted: data ?? 0 })
   return { deleted: data ?? 0, user_id: userId }
 }
+
+const REFACTOR_TICKET_LIST_COLUMNS = [
+  'id', 'user_id', 'status', 'level', 'outcome', 'created_at', 'reviewed_at', 'reviewed_by',
+].join(',')
 
 async function listRefactorTickets(supabase: any, payload: any) {
   const status = payload?.status ? String(payload.status) : ''
   let query = supabase
     .from('refactor_tickets')
-    .select('*')
+    .select(REFACTOR_TICKET_LIST_COLUMNS)
     .order('created_at', { ascending: false })
     .limit(100)
 
@@ -692,6 +718,19 @@ async function listRefactorTickets(supabase: any, payload: any) {
     ...t,
     email: emailByUser[t.user_id] || null,
   }))
+}
+
+async function getRefactorTicket(supabase: any, ticketId: string, adminUserId: string) {
+  if (!ticketId) throw new Error('ticket_id required')
+  const { data, error } = await supabase
+    .from('refactor_tickets')
+    .select('*')
+    .eq('id', ticketId)
+    .maybeSingle()
+  if (error) throw new Error(`get_refactor_ticket: ${error.message}`)
+  if (!data) throw new Error('Ticket not found')
+  await logAdminAction(supabase, adminUserId, 'get_refactor_ticket', data.user_id || null, { ticket_id: ticketId })
+  return data
 }
 
 async function resolveRefactorTicket(supabase: any, ticketId: string, adminUserId: string) {

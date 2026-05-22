@@ -703,7 +703,7 @@ class PasteCraftPopup {
     const status = String(sub.subscription_status || '').toLowerCase();
     const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
     const hasCouponAi = !!(sub.has_unlimited_ai === true || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()));
-    const isPaidPremium = (tier === 'premium' || tier === 'admin') && (status === 'active' || status === 'past_due');
+    const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
     return isPaidPremium || hasCouponAi;
   }
 
