@@ -276,7 +276,7 @@ class PasteCraftPopup {
     const banner = document.createElement('div');
     banner.id = 'pcOfflineModeBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
-    banner.textContent = 'Loaded in offline mode � click to retry';
+    banner.textContent = 'Loaded in offline mode \u2014 click to retry';
     banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
     (document.body || document.documentElement).appendChild(banner);
   }

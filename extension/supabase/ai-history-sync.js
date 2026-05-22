@@ -65,7 +65,10 @@ async fetchAiHistoryFromSupabase() {
     const userId = await this.getSyncUserId();
     if (!userId) return [];
 
-    const { data, error } = await this.client
+    // Guardrail: supabase-js can hang when the auth/session client is stuck
+    // (same failure mode as getCurrentUser / getUserSubscription). Race the
+    // query against a 3s timeout so popup init can never block past 10s.
+    const queryPromise = this.client
       .from('ai_history')
       .select('*')
       .eq('user_id', userId)
@@ -73,7 +76,20 @@ async fetchAiHistoryFromSupabase() {
       .order('updated_at', { ascending: false })
       .limit(50);
 
-    if (error) throw error;
+    const timeoutMs = 3000;
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ data: null, error: new Error('fetchAiHistoryFromSupabase timeout') }), timeoutMs)
+    );
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+    if (error) {
+      if (error.message === 'fetchAiHistoryFromSupabase timeout') {
+        console.warn('⏱️ fetchAiHistoryFromSupabase timed out after 3s, returning empty');
+        return [];
+      }
+      throw error;
+    }
 
     return (data || []).map(row => ({
       id: Number(row.history_id),

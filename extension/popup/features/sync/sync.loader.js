@@ -17,20 +17,21 @@ export async function fetchRawData(app) {
   }
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  let cameFromIdb = false;
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
+    if (Array.isArray(idbClips) && idbClips.length > 0) { clips = idbClips; cameFromIdb = true; }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
   }
-  return { clips, categories, searchOnlyClips };
+  return { clips, categories, searchOnlyClips, cameFromIdb };
 }
 
 export async function injectDemoSeedIfNeeded(app, rawData) {
-  let { clips, categories, searchOnlyClips } = rawData;
+  let { clips, categories, searchOnlyClips, cameFromIdb } = rawData;
   let seeded = false;
 
   if (clips.length === 0 && categories.length === 0) {
@@ -39,10 +40,11 @@ export async function injectDemoSeedIfNeeded(app, rawData) {
     clips = app.syncFeature.constants.getDemoClips(now);
     await chrome.storage.local.set({ clips, categories, searchOnlyClips });
     seeded = true;
+    cameFromIdb = false;
     console.log('🌱 Seeded 8 preset categories + 8 example clips (PC 1.0)');
   }
 
-  return { clips, categories, searchOnlyClips, seeded };
+  return { clips, categories, searchOnlyClips, seeded, cameFromIdb };
 }
 
 function hashText(t) {
@@ -117,7 +119,7 @@ function normalizeSingleClip(app, clip, setChanged) {
 }
 
 export function normalizeClipData(app, rawData) {
-  let { clips, categories, searchOnlyClips, seeded } = rawData;
+  let { clips, categories, searchOnlyClips, seeded, cameFromIdb } = rawData;
   let normalizedChanged = false;
   const setChanged = () => { normalizedChanged = true; };
 
@@ -134,12 +136,14 @@ export function normalizeClipData(app, rawData) {
     clips: normalizedClips,
     categories,
     searchOnlyClips: normalizedSearchOnlyClips,
-    normalizedChanged
+    normalizedChanged,
+    cameFromIdb,
+    seeded
   };
 }
 
 export async function syncNormalizedState(app, normalizedData) {
-  const { clips, categories, searchOnlyClips, normalizedChanged } = normalizedData;
+  const { clips, categories, searchOnlyClips, normalizedChanged, cameFromIdb, seeded } = normalizedData;
 
   app.clips = clips;
   app.categories = categories;
@@ -152,7 +156,13 @@ export async function syncNormalizedState(app, normalizedData) {
     });
   }
 
-  if (app._idbReady && app.idb) {
+  // Avoid the expensive full IDB wipe+rewrite when the data already came from
+  // IDB and wasn't reshaped. Only sync to IDB when something materially changed:
+  //   - normalization rewrote shapes, OR
+  //   - we just seeded demo data, OR
+  //   - the load came from chrome.storage.local (IDB had nothing) and we need to backfill.
+  const needsIdbSync = !!(normalizedChanged || seeded || !cameFromIdb);
+  if (app._idbReady && app.idb && needsIdbSync) {
     await app.idb.syncEntityFromLocalStorage('clips', app.clips);
     await app.idb.syncEntityFromLocalStorage('categories', app.categories);
   }
@@ -173,13 +183,10 @@ export async function loadStorageData(app) {
 export async function loadData(app) {
   if (!isExtensionContextValid()) return;
   await loadStorageData(app);
-  
-  if (typeof app.loadSettings === 'function') {
-    await app.loadSettings();
-  }
-  if (typeof app.loadUserProfile === 'function') {
-    await app.loadUserProfile();
-  }
+
+  // NOTE: loadSettings + loadUserProfile are intentionally NOT awaited here.
+  // The popup init pipeline already runs them in parallel inside its Promise.all,
+  // so calling them again here doubled the work and contended with chrome.storage.
   if (typeof app._initializeTieredStorage === 'function') {
     app._initializeTieredStorage().catch(e => {
       console.warn('Tiered storage initialization failed (will use local only):', e);

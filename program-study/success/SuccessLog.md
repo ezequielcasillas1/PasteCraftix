@@ -1,3 +1,9 @@
+### May 22, 2026 - Popup init perf hang + offline-mode banner
+**Status:** SUCCESS
+**Commit:** TBD on fix/popup-init-perf-banner
+**Files:** extension/popup/features/sync/sync.loader.js, extension/supabase/ai-history-sync.js, extension/popup.js, extension/popup/features/app/popup.init.js
+**Result:** loadData dropped 6586ms → 113ms (~60×). Gated IDB wipe+rewrite on normalizedChanged/seeded/!cameFromIdb; removed duplicate loadSettings/loadUserProfile from loadData; 3s timeout race on fetchAiHistoryFromSupabase; banner text encoding fixed. 10s watchdog no longer fires — banner gone. User verified.
+
 ### May 21, 2026 - AI avatar 3D quality + security hardening + animal deck
 **Status:** SUCCESS
 **Commit:** 5e7dc12 on main

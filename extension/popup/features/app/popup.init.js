@@ -3,7 +3,7 @@
 import { initializeAllPopupFeatures } from './popup.features.js';
 
 export async function runPopupInit(app) {
-  console.log('?? Initializing PasteCraft popup...');
+  console.log('🚀 Initializing PasteCraft popup...');
   await initializeAllPopupFeatures(app);
 
   app.setupAuthModalEvents();
@@ -80,7 +80,7 @@ export async function runPopupInit(app) {
     return;
   }
 
-  console.log('? User authenticated:', currentUser.email);
+  console.log('✅ User authenticated:', currentUser.email);
   app.currentUser = currentUser;
 
   try {
