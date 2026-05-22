@@ -7,6 +7,7 @@ import * as sessionState from './ai-lab.session-state.js';
 import * as breakdown from './ai-lab.breakdown.js';
 import * as summaryModal from './ai-lab.summary-modal.js';
 import * as analysisHistory from './ai-lab.analysis-history.js';
+import * as refactorization from './ai-lab.refactorization.js';
 
 export function initAiLabFeature(_app) {
   return {
@@ -19,5 +20,6 @@ export function initAiLabFeature(_app) {
     breakdown,
     summaryModal,
     analysisHistory,
+    refactorization,
   };
 }

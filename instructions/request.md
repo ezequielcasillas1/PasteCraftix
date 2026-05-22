@@ -636,6 +636,18 @@ state management.
 
 ---
 
+#### 49. Multi-Provider AI Keys (Gemini, Anthropic, Grok)
+**Priority:** Medium  
+**Status:** Coming soon — OpenAI only for MVP  
+
+**Requirements:**
+- Supabase Edge Function secrets: `GOOGLE_AI_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` (user-provided)
+- Re-enable AI Lab provider dropdown options when each key is set
+- Server `ai_workflow.ts` already has Gemini routing; add Anthropic/Grok resolvers when keys land
+- Migrate any stored `provider: google` prefs back to `openai` until launch
+
+---
+
 ## 🎯 **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):

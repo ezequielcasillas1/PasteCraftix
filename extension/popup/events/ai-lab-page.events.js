@@ -67,6 +67,16 @@ export function registerAiLabPageEvents(app) {
       });
     }
 
+    // AI Refactorization standalone button
+    const refactorButton = document.querySelector('.ai-refactorization-feature');
+    if (refactorButton) {
+      refactorButton.addEventListener('click', () => {
+        app.aiLabFeature.refactorization.activateRefactorizationSection(app);
+      });
+    }
+
+    app.aiLabFeature.refactorization.bindRefactorizationPanelUi(app);
+
     // AI Breakdown standalone button
     const breakdownButton = document.querySelector('.ai-breakdown-feature');
     if (breakdownButton) {

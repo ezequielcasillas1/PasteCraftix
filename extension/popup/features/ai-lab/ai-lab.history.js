@@ -484,7 +484,7 @@ function _renderEmptyHistory(app) {
     msg = 'No results match your search';
     heading = 'No matches';
   } else if (filter === 'refactorization') {
-    msg = 'Craft Clips refactorizations will appear here after you run AI Refactoring';
+    msg = 'Refactorizations appear here after you run AI Lab Refactorization or Craft Clips (AI Refactoring)';
     heading = 'No refactorizations yet';
   }
   return `

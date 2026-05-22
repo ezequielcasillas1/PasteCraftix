@@ -5497,15 +5497,15 @@
             text-align: center;
         }
 
-        /* AI Lab Internal Tabs */
+        /* AI Lab Internal Tabs — match feature-card touch targets */
         .ai-lab-tabs {
             display: flex;
-            gap: 6px;
-            margin-bottom: 24px;
+            gap: 8px;
+            margin-bottom: 12px;
             background: #f8fafc;
-            padding: 4px;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
+            padding: 6px;
+            border-radius: 14px;
+            border: 2px solid #e5e7eb;
             overflow-x: auto;
             scrollbar-width: none;
         }
@@ -5516,44 +5516,353 @@
         
         .ai-lab-tab {
             flex: 1;
-            min-width: fit-content;
-            padding: 8px 10px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            font-size: clamp(11px, 2.5vw, 13px);
-            font-weight: 600;
-            color: #6b7280;
+            min-width: 0;
+            min-height: 52px;
+            padding: 14px 12px;
+            background: #fff;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #64748b;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 8px;
             white-space: nowrap;
+            letter-spacing: -0.02em;
+        }
+
+        .ai-lab-tab .tab-emoji {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+        }
+
+        .ai-lab-tab .tab-emoji svg {
+            width: 22px;
+            height: 22px;
         }
         
         .ai-lab-tab:hover {
-            color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #bfdbfe;
+            transform: translateY(-1px);
         }
         
         .ai-lab-tab.active {
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .ai-lab-tab.active .tab-emoji svg {
+            stroke: #fff;
         }
         
-        /* Hide text on smaller screens, show only emojis */
         @media (max-width: 380px) {
-            .ai-lab-tab .tab-text {
-                display: none;
-            }
-            
             .ai-lab-tab {
-                font-size: 20px;
-                padding: 8px 10px;
+                padding: 12px 8px;
+                font-size: 13px;
+                gap: 6px;
+                min-height: 48px;
             }
+
+            .ai-lab-tab .tab-emoji {
+                width: 24px;
+                height: 24px;
+            }
+
+            .ai-lab-tab .tab-emoji svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        /* AI Refactorization Standalone Feature */
+        .ai-refactorization-feature {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+            border: 2px solid #e9d5ff;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-refactorization-feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .ai-refactorization-feature:hover::before {
+            left: 100%;
+        }
+
+        .ai-refactorization-feature:hover {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-color: #8b5cf6;
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .ai-refactorization-feature:hover .refactor-icon {
+            transform: scale(1.15) rotate(-5deg);
+        }
+
+        .ai-refactorization-feature:hover .refactor-text strong,
+        .ai-refactorization-feature:hover .refactor-text small {
+            color: white;
+        }
+
+        .ai-refactorization-feature:hover .refactor-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: white;
+        }
+
+        .refactor-icon {
+            font-size: 36px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .refactor-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+
+        .refactor-text strong {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            transition: color 0.3s ease;
+        }
+
+        .refactor-text small {
+            font-size: 13px;
+            color: #64748b;
+            transition: color 0.3s ease;
+        }
+
+        .refactor-arrow {
+            font-size: 24px;
+            color: #94a3b8;
+            opacity: 0.6;
+            transform: translateX(-8px);
+            transition: all 0.3s ease;
+        }
+
+        .ai-refactor-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .rf-hero-title {
+            margin: 0 0 6px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .rf-desc {
+            margin: 0;
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .rf-levels {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rf-level-chip {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            background: #faf5ff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #5b21b6;
+        }
+
+        .rf-level-chip.active {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .rf-level-info {
+            padding: 2px 6px;
+            border: none;
+            background: transparent;
+            color: #7c3aed;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .rf-level-info-panel {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #f5f3ff;
+            border: 1px solid #e9d5ff;
+            font-size: 12px;
+            color: #5b21b6;
+            line-height: 1.45;
+        }
+
+        .rf-clips-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .rf-eligible-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .rf-select-all-btn {
+            font-size: 12px;
+            font-weight: 600;
+            color: #7c3aed;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .rf-clip-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .rf-clip-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .rf-clip-row:hover {
+            border-color: #c4b5fd;
+            background: #faf5ff;
+        }
+
+        .rf-clip-check {
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+
+        .rf-clip-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .rf-clip-text {
+            font-size: 13px;
+            color: #334155;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .rf-clip-type {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
+        .rf-empty {
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+            border: 1px dashed #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .rf-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .rf-run-btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .rf-run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .rf-craft-link-btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1.5px solid #e9d5ff;
+            background: #faf5ff;
+            color: #6d28d9;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .rf-premium-note {
+            font-size: 12px;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 10px 12px;
         }
 
         /* AI Breakdown Standalone Feature */
@@ -9260,9 +9569,10 @@
                             <label class="ai-workflow-label" for="aiProviderSelect">Provider</label>
                             <select id="aiProviderSelect" class="ai-workflow-select" aria-label="AI provider">
                                 <option value="openai">OpenAI</option>
-                                <option value="google">Google Gemini</option>
+                                <option value="google" disabled>Google Gemini (Soon)</option>
                                 <option value="anthropic" disabled>Anthropic (Soon)</option>
                                 <option value="groq" disabled>Groq (Soon)</option>
+                                <option value="grok" disabled>xAI Grok (Soon)</option>
                             </select>
                             <label class="ai-workflow-label" for="aiWorkflowPresetSelect">Workflow</label>
                             <select id="aiWorkflowPresetSelect" class="ai-workflow-select" aria-label="AI workflow preset">
@@ -9279,6 +9589,16 @@
                     <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji"><i data-lucide="image"></i></span><span class="tab-text"> Gallery</span></button>
                     <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
                 </nav>
+
+                <!-- AI Refactorization Standalone Feature -->
+                <button class="ai-refactorization-feature" data-ai-tab="refactorization" type="button">
+                    <span class="refactor-icon"><i data-lucide="sparkles"></i></span>
+                    <div class="refactor-text">
+                        <strong>AI Refactorization</strong>
+                        <small>Rewrite clips into clearer integral prose</small>
+                    </div>
+                    <span class="refactor-arrow">→</span>
+                </button>
 
                 <!-- AI Breakdown Standalone Feature -->
                 <button class="ai-breakdown-feature" data-ai-tab="breakdown">
@@ -9463,6 +9783,44 @@ Multiple clips are separated by:
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- AI Refactorization Section -->
+                <div class="ai-lab-section" id="aiRefactorizationSection">
+                    <div class="ai-refactor-container">
+                        <h3 class="rf-hero-title"><i data-lucide="sparkles"></i> AI Refactorization</h3>
+                        <p class="rf-desc">Pick clips and a comprehension level. AI rewrites each into integral prose—your original stays; refactored copies appear in Recents. Or use Craft Clips for categorize, format, and dedupe too.</p>
+                        <div class="rf-levels" id="refactorizationLevelChips">
+                            <span class="craft-setting-label" style="width:100%;margin-bottom:4px;">Refactor level:</span>
+                            <button type="button" class="rf-level-chip" data-level="eli5">ELI5</button>
+                            <button type="button" class="rf-level-info" data-level="eli5" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="elementary">Elementary</button>
+                            <button type="button" class="rf-level-info" data-level="elementary" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip active" data-level="college">College</button>
+                            <button type="button" class="rf-level-info" data-level="college" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="highschool">High School</button>
+                            <button type="button" class="rf-level-info" data-level="highschool" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="phd">PhD</button>
+                            <button type="button" class="rf-level-info" data-level="phd" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="wiseman">Wise Man</button>
+                            <button type="button" class="rf-level-info" data-level="wiseman" title="Level info">ⓘ</button>
+                        </div>
+                        <div class="rf-level-info-panel" id="refactorizationLevelInfoPanel" style="display: none;">
+                            <p id="refactorizationLevelInfoText"></p>
+                        </div>
+                        <div class="rf-clips-toolbar">
+                            <span class="rf-eligible-count" id="refactorizationEligibleCount">0 clips ready</span>
+                            <button type="button" class="rf-select-all-btn" id="refactorizationSelectAll">Select all</button>
+                        </div>
+                        <div class="rf-clip-list" id="refactorizationClipList">
+                            <div class="rf-empty">Open this panel to see refactor-ready clips.</div>
+                        </div>
+                        <div class="rf-actions">
+                            <button type="button" class="rf-run-btn" id="refactorizationRunBtn" disabled>Refactorization</button>
+                            <button type="button" class="rf-craft-link-btn" id="refactorizationCraftClipsBtn">Or use Craft Clips</button>
+                        </div>
+                        <p class="rf-premium-note" id="refactorizationPremiumNote" style="display: none;">Premium required for AI Refactorization (~25 credits per batch).</p>
                     </div>
                 </div>
 

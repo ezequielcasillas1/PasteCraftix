@@ -1,10 +1,20 @@
+### May 21, 2026 - AI Lab Refactorization panel + tab sizing
+**Status:** SUCCESS
+**Files:** ai-lab.refactorization.js, ai-lab.magic.js, ai-lab.controller.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.html, popup.js
+**Result:** Standalone AI Lab path for refactor-ready clips (levels ELI5–Wise Man); reuses craft refactor pipeline. Larger Generator/Gallery/Summary tabs. User verified.
+
+### May 21, 2026 - Production v3.0.8 store release
+**Status:** SUCCESS
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.8.zip, feature/craft-clips-ai → main
+**Result:** Version 3.0.8 packaged; feature branch merged to main. Section G smoke test pending on Chrome + Edge before store upload.
+
 ### May 21, 2026 - Smart categorize custom AI titles
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** supabase/functions/ai-categorize/index.ts, ai-lab.magic.js, ai-lab.craft-clips.category-pick.js
 **Result:** Removed preset padding (Quick Notes/Links/Work). Edge prompt asks for content-specific titles; filters generic buckets; retries once if empty/generic. Client shows 1–5 AI titles only; rule-based fallback only when AI returns none. Redeploy `ai-categorize` required.
 
 ### May 21, 2026 - Vertical slice refactor (Phases B–D)
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** extension/supabase/*, extension/supabase-client.js, extension/content/*, extension/content-script.js, extension/background/*, extension/background.js, extension/manifest.json, extension/popup/features/app/popup.boot.js, scripts/split-*.mjs, REFACTOR_REMAINING.md
 **Result:** supabase-client 4755→7-line barrel + 18 slices; content-script 5715→2-line barrel + shared/quick-paste/widget; background 893→2-line barrel + shared/handlers; MV3 module SW + content script; popup loads Supabase via popup.boot dynamic import. Phase A popup already ~1581 lines from batch 3.
 

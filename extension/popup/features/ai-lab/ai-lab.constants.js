@@ -24,7 +24,8 @@ export const AI_PROVIDER_PRESETS = {
   ],
 };
 
-export const AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
+/** Only OpenAI is active until per-provider API keys are configured server-side. */
+export const AI_ALLOWED_PROVIDERS = new Set(['openai']);
 
 export const AI_STORAGE_KEYS = {
   WORKFLOW: 'pc_ai_workflow_v1',

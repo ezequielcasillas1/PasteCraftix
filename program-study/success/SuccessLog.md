@@ -1,3 +1,14 @@
+### May 21, 2026 - Production release v3.0.8
+**Status:** SUCCESS
+**Branch:** feature/craft-clips-ai → main
+**Files:** extension/* (manifest 3.0.8), ai-lab.*, vertical slice refactor, releases/pastecraft-v3.0.8.zip
+**Result:** Craft Clips AI, refactorization panel, AI history pagination, popup/background/content/supabase vertical slices. User verified all SUCCESS. Ready for Chrome + Edge store upload.
+
+### May 21, 2026 - AI Lab Refactorization panel + tab sizing
+**Status:** SUCCESS
+**Files:** ai-lab.refactorization.js, ai-lab.magic.js, ai-lab.controller.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.html, popup.js
+**Result:** AI Refactorization entry below Generator/Gallery/Summary; clip picker + level chips + Refactorization button; Craft Clips alternate path. Generator/Gallery/Summary tabs scaled to feature-card touch targets. User verified.
+
 ### May 21, 2026 - Craft Clips AI + refactor sibling clips
 **Status:** SUCCESS
 **Commit:** bb3410d, 88a981b on feature/craft-clips-ai

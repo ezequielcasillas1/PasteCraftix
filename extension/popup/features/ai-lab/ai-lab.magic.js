@@ -6,6 +6,7 @@ import {
 } from './ai-lab.craft-clips.constants.js';
 import {
   loadCraftClipsSettings,
+  saveCraftClipsSettings,
   resolveRefactorEdgeLevel,
   syncCraftClipsSettingsToUi,
 } from './ai-lab.craft-clips.settings.js';
@@ -1293,4 +1294,46 @@ function _populateMagicResultsModal(app, stats) {
   if (breakdownEl) {
     breakdownEl.innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
   }
+}
+
+/** Clips eligible for standalone AI Refactorization (AI Lab panel). */
+export function getRefactorEligibleClips() {
+  const app = this;
+  if (!app._hasAiAccess()) return [];
+  const skipTypes = app._skipAiFormatTypes();
+  return app.clips.filter((clip) => {
+    if (clip.meta?.craftRefactor) return false;
+    const contentType = app._detectContentType(clip.text, clip.meta);
+    const trimmedLen = (clip.text || '').trim().length;
+    return trimmedLen > 5 && !skipTypes.has(contentType);
+  });
+}
+
+/** Refactor selected clips only — no categorize, dedupe, or format. */
+export async function runRefactorizationOnly(clipIds, refactorLevel) {
+  const app = this;
+  const prev = app._craftClipsSettings;
+  app._craftClipsSettings = {
+    smartCategorize: false,
+    duplicateHandling: false,
+    aiMode: CRAFT_CLIPS_AI_MODES.REFACTORING,
+    refactorLevel: refactorLevel || 'college',
+  };
+  try {
+    return await _craftMagic.call(app, clipIds);
+  } finally {
+    app._craftClipsSettings = prev;
+  }
+}
+
+/** Open Craft Clips with AI Refactoring mode pre-selected. */
+export async function openCraftClipsForRefactor() {
+  const app = this;
+  const settings = await loadCraftClipsSettings();
+  const next = {
+    ...settings,
+    aiMode: CRAFT_CLIPS_AI_MODES.REFACTORING,
+  };
+  app._craftClipsSettings = await saveCraftClipsSettings(next);
+  return magicFormat.call(app);
 }

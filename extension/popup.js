@@ -717,6 +717,14 @@ class PasteCraftPopup {
     return this.aiLabFeature.magic._craftMagic.call(this, clipIds);
   }
 
+  activateRefactorizationSection() {
+    return this.aiLabFeature.refactorization.activateRefactorizationSection(this);
+  }
+
+  renderRefactorizationPanel() {
+    return this.aiLabFeature.refactorization.renderRefactorizationPanel.call(this);
+  }
+
   // --- Magic Button: Craft All with Undo Snapshot ---
   async _craftAllMagic() {
     return this.aiLabFeature.magic._craftAllMagic.call(this);
