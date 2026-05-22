@@ -52,7 +52,10 @@ export class PasteCraftFloatingWidget {
     this.setupWidgetDrag();
     this.setupStorageSync();
     this.setupClickAndDragCapture();
-    requestAnimationFrame(() => this.warmPopupIframe());
+    // NOTE: warmPopupIframe disabled at boot — was running popup init in every
+    // tab and contending with the toolbar popup's init pipeline (10s watchdog).
+    // Now warmed lazily on first widget logo interaction (see warmPopupOnHover).
+    this._installLazyPopupWarmer();
 
     // Then load settings asynchronously
     this.initAsync();
@@ -64,8 +67,20 @@ export class PasteCraftFloatingWidget {
     try { await this.applyWidgetIcon(); } catch (_) {}
     await this.loadAutoCopyState();
     this.setupAutoCopyListener();
-    this.warmPopupIframe();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
+  }
+
+  _installLazyPopupWarmer() {
+    if (this._lazyWarmerInstalled) return;
+    this._lazyWarmerInstalled = true;
+    try {
+      const logo = this.widget?.querySelector('.logo-button');
+      const trigger = () => this.warmPopupIframe();
+      const target = logo || this.widget;
+      if (!target) return;
+      target.addEventListener('pointerenter', trigger, { once: true });
+      target.addEventListener('focusin', trigger, { once: true });
+    } catch (_) {}
   }
 
   warmPopupIframe() {
@@ -124,7 +139,8 @@ export class PasteCraftFloatingWidget {
       preloaded.style.cssText = 'width:100%;height:100%;border:none;flex:1;min-height:0;opacity:0;visibility:hidden;pointer-events:none;';
       preloaded.classList.add('pastecraft-overlay-iframe-loading');
       this._popupPreloadIframe = null;
-      requestAnimationFrame(() => this.warmPopupIframe());
+      // Re-warm intentionally NOT scheduled here — caused popup init contention
+      // across tabs. User opens panel again will be a cold cycle (still fast).
       return preloaded;
     }
 
@@ -1090,8 +1106,8 @@ export class PasteCraftFloatingWidget {
       // Update docked page push based on remaining panels
       this.syncPageDocking();
 
-      setTimeout(() => this.warmPopupIframe(), 400);
-      
+      // Re-warm intentionally NOT scheduled — see _installLazyPopupWarmer comment.
+
       console.log('✅ Popup overlay closed');
     }
   }

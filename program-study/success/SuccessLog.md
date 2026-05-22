@@ -1,3 +1,9 @@
+### May 22, 2026 - Widget lazy popup warm + offline banner contention fix
+**Status:** SUCCESS
+**Commit:** TBD on main
+**Files:** extension/content/widget/widget.js
+**Result:** Disabled eager warmPopupIframe on every tab (caused multi-tab popup init contention + 10s watchdog/offline banner). Lazy warm on widget logo hover only. Verified: popup init 1965ms, reveal 464ms, no watchdog, purple loader shows, no white flash. User verified.
+
 ### May 22, 2026 - Widget popup preload + settings Shadow DOM + loading shell
 **Status:** SUCCESS
 **Commit:** 6b3ec8b on feature/widget-popup-preload-settings-shadow
