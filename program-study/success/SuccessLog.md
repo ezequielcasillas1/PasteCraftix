@@ -1,3 +1,9 @@
+### May 21, 2026 - AI avatar 3D quality + security hardening + animal deck
+**Status:** SUCCESS
+**Commit:** 5e7dc12 on main
+**Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js, security-gate, admin-api/alerts, ai-name, migrations 20260521–20260523, extension/content/safety, extension/shared/animal-names.js, animals.ts, manifest 3.0.9
+**Result:** Restored premium 3D avatar prompts (no flat outlines, quality high). P0-P3 security: RLS, cron auth, JWT gates, site-guard, Shadow DOM. Funky animal deck cycle. ai-image edge deployed. User verified.
+
 ### May 21, 2026 - Production release v3.0.8
 **Status:** SUCCESS
 **Commit:** 3296842, merge 8a3bef2 on main
