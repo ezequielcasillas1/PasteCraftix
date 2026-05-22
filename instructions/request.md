@@ -570,15 +570,17 @@ state management.
 
 ---
 
-#### 47. Craft Clips AI Rebuild
+#### 47. Craft Clips AI Rebuild (Magic Wand revamp)
 **Priority:** High
-**Status:** Planned
+**Status:** In progress — ships as **Craft Clips** (`ai-lab.magic.js`, settings in `ai-lab.craft-clips.*`)
 **Requirements:**
-- Rename/rebuild Magic Clips as Craft Clips with real action cards.
-- AI categorization must analyze all clips and create useful topic names.
-- Settings: categorization + duplicate detection toggles.
-- User can choose only one mode: Enhanced AI or AI Formatted.
-- Full plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
+- Rebrand UI/copy: Magic Wand → **Craft Clips**; **action cards** per clip (categorize, format/refactor, cleanup, dedupe)
+- **Smart categorize** toggle: premium → 5 AI title picker modal after craft, then apply; else rules; `createCategory` CRUD
+- **AI modes (one per craft):** **AI Formatted** (`ai-format`, polishes `text`) *or* **AI Refactoring** (`ai-refactor`, levels ELI5–Wise Man, keeps original clip + adds new refactored clip in recents)
+- **Settings:** categorize on/off, archive-duplicates on/off, refactor level chips with ⓘ tooltips
+- **Duplicates:** archive younger copies to `searchOnlyClips` when toggle on; undo restores clips + archived
+- **Storage:** `pc_craft_clips_settings_v1`; refactor fields local on clip; sync archived on craft
+- Plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
 
 ---
 
@@ -631,6 +633,18 @@ state management.
 - Hard cap: 200 items max as a safety valve
 - `activity.service.js`: add `recoverDeletedEntry(entry)` — reads from IndexedDB, re-inserts locally, queues Supabase upsert via existing `syncQueue` if online
 - Call `navigator.storage.persist()` in `background.js` `onInstalled` handler
+
+---
+
+#### 49. Multi-Provider AI Keys (Gemini, Anthropic, Grok)
+**Priority:** Medium  
+**Status:** Coming soon — OpenAI only for MVP  
+
+**Requirements:**
+- Supabase Edge Function secrets: `GOOGLE_AI_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` (user-provided)
+- Re-enable AI Lab provider dropdown options when each key is set
+- Server `ai_workflow.ts` already has Gemini routing; add Anthropic/Grok resolvers when keys land
+- Migrate any stored `provider: google` prefs back to `openai` until launch
 
 ---
 

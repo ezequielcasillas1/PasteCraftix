@@ -35,6 +35,14 @@ function isNetworkLoadError(error) {
   return error.message?.includes('network') || error.message?.includes('fetch') || !navigator.onLine;
 }
 
+function getClipPreviewText(clip) {
+  return String(clip?.text || '');
+}
+
+function isRefactoredSiblingClip(clip) {
+  return !!(clip?.meta?.craftRefactor || clip?.meta?.craftRefactorSourceId);
+}
+
 function matchesQuery(app, clip) {
   const query = app.searchQuery ? app.searchQuery.toLowerCase() : '';
   if (!query) return true;
@@ -91,12 +99,20 @@ function getMarkupPreview(text, meta, maxLength) {
   return window.PCMarkup ? window.PCMarkup.renderMarkupPreview(text, meta, maxLength) : '';
 }
 
-function getChipTextContent(app, clip, meta) {
-  const preview = getMarkupPreview(clip.text, meta, 80);
-  if (preview) return `<span class="pc-chip-preview">${preview}</span>`;
+function getRefactorBadgeHtml(clip) {
+  if (!isRefactoredSiblingClip(clip)) return '';
+  const level = clip.meta?.craftRefactorLevel ? ` (${clip.meta.craftRefactorLevel})` : '';
+  return `<span class="pc-refactor-badge" title="AI refactored copy; original clip kept separately">Refactored copy${level}</span>`;
+}
 
-  const plainText = clip.text.length > 30 ? clip.text.substring(0, 30) + '...' : clip.text;
-  return app.escapeHtml(plainText);
+function getChipTextContent(app, clip, meta) {
+  const previewText = getClipPreviewText(clip);
+  const preview = getMarkupPreview(previewText, meta, 80);
+  const badge = getRefactorBadgeHtml(clip);
+  if (preview) return `${badge}<span class="pc-chip-preview">${preview}</span>`;
+
+  const plainText = previewText.length > 30 ? previewText.substring(0, 30) + '...' : previewText;
+  return `${badge}${app.escapeHtml(plainText)}`;
 }
 
 function getChipViewModel(app, clip, index) {
@@ -178,7 +194,7 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
     ['.chip-breakdown-btn', () => app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
     ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
-    ['.chip-share-btn', () => app.showShareMenuForClip(clip)],
+    ['.chip-share-btn', () => typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
     ['.chip-summary-btn', () => app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
     ['.chip-notes-btn', async () => {
       await app.loadNotes();
@@ -378,7 +394,7 @@ export function createChip(app, clip, index) {
   chip.innerHTML = `
     <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
     ${markupBadge}
-    <span class="chip-text pc-clip-stack" title="${app.escapeHtml(clip.text)}">
+    <span class="chip-text pc-clip-stack" title="${app.escapeHtml(getClipPreviewText(clip))}">
       <span class="pc-clip-title" title="${app.escapeHtml(displayTitle)}">${app.escapeHtml(displayTitle)}</span>
       <span class="pc-clip-subtext">${chipTextContent}</span>
     </span>
@@ -618,7 +634,7 @@ export function createSearchResultItem(app, clip) {
   });
   item.querySelector('.chip-share-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    app.showShareMenuForClip(clip);
+    if (typeof app.showShareMenuForClip === 'function') app.showShareMenuForClip(clip);
   });
   item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
     e.stopPropagation();

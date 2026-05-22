@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "3.0.6",
+  "version": "3.0.8",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Break down text, summarize notes, and organize research clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -37,12 +37,14 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content-script.js"],
+      "type": "module",
       "run_at": "document_end"
     }
   ],
   "action": {},
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "icons": {
     "16": "icon.png",
@@ -57,6 +59,9 @@
         "popup.js",
         "config.js",
         "clip-title.js",
+        "content/*.js",
+        "content/quick-paste/*.js",
+        "content/widget/*.js",
         "styles.css",
         "styles/*.css",
         "markup-renderer.js",

@@ -4,6 +4,9 @@ import * as profileRender from './profile.render.js';
 import * as profileEvents from './profile.events.js';
 import * as profileGenerators from './profile.generators.js';
 import * as profileGallery from './profile.gallery.js';
+import * as profileAiImage from './profile.ai-image.js';
+import * as profileViewer from './profile.viewer.js';
+import * as generationTimer from './profile.generation-timer.js';
 
 export function initProfileFeature(app) {
   if (app.currentGalleryPage === undefined) {
@@ -16,5 +19,8 @@ export function initProfileFeature(app) {
     events: profileEvents,
     generators: profileGenerators,
     gallery: profileGallery,
+    aiImage: profileAiImage,
+    viewer: profileViewer,
+    generationTimer,
   };
 }

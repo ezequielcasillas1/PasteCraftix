@@ -1,3 +1,93 @@
+### May 21, 2026 - AI Lab Refactorization panel + tab sizing
+**Status:** SUCCESS
+**Files:** ai-lab.refactorization.js, ai-lab.magic.js, ai-lab.controller.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.html, popup.js
+**Result:** Standalone AI Lab path for refactor-ready clips (levels ELI5–Wise Man); reuses craft refactor pipeline. Larger Generator/Gallery/Summary tabs. User verified.
+
+### May 21, 2026 - Production v3.0.8 store release
+**Status:** SUCCESS
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.8.zip, feature/craft-clips-ai → main
+**Result:** Version 3.0.8 packaged; feature branch merged to main. Section G smoke test pending on Chrome + Edge before store upload.
+
+### May 21, 2026 - Smart categorize custom AI titles
+**Status:** SUCCESS
+**Files:** supabase/functions/ai-categorize/index.ts, ai-lab.magic.js, ai-lab.craft-clips.category-pick.js
+**Result:** Removed preset padding (Quick Notes/Links/Work). Edge prompt asks for content-specific titles; filters generic buckets; retries once if empty/generic. Client shows 1–5 AI titles only; rule-based fallback only when AI returns none. Redeploy `ai-categorize` required.
+
+### May 21, 2026 - Vertical slice refactor (Phases B–D)
+**Status:** SUCCESS
+**Files:** extension/supabase/*, extension/supabase-client.js, extension/content/*, extension/content-script.js, extension/background/*, extension/background.js, extension/manifest.json, extension/popup/features/app/popup.boot.js, scripts/split-*.mjs, REFACTOR_REMAINING.md
+**Result:** supabase-client 4755→7-line barrel + 18 slices; content-script 5715→2-line barrel + shared/quick-paste/widget; background 893→2-line barrel + shared/handlers; MV3 module SW + content script; popup loads Supabase via popup.boot dynamic import. Phase A popup already ~1581 lines from batch 3.
+
+### May 21, 2026 - Craft Clips AI Rebuild (#47)
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js, ai-lab.craft-clips.*, craft-toolbar.events.js, popup.html, clips.render.js, supabase-client.js, ai-refactor/index.ts, ai_workflow.ts, categories.service.js, styles.css, request.md
+**Result:** Craft Clips rebrand, action cards, settings, AI Formatted vs AI Refactoring. Refactor keeps original clip + adds sibling refactored clip in recents. Smart categorize: 5 AI title picker modal after craft (premium). ai-categorize suggestions mode deployed.
+
+### May 21, 2026 - Magic Clips / Craft Clips coordination (docs only)
+**Status:** PENDING USER VERIFY
+**Files:** instructions/request.md, implementations.md, docs/refactoring/craft-clips-ai-implementation-plan.md
+**Result:** Mapped current Magic Wand (`extension/popup/features/ai-lab/ai-lab.magic.js`, `magicClipList`, `aiCategorize`/`aiFormat`) vs planned Craft Clips revamp. Gaps: detect-only dupes, no action cards/settings toggles, dual AI modes, client category IDs. No refresh.md entry (no confirmed magic-only bug). Not implementation success.
+
+### May 21, 2026 - Clip row Share + Open delegates
+**Status:** SUCCESS
+**Files:** clips.share.js, clips.controller.js, clips.events.js, clips.render.js, popup.js
+**Result:** Restored `showShareMenuForClip` / `openClipViewer` thin delegates after popup refactor. Share overlay module extracted. User verified.
+
+### May 21, 2026 - Profile AI image data URL upload (CSP)
+**Status:** SUCCESS
+**Files:** extension/supabase-client.js
+**Result:** `downloadAndUploadImage` skips fetch for `data:image/` URLs; uses base64 upload path. User verified.
+
+### May 21, 2026 - AI conversation history numbered pagination
+**Status:** PENDING USER VERIFY
+**Files:** ai-lab.history.js, ai-lab.selectors.js, popup.html, popup.js, modals-shared.events.js
+**Result:** Replaced Load More with Prev/numbered pages/Next (7 per page, in-memory max ~50). Bar hidden when filtered total ≤7. `_aiHistoryPageIndex` 0-based; UI labels Page 1 of N. Search/filter/tab reset to page 1.
+
+### May 21, 2026 - AI conversation history load-more pagination
+**Status:** SUPERSEDED (numbered pagination May 21)
+**Files:** ai-lab.history.js, ai-lab.constants.js, popup.html, popup.js, modals-shared.events.js, tab-nav.events.js
+**Result:** Prior load-more UX replaced by numbered pages per user feedback.
+
+### May 21, 2026 - popup.js final orchestrator slice (batch 3 close-out)
+**Status:** SUCCESS
+**Files:** popup.js, popup.boot.js, popup.features.js, popup.init.js, ai-lab.analysis-history.js, ai-lab.controller.js, ai-lab.summary.js, clips.state.js, categories.service.js, profile.generation-timer.js, profile.controller.js
+**Result:** Extracted analysis history, selection helpers (getSelectedOrCurrentText, clearAllSelections), boot/messaging, feature loader registry, profile AI timer, dead code removed (appendDeletedItems, moveToSearchStorage, toggleClipSelection). popup.js ~1898 → ~1549 lines. Fixed missing showSummaryModal/getSelectedOrCurrentText delegates. User verified.
+
+### May 21, 2026 - popup.js final slice (init, auth, breakdown, profile)
+**Status:** SUCCESS
+**Files:** popup.init.js, auth.callbacks.js, auth.password-strength.js, billing.unsubscribe.js, profile.ai-image.js, profile.viewer.js, ai-lab.breakdown.js, ai-lab.summary-modal.js, popup-icons.js, popup.js, popup.html, auth/billing/profile/ai-lab controllers
+**Result:** Extracted startup orchestration, auth callbacks, password strength UI, unsubscribe, profile AI images, image viewer, breakdown modal stack, summary modal nav, Lucide boot. popup.js ~2979 → ~1898 lines; thin delegates retained. User verified.
+
+### May 21, 2026 - Supabase sync RLS grants + performFullSync session guard
+**Status:** SUCCESS
+**Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
+**Result:** Migration re-grants `user_is_not_banned` EXECUTE for ban_gate RLS (42501). Client skips full sync without live JWT. User verified.
+
+### May 21, 2026 - popup.js batch 3 (pdf, billing, titles, bulk AI, session)
+**Status:** SUCCESS
+**Files:** clips.pdf.js, clips.title.js, billing.upgrade-ui.js, ai-lab.bulk.js, ai-lab.session-state.js, clips.controller.js, billing.controller.js, ai-lab.controller.js, popup.js
+**Result:** Extracted PDF modal (~310 LoC), freemium upgrade UI (~20), clip title CRUD (~130), bulk AI button wiring (~50), AI Lab session persistence (~185). popup.js ~620 lines slimmer; thin delegates retained.
+
+### May 21, 2026 - popup.js batch 2 (restore, repair, visibility)
+**Status:** Pending verification
+**Files:** settings.restore.js, sync.repair.js, sync.visibility.js, settings.controller.js, sync.controller.js, popup-ui.js, popup.js
+**Result:** Extracted restore points (~240 LoC), repairLocalClipIds (~80), setupVisibilityListener, setActionButtonLoading. popup.js ~314 lines slimmer; delegates on settingsFeature.restore + syncFeature.
+
+### May 19, 2026 - PasteCraftCRUD Shared Module Extraction
+**Status:** Pending verification
+**Files:** extension/popup/shared/pastecraft-crud.js, extension/popup.html, extension/popup.js
+**Result:** Moved PasteCraftCRUD (~560 lines) out of popup.js into IIFE shared script (async-utils pattern). popup.html loads pastecraft-crud.js before popup.js. CodeScene popup.js 2.34 → 2.78; new file 4.51. Feature modules unchanged (window.PasteCraftCRUD).
+
+### May 19, 2026 - Supabase SECURITY DEFINER RPC Hardening
+**Status:** Applied (pending advisor recount + extension smoke test)
+**Files:** db/migrations/20260519_harden_security_definer_rpc_grants.sql, extension/supabase-client.js
+**Result:** Dropped `set_config`; revoked EXECUTE on internal/admin SECURITY DEFINER RPCs from anon/PUBLIC; granted `get_effective_access_state` to authenticated (SECURITY INVOKER, uuid cast fix). **Follow-up:** `user_is_not_banned` must keep EXECUTE for `authenticated` (RLS ban_gate policies). Security advisor: 31 → ~2 warnings (`pg_net` + optional `user_is_not_banned` RPC lint).
+
+### May 19, 2026 - Clip Viewer Modular Extraction
+**Status:** Pending verification
+**Files:** extension/popup/features/clips/clips.viewer.js, clips.controller.js, extension/popup.js
+**Result:** Moved clip viewer (~240 lines) from popup.js into clips.viewer.js. Public API unchanged: app.openClipViewer, hideClipViewerModal, copyClipViewerText. Events stay in modals-shared.events.js.
+
 ### Apr 19, 2026 - Publishing Safety + Cross-Browser Data Parity
 **Status:** SUCCESS
 **Files:** .cursor/rules/production-publishing-safety.mdc, extension/background.js, docs/publishing/CROSS_BROWSER_AUTH.md
@@ -177,3 +267,8 @@
 **Status:** SUCCESS
 **Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
 **Result:** AI history syncs to Supabase. Added `ai_history` table + RLS. View always allowed regardless of subscription. `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()` added. No custom RLS plumbing — queries by user_id, lets RLS handle auth.
+
+### May 21, 2026 - popup.js safe slice batch (non-risky)
+**Status:** PENDING USER VERIFY
+**Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
+**Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.

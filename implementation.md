@@ -1,4 +1,8 @@
-### 2026-02-20 - Cross-Device Diff Sync Architecture
+### 2026-05-21 - AI Refactorization History + Admin Tickets
+**Status:** PARTIAL
+**Files:** extension/popup/features/ai-lab/ai-lab.history.js, ai-lab.magic.js, popup.html, supabase/functions/ai-refactor/index.ts, admin/index.html, admin/admin.js, db/migrations/20260521_refactor_tickets_and_ai_history_type.sql
+**Result:** Added AI Refactorization tab in conversation history with before/after view, backend diagnostics synthesis, user report ticket flow, and localhost admin Refactor Tickets tab. Needs DB migration + edge function deploy + manual smoke test.
+
 **Status:** SUCCESS
 **Files:** db/supabase-schema.sql, db/supabase-fixes.sql, extension/supabase-client.js, extension/popup.js
 **Result:** Added indexed content-hash/device lookups + `get_device_diff_clips` RPC, switched popup sync panel to authoritative remote→current diff fetch, and wired realtime/device registration updates for targeted per-clip sync.

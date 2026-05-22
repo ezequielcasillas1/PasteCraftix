@@ -24,9 +24,19 @@ export const AI_PROVIDER_PRESETS = {
   ],
 };
 
-export const AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
+/** Only OpenAI is active until per-provider API keys are configured server-side. */
+export const AI_ALLOWED_PROVIDERS = new Set(['openai']);
 
 export const AI_STORAGE_KEYS = {
   WORKFLOW: 'pc_ai_workflow_v1',
   HISTORY: 'pc_aiHistory_v1',
 };
+
+export const AI_HISTORY_PAGE_SIZE = 7;
+
+export const OPEN_RECENT_CONVERSATION_TOOLTIPS = Object.freeze({
+  breakdown:
+    'AI Breakdown: step-by-step explanations of your text at the comprehension level you pick.',
+  summary:
+    'AI Summary: shorter overview plus suggested questions from your selected clips or text.',
+});

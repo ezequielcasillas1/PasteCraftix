@@ -105,6 +105,30 @@ function looksLikeMissingModelError(msg: string) {
   return s.includes('model') && (s.includes('not found') || s.includes('does not exist') || s.includes('no such model'));
 }
 
+/** GPT-5 / reasoning models reject legacy max_tokens on chat/completions. */
+function usesMaxCompletionTokens(model: string): boolean {
+  const m = String(model || '').toLowerCase();
+  return m.startsWith('gpt-5') || /^o[134]/.test(m);
+}
+
+function looksLikeMaxTokensParamError(msg: string): boolean {
+  const s = String(msg || '').toLowerCase();
+  return s.includes('max_tokens') && s.includes('max_completion_tokens');
+}
+
+export function normalizeChatCompletionPayload(payload: Record<string, unknown>, model: string): Record<string, unknown> {
+  const out = { ...payload };
+  if (!usesMaxCompletionTokens(model)) return out;
+  if (out.max_tokens != null && out.max_completion_tokens == null) {
+    out.max_completion_tokens = out.max_tokens;
+  }
+  delete out.max_tokens;
+  if (out.temperature !== undefined && out.temperature !== 1) {
+    delete out.temperature;
+  }
+  return out;
+}
+
 export function getChatModelFallbackChain(model: string, provider: AiWorkflowProvider = 'openai'): string[] {
   const m = String(model || '').trim();
 
@@ -139,6 +163,7 @@ export async function fetchChatCompletionsWithModelFallback(
   let lastErr: any = null;
 
   for (const m of candidates) {
+    const bodyPayload = normalizeChatCompletionPayload(payload, m);
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -146,7 +171,7 @@ export async function fetchChatCompletionsWithModelFallback(
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        ...payload,
+        ...bodyPayload,
         model: m,
       }),
     });
@@ -159,6 +184,22 @@ export async function fetchChatCompletionsWithModelFallback(
     const err = await resp.json().catch(() => ({}));
     lastErr = err;
     const msg = String(err?.error?.message || err?.error || resp.statusText || '');
+
+    if (looksLikeMaxTokensParamError(msg) && payload.max_tokens != null) {
+      const retryPayload = normalizeChatCompletionPayload(payload, m);
+      const retryResp = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ ...retryPayload, model: m }),
+      });
+      if (retryResp.ok) {
+        const data = await retryResp.json();
+        return { data, usedModel: m };
+      }
+    }
 
     // Only retry on "model missing" class errors; otherwise fail fast.
     if (!looksLikeMissingModelError(msg)) {

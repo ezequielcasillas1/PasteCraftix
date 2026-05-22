@@ -217,9 +217,16 @@ function _routeNoteCardAction(app, e) {
   if (actionBtn) {
     e.stopPropagation();
     const noteId = _resolveNoteIdFromActionBtn(actionBtn);
-    if (actionBtn.classList.contains('edit-note')) { app.openNoteEditor(noteId); return; }
+    if (actionBtn.classList.contains('edit-note')) {
+      const note = app.notes.find(n => n.id == noteId);
+      if (note) app.openNoteEditor(note.type, noteId);
+      return;
+    }
     if (actionBtn.classList.contains('export-note-pdf')) { app.exportNoteToPDF(noteId); return; }
-    if (actionBtn.classList.contains('delete-note')) { app.deleteNote(noteId); return; }
+    if (actionBtn.classList.contains('delete-note')) {
+      app.deleteNote(noteId);
+      return;
+    }
     if (actionBtn.classList.contains('send-to-album-btn')) { _handleSendToAlbum(app, noteId); return; }
     return;
   }

@@ -1,0 +1,44 @@
+// Supabase vertical slices
+import { PasteCraftSupabase } from './class.js';
+import { aiWorkflowMixin } from './ai-workflow.js';
+import { coreMixin } from './core.js';
+import { subscriptionMixin } from './subscription.js';
+import { authBridgeMixin } from './auth-bridge.js';
+import { syncQueueMixin } from './sync-queue.js';
+import { realtimeMixin } from './realtime.js';
+import { profileImagesMixin } from './profile-images.js';
+import { aiFunctionsMixin } from './ai-functions.js';
+import { identityMixin } from './identity.js';
+import { syncClipsMixin } from './sync-clips.js';
+import { syncCategoriesMixin } from './sync-categories.js';
+import { syncArchivedMixin } from './sync-archived.js';
+import { syncNotesMixin } from './sync-notes.js';
+import { syncSettingsMixin } from './sync-settings.js';
+import { aiHistorySyncMixin } from './ai-history-sync.js';
+import { profileSyncMixin } from './profile-sync.js';
+import { authMixin } from './auth.js';
+import { fullSyncMixin } from './full-sync.js';
+import { storageAdapterMixin } from './storage-adapter.js';
+
+Object.assign(PasteCraftSupabase.prototype, storageAdapterMixin);
+Object.assign(PasteCraftSupabase.prototype, aiWorkflowMixin);
+Object.assign(PasteCraftSupabase.prototype, coreMixin);
+Object.assign(PasteCraftSupabase.prototype, subscriptionMixin);
+Object.assign(PasteCraftSupabase.prototype, authBridgeMixin);
+Object.assign(PasteCraftSupabase.prototype, syncQueueMixin);
+Object.assign(PasteCraftSupabase.prototype, realtimeMixin);
+Object.assign(PasteCraftSupabase.prototype, profileImagesMixin);
+Object.assign(PasteCraftSupabase.prototype, aiFunctionsMixin);
+Object.assign(PasteCraftSupabase.prototype, identityMixin);
+Object.assign(PasteCraftSupabase.prototype, syncClipsMixin);
+Object.assign(PasteCraftSupabase.prototype, syncCategoriesMixin);
+Object.assign(PasteCraftSupabase.prototype, syncArchivedMixin);
+Object.assign(PasteCraftSupabase.prototype, syncNotesMixin);
+Object.assign(PasteCraftSupabase.prototype, syncSettingsMixin);
+Object.assign(PasteCraftSupabase.prototype, aiHistorySyncMixin);
+Object.assign(PasteCraftSupabase.prototype, profileSyncMixin);
+Object.assign(PasteCraftSupabase.prototype, authMixin);
+Object.assign(PasteCraftSupabase.prototype, fullSyncMixin);
+
+export { PasteCraftSupabase };
+export const pasteCraftSupabase = new PasteCraftSupabase();

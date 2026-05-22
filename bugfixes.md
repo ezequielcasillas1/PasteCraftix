@@ -1,3 +1,53 @@
+### May 21, 2026 - Floating widget missing after content-script split
+**Status:** Fixed (pending reload test)
+**Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json
+**Result:** Phase C replaced monolithic content-script with `import` shim; Repo Loader manifest lacked `type: module`, so script parse failed and widget never init. Bootstrap now uses dynamic `import()` with repo-loader paths; content init waits for `document.body`; widget visibility fallback if storage is slow.
+
+### May 21, 2026 - AI History load-more UX (user feedback)
+**Status:** Fixed (pending verify)
+**Files:** ai-lab.history.js, popup.html, popup.js, modals-shared.events.js
+**Result:** User wanted numbered pages (1, 2, 3…) not cumulative Load More. Switched to page index + clips-style pagination bar.
+
+### May 21, 2026 - Clip Share + Profile AI image CSP
+**Status:** SUCCESS (user verified)
+**Files:** popup.js, clips.share.js, clips.controller.js, clips.render.js, clips.events.js, supabase-client.js
+**Result:** Share: refactor dropped `showShareMenuForClip` on `PasteCraftPopup`; category row called missing method (`TypeError`). Restored delegates + `clips.share.js`. Profile AI: `downloadAndUploadImage` fetched `data:image/...` URLs; MV3 CSP `connect-src` blocks `data:`. Route data URLs through `uploadDataUrlToProfileImages` (base64 decode, no fetch).
+
+### May 21, 2026 - Supabase sync 42501 user_is_not_banned
+**Status:** Fixed (verified)
+**Files:** db/migrations/20260521_fix_sync_rls_grants.sql, extension/supabase-client.js
+**Result:** Hardening revoked EXECUTE on `user_is_not_banned` used by restrictive `ban_gate_*` RLS; sync failed with 42501/401. Migration re-grants EXECUTE to authenticated, sets INVOKER, confirms archived_clips/ai_history grants. Client skips full sync without live JWT (bridge-only user caused anon RLS failures).
+
+### May 21, 2026 - Popup delete toast + craft toggles regression
+**Status:** Fixed (pending reload test)
+**Files:** popup-ui.js, popup.js, clips.preview.js, clips.state.js, clips.service.js, craft-toolbar.events.js
+**Result:** Chip × delete had no toast (`removeChip`); `showToast` accepts type again. Craft toggles called `updatePreviewFromSelection` on Clips tab and wiped preview/joiner UX; guarded to Categories-only + tab-aware preview updates.
+
+### May 19, 2026 - Supabase hardening broke sync (user_is_not_banned)
+**Status:** Fixed (pending reload test)
+**Files:** db/migrations/20260519_fix_rls_helper_function_grants.sql (applied via MCP)
+**Result:** Revoking EXECUTE on `user_is_not_banned` caused 403 on clips/settings/ai_history (`permission denied for function user_is_not_banned`). RLS ban_gate_* policies need authenticated EXECUTE. Also fixed `get_effective_access_state` uuid vs text (`user_subscriptions.user_id` is uuid).
+
+### May 19, 2026 - Popup console fixes v2 (3.0.7)
+**Status:** Fixed (pending reload test)
+**Files:** popup.js, clips.service.js, background.js, sync.loader.js, manifest.json (3.0.7)
+**Result:** `renderOpenRecentConversation` typeof guard + inline fallback; copy via execCommand then `pcCopyText` in SW; sync loader skips when context invalidated; reload from `extension/` folder required.
+
+### May 19, 2026 - AI History not showing in popup
+**Status:** Fixed (pending reload test)
+**Files:** ai-lab.summary.js, ai-lab.history.js, ai-lab-page.events.js, auth.session.js, popup.js, manifest.json
+**Result:** Open-recent only ran on summary reset, not on Summary tab/back-to-input; render now calls `loadAiHistory()` (cloud merge). History list renders Lucide icons. Startup preloads history. v3.0.7.
+
+### May 19, 2026 - Post-reload popup console fixes
+**Status:** Fixed (pending reload test)
+**Files:** ai-lab.summary.js, ai-lab.constants.js, clips.viewer.js, clips.service.js, files.events.js, indexeddb-store.js
+**Result:** Restored missing `renderOpenRecentConversation`; clip viewer copy uses `copyToClipboardFallback`; silenced files manage-btn warn when DOM absent; IDB `DB_VERSION` raised to 3 to match existing stores.
+
+### May 19, 2026 - Files Feature Module Missing (Popup init crash)
+**Status:** Fixed (pending reload test)
+**Files:** extension/popup/features/files/* (restored from 0b3faad)
+**Result:** `popup.js` imported `files.controller.js` but `extension/popup/features/files/` was missing on disk — `init()` failed. Restored 5 modules from git `0b3faad`.
+
 ### 2026-04-19 - Deleted Categories Resurrect Across Browsers
 **Status:** SUCCESS
 **Files:** extension/supabase-client.js, extension/popup.js, extension/indexeddb-store.js

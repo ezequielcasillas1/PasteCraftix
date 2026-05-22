@@ -34,10 +34,11 @@ Full reasoning: `docs/refactoring/master-refactor-roadmap.md` and `.cursor/rules
 | AI Lab | ✅ Done | Sonnet 4.6 | `_craftMagic` CC=63 | Decomposed in `ai-lab.magic.js` |
 | Settings | ✅ Done | Sonnet 4.6 | None | — |
 | Activity Log | ✅ Done | Sonnet 4.6 | None | `fetchActivityPage` CC=19 → decomposed |
-| **Auth** | ⬜ Next | **Sonnet 4.6** base + **Opus 4.5** for `setupAuthModalEvents` CC=65 + **Opus 4.7** for `_restoreSessionState` CC=81 | `_restoreSessionState` CC=81, `setupAuthModalEvents` CC=65 | Tiered: 4.5 handles CC=65, 4.7 handles CC=81 |
-| Profile | ⬜ Pending | **Sonnet 4.6** base + **Opus 4.5** for `updateTopBarIdentity` CC=43 + **Opus 4.7** for `profile.avatar.js` | `updateTopBarIdentity` CC=43 | Avatar generation (CC=17, AI calls) needs Opus 4.7 |
-| Billing | ⬜ Pending | **Sonnet 4.6** base + **Opus 4.5** for `openSupportForm` CC=30 | `openSupportForm` CC=30, `submitSupportForm` CC=25 | Both must be decomposed |
-| Sync / Data | ⬜ Pending | **Sonnet 4.6** base + **Opus 4.5** for `setupLocalStorageListener` CC=42 + **Opus 4.7** for `loadData` CC=73 | `loadData` CC=73 — last Brain Method in popup.js | 4.5 handles CC=42, 4.7 handles CC=73 |
+| Auth | ✅ Done | Sonnet 4.6 | `_restoreSessionState`, `setupAuthModalEvents` | Decomposed in `auth.*` |
+| Profile | ✅ Done | Sonnet 4.6 + Opus 4.7 avatar | `updateTopBarIdentity` CC=43 | `profile.*` modules |
+| Billing | ✅ Done | Sonnet 4.6 | Support form decomposed | `billing.*` modules |
+| Sync / Data | ✅ Done | Sonnet 4.6 + Opus 4.7 `loadData` | Brain methods decomposed | `sync.*` modules |
+| **setupEventListeners shell** | ✅ Done | Composer 2.5 | ~1,129 lines | `popup/popup.events.js` + `popup/events/*.events.js`; `popup.js` 8,871 → 4,847 lines |
 
 ---
 

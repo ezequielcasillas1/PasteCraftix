@@ -36,6 +36,7 @@ const AI_SUBTAB_SECTIONS = Object.freeze({
   generator: 'aiGeneratorSection',
   gallery: 'aiGallerySection',
   summary: 'aiSummarySection',
+  refactorization: 'aiRefactorizationSection',
   breakdown: 'aiBreakdownSection',
 });
 
@@ -78,12 +79,19 @@ function _restoreAiSubTab(app, stored) {
 
   app._currentAiLabSubTab = savedAiSubTab;
   const subTabBtn = document.querySelector(`.ai-lab-tab[data-ai-tab="${savedAiSubTab}"]`);
-  if (!subTabBtn) return savedAiSubTab;
+  const sectionId = AI_SUBTAB_SECTIONS[savedAiSubTab];
+
+  if (!subTabBtn && !sectionId) return savedAiSubTab;
 
   document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-  subTabBtn.classList.add('active');
+  if (subTabBtn) subTabBtn.classList.add('active');
   _activateAiSubTabSection(savedAiSubTab);
+
+  if (savedAiSubTab === 'refactorization' && app.aiLabFeature?.refactorization?.renderRefactorizationPanel) {
+    app.aiLabFeature.refactorization.renderRefactorizationPanel.call(app);
+  }
+
   return savedAiSubTab;
 }
 
@@ -241,6 +249,9 @@ function _restoreSummary(app, stored, canRestore) {
   }
   _hydrateSummaryFields(app, sum);
   _restoreSummarySection(app, sum);
+  if (!sum.activeSection || sum.activeSection === 'input') {
+    app._renderOpenRecentConversation();
+  }
 }
 
 function _logSessionRestore(stored) {

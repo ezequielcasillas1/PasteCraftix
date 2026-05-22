@@ -1,14 +1,28 @@
-// ─── AI Lab: Magic Wand Feature ───
-// Auto-categorize, enhance, dedupe, and organize clips.
-// All public functions use `this` (PasteCraftPopup) — call via .call(app, ...) from popup.js.
+// ─── AI Lab: Craft Clips (formerly Magic Wand) ───
+import {
+  CRAFT_CLIPS_AI_MODES,
+  CRAFT_CLIP_ACTIONS,
+  CRAFT_CATEGORY_SUGGESTION_COUNT,
+} from './ai-lab.craft-clips.constants.js';
+import {
+  loadCraftClipsSettings,
+  saveCraftClipsSettings,
+  resolveRefactorEdgeLevel,
+  syncCraftClipsSettingsToUi,
+} from './ai-lab.craft-clips.settings.js';
+import { openCraftCategoryPickModal } from './ai-lab.craft-clips.category-pick.js';
+import { createCategory } from '../categories/categories.service.js';
 
 // ────────────────────────────────────────────────────────────
-// Public entry: open Magic preview modal
+// Public entry: open Craft Clips preview modal
 // ────────────────────────────────────────────────────────────
 
-export function magicFormat() {
+export async function magicFormat() {
   const app = this;
   _animateMagicWand();
+
+  app._craftClipsSettings = await loadCraftClipsSettings();
+  syncCraftClipsSettingsToUi(app._craftClipsSettings);
 
   app._magicAnalysis = app._analyzeMagicClips();
   app._magicSelected = new Set();
@@ -41,7 +55,16 @@ function _toggleMagicUndoBanner(app) {
 function _toggleMagicAiCreditNotice(app) {
   const notice = document.getElementById('magicAiCreditNotice');
   if (!notice) return;
-  notice.style.display = app._hasAiAccess() ? 'block' : 'none';
+  if (!app._hasAiAccess()) {
+    notice.style.display = 'none';
+    return;
+  }
+  const settings = app._craftClipsSettings || {};
+  const modeLabel = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
+    ? 'AI Refactoring'
+    : 'AI Formatted';
+  notice.textContent = `💎 Premium · ~25 credits per batch · ${modeLabel} (one AI mode per craft)`;
+  notice.style.display = 'block';
 }
 
 // ────────────────────────────────────────────────────────────
@@ -215,43 +238,66 @@ function _buildDuplicateTextMap(clips) {
 
 function _analyzeOneMagicClip(app, clip, dupMap) {
   const contentType = app._detectContentType(clip.text, clip.meta);
-  const issues = [];
+  const actions = _buildCraftClipActions(app, clip, contentType, dupMap);
+  return { clip, contentType, actions };
+}
 
-  _appendCategoryIssue(app, clip, issues);
-  _appendDuplicateIssue(clip, dupMap, issues);
-  _appendFormatAndCleanupIssues(app, clip, contentType, issues);
+function _getCraftClipsSettings(app) {
+  return app._craftClipsSettings || { smartCategorize: true, duplicateHandling: false, aiMode: CRAFT_CLIPS_AI_MODES.FORMATTED, refactorLevel: 'college' };
+}
 
-  if (issues.length === 0) {
-    issues.push({ tag: '✓ Already clean', detail: '', color: 'green' });
+function _buildCraftClipActions(app, clip, contentType, dupMap) {
+  const settings = _getCraftClipsSettings(app);
+  const actions = [];
+  const skipTypes = app._skipAiFormatTypes();
+  const trimmedLen = (clip.text || '').trim().length;
+  const hasAi = app._hasAiAccess();
+
+  if (settings.smartCategorize && (!clip.category || clip.category === 'Uncategorized')) {
+    actions.push({
+      kind: CRAFT_CLIP_ACTIONS.CATEGORIZE,
+      label: hasAi ? 'Categorize (AI)' : 'Categorize',
+      active: true,
+    });
   }
-  return { clip, contentType, issues };
-}
 
-function _appendCategoryIssue(app, clip, issues) {
-  if (clip.category && clip.category !== 'Uncategorized') return;
-  const aiLabel = app._hasAiAccess() ? ' (AI)' : '';
-  issues.push({ tag: '📁 Uncategorized', detail: `→ Smart Categorize${aiLabel}`, color: 'amber' });
-}
+  if (hasAi && trimmedLen > 5 && !skipTypes.has(contentType)) {
+    if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+      actions.push({
+        kind: CRAFT_CLIP_ACTIONS.REFACTOR,
+        label: `Refactor (${settings.refactorLevel})`,
+        active: true,
+      });
+    } else {
+      actions.push({ kind: CRAFT_CLIP_ACTIONS.FORMAT, label: 'AI Formatted', active: true });
+    }
+  }
 
-function _appendDuplicateIssue(clip, dupMap, issues) {
+  const enhanced = app._enhanceContent(clip.text, contentType);
+  if (enhanced !== clip.text) {
+    actions.push({ kind: CRAFT_CLIP_ACTIONS.CLEANUP, label: 'Cleanup', active: true });
+  }
+
   const key = (clip.text || '').trim().toLowerCase();
-  if (_isDuplicateKey(key, dupMap)) {
-    issues.push({ tag: '📋 Duplicate', detail: '', color: 'red' });
+  if (settings.duplicateHandling && _isDuplicateKey(key, dupMap)) {
+    actions.push({ kind: CRAFT_CLIP_ACTIONS.DEDUPE, label: 'Archive duplicate', active: true });
+  } else if (_isDuplicateKey(key, dupMap)) {
+    actions.push({ kind: CRAFT_CLIP_ACTIONS.DEDUPE, label: 'Duplicate', active: false });
   }
+
+  if (clip.meta?.craftRefactorSourceId) {
+    actions.push({ kind: CRAFT_CLIP_ACTIONS.REFACTOR, label: 'Refactored copy', active: false });
+  }
+
+  if (actions.length === 0) {
+    actions.push({ kind: 'clean', label: 'Already clean', active: false });
+  }
+  return actions;
 }
 
 function _isDuplicateKey(key, dupMap) {
   if (!key) return false;
   return (dupMap.get(key) || 0) > 1;
-}
-
-function _appendFormatAndCleanupIssues(app, clip, contentType, issues) {
-  const enhanced = app._enhanceContent(clip.text, contentType);
-  const skipTypes = app._skipAiFormatTypes();
-  const trimmedLen = (clip.text || '').trim().length;
-  const canAiFormat = app._hasAiAccess() && !skipTypes.has(contentType) && trimmedLen > 5;
-  if (canAiFormat) issues.push({ tag: '✨ Smart Format (AI)', detail: '', color: 'blue' });
-  if (enhanced !== clip.text) issues.push({ tag: '🧹 Needs cleanup', detail: '', color: 'blue' });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -285,18 +331,24 @@ function _buildMagicRowHtml(app, item, globalIdx, labels) {
   const isSelected = app._magicSelected.has(clipId);
   const preview = _buildMagicPreviewText(item.clip.text);
   const typeBadge = app._escHtml(labels[item.contentType] || item.contentType);
-  const issueTags = item.issues.map(i => _buildMagicIssueTagHtml(app, i)).join('');
+  const actionCards = (item.actions || []).map(a => _buildCraftActionCardHtml(app, a)).join('');
   return `
-    <div class="magic-clip-row ${isSelected ? 'magic-clip-selected' : ''}" data-magic-idx="${globalIdx}" data-clip-id="${clipId}">
+    <div class="magic-clip-row craft-clip-card ${isSelected ? 'magic-clip-selected' : ''}" data-magic-idx="${globalIdx}" data-clip-id="${clipId}">
       <input type="checkbox" class="magic-clip-check" ${isSelected ? 'checked' : ''}>
       <div class="magic-clip-info">
         <div class="magic-clip-text">${app._escHtml(preview)}</div>
         <div class="magic-clip-meta">
           <span class="magic-type-badge">${typeBadge}</span>
-          ${issueTags}
         </div>
+        <div class="craft-action-cards">${actionCards}</div>
       </div>
     </div>`;
+}
+
+function _buildCraftActionCardHtml(app, action) {
+  const kind = String(action.kind || 'neutral').replace(/[^a-z0-9_-]/gi, '') || 'neutral';
+  const inactive = action.active === false ? ' craft-action-inactive' : '';
+  return `<span class="craft-action-card craft-action-${kind}${inactive}">${app._escHtml(action.label || '')}</span>`;
 }
 
 function _buildMagicPreviewText(text) {
@@ -446,28 +498,88 @@ export function _escHtml(str) {
 
 export async function _craftMagic(clipIds) {
   const app = this;
+  app._craftClipsSettings = app._craftClipsSettings || await loadCraftClipsSettings();
+  const settings = _getCraftClipsSettings(app);
   const targetSet = new Set(clipIds.map(String));
   const stats = _initMagicStats();
   const categoryQueue = new Map();
 
   const clipTypeMap = _buildClipTypeMap(app, targetSet);
-  const uncategorizedTargets = _collectUncategorizedTargets(app, targetSet);
+  const uncategorizedTargets = settings.smartCategorize
+    ? _collectUncategorizedTargets(app, targetSet)
+    : [];
   const skipTypes = app._skipAiFormatTypes();
-  const formatTargets = _collectFormatTargets(app, targetSet, clipTypeMap, skipTypes);
+  const aiEligibleTargets = _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes);
   const hasAi = app._hasAiAccess();
+  const deferCategoryPick = settings.smartCategorize
+    && hasAi
+    && uncategorizedTargets.length > 0;
 
-  const aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats);
-  const aiFormatMap = await _runAiFormatting(formatTargets, hasAi);
+  let aiCategoryMap = new Map();
+  let aiFormatMap = new Map();
+  let aiRefactorMap = new Map();
+  let refactorDiagnostics = new Map();
 
-  const ctx = { targetSet, clipTypeMap, aiCategoryMap, aiFormatMap, queue: categoryQueue, stats };
+  if (settings.smartCategorize && !deferCategoryPick) {
+    aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats);
+  }
+
+  if (hasAi && aiEligibleTargets.length > 0) {
+    if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+      const edgeLevel = resolveRefactorEdgeLevel(settings.refactorLevel);
+      const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
+      aiRefactorMap = refactorResult.map;
+      refactorDiagnostics = refactorResult.diagnostics;
+    } else {
+      aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
+    }
+  }
+
+  const ctx = {
+    targetSet,
+    clipTypeMap,
+    aiCategoryMap,
+    aiFormatMap,
+    aiRefactorMap,
+    refactorDiagnostics,
+    refactorNewClips: [],
+    queue: categoryQueue,
+    stats,
+    settings,
+    deferCategoryPick,
+  };
   _processMagicTargetClips(app, ctx);
-  _detectMagicDuplicates(app, targetSet, stats);
-  _createMissingMagicCategories(app, categoryQueue);
+  _insertRefactoredSiblingClips(app, ctx, targetSet);
+
+  if (settings.duplicateHandling) {
+    _archiveYoungerDuplicates(app, targetSet, stats);
+  } else {
+    _detectMagicDuplicates(app, targetSet, stats);
+  }
+
+  await _createMissingMagicCategories(app, categoryQueue);
   _assignPendingMagicCategories(app, stats);
+
+  _promoteCraftedClipsToRecents(app, targetSet, stats);
 
   await _persistMagicChanges(app);
   await _syncMagicToSupabase(app);
   _refreshMagicCreditsAndUi(app, stats);
+
+  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
+    && ((ctx.refactorNewClips || []).length > 0 || (ctx.refactorDiagnostics && ctx.refactorDiagnostics.size > 0))) {
+    await _saveCraftRefactorHistory(app, ctx);
+  }
+
+  stats.craftAiMode = settings.aiMode;
+  stats.refactorLevel = settings.refactorLevel;
+  stats.duplicateHandling = settings.duplicateHandling;
+
+  if (deferCategoryPick) {
+    stats.needsCategoryPick = true;
+    stats.pendingCategoryClipIds = uncategorizedTargets.map((c) => String(c.id));
+    stats.categorySuggestions = await _fetchCategorySuggestions(app, uncategorizedTargets, hasAi);
+  }
 
   return stats;
 }
@@ -477,9 +589,14 @@ function _initMagicStats() {
     categorized: 0,
     enhanced: 0,
     duplicatesFound: 0,
+    duplicatesArchived: 0,
     typesFound: {},
     aiCategorized: false,
     aiFormatted: 0,
+    aiRefactored: 0,
+    craftAiMode: CRAFT_CLIPS_AI_MODES.FORMATTED,
+    refactorLevel: 'college',
+    duplicateHandling: false,
   };
 }
 
@@ -501,7 +618,7 @@ function _collectUncategorizedTargets(app, targetSet) {
   return out;
 }
 
-function _collectFormatTargets(app, targetSet, clipTypeMap, skipTypes) {
+function _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes) {
   const out = [];
   for (const clip of app.clips) {
     if (!targetSet.has(String(clip.id))) continue;
@@ -510,6 +627,114 @@ function _collectFormatTargets(app, targetSet, clipTypeMap, skipTypes) {
     if (!skipTypes.has(ct) && trimmedLen > 5) out.push(clip);
   }
   return out;
+}
+
+async function _fetchCategorySuggestions(app, targets, hasAi) {
+  if (targets.length === 0) return [];
+  if (hasAi) {
+    try {
+      const ai = await pasteCraftSupabase.aiCategorizeSuggestions(targets);
+      const custom = _normalizeAiCategorySuggestions(ai);
+      if (custom.length > 0) return custom;
+      const customFromSummary = await _fetchCategorySuggestionsFromSummaryAi(targets);
+      if (customFromSummary.length > 0) return customFromSummary;
+    } catch (e) {
+      console.error('AI category suggestion flow failed:', e);
+    }
+  }
+  return _fallbackCategorySuggestions(app, targets);
+}
+
+function _normalizeAiCategorySuggestions(raw) {
+  const generic = new Set([
+    'quick notes', 'links', 'work', 'personal', 'reference', 'quick', 'notes',
+    'contacts', 'code', 'data', 'markup', 'diagrams', 'uncategorized', 'general',
+  ]);
+  const seen = new Set();
+  const out = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const name = String(item || '').trim();
+    if (!name || generic.has(name.toLowerCase())) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= CRAFT_CATEGORY_SUGGESTION_COUNT) break;
+  }
+  return out;
+}
+
+async function _fetchCategorySuggestionsFromSummaryAi(targets) {
+  if (!Array.isArray(targets) || targets.length === 0) return [];
+  try {
+    const source = targets
+      .slice(0, 12)
+      .map((clip, idx) => {
+        const hint = _clipSourceHint(clip);
+        const text = String(clip?.text || '').trim().slice(0, 260);
+        return hint
+          ? `Snippet ${idx + 1}: ${text} [source:${hint}]`
+          : `Snippet ${idx + 1}: ${text}`;
+      })
+      .join('\n');
+    const prompt =
+      'Return up to 5 custom clipboard category titles that match these snippets. ' +
+      'If a source hint appears like [source:example.com], use it as context. ' +
+      'If source/topic hints suggest Bible content, prefer canonical book-level titles like Psalms/Proverbs/Romans. ' +
+      'For wiki/docs/information sites, prefer topic-specific titles from snippet and source/topic hints. ' +
+      'Use specific topical names (not generic words like Work, Personal, Links, Quick, Reference). ' +
+      'Output titles only, one per line, no numbering.';
+    const summary = await pasteCraftSupabase.generateSummary(source, prompt);
+    return _normalizeAiCategorySuggestions(_parseTitleLines(summary));
+  } catch (e) {
+    console.error('Summary AI category fallback failed:', e);
+    return [];
+  }
+}
+
+function _parseTitleLines(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  return text
+    .split(/\r?\n|[|•]/g)
+    .map((line) => String(line || '').replace(/^\s*(?:[-*]|\d+[\).\s])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+function _clipSourceHint(clip) {
+  const meta = clip && typeof clip.meta === 'object' ? clip.meta : {};
+  const fromMeta = String(meta.sourcePageUrl || meta.url || '').trim();
+  const fromClip = String(clip?.sourcePageUrl || clip?.url || '').trim();
+  const raw = fromMeta || fromClip;
+  if (!raw) return '';
+  try {
+    return String(new URL(raw).hostname || '').toLowerCase().slice(0, 80);
+  } catch (_) {
+    return raw.slice(0, 80).toLowerCase();
+  }
+}
+
+function _fallbackCategorySuggestions(app, targets) {
+  const names = [];
+  const seen = new Set();
+  for (const clip of targets) {
+    const contentType = app._detectContentType(clip.text, clip.meta);
+    const name = app._suggestCategory(contentType).name;
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      names.push(name);
+    }
+  }
+  const pads = ['Quick Notes', 'Links', 'Work', 'Personal', 'Reference'];
+  for (const p of pads) {
+    if (names.length >= CRAFT_CATEGORY_SUGGESTION_COUNT) break;
+    if (!seen.has(p.toLowerCase())) {
+      names.push(p);
+      seen.add(p.toLowerCase());
+    }
+  }
+  return names.slice(0, CRAFT_CATEGORY_SUGGESTION_COUNT);
 }
 
 async function _runAiCategorization(targets, hasAi, stats) {
@@ -545,6 +770,46 @@ async function _runAiFormatting(targets, hasAi) {
   return map;
 }
 
+async function _runAiRefactoring(targets, edgeLevel, stats) {
+  const map = new Map();
+  const diagnostics = new Map();
+  if (targets.length === 0) return { map, diagnostics };
+  try {
+    const result = await pasteCraftSupabase.aiRefactor(targets, edgeLevel);
+    const aiResults = Array.isArray(result?.refactored) ? result.refactored : [];
+    const diagList = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
+    if (aiResults.length > 0) {
+      _populateAiRefactorMap(map, targets, aiResults, stats);
+    }
+    targets.forEach((target, i) => {
+      const diag = diagList[i] || diagList.find((d) => d?.index === i) || null;
+      if (diag) diagnostics.set(String(target.id), diag);
+    });
+  } catch (err) {
+    targets.forEach((target) => {
+      diagnostics.set(String(target.id), {
+        outcome: 'failed',
+        reasons: [String(err?.message || 'AI refactor request failed')],
+        synthesis: 'The refactor request failed before the model could rewrite this clip.',
+        level: edgeLevel,
+      });
+    });
+  }
+  return { map, diagnostics };
+}
+
+function _populateAiRefactorMap(map, targets, aiResults, stats) {
+  const len = Math.min(targets.length, aiResults.length);
+  for (let i = 0; i < len; i++) {
+    const refactored = String(aiResults[i] || '').trim();
+    const original = (targets[i].text || '').trim();
+    if (refactored && refactored !== original) {
+      map.set(String(targets[i].id), refactored);
+      stats.aiRefactored++;
+    }
+  }
+}
+
 function _populateAiFormatMap(map, targets, aiResults) {
   const len = Math.min(targets.length, aiResults.length);
   for (let i = 0; i < len; i++) {
@@ -561,8 +826,10 @@ function _processMagicTargetClips(app, ctx) {
     if (!ctx.targetSet.has(String(clip.id))) continue;
     const contentType = ctx.clipTypeMap.get(String(clip.id)) || 'text';
     ctx.stats.typesFound[contentType] = (ctx.stats.typesFound[contentType] || 0) + 1;
-    _categorizeClipForMagic(app, clip, contentType, ctx);
-    _applyAiFormatAndCleanup(app, clip, contentType, ctx);
+    if (ctx.settings?.smartCategorize && !ctx.deferCategoryPick) {
+      _categorizeClipForMagic(app, clip, contentType, ctx);
+    }
+    _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx);
   }
 }
 
@@ -597,16 +864,106 @@ function _queueNewCategoryForClip(clip, suggested, queue) {
   clip._pendingCategory = suggested.name;
 }
 
-function _applyAiFormatAndCleanup(app, clip, contentType, ctx) {
+function _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx) {
+  const settings = ctx.settings || _getCraftClipsSettings(app);
   const aiFormatted = ctx.aiFormatMap.get(String(clip.id));
-  if (aiFormatted) {
+  if (aiFormatted && settings.aiMode === CRAFT_CLIPS_AI_MODES.FORMATTED) {
     clip.text = aiFormatted;
     ctx.stats.aiFormatted++;
   }
-  const enhanced = app._enhanceContent(clip.text, contentType);
-  if (enhanced !== clip.text) {
-    clip.text = enhanced;
-    ctx.stats.enhanced++;
+
+  const aiRefactored = ctx.aiRefactorMap.get(String(clip.id));
+  if (aiRefactored && settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    const original = (clip.text || '').trim();
+    if (aiRefactored !== original) {
+      ctx.refactorNewClips.push(_buildRefactoredSiblingClip(clip, aiRefactored, settings));
+      ctx.stats.aiRefactored++;
+    }
+  }
+
+  if (settings.aiMode !== CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    const enhanced = app._enhanceContent(clip.text, contentType);
+    if (enhanced !== clip.text) {
+      clip.text = enhanced;
+      ctx.stats.enhanced++;
+    }
+  }
+}
+
+function _buildRefactoredSiblingClip(sourceClip, refactoredText, settings) {
+  const now = Date.now();
+  const sourceMeta = sourceClip.meta && typeof sourceClip.meta === 'object'
+    ? { ...sourceClip.meta }
+    : {};
+  return {
+    id: now + Math.random(),
+    text: refactoredText,
+    category: sourceClip.category || 'Uncategorized',
+    timestamp: now,
+    updatedAt: now,
+    meta: {
+      ...sourceMeta,
+      craftRefactor: true,
+      craftRefactorSourceId: String(sourceClip.id),
+      craftRefactorLevel: settings.refactorLevel,
+    },
+  };
+}
+
+function _insertRefactoredSiblingClips(app, ctx, targetSet) {
+  const created = ctx.refactorNewClips || [];
+  if (created.length === 0) return;
+
+  for (let i = created.length - 1; i >= 0; i--) {
+    app.clips.unshift(created[i]);
+    targetSet.add(String(created[i].id));
+  }
+
+  if (typeof app.enforceClipLimit === 'function') {
+    void app.enforceClipLimit();
+  }
+}
+
+async function _saveCraftRefactorHistory(app, ctx) {
+  if (typeof app.saveRefactorHistory !== 'function') return;
+  const records = [];
+  const savedSources = new Set();
+
+  for (const newClip of ctx.refactorNewClips || []) {
+    const sourceId = String(newClip.meta?.craftRefactorSourceId || '');
+    const sourceClip = app.clips.find((c) => String(c.id) === sourceId);
+    const before = String(sourceClip?.text || '').trim();
+    const after = String(newClip.text || '').trim();
+    if (!before || !after) continue;
+    savedSources.add(sourceId);
+    records.push({
+      before,
+      after,
+      refactorLevel: ctx.settings?.refactorLevel || 'college',
+      sourceClipId: sourceId,
+      newClipId: String(newClip.id),
+      synthesis: ctx.refactorDiagnostics?.get(sourceId) || {},
+    });
+  }
+
+  for (const [sourceId, synthesis] of ctx.refactorDiagnostics || []) {
+    if (savedSources.has(String(sourceId))) continue;
+    const sourceClip = app.clips.find((c) => String(c.id) === String(sourceId));
+    const before = String(sourceClip?.text || '').trim();
+    if (!before) continue;
+    const after = String(ctx.aiRefactorMap?.get(String(sourceId)) || before).trim();
+    records.push({
+      before,
+      after,
+      refactorLevel: ctx.settings?.refactorLevel || 'college',
+      sourceClipId: String(sourceId),
+      newClipId: '',
+      synthesis: synthesis || {},
+    });
+  }
+
+  if (records.length > 0) {
+    await app.saveRefactorHistory(records);
   }
 }
 
@@ -633,13 +990,48 @@ function _countDuplicatesInTargets(app, targetSet, dupMap, stats) {
   }
 }
 
-function _createMissingMagicCategories(app, queue) {
+async function _createMissingMagicCategories(app, queue) {
   for (const [name, { icon }] of queue) {
     const exists = app.categories.some(c => c.name.toLowerCase() === name.toLowerCase());
     if (exists) continue;
-    const now = Date.now();
-    app.categories.push({ id: now + Math.random(), name, icon, createdAt: now, updatedAt: now });
+    try {
+      await createCategory(app, name, icon, { silent: true });
+    } catch (_) {
+      /* fall through — assignPending may still match if created elsewhere */
+    }
   }
+}
+
+function _archiveYoungerDuplicates(app, targetSet, stats) {
+  const groups = new Map();
+  for (const clip of app.clips) {
+    if (!targetSet.has(String(clip.id))) continue;
+    const key = (clip.text || '').trim().toLowerCase();
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(clip);
+  }
+
+  const toArchive = [];
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    stats.duplicatesFound += group.length;
+    group.sort((a, b) => (a.timestamp || a.createdAt || 0) - (b.timestamp || b.createdAt || 0));
+    const keeper = group[0];
+    for (let i = 1; i < group.length; i++) {
+      if (String(group[i].id) !== String(keeper.id)) toArchive.push(group[i]);
+    }
+  }
+
+  if (toArchive.length === 0) return;
+
+  const archiveIds = new Set(toArchive.map(c => String(c.id)));
+  app.clips = app.clips.filter(c => !archiveIds.has(String(c.id)));
+  if (!Array.isArray(app.searchOnlyClips)) app.searchOnlyClips = [];
+  for (const clip of toArchive) {
+    app.searchOnlyClips.unshift(clip);
+  }
+  stats.duplicatesArchived = toArchive.length;
 }
 
 function _assignPendingMagicCategories(app, stats) {
@@ -658,6 +1050,18 @@ function _categoryHasRoom(app, cat) {
   return app.clips.filter(c => c.category === cat.name).length < 150;
 }
 
+function _promoteCraftedClipsToRecents(app, targetSet, stats) {
+  let ts = Date.now();
+  for (const clip of app.clips) {
+    if (!targetSet.has(String(clip.id))) continue;
+    clip.timestamp = ts;
+    clip.updatedAt = ts;
+    ts -= 1;
+  }
+  app.clips.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  app.currentPage = 0;
+}
+
 async function _persistMagicChanges(app) {
   await chrome.storage.local.set({
     clips: app.clips,
@@ -671,11 +1075,14 @@ async function _syncMagicToSupabase(app) {
   try {
     await pasteCraftSupabase.syncClipsToSupabase(app.clips);
     await pasteCraftSupabase.syncCategoriesToSupabase(app.categories);
+    if (Array.isArray(app.searchOnlyClips) && app.searchOnlyClips.length > 0) {
+      await pasteCraftSupabase.syncArchivedClipsToSupabase(app.searchOnlyClips);
+    }
   } catch (_) { /* don't block on sync failures */ }
 }
 
 function _refreshMagicCreditsAndUi(app, stats) {
-  if (stats.aiCategorized || stats.aiFormatted > 0) {
+  if (stats.aiCategorized || stats.aiFormatted > 0 || stats.aiRefactored > 0) {
     app.updateAiCreditsPills('fresh');
   }
   app.renderChips();
@@ -690,14 +1097,23 @@ function _refreshMagicCreditsAndUi(app, stats) {
 
 export async function _craftAllMagic() {
   const app = this;
+  _saveMagicUndoSnapshot(app);
+  const allClipIds = app.clips.map(c => String(c.id));
+  const stats = await app._craftMagic(allClipIds);
+  app.showToast('✨ All clips crafted! Open Craft Clips again to undo.');
+  return stats;
+}
+
+export function saveMagicUndoSnapshot() {
+  _saveMagicUndoSnapshot(this);
+}
+
+function _saveMagicUndoSnapshot(app) {
   app._magicUndoSnapshot = {
     clips: JSON.parse(JSON.stringify(app.clips)),
     categories: JSON.parse(JSON.stringify(app.categories)),
+    searchOnlyClips: JSON.parse(JSON.stringify(app.searchOnlyClips || [])),
   };
-  const allClipIds = app.clips.map(c => String(c.id));
-  const stats = await app._craftMagic(allClipIds);
-  app.showToast('🪄 All clips processed! Click Magic again to undo.');
-  return stats;
 }
 
 export async function _undoMagic() {
@@ -709,6 +1125,7 @@ export async function _undoMagic() {
 
   app.clips = app._magicUndoSnapshot.clips;
   app.categories = app._magicUndoSnapshot.categories;
+  app.searchOnlyClips = app._magicUndoSnapshot.searchOnlyClips || [];
   app._magicUndoSnapshot = null;
 
   await _persistUndoMagicChanges(app);
@@ -721,15 +1138,71 @@ export async function _undoMagic() {
 
   const modal = document.getElementById('magicPreviewModal');
   if (modal) modal.style.display = 'none';
-  app.showToast('🪄 Magic undone! Clips restored.');
+  app.showToast('✨ Craft Clips undone! Clips restored.');
 }
 
 async function _persistUndoMagicChanges(app) {
   await chrome.storage.local.set({
     clips: app.clips,
     categories: app.categories,
+    searchOnlyClips: app.searchOnlyClips,
     pc_local_updatedAt: Date.now(),
   });
+}
+
+// ────────────────────────────────────────────────────────────
+// Category pick (after craft, before results)
+// ────────────────────────────────────────────────────────────
+
+export async function _applyCraftCategoryPick(categoryName, clipIds) {
+  const app = this;
+  const name = String(categoryName || '').trim();
+  if (!name || !Array.isArray(clipIds) || clipIds.length === 0) return 0;
+
+  const idSet = new Set(clipIds.map(String));
+  let existingCat = app.categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+
+  if (!existingCat) {
+    try {
+      await createCategory(app, name, '🏷️', { silent: true });
+      existingCat = app.categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    } catch (_) { /* may exist from race */ }
+  }
+
+  if (!existingCat) return 0;
+
+  let assigned = 0;
+  for (const clip of app.clips) {
+    if (!idSet.has(String(clip.id))) continue;
+    const clipsInCat = app.clips.filter((c) => c.category === existingCat.name);
+    if (clipsInCat.length >= 150 && clip.category !== existingCat.name) continue;
+    clip.category = existingCat.name;
+    assigned++;
+  }
+
+  if (assigned > 0) {
+    await _persistMagicChanges(app);
+    await _syncMagicToSupabase(app);
+    _refreshMagicCreditsAndUi(app, { aiCategorized: true });
+  }
+
+  return assigned;
+}
+
+export async function _finishCraftFlow(stats) {
+  const app = this;
+
+  if (stats.needsCategoryPick && stats.categorySuggestions?.length) {
+    const chosen = await openCraftCategoryPickModal(stats.categorySuggestions);
+    if (chosen) {
+      const count = await _applyCraftCategoryPick.call(app, chosen, stats.pendingCategoryClipIds);
+      stats.categorized = count;
+      stats.aiCategorized = true;
+      stats.chosenCategory = chosen;
+    }
+  }
+
+  app._showMagicResults(stats);
 }
 
 // ────────────────────────────────────────────────────────────
@@ -756,8 +1229,10 @@ function _showMagicResultsToastFallback(app, stats) {
     const aiSuffix = stats.aiFormatted > 0 ? ` (${stats.aiFormatted} AI formatted)` : '';
     parts.push(`${stats.enhanced} enhanced${aiSuffix}`);
   }
-  if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
-  app.showToast(parts.length ? `🪄 ${parts.join(', ')}` : '🪄 Clips already organized!');
+  if (stats.duplicatesArchived > 0) parts.push(`${stats.duplicatesArchived} dupes archived`);
+  else if (stats.duplicatesFound > 0) parts.push(`${stats.duplicatesFound} dupes found`);
+  if (stats.aiRefactored > 0) parts.push(`${stats.aiRefactored} refactored`);
+  app.showToast(parts.length ? `✨ ${parts.join(', ')}` : '✨ Clips already organized!');
 }
 
 function _populateMagicResultsModal(app, stats) {
@@ -773,10 +1248,92 @@ function _populateMagicResultsModal(app, stats) {
   setText('magicStatCategorized', stats.categorized);
   setText('magicStatEnhanced', stats.enhanced);
   setText('magicStatAiFormatted', stats.aiFormatted || 0);
-  setText('magicStatDupes', stats.duplicatesFound);
+  setText('magicStatAiRefactored', stats.aiRefactored || 0);
+
+  const isRefactoring = stats.craftAiMode === CRAFT_CLIPS_AI_MODES.REFACTORING;
+  const formattedCard = document.getElementById('magicStatFormattedCard');
+  const refactoredCard = document.getElementById('magicStatRefactoredCard');
+  if (formattedCard) formattedCard.classList.toggle('magic-stat-hidden', isRefactoring);
+  if (refactoredCard) refactoredCard.classList.toggle('magic-stat-hidden', !isRefactoring);
+
+  const dupeArchived = stats.duplicatesArchived > 0;
+  setText('magicStatDupes', dupeArchived ? stats.duplicatesArchived : stats.duplicatesFound);
+  const dupeLabel = document.getElementById('magicStatDupesLabel');
+  if (dupeLabel) {
+    dupeLabel.textContent = dupeArchived ? 'Dupes Archived' : (stats.duplicateHandling ? 'Dupes Found' : 'Dupes');
+  }
+
+  const summaryEl = document.getElementById('magicResultsSummary');
+  if (summaryEl) {
+    const parts = [];
+    if (isRefactoring) {
+      parts.push(`AI Refactoring · ${stats.refactorLevel || 'college'} level`);
+      if (stats.aiRefactored > 0) {
+        parts.push(`Original clip kept; ${stats.aiRefactored} new refactored clip(s) added to recents.`);
+      } else {
+        parts.push('No refactored copies saved (check premium credits or try again).');
+      }
+    } else if (stats.aiFormatted > 0) {
+      parts.push('AI Formatted · grammar polish applied to clip text.');
+    } else if (app._hasAiAccess()) {
+      parts.push('AI Formatted · no changes needed or AI call skipped.');
+    } else {
+      parts.push('Rule-based cleanup and categorize only (premium for AI).');
+    }
+    if (stats.chosenCategory) {
+      parts.push(`Category: "${stats.chosenCategory}".`);
+    } else if (stats.aiCategorized) {
+      parts.push('Categories used AI batch.');
+    } else if (stats.needsCategoryPick) {
+      parts.push('Category pick skipped — clips left uncategorized.');
+    }
+    summaryEl.textContent = parts.join(' ');
+  }
 
   const breakdownEl = document.getElementById('magicTypeBreakdown');
   if (breakdownEl) {
     breakdownEl.innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
   }
+}
+
+/** Clips eligible for standalone AI Refactorization (AI Lab panel). */
+export function getRefactorEligibleClips() {
+  const app = this;
+  if (!app._hasAiAccess()) return [];
+  const skipTypes = app._skipAiFormatTypes();
+  return app.clips.filter((clip) => {
+    if (clip.meta?.craftRefactor) return false;
+    const contentType = app._detectContentType(clip.text, clip.meta);
+    const trimmedLen = (clip.text || '').trim().length;
+    return trimmedLen > 5 && !skipTypes.has(contentType);
+  });
+}
+
+/** Refactor selected clips only — no categorize, dedupe, or format. */
+export async function runRefactorizationOnly(clipIds, refactorLevel) {
+  const app = this;
+  const prev = app._craftClipsSettings;
+  app._craftClipsSettings = {
+    smartCategorize: false,
+    duplicateHandling: false,
+    aiMode: CRAFT_CLIPS_AI_MODES.REFACTORING,
+    refactorLevel: refactorLevel || 'college',
+  };
+  try {
+    return await _craftMagic.call(app, clipIds);
+  } finally {
+    app._craftClipsSettings = prev;
+  }
+}
+
+/** Open Craft Clips with AI Refactoring mode pre-selected. */
+export async function openCraftClipsForRefactor() {
+  const app = this;
+  const settings = await loadCraftClipsSettings();
+  const next = {
+    ...settings,
+    aiMode: CRAFT_CLIPS_AI_MODES.REFACTORING,
+  };
+  app._craftClipsSettings = await saveCraftClipsSettings(next);
+  return magicFormat.call(app);
 }

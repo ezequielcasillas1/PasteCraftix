@@ -22,6 +22,7 @@ import {
   exportClipsToCsv,
   importBackupFromJsonMerge,
 } from './settings.backup.js';
+import * as settingsRestore from './settings.restore.js';
 
 export function initSettingsFeature(app) {
   try {
@@ -55,6 +56,14 @@ export function initSettingsFeature(app) {
       exportBackupToJson: () => exportBackupToJson(app),
       exportClipsToCsv: () => exportClipsToCsv(app),
       importBackupFromJsonMerge: (file) => importBackupFromJsonMerge(app, file),
+    },
+    restore: {
+      maybeCreateDailyRestorePoint: (reason, localOverride) =>
+        settingsRestore.maybeCreateDailyRestorePoint(app, reason, localOverride),
+      createManualRestorePoint: (reason) => settingsRestore.createManualRestorePoint(app, reason),
+      previewRestore: (windowKey) => settingsRestore.previewRestore(app, windowKey),
+      applyRestoreFromPreview: () => settingsRestore.applyRestoreFromPreview(app),
+      syncRestoredDataToCloud: () => settingsRestore.syncRestoredDataToCloud(app),
     },
   };
 }

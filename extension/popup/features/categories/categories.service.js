@@ -48,9 +48,10 @@ export async function createCategory(app, name, icon, options = {}) {
     backgroundSync: async () => {
       await window.pasteCraftSupabase.syncCategoriesToSupabase(app.categories);
     },
-    successMessage: (entity) => `✅ Category "${entity.name}" created`,
-    errorMessage: (error) => `❌ Failed to create category: ${error.message || 'Unknown error'}`,
+    successMessage: (entity) => (options?.silent ? '' : `✅ Category "${entity.name}" created`),
+    errorMessage: (error) => (options?.silent ? '' : `❌ Failed to create category: ${error.message || 'Unknown error'}`),
     showToast: (msg, type) => {
+      if (options?.silent || !msg) return;
       app.showToast(msg, type);
       app.setActionButtonLoading(originButtonId, false);
     },
@@ -381,5 +382,20 @@ export function showCreateCategoryFromModal(app) {
     app.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' }).then(() => {
       app.populateCategoryOptions();
     });
+  }
+}
+
+export async function handleClipDelete(app) {
+  if (!app.pendingClipId) return;
+
+  if (confirm('Delete this clip permanently?')) {
+    const result = await app.deleteClipsByIdKeys([app.pendingClipId], {
+      includeArchived: true,
+      reason: 'delete:handleClipDelete',
+      closeCategoryModal: true,
+      clearSelection: true,
+      rerender: true,
+    });
+    app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
   }
 }

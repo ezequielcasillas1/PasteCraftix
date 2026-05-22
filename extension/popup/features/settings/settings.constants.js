@@ -58,6 +58,28 @@ export const SETTINGS_ELEMENT_IDS = {
 
 export const BROADCAST_CHANNEL_NAME = 'pastecraft-settings-sync';
 
+export const RESTORE_STORAGE_KEYS = Object.freeze({
+  POINTS: 'pc_restore_points_v1',
+  LAST_AT: 'pc_last_restore_at',
+  LAST_POINT_ID: 'pc_last_restore_point_id',
+});
+
+export const RESTORE_LIMITS = Object.freeze({
+  MAX_ACTIVE_CLIPS: 500,
+  MAX_ARCHIVED_CLIPS: 1000,
+  MAX_CATEGORIES: 300,
+  MAX_NOTES: 300,
+  MAX_DAILY_POINTS: 28,
+  MAX_MANUAL_POINTS: 5,
+});
+
+export const RESTORE_WINDOW_MS = Object.freeze({
+  '1day': 24 * 60 * 60 * 1000,
+  '1week': 7 * 24 * 60 * 60 * 1000,
+  '2weeks': 14 * 24 * 60 * 60 * 1000,
+  '4weeks': 28 * 24 * 60 * 60 * 1000,
+});
+
 export const AUTO_DELETE_PERIODS = {
   '1day':    24 * 60 * 60 * 1000,
   '1week':   7 * 24 * 60 * 60 * 1000,

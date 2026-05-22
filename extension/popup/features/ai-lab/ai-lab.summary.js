@@ -1,3 +1,5 @@
+import { AI_STORAGE_KEYS, OPEN_RECENT_CONVERSATION_TOOLTIPS } from './ai-lab.constants.js';
+
 export async function generateBreakdownInline(level) {
   if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
     return;
@@ -456,4 +458,89 @@ function _generateBreakdownFollowupAnswer(app, followupQuestion) {
   }
   const contextPrompt = `Based on the previous explanation about "${app.currentBreakdownText.substring(0, 100)}...", answer this follow-up: ${followupQuestion}`;
   return pasteCraftSupabase.generateSummary(app.currentBreakdownText, contextPrompt);
+}
+
+function _escapeHtmlAttr(val) {
+  return String(val)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+/** Recent AI History strip on Summary tab empty state ("Open recent conversation"). */
+export async function renderOpenRecentConversation(app) {
+  const container = document.getElementById('openRecentConversationContainer');
+  if (!container) return;
+
+  const entries = typeof app.loadAiHistory === 'function'
+    ? await app.loadAiHistory()
+    : (await chrome.storage.local.get([AI_STORAGE_KEYS.HISTORY]))[AI_STORAGE_KEYS.HISTORY] || [];
+  const recent = (entries || []).slice(0, 5);
+
+  if (recent.length === 0) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+
+  const tipBreakdown = OPEN_RECENT_CONVERSATION_TOOLTIPS.breakdown;
+  const tipSummary = OPEN_RECENT_CONVERSATION_TOOLTIPS.summary;
+
+  container.style.display = 'block';
+  container.innerHTML = `
+      <div class="open-recent-header">
+        <span class="open-recent-icon" aria-hidden="true">\u2192</span>
+        <span>Open recent conversation</span>
+      </div>
+      <div class="open-recent-list">
+        ${recent.map((e) => {
+    const iconName = e.type === 'breakdown' ? 'brain' : 'notebook-pen';
+    const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
+    const tooltipRaw = e.type === 'breakdown' ? tipBreakdown : tipSummary;
+    const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '\u2026' : '');
+    const timeStr = e.createdAt ? app.getTimeAgo(e.createdAt) : '';
+    const tooltip = _escapeHtmlAttr(tooltipRaw);
+    return `<button class="open-recent-item" data-history-id="${e.id}" type="button"
+            aria-label="${_escapeHtmlAttr(`${label} conversation: ${(e.title || 'Untitled').substring(0, 80)}`)}">
+            <span class="open-recent-item-icon" aria-hidden="true" title="${tooltip}"><i data-lucide="${iconName}"></i></span>
+            <span class="open-recent-item-title">${app.escapeHtml(title)}</span>
+            <span class="open-recent-item-meta">${label} \u00b7 ${timeStr}</span>
+          </button>`;
+  }).join('')}
+      </div>
+    `;
+
+  app.aiHistoryEntries = entries;
+  container.querySelectorAll('.open-recent-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.historyId, 10);
+      const entry = app.aiHistoryEntries?.find((x) => x.id === id);
+      if (entry) app.openAiHistoryModal(entry);
+    });
+  });
+
+  if (typeof app.renderLucideIcons === 'function') {
+    app.renderLucideIcons();
+  } else   if (typeof window.renderLucideIcons === 'function') {
+    window.renderLucideIcons();
+  }
+}
+
+export async function handleSummaryFollowup(app, followupQuestion) {
+  const summaryFollowupInput = document.getElementById('summaryFollowupInput');
+  if (summaryFollowupInput) {
+    summaryFollowupInput.value = '';
+    summaryFollowupInput.disabled = true;
+  }
+
+  const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
+  if (summaryFollowupBtn) {
+    summaryFollowupBtn.disabled = true;
+  }
+
+  await app.generateSummary(app.currentSummaryText, followupQuestion);
+
+  if (summaryFollowupInput) {
+    summaryFollowupInput.disabled = false;
+  }
 }

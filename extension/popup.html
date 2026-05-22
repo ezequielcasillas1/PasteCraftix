@@ -5497,15 +5497,15 @@
             text-align: center;
         }
 
-        /* AI Lab Internal Tabs */
+        /* AI Lab Internal Tabs — match feature-card touch targets */
         .ai-lab-tabs {
             display: flex;
-            gap: 6px;
-            margin-bottom: 24px;
+            gap: 8px;
+            margin-bottom: 12px;
             background: #f8fafc;
-            padding: 4px;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
+            padding: 6px;
+            border-radius: 14px;
+            border: 2px solid #e5e7eb;
             overflow-x: auto;
             scrollbar-width: none;
         }
@@ -5516,44 +5516,353 @@
         
         .ai-lab-tab {
             flex: 1;
-            min-width: fit-content;
-            padding: 8px 10px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            font-size: clamp(11px, 2.5vw, 13px);
-            font-weight: 600;
-            color: #6b7280;
+            min-width: 0;
+            min-height: 52px;
+            padding: 14px 12px;
+            background: #fff;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #64748b;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 8px;
             white-space: nowrap;
+            letter-spacing: -0.02em;
+        }
+
+        .ai-lab-tab .tab-emoji {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+        }
+
+        .ai-lab-tab .tab-emoji svg {
+            width: 22px;
+            height: 22px;
         }
         
         .ai-lab-tab:hover {
-            color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #bfdbfe;
+            transform: translateY(-1px);
         }
         
         .ai-lab-tab.active {
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            border-color: transparent;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .ai-lab-tab.active .tab-emoji svg {
+            stroke: #fff;
         }
         
-        /* Hide text on smaller screens, show only emojis */
         @media (max-width: 380px) {
-            .ai-lab-tab .tab-text {
-                display: none;
-            }
-            
             .ai-lab-tab {
-                font-size: 20px;
-                padding: 8px 10px;
+                padding: 12px 8px;
+                font-size: 13px;
+                gap: 6px;
+                min-height: 48px;
             }
+
+            .ai-lab-tab .tab-emoji {
+                width: 24px;
+                height: 24px;
+            }
+
+            .ai-lab-tab .tab-emoji svg {
+                width: 18px;
+                height: 18px;
+            }
+        }
+
+        /* AI Refactorization Standalone Feature */
+        .ai-refactorization-feature {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+            border: 2px solid #e9d5ff;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-refactorization-feature::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .ai-refactorization-feature:hover::before {
+            left: 100%;
+        }
+
+        .ai-refactorization-feature:hover {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-color: #8b5cf6;
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .ai-refactorization-feature:hover .refactor-icon {
+            transform: scale(1.15) rotate(-5deg);
+        }
+
+        .ai-refactorization-feature:hover .refactor-text strong,
+        .ai-refactorization-feature:hover .refactor-text small {
+            color: white;
+        }
+
+        .ai-refactorization-feature:hover .refactor-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: white;
+        }
+
+        .refactor-icon {
+            font-size: 36px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .refactor-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+
+        .refactor-text strong {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            transition: color 0.3s ease;
+        }
+
+        .refactor-text small {
+            font-size: 13px;
+            color: #64748b;
+            transition: color 0.3s ease;
+        }
+
+        .refactor-arrow {
+            font-size: 24px;
+            color: #94a3b8;
+            opacity: 0.6;
+            transform: translateX(-8px);
+            transition: all 0.3s ease;
+        }
+
+        .ai-refactor-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .rf-hero-title {
+            margin: 0 0 6px;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .rf-desc {
+            margin: 0;
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .rf-levels {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rf-level-chip {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(139, 92, 246, 0.35);
+            background: #faf5ff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #5b21b6;
+        }
+
+        .rf-level-chip.active {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .rf-level-info {
+            padding: 2px 6px;
+            border: none;
+            background: transparent;
+            color: #7c3aed;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .rf-level-info-panel {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #f5f3ff;
+            border: 1px solid #e9d5ff;
+            font-size: 12px;
+            color: #5b21b6;
+            line-height: 1.45;
+        }
+
+        .rf-clips-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .rf-eligible-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .rf-select-all-btn {
+            font-size: 12px;
+            font-weight: 600;
+            color: #7c3aed;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .rf-clip-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .rf-clip-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        .rf-clip-row:hover {
+            border-color: #c4b5fd;
+            background: #faf5ff;
+        }
+
+        .rf-clip-check {
+            margin-top: 3px;
+            flex-shrink: 0;
+        }
+
+        .rf-clip-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .rf-clip-text {
+            font-size: 13px;
+            color: #334155;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .rf-clip-type {
+            display: inline-block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
+        .rf-empty {
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+            border: 1px dashed #e5e7eb;
+            border-radius: 10px;
+        }
+
+        .rf-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .rf-run-btn {
+            flex: 1;
+            min-width: 140px;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .rf-run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .rf-craft-link-btn {
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1.5px solid #e9d5ff;
+            background: #faf5ff;
+            color: #6d28d9;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .rf-premium-note {
+            font-size: 12px;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 10px 12px;
         }
 
         /* AI Breakdown Standalone Feature */
@@ -7071,6 +7380,96 @@
             color: #065f46;
         }
 
+        .craft-clips-settings {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+            background: rgba(255, 247, 237, 0.6);
+            font-size: 12px;
+        }
+        .craft-setting-row, .craft-ai-mode-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+            margin-bottom: 6px;
+        }
+        .craft-setting-label { font-weight: 600; color: #9a3412; }
+        .craft-refactor-levels {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 6px;
+            margin-top: 6px;
+        }
+        .craft-refactor-level-chip {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(249, 115, 22, 0.35);
+            background: #fff;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .craft-refactor-level-chip.active {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+            border-color: transparent;
+        }
+        .craft-refactor-level-info {
+            padding: 2px 6px;
+            border: none;
+            background: transparent;
+            color: #c2410c;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .craft-level-info-panel {
+            margin-top: 6px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #fff7ed;
+            color: #7c2d12;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .craft-action-cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .craft-action-card {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+        }
+        .craft-action-card.craft-action-inactive,
+        .craft-action-card.craft-action-clean {
+            background: rgba(107, 114, 128, 0.1);
+            color: #4b5563;
+            border-color: rgba(107, 114, 128, 0.2);
+        }
+        .craft-action-card.craft-action-categorize { background: rgba(245, 158, 11, 0.15); color: #b45309; border-color: rgba(245, 158, 11, 0.3); }
+        .craft-action-card.craft-action-refactor { background: rgba(139, 92, 246, 0.12); color: #6d28d9; border-color: rgba(139, 92, 246, 0.25); }
+        .craft-action-card.craft-action-dedupe:not(.craft-action-inactive) { background: rgba(239, 68, 68, 0.12); color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+
+        .pc-refactor-badge {
+            display: inline-block;
+            margin-right: 6px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: rgba(139, 92, 246, 0.15);
+            color: #6d28d9;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            vertical-align: middle;
+        }
+
         /* Pagination */
         .magic-preview-pagination {
             display: flex;
@@ -7458,7 +7857,32 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            margin-bottom: 18px;
+            margin-bottom: 12px;
+        }
+
+        .magic-stats-grid .magic-stat-ai-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .magic-results-summary {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 14px;
+            padding: 8px 10px;
+            background: #fff7ed;
+            border-radius: 8px;
+            border: 1px solid rgba(249, 115, 22, 0.25);
+        }
+
+        .magic-stat-card.magic-stat-hidden {
+            display: none !important;
+        }
+
+        .magic-stat-card.magic-stat-highlight .magic-stat-number {
+            color: #ea580c;
         }
 
         .magic-stat-card {
@@ -7611,6 +8035,11 @@
         .ai-history-entry-badge.breakdown {
             background: #fce7f3;
             color: #db2777;
+        }
+
+        .ai-history-entry-badge.refactorization {
+            background: #ede9fe;
+            color: #7c3aed;
         }
 
         .ai-history-entry-delete {
@@ -8280,6 +8709,374 @@
             padding-top: 16px;
             border-top: 1.5px solid #e5e7eb;
         }
+
+        .files-section {
+            margin: 0 16px 16px 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .files-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .files-search-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .files-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: var(--text-secondary);
+        }
+
+        .files-search-input {
+            width: 100%;
+            padding: 8px 12px 8px 32px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .files-search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: var(--bg-primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .create-file-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .create-file-btn:hover {
+            background: var(--bg-hover);
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .create-file-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .files-carousel-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .files-carousel-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .files-carousel-track {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scroll-snap-type: x mandatory;
+            padding: 4px 2px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .files-carousel-track::-webkit-scrollbar {
+            display: none;
+        }
+
+        .file-box {
+            flex: 0 0 auto;
+            width: 100px;
+            height: 70px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            border-top: 4px solid var(--file-accent, #3b82f6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            cursor: pointer;
+            scroll-snap-align: start;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .file-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-color: var(--file-accent, #3b82f6);
+        }
+
+        .file-box.selected {
+            background: var(--bg-secondary);
+            border-color: var(--file-accent, #3b82f6);
+            box-shadow: 0 0 0 2px var(--file-accent, #3b82f6);
+        }
+
+        .file-box-icon {
+            width: 20px;
+            height: 20px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .file-box.selected .file-box-icon {
+            color: var(--file-accent, #3b82f6);
+        }
+
+        .file-box-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            text-align: center;
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-box-actions {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            display: none;
+            gap: 2px;
+        }
+
+        .file-box:hover .file-box-actions {
+            display: flex;
+        }
+
+        .file-box-action-btn {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .file-box-action-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .file-box-action-btn svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .files-carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .files-carousel-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .files-carousel-btn.prev {
+            left: -10px;
+        }
+
+        .files-carousel-btn.next {
+            right: -10px;
+        }
+
+        .files-carousel-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .files-back-to-list-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #1e3a5f 0%, #2563eb 50%, #60a5fa 100%);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .files-back-to-list-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(90deg, #1e3a5f 0%, #1d4ed8 50%, #3b82f6 100%);
+        }
+
+        .files-back-to-list-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+        }
+
+        .files-back-to-list-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .color-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .color-swatch {
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.05);
+        }
+
+        .color-swatch.selected {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--bg-primary) inset;
+        }
+
+        .custom-color-picker {
+            -webkit-appearance: none;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 0;
+            background: transparent;
+        }
+
+        .custom-color-picker::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        .custom-color-picker::-webkit-color-swatch {
+            border: 2px solid transparent;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .custom-color-picker:hover::-webkit-color-swatch {
+            transform: scale(1.05);
+        }
+
+        .custom-color-picker.selected::-webkit-color-swatch {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--bg-primary) inset;
+        }
+
+        .manage-file-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .manage-categories-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .manage-category-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .manage-category-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .manage-category-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .manage-category-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .manage-category-icon {
+            font-size: 16px;
+        }
+
+        .manage-category-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
         
     </style>
     <link rel="stylesheet" href="styles/clip-title.css">
@@ -8564,6 +9361,7 @@
                 <button class="ai-history-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
                 <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="notebook-pen"></i> Summary</button>
                 <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="brain"></i> Breakdown</button>
+                <button class="ai-history-filter-chip" data-filter="refactorization" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="sparkles"></i> AI Refactorization</button>
             </div>
 
             <div class="ai-history-list" id="aiHistoryList">
@@ -8573,6 +9371,7 @@
                     <p>Your AI Summary and Breakdown conversations will appear here</p>
                 </div>
             </div>
+            <div class="notes-pagination ai-history-pagination" id="aiHistoryListPagination" style="display: none;"></div>
         </section>
 
         <!-- Activity Log Tab -->
@@ -8649,6 +9448,34 @@
                 <button class="create-category-btn" id="createCategoryBtn">
                     <span class="plus-icon">+</span>
                     Create Category
+                </button>
+            </div>
+
+            <div class="files-section" id="filesSection">
+                <div class="files-header">
+                    <div class="files-search-container">
+                        <i data-lucide="search" class="files-search-icon"></i>
+                        <input type="text" id="filesSearchInput" class="files-search-input" placeholder="Search files...">
+                    </div>
+                    <button class="create-file-btn" id="createFileBtn" title="Create a new file">
+                        <i data-lucide="file-plus"></i>
+                    </button>
+                </div>
+                <div class="files-carousel-wrapper">
+                    <button class="files-carousel-btn prev" id="filesCarouselPrev" style="display: none;">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <div class="files-carousel-container" id="filesCarouselContainer">
+                        <div class="files-carousel-track" id="filesCarouselTrack">
+                        </div>
+                    </div>
+                    <button class="files-carousel-btn next" id="filesCarouselNext" style="display: none;">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+                <button class="files-back-to-list-btn" id="filesBackToListBtn" style="display: none;">
+                    <i data-lucide="arrow-left"></i>
+                    Back to All Categories
                 </button>
             </div>
             <div class="categories-list" id="categoriesList">
@@ -8742,9 +9569,10 @@
                             <label class="ai-workflow-label" for="aiProviderSelect">Provider</label>
                             <select id="aiProviderSelect" class="ai-workflow-select" aria-label="AI provider">
                                 <option value="openai">OpenAI</option>
-                                <option value="google">Google Gemini</option>
+                                <option value="google" disabled>Google Gemini (Soon)</option>
                                 <option value="anthropic" disabled>Anthropic (Soon)</option>
                                 <option value="groq" disabled>Groq (Soon)</option>
+                                <option value="grok" disabled>xAI Grok (Soon)</option>
                             </select>
                             <label class="ai-workflow-label" for="aiWorkflowPresetSelect">Workflow</label>
                             <select id="aiWorkflowPresetSelect" class="ai-workflow-select" aria-label="AI workflow preset">
@@ -8761,6 +9589,16 @@
                     <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji"><i data-lucide="image"></i></span><span class="tab-text"> Gallery</span></button>
                     <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
                 </nav>
+
+                <!-- AI Refactorization Standalone Feature -->
+                <button class="ai-refactorization-feature" data-ai-tab="refactorization" type="button">
+                    <span class="refactor-icon"><i data-lucide="sparkles"></i></span>
+                    <div class="refactor-text">
+                        <strong>AI Refactorization</strong>
+                        <small>Rewrite clips into clearer integral prose</small>
+                    </div>
+                    <span class="refactor-arrow">→</span>
+                </button>
 
                 <!-- AI Breakdown Standalone Feature -->
                 <button class="ai-breakdown-feature" data-ai-tab="breakdown">
@@ -8945,6 +9783,44 @@ Multiple clips are separated by:
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- AI Refactorization Section -->
+                <div class="ai-lab-section" id="aiRefactorizationSection">
+                    <div class="ai-refactor-container">
+                        <h3 class="rf-hero-title"><i data-lucide="sparkles"></i> AI Refactorization</h3>
+                        <p class="rf-desc">Pick clips and a comprehension level. AI rewrites each into integral prose—your original stays; refactored copies appear in Recents. Or use Craft Clips for categorize, format, and dedupe too.</p>
+                        <div class="rf-levels" id="refactorizationLevelChips">
+                            <span class="craft-setting-label" style="width:100%;margin-bottom:4px;">Refactor level:</span>
+                            <button type="button" class="rf-level-chip" data-level="eli5">ELI5</button>
+                            <button type="button" class="rf-level-info" data-level="eli5" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="elementary">Elementary</button>
+                            <button type="button" class="rf-level-info" data-level="elementary" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip active" data-level="college">College</button>
+                            <button type="button" class="rf-level-info" data-level="college" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="highschool">High School</button>
+                            <button type="button" class="rf-level-info" data-level="highschool" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="phd">PhD</button>
+                            <button type="button" class="rf-level-info" data-level="phd" title="Level info">ⓘ</button>
+                            <button type="button" class="rf-level-chip" data-level="wiseman">Wise Man</button>
+                            <button type="button" class="rf-level-info" data-level="wiseman" title="Level info">ⓘ</button>
+                        </div>
+                        <div class="rf-level-info-panel" id="refactorizationLevelInfoPanel" style="display: none;">
+                            <p id="refactorizationLevelInfoText"></p>
+                        </div>
+                        <div class="rf-clips-toolbar">
+                            <span class="rf-eligible-count" id="refactorizationEligibleCount">0 clips ready</span>
+                            <button type="button" class="rf-select-all-btn" id="refactorizationSelectAll">Select all</button>
+                        </div>
+                        <div class="rf-clip-list" id="refactorizationClipList">
+                            <div class="rf-empty">Open this panel to see refactor-ready clips.</div>
+                        </div>
+                        <div class="rf-actions">
+                            <button type="button" class="rf-run-btn" id="refactorizationRunBtn" disabled>Refactorization</button>
+                            <button type="button" class="rf-craft-link-btn" id="refactorizationCraftClipsBtn">Or use Craft Clips</button>
+                        </div>
+                        <p class="rf-premium-note" id="refactorizationPremiumNote" style="display: none;">Premium required for AI Refactorization (~25 credits per batch).</p>
                     </div>
                 </div>
 
@@ -9452,6 +10328,21 @@ Multiple clips are separated by:
                         <div class="breakdown-result" id="aiHistoryResultContent"></div>
                     </div>
 
+                    <div id="aiRefactorReportWrap" style="display:none;margin-top:12px;">
+                        <button class="btn-secondary" id="aiRefactorReportBtn" type="button">
+                            <span><i data-lucide="flag"></i></span>
+                            <span>Report Ticket</span>
+                        </button>
+                        <form id="aiRefactorReportForm" class="refactor-report-form" style="display:none;margin-top:10px;">
+                            <label for="aiRefactorReportInput" style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;">What was wrong with this refactor?</label>
+                            <textarea id="aiRefactorReportInput" class="refactor-report-input" rows="3" maxlength="2000" placeholder="Tell us what you expected vs what you got…"></textarea>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <button class="btn-primary" id="aiRefactorReportSubmitBtn" type="submit">Send Ticket</button>
+                                <button class="btn-secondary" id="aiRefactorReportCancelBtn" type="button">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+
                     <div class="modal-actions">
                         <button class="btn-secondary" id="copyAiHistoryBtn">
                             <span><i data-lucide="clipboard"></i></span>
@@ -9551,49 +10442,94 @@ Multiple clips are separated by:
             <button class="copy-btn" id="copyBtn">Copy Crafted Output</button>
         </section>
 
-        <!-- Magic Wand (only show for clips and search tabs) -->
-        <button class="magic-wand" id="magicWand" title="Magic: Auto-categorize, enhance, dedupe & organize clips">
+        <!-- Craft Clips (clips and search tabs) -->
+        <button class="magic-wand craft-clips-fab" id="magicWand" title="Craft Clips: categorize, format, refactor, dedupe">
             <span class="wand-icon"><i data-lucide="wand-sparkles"></i></span>
-            <span class="wand-text">Magic</span>
+            <span class="wand-text">Craft</span>
         </button>
 
-        <!-- Magic Preview Modal -->
+        <!-- Craft Clips Preview Modal -->
         <div class="modal-overlay" id="magicPreviewModal" style="display: none;">
-            <div class="modal-content magic-preview-modal">
+            <div class="modal-content magic-preview-modal craft-clips-modal">
                 <div class="modal-header magic-preview-header">
-                    <h3><i data-lucide="wand-sparkles"></i> Magic Preview</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Craft Clips</h3>
                     <span class="magic-selected-count" id="magicSelectedCount">0 selected</span>
-                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Magic do?"><i data-lucide="info"></i></button>
+                    <button class="magic-info-btn" id="magicInfoBtn" title="What does Craft Clips do?"><i data-lucide="info"></i></button>
                     <button class="modal-close" id="closeMagicPreview">✕</button>
                 </div>
-                <!-- Undo banner (hidden by default) -->
+                <div class="craft-clips-settings" id="craftClipsSettings">
+                    <label class="craft-setting-row"><input type="checkbox" id="craftClipsCategorizeToggle" checked> Smart categorize</label>
+                    <label class="craft-setting-row"><input type="checkbox" id="craftClipsDedupeToggle"> Archive duplicate copies</label>
+                    <div class="craft-ai-mode-row">
+                        <span class="craft-setting-label">AI mode (one per craft):</span>
+                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted</label>
+                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiRefactoring" value="refactoring"> AI Refactoring</label>
+                    </div>
+                    <div class="craft-refactor-levels" id="craftClipsRefactorLevels" style="display: none;">
+                        <span class="craft-setting-label">Refactor level:</span>
+                        <button type="button" class="craft-refactor-level-chip" data-level="eli5">ELI5</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="eli5" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="elementary">Elementary</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="elementary" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip active" data-level="college">College</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="college" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="highschool">High School</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="highschool" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="phd">PhD</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="phd" title="Level info">ⓘ</button>
+                        <button type="button" class="craft-refactor-level-chip" data-level="wiseman">Wise Man</button>
+                        <button type="button" class="craft-refactor-level-info" data-level="wiseman" title="Level info">ⓘ</button>
+                    </div>
+                    <div class="craft-level-info-panel" id="craftClipsLevelInfoPanel" style="display: none;">
+                        <p id="craftClipsLevelInfoText"></p>
+                    </div>
+                </div>
                 <div class="magic-undo-banner" id="magicUndoBanner" style="display: none;">
-                    <span>Previous magic can be undone</span>
-                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Magic</button>
+                    <span>Previous craft can be undone</span>
+                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Craft</button>
                 </div>
                 <div class="modal-body magic-preview-body">
                     <div class="magic-clip-list" id="magicClipList"></div>
                 </div>
                 <div class="magic-preview-pagination" id="magicPagination"></div>
                 <div class="magic-ai-credit-notice" id="magicAiCreditNotice" style="display: none;">
-                    <span>💎 AI features use ~25 credits each: Smart Categorize + Smart Format</span>
+                    <span>💎 Premium · ~25 credits per batch · AI Formatted (one AI mode per craft)</span>
                 </div>
                 <div class="modal-footer magic-preview-footer">
                     <button class="magic-btn-secondary" id="magicCancelBtn">Cancel</button>
-                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled><i data-lucide="wand-sparkles"></i> Craft the Magic</button>
-                    <button class="magic-btn-craft-all" id="magicCraftAllBtn"><i data-lucide="sparkles"></i> Craft all Magic to clips</button>
+                    <button class="magic-btn-craft" id="magicCraftSelectedBtn" disabled><i data-lucide="wand-sparkles"></i> Craft Selected</button>
+                    <button class="magic-btn-craft-all" id="magicCraftAllBtn"><i data-lucide="sparkles"></i> Craft All Clips</button>
                 </div>
             </div>
         </div>
 
-        <!-- Magic Results Modal -->
+        <!-- Craft Clips: AI category pick (before results) -->
+        <div class="modal-overlay" id="craftCategoryPickModal" style="display: none;">
+            <div class="modal-content craft-category-pick-modal">
+                <div class="modal-header craft-category-pick-header">
+                    <h3><i data-lucide="folder"></i> Pick a category</h3>
+                    <button class="modal-close" id="closeCraftCategoryPick" type="button" aria-label="Close">✕</button>
+                </div>
+                <div class="modal-body craft-category-pick-body">
+                    <p class="craft-category-pick-hint">AI suggested titles for your crafted clips. Select one to apply.</p>
+                    <div class="craft-category-pick-list" id="craftCategoryPickList" role="radiogroup" aria-label="Category suggestions"></div>
+                </div>
+                <div class="modal-footer craft-category-pick-footer">
+                    <button type="button" class="btn-secondary" id="craftCategoryPickSkip">Keep Uncategorized</button>
+                    <button type="button" class="btn-primary" id="craftCategoryPickApply" disabled>Apply category</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Craft Clips Results Modal -->
         <div class="modal-overlay" id="magicResultsModal" style="display: none;">
             <div class="modal-content magic-results-modal">
                 <div class="modal-header magic-results-header">
-                    <h3><i data-lucide="wand-sparkles"></i> Magic Complete</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> Craft Clips Complete</h3>
                     <button class="modal-close" id="closeMagicResults">✕</button>
                 </div>
                 <div class="modal-body magic-results-body">
+                    <p class="magic-results-summary" id="magicResultsSummary"></p>
                     <div class="magic-stats-grid">
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatCategorized">0</div>
@@ -9601,15 +10537,21 @@ Multiple clips are separated by:
                         </div>
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatEnhanced">0</div>
-                            <div class="magic-stat-label">Enhanced</div>
-                        </div>
-                        <div class="magic-stat-card">
-                            <div class="magic-stat-number" id="magicStatAiFormatted">0</div>
-                            <div class="magic-stat-label">AI Formatted</div>
+                            <div class="magic-stat-label">Cleanup</div>
                         </div>
                         <div class="magic-stat-card">
                             <div class="magic-stat-number" id="magicStatDupes">0</div>
-                            <div class="magic-stat-label">Dupes Found</div>
+                            <div class="magic-stat-label" id="magicStatDupesLabel">Dupes</div>
+                        </div>
+                        <div class="magic-stat-ai-row">
+                            <div class="magic-stat-card magic-stat-highlight" id="magicStatFormattedCard">
+                                <div class="magic-stat-number" id="magicStatAiFormatted">0</div>
+                                <div class="magic-stat-label">AI Formatted</div>
+                            </div>
+                            <div class="magic-stat-card magic-stat-highlight magic-stat-hidden" id="magicStatRefactoredCard">
+                                <div class="magic-stat-number" id="magicStatAiRefactored">0</div>
+                                <div class="magic-stat-label">AI Refactored</div>
+                            </div>
                         </div>
                     </div>
                     <div class="magic-type-section">
@@ -9627,7 +10569,7 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="magicInfoModal" style="display: none;">
             <div class="modal-content magic-info-modal">
                 <div class="modal-header magic-info-header">
-                    <h3><i data-lucide="wand-sparkles"></i> What Does Magic Do?</h3>
+                    <h3><i data-lucide="wand-sparkles"></i> What Does Craft Clips Do?</h3>
                     <button class="modal-close" id="closeMagicInfo">✕</button>
                 </div>
                 <div class="modal-body magic-info-body">
@@ -9635,16 +10577,24 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="folder"></i></div>
                         <div class="magic-info-detail">
                             <h4>Smart Categorization</h4>
-                            <p>Automatically assigns categories to uncategorized clips. Premium users get <strong>AI-powered</strong> categorization with smart, reusable titles.</p>
+                            <p>After craft, premium users choose from <strong>5 AI category titles</strong> (up to 7 words each) before results.</p>
                             <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
                         <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
-                            <h4>Smart Format</h4>
-                            <p>AI polishes grammar, punctuation, and structure — without changing vocabulary or meaning. Skips code, URLs, and data clips automatically.</p>
-                            <p class="magic-info-credit-note">💎 Premium · Uses ~25 AI text credits per batch</p>
+                            <h4>AI Formatted</h4>
+                            <p>Polishes grammar and punctuation in place — same meaning and vocabulary. Skips code, URLs, and data clips. One AI mode per craft.</p>
+                            <p class="magic-info-credit-note">💎 Premium · ~25 AI text credits per batch</p>
+                        </div>
+                    </div>
+                    <div class="magic-info-section">
+                        <div class="magic-info-icon"><i data-lucide="book-open"></i></div>
+                        <div class="magic-info-detail">
+                            <h4>AI Refactoring</h4>
+                            <p>Rewrites clip text in a level you choose (ELI5 through PhD, Wise Man). Keeps the <strong>original clip</strong> and adds a <strong>new refactored clip</strong> in recents.</p>
+                            <p class="magic-info-credit-note">💎 Premium · ~25 credits · Use ⓘ on each level for when to use it</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
@@ -9657,8 +10607,8 @@ Multiple clips are separated by:
                     <div class="magic-info-section">
                         <div class="magic-info-icon"><i data-lucide="copy"></i></div>
                         <div class="magic-info-detail">
-                            <h4>Duplicate Detection</h4>
-                            <p>Identifies duplicate clips across your collection and flags them so you know which content appears more than once.</p>
+                            <h4>Duplicate Handling</h4>
+                            <p>When enabled, archives younger duplicate copies to search storage and keeps the oldest clip. Undo restores archived clips.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
@@ -10908,6 +11858,55 @@ alice@email.com</div>
     </div>
 
 
+    <!-- Create/Edit File Modal -->
+    <div class="modal-overlay" id="fileModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="fileModalTitle">Create File</h3>
+                <button class="modal-close" id="fileModalCloseBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="fileNameInput">File Name</label>
+                    <input type="text" id="fileNameInput" placeholder="e.g. C Sharp" maxlength="30" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Accent Color</label>
+                    <div class="color-picker-grid" id="fileColorPickerGrid">
+                    </div>
+                    <div class="custom-color-container" style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                        <label for="fileCustomColorInput" style="font-size: 13px; color: var(--text-secondary); cursor: pointer;">Custom Hue:</label>
+                        <input type="color" id="fileCustomColorInput" class="custom-color-picker" value="#3b82f6" title="Choose a custom color">
+                    </div>
+                    <input type="hidden" id="fileColorInput" value="#3b82f6">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="cancelFileBtn">Cancel</button>
+                <button class="btn-primary" id="saveFileBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage File Categories Modal -->
+    <div class="modal-overlay" id="manageFileCategoriesModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="manageFileCategoriesTitle">Manage Categories</h3>
+                <button class="modal-close" id="manageFileCategoriesCloseBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="manage-file-desc">Select which categories belong to this file.</p>
+                <div class="manage-categories-list" id="manageFileCategoriesList">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="cancelFileCategoriesBtn">Cancel</button>
+                <button class="btn-primary" id="saveFileCategoriesBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- PDF Extraction Modal -->
     <div class="modal-overlay" id="pdfExtractModal" style="display: none;">
         <div class="modal-content pdf-extract-modal-content">
@@ -10984,12 +11983,14 @@ alice@email.com</div>
 
     <!-- Config and Database Client -->
     <script src="config.js"></script>
-    <script src="supabase-client.js"></script>
     <script src="indexeddb-store.js"></script>
     <!-- Tiered Storage (lazy loading) -->
     <script src="storage-meter.js"></script>
     <script src="tiered-storage.js"></script>
     <script src="popup/shared/async-utils.js"></script>
+    <script src="popup/shared/popup-ui.js"></script>
+    <script src="popup/shared/pastecraft-crud.js"></script>
+    <script src="popup/shared/popup-icons.js"></script>
     <!-- Main Popup Script -->
     <script src="popup.js"></script>
 </body>

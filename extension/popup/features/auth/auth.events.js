@@ -229,7 +229,7 @@ async function _enterFreemiumGuestMode(app) {
 
   await Promise.all([app.loadData(), app.loadSettings()]);
   app.updateTopBarIdentity();
-  app.setupEventListeners();
+  await app.setupEventListeners();
   app.renderChips();
   app.updateLastCapture();
   app.updatePreview();

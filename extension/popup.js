@@ -22,558 +22,7 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
   console.info = pastecraftNoop;
 }
 
-/**
- * =====================================================
- * CRUD UTILITY CLASS - 5 Best Practices Implementation
- * =====================================================
- * 
- * Provides reliable CRUD operations with:
- * 1. Validation - Verify inputs and state before operations
- * 2. Transaction-like State Snapshot - Save state for rollback
- * 3. Retry Logic - Retry failed operations with exponential backoff
- * 4. Idempotency - Safe to retry operations
- * 5. Verification - Verify operations succeeded before proceeding
- */
-class PasteCraftCRUD {
-  /**
-   * Retry operation with exponential backoff
-   */
-  static async retryOperation(operation, maxRetries = 3, baseDelay = 100) {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        if (attempt === maxRetries - 1) throw error;
-        const delay = baseDelay * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  /**
-   * Create state snapshot for rollback
-   */
-  static createSnapshot(data) {
-    return JSON.parse(JSON.stringify(data));
-  }
-
-  /**
-   * Restore state from snapshot
-   */
-  static restoreSnapshot(target, snapshot) {
-    Object.keys(snapshot).forEach(key => {
-      target[key] = snapshot[key];
-    });
-  }
-
-  /**
-   * Generic CRUD DELETE operation with all 5 best practices
-   */
-  static async deleteOperation({
-    // Entity identification
-    entityId,
-    entityName,
-    entityType, // 'clip', 'category', 'note', 'setting', etc.
-    
-    // State management
-    stateGetter, // () => ({ items: [], ... })
-    stateSetter, // (newState) => Promise<void>
-    stateKeys, // ['clips', 'categories'] - keys to snapshot
-    
-    // Validation
-    validator, // (entity, state) => { valid: boolean, error?: string }
-    idempotencyCheck, // (entityId, newState) => boolean - returns true if already deleted
-    
-    // Storage operations
-    storageKeys, // ['clips', 'searchOnlyClips'] - keys to write to storage
-    storageWriter, // (data) => Promise<void> - custom storage writer
-    
-    // Deletion logic
-    deleteFromArray, // (items, entityId) => items - filter function
-    updateRelatedEntities, // (state, entity) => state - update related data
-    
-    // Atomic secondary-store hard-delete (optional).
-    // When provided, runs in the SAME step as storageWriter so IndexedDB
-    // can never shadow chrome.storage on the next loadData().
-    idbStoreName, // e.g. 'categories' | 'clips' | 'notes'
-    idbExtraIds, // optional extra ids to hard-delete from IDB
-    
-    // Local tombstone bookkeeping (optional).
-    // When provided, the tombstone is written BEFORE the background sync
-    // so the mergeX helpers honor it even if a realtime echo races.
-    tombstoneStorageKey, // e.g. 'pc_deleted_categories'
-    
-    // Verification
-    verifier, // (entityId, storedData) => boolean - verify deletion persisted
-    
-    // UI updates
-    uiUpdater, // () => void - update UI after successful deletion
-    
-    // Background sync (optional, non-blocking)
-    backgroundSync, // (entity, deletedAt) => Promise<void>
-    
-    // User feedback
-    successMessage, // string or (entity) => string
-    errorMessage, // string or (error) => string
-    showToast // (message, type) => void
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entityId) {
-      const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot delete';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity ID' };
-    }
-
-    const currentState = stateGetter();
-    if (!currentState || typeof currentState !== 'object') {
-      const msg = errorMessage?.('Invalid state') || 'Invalid state - cannot delete';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid state' };
-    }
-
-    // Custom validation
-    if (validator) {
-      const validation = validator({ id: entityId, name: entityName }, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // Idempotency check - already deleted?
-    if (idempotencyCheck) {
-      const alreadyDeleted = idempotencyCheck(entityId, currentState);
-      if (alreadyDeleted) {
-        const msg = successMessage?.({ id: entityId, name: entityName }) || 'Already deleted';
-        showToast?.(msg, 'success');
-        return { success: true, skipped: true };
-      }
-    }
-
-    // PRACTICE #2: TRANSACTION-LIKE STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          await PasteCraftCRUD.retryOperation(async () => {
-            const storageData = {};
-            storageKeys.forEach(key => {
-              if (currentState[key] !== undefined) {
-                storageData[key] = currentState[key];
-              }
-            });
-            await storageWriter(storageData);
-          });
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error(`? Rollback failed for ${entityType}:`, rollbackError);
-      }
-    };
-
-    try {
-      const deletedAt = Date.now();
-      const entity = { id: entityId, name: entityName, deletedAt };
-
-      // Step 1: Update related entities (e.g., move clips to Uncategorized)
-      if (updateRelatedEntities) {
-        updateRelatedEntities(currentState, entity);
-      }
-
-      // Step 2: Remove from array
-      if (deleteFromArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = deleteFromArray(currentState[key], entityId);
-          }
-        });
-      }
-
-      // PRACTICE #4: IDEMPOTENCY CHECK - Verify entity was removed
-      const stillExists = stateKeys.some(key => {
-        if (Array.isArray(currentState[key])) {
-          return currentState[key].some(item => item.id === entityId);
-        }
-        return false;
-      });
-      if (stillExists) {
-        throw new Error(`${entityType} still exists after deletion operation`);
-      }
-
-      // Step 3: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3b: OPTIMISTIC UI - render the removal immediately so the
-      // user sees the item disappear without waiting on storage/IDB/verifier.
-      // If any downstream write fails, `rollback()` restores state and re-renders.
-      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
-
-      // Step 4: Persist to storage with retry
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      // Step 4b: ATOMIC SECONDARY-STORE HARD DELETE
-      // Without this, IndexedDB can still contain the row and overwrite
-      // chrome.storage on the next loadData() (see popup.js loadData IDB merge).
-      if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-        try {
-          const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
-          await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
-        } catch (idbErr) {
-          console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
-        }
-      }
-
-      // Step 4c: RECORD LOCAL TOMBSTONE BEFORE BACKGROUND SYNC
-      // Ensures mergeX helpers honor the delete even if a realtime echo races.
-      if (tombstoneStorageKey) {
-        try {
-          const existing = await new Promise((resolve) => {
-            chrome.storage.local.get([tombstoneStorageKey], (res) => resolve(res || {}));
-          });
-          const prev = Array.isArray(existing[tombstoneStorageKey]) ? existing[tombstoneStorageKey] : [];
-          const already = prev.some((t) => t && String(t.id) === String(entityId));
-          if (!already) {
-            const tombstone = { id: entityId, name: entityName, deletedAt, updatedAt: deletedAt };
-            await new Promise((resolve) => {
-              chrome.storage.local.set({ [tombstoneStorageKey]: [...prev, tombstone] }, resolve);
-            });
-          }
-        } catch (tombErr) {
-          console.warn(`?? Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
-        }
-      }
-
-      const msg = successMessage?.({ id: entityId, name: entityName }) || `${entityType} deleted`;
-      showToast?.(msg, 'success');
-
-      // PRACTICE #5: VERIFICATION - diagnostic only, off the critical path.
-      // chrome.storage + IDB writes above already acknowledged; re-reading
-      // storage just to block the UI was the main lag source, so we now
-      // only log mismatches instead of throwing.
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entityId))
-          .then((ok) => {
-            if (!ok) console.warn(`?? Post-write verification still sees ${entityType}:`, entityId);
-          })
-          .catch((verErr) => console.warn(`?? Verifier threw (${entityType} delete):`, verErr));
-      }
-
-      // Background sync (non-blocking)
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync(entity, deletedAt))
-          .catch((error) => {
-            console.error(`?? Background sync failed for ${entityType} (local deletion succeeded):`, error);
-          });
-      }
-
-      return { success: true, entity };
-    } catch (error) {
-      // Rollback on any failure
-      console.error(`? ${entityType} deletion failed, rolling back:`, error);
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to delete ${entityType}: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-
-  /**
-   * Generic CRUD CREATE operation with all 5 best practices
-   */
-  static async createOperation({
-    entity,
-    stateGetter,
-    stateSetter,
-    stateKeys,
-    validator,
-    duplicateCheck, // (entity, state) => boolean - returns true if duplicate exists
-    storageKeys,
-    storageWriter,
-    addToArray, // (items, entity) => items - add function
-    verifier, // (entity, storedData) => boolean
-    uiUpdater,
-    backgroundSync,
-    successMessage,
-    errorMessage,
-    showToast
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entity || !entity.id) {
-      const msg = errorMessage?.('Invalid entity') || 'Invalid entity - cannot create';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity' };
-    }
-
-    const currentState = stateGetter();
-    if (!currentState || typeof currentState !== 'object') {
-      const msg = errorMessage?.('Invalid state') || 'Invalid state - cannot create';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid state' };
-    }
-
-    if (validator) {
-      const validation = validator(entity, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // Duplicate check
-    if (duplicateCheck && duplicateCheck(entity, currentState)) {
-      const msg = errorMessage?.('Duplicate entity') || 'Entity already exists';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Duplicate entity' };
-    }
-
-    // PRACTICE #2: STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          await storageWriter(storageData);
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error('? Rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // Step 1: Add to array
-      if (addToArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = addToArray(currentState[key], entity);
-          }
-        });
-      }
-
-      // Step 2: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3: OPTIMISTIC UI - paint the change immediately so the user
-      // sees the new entity without waiting on chrome.storage or verifier I/O.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (create, optimistic):', uiErr); }
-
-      // Step 4: Persist with retry (still awaited so rollback fires on real failure)
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      const msg = successMessage?.(entity) || 'Entity created';
-      showToast?.(msg, 'success');
-
-      // Step 5: Verifier is diagnostic-only now (off the critical path).
-      //   If it fails we just warn � we do NOT rollback a write that Chrome
-      //   acknowledged. This removes the biggest source of perceived lag.
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entity))
-          .then((ok) => {
-            if (!ok) console.warn('?? Post-write verification missed entity (create):', entity?.id);
-          })
-          .catch((verErr) => console.warn('?? Verifier threw (create):', verErr));
-      }
-
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync(entity))
-          .catch((error) => {
-            console.error('?? Background sync failed (local creation succeeded):', error);
-          });
-      }
-
-      return { success: true, entity };
-    } catch (error) {
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to create: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-
-  /**
-   * Generic CRUD UPDATE operation with all 5 best practices
-   */
-  static async updateOperation({
-    entityId,
-    updates,
-    stateGetter,
-    stateSetter,
-    stateKeys,
-    validator,
-    storageKeys,
-    storageWriter,
-    updateInArray, // (items, entityId, updates) => items
-    verifier,
-    uiUpdater,
-    backgroundSync,
-    successMessage,
-    errorMessage,
-    showToast
-  }) {
-    // PRACTICE #1: VALIDATION
-    if (!entityId) {
-      const msg = errorMessage?.('Invalid entity ID') || 'Invalid entity - cannot update';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Invalid entity ID' };
-    }
-
-    const currentState = stateGetter();
-    const entity = stateKeys
-      .map(key => Array.isArray(currentState[key]) ? currentState[key].find(item => item.id === entityId) : null)
-      .find(item => item !== null);
-
-    if (!entity) {
-      const msg = errorMessage?.('Entity not found') || 'Entity not found';
-      showToast?.(msg, 'error');
-      return { success: false, error: 'Entity not found' };
-    }
-
-    if (validator) {
-      const validation = validator({ ...entity, ...updates }, currentState);
-      if (!validation.valid) {
-        showToast?.(validation.error || 'Validation failed', 'error');
-        return { success: false, error: validation.error || 'Validation failed' };
-      }
-    }
-
-    // PRACTICE #2: STATE SNAPSHOT
-    const snapshot = {};
-    stateKeys.forEach(key => {
-      if (currentState[key] !== undefined) {
-        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
-      }
-    });
-
-    const rollback = async () => {
-      try {
-        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
-        await stateSetter(currentState);
-        if (storageWriter) {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          await storageWriter(storageData);
-        }
-        uiUpdater?.();
-      } catch (rollbackError) {
-        console.error('? Rollback failed:', rollbackError);
-      }
-    };
-
-    try {
-      // Step 1: Update in array
-      if (updateInArray) {
-        stateKeys.forEach(key => {
-          if (Array.isArray(currentState[key])) {
-            currentState[key] = updateInArray(currentState[key], entityId, updates);
-          }
-        });
-      }
-
-      // Step 2: Update in-memory state
-      await stateSetter(currentState);
-
-      // Step 3: OPTIMISTIC UI - render the updated entity immediately.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (update, optimistic):', uiErr); }
-
-      // Step 4: Persist with retry
-      if (storageWriter) {
-        await PasteCraftCRUD.retryOperation(async () => {
-          const storageData = {};
-          storageKeys.forEach(key => {
-            if (currentState[key] !== undefined) {
-              storageData[key] = currentState[key];
-            }
-          });
-          storageData.pc_local_updatedAt = Date.now();
-          await storageWriter(storageData);
-        });
-      }
-
-      const msg = successMessage?.({ ...entity, ...updates }) || 'Entity updated';
-      showToast?.(msg, 'success');
-
-      // Step 5: Verifier is diagnostic-only now (off the critical path).
-      if (verifier) {
-        Promise.resolve()
-          .then(() => verifier(entityId, updates))
-          .then((ok) => {
-            if (!ok) console.warn('?? Post-write verification failed (update):', entityId);
-          })
-          .catch((verErr) => console.warn('?? Verifier threw (update):', verErr));
-      }
-
-      if (backgroundSync) {
-        Promise.resolve()
-          .then(() => backgroundSync({ ...entity, ...updates }))
-          .catch((error) => {
-            console.error('?? Background sync failed (local update succeeded):', error);
-          });
-      }
-
-      return { success: true, entity: { ...entity, ...updates } };
-    } catch (error) {
-      await rollback();
-      const msg = errorMessage?.(error) || `Failed to update: ${error.message || 'Unknown error'}`;
-      showToast?.(msg, 'error');
-      return { success: false, error: error.message || 'Unknown error' };
-    }
-  }
-}
-
-if (typeof window !== 'undefined') {
-  window.PasteCraftCRUD = PasteCraftCRUD;
-}
+// PasteCraftCRUD — loaded from popup/shared/pastecraft-crud.js (before popup.js)
 
 class PasteCraftPopup {
   constructor() {
@@ -678,6 +127,7 @@ class PasteCraftPopup {
     this._activeSummaryHistoryId = null;   // tracks active summary conversation
     this._aiHistorySearchQuery = '';
     this._aiHistoryFilterType = 'all';
+    this._aiHistoryPageIndex = 0;
     
     // Notes system
     this.notes = [];
@@ -724,45 +174,11 @@ class PasteCraftPopup {
       updatedAt: 0
     };
     
-    // BroadcastChannel is initialized by settingsFeature in _initializeSettingsFeature()
+    // BroadcastChannel is initialized by settingsFeature during popup init
     this._broadcastChannel = null;
     
     this.init();
   }
-
-  // =====================================================
-  // AI WORKFLOW (provider + preset) - versioned storage
-  // =====================================================
-
-  // Weighted credit cost per AI text call (mirrors server CREDIT_COST map)
-  static AI_CREDIT_COSTS = {
-    openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500 },
-    google: { default: 40, cheapest: 25, gemini_pro: 350, latest: 100 },
-  };
-
-  // Provider ? preset options mapping (single source of truth)
-  static AI_PROVIDER_PRESETS = {
-    openai: [
-      { value: 'default',   label: 'Default (4o-mini) � 40 cr' },
-      { value: 'cheapest',  label: 'Cheap (GPT-5 Nano) � 25 cr' },
-      { value: 'gpt5_mini', label: 'Balanced (GPT-5 Mini) � 200 cr' },
-      { value: 'latest',    label: 'Latest (GPT-5.2) � 500 cr' },
-    ],
-    google: [
-      { value: 'default',        label: 'Default (Gemini 2.0 Flash) � 40 cr' },
-      { value: 'cheapest',       label: 'Cheap (Gemini 2.0 Flash-Lite) � 25 cr' },
-      { value: 'gemini_pro',     label: 'Balanced (Gemini 2.5 Pro) � 350 cr' },
-      { value: 'latest',         label: 'Latest (Gemini 2.5 Flash) � 100 cr' },
-    ],
-    anthropic: [
-      { value: 'default', label: 'Default (Coming Soon)' },
-    ],
-    groq: [
-      { value: 'default', label: 'Default (Coming Soon)' },
-    ],
-  };
-
-  static AI_ALLOWED_PROVIDERS = new Set(['openai', 'google', 'anthropic', 'groq']);
 
   _normalizeAiWorkflow(raw) {
     return this.aiLabFeature.credits._normalizeAiWorkflow.call(this, raw);
@@ -865,289 +281,11 @@ class PasteCraftPopup {
     (document.body || document.documentElement).appendChild(banner);
   }
 
-  async _initializeClipsFeature() {
-    if (this.clipsFeature) return this.clipsFeature;
-    const { initClipsFeature } = await import('./popup/features/clips/clips.controller.js');
-    this.clipsFeature = initClipsFeature(this);
-    return this.clipsFeature;
-  }
-
-  async _initializeCategoriesFeature() {
-    if (this.categoriesFeature) return this.categoriesFeature;
-    const { initCategoriesFeature } = await import('./popup/features/categories/categories.controller.js');
-    this.categoriesFeature = initCategoriesFeature(this);
-    return this.categoriesFeature;
-  }
-
-  async _initializeNotesFeature() {
-    if (this.notesFeature) return this.notesFeature;
-    const { initNotesFeature } = await import('./popup/features/notes/notes.controller.js');
-    this.notesFeature = initNotesFeature(this);
-    return this.notesFeature;
-  }
-
-  async _initializeAiLabFeature() {
-    if (this.aiLabFeature) return this.aiLabFeature;
-    const { initAiLabFeature } = await import('./popup/features/ai-lab/ai-lab.controller.js');
-    this.aiLabFeature = initAiLabFeature(this);
-    return this.aiLabFeature;
-  }
-
-  async _initializeSettingsFeature() {
-    if (this.settingsFeature) return this.settingsFeature;
-    const { initSettingsFeature } = await import('./popup/features/settings/settings.controller.js');
-    this.settingsFeature = initSettingsFeature(this);
-    return this.settingsFeature;
-  }
-
-  async _initializeActivityFeature() {
-    if (this.activityFeature) return this.activityFeature;
-    const { initActivityFeature } = await import('./popup/features/activity/activity.controller.js');
-    this.activityFeature = initActivityFeature(this);
-    return this.activityFeature;
-  }
-
-  async _initializeAuthFeature() {
-    if (this.authFeature) return this.authFeature;
-    const { initAuthFeature } = await import('./popup/features/auth/auth.controller.js');
-    this.authFeature = initAuthFeature(this);
-    return this.authFeature;
-  }
-
-  async _initializeProfileFeature() {
-    if (this.profileFeature) return this.profileFeature;
-    const { initProfileFeature } = await import('./popup/features/profile/profile.controller.js');
-    this.profileFeature = initProfileFeature(this);
-    return this.profileFeature;
-  }
-
-  async _initializeBillingFeature() {
-    if (this.billingFeature) return this.billingFeature;
-    const { initBillingFeature } = await import('./popup/features/billing/billing.controller.js');
-    this.billingFeature = initBillingFeature(this);
-    return this.billingFeature;
-  }
-
-  async _initializeSyncFeature() {
-    if (this.syncFeature) return this.syncFeature;
-    const { initSyncFeature } = await import('./popup/features/sync/sync.controller.js');
-    this.syncFeature = initSyncFeature(this);
-    return this.syncFeature;
-  }
-
   async _initImpl() {
-    console.log('?? Initializing PasteCraft popup...');
-    await this._initializeClipsFeature();
-    await this._initializeCategoriesFeature();
-    await this._initializeNotesFeature();
-    await this._initializeAiLabFeature();
-    await this._initializeSettingsFeature();
-    await this._initializeActivityFeature();
-    await this._initializeAuthFeature();
-    await this._initializeProfileFeature();
-    await this._initializeBillingFeature();
-    await this._initializeSyncFeature();
-
-    // Setup auth modal events FIRST (before checking auth)
-    this.setupAuthModalEvents();
-    this._setupSupportFormEvents();
-
-    // --- V2 MODE GATE: read local-mode flag FIRST, before any Supabase call ---
-    let isLocalGuest = false;
-    try {
-      const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
-      isLocalGuest = !!pc_freemium_guest;
-    } catch (_) {}
-
-    if (isLocalGuest) {
-      // Actively clear any stale cloud auth state so it can't interfere later
-      try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
-      try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-      // Go straight to local mode � no cloud auth calls at all
-      this._isFreemiumGuest = true;
-      this.currentUser = null;
-      this.userSubscription = null;
-      document.getElementById('topBar').style.display = 'flex';
-      await Promise.all([this.loadData(), this.loadSettings()]);
-      this.updateTopBarIdentity();
-      this.setupEventListeners();
-      this.renderChips();
-      this.updateLastCapture();
-      this.updatePreview();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.hideLoadingOverlay();
-      this.setupVisibilityListener();
-      Promise.resolve().then(() => this.cleanupOldClips()).catch(() => {});
-      return;
-    }
-
-    // --- CLOUD AUTH PATH (only reached when NOT in local mode) ---
-
-    // Check if this is a password reset callback from storage
-    const resetCallback = await this.checkPasswordResetCallback();
-    if (resetCallback) {
-      console.log('?? Password reset callback detected from storage');
-      this.hideLoadingOverlay();
-      document.getElementById('newPasswordModal').style.display = 'flex';
-      return;
-    }
-    
-    // Check if this is a password reset callback from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    
-    console.log('?? URL check:', {
-      search: window.location.search,
-      hash: window.location.hash,
-      type: hashParams.get('type'),
-      accessToken: hashParams.get('access_token') ? 'present' : 'missing'
-    });
-    
-    if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
-      console.log('?? Password reset callback detected from URL');
-      const accessToken = hashParams.get('access_token') || hashParams.get('reset');
-      const refreshToken = hashParams.get('refresh_token');
-      if (accessToken) {
-        await this.setPasswordResetSession(accessToken, refreshToken);
-      }
-      this.hideLoadingOverlay();
-      document.getElementById('newPasswordModal').style.display = 'flex';
-      return;
-    }
-    
-    // Check for OAuth callback tokens
-    await this.checkOAuthCallback();
-
-    // Restore database auth before the signed-in check. After an OS/browser
-    // restart, supabase-js may start empty while chrome.storage still has the
-    // refresh token bridge needed to rehydrate the session.
-    try {
-      await this.clearLegacyAuthPrefs();
-      await this.restoreSupabaseSessionFromBridge('startup');
-    } catch (_) {}
-
-    // Check if user is authenticated
-    const currentUser = await pasteCraftSupabase.getCurrentUser();
-
-    if (!currentUser) {
-      // Show auth modal (no freemium fallback here � that's handled by the mode gate above)
-      this.showAuthModal();
-      return;
-    }
-    
-    // User is authenticated, proceed with normal init
-    console.log('? User authenticated:', currentUser.email);
-    this.currentUser = currentUser;
-
-
-    // Load subscription info
-    // Do NOT block popup UI on slow network subscription fetch.
-    // Use cached subscription if available, then refresh in background.
-    try {
-      this.userSubscription = await pasteCraftSupabase.getCachedSubscription(currentUser.id);
-    } catch (_) {
-      this.userSubscription = null;
-    }
-    console.log('?? Subscription tier (cached):', this.userSubscription?.subscription_tier);
-    // Best-effort credits render from cached subscription snapshot.
-    this.updateAiCreditsPills('cached');
-    this.updateUpgradeUI();
-
-    pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
-      this.userSubscription = sub;
-      console.log('?? Subscription tier (fresh):', this.userSubscription?.subscription_tier);
-      this.updateAiCreditsPills('fresh');
-      this.updateUpgradeUI();
-    }).catch(() => {});
-    
-    // Show top bar (with sign out button)
-    document.getElementById('topBar').style.display = 'flex';
-    
-    this.setupLocalStorageListener();
-    await this._ensureIndexedDbReadyAndMigrate();
-
-    // Parallelize independent storage reads for faster startup
-    await Promise.all([
-      this.loadData(),
-      this.loadSettings(),
-      this.loadAiWorkflow(),
-      this.loadUserProfile(),
-      this.loadAnalysisHistory(),
-    ]);
-
-    // If local profile is empty/incomplete (new device), fetch from Supabase immediately.
-    // Profile is identity data � not gated by cloud sync tier. Timeout to prevent hanging.
-    if (!this.userProfile?.userName && !this.userProfile?.aiGeneratedName && !this.userProfile?.profileImageUrl) {
-      try {
-        const remoteProfile = await Promise.race([
-          pasteCraftSupabase.syncUserProfileFromSupabase(),
-          new Promise((resolve) => setTimeout(() => resolve(null), 3000))
-        ]);
-        if (remoteProfile) {
-          this.userProfile = { ...(this.userProfile || {}), ...remoteProfile };
-          await chrome.storage.local.set({ userProfile: this.userProfile });
-          console.log('? Profile hydrated from Supabase on fresh device');
-        }
-      } catch (_) {}
-    }
-
-    // Always update top bar name/image (even if no image saved yet)
-    this.updateTopBarIdentity();
-    
-    if (this.userProfile?.profileImageUrl) {
-      this.displayImageTopLeft(this.userProfile.profileImageUrl);
-    }
-    
-    this.setupEventListeners();
-    this.renderChips();
-    this.updateLastCapture();
-    this.updatePreview();
-    this.renderCategories();
-    this.updateCategoryFilter();
-
-    // ?? HIDE LOADING OVERLAY (local data loaded, ready to show).
-    // Done BEFORE _restoreSessionState() so a slow Supabase call inside
-    // the session-restore path (loadNotes/loadActivityLog/loadAiHistory)
-    // cannot stall the visible UI behind the purple overlay.
-    this.hideLoadingOverlay();
-
-    // ?? RESTORE SESSION STATE (active tab, AI content, etc.) � fire and
-    // forget. The restored tab shows its own lightweight inline loading
-    // state while its data arrives.
-    this._restoreSessionState().catch((e) => {
-      console.warn('Session restore failed:', e);
-    });
-
-    // Run potentially heavy maintenance tasks in background (do not block popup render)
-    Promise.resolve()
-      .then(() => this.maybeCreateDailyRestorePoint('startup'))
-      .catch(() => {});
-
-    // Auto-delete cleanup can be slow with large clip sets; run in background.
-    Promise.resolve()
-      .then(() => this.cleanupOldClips())
-      .catch(() => {});
-    
-    // ?? SYNC WITH SUPABASE IN BACKGROUND (don't await - let it happen naturally)
-    this.performBackgroundSync();
-    
-    // ?? TIERED STORAGE MIGRATION (move excess data to cloud if needed)
-    Promise.resolve()
-      .then(() => this._maybeMigrateTieredStorage())
-      .catch(e => console.warn('Tiered storage migration skipped:', e));
-    
-    // Reload data whenever popup becomes visible
-    this.setupVisibilityListener();
-    
-    // Setup realtime data sync listeners
-    this.setupRealtimeListeners();
-    
-    // Setup sync status listeners
-    this.setupSyncStatusListeners();
-    
-    console.log('? PasteCraft popup initialized successfully');
+    const { runPopupInit } = await import('./popup/features/app/popup.init.js');
+    return runPopupInit(this);
   }
+
 
   _formatShortDate(isoOrDate) {
     try {
@@ -1202,357 +340,45 @@ class PasteCraftPopup {
   // RESTORE POINTS (Local daily snapshots)
   // =====================================================
 
-  _restoreWindowToMs(windowKey) {
-    const m = {
-      '1day': 24 * 60 * 60 * 1000,
-      '1week': 7 * 24 * 60 * 60 * 1000,
-      '2weeks': 14 * 24 * 60 * 60 * 1000,
-      '4weeks': 28 * 24 * 60 * 60 * 1000
-    };
-    return m[windowKey] || m['1week'];
-  }
-
-  _localDateKey(ts) {
-    const d = new Date(typeof ts === 'number' ? ts : Date.now());
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
-
-  async _loadRestorePoints() {
-    try {
-      const res = await chrome.storage.local.get([this._restorePointsKey]);
-      const raw = res ? res[this._restorePointsKey] : null;
-      return Array.isArray(raw) ? raw : [];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  async _saveRestorePoints(points) {
-    try {
-      await chrome.storage.local.set({ [this._restorePointsKey]: points });
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  _pruneRestorePoints(points) {
-    const arr = Array.isArray(points) ? points : [];
-    const valid = arr
-      .filter(p => p && typeof p === 'object')
-      .map(p => ({
-        ...p,
-        createdAt: typeof p.createdAt === 'number' ? p.createdAt : 0,
-        kind: typeof p.kind === 'string' ? p.kind : 'daily',
-        dateKey: typeof p.dateKey === 'string' ? p.dateKey : ''
-      }))
-      .filter(p => p.createdAt > 0);
-
-    // Sort newest first
-    valid.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    // Keep unique daily points by dateKey, newest wins
-    const dailyByDate = new Map();
-    const manual = [];
-    for (const p of valid) {
-      if (p.kind === 'manual') {
-        manual.push(p);
-        continue;
-      }
-      const k = p.dateKey || this._localDateKey(p.createdAt);
-      if (!dailyByDate.has(k)) dailyByDate.set(k, { ...p, dateKey: k, kind: 'daily' });
-    }
-
-    const daily = Array.from(dailyByDate.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const keptDaily = daily.slice(0, 28);
-    const keptManual = manual.slice(0, 5);
-
-    const out = [...keptManual, ...keptDaily].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    return out;
-  }
-
-  _buildRestoreSnapshotFromLocal(local) {
-    const source = local && typeof local === 'object' ? local : {};
-    const repaired = this.repairLocalClipIds(source.clips, source.searchOnlyClips);
-    const clips = Array.isArray(repaired.clips) ? repaired.clips.slice(0, 500) : [];
-    const searchOnlyClips = Array.isArray(repaired.searchOnlyClips) ? repaired.searchOnlyClips.slice(0, 1000) : [];
-    const categories = Array.isArray(source.categories) ? source.categories.slice(0, 300) : [];
-    const notes = Array.isArray(source.notes) ? source.notes.slice(0, 300) : [];
-    return { clips, searchOnlyClips, categories, notes };
-  }
-
   async maybeCreateDailyRestorePoint(reason = 'daily', localOverride = null) {
-    // Create at most one daily restore point per local day.
-    const now = Date.now();
-    const todayKey = this._localDateKey(now);
-
-    const points = await this._loadRestorePoints();
-    const hasToday = points.some(p => p && p.kind !== 'manual' && (p.dateKey === todayKey || this._localDateKey(p.createdAt) === todayKey));
-    if (hasToday) return false;
-
-    let local = localOverride;
-    if (!local) {
-      local = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'notes']);
-    }
-
-    const snap = this._buildRestoreSnapshotFromLocal(local);
-    const point = {
-      id: `rp_${now}_${Math.random().toString(36).slice(2, 8)}`,
-      kind: 'daily',
-      reason: String(reason || 'daily').slice(0, 60),
-      createdAt: now,
-      dateKey: todayKey,
-      ...snap
-    };
-
-    const next = this._pruneRestorePoints([point, ...(Array.isArray(points) ? points : [])]);
-    await this._saveRestorePoints(next);
-    return true;
+    return this.settingsFeature?.restore?.maybeCreateDailyRestorePoint?.(reason, localOverride);
   }
 
   async createManualRestorePoint(reason = 'manual') {
-    const now = Date.now();
-    const points = await this._loadRestorePoints();
-    const local = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips', 'notes']);
-    const snap = this._buildRestoreSnapshotFromLocal(local);
-
-    const point = {
-      id: `rp_${now}_${Math.random().toString(36).slice(2, 8)}`,
-      kind: 'manual',
-      reason: String(reason || 'manual').slice(0, 60),
-      createdAt: now,
-      dateKey: this._localDateKey(now),
-      ...snap
-    };
-
-    const next = this._pruneRestorePoints([point, ...(Array.isArray(points) ? points : [])]);
-    await this._saveRestorePoints(next);
-    return point;
-  }
-
-  _selectRestorePointForWindow(points, windowKey) {
-    const arr = Array.isArray(points) ? points.slice() : [];
-    if (arr.length === 0) return { point: null, cutoffMs: 0 };
-
-    arr.sort((a, b) => (b?.createdAt || 0) - (a?.createdAt || 0));
-    const cutoffMs = Date.now() - this._restoreWindowToMs(windowKey);
-
-    const match = arr.find(p => p && typeof p.createdAt === 'number' && p.createdAt <= cutoffMs) || null;
-    if (match) return { point: match, cutoffMs };
-
-    // No point old enough: fall back to the oldest available.
-    const oldest = arr[arr.length - 1] || null;
-    return { point: oldest, cutoffMs };
-  }
-
-  _formatRestorePreview(point, windowKey, cutoffMs) {
-    if (!point) return 'No restore points found yet.';
-    const when = new Date(point.createdAt).toLocaleString();
-    const active = Array.isArray(point.clips) ? point.clips.length : 0;
-    const archived = Array.isArray(point.searchOnlyClips) ? point.searchOnlyClips.length : 0;
-    const categories = Array.isArray(point.categories) ? point.categories.length : 0;
-    const notes = Array.isArray(point.notes) ? point.notes.length : 0;
-    const target = new Date(cutoffMs).toLocaleString();
-    const reason = point.reason ? ` � ${String(point.reason)}` : '';
-    return `Restore point: ${when}${reason}. Target window: ${windowKey} (= ${target}). Clips: ${active} active, ${archived} archived. Categories: ${categories}. Notes: ${notes}.`;
+    return this.settingsFeature?.restore?.createManualRestorePoint?.(reason);
   }
 
   async previewRestore(windowKey) {
-    const points = await this._loadRestorePoints();
-    const { point, cutoffMs } = this._selectRestorePointForWindow(points, windowKey);
-    this._lastPreviewRestore = { point, cutoffMs, windowKey };
-
-    const el = document.getElementById('restorePreviewText');
-    if (el) el.textContent = this._formatRestorePreview(point, windowKey, cutoffMs);
-
-    return { point, cutoffMs };
+    return this.settingsFeature?.restore?.previewRestore?.(windowKey);
   }
 
   async applyRestoreFromPreview() {
-    const preview = this._lastPreviewRestore;
-    const point = preview && preview.point ? preview.point : null;
-    if (!point) {
-      this.showToast('?? No restore point available yet', 'error');
-      return false;
-    }
-
-    // Safety net: create a manual restore point before overwriting local storage.
-    try { await this.createManualRestorePoint('pre-restore'); } catch (_) {}
-
-    const ok = confirm(
-      'Restore will replace local Clips and Archive with a previous snapshot.\n\nCloud data will NOT be changed unless you click �Sync restored data to cloud�.\n\nProceed?'
-    );
-    if (!ok) return false;
-
-    const clips = Array.isArray(point.clips) ? point.clips.slice(0, 500) : [];
-    const searchOnlyClips = Array.isArray(point.searchOnlyClips) ? point.searchOnlyClips.slice(0, 1000) : [];
-    const categories = Array.isArray(point.categories) ? point.categories.slice(0, 300) : [];
-    const notes = Array.isArray(point.notes) ? point.notes.slice(0, 300) : [];
-
-    const appliedAt = Date.now();
-    await chrome.storage.local.set({
-      clips,
-      searchOnlyClips,
-      categories,
-      notes,
-      pc_local_updatedAt: appliedAt,
-      [this._lastRestoreAtKey]: appliedAt,
-      [this._lastRestorePointIdKey]: point.id || ''
-    });
-
-    // Update in-memory state + UI
-    await this.loadData();
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-    this.updatePreview();
-    this.updateLastCapture();
-    try { this.updateStorageStats(); } catch (_) {}
-
-    this._lastAppliedRestore = { point, appliedAt };
-    const btn = document.getElementById('syncRestoredToCloudBtn');
-    if (btn) btn.disabled = false;
-
-    this.showToast('? Restore complete (local only)');
-    return true;
+    return this.settingsFeature?.restore?.applyRestoreFromPreview?.();
   }
 
   async syncRestoredDataToCloud() {
-    const applied = this._lastAppliedRestore;
-    if (!applied || !applied.point) {
-      this.showToast('?? Restore first, then sync to cloud', 'error');
-      return false;
-    }
-
-    const ok = confirm(
-      'This will sync your CURRENT local state to the cloud.\n\nThis may overwrite cloud clips to match the restored snapshot.\n\nProceed?'
-    );
-    if (!ok) return false;
-
-    await this.performBackgroundSync({ force: true, reason: 'restore:cloud-sync' });
-    this.showToast('? Synced restored data to cloud');
-    return true;
+    return this.settingsFeature?.restore?.syncRestoredDataToCloud?.();
   }
 
   repairLocalClipIds(clipsRaw, searchOnlyRaw) {
-    const normalize = (raw) => {
-      const arr = Array.isArray(raw) ? raw : [];
-      const seen = new Set();
-      let changed = false;
-
-      const hashText = (t) => {
-        const s = String(t || '');
-        let h = 2166136261;
-        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-        return (h >>> 0).toString(36);
-      };
-
-      const toObj = (clip, i) => {
-        if (typeof clip === 'string') {
-          changed = true;
-          const ts = Date.now();
-          return {
-            id: `${ts}_${hashText(clip)}_${i}`,
-            text: clip,
-            category: 'Uncategorized',
-            timestamp: ts
-          };
-        }
-        if (clip && typeof clip === 'object') return { ...clip };
-        changed = true;
-        return null;
-      };
-
-      const out = [];
-      for (let i = 0; i < arr.length; i++) {
-        const c = toObj(arr[i], i);
-        if (!c) continue;
-        if (!c.text) { changed = true; continue; }
-
-        const ts = typeof c.timestamp === 'number' ? c.timestamp : Date.now();
-        if (typeof c.timestamp !== 'number') { c.timestamp = ts; changed = true; }
-
-        let id = c.id ?? c.clip_id ?? c.clipId ?? null;
-        if (id == null) {
-          id = `${ts}_${hashText(c.text)}_${i}`;
-          c.id = id;
-          changed = true;
-        } else {
-          if (c.id == null) { c.id = id; changed = true; }
-        }
-
-        const key = String(c.id);
-        if (seen.has(key)) {
-          // If duplicate id is actually the same clip content, drop it to prevent user-visible dupes.
-          // Otherwise, mint a stable-ish new id.
-          const contentKey = `${hashText(c.text)}:${Math.floor(ts / 3000)}:${String(c.category || 'Uncategorized')}`;
-          const hasSameContentAlready = out.some(x => `${hashText(x.text)}:${Math.floor((x.timestamp || 0) / 3000)}:${String(x.category || 'Uncategorized')}` === contentKey);
-          if (hasSameContentAlready) {
-            changed = true;
-            continue;
-          }
-          c.id = `${key}__r${ts}_${i}`;
-          changed = true;
-        }
-        seen.add(String(c.id));
-        out.push(c);
-      }
-
-      return { out, changed };
-    };
-
-    const active = normalize(clipsRaw);
-    const archived = normalize(searchOnlyRaw);
-
-    return {
-      changed: !!(active.changed || archived.changed),
-      activeChanged: !!active.changed,
-      archivedChanged: !!archived.changed,
-      clips: active.out,
-      searchOnlyClips: archived.out
-    };
+    return this.syncFeature?.repair?.repairLocalClipIds?.(clipsRaw, searchOnlyRaw);
   }
-  
+
   async performBackgroundSync(options) {
     return this.syncFeature?.listener?.performBackgroundSync?.(this, options);
   }
   
   hideLoadingOverlay() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-      overlay.style.opacity = '0';
-      overlay.style.transition = 'opacity 0.3s ease';
-      setTimeout(() => {
-        overlay.style.display = 'none';
-        console.log('? Loading overlay hidden');
-      }, 300);
-    }
+    return PasteCraftPopupUi.hideLoadingOverlay();
   }
 
   // -- Upgrade UI (Freemium ? Basic/Enhanced) --------------------------
   _isFreemiumUser() {
-    const sub = this.userSubscription;
-    if (!sub) return true;
-    const tier = String(sub.subscription_tier || '').toLowerCase();
-    const status = String(sub.subscription_status || '').toLowerCase();
-    if (tier === 'admin') return false;
-    if ((tier === 'premium' || tier === 'basic') && (status === 'active' || status === 'past_due')) return false;
-    // Coupon-based AI access counts as paid
-    if (sub.has_unlimited_ai === true) return false;
-    const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
-    if (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) return false;
-    return true;
+    return this.billingFeature?.upgradeUi?.isFreemiumUser?.(this) ?? true;
   }
 
   updateUpgradeUI() {
-    const isFree = this._isFreemiumUser();
-    const banner = document.getElementById('upgradeBanner');
-    const profileBtn = document.getElementById('upgradeSubBtn');
-    if (banner) banner.style.display = isFree ? 'flex' : 'none';
-    if (profileBtn) profileBtn.style.display = isFree ? 'block' : 'none';
+    return this.billingFeature?.upgradeUi?.updateUpgradeUI?.(this);
   }
 
   openUpgradeModal() {
@@ -1572,23 +398,7 @@ class PasteCraftPopup {
   }
 
   setupVisibilityListener() {
-    // Reload data when popup is shown
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('?? Popup became visible - reloading data...');
-        await this.loadData();
-        await this.loadUserProfile(); // Reload profile too
-        this.renderChips();
-        this.updateLastCapture();
-        this.updatePreview();
-        this.renderCategories();
-        this.updateCategoryFilter();
-        
-        // Always refresh top bar identity (name + image) on visibility
-        this.updateTopBarIdentity(this.userProfile?.profileImageUrl || undefined);
-        console.log('? Data reloaded successfully');
-      }
-    });
+    return this.syncFeature?.visibility?.setupVisibilityListener?.(this);
   }
   
   setupSyncStatusListeners() {
@@ -1639,1134 +449,9 @@ class PasteCraftPopup {
     return this.clipsFeature.service.enforceClipLimit(this);
   }
   
-  setupEventListeners() {
-    // Category-page clip action delegation � one listener on the stable
-    // parent container survives every renderCategories() re-render.
-    this.setupCategoryClipDelegation();
-
-    // Upgrade banner + modal (must run on init; banner is visible for freemium users)
-    const upgradeBanner = document.getElementById('upgradeBanner');
-    if (upgradeBanner) {
-      upgradeBanner.addEventListener('click', () => this.openUpgradeModal());
-      upgradeBanner.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.openUpgradeModal(); } });
-    }
-    const upgradeSubBtn = document.getElementById('upgradeSubBtn');
-    if (upgradeSubBtn) upgradeSubBtn.addEventListener('click', () => this.openUpgradeModal());
-    const upgradeModalClose = document.getElementById('upgradeModalClose');
-    if (upgradeModalClose) upgradeModalClose.addEventListener('click', () => this.closeUpgradeModal());
-    const upgradeModal = document.getElementById('upgradeModal');
-    if (upgradeModal) upgradeModal.addEventListener('click', (e) => {
-      if (e.target === upgradeModal) this.closeUpgradeModal();
-    });
-    const upgradeBtnBasic = document.getElementById('upgradeBtnBasic');
-    if (upgradeBtnBasic) upgradeBtnBasic.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._createCheckout('price_1SsbTZLOdeLTrjap9UnXhu0M');
-    });
-    const upgradeBtnEnhanced = document.getElementById('upgradeBtnEnhanced');
-    if (upgradeBtnEnhanced) upgradeBtnEnhanced.addEventListener('click', () => {
-      this.closeUpgradeModal();
-      this._createCheckout('price_1SUYs3LOdeLTrjapCFFDe7td');
-    });
-
-    // Tab navigation
-    document.querySelector('.tab-nav').addEventListener('click', async (e) => {
-      const target = e.target;
-      const tabBtn = (target && target.closest)
-        ? target.closest('.tab-btn')
-        : (target && target.classList && target.classList.contains('tab-btn') ? target : null);
-
-      if (tabBtn) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        tabBtn.classList.add('active');
-        this.currentTab = tabBtn.dataset.tab;
-        document.getElementById(this.currentTab + 'Tab').classList.add('active');
-        
-        // Persist active tab so it survives popup close
-        this._saveActiveTabState();
-        
-        // Format controls, preview, and magic wand are always visible across all tabs
-        
-        // Auto-reload data when switching tabs to ensure fresh counts
-        if (this.currentTab === 'clips') {
-          console.log('?? Clips tab opened - reloading data...');
-          await this.loadData();
-          this.renderChips();
-          console.log('? Clips data refreshed');
-        } else if (this.currentTab === 'categories') {
-          console.log('?? Categories tab opened - reloading data...');
-          await this.loadData();
-          this.renderCategories();
-          this.updateCategoryBulkActions();
-          console.log('? Categories data refreshed');
-        } else if (this.currentTab === 'search') {
-          console.log('?? Search tab opened - reloading data...');
-          await this.loadData();
-          this.renderSearchResults();
-          this.updateSearchBulkActions();
-          console.log('? Search data refreshed');
-        } else if (this.currentTab === 'ai') {
-          this.loadAIGallery();
-          this.migrateProfileImageToGallery();
-        } else if (this.currentTab === 'notes') {
-          console.log('?? Notes tab opened - loading notes...');
-          await this.loadNotes();
-          this.renderNotes();
-          console.log('? Notes loaded');
-        } else if (this.currentTab === 'aiHistory') {
-          console.log('?? AI History tab opened - loading history...');
-          await this.loadAiHistory();
-          this.renderAiHistoryList();
-          console.log('? AI History loaded');
-        } else if (this.currentTab === 'activity') {
-          await this.activityFeature.service.loadActivityLog(this);
-          this.activityFeature.render.renderActivityList(this);
-        }
-      }
-    });
-
-    // Manual Text Input functionality
-    const manualInputToggle = document.getElementById('manualInputToggle');
-    const manualInputBody = document.getElementById('manualInputBody');
-    const manualInputHeader = document.querySelector('.manual-input-header');
-    
-    if (manualInputToggle && manualInputBody && manualInputHeader) {
-      manualInputHeader.addEventListener('click', () => {
-        const isVisible = manualInputBody.style.display !== 'none';
-        manualInputBody.style.display = isVisible ? 'none' : 'block';
-        manualInputToggle.classList.toggle('active', !isVisible);
-      });
-    }
-
-    const manualInputSaveBtn = document.getElementById('manualInputSaveBtn');
-    const manualInputTextarea = document.getElementById('manualInputTextarea');
-    const manualInputCategory = document.getElementById('manualInputCategory');
-    const manualInputClearBtn = document.getElementById('manualInputClearBtn');
-    const manualInputSaveSpinner = document.getElementById('manualInputSaveSpinner');
-    const manualInputSaveIcon = document.getElementById('manualInputSaveIcon');
-    const manualInputSaveLabel = document.getElementById('manualInputSaveLabel');
-
-    const setManualInputSavingState = (isSaving) => {
-      if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
-      if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
-      if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving�' : 'Save Clip';
-    };
-
-    const manualInputMarkup = document.getElementById('manualInputMarkup');
-
-    if (manualInputSaveBtn && manualInputTextarea && manualInputCategory) {
-      manualInputSaveBtn.addEventListener('click', async () => {
-        if (this.manualClipSaveInProgress) return;
-
-        const text = manualInputTextarea.value.trim();
-        if (!text) {
-          this.showToast('Please enter some text to save');
-          return;
-        }
-
-        const category = manualInputCategory.value || 'Uncategorized';
-        
-        // Check category limit (Uncategorized = unlimited, others = 150 max)
-        if (category !== 'Uncategorized') {
-          const allClips = [...this.clips, ...this.searchOnlyClips];
-          const clipsInCategory = allClips.filter(clip => clip.category === category);
-          
-          if (clipsInCategory.length >= 150) {
-            this.showToast(`Category "${category}" is full (150 clips max)`);
-            return;
-          }
-        }
-
-        // Build meta with markup hint if user selected a specific format
-        const selectedMarkup = manualInputMarkup ? manualInputMarkup.value : 'auto';
-        const clipMeta = selectedMarkup && selectedMarkup !== 'auto'
-          ? { markupHint: selectedMarkup }
-          : null;
-
-        try {
-          setManualInputSavingState(true);
-          this.manualClipSaveInProgress = true;
-
-          const newClip = {
-            id: Date.now() + Math.random(),
-            text: text,
-            category: category,
-            timestamp: Date.now(),
-            ...(clipMeta ? { meta: clipMeta } : {})
-          };
-
-          this.clips.unshift(newClip);
-          
-          await this.enforceClipLimit();
-
-          this.currentPage = 0; // Jump to first page so new clip is visible
-
-          // Persist immediately (fast path)
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            pc_local_updatedAt: Date.now()
-          });
-          
-          // Notify content scripts (without auto-showing Quick View)
-          try {
-            chrome.tabs.query({}, (tabs) => {
-              tabs.forEach(tab => {
-                chrome.tabs.sendMessage(tab.id, {
-                  action: 'clipSaved',
-                  clip: newClip,
-                  autoShow: false
-                }).catch(() => {});
-              });
-            });
-          } catch (error) {
-            console.log('Could not notify content scripts:', error);
-          }
-          
-          this.renderChips();
-          this.renderCategories();
-          this.updateCategoryFilter();
-          this.updateManualInputCategories();
-          this.showToast(`Saved to ${category}!`);
-          
-          // Clear textarea
-          manualInputTextarea.value = '';
-
-          // Background sync (do NOT block UI on network)
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-            .catch(() => {});
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-            .catch(() => {});
-          
-        } finally {
-          this.manualClipSaveInProgress = false;
-          setManualInputSavingState(false);
-        }
-      });
-    }
-
-    if (manualInputClearBtn && manualInputTextarea) {
-      manualInputClearBtn.addEventListener('click', () => {
-        manualInputTextarea.value = '';
-        manualInputTextarea.focus();
-      });
-    }
-
-    // PDF Upload functionality
-    this.initPdfExtraction();
-
-    // Populate category dropdown
-    this.updateManualInputCategories();
-
-    // Notes functionality
-    this.notesFeature.events.registerNotesEvents(this);
-
-    this.clipsFeature.events.registerClipEvents(this);
-
-    // Category management
-    document.getElementById('createCategoryBtn').addEventListener('click', () => {
-      this.showCreateCategoryDialog();
-    });
-
-    // Crafted Output is editable: mark as manual when user types
-    const previewArea = document.getElementById('previewArea');
-    if (previewArea) {
-      previewArea.addEventListener('input', () => {
-        this.previewIsManual = true;
-      });
-    }
-
-    // Category modal events
-    this.categoriesFeature.events.registerCategoryModalEvents(this);
-
-    // Profile modal events
-    document.getElementById('profileBtn').addEventListener('click', () => {
-      this.showProfileModal();
-    });
-
-    document.getElementById('closeProfileModal').addEventListener('click', () => {
-      this.hideProfileModal();
-    });
-
-    // Settings events � delegated to settingsFeature
-    if (this.settingsFeature?.events?.initSettingsEvents) {
-      try {
-        this.settingsFeature.events.initSettingsEvents();
-      } catch (e) {
-        console.error('[Popup] Settings event init failed:', e);
-      }
-    } else {
-      console.error('[Popup] settingsFeature not initialized');
-    }
-
-    // Breakdown modal events
-    document.getElementById('closeBreakdownModal').addEventListener('click', () => {
-      this.hideBreakdownModal();
-    });
-
-    document.getElementById('closeBreakdownBtn').addEventListener('click', () => {
-      this.hideBreakdownModal();
-    });
-
-    document.getElementById('copyBreakdownBtn').addEventListener('click', () => {
-      this.copyBreakdownText();
-    });
-
-    // Italics toggle button
-    document.getElementById('breakdownItalicsBtn').addEventListener('click', () => {
-      this.toggleBreakdownItalics();
-    });
-
-    // Breakdown modal overlay click to close
-    document.getElementById('breakdownModal').addEventListener('click', (e) => {
-      if (e.target.id === 'breakdownModal') {
-        this.hideBreakdownModal();
-      }
-    });
-
-    // AI History modal events
-    const closeAiHistoryModal = document.getElementById('closeAiHistoryModal');
-    if (closeAiHistoryModal) {
-      closeAiHistoryModal.addEventListener('click', () => {
-        document.getElementById('aiHistoryModal').style.display = 'none';
-      });
-    }
-    const closeAiHistoryModalBtn = document.getElementById('closeAiHistoryModalBtn');
-    if (closeAiHistoryModalBtn) {
-      closeAiHistoryModalBtn.addEventListener('click', () => {
-        document.getElementById('aiHistoryModal').style.display = 'none';
-      });
-    }
-    const copyAiHistoryBtn = document.getElementById('copyAiHistoryBtn');
-    if (copyAiHistoryBtn) {
-      copyAiHistoryBtn.addEventListener('click', () => {
-        this.copyHistoryContent();
-      });
-    }
-    // Edit title button
-    const editAiHistoryTitleBtn = document.getElementById('editAiHistoryTitleBtn');
-    if (editAiHistoryTitleBtn) {
-      editAiHistoryTitleBtn.addEventListener('click', () => this._startEditHistoryTitle());
-    }
-    const aiHistoryTitleSaveBtn = document.getElementById('aiHistoryTitleSaveBtn');
-    if (aiHistoryTitleSaveBtn) {
-      aiHistoryTitleSaveBtn.addEventListener('click', () => this._saveEditHistoryTitle());
-    }
-    const aiHistoryTitleCancelBtn = document.getElementById('aiHistoryTitleCancelBtn');
-    if (aiHistoryTitleCancelBtn) {
-      aiHistoryTitleCancelBtn.addEventListener('click', () => this._cancelEditHistoryTitle());
-    }
-    const aiHistoryTitleInput = document.getElementById('aiHistoryTitleInput');
-    if (aiHistoryTitleInput) {
-      aiHistoryTitleInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') this._saveEditHistoryTitle();
-        if (e.key === 'Escape') this._cancelEditHistoryTitle();
-      });
-    }
-    // Continue conversation button
-    const continueConversationBtn = document.getElementById('continueConversationBtn');
-    if (continueConversationBtn) {
-      continueConversationBtn.addEventListener('click', () => this.continueHistoryConversation());
-    }
-    const aiHistoryModal = document.getElementById('aiHistoryModal');
-    if (aiHistoryModal) {
-      aiHistoryModal.addEventListener('click', (e) => {
-        if (e.target.id === 'aiHistoryModal') {
-          aiHistoryModal.style.display = 'none';
-        }
-      });
-    }
-    // Clear all AI history button
-    const clearAiHistoryBtn = document.getElementById('clearAiHistoryBtn');
-    if (clearAiHistoryBtn) {
-      clearAiHistoryBtn.addEventListener('click', () => {
-        this.clearAllAiHistory();
-      });
-    }
-
-    // AI History search bar
-    const aiHistorySearchInput = document.getElementById('aiHistorySearchInput');
-    const aiHistorySearchClear = document.getElementById('aiHistorySearchClear');
-    if (aiHistorySearchInput) {
-      aiHistorySearchInput.addEventListener('input', () => {
-        this._aiHistorySearchQuery = aiHistorySearchInput.value.trim().toLowerCase();
-        this.renderAiHistoryList();
-      });
-    }
-    if (aiHistorySearchClear) {
-      aiHistorySearchClear.addEventListener('click', () => {
-        if (aiHistorySearchInput) aiHistorySearchInput.value = '';
-        this._aiHistorySearchQuery = '';
-        this.renderAiHistoryList();
-      });
-    }
-
-    // AI History filter chips
-    document.querySelectorAll('.ai-history-filter-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        document.querySelectorAll('.ai-history-filter-chip').forEach(c => {
-          c.classList.remove('active');
-          c.style.background = '#f8fafc';
-          c.style.color = '#64748b';
-          c.style.borderColor = '#e5e7eb';
-        });
-        chip.classList.add('active');
-        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-        chip.style.color = 'white';
-        chip.style.borderColor = '#3b82f6';
-        this._aiHistoryFilterType = chip.dataset.filter;
-        this.renderAiHistoryList();
-      });
-      // Style the initial active chip
-      if (chip.classList.contains('active')) {
-        chip.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-        chip.style.color = 'white';
-        chip.style.borderColor = '#3b82f6';
-      }
-    });
-
-    // Clip Viewer modal events
-    const closeClipViewerModal = document.getElementById('closeClipViewerModal');
-    if (closeClipViewerModal) {
-      closeClipViewerModal.addEventListener('click', () => this.hideClipViewerModal());
-    }
-    const closeClipViewerBtn = document.getElementById('closeClipViewerBtn');
-    if (closeClipViewerBtn) {
-      closeClipViewerBtn.addEventListener('click', () => this.hideClipViewerModal());
-    }
-    const copyClipViewerBtn = document.getElementById('copyClipViewerBtn');
-    if (copyClipViewerBtn) {
-      copyClipViewerBtn.addEventListener('click', () => this.copyClipViewerText());
-    }
-    const clipViewerModal = document.getElementById('clipViewerModal');
-    if (clipViewerModal) {
-      clipViewerModal.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'clipViewerModal') {
-          this.hideClipViewerModal();
-        }
-      });
-    }
-
-    // Breakdown tab switching
-    document.querySelector('.breakdown-tabs').addEventListener('click', (e) => {
-      const tab = e.target.closest('.breakdown-tab');
-      if (tab) {
-        const level = tab.dataset.level;
-        
-        // Update active tab
-        document.querySelectorAll('.breakdown-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Update level info text
-        this.updateLevelInfo(level);
-        
-        // Generate breakdown for this level
-        this.currentBreakdownLevel = level;
-        this.generateBreakdown(level);
-      }
-    });
-
-    // settingsModal overlay click handled by settingsFeature.events.initSettingsEvents()
-
-    // Delimiter controls
-    document.getElementById('delimiterControl').addEventListener('click', (e) => {
-      if (e.target.classList.contains('segment-btn')) {
-        document.querySelectorAll('.segment-btn').forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        this.delimiter = e.target.dataset.delimiter;
-        this.updatePreview();
-        this.updatePreviewFromSelection(); // Also update category selection preview
-        this.updateDelimiterExample(); // Update example text
-        
-        // Handle custom delimiter
-        const customInput = document.getElementById('customDelimiter');
-        if (this.delimiter === 'custom') {
-          customInput.style.display = 'block';
-          customInput.focus();
-        } else {
-          customInput.style.display = 'none';
-        }
-      }
-    });
-    
-    // Custom delimiter input
-    document.getElementById('customDelimiter').addEventListener('input', () => {
-      if (this.delimiter === 'custom') {
-        this.updatePreview();
-        this.updatePreviewFromSelection();
-        this.updateDelimiterExample(); // Update example text
-      }
-    });
-    
-    // Toggle controls
-    document.getElementById('deduplicateToggle').addEventListener('change', (e) => {
-      this.options.deduplicate = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    document.getElementById('sortToggle').addEventListener('change', (e) => {
-      this.options.sort = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    document.getElementById('uppercaseToggle').addEventListener('change', (e) => {
-      this.options.uppercase = e.target.checked;
-      this.updatePreview();
-      this.updatePreviewFromSelection(); // Also update category selection preview
-    });
-    
-    // Copy button
-    document.getElementById('copyBtn').addEventListener('click', () => {
-      this.copyToClipboard();
-    });
-    
-    // Magic wand � opens preview modal
-    document.getElementById('magicWand').addEventListener('click', () => {
-      this.magicFormat();
-    });
-
-    // Magic info button � opens info modal
-    const magicInfoBtn = document.getElementById('magicInfoBtn');
-    if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'flex';
-    });
-    const closeMagicInfo = document.getElementById('closeMagicInfo');
-    if (closeMagicInfo) closeMagicInfo.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'none';
-    });
-    const magicInfoDone = document.getElementById('magicInfoDone');
-    if (magicInfoDone) magicInfoDone.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'none';
-    });
-    const magicInfoOverlay = document.getElementById('magicInfoModal');
-    if (magicInfoOverlay) magicInfoOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicInfoModal') magicInfoOverlay.style.display = 'none';
-    });
-
-    // Magic preview modal: close / cancel
-    const closeMagicPreview = document.getElementById('closeMagicPreview');
-    if (closeMagicPreview) closeMagicPreview.addEventListener('click', () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-    });
-    const magicCancelBtn = document.getElementById('magicCancelBtn');
-    if (magicCancelBtn) magicCancelBtn.addEventListener('click', () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-    });
-    const magicPreviewOverlay = document.getElementById('magicPreviewModal');
-    if (magicPreviewOverlay) magicPreviewOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicPreviewModal') magicPreviewOverlay.style.display = 'none';
-    });
-
-    // Magic preview: Craft the Magic (selected only)
-    const craftSelectedBtn = document.getElementById('magicCraftSelectedBtn');
-    if (craftSelectedBtn) craftSelectedBtn.addEventListener('click', async () => {
-      if (this._magicSelected.size === 0) return;
-      document.getElementById('magicPreviewModal').style.display = 'none';
-      const stats = await this._craftMagic([...this._magicSelected]);
-      this._showMagicResults(stats);
-    });
-
-    // Magic preview: Craft all Magic to clips
-    const craftAllBtn = document.getElementById('magicCraftAllBtn');
-    if (craftAllBtn) craftAllBtn.addEventListener('click', async () => {
-      document.getElementById('magicPreviewModal').style.display = 'none';
-      const stats = await this._craftAllMagic();
-      this._showMagicResults(stats);
-    });
-
-    // Magic preview: Undo
-    const magicUndoBtn = document.getElementById('magicUndoBtn');
-    if (magicUndoBtn) magicUndoBtn.addEventListener('click', () => {
-      this._undoMagic();
-    });
-
-    // Magic results modal: close
-    const closeMagicResults = document.getElementById('closeMagicResults');
-    if (closeMagicResults) closeMagicResults.addEventListener('click', () => {
-      document.getElementById('magicResultsModal').style.display = 'none';
-    });
-    const magicDoneBtn = document.getElementById('magicResultsDone');
-    if (magicDoneBtn) magicDoneBtn.addEventListener('click', () => {
-      document.getElementById('magicResultsModal').style.display = 'none';
-    });
-    const magicResultsOverlay = document.getElementById('magicResultsModal');
-    if (magicResultsOverlay) magicResultsOverlay.addEventListener('click', (e) => {
-      if (e.target.id === 'magicResultsModal') magicResultsOverlay.style.display = 'none';
-    });
-    
-    // AI button and tab handlers
-    const aiBtn = document.getElementById('aiBtn');
-    if (aiBtn) {
-      aiBtn.addEventListener('click', () => {
-        // Switch to AI tab
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        const aiTabBtn = document.querySelector('.tab-btn[data-tab="ai"]');
-        if (aiTabBtn) {
-          aiTabBtn.classList.add('active');
-        }
-        
-        this.currentTab = 'ai';
-        document.getElementById('aiTab').classList.add('active');
-
-        // Persist active tab
-        this._saveActiveTabState();
-
-        // Refresh credits view when entering AI Lab.
-        this.updateAiCreditsPills('ai-tab');
-
-        // Defer heavy work one frame so the tab-switch paints first. Avoids
-        // a stutter where layout + gallery network reads happen in the same
-        // frame as the CSS class change.
-        requestAnimationFrame(() => {
-          this.loadAIGallery();
-          this.migrateProfileImageToGallery();
-        });
-      });
-    }
-
-    // AI Lab internal tab navigation
-    const aiLabTabsContainer = document.querySelector('.ai-lab-tabs');
-    if (aiLabTabsContainer) {
-      aiLabTabsContainer.addEventListener('click', (e) => {
-        const clickedTab = e.target.closest('.ai-lab-tab');
-        if (clickedTab) {
-          // Remove active class from all AI Lab tabs
-          document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
-          document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
-          
-          // Add active class to clicked tab
-          clickedTab.classList.add('active');
-          
-          // Show corresponding section
-          const tabName = clickedTab.dataset.aiTab;
-          this._currentAiLabSubTab = tabName;
-          this._saveActiveTabState();
-
-          if (tabName === 'generator') {
-            document.getElementById('aiGeneratorSection').classList.add('active');
-          } else if (tabName === 'gallery') {
-            document.getElementById('aiGallerySection').classList.add('active');
-            this.loadAIGallery();
-            this.migrateProfileImageToGallery();
-          } else if (tabName === 'summary') {
-            document.getElementById('aiSummarySection').classList.add('active');
-          }
-        }
-      });
-    }
-
-    // AI Breakdown standalone button
-    const breakdownButton = document.querySelector('.ai-breakdown-feature');
-    if (breakdownButton) {
-      breakdownButton.addEventListener('click', () => {
-        // Remove active class from all tabs and sections
-        document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
-        
-        // Show breakdown section
-        document.getElementById('aiBreakdownSection').classList.add('active');
-        this._currentAiLabSubTab = 'breakdown';
-        this._saveActiveTabState();
-      });
-    }
-
-    // AI Workflow controls (toggle + selects)
-    try {
-      const overrideToggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-
-      const onChange = () => {
-        // Clear stale AI result caches when model/preset changes
-        this.breakdownCache = {};
-        // Save quietly, then ensure UI enabled/disabled state is correct.
-        this.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      // When provider changes, rebuild presets then save
-      const onProviderChange = () => {
-        const selectedProvider = providerEl ? providerEl.value : 'openai';
-        this.aiWorkflow.provider = selectedProvider;
-        this.aiWorkflow.preset = 'default'; // reset preset on provider switch
-        // Clear stale AI result caches when provider changes
-        this.breakdownCache = {};
-        this.applyAiWorkflowToUi();
-        // Refresh tooltip with new provider's credit costs
-        this.updateAiCreditsPills('provider-change');
-        // Immediately sync cache so any in-flight AI call uses new provider
-        if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
-          pasteCraftSupabase.setAiWorkflowConfigDirect(this.aiWorkflow);
-        }
-        this.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      if (overrideToggle) overrideToggle.addEventListener('change', onChange);
-      if (providerEl) providerEl.addEventListener('change', onProviderChange);
-      if (presetEl) presetEl.addEventListener('change', onChange);
-
-      // Initial UI state
-      this.applyAiWorkflowToUi();
-    } catch (_) {}
-
-    // AI Breakdown page state
-    this.selectedBreakdownLevel = null;
-
-    // AI Breakdown page event listeners
-    const clearBreakdownInput = document.getElementById('clearBreakdownInput');
-    const breakdownInput = document.getElementById('breakdownInput');
-    const charCounter = document.getElementById('breakdownCharCounter');
-    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
-    const levelChips = document.querySelectorAll('.level-chip');
-    const levelSelectionHint = document.getElementById('levelSelectionHint');
-
-    if (clearBreakdownInput && breakdownInput) {
-      clearBreakdownInput.addEventListener('click', () => {
-        breakdownInput.value = '';
-        if (charCounter) charCounter.textContent = '0 characters';
-        this.selectedBreakdownLevel = null;
-        
-        // Disable and deselect all level chips
-        levelChips.forEach(chip => {
-          chip.disabled = true;
-          chip.classList.remove('selected');
-        });
-        
-        // Disable analyze button
-        if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-        
-        // Reset hint
-        if (levelSelectionHint) {
-          levelSelectionHint.textContent = 'Type at least one sentence above to enable levels';
-        }
-        
-        // Hide inline results
-        const bdInlineResults = document.getElementById('bdInlineResults');
-        if (bdInlineResults) bdInlineResults.style.display = 'none';
-        this.inlineBreakdownCache = {};
-        this.inlineBreakdownThreads = [];
-        this.currentInlineBreakdownThreadIndex = 0;
-
-        breakdownInput.focus();
-        // Persist cleared state
-        this._saveBreakdownPageState();
-      });
-    }
-
-    // Character counter and level chip enabler
-    if (breakdownInput && charCounter) {
-      // Debounce timer for persisting breakdown input
-      let _bdInputSaveTimer = null;
-
-      breakdownInput.addEventListener('input', () => {
-        const text = breakdownInput.value.trim();
-        const length = breakdownInput.value.length;
-        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
-        
-        charCounter.textContent = `${length} character${length !== 1 ? 's' : ''}`;
-        
-        // Enable level chips if at least 5 words (roughly one sentence)
-        const hasEnoughText = wordCount >= 5;
-        
-        levelChips.forEach(chip => {
-          chip.disabled = !hasEnoughText;
-        });
-        
-        // Update hint text
-        if (levelSelectionHint) {
-          if (hasEnoughText) {
-            levelSelectionHint.textContent = 'Select a level below to continue';
-          } else {
-            const remaining = 5 - wordCount;
-            levelSelectionHint.textContent = `Type ${remaining} more word${remaining !== 1 ? 's' : ''} to enable levels`;
-          }
-        }
-        
-        // If text is cleared, disable analyze button and reset selection
-        if (!hasEnoughText) {
-          this.selectedBreakdownLevel = null;
-          levelChips.forEach(chip => chip.classList.remove('selected'));
-          if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-        }
-
-        // Persist breakdown input (debounced)
-        clearTimeout(_bdInputSaveTimer);
-        _bdInputSaveTimer = setTimeout(() => this._saveBreakdownPageState(), 400);
-      });
-    }
-
-    // Level chip selection
-    levelChips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        if (!chip.disabled) {
-          // Deselect all chips
-          levelChips.forEach(c => c.classList.remove('selected'));
-          
-          // Select this chip
-          chip.classList.add('selected');
-          this.selectedBreakdownLevel = chip.dataset.level;
-          
-          // Enable analyze button
-          if (analyzeLevelBtn) analyzeLevelBtn.disabled = false;
-          
-          // Update hint
-          if (levelSelectionHint) {
-            const levelName = chip.querySelector('strong').textContent;
-            levelSelectionHint.textContent = `${levelName} level selected - Click analyze button below`;
-          }
-
-          // Persist selected level
-          this._saveBreakdownPageState();
-        }
-      });
-    });
-
-    // Analyze button - renders INLINE (not in modal) when from AI Lab page
-    if (analyzeLevelBtn && breakdownInput) {
-      analyzeLevelBtn.addEventListener('click', () => {
-        const text = breakdownInput.value.trim();
-        if (text && this.selectedBreakdownLevel) {
-          this.startInlineBreakdown(text, this.selectedBreakdownLevel);
-        }
-      });
-    }
-
-    // Inline level tab clicks (switch levels inside inline results)
-    document.querySelectorAll('.bd-inline-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const level = tab.dataset.inlineLevel;
-        if (!level || !this.currentBreakdownText) return;
-
-        // Update active tab
-        document.querySelectorAll('.bd-inline-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        // Also update Step 2 chip selection
-        const levelChips = document.querySelectorAll('.level-chip');
-        levelChips.forEach(c => c.classList.remove('selected'));
-        const matchingChip = document.querySelector(`.level-chip[data-level="${level}"]`);
-        if (matchingChip) matchingChip.classList.add('selected');
-
-        this.selectedBreakdownLevel = level;
-        this.currentBreakdownLevel = level;
-
-        // Update badge
-        const badge = document.getElementById('bdInlineLevelBadge');
-        const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
-        if (badge) badge.textContent = levelNames[level] || level;
-
-        // Generate for this level
-        this.generateBreakdownInline(level);
-      });
-    });
-
-    // Inline follow-up button
-    const bdInlineFollowupBtn = document.getElementById('bdInlineFollowupBtn');
-    const bdInlineFollowupInput = document.getElementById('bdInlineFollowupInput');
-    if (bdInlineFollowupBtn && bdInlineFollowupInput) {
-      const sendInlineFollowup = () => {
-        const question = bdInlineFollowupInput.value.trim();
-        if (!question || !this.currentBreakdownText) return;
-        bdInlineFollowupInput.value = '';
-        this.sendInlineBreakdownFollowup(question);
-      };
-      bdInlineFollowupBtn.addEventListener('click', sendInlineFollowup);
-      bdInlineFollowupInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') sendInlineFollowup();
-      });
-    }
-
-    // AI Summary page event listeners
-    const summaryInput = document.getElementById('summaryInput');
-    const summaryCharCounter = document.getElementById('summaryCharCounter');
-    const clearSummaryInput = document.getElementById('clearSummaryInput');
-    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
-    const customQuestionInput = document.getElementById('customQuestionInput');
-    const customQuestionBtn = document.getElementById('customQuestionBtn');
-    const backToInputBtn = document.getElementById('backToInputBtn');
-    const newQuestionBtn = document.getElementById('newQuestionBtn');
-    const newSummaryBtn = document.getElementById('newSummaryBtn');
-    const copySummaryBtn = document.getElementById('copySummaryBtn');
-
-    // Summary input character counter
-    // Debounce timer for persisting summary input
-    let _sumInputSaveTimer = null;
-
-    if (summaryInput && summaryCharCounter) {
-      summaryInput.addEventListener('input', () => {
-        const length = summaryInput.value.length;
-        const wordCount = summaryInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
-        summaryCharCounter.textContent = `${length} characters`;
-        
-        // Enable generate questions button if enough text (at least 5 words)
-        if (generateQuestionsBtn) {
-          generateQuestionsBtn.disabled = wordCount < 5;
-        }
-
-        // Persist summary input (debounced)
-        clearTimeout(_sumInputSaveTimer);
-        _sumInputSaveTimer = setTimeout(() => {
-          this._currentSummarySection = 'input';
-          this._saveSummaryState();
-        }, 400);
-      });
-    }
-
-    // Clear summary input
-    if (clearSummaryInput && summaryInput) {
-      clearSummaryInput.addEventListener('click', () => {
-        summaryInput.value = '';
-        if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
-        if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-        summaryInput.focus();
-        // Persist cleared state
-        this._currentSummarySection = 'input';
-        this._saveSummaryState();
-      });
-    }
-
-    // Generate questions button
-    if (generateQuestionsBtn) {
-      generateQuestionsBtn.addEventListener('click', () => {
-        const text = summaryInput.value.trim();
-        if (text) {
-          this.currentSummaryText = text;
-          this.generateSummaryQuestions(text);
-        }
-      });
-    }
-
-    // Custom question input
-    if (customQuestionInput && customQuestionBtn) {
-      customQuestionInput.addEventListener('input', () => {
-        customQuestionBtn.disabled = customQuestionInput.value.trim().length < 5;
-      });
-      
-      customQuestionInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !customQuestionBtn.disabled) {
-          customQuestionBtn.click();
-        }
-      });
-    }
-
-    // Custom question button
-    if (customQuestionBtn) {
-      customQuestionBtn.addEventListener('click', () => {
-        const question = customQuestionInput.value.trim();
-        if (question && this.currentSummaryText) {
-          this.currentSummaryQuestion = question;
-          this.generateSummary(this.currentSummaryText, question);
-        }
-      });
-    }
-
-    // Back to input button
-    if (backToInputBtn) {
-      backToInputBtn.addEventListener('click', () => {
-        this.showSummarySection('input');
-        this.currentSummaryText = null;
-        this.generatedQuestions = [];
-        this._currentSummarySection = 'input';
-        this._saveSummaryState();
-      });
-    }
-
-    // New question button
-    if (newQuestionBtn) {
-      newQuestionBtn.addEventListener('click', () => {
-        this.showSummarySection('questions');
-        this._currentSummarySection = 'questions';
-        this._saveSummaryState();
-      });
-    }
-
-    // New summary button
-    if (newSummaryBtn) {
-      newSummaryBtn.addEventListener('click', () => {
-        this._resetSummaryToEmpty();
-        this._saveSummaryState();
-      });
-    }
-
-    // Copy summary button
-    if (copySummaryBtn) {
-      copySummaryBtn.addEventListener('click', async () => {
-        const content = document.getElementById('summaryResultContent').textContent;
-        if (content) {
-          try {
-            await this.copyToClipboardFallback(content);
-            this.showToast('Summary copied to clipboard!');
-          } catch (error) {
-            console.error('Summary copy failed:', error);
-            this.showToast('Failed to copy summary', 'error');
-          }
-        }
-      });
-    }
-
-    // Summary follow-up handlers
-    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
-    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
-
-    if (summaryFollowupInput) {
-      summaryFollowupInput.addEventListener('input', (e) => {
-        if (summaryFollowupBtn) {
-          summaryFollowupBtn.disabled = e.target.value.trim() === '';
-        }
-      });
-
-      summaryFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && this.currentSummaryText) {
-          this.handleSummaryFollowup(e.target.value.trim());
-        }
-      });
-    }
-
-    if (summaryFollowupBtn) {
-      summaryFollowupBtn.disabled = true;
-      summaryFollowupBtn.addEventListener('click', () => {
-        if (summaryFollowupInput && this.currentSummaryText) {
-          const followupQuestion = summaryFollowupInput.value.trim();
-          if (followupQuestion) {
-            this.handleSummaryFollowup(followupQuestion);
-          }
-        }
-      });
-    }
-
-    // Breakdown follow-up handlers
-    const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
-    const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
-
-    if (breakdownFollowupInput) {
-      breakdownFollowupInput.addEventListener('input', (e) => {
-        const hasText = e.target.value.trim() !== '';
-        
-        // Enable/disable send button
-        if (breakdownFollowupBtn) {
-          breakdownFollowupBtn.disabled = !hasText;
-        }
-        
-        // Enable/disable level tabs
-        this.toggleFollowupLevelTabs(hasText);
-      });
-
-      breakdownFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && this.currentBreakdownText) {
-          this.handleBreakdownFollowup(e.target.value.trim());
-        }
-      });
-    }
-
-    if (breakdownFollowupBtn) {
-      breakdownFollowupBtn.disabled = true;
-      breakdownFollowupBtn.addEventListener('click', () => {
-        if (breakdownFollowupInput && this.currentBreakdownText) {
-          const followupQuestion = breakdownFollowupInput.value.trim();
-          if (followupQuestion) {
-            this.handleBreakdownFollowup(followupQuestion);
-          }
-        }
-      });
-    }
-
-    // Follow-up level tab handlers
-    const followupLevelTabs = document.querySelectorAll('.followup-level-tab');
-    followupLevelTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        if (!tab.classList.contains('disabled')) {
-          // Remove selected from all
-          followupLevelTabs.forEach(t => t.classList.remove('selected'));
-          // Add selected to clicked
-          tab.classList.add('selected');
-          // Store selected level
-          this.selectedFollowupLevel = tab.dataset.followupLevel;
-          console.log('?? Selected follow-up level:', this.selectedFollowupLevel);
-          
-          // ? FIX: Auto-submit the followup when level is clicked
-          if (breakdownFollowupInput && this.currentBreakdownText) {
-            const followupQuestion = breakdownFollowupInput.value.trim();
-            if (followupQuestion) {
-              this.handleBreakdownFollowup(followupQuestion);
-            }
-          }
-        }
-      });
-    });
-    
-    // AI generation buttons
-    const aiGenerateFromProfileBtn = document.getElementById('aiGenerateFromProfileBtn');
-    const aiGenerateRandomBtn = document.getElementById('aiGenerateRandomBtn');
-    const aiTimerDismiss = document.getElementById('aiTimerDismiss');
-    
-    if (aiGenerateFromProfileBtn) {
-      aiGenerateFromProfileBtn.addEventListener('click', () => {
-        this.generateAIImageFromProfile();
-      });
-    }
-    
-    if (aiGenerateRandomBtn) {
-      aiGenerateRandomBtn.addEventListener('click', () => {
-        this.generateRandomAIImage();
-      });
-    }
-    
-    if (aiTimerDismiss) {
-      aiTimerDismiss.addEventListener('click', () => {
-        this.hideAIGenerationTimer();
-      });
-    }
-    
-    // Quick Copy Button
-    document.getElementById('quickCopyBtn').addEventListener('click', () => {
-      this.handleQuickCopy();
-    });
-
-    // Quick Delete Button (2+ selected)
-    const quickDeleteBtn = document.getElementById('quickDeleteBtn');
-    if (quickDeleteBtn) {
-      quickDeleteBtn.addEventListener('click', () => {
-        this.handleQuickDelete();
-      });
-    }
-
-    // Bulk AI Actions (2+ selected clips) � modularized so Clips and Categories reuse the same wiring
-    this._wireBulkAiButtons({
-      summaryBtnId: 'bulkAiSummaryBtn',
-      sendCategoriesBtnId: 'bulkSendCategoriesBtn',
-      sendNotesBtnId: 'bulkSendNotesBtn',
-      breakdownBtnId: 'bulkAiBreakdownBtn',
-      getText: () => this._getSelectedClipsText(),
-      getIdKeys: () => this._getSelectedClipIdKeys(),
-      getClipObjects: () => this._getSelectedClipObjects()
-    });
-
-    this._wireBulkAiButtons({
-      summaryBtnId: 'categoriesBulkAiSummaryBtn',
-      sendCategoriesBtnId: 'categoriesBulkSendCategoriesBtn',
-      sendNotesBtnId: 'categoriesBulkSendNotesBtn',
-      breakdownBtnId: 'categoriesBulkAiBreakdownBtn',
-      getText: () => this._getSelectedCategoryClipsText(),
-      getIdKeys: () => this._getSelectedCategoryClipIdKeys(),
-      getClipObjects: () => this._getSelectedCategoryClipObjects()
-    });
-
-    // Setup image viewer for expanded view
-    this.setupImageViewer();
-    
-    // Initialize delimiter example text
-    this.updateDelimiterExample();
-
-    // Activity log event listeners
-    this.activityFeature.events.initActivityEventListeners(this);
+  async setupEventListeners() {
+    const { registerPopupEventListeners } = await import('./popup/popup.events.js');
+    registerPopupEventListeners(this);
   }
   
   // =====================================================
@@ -2774,124 +459,15 @@ class PasteCraftPopup {
   // =====================================================
   
   async checkOAuthCallback() {
-    try {
-      const result = await chrome.storage.local.get('oauth_callback');
-      if (result.oauth_callback) {
-        const { access_token, refresh_token } = result.oauth_callback;
-        console.log('?? Found OAuth callback tokens, completing sign in...');
-        
-        // Set session with tokens (timeout to prevent hang)
-        try {
-          const { error } = await Promise.race([
-            pasteCraftSupabase.client.auth.setSession({ access_token, refresh_token }),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('setSession timeout')), 3000))
-          ]);
-          
-          if (!error) {
-            console.log('? OAuth sign in completed!');
-            try {
-              const { data: { user } } = await Promise.race([
-                pasteCraftSupabase.client.auth.getUser(),
-                new Promise((_, rej) => setTimeout(() => rej(new Error('getUser timeout')), 3000))
-              ]);
-              
-              // Create subscription for new user
-              if (user) {
-                await pasteCraftSupabase.createUserSubscription(user.id, user.email);
-              }
-            } catch (_) {}
-          } else {
-            console.error('? Failed to set session:', error);
-          }
-        } catch (timeoutErr) {
-          console.warn('?? setSession timed out, session bridge will handle auth');
-        }
-        
-        // Clear the temporary tokens regardless
-        await chrome.storage.local.remove('oauth_callback');
-      }
-    } catch (error) {
-      console.error('? Error checking OAuth callback:', error);
-    }
+    return this.authFeature.callbacks.checkOAuthCallback();
   }
 
   async checkPasswordResetCallback() {
-    try {
-      console.log('=================================');
-      console.log('?? CHECKING PASSWORD RESET CALLBACK');
-      console.log('=================================');
-      console.log('?? Reading from chrome.storage.local...');
-      
-      const result = await chrome.storage.local.get('password_reset_callback');
-      console.log('?? Storage result:', result);
-      
-      if (result.password_reset_callback) {
-        const { access_token, refresh_token, type, timestamp } = result.password_reset_callback;
-        console.log('? Password reset callback data found!');
-        console.log('?? Data details:', {
-          access_token_length: access_token?.length,
-          refresh_token_length: refresh_token?.length,
-          type: type,
-          timestamp: new Date(timestamp).toISOString(),
-          age_seconds: (Date.now() - timestamp) / 1000
-        });
-        
-        if (type === 'recovery') {
-          console.log('?? Type is "recovery" - setting database session...');
-          
-          // Set session with recovery tokens
-          const { error } = await pasteCraftSupabase.client.auth.setSession({
-            access_token,
-            refresh_token
-          });
-          
-          if (!error) {
-            console.log('? Password reset session established successfully!');
-            
-            // Verify session
-            const { data: { user } } = await pasteCraftSupabase.client.auth.getUser();
-            console.log('?? Current user after session:', user?.email);
-            
-            // Clear the temporary tokens
-            console.log('?? Clearing temporary tokens from storage...');
-            await chrome.storage.local.remove('password_reset_callback');
-            console.log('? Tokens cleared');
-            
-            return true;
-          } else {
-            console.error('? Failed to set password reset session:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
-          }
-        } else {
-          console.warn('?? Type is not "recovery":', type);
-        }
-      } else {
-        console.log('?? No password reset callback data in storage');
-      }
-    } catch (error) {
-      console.error('? Error checking password reset callback:', error);
-      console.error('Error stack:', error.stack);
-    }
-    return false;
+    return this.authFeature.callbacks.checkPasswordResetCallback();
   }
 
   async setPasswordResetSession(accessToken, refreshToken) {
-    try {
-      console.log('?? Setting password reset session from URL tokens');
-      
-      const { error } = await pasteCraftSupabase.client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      });
-      
-      if (!error) {
-        console.log('? Password reset session established from URL!');
-      } else {
-        console.error('? Failed to set password reset session:', error);
-      }
-    } catch (error) {
-      console.error('? Error setting password reset session:', error);
-    }
+    return this.authFeature.callbacks.setPasswordResetSession(accessToken, refreshToken);
   }
   
   showAuthModal() {
@@ -2985,14 +561,7 @@ class PasteCraftPopup {
   }
   
   syncOptionToggles() {
-    // Sync UI toggle states with internal options
-    const deduplicateToggle = document.getElementById('deduplicateToggle');
-    const sortToggle = document.getElementById('sortToggle');
-    const uppercaseToggle = document.getElementById('uppercaseToggle');
-    
-    if (deduplicateToggle) deduplicateToggle.checked = this.options.deduplicate;
-    if (sortToggle) sortToggle.checked = this.options.sort;
-    if (uppercaseToggle) uppercaseToggle.checked = this.options.uppercase;
+    return this.clipsFeature.preview.syncOptionToggles(this);
   }
   
   async removeChip(clipIdKey) {
@@ -3008,74 +577,11 @@ class PasteCraftPopup {
   }
   
   updatePreview() {
-    const previewArea = document.getElementById('previewArea');
-    const orderedIds = this.getSelectedClipIdsInUiOrder();
-    const selectedTexts = orderedIds
-      .map(id => this.clips.find(c => this._clipIdKey(c?.id) === id)?.text)
-      .filter(Boolean);
-    
-    if (selectedTexts.length === 0) {
-      // Don't wipe user edits when nothing is selected
-      if (!this.previewIsManual && this.previewLastAutoValue) {
-        previewArea.value = '';
-        this.previewLastAutoValue = '';
-      }
-      return;
-    }
-    
-    let processedTexts = [...selectedTexts];
-    
-    // Apply transformations
-    if (this.options.deduplicate) {
-      processedTexts = [...new Set(processedTexts)];
-    }
-    
-    if (this.options.sort) {
-      processedTexts.sort();
-    }
-    
-    if (this.options.uppercase) {
-      processedTexts = processedTexts.map(t => t.toUpperCase());
-    }
-    
-    // Apply delimiter
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      pipe: ' | ',
-      custom: document.getElementById('customDelimiter')?.value || ', '
-    };
-    
-    const output = processedTexts.join(delimiters[this.delimiter] || ', ');
-    previewArea.value = output;
-    this.previewIsManual = false;
-    this.previewLastAutoValue = output;
-    
-    // Update quick copy button visibility
-    this.updateQuickCopyButton();
+    return this.clipsFeature.preview.updatePreview(this);
   }
-  
+
   updateDelimiterExample() {
-    const exampleText = document.querySelector('.example-text');
-    if (!exampleText) return;
-    
-    const delimiters = {
-      comma: ', ',
-      newline: '\n',
-      space: ' ',
-      custom: document.getElementById('customDelimiter')?.value || ' | '
-    };
-    
-    const delimiter = delimiters[this.delimiter] || ', ';
-    const items = ['apple', 'banana', 'cherry'];
-    
-    // For newline, show it visually
-    if (this.delimiter === 'newline') {
-      exampleText.textContent = 'apple ? banana ? cherry';
-    } else {
-      exampleText.textContent = items.join(delimiter);
-    }
+    return this.clipsFeature.preview.updateDelimiterExample(this);
   }
   
   // Fallback clipboard method for extension popups (Clipboard API blocked by permissions policy)
@@ -3099,8 +605,20 @@ class PasteCraftPopup {
     return this.clipsFeature.render.updateQuickCopyButton(this);
   }
 
+  getSelectedOrCurrentText(clipText, context) {
+    return this.clipsFeature.state.getSelectedOrCurrentText(this, clipText, context);
+  }
+
+  clearAllSelections() {
+    return this.clipsFeature.state.clearAllSelections(this);
+  }
+
+  showSummaryModal(text) {
+    return this.aiLabFeature.summaryModal.showSummaryModal(this, text);
+  }
+
   _getSelectedClipsText() {
-    return this._getSelectedClipObjects().map(c => c.text).join('\n\n');
+    return this.clipsFeature.state.getSelectedClipsText(this);
   }
 
   _getSelectedClipIdKeys() {
@@ -3120,60 +638,11 @@ class PasteCraftPopup {
   }
 
   _getSelectedCategoryClipsText() {
-    return this._getSelectedCategoryClipObjects().map(c => c.text).join('\n\n');
+    return this.clipsFeature.state.getSelectedCategoryClipsText(this);
   }
 
   _wireBulkAiButtons(config) {
-    if (!config) return;
-    const {
-      summaryBtnId,
-      sendCategoriesBtnId,
-      sendNotesBtnId,
-      breakdownBtnId,
-      getText,
-      getIdKeys,
-      getClipObjects
-    } = config;
-
-    const summaryBtn = summaryBtnId ? document.getElementById(summaryBtnId) : null;
-    if (summaryBtn && typeof getText === 'function') {
-      summaryBtn.addEventListener('click', () => {
-        const text = getText();
-        if (text) this.showSummaryModal(text);
-      });
-    }
-
-    const sendCategoriesBtn = sendCategoriesBtnId ? document.getElementById(sendCategoriesBtnId) : null;
-    if (sendCategoriesBtn && typeof getIdKeys === 'function') {
-      sendCategoriesBtn.addEventListener('click', () => {
-        const ids = getIdKeys();
-        if (!ids || ids.length === 0) return;
-        this.pendingBulkClipIds = ids;
-        this.pendingText = null;
-        this.pendingClipId = null;
-        this.showCategoryModal(true);
-      });
-    }
-
-    const sendNotesBtn = sendNotesBtnId ? document.getElementById(sendNotesBtnId) : null;
-    if (sendNotesBtn && typeof getClipObjects === 'function') {
-      sendNotesBtn.addEventListener('click', async () => {
-        const clips = getClipObjects();
-        if (!clips || clips.length === 0) return;
-        await this.loadNotes();
-        this.pendingBulkClipsForNotes = clips;
-        this.pendingClipForNotes = null;
-        this.showAlbumPicker();
-      });
-    }
-
-    const breakdownBtn = breakdownBtnId ? document.getElementById(breakdownBtnId) : null;
-    if (breakdownBtn && typeof getText === 'function') {
-      breakdownBtn.addEventListener('click', () => {
-        const text = getText();
-        if (text) this.showBreakdownModal(text);
-      });
-    }
+    return this.aiLabFeature?.bulk?.wireBulkAiButtons?.(this, config);
   }
   
   // --- Magic Button: Content Type Detection ---
@@ -3248,6 +717,14 @@ class PasteCraftPopup {
     return this.aiLabFeature.magic._craftMagic.call(this, clipIds);
   }
 
+  activateRefactorizationSection() {
+    return this.aiLabFeature.refactorization.activateRefactorizationSection(this);
+  }
+
+  renderRefactorizationPanel() {
+    return this.aiLabFeature.refactorization.renderRefactorizationPanel.call(this);
+  }
+
   // --- Magic Button: Craft All with Undo Snapshot ---
   async _craftAllMagic() {
     return this.aiLabFeature.magic._craftAllMagic.call(this);
@@ -3263,31 +740,17 @@ class PasteCraftPopup {
     return this.aiLabFeature.magic._showMagicResults.call(this, stats);
   }
 
+  async _finishCraftFlow(stats) {
+    return this.aiLabFeature.magic._finishCraftFlow.call(this, stats);
+  }
+
+  async _applyCraftCategoryPick(categoryName, clipIds) {
+    return this.aiLabFeature.magic._applyCraftCategoryPick.call(this, categoryName, clipIds);
+  }
+
   
   showConfetti() {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-    const container = document.body;
-    
-    for (let i = 0; i < 30; i++) {
-      setTimeout(() => {
-        const confetti = document.createElement('div');
-        confetti.style.cssText = `
-          position: fixed;
-          width: 6px;
-          height: 6px;
-          background: ${colors[Math.floor(Math.random() * colors.length)]};
-          left: ${Math.random() * 100}vw;
-          top: -10px;
-          border-radius: 50%;
-          pointer-events: none;
-          z-index: 9999;
-          animation: confetti 3s linear forwards;
-        `;
-        
-        container.appendChild(confetti);
-        setTimeout(() => confetti.remove(), 3000);
-      }, i * 50);
-    }
+    return PasteCraftPopupUi.showConfetti();
   }
 
   // Search and Filter Functions
@@ -3322,21 +785,7 @@ class PasteCraftPopup {
   }
 
   setActionButtonLoading(buttonId, isLoading, loadingText = 'Loading...') {
-    if (!buttonId) return;
-    const btn = document.getElementById(buttonId);
-    if (!btn) return;
-
-    if (!btn.dataset.originalHtml) {
-      btn.dataset.originalHtml = btn.innerHTML;
-    }
-
-    if (isLoading) {
-      btn.disabled = true;
-      btn.innerHTML = `<span class="btn-loading-spinner" aria-hidden="true"></span>${this.escapeHtml(loadingText)}`;
-    } else {
-      btn.disabled = false;
-      btn.innerHTML = btn.dataset.originalHtml;
-    }
+    return PasteCraftPopupUi.setActionButtonLoading(this, buttonId, isLoading, loadingText);
   }
 
   async createCategory(name, icon, options = {}) {
@@ -3361,412 +810,63 @@ class PasteCraftPopup {
 
   // -- PDF Extraction ----------------------------------------------
   initPdfExtraction() {
-    const pdfBtn = document.getElementById('pdfUploadBtn');
-    const pdfInput = document.getElementById('pdfFileInput');
-    if (!pdfBtn || !pdfInput) return;
-
-    pdfBtn.addEventListener('click', () => pdfInput.click());
-
-    pdfInput.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      pdfInput.value = ''; // reset so same file can be re-selected
-      await this.openPdfExtractModal(file);
-    });
-
-    // Modal controls
-    const closeBtn = document.getElementById('pdfExtractCloseBtn');
-    const cancelBtn = document.getElementById('pdfExtractCancelBtn');
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const modal = document.getElementById('pdfExtractModal');
-
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closePdfModal());
-    if (cancelBtn) cancelBtn.addEventListener('click', () => this.closePdfModal());
-    if (modal) modal.addEventListener('click', (e) => {
-      if (e.target === modal) this.closePdfModal();
-    });
-    if (saveBtn) saveBtn.addEventListener('click', () => this.savePdfClips());
-
-    // Radio change: update save label + auto-switch to "All" tab when not in selectedPage mode
-    document.querySelectorAll('input[name="pdfSaveMode"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        this._updatePdfSaveLabel();
-        const mode = radio.value;
-        if (mode !== 'selectedPage' && typeof this._pdfActiveTab !== 'number') return;
-        if (mode === 'selectedPage' && this._pdfActiveTab === 'all') {
-          // Nudge user to pick a page � switch to P1
-          if (this._pdfPages && this._pdfPages.length > 0) {
-            this.switchPdfTab(0);
-          }
-        }
-      });
-    });
+    return this.clipsFeature?.pdf?.initPdfExtraction?.(this);
   }
 
   async openPdfExtractModal(file) {
-    const modal = document.getElementById('pdfExtractModal');
-    const loading = document.getElementById('pdfExtractLoading');
-    const options = document.getElementById('pdfExtractOptions');
-    const preview = document.getElementById('pdfExtractPreview');
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const fileNameEl = document.getElementById('pdfFileName');
-    const pageCountEl = document.getElementById('pdfPageCount');
-    const loadingText = document.getElementById('pdfLoadingText');
-
-    // Reset state
-    this._pdfPages = [];
-    this._pdfActiveTab = 'all';
-    if (fileNameEl) fileNameEl.textContent = file.name;
-    if (pageCountEl) pageCountEl.textContent = '�';
-    if (saveBtn) saveBtn.disabled = true;
-    if (loading) loading.style.display = 'flex';
-    if (options) options.style.display = 'none';
-    if (preview) preview.style.display = 'none';
-    if (modal) modal.style.display = 'flex';
-
-    // Populate category dropdown in modal
-    this.populatePdfCategoryDropdown();
-
-    try {
-      if (loadingText) loadingText.textContent = 'Reading PDF�';
-      const arrayBuffer = await file.arrayBuffer();
-
-      if (loadingText) loadingText.textContent = 'Extracting text�';
-      const pages = await this.extractPdfText(arrayBuffer);
-      this._pdfPages = pages;
-
-      if (pageCountEl) pageCountEl.textContent = `${pages.length} page${pages.length !== 1 ? 's' : ''}`;
-
-      // Build page tabs
-      this.buildPdfPageTabs(pages);
-
-      // Show all text by default
-      const textarea = document.getElementById('pdfPreviewTextarea');
-      if (textarea) textarea.value = pages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
-
-      if (loading) loading.style.display = 'none';
-      if (options) options.style.display = 'flex';
-      if (preview) preview.style.display = 'flex';
-      if (saveBtn) saveBtn.disabled = false;
-    } catch (err) {
-      console.error('PDF extraction failed:', err);
-      if (loading) loading.style.display = 'none';
-      this.showToast('Failed to extract PDF text. The file may be scanned/image-only.');
-      this.closePdfModal();
-    }
+    return this.clipsFeature?.pdf?.openPdfExtractModal?.(this, file);
   }
 
   async extractPdfText(arrayBuffer) {
-    // Configure pdf.js worker
-    if (typeof pdfjsLib !== 'undefined') {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
-    }
-
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pages = [];
-
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str);
-      pages.push(strings.join(' ').replace(/\s{2,}/g, ' ').trim());
-    }
-    return pages;
+    return this.clipsFeature?.pdf?.extractPdfText?.(arrayBuffer);
   }
 
   buildPdfPageTabs(pages) {
-    const container = document.getElementById('pdfPreviewTabs');
-    if (!container) return;
-    container.innerHTML = '';
-
-    // "All" tab
-    const allTab = document.createElement('button');
-    allTab.className = 'pdf-page-tab active';
-    allTab.textContent = 'All';
-    allTab.dataset.page = 'all';
-    allTab.addEventListener('click', () => this.switchPdfTab('all'));
-    container.appendChild(allTab);
-
-    pages.forEach((_, idx) => {
-      const tab = document.createElement('button');
-      tab.className = 'pdf-page-tab';
-      tab.textContent = `P${idx + 1}`;
-      tab.dataset.page = String(idx);
-      tab.addEventListener('click', () => this.switchPdfTab(idx));
-      container.appendChild(tab);
-    });
+    return this.clipsFeature?.pdf?.buildPdfPageTabs?.(this, pages);
   }
 
   switchPdfTab(pageIndex) {
-    this._pdfActiveTab = pageIndex;
-    const tabs = document.querySelectorAll('.pdf-page-tab');
-    tabs.forEach(t => t.classList.remove('active'));
-
-    const textarea = document.getElementById('pdfPreviewTextarea');
-    if (!textarea) return;
-
-    if (pageIndex === 'all') {
-      textarea.value = this._pdfPages.map((p, i) => `� Page ${i + 1} �\n${p}`).join('\n\n');
-      tabs[0]?.classList.add('active');
-    } else {
-      textarea.value = this._pdfPages[pageIndex] || '';
-      tabs[pageIndex + 1]?.classList.add('active');
-
-      // If "Save selected page" mode is active, auto-switch radio to it when clicking a numbered page tab
-      const selectedPageRadio = document.querySelector('input[name="pdfSaveMode"][value="selectedPage"]');
-      if (selectedPageRadio) {
-        selectedPageRadio.checked = true;
-        this._updatePdfSaveLabel();
-      }
-    }
-  }
-
-  /** Update the Save button label to reflect current mode + selection */
-  _updatePdfSaveLabel() {
-    const label = document.getElementById('pdfSaveLabel');
-    if (!label) return;
-    const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
-    if (mode === 'selectedPage' && typeof this._pdfActiveTab === 'number') {
-      label.textContent = `Save Page ${this._pdfActiveTab + 1} to Clips`;
-    } else {
-      label.textContent = 'Save to Clips';
-    }
+    return this.clipsFeature?.pdf?.switchPdfTab?.(this, pageIndex);
   }
 
   populatePdfCategoryDropdown() {
-    return this.categoriesFeature.render.populatePdfCategoryDropdown(this);
+    return this.clipsFeature?.pdf?.populatePdfCategoryDropdown?.(this);
   }
 
   async savePdfClips() {
-    if (!this._pdfPages || this._pdfPages.length === 0) return;
-
-    const saveBtn = document.getElementById('pdfExtractSaveBtn');
-    const spinner = document.getElementById('pdfSaveSpinner');
-    const label = document.getElementById('pdfSaveLabel');
-    if (saveBtn) saveBtn.disabled = true;
-    if (spinner) spinner.style.display = 'inline-block';
-    if (label) label.textContent = 'Saving�';
-
-    try {
-      const mode = document.querySelector('input[name="pdfSaveMode"]:checked')?.value || 'single';
-      const category = document.getElementById('pdfExtractCategory')?.value || 'Uncategorized';
-      const fileName = document.getElementById('pdfFileName')?.textContent || 'PDF';
-
-      let clipsToSave = [];
-
-      if (mode === 'single') {
-        const allText = this._pdfPages.join('\n\n');
-        if (allText.trim()) {
-          clipsToSave.push({
-            id: Date.now() + Math.random(),
-            text: allText.trim(),
-            category,
-            timestamp: Date.now(),
-            meta: { source: 'pdf', fileName }
-          });
-        }
-      } else if (mode === 'selectedPage') {
-        // Save only the currently selected page tab
-        const pageIdx = (typeof this._pdfActiveTab === 'number') ? this._pdfActiveTab : null;
-        if (pageIdx === null || pageIdx < 0 || pageIdx >= this._pdfPages.length) {
-          this.showToast('Please select a specific page tab (P1, P2, �) first.');
-          if (saveBtn) saveBtn.disabled = false;
-          if (spinner) spinner.style.display = 'none';
-          if (label) label.textContent = 'Save to Clips';
-          return;
-        }
-        const pageText = this._pdfPages[pageIdx];
-        if (pageText && pageText.trim()) {
-          clipsToSave.push({
-            id: Date.now() + Math.random(),
-            text: pageText.trim(),
-            category,
-            timestamp: Date.now(),
-            meta: { source: 'pdf', fileName, page: pageIdx + 1 }
-          });
-        }
-      } else {
-        // per-page
-        this._pdfPages.forEach((pageText, idx) => {
-          if (pageText.trim()) {
-            clipsToSave.push({
-              id: Date.now() + Math.random() + idx,
-              text: pageText.trim(),
-              category,
-              timestamp: Date.now() - idx, // slightly stagger timestamps for ordering
-              meta: { source: 'pdf', fileName, page: idx + 1 }
-            });
-          }
-        });
-      }
-
-      if (clipsToSave.length === 0) {
-        this.showToast('No text found in PDF to save.');
-        return;
-      }
-
-      // Category limit check
-      if (category !== 'Uncategorized') {
-        const allClips = [...this.clips, ...this.searchOnlyClips];
-        const inCat = allClips.filter(c => c.category === category).length;
-        if (inCat + clipsToSave.length > 150) {
-          this.showToast(`Category "${category}" would exceed 150 clip limit.`);
-          return;
-        }
-      }
-
-      // Add clips to the front
-      this.clips.unshift(...clipsToSave);
-      await this.enforceClipLimit();
-
-      this.currentPage = 0; // Jump to first page so new clips are visible
-
-      // Persist
-      await chrome.storage.local.set({
-        clips: this.clips,
-        searchOnlyClips: this.searchOnlyClips,
-        pc_local_updatedAt: Date.now()
-      });
-
-      // Notify content scripts
-      try {
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'clipSaved',
-              clip: clipsToSave[0],
-              autoShow: false
-            }).catch(() => {});
-          });
-        });
-      } catch (_) {}
-
-      // Refresh UI
-      this.renderChips();
-      this.renderCategories();
-      this.updateCategoryFilter();
-      this.updateManualInputCategories();
-      this.showToast(`Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`);
-
-      // Background sync
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue('syncClips', this.clips, pasteCraftSupabase.syncClipsToSupabase))
-        .catch(() => {});
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', this.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-        .catch(() => {});
-
-      this.closePdfModal();
-    } finally {
-      if (saveBtn) saveBtn.disabled = false;
-      if (spinner) spinner.style.display = 'none';
-      if (label) label.textContent = 'Save to Clips';
-    }
+    return this.clipsFeature?.pdf?.savePdfClips?.(this);
   }
 
   closePdfModal() {
-    const modal = document.getElementById('pdfExtractModal');
-    if (modal) modal.style.display = 'none';
-    this._pdfPages = [];
-    this._pdfActiveTab = 'all';
-  }
-
-  // Utility Functions
-  // getTimeAgo moved up to line ~1483 to avoid duplication
-
-  async appendDeletedItems(storageKey, items) {
-    if (!storageKey || !Array.isArray(items) || items.length === 0) {
-      return;
-    }
-
-    try {
-      const result = await chrome.storage.local.get([storageKey]);
-      const existing = Array.isArray(result[storageKey]) ? result[storageKey] : [];
-      const merged = [...existing, ...items];
-      await chrome.storage.local.set({ [storageKey]: merged });
-    } catch (error) {
-      throw error;
-    }
+    return this.clipsFeature?.pdf?.closePdfModal?.(this);
   }
 
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return PasteCraftPopupUi.escapeHtml(text);
   }
 
   async copyClipToClipboard(text) {
     return this.clipsFeature.service.copyClipToClipboard(this, text);
   }
 
-  showToast(message) {
-    // Single-instance toast (no stacking) + safe auto-dismiss.
-    const TOAST_DURATION_MS = 3000;
+  openClipViewer(clip) {
+    return this.clipsFeature?.viewer?.open?.(this, clip);
+  }
 
-    this._toastState = this._toastState || {
-      el: null,
-      timerId: null,
-      lastMessage: null,
-      lastShownAt: 0
-    };
+  hideClipViewerModal() {
+    return this.clipsFeature?.viewer?.hide?.(this);
+  }
 
-    const now = Date.now();
-    const msg = String(message ?? '');
-    if (!msg) return;
+  async copyClipViewerText() {
+    return this.clipsFeature?.viewer?.copyText?.(this);
+  }
 
-    // Dedupe: ignore rapid repeats of the same message (prevents "stuck" toasts from re-firing).
-    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < 1200) {
-      return;
-    }
-    this._toastState.lastMessage = msg;
-    this._toastState.lastShownAt = now;
+  async showShareMenuForClip(clip) {
+    return this.clipsFeature?.share?.showShareMenuForClip?.(this, clip);
+  }
 
-    // Create once, then reuse.
-    if (!this._toastState.el || !this._toastState.el.isConnected) {
-      const toast = document.createElement('div');
-      toast.setAttribute('data-pastecraft-toast', '1');
-      toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10b981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-size: 14px;
-        z-index: 10000;
-        opacity: 0;
-        transform: translateY(-6px);
-        transition: opacity 180ms ease, transform 180ms ease;
-        pointer-events: none;
-      `;
-      document.body.appendChild(toast);
-      this._toastState.el = toast;
-    }
-
-    const toast = this._toastState.el;
-    toast.textContent = msg;
-
-    // Reset any pending dismissal.
-    if (this._toastState.timerId) {
-      clearTimeout(this._toastState.timerId);
-      this._toastState.timerId = null;
-    }
-
-    // Show (animate in).
-    requestAnimationFrame(() => {
-      toast.style.opacity = '1';
-      toast.style.transform = 'translateY(0)';
-    });
-
-    // Hide after duration (animate out, then remove).
-    this._toastState.timerId = setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-6px)';
-      setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 220);
-    }, TOAST_DURATION_MS);
+  showToast(message, type) {
+    return PasteCraftPopupUi.showToast(this, message, type);
   }
 
   // Category Modal Functions
@@ -3779,200 +879,36 @@ class PasteCraftPopup {
   }
 
   // Breakdown Modal Functions
+  showBreakdownModal(text) {
+    return this.aiLabFeature.breakdown.showBreakdownModal(this, text);
+  }
+
   showBreakdownModalWithLevel(text, level) {
-    this.currentBreakdownText = text;
-    this.currentBreakdownLevel = level;
-    this.breakdownCache = {}; // Cache explanations to avoid re-generating
-    this._activeBreakdownHistoryId = null; // New breakdown conversation
-    
-    // Set original text
-    document.getElementById('breakdownOriginalText').textContent = text;
-    
-    // Set text length
-    const wordCount = text.trim().split(/\s+/).length;
-    document.getElementById('breakdownTextLength').textContent = `${wordCount} words`;
-    
-    // Clear previous result
-    document.getElementById('breakdownResult').innerHTML = '';
-    
-    // Set active tab to the selected level
-    document.querySelectorAll('.breakdown-tab').forEach(tab => {
-      if (tab.dataset.level === level) {
-        tab.classList.add('active');
-      } else {
-        tab.classList.remove('active');
-      }
-    });
-    
-    // Update level info for the pre-selected level
-    this.updateLevelInfo(level);
-    
-    // Show modal
-    document.getElementById('breakdownModal').style.display = 'flex';
-    
-    // Auto-generate explanation for the selected level
-    this.generateBreakdown(level);
+    return this.aiLabFeature.breakdown.showBreakdownModalWithLevel(this, text, level);
   }
 
   hideBreakdownModal() {
-    document.getElementById('breakdownModal').style.display = 'none';
-    this.currentBreakdownText = null;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {};
-    
-    // Reset threads
-    this.breakdownThreads = [];
-    this.currentBreakdownThreadIndex = 0;
-    
-    // Hide follow-up and pagination
-    const followupContainer = document.getElementById('breakdownFollowupContainer');
-    const paginationContainer = document.getElementById('breakdownThreadPagination');
-    if (followupContainer) followupContainer.style.display = 'none';
-    if (paginationContainer) paginationContainer.style.display = 'none';
-    
-    // Reset italics state
-    const breakdownResult = document.getElementById('breakdownResult');
-    const italicsBtn = document.getElementById('breakdownItalicsBtn');
-    if (breakdownResult && italicsBtn) {
-      breakdownResult.classList.remove('italics');
-      italicsBtn.classList.remove('active');
-    }
+    return this.aiLabFeature.breakdown.hideBreakdownModal(this);
   }
 
   toggleBreakdownItalics() {
-    const breakdownResult = document.getElementById('breakdownResult');
-    const italicsBtn = document.getElementById('breakdownItalicsBtn');
-    
-    if (breakdownResult && italicsBtn) {
-      const isActive = breakdownResult.classList.toggle('italics');
-      italicsBtn.classList.toggle('active');
-      console.log(`?? Breakdown Result Italics ${isActive ? 'ENABLED' : 'DISABLED'}`);
-    } else {
-      console.error('? Elements not found:', {breakdownResult, italicsBtn});
-    }
+    return this.aiLabFeature.breakdown.toggleBreakdownItalics();
   }
 
   updateLevelInfo(level) {
-    const levelDescriptions = {
-      eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
-      elementary: '<strong>Elementary School Level:</strong> Clear explanation for kids ages 8-11 with relatable examples',
-      highschool: '<strong>High School Level:</strong> More sophisticated explanation with relevant concepts for teenagers',
-      college: '<strong>College Level:</strong> Academic explanation with detailed analysis and nuanced understanding',
-      phd: '<strong>PhD/Expert Level:</strong> Technical analysis with advanced concepts and scholarly depth',
-      wiseman: '<strong>Wise Man:</strong> Philosophical wisdom with metaphors, life lessons, and profound insights'
-    };
-
-    document.getElementById('levelInfoText').innerHTML = levelDescriptions[level] || '';
+    return this.aiLabFeature.breakdown.updateLevelInfo(level);
   }
 
   async generateBreakdown(level) {
-    // Premium check
-    let _premiumOk = true;
-    if (this.currentUser) {
-      _premiumOk = await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown');
-    }
-    if (!_premiumOk) return;
-
-    // Check cache first
-    if (this.breakdownCache[level]) {
-      const resultEl = document.getElementById('breakdownResult');
-      resultEl.innerHTML = await this._renderAiResponse(this.breakdownCache[level]);
-      return;
-    }
-
-    const loadingEl = document.getElementById('breakdownLoading');
-    const resultEl = document.getElementById('breakdownResult');
-
-    try {
-      // Show loading
-      loadingEl.style.display = 'flex';
-      resultEl.innerHTML = '';
-
-      // Generate explanation
-      const explanation = await pasteCraftSupabase.breakdownText(this.currentBreakdownText, level);
-
-      // Cache the raw result (for copy + persistence)
-      const formatted = this._formatAiOutput(explanation);
-      this.breakdownCache[level] = formatted;
-
-      // Render as rich HTML and display
-      resultEl.innerHTML = await this._renderAiResponse(formatted);
-      loadingEl.style.display = 'none';
-
-      // Add to threads (store raw text)
-      this.breakdownThreads.push({
-        question: `Breakdown at ${level} level`,
-        answer: formatted,
-        level,
-        timestamp: Date.now()
-      });
-      this.currentBreakdownThreadIndex = this.breakdownThreads.length - 1;
-
-      // Show follow-up input after first response
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      if (followupContainer) {
-        followupContainer.style.display = 'block';
-      }
-
-      // Update thread pagination (only show after 2nd response)
-      if (this.breakdownThreads.length >= 2) {
-        this.renderThreadPagination('breakdown');
-      }
-
-      // Persist breakdown modal state (results + threads)
-      this._saveBreakdownModalState();
-
-      // Save to AI history
-      await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
-
-    } catch (error) {
-      console.error('Failed to generate breakdown:', error);
-      resultEl.innerHTML = '? Failed to generate explanation. Please check your OpenAI API key configuration.';
-      loadingEl.style.display = 'none';
-      this.showToast('Failed to generate explanation');
-    }
+    return this.aiLabFeature.breakdown.generateBreakdown.call(this, level);
   }
 
   copyBreakdownText() {
-    const text = document.getElementById('breakdownResult').textContent;
-    if (text) {
-      this.copyToClipboardFallback(text)
-        .then(() => this.showToast('Explanation copied to clipboard!'))
-        .catch((error) => {
-          console.error('Breakdown copy failed:', error);
-          this.showToast('Failed to copy explanation', 'error');
-        });
-    }
+    return this.aiLabFeature.breakdown.copyBreakdownText(this);
   }
 
-  // ==================== INLINE BREAKDOWN (AI Lab Page) ====================
-
   startInlineBreakdown(text, level) {
-    this.currentBreakdownText = text;
-    this.currentBreakdownLevel = level;
-    this.inlineBreakdownCache = {};
-    this.inlineBreakdownThreads = [];
-    this.currentInlineBreakdownThreadIndex = 0;
-
-    // Show the results section
-    const resultsSection = document.getElementById('bdInlineResults');
-    if (resultsSection) {
-      resultsSection.style.display = 'block';
-      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // Set active tab
-    document.querySelectorAll('.bd-inline-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.inlineLevel === level);
-    });
-
-    // Update badge
-    const levelNames = { eli5: 'Child', elementary: 'Elementary', highschool: 'High School', college: 'College', phd: 'PhD', wiseman: 'Wise Man' };
-    const badge = document.getElementById('bdInlineLevelBadge');
-    if (badge) badge.textContent = levelNames[level] || level;
-
-    // Generate
-    this.generateBreakdownInline(level);
+    return this.aiLabFeature.breakdown.startInlineBreakdown(this, text, level);
   }
 
   async generateBreakdownInline(level) {
@@ -4008,132 +944,27 @@ class PasteCraftPopup {
   }
 
   async handleSummaryFollowup(followupQuestion) {
-    const summaryFollowupInput = document.getElementById('summaryFollowupInput');
-    if (summaryFollowupInput) {
-      summaryFollowupInput.value = '';
-      summaryFollowupInput.disabled = true;
-    }
-    
-    const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
-    if (summaryFollowupBtn) {
-      summaryFollowupBtn.disabled = true;
-    }
-
-    // Generate summary with follow-up question
-    await this.generateSummary(this.currentSummaryText, followupQuestion);
-
-    // Re-enable input
-    if (summaryFollowupInput) {
-      summaryFollowupInput.disabled = false;
-    }
+    return this.aiLabFeature.summary.handleSummaryFollowup(this, followupQuestion);
   }
 
-  // Handle Breakdown Follow-up
   async handleBreakdownFollowup(followupQuestion) {
     return this.aiLabFeature.summary.handleBreakdownFollowup.call(this, followupQuestion);
   }
 
   toggleFollowupLevelTabs(enable) {
-    const tabs = document.querySelectorAll('.followup-level-tab');
-    tabs.forEach(tab => {
-      if (enable) {
-        tab.classList.remove('disabled');
-        tab.disabled = false;
-      } else {
-        tab.classList.add('disabled');
-        tab.disabled = true;
-      }
-    });
+    return this.aiLabFeature.breakdown.toggleFollowupLevelTabs(enable);
   }
 
-  // Render Thread Pagination Boxes
   renderThreadPagination(type) {
-    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
-    const currentIndex = type === 'summary' ? this.currentSummaryThreadIndex : this.currentBreakdownThreadIndex;
-    const paginationContainer = document.getElementById(`${type}ThreadPagination`);
-
-    console.log('?? renderThreadPagination called:', { type, threadsLength: threads.length, containerFound: !!paginationContainer });
-
-    if (!paginationContainer || threads.length < 2) {
-      console.log('?? Early return:', { containerExists: !!paginationContainer, threadsLength: threads.length });
-      return;
-    }
-
-    // Show pagination
-    paginationContainer.style.display = 'flex';
-    paginationContainer.style.gap = '8px';
-    paginationContainer.innerHTML = '';
-
-    console.log('? Rendering', threads.length, 'thread boxes for', type);
-
-    threads.forEach((thread, index) => {
-      const box = document.createElement('div');
-      box.className = `thread-box ${index === currentIndex ? 'active' : ''}`;
-      box.textContent = index + 1;
-      
-      // Force styling inline as fallback
-      box.style.cssText = `
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: ${index === currentIndex ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
-        border: 2px solid ${index === currentIndex ? '#2563eb' : '#cbd5e1'};
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        font-weight: 700;
-        color: ${index === currentIndex ? 'white' : '#64748b'};
-        transition: all 0.25s ease;
-        position: relative;
-      `;
-      
-      // Generate tooltip with AI summary title
-      const tooltipText = this.generateThreadTooltip(thread, index + 1);
-      box.setAttribute('data-tooltip', tooltipText);
-      box.setAttribute('title', tooltipText); // Fallback native tooltip
-      
-      box.addEventListener('click', () => {
-        this.navigateToThread(type, index);
-      });
-
-      paginationContainer.appendChild(box);
-      console.log(`? Added thread box ${index + 1}, className: "${box.className}"`);
-    });
-
-    console.log('? Pagination rendered. Container display:', paginationContainer.style.display);
+    return this.aiLabFeature.breakdown.renderThreadPagination.call(this, type);
   }
 
-  // Generate tooltip text for thread box
   generateThreadTooltip(thread, number) {
-    // Extract first few words as summary title
-    const question = thread.question || 'Response';
-    const summaryTitle = question.length > 30 ? question.substring(0, 30) + '...' : question;
-    return `${number}. "${summaryTitle}"`;
+    return this.aiLabFeature.breakdown.generateThreadTooltip(thread, number);
   }
 
-  // Navigate to specific thread
   async navigateToThread(type, index) {
-    const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
-    if (index < 0 || index >= threads.length) return;
-
-    const thread = threads[index];
-    const contentEl = document.getElementById(type === 'summary' ? 'summaryResultContent' : 'breakdownResult');
-
-    if (contentEl) {
-      contentEl.innerHTML = await this._renderAiResponse(thread.answer);
-    }
-
-    // Update current index
-    if (type === 'summary') {
-      this.currentSummaryThreadIndex = index;
-    } else {
-      this.currentBreakdownThreadIndex = index;
-    }
-
-    // Re-render pagination to update active state
-    this.renderThreadPagination(type);
+    return this.aiLabFeature.breakdown.navigateToThread.call(this, type, index);
   }
 
   populateCategoryOptions() {
@@ -4141,18 +972,7 @@ class PasteCraftPopup {
   }
 
   async handleClipDelete() {
-    if (!this.pendingClipId) return;
-    
-    if (confirm('Delete this clip permanently?')) {
-      const result = await this.deleteClipsByIdKeys([this.pendingClipId], {
-        includeArchived: true,
-        reason: 'delete:handleClipDelete',
-        closeCategoryModal: true,
-        clearSelection: true,
-        rerender: true
-      });
-      this.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`);
-    }
+    return this.categoriesFeature.service.handleClipDelete(this);
   }
 
   async saveTextWithCategory() {
@@ -4264,175 +1084,20 @@ class PasteCraftPopup {
     return this.clipsFeature.events.setupCategoryClipDelegation(this);
   }
 
-  toggleClipSelection(clipElement, category) {
-    const clipId = this._clipIdKey(clipElement.dataset.clipId);
-    const isSelected = clipElement.classList.contains('selected');
-    
-    console.log(`?? Toggling clip selection - ID: ${clipId} (${typeof clipId}), Currently selected: ${isSelected}`);
-    
-    if (isSelected) {
-      clipElement.classList.remove('selected');
-      console.log(`? Deselecting clip ${clipId}`);
-      // Remove from selection tracking
-      this.removeClipFromSelection(clipId);
-    } else {
-      clipElement.classList.add('selected');
-      console.log(`? Selecting clip ${clipId}`);
-      // Add to selection tracking
-      this.addClipToSelection(clipId);
-    }
-    
-    this.updatePreviewFromSelection();
-  }
-
-  addClipToSelection(clipId) {
-    if (!this.selectedCategoryClips) {
-      this.selectedCategoryClips = new Set();
-    }
-    this.selectedCategoryClips.add(this._clipIdKey(clipId));
-    console.log(`? Added clip ${clipId} to selection. Total:`, Array.from(this.selectedCategoryClips));
-  }
-
-  removeClipFromSelection(clipId) {
-    if (this.selectedCategoryClips) {
-      this.selectedCategoryClips.delete(this._clipIdKey(clipId));
-    }
-    console.log(`??? Removed clip ${clipId} from selection. Remaining:`, Array.from(this.selectedCategoryClips));
-  }
-
   _findClipLocationById(clipId) {
-    const idKey = this._clipIdKey(clipId);
-    const activeIndex = this.clips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-    if (activeIndex >= 0) return { listName: 'clips', index: activeIndex, clip: this.clips[activeIndex] };
-
-    const archivedIndex = this.searchOnlyClips.findIndex(c => this._clipIdKey(c?.id) === idKey);
-    if (archivedIndex >= 0) return { listName: 'searchOnlyClips', index: archivedIndex, clip: this.searchOnlyClips[archivedIndex] };
-
-    return null;
+    return this.clipsFeature?.title?.findClipLocationById?.(this, clipId) ?? null;
   }
 
   promptEditClipTitle(clipId) {
-    const location = this._findClipLocationById(clipId);
-    if (!location?.clip) {
-      this.showToast('Clip not found');
-      return;
-    }
-
-    const currentTitle = this._clipTitle(location.clip);
-    const fallback = this._clipFallbackTitle(location.clip, 80);
-    const nextTitle = prompt('Edit clip title (leave blank to clear):', currentTitle || fallback);
-    if (nextTitle === null) return;
-
-    this.updateClipTitleById(clipId, nextTitle);
+    return this.clipsFeature?.title?.promptEditClipTitle?.(this, clipId);
   }
 
   async updateClipTitleById(clipId, title) {
-    const idKey = this._clipIdKey(clipId);
-    const normalizedTitle = typeof PCClipTitle !== 'undefined'
-      ? PCClipTitle.normalizeTitle(title)
-      : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
-
-    return this._queueClipOp(async () => {
-      const location = this._findClipLocationById(idKey);
-      if (!location?.clip) {
-        this.showToast('Clip not found');
-        return false;
-      }
-
-      const snapshot = {
-        clips: PasteCraftCRUD.createSnapshot(this.clips),
-        searchOnlyClips: PasteCraftCRUD.createSnapshot(this.searchOnlyClips),
-        notes: PasteCraftCRUD.createSnapshot(this.notes)
-      };
-
-      const updatedAt = Date.now();
-      const nextClip = {
-        ...location.clip,
-        title: normalizedTitle,
-        updatedAt
-      };
-
-      if (location.listName === 'clips') {
-        this.clips[location.index] = nextClip;
-      } else {
-        this.searchOnlyClips[location.index] = nextClip;
-      }
-
-      const changedNotes = this._updateNoteClipTitlesById(idKey, normalizedTitle, updatedAt);
-
-      try {
-        await PasteCraftCRUD.retryOperation(async () => {
-          await chrome.storage.local.set({
-            clips: this.clips,
-            searchOnlyClips: this.searchOnlyClips,
-            notes: this.notes,
-            pc_local_updatedAt: updatedAt
-          });
-        });
-
-        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-        const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
-        const verifiedClip = verifiedPool.find(c => this._clipIdKey(c?.id) === idKey);
-        if (!verifiedClip || this._clipTitle(verifiedClip) !== normalizedTitle) {
-          throw new Error('Verification failed: clip title was not persisted');
-        }
-
-        const syncName = location.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
-        const syncFn = location.listName === 'clips'
-          ? pasteCraftSupabase.syncClipsToSupabase
-          : pasteCraftSupabase.syncArchivedClipsToSupabase;
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue(syncName, [nextClip], syncFn))
-          .catch((error) => console.error('Failed to sync clip title:', error));
-
-        if (changedNotes.length > 0) {
-          Promise.resolve()
-            .then(() => pasteCraftSupabase.syncWithQueue('syncNotes', changedNotes, pasteCraftSupabase.syncNotesToSupabase))
-            .catch((error) => console.error('Failed to sync note clip titles:', error));
-        }
-
-        this.renderChips();
-        this.renderSearchResults();
-        this.renderCategories();
-        this.renderNotes();
-        this.showToast(normalizedTitle ? 'Clip title updated' : 'Clip title cleared');
-        return true;
-      } catch (error) {
-        this.clips = snapshot.clips;
-        this.searchOnlyClips = snapshot.searchOnlyClips;
-        this.notes = snapshot.notes;
-        await chrome.storage.local.set({
-          clips: this.clips,
-          searchOnlyClips: this.searchOnlyClips,
-          notes: this.notes,
-          pc_local_updatedAt: Date.now()
-        });
-        console.error('? Clip title update failed:', error);
-        this.showToast('Failed to update clip title');
-        return false;
-      }
-    });
+    return this.clipsFeature?.title?.updateClipTitleById?.(this, clipId, title);
   }
 
   _updateNoteClipTitlesById(clipId, title, updatedAt) {
-    const changedNotes = [];
-    const idKey = this._clipIdKey(clipId);
-
-    (this.notes || []).forEach(note => {
-      if (!Array.isArray(note?.clips)) return;
-      let changed = false;
-      note.clips = note.clips.map(clip => {
-        if (this._clipIdKey(clip?.id) !== idKey) return clip;
-        changed = true;
-        return { ...clip, title };
-      });
-      if (changed) {
-        note.updatedAt = updatedAt;
-        changedNotes.push(PasteCraftCRUD.createSnapshot(note));
-      }
-    });
-
-    return changedNotes;
+    return this.clipsFeature?.title?.updateNoteClipTitlesById?.(this, clipId, title, updatedAt) ?? [];
   }
 
   updatePreviewFromSelection() {
@@ -4469,29 +1134,6 @@ class PasteCraftPopup {
 
   async handleSearchBulkCopy() {
     return this.clipsFeature.service.handleSearchBulkCopy(this);
-  }
-
-  // Search-Only Storage Management
-  async moveToSearchStorage(overflowClips) {
-    const { searchOnlyClips = [] } = await chrome.storage.local.get(['searchOnlyClips']);
-    searchOnlyClips.unshift(...overflowClips);
-    
-    // Keep search storage reasonable (max 1000 total archived clips)
-    if (searchOnlyClips.length > 1000) {
-      searchOnlyClips.splice(1000);
-    }
-    
-    this.searchOnlyClips = searchOnlyClips;
-    await chrome.storage.local.set({ searchOnlyClips });
-    console.log(`?? Moved ${overflowClips.length} clips to search-only storage`);
-    
-    // ?? AUTO-SYNC TO DATABASE
-    try {
-      await pasteCraftSupabase.syncArchivedClipsToSupabase(this.searchOnlyClips);
-      console.log('? Archived clips synced to database');
-    } catch (error) {
-      console.error('?? Failed to sync archived clips to database:', error);
-    }
   }
 
   // Profile Management Functions
@@ -4540,41 +1182,11 @@ class PasteCraftPopup {
   }
 
   showUnsubscribeConfirmation() {
-    if (confirm('?? Are you sure you want to unsubscribe from PasteCraft?\n\nThis will:\n� Delete all your clips\n� Remove all categories\n� Clear your profile data\n� This action cannot be undone!')) {
-      if (confirm('?? FINAL WARNING: This will permanently delete ALL your data. Continue?')) {
-        this.handleUnsubscribe();
-      }
-    }
+    return this.billingFeature.unsubscribe.showUnsubscribeConfirmation(this);
   }
 
   async handleUnsubscribe() {
-    try {
-      this.showToast('??? Deleting all data...', 'info');
-
-      // Clear all storage
-      await chrome.storage.local.clear();
-
-      // Clear in-memory data
-      this.clips = [];
-      this.searchOnlyClips = [];
-      this.categories = [];
-      this.userProfile = null;
-
-      // Update UI
-    this.renderChips();
-    this.renderCategories();
-    this.updateCategoryFilter();
-    this.updateManualInputCategories();
-      this.hideProfileModal();
-
-      this.showToast('? All data deleted. You have been unsubscribed.', 'success');
-
-      console.log('??? User unsubscribed - all data cleared');
-
-    } catch (error) {
-      console.error('Failed to unsubscribe:', error);
-      this.showToast('? Failed to unsubscribe', 'error');
-    }
+    return this.billingFeature.unsubscribe.handleUnsubscribe(this);
   }
 
   // Display image and funky name in top bar
@@ -4602,249 +1214,36 @@ class PasteCraftPopup {
     return this.profileFeature?.render?.startProfileImageCollapse?.(this);
   }
 
-  // Setup Image Viewer for expanded view
   setupImageViewer() {
-    const modal = document.getElementById('imageViewerModal');
-    const modalImg = document.getElementById('imageViewerImg');
-    const closeBtn = document.getElementById('imageViewerClose');
-    const profileImage = document.getElementById('profileImage');
-    const topLeftImg = document.getElementById('topLeftProfileImg');
-    
-    // Function to show expanded image
-    const showExpandedImage = (imgSrc) => {
-      if (!imgSrc || imgSrc === '') return;
-      modalImg.src = imgSrc;
-      modal.style.display = 'flex';
-    };
-    
-    // Click on profile image in modal
-    if (profileImage) {
-      profileImage.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent event bubbling
-        if (profileImage.style.display !== 'none') {
-          showExpandedImage(profileImage.src);
-        }
-      });
-    }
-    
-    // Click on top-left profile image
-    if (topLeftImg) {
-      // Remove the old onclick that opens profile modal
-      const topLeftContainer = document.getElementById('topLeftProfileImage');
-      if (topLeftContainer) {
-        topLeftContainer.onclick = null; // Remove old handler
-        topLeftImg.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showExpandedImage(topLeftImg.src);
-        });
-      }
-    }
-    
-    // Close button
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-    }
-    
-    // Click outside image to close
-    if (modal) {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.style.display = 'none';
-        }
-      });
-    }
-    
-    // ESC key to close
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.style.display === 'flex') {
-        modal.style.display = 'none';
-      }
-    });
+    return this.profileFeature.viewer.setupImageViewer();
   }
 
-  // Password strength indicator and validation
   updatePasswordStrength(password) {
-    const strengthBar = document.querySelector('.strength-bar');
-    if (!strengthBar) return;
-
-    let strength = 0;
-    
-    // Check all requirements (matching Supabase settings)
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    // Update requirement indicators
-    this.updateRequirement('req-length', hasLength);
-    this.updateRequirement('req-lowercase', hasLowercase);
-    this.updateRequirement('req-uppercase', hasUppercase);
-    this.updateRequirement('req-number', hasNumber);
-    this.updateRequirement('req-special', hasSpecial);
-    
-    // Calculate strength (20% each requirement)
-    if (hasLength) strength += 20;
-    if (hasLowercase) strength += 20;
-    if (hasUppercase) strength += 20;
-    if (hasNumber) strength += 20;
-    if (hasSpecial) strength += 20;
-    
-    strengthBar.style.width = `${strength}%`;
-    
-    // Color based on strength
-    if (strength < 60) {
-      strengthBar.style.background = '#EF4444'; // Red
-    } else if (strength < 100) {
-      strengthBar.style.background = '#F59E0B'; // Orange
-    } else {
-      strengthBar.style.background = '#10B981'; // Green
-    }
+    return this.authFeature.password.updatePasswordStrength(this, password);
   }
 
-  // Update password requirement indicator
   updateRequirement(elementId, isValid) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    const icon = element.querySelector('.requirement-icon');
-    if (isValid) {
-      element.classList.add('valid');
-      if (icon) icon.textContent = '?';
-    } else {
-      element.classList.remove('valid');
-      if (icon) icon.textContent = '?';
-    }
+    return this.authFeature.password.updateRequirement(this, elementId, isValid);
   }
 
-  // Validate password meets all requirements (matching Supabase settings)
   validatePassword(password) {
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    return hasLength && hasLowercase && hasUppercase && hasNumber && hasSpecial;
+    return this.authFeature.password.validatePassword(password);
   }
 
-  // Update password strength for new password form (matching Supabase settings)
   updateNewPasswordStrength(password) {
-    const strengthBar = document.querySelector('#newPasswordStrength .strength-bar');
-    if (!strengthBar) return;
-
-    let strength = 0;
-    
-    // Check all requirements
-    const hasLength = password.length >= 8;
-    const hasLowercase = /[a-z]/.test(password);
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-    
-    // Update requirement indicators
-    this.updateRequirement('new-req-length', hasLength);
-    this.updateRequirement('new-req-lowercase', hasLowercase);
-    this.updateRequirement('new-req-uppercase', hasUppercase);
-    this.updateRequirement('new-req-number', hasNumber);
-    this.updateRequirement('new-req-special', hasSpecial);
-    
-    // Calculate strength (20% each requirement)
-    if (hasLength) strength += 20;
-    if (hasLowercase) strength += 20;
-    if (hasUppercase) strength += 20;
-    if (hasNumber) strength += 20;
-    if (hasSpecial) strength += 20;
-    
-    strengthBar.style.width = `${strength}%`;
-    
-    if (strength < 60) {
-      strengthBar.style.background = '#EF4444';
-    } else if (strength < 100) {
-      strengthBar.style.background = '#F59E0B';
-    } else {
-      strengthBar.style.background = '#10B981';
-    }
+    return this.authFeature.password.updateNewPasswordStrength(this, password);
   }
 
-  // Check if passwords match
   checkPasswordMatch() {
-    const newPassword = document.getElementById('newPassword')?.value || '';
-    const confirmPassword = document.getElementById('confirmNewPassword')?.value || '';
-    const matchHint = document.getElementById('passwordMatchHint');
-    
-    if (!matchHint) return;
-    
-    if (confirmPassword.length > 0) {
-      if (newPassword === confirmPassword) {
-        matchHint.textContent = '? Passwords match';
-        matchHint.style.color = '#10B981';
-        matchHint.style.display = 'block';
-      } else {
-        matchHint.textContent = '? Passwords do not match';
-        matchHint.style.color = '#DC2626';
-        matchHint.style.display = 'block';
-      }
-    } else {
-      matchHint.style.display = 'none';
-    }
+    return this.authFeature.password.checkPasswordMatch();
   }
 
-  // Global message handler for background script
   static async handleMessage(message) {
-    const popup = window.pasteCraftPopup;
-    if (!popup) return;
-    
-    if (message.action === 'showCategoryModal' && message.text) {
-      // This will be called from background script
-      popup.pendingText = message.text;
-      popup.showCategoryModal(false);
-    } else if (message.action === 'clipSaved') {
-      // Clip was saved externally (e.g., via context menu)
-      console.log('?? Received clipSaved message - reloading data...');
-
-      // Fast-path: apply the clip immediately (optimistic), then reconcile from storage shortly after.
-      const incoming = message.clip && typeof message.clip === 'object' ? message.clip : null;
-      if (incoming && incoming.id != null) {
-        const idKey = popup._clipIdKey(incoming.id);
-        const exists = popup.clips && popup.clips.some(c => popup._clipIdKey(c?.id) === idKey);
-        if (!exists) {
-          popup.clips.unshift(incoming);
-          popup.currentPage = 0; // Jump to first page so new clip is visible
-        }
-      }
-
-      if (popup.currentTab === 'clips') {
-        popup.renderChips();
-        popup.updateLastCapture();
-        popup.updatePreview();
-      }
-      popup.renderCategories();
-      popup.updateCategoryFilter();
-      popup.updateManualInputCategories();
-
-      // Reconcile from storage (handles pagination/archive edge cases).
-      setTimeout(() => {
-        Promise.resolve()
-          .then(() => popup.loadData())
-          .then(() => {
-            if (popup.currentTab === 'clips') {
-              popup.renderChips();
-              popup.updateLastCapture();
-              popup.updatePreview();
-            } else if (popup.currentTab === 'search') {
-              popup.renderSearchResults();
-            } else if (popup.currentTab === 'categories') {
-              popup.renderCategories();
-            }
-          })
-          .catch(() => {});
-      }, 120);
-
-      console.log('? UI refreshed with new clip data');
+    if (!PasteCraftPopup._messagingModule) {
+      PasteCraftPopup._messagingModule = import('./popup/shared/popup-messaging.js');
     }
+    const { handlePopupMessage } = await PasteCraftPopup._messagingModule;
+    return handlePopupMessage(message);
   }
 
   // =====================================================
@@ -4880,79 +1279,11 @@ class PasteCraftPopup {
   deleteFromGallery(index) { return this.profileFeature.storage.deleteFromGallery(this, index); }
 
   async generateAIImageFromProfile() {
-    try {
-      if (!this.userProfile?.aiGeneratedName) {
-        this.showToast('?? Generate your funky name first in Profile!', 'error');
-        return;
-      }
-      
-      this.showToast('?? Generating AI image...', 'info');
-      document.getElementById('aiGenerateFromProfileBtn').disabled = true;
-      document.getElementById('aiGenerateFromProfileBtn').textContent = '? Generating...';
-      
-      const gen = await pasteCraftSupabase.generateProfileImage(null, null, this.userProfile.aiGeneratedName);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-      
-      if (imageUrl) {
-        // Add to gallery
-        await this.addToGallery(imageUrl, 'profile');
-        
-        this.showToast('? AI image generated!', 'success');
-        this.showAIGenerationTimer();
-        this.loadAIGallery();
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      } else {
-        this.showToast('? Failed to generate AI image', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to generate AI image:', error);
-      this.showToast('? Failed to generate AI image', 'error');
-    } finally {
-      document.getElementById('aiGenerateFromProfileBtn').disabled = false;
-      document.getElementById('aiGenerateFromProfileBtn').innerHTML = '<span class="ai-gen-icon">?</span><span>Generate from Profile</span>';
-    }
+    return this.profileFeature.aiImage.generateAIImageFromProfile(this);
   }
 
   async generateRandomAIImage() {
-    try {
-      this.showToast('?? Generating random avatar...', 'info');
-      document.getElementById('aiGenerateRandomBtn').disabled = true;
-      document.getElementById('aiGenerateRandomBtn').textContent = '? Generating...';
-      
-      // Generate a random animal name
-      const animals = ['Tiger', 'Dragon', 'Fox', 'Wolf', 'Lion', 'Eagle', 'Phoenix', 'Panda', 'Bear', 'Owl'];
-      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-      const randomName = `Random${randomAnimal}`;
-      
-      const gen = await pasteCraftSupabase.generateProfileImage(null, null, randomName);
-      const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-      
-      if (imageUrl) {
-        // Add to gallery
-        await this.addToGallery(imageUrl, 'random');
-        
-        this.showToast('? Random avatar generated!', 'success');
-        this.showAIGenerationTimer();
-        this.loadAIGallery();
-        // Best-effort credits refresh after successful generation.
-        try {
-          this.userSubscription = await pasteCraftSupabase.getUserSubscription(this.currentUser.id);
-        } catch (_) {}
-        this.updateAiCreditsPills('post-gen');
-      } else {
-        this.showToast('? Failed to generate random avatar', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to generate random avatar:', error);
-      this.showToast('? Failed to generate random avatar', 'error');
-    } finally {
-      document.getElementById('aiGenerateRandomBtn').disabled = false;
-      document.getElementById('aiGenerateRandomBtn').innerHTML = '<span class="ai-gen-icon">??</span><span>Random Avatar</span>';
-    }
+    return this.profileFeature.aiImage.generateRandomAIImage(this);
   }
 
   async addToGallery(url, type) { return this.profileFeature.storage.addToGallery(this, url, type); }
@@ -4962,603 +1293,49 @@ class PasteCraftPopup {
   async saveAiNameToProfile() { return this.profileFeature.storage.saveAiNameToProfile(this); }
 
   showAIGenerationTimer() {
-    const timer = document.getElementById('aiGenerationTimer');
-    const countdown = document.getElementById('aiTimerCountdown');
-    
-    if (!timer || !countdown) return;
-    
-    timer.style.display = 'flex';
-    
-    let timeLeft = 10;
-    countdown.textContent = timeLeft;
-    
-    // Clear any existing timer
-    if (this.aiGenerationTimerInterval) {
-      clearInterval(this.aiGenerationTimerInterval);
-    }
-    
-    this.aiGenerationTimerInterval = setInterval(() => {
-      timeLeft--;
-      countdown.textContent = timeLeft;
-      
-      if (timeLeft <= 0) {
-        clearInterval(this.aiGenerationTimerInterval);
-        this.aiGenerationTimerInterval = null;
-        this.hideAIGenerationTimer();
-      }
-    }, 1000);
+    return this.profileFeature.generationTimer.showAIGenerationTimer(this);
   }
 
   hideAIGenerationTimer() {
-    const timer = document.getElementById('aiGenerationTimer');
-    if (timer) {
-      timer.style.display = 'none';
-    }
-    
-    if (this.aiGenerationTimerInterval) {
-      clearInterval(this.aiGenerationTimerInterval);
-      this.aiGenerationTimerInterval = null;
-    }
-  }
-  
-  showBreakdownModal(text) {
-    // Use the existing breakdown modal from the page
-    const breakdownModal = document.getElementById('breakdownModal');
-    const breakdownOriginalText = document.getElementById('breakdownOriginalText');
-    const breakdownTextLength = document.getElementById('breakdownTextLength');
-
-    if (breakdownModal && breakdownOriginalText) {
-      this.currentBreakdownText = text;
-      this.currentBreakdownLevel = null;
-      this.breakdownCache = {};
-      this.breakdownThreads = [];
-      this.currentBreakdownThreadIndex = 0;
-      this._activeBreakdownHistoryId = null;
-      this.selectedFollowupLevel = null;
-
-      // Show FULL text, not truncated - let CSS handle scrolling
-      breakdownOriginalText.textContent = text;
-      
-      if (breakdownTextLength) {
-        const wordCount = text.trim().split(/\s+/).length;
-        breakdownTextLength.textContent = `${wordCount} words`;
-      }
-      
-      // Force reflow to ensure scrollbar appears correctly
-      breakdownOriginalText.style.display = 'none';
-      breakdownOriginalText.offsetHeight; // Trigger reflow
-      breakdownOriginalText.style.display = 'block';
-      
-      // Scroll to top of the original text box
-      breakdownOriginalText.scrollTop = 0;
-      
-      // Show the modal
-      breakdownModal.style.display = 'flex';
-      
-      // Clear any previous result
-      const breakdownResult = document.getElementById('breakdownResult');
-      if (breakdownResult) {
-        breakdownResult.innerHTML = '';
-      }
-      const loadingEl = document.getElementById('breakdownLoading');
-      const followupContainer = document.getElementById('breakdownFollowupContainer');
-      const paginationContainer = document.getElementById('breakdownThreadPagination');
-      if (loadingEl) loadingEl.style.display = 'none';
-      if (followupContainer) followupContainer.style.display = 'none';
-      if (paginationContainer) paginationContainer.style.display = 'none';
-      
-      // Reset tabs - no active tab initially
-      document.querySelectorAll('.breakdown-tab').forEach(tab => tab.classList.remove('active'));
-      
-      // Show initial level info
-      const levelInfoText = document.getElementById('levelInfoText');
-      if (levelInfoText) {
-        levelInfoText.innerHTML = `
-          <strong>Choose a level:</strong> Select a comprehension level above to get an AI-powered explanation tailored to that audience
-        `;
-      }
-      
-      // Show toast if multiple clips were added
-      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
-      if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips ready for breakdown (scroll to see all)`);
-      }
-      
-      // Save to history
-      this.saveToAnalysisHistory(text, 'breakdown-initiated');
-
-      // Persist breakdown page state (input prefilled from clip)
-      this._saveBreakdownPageState();
-      this._currentAiLabSubTab = 'breakdown';
-      this._saveActiveTabState();
-    }
-  }
-  
-  showSummaryModal(text) {
-    // Navigate to AI Lab > Summary tab and pre-fill text
-    const aiTab = document.querySelector('[data-tab="ai"]');
-    const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
-    const summaryInput = document.getElementById('summaryInput');
-    
-    if (aiTab && summarySubTab && summaryInput) {
-      // Switch to AI Lab tab
-      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      aiTab.classList.add('active');
-      document.getElementById('aiTab').classList.add('active');
-      
-      // Switch to Summary sub-tab
-      document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-      summarySubTab.classList.add('active');
-      document.getElementById('aiSummarySection').classList.add('active');
-      
-      // Pre-fill the text
-      summaryInput.value = text;
-      summaryInput.dispatchEvent(new Event('input'));
-      
-      // Scroll to top of textarea to show the first clip
-      summaryInput.scrollTop = 0;
-      
-      // Focus the textarea
-      summaryInput.focus();
-      
-      // Show toast if multiple clips were added
-      const clipCount = (text.match(/\n\n---\n\n/g) || []).length + 1;
-      if (clipCount > 1) {
-        this.showToast(`?? ${clipCount} clips added to summary (scroll to see all)`);
-      }
-      
-      // Save to history
-      this.saveToAnalysisHistory(text, 'summary-initiated');
-
-      // Persist summary state (input prefilled from clip)
-      this._currentSummarySection = 'input';
-      this._saveSummaryState();
-      this._currentAiLabSubTab = 'summary';
-      this._saveActiveTabState();
-      
-      // Clear selections and hide buttons
-      this.clearAllSelections();
-    }
+    return this.profileFeature.generationTimer.hideAIGenerationTimer(this);
   }
 
-  formatClipViewerPlainText(text) {
-    return this.aiLabFeature.summary.formatClipViewerPlainText.call(this, text);
-  }
-
-  openClipViewer(clip) {
-    const modal = document.getElementById('clipViewerModal');
-    const titleEl = document.getElementById('clipViewerTitle');
-    const metaEl = document.getElementById('clipViewerMeta');
-    const bodyEl = document.getElementById('clipViewerBody');
-    const renderedEl = document.getElementById('clipViewerRendered');
-    const rawEl = document.getElementById('clipViewerRaw');
-    const htmlDetails = document.getElementById('clipViewerHtmlDetails');
-    const htmlPre = document.getElementById('clipViewerHtml');
-    const toggleBtn = document.getElementById('clipViewerToggleRaw');
-
-    if (!modal || !titleEl || !bodyEl) return;
-
-    this.currentClipViewerClip = clip || null;
-    this._clipViewerShowingRaw = false;
-
-    const text = (clip && clip.text != null) ? String(clip.text) : '';
-    const meta = (clip && clip.meta && typeof clip.meta === 'object') ? clip.meta : null;
-    const clipTitle = this._clipTitle(clip);
-
-    // Detect markup type
-    const markupType = (typeof PCMarkup !== 'undefined') ? PCMarkup.detectMarkupType(text, meta) : 'text';
-
-    titleEl.textContent = clipTitle
-      ? `?? ${clipTitle}`
-      : meta && meta.kind === 'image'
-      ? '??? Clip Viewer'
-      : meta && meta.kind === 'url'
-        ? '?? Clip Viewer'
-        : '?? Clip Viewer';
-
-    // Meta section
-    if (metaEl) {
-      const bits = [];
-      if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${this.escapeHtml(meta.kind)}`);
-      if (markupType !== 'text') bits.push(`<strong>Format:</strong> ${this.escapeHtml(markupType.toUpperCase())}`);
-      if (meta && meta.sourcePageUrl) bits.push(`<strong>From:</strong> ${this.escapeHtml(meta.sourcePageUrl)}`);
-      if (clip && typeof clip.timestamp === 'number') bits.push(`<strong>Saved:</strong> ${this.escapeHtml(this.getTimeAgo(clip.timestamp))}`);
-
-      if (bits.length) {
-        metaEl.innerHTML = bits.join('<br>');
-        metaEl.style.display = 'block';
-      } else {
-        metaEl.textContent = '';
-        metaEl.style.display = 'none';
-      }
-    }
-
-    // Body
-    const safeText = this.escapeHtml(text);
-    let srcHtml = '';
-    let url = '';
-    let imgSrc = '';
-
-    if (meta) {
-      if (typeof meta.html === 'string' && meta.html.trim()) srcHtml = meta.html;
-      if (typeof meta.url === 'string' && meta.url.trim()) url = meta.url.trim();
-      if (meta.image && typeof meta.image === 'object') {
-        imgSrc = (meta.image.dataUrl || meta.image.srcUrl || '').trim();
-      }
-    }
-
-    const headerParts = [];
-
-    // URL link section
-    if (!url) {
-      const raw = String(text || '').trim();
-      if (/^https?:\/\/\S+$/i.test(raw)) url = raw;
-    }
-    if (url) {
-      const safeUrl = this.escapeHtml(url);
-      headerParts.push(`
-        <div class="clip-viewer-link-card">
-          <div class="clip-viewer-section-label">Link</div>
-          <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer">${safeUrl}</a>
-        </div>
-      `);
-    }
-
-    // Image section
-    const isRenderableImageSrc = imgSrc && (
-      imgSrc.startsWith('data:image/') ||
-      imgSrc.startsWith('http://') ||
-      imgSrc.startsWith('https://'));
-
-    if (imgSrc && !isRenderableImageSrc) {
-      headerParts.push('<div class="clip-viewer-note">Image preview unavailable (non-renderable source).</div>');
-    } else if (imgSrc && isRenderableImageSrc) {
-      headerParts.push(`<img class="clip-viewer-image" src="${this.escapeHtml(imgSrc)}" alt="Clip image" />`);
-      if (meta && meta.image && meta.image.tooLarge) {
-        headerParts.push('<div class="clip-viewer-note">Image payload too large to embed; showing what is available.</div>');
-      }
-      if (meta && meta.image && meta.image.exportFailed) {
-        headerParts.push('<div class="clip-viewer-note">Image export blocked by the page (canvas/security restrictions).</div>');
-      }
-    }
-
-    // Render markup content
-    const hasMarkup = markupType !== 'text' && typeof PCMarkup !== 'undefined';
-
-    if (renderedEl) {
-      if (hasMarkup) {
-        const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
-        if (rendered && typeof rendered.then === 'function') {
-          renderedEl.innerHTML = headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
-          rendered.then(rHtml => { renderedEl.innerHTML = headerParts.join('') + rHtml; })
-            .catch(() => { renderedEl.innerHTML = headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`; });
-        } else {
-          renderedEl.innerHTML = headerParts.join('') + rendered;
-        }
-        renderedEl.style.display = 'block';
-      } else {
-        renderedEl.innerHTML = headerParts.join('') + this.formatClipViewerPlainText(text);
-        renderedEl.style.display = 'block';
-      }
-    }
-
-    // Raw view
-    if (rawEl) {
-      rawEl.textContent = text;
-      rawEl.style.display = 'none';
-    }
-
-    // Toggle button (View Raw / View Rendered)
-    if (toggleBtn) {
-      if (hasMarkup) {
-        toggleBtn.style.display = '';
-        toggleBtn.querySelector('span:last-child').textContent = 'View Raw';
-        const newBtn = toggleBtn.cloneNode(true);
-        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-        newBtn.addEventListener('click', () => {
-          this._clipViewerShowingRaw = !this._clipViewerShowingRaw;
-          const rEl = document.getElementById('clipViewerRendered');
-          const rwEl = document.getElementById('clipViewerRaw');
-          const tBtn = document.getElementById('clipViewerToggleRaw');
-          if (this._clipViewerShowingRaw) {
-            if (rEl) rEl.style.display = 'none';
-            if (rwEl) rwEl.style.display = 'block';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Rendered';
-          } else {
-            if (rEl) rEl.style.display = 'block';
-            if (rwEl) rwEl.style.display = 'none';
-            if (tBtn) tBtn.querySelector('span:last-child').textContent = 'View Raw';
-          }
-        });
-      } else {
-        toggleBtn.style.display = 'none';
-      }
-    }
-
-    // Ensure link opens in a new TAB
-    try {
-      if (!this._clipViewerLinkHandlerAttached) {
-        bodyEl.addEventListener('click', (e) => {
-          const a = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
-          if (!a) return;
-          e.preventDefault();
-          const targetUrl = String(a.getAttribute('href') || '').trim();
-          if (!targetUrl) return;
-          chrome.tabs.create({ url: targetUrl, active: true }, () => {
-            if (chrome.runtime.lastError) {
-              window.open(targetUrl, '_blank', 'noopener,noreferrer');
-            }
-          });
-        });
-        this._clipViewerLinkHandlerAttached = true;
-      }
-    } catch (e) {
-      // Non-fatal
-    }
-
-    // Source HTML (collapsed)
-    if (htmlDetails && htmlPre) {
-      if (srcHtml) {
-        htmlPre.textContent = String(srcHtml);
-        htmlDetails.style.display = 'block';
-      } else {
-        htmlPre.textContent = '';
-        htmlDetails.style.display = 'none';
-      }
-    }
-
-    modal.style.display = 'flex';
-  }
-
-  hideClipViewerModal() {
-    const modal = document.getElementById('clipViewerModal');
-    if (modal) modal.style.display = 'none';
-    this.currentClipViewerClip = null;
-  }
-
-  async copyClipViewerText() {
-    const clip = this.currentClipViewerClip;
-    const text = (clip && clip.text != null) ? String(clip.text) : '';
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      this.showToast('Content copied!');
-    } catch (e) {
-      console.error('Copy failed:', e);
-      this.showToast('Copy failed');
-    }
-  }
-  
-  clearAllSelections() {
-    this.selectedChips.clear();
-    this.selectedSearchClips.clear();
-    this.selectedCategoryClips.clear();
-    
-    // Re-render to update UI
-    this.renderChips();
-    // Refresh search UI (performSearch was removed/renamed)
-    this.renderSearchResults();
-    this.renderCategories();
-  }
-  
-  getSelectedOrCurrentText(currentClipText, source) {
-    // Check if there are any selected clips based on the source
-    let selectedTexts = [];
-    
-    if (source === 'clips' && this.selectedChips.size > 0) {
-      // Get texts from selected chips
-      this.selectedChips.forEach(idKey => {
-        const clip = this.clips.find(c => this._clipIdKey(c?.id) === String(idKey));
-        if (clip) selectedTexts.push(clip.text);
-      });
-    } else if (source === 'search' && this.selectedSearchClips.size > 0) {
-      // Get texts from selected search clips
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      this.selectedSearchClips.forEach(clipId => {
-        const clip = allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(clipId));
-        if (clip) {
-          selectedTexts.push(clip.text);
-        }
-      });
-    } else if (source === 'categories' && this.selectedCategoryClips.size > 0) {
-      // Get texts from selected category clips
-      const allClips = [...this.clips, ...this.searchOnlyClips];
-      this.selectedCategoryClips.forEach(clipId => {
-        const clip = allClips.find(c => this._clipIdKey(c?.id) === this._clipIdKey(clipId));
-        if (clip) {
-          selectedTexts.push(clip.text);
-        }
-      });
-    }
-    
-    // If we have selected clips, join them with delimiter
-    if (selectedTexts.length > 0) {
-      return selectedTexts.join('\n\n---\n\n');
-    }
-    
-    // Otherwise, return the current clip text
-    return currentClipText;
-  }
-  
-  showBreakdownModalWithLevel(text, level) {
-    this.showBreakdownModal(text);
-    this.currentBreakdownLevel = level;
-
-    document.querySelectorAll('.breakdown-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.level === level);
-    });
-    this.updateLevelInfo(level);
-    this.generateBreakdown(level);
-  }
-  
   // ==================== SESSION PERSISTENCE ====================
-  // Persist UI state (active tab, AI breakdown/summary content, etc.)
-  // so everything survives popup close, browser restart, sign-out/sign-in.
 
-  /** Save active main tab + AI Lab sub-tab to storage */
   async _saveActiveTabState() {
-    try {
-      await chrome.storage.local.set({
-        pc_activeTab_v1: this.currentTab || 'clips',
-        pc_aiLabSubTab_v1: this._currentAiLabSubTab || 'generator'
-      });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveActiveTabState?.(this);
   }
 
-  /** Get current browser tab ID (for tab-scoped AI session) */
   async _getCurrentTabId() {
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      return tabs?.[0]?.id ?? null;
-    } catch (_) {
-      return null;
-    }
+    return this.aiLabFeature?.sessionState?.getCurrentTabId?.();
   }
 
-  /** Save AI Breakdown page state (input text, selected level, NOT the modal) */
   async _saveBreakdownPageState() {
-    try {
-      const breakdownInput = document.getElementById('breakdownInput');
-      const tabId = await this._getCurrentTabId();
-      const state = {
-        inputText: breakdownInput ? breakdownInput.value : '',
-        selectedLevel: this.selectedBreakdownLevel || null,
-        tabId
-      };
-      await chrome.storage.local.set({ pc_breakdownPageState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveBreakdownPageState?.(this);
   }
 
-  /** Save AI Breakdown modal state (results, threads, cache) */
   async _saveBreakdownModalState() {
-    try {
-      const tabId = await this._getCurrentTabId();
-      const state = {
-        originalText: this.currentBreakdownText || null,
-        activeLevel: this.currentBreakdownLevel || null,
-        cache: this.breakdownCache || {},
-        threads: (this.breakdownThreads || []).slice(0, 20),
-        threadIndex: this.currentBreakdownThreadIndex || 0,
-        timestamp: Date.now(),
-        tabId
-      };
-      await chrome.storage.local.set({ pc_breakdownModalState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveBreakdownModalState?.(this);
   }
 
-  /** Save AI Summary state (input text, questions, result, threads) */
   async _saveSummaryState() {
-    try {
-      const summaryInput = document.getElementById('summaryInput');
-      const tabId = await this._getCurrentTabId();
-      // Use raw text from current thread for persistence (not rendered HTML)
-      const currentThread = this.summaryThreads?.[this.currentSummaryThreadIndex];
-      const rawResult = currentThread?.answer || this._currentRawSummary || '';
-      const state = {
-        inputText: summaryInput ? summaryInput.value : '',
-        currentSummaryText: this.currentSummaryText || null,
-        generatedQuestions: (this.generatedQuestions || []).slice(0, 20),
-        currentQuestion: this.currentSummaryQuestion || null,
-        resultContent: rawResult,
-        threads: (this.summaryThreads || []).slice(0, 20),
-        threadIndex: this.currentSummaryThreadIndex || 0,
-        activeSection: this._currentSummarySection || 'input',
-        timestamp: Date.now(),
-        tabId
-      };
-      await chrome.storage.local.set({ pc_summaryState_v1: state });
-    } catch (_) {}
+    return this.aiLabFeature?.sessionState?.saveSummaryState?.(this);
   }
 
-  /** Reset AI Summary to empty state (used when opening in new tab) */
   _resetSummaryToEmpty() {
-    this.currentSummaryText = null;
-    this.generatedQuestions = [];
-    this.currentSummaryQuestion = null;
-    this._activeSummaryHistoryId = null;
-    this.summaryThreads = [];
-    this.currentSummaryThreadIndex = 0;
-    this._currentRawSummary = null;
-    this._currentSummarySection = 'input';
-    const summaryInput = document.getElementById('summaryInput');
-    const summaryCharCounter = document.getElementById('summaryCharCounter');
-    const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
-    const followupContainer = document.getElementById('summaryFollowupContainer');
-    const paginationContainer = document.getElementById('summaryThreadPagination');
-    if (summaryInput) summaryInput.value = '';
-    if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
-    if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-    if (followupContainer) followupContainer.style.display = 'none';
-    if (paginationContainer) paginationContainer.style.display = 'none';
-    this.showSummarySection('input');
-    this._renderOpenRecentConversation();
+    return this.aiLabFeature?.sessionState?.resetSummaryToEmpty?.(this);
   }
 
-  /** Reset AI Breakdown to empty state (used when opening in new tab) */
   _resetBreakdownToEmpty() {
-    this.currentBreakdownText = null;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {};
-    this.breakdownThreads = [];
-    this.currentBreakdownThreadIndex = 0;
-    this.selectedBreakdownLevel = null;
-    const breakdownInput = document.getElementById('breakdownInput');
-    const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
-    const levelChips = document.querySelectorAll('.level-chip');
-    if (breakdownInput) {
-      breakdownInput.value = '';
-      breakdownInput.dispatchEvent(new Event('input'));
-    }
-    if (analyzeLevelBtn) analyzeLevelBtn.disabled = true;
-    levelChips.forEach(c => {
-      c.classList.remove('selected');
-      c.disabled = true;
-    });
-    const breakdownCharCounter = document.getElementById('breakdownCharCounter');
-    if (breakdownCharCounter) breakdownCharCounter.textContent = '0 characters';
+    return this.aiLabFeature?.sessionState?.resetBreakdownToEmpty?.(this);
   }
 
-  /** Render "Open recent conversation" in empty Summary state */
   async _renderOpenRecentConversation() {
-    const container = document.getElementById('openRecentConversationContainer');
-    if (!container) return;
-    const { pc_aiHistory_v1 = [] } = await chrome.storage.local.get(['pc_aiHistory_v1']);
-    const recent = (pc_aiHistory_v1 || []).slice(0, 5);
-    if (recent.length === 0) {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      return;
-    }
-    container.style.display = 'block';
-    container.innerHTML = `
-      <div class="open-recent-header">
-        <span class="open-recent-icon">??</span>
-        <span>Open recent conversation</span>
-      </div>
-      <div class="open-recent-list">
-        ${recent.map(e => {
-          const icon = e.type === 'breakdown' ? '??' : '??';
-          const label = e.type === 'breakdown' ? 'Breakdown' : 'Summary';
-          const title = (e.title || 'Untitled').substring(0, 40) + (e.title?.length > 40 ? '�' : '');
-          const timeStr = e.createdAt ? this.getTimeAgo(e.createdAt) : '';
-          return `<button class="open-recent-item" data-history-id="${e.id}" type="button">
-            <span class="open-recent-item-icon">${icon}</span>
-            <span class="open-recent-item-title">${this.escapeHtml(title)}</span>
-            <span class="open-recent-item-meta">${label} � ${timeStr}</span>
-          </button>`;
-        }).join('')}
-      </div>
-    `;
-    this.aiHistoryEntries = pc_aiHistory_v1;
-    container.querySelectorAll('.open-recent-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = parseInt(btn.dataset.historyId);
-        const entry = this.aiHistoryEntries?.find(e => e.id === id);
-        if (entry) this.openAiHistoryModal(entry);
-      });
-    });
+    return this.aiLabFeature?.sessionState?.renderOpenRecentConversation?.(this);
+  }
+
+  async _renderOpenRecentConversationFallback() {
+    return this.aiLabFeature?.sessionState?.renderOpenRecentConversationFallback?.(this);
   }
 
   /** Restore all persisted UI state on popup open */
@@ -5573,77 +1350,16 @@ class PasteCraftPopup {
     return this.authFeature.session._restoreSessionState(this);
   }
 
-  // Analysis History Functions
   async saveToAnalysisHistory(text, type, level = null, result = null) {
-    const historyEntry = {
-      id: Date.now(),
-      text: text.substring(0, 500), // Store first 500 chars
-      type,
-      level,
-      result: result ? result.substring(0, 1000) : null,
-      timestamp: Date.now(),
-      source: this.currentTab
-    };
-    
-    // Load existing history
-    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
-    
-    // Add new entry at the beginning
-    analysisHistory.unshift(historyEntry);
-    
-    // Keep only last 50 entries
-    if (analysisHistory.length > 50) {
-      analysisHistory.splice(50);
-    }
-    
-    // Save to storage
-    await chrome.storage.local.set({ analysisHistory });
-    this.analysisHistory = analysisHistory;
-    
-    console.log('? Saved to analysis history:', historyEntry);
+    return this.aiLabFeature.analysisHistory.saveToAnalysisHistory(this, text, type, level, result);
   }
-  
+
   async loadAnalysisHistory() {
-    const { analysisHistory = [] } = await chrome.storage.local.get(['analysisHistory']);
-    this.analysisHistory = analysisHistory;
-    return analysisHistory;
+    return this.aiLabFeature.analysisHistory.loadAnalysisHistory(this);
   }
-  
+
   renderAnalysisHistory() {
-    // This will be called when user navigates to AI Lab, Breakdown, or Summary tabs
-    const history = this.analysisHistory;
-    
-    if (history.length === 0) {
-      return `
-        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
-          <p style="font-size: 48px; margin: 0 0 16px 0;">??</p>
-          <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #6b7280;">No Analysis History</h3>
-          <p style="margin: 0; font-size: 14px;">Start analyzing clips to see your history here</p>
-        </div>
-      `;
-    }
-    
-    return history.map(entry => {
-      const icon = entry.type === 'breakdown' ? '??' : entry.type === 'summary' ? '??' : '??';
-      const timeAgo = this.getTimeAgo(entry.timestamp);
-      const levelBadge = entry.level ? `<span style="background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">${entry.level}</span>` : '';
-      
-      return `
-        <div class="history-entry" style="padding: 16px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" data-entry-id="${entry.id}">
-          <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <span style="font-size: 24px;">${icon}</span>
-            <div style="flex: 1; min-width: 0;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <span style="font-size: 13px; font-weight: 600; color: #1f2937; text-transform: capitalize;">${entry.type}</span>
-                ${levelBadge}
-                <span style="font-size: 12px; color: #9ca3af; margin-left: auto;">${timeAgo}</span>
-              </div>
-              <p style="margin: 0; font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(entry.text.substring(0, 100))}...</p>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    return this.aiLabFeature.analysisHistory.renderAnalysisHistory(this);
   }
 
   // ==================== AI HISTORY SYSTEM ====================
@@ -5661,12 +1377,28 @@ class PasteCraftPopup {
     return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads);
   }
 
+  async saveRefactorHistory(records) {
+    return this.aiLabFeature.history.saveRefactorHistory.call(this, records);
+  }
+
+  async submitRefactorTicket(message) {
+    return this.aiLabFeature.history.submitRefactorTicket.call(this, message);
+  }
+
   async _generateAiHistoryTitle(entryId, originalText) {
     return this.aiLabFeature.history._generateAiHistoryTitle.call(this, entryId, originalText);
   }
 
   renderAiHistoryList() {
     return this.aiLabFeature.history.renderAiHistoryList.call(this);
+  }
+
+  resetAiHistoryListPagination() {
+    return this.aiLabFeature.history.resetAiHistoryListPagination.call(this);
+  }
+
+  setAiHistoryListPage(pageIndex) {
+    return this.aiLabFeature.history.setAiHistoryListPage.call(this, pageIndex);
   }
 
   async openAiHistoryModal(entry) {
@@ -5860,108 +1592,6 @@ class PasteCraftPopup {
 
 }
 
-// Lucide icon renderer - idempotent, safe to call many times.
-// Replaces <i data-lucide="name"></i> placeholders with inline SVGs.
-// Observes DOM mutations so dynamically-rendered templates also get icons.
-window.renderLucideIcons = function renderLucideIcons() {
-  try {
-    if (typeof window.lucide === 'undefined' || !window.lucide.createIcons) return;
-    window.lucide.createIcons({
-      icons: window.lucide.icons || window.lucide,
-      attrs: { 'stroke-width': 2, 'aria-hidden': 'true', focusable: 'false' }
-    });
-  } catch (e) {
-    console.warn('Lucide render failed:', e);
-  }
-};
-
-(function initLucideObserver() {
-  if (window.__lucideObserverInstalled) return;
-  window.__lucideObserverInstalled = true;
-  const schedule = (() => {
-    let pending = false;
-    return () => {
-      if (pending) return;
-      pending = true;
-      requestAnimationFrame(() => {
-        pending = false;
-        window.renderLucideIcons();
-      });
-    };
-  })();
-  const observer = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (node.nodeType === 1 && (node.matches?.('[data-lucide]') || node.querySelector?.('[data-lucide]'))) {
-          schedule();
-          return;
-        }
-      }
-    }
-  });
-  if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
-  } else {
-    document.addEventListener('DOMContentLoaded', () => {
-      observer.observe(document.body, { childList: true, subtree: true });
-    }, { once: true });
-  }
-})();
-
-// Initialize when DOM loads
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('?? Popup script loaded');
-  window.renderLucideIcons();
-  try {
-    window.pasteCraftPopup = new PasteCraftPopup();
-  } catch (error) {
-    console.error('? Popup initialization failed:', error);
-    // Fallback simple interface
-    document.body.innerHTML = `
-      <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h2><i data-lucide="clipboard"></i> PasteCraft</h2>
-        <div id="simpleClips"></div>
-        <p style="color: #666; font-size: 12px;">Right-click selected text to save clips</p>
-      </div>
-    `;
-    loadSimpleClips();
-  }
-  window.renderLucideIcons();
+import('./popup/features/app/popup.boot.js').then(({ bootPopupPage }) => {
+  bootPopupPage(PasteCraftPopup);
 });
-
-// Also boot immediately if DOMContentLoaded already fired (resilience for any non-blocking script load edge-cases)
-if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
-  try {
-    window.pasteCraftPopup = new PasteCraftPopup();
-  } catch (error) {
-    console.error('? Popup initialization failed (immediate boot):', error);
-  }
-}
-
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  PasteCraftPopup.handleMessage(message);
-  sendResponse(true);
-});
-
-async function loadSimpleClips() {
-  const { clips = [] } = await chrome.storage.local.get(['clips']);
-  const container = document.getElementById('simpleClips');
-  
-  if (clips.length === 0) {
-    container.innerHTML = '<p style="color: #999;">No clips yet</p>';
-    return;
-  }
-  
-  clips.forEach((clip, index) => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background: #f0f0f0; margin: 8px 0; padding: 8px; border-radius: 4px; cursor: pointer;';
-    div.textContent = clip.text.substring(0, 50) + (clip.text.length > 50 ? '...' : '');
-    div.onclick = async () => {
-      await navigator.clipboard.writeText(clip.text);
-      div.style.background = '#90EE90';
-      setTimeout(() => div.style.background = '#f0f0f0', 500);
-    };
-    container.appendChild(div);
-  });
-}

@@ -1,5 +1,7 @@
-import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
-import { getHistoryModalElements } from './ai-lab.selectors.js';
+import { AI_STORAGE_KEYS, AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
+import { AI_SELECTORS, byId, getHistoryModalElements } from './ai-lab.selectors.js';
+
+export { renderOpenRecentConversation } from './ai-lab.summary.js';
 
 export async function loadAiHistory() {
   try {
@@ -21,6 +23,88 @@ export async function _persistAiHistory() {
     await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: this.aiHistoryEntries });
     _syncAiHistoryToCloud(this.aiHistoryEntries);
   } catch (_) {}
+}
+
+export async function saveRefactorHistory(records) {
+  try {
+    if (!Array.isArray(records) || records.length === 0) return;
+    await this.loadAiHistory();
+
+    for (const record of records) {
+      const before = String(record.before || '').trim();
+      const after = String(record.after || '').trim();
+      if (!before) continue;
+
+      const placeholderTitle = before.substring(0, 40).replace(/\n/g, ' ').trim() || 'Refactor';
+      const entry = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: 'refactorization',
+        title: `${placeholderTitle}...`,
+        originalText: before.substring(0, 2000),
+        threads: [{
+          question: 'Before',
+          answer: after.substring(0, 4000),
+          before,
+          after,
+          refactorLevel: record.refactorLevel || 'college',
+          sourceClipId: record.sourceClipId || '',
+          newClipId: record.newClipId || '',
+          synthesis: record.synthesis || {},
+          timestamp: Date.now(),
+        }],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      this.aiHistoryEntries.unshift(entry);
+      this._generateAiHistoryTitle(entry.id, before);
+    }
+
+    await this._persistAiHistory();
+    if (this.currentTab === 'aiHistory') {
+      this.renderAiHistoryList();
+    }
+  } catch (err) {
+    console.error('saveRefactorHistory failed:', err);
+  }
+}
+
+export async function submitRefactorTicket(message) {
+  const entry = this.currentHistoryEntry;
+  if (!entry || entry.type !== 'refactorization') {
+    this.showToast('No refactor entry selected', 'error');
+    return false;
+  }
+
+  const trimmed = String(message || '').trim();
+  if (!trimmed) {
+    this.showToast('Describe what went wrong', 'error');
+    return false;
+  }
+
+  const thread = (entry.threads || [])[0] || {};
+  const before = thread.before || entry.originalText || thread.question || '';
+  const after = thread.after || thread.answer || '';
+
+  try {
+    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.submitRefactorTicket) {
+      throw new Error('Cloud sync unavailable');
+    }
+    await pasteCraftSupabase.submitRefactorTicket({
+      historyId: entry.id,
+      message: trimmed,
+      beforeText: before,
+      afterText: after,
+      refactorLevel: thread.refactorLevel || '',
+      synthesis: thread.synthesis || {},
+    });
+    this.showToast('Ticket sent — thank you!');
+    return true;
+  } catch (err) {
+    console.error('submitRefactorTicket failed:', err);
+    this.showToast(err.message || 'Failed to send ticket', 'error');
+    return false;
+  }
 }
 
 export async function saveAiHistory(type, originalText, threads) {
@@ -75,18 +159,110 @@ export async function _generateAiHistoryTitle(entryId, originalText) {
   }
 }
 
+export function resetAiHistoryListPagination() {
+  this._aiHistoryPageIndex = 0;
+}
+
+export function setAiHistoryListPage(pageIndex) {
+  const entries = _filterHistoryEntries(this);
+  const totalPages = _getAiHistoryTotalPages(entries.length);
+  const next = Math.max(0, Math.min(pageIndex, totalPages - 1));
+  if (this._aiHistoryPageIndex === next) return;
+  this._aiHistoryPageIndex = next;
+  this.renderAiHistoryList();
+}
+
 export function renderAiHistoryList() {
-  const container = document.getElementById('aiHistoryList');
+  const container = byId(AI_SELECTORS.historyList);
+  const paginationEl = byId(AI_SELECTORS.historyListPagination);
   if (!container) return;
 
   const entries = _filterHistoryEntries(this);
   if (!entries || entries.length === 0) {
     container.innerHTML = _renderEmptyHistory(this);
+    _renderAiHistoryListPagination(this, paginationEl, 0, 0);
     return;
   }
 
-  container.innerHTML = entries.map(entry => _renderHistoryEntry(this, entry)).join('');
+  const total = entries.length;
+  const totalPages = _getAiHistoryTotalPages(total);
+  _clampAiHistoryPageIndex(this, totalPages);
+
+  const pageIndex = this._aiHistoryPageIndex || 0;
+  const start = pageIndex * AI_HISTORY_PAGE_SIZE;
+  const pageEntries = entries.slice(start, start + AI_HISTORY_PAGE_SIZE);
+
+  container.innerHTML = pageEntries.map(entry => _renderHistoryEntry(this, entry)).join('');
   _attachHistoryListHandlers(this, container);
+  _renderAiHistoryListPagination(this, paginationEl, total, totalPages);
+  if (typeof this.renderLucideIcons === 'function') {
+    this.renderLucideIcons();
+  }
+}
+
+function _getAiHistoryTotalPages(totalEntries) {
+  return Math.max(1, Math.ceil(totalEntries / AI_HISTORY_PAGE_SIZE));
+}
+
+function _clampAiHistoryPageIndex(app, totalPages) {
+  const idx = app._aiHistoryPageIndex || 0;
+  if (idx >= totalPages) {
+    app._aiHistoryPageIndex = Math.max(0, totalPages - 1);
+  } else if (idx < 0) {
+    app._aiHistoryPageIndex = 0;
+  }
+}
+
+function _getAiHistoryPaginationItems(currentPage, totalPages) {
+  const items = [];
+  const startPage = Math.max(0, currentPage - 2);
+  const endPage = Math.min(totalPages - 1, currentPage + 2);
+
+  if (currentPage > 2) items.push({ type: 'page', page: 0 });
+  if (currentPage > 3) items.push({ type: 'ellipsis' });
+
+  for (let page = startPage; page <= endPage; page++) {
+    items.push({ type: 'page', page });
+  }
+
+  if (currentPage < totalPages - 4) items.push({ type: 'ellipsis' });
+  if (currentPage < totalPages - 3) items.push({ type: 'page', page: totalPages - 1 });
+
+  return items;
+}
+
+function _renderAiHistoryPaginationItem(item, currentPage) {
+  if (item.type === 'ellipsis') return '<span class="pagination-ellipsis">...</span>';
+  const isActive = item.page === currentPage ? 'active' : '';
+  const label = item.page + 1;
+  return `<button type="button" class="pagination-number ${isActive}" data-action="ai-history-page" data-page="${item.page}" aria-label="Page ${label}">${label}</button>`;
+}
+
+function _renderAiHistoryListPagination(app, paginationEl, totalEntries, totalPages) {
+  if (!paginationEl) return;
+
+  if (totalEntries <= AI_HISTORY_PAGE_SIZE) {
+    paginationEl.style.display = 'none';
+    paginationEl.innerHTML = '';
+    return;
+  }
+
+  const currentPage = app._aiHistoryPageIndex || 0;
+  const pageLabel = currentPage + 1;
+
+  let html = '<div class="pagination-wrapper ai-history-pagination-wrapper">';
+  html += `<span class="ai-history-page-label" style="font-size:12px;font-weight:600;color:#64748b;margin-right:4px;">Page ${pageLabel} of ${totalPages}</span>`;
+  html += `<button type="button" class="pagination-btn pagination-prev" data-action="ai-history-page" data-page="${currentPage - 1}" ${currentPage === 0 ? 'disabled' : ''} aria-label="Previous page">‹ Prev</button>`;
+  html += '<div class="pagination-numbers">';
+  html += _getAiHistoryPaginationItems(currentPage, totalPages)
+    .map(item => _renderAiHistoryPaginationItem(item, currentPage))
+    .join('');
+  html += '</div>';
+  html += `<button type="button" class="pagination-btn pagination-next" data-action="ai-history-page" data-page="${currentPage + 1}" ${currentPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Next page">Next ›</button>`;
+  html += '</div>';
+
+  paginationEl.style.display = 'flex';
+  paginationEl.innerHTML = html;
 }
 
 export async function openAiHistoryModal(entry) {
@@ -98,6 +274,7 @@ export async function openAiHistoryModal(entry) {
   if (!modal) return;
 
   this._cancelEditHistoryTitle();
+  _toggleRefactorModalUi(entry);
   _renderHistoryModalHeader(entry, titleEl, subtitleEl);
   modal.style.display = 'flex';
   await _renderCurrentHistoryThread(this, entry, resultEl);
@@ -139,8 +316,14 @@ export function copyHistoryContent() {
   const entry = this.currentHistoryEntry;
   if (!entry || !entry.threads) return;
   const thread = entry.threads[this.currentHistoryThreadIndex];
-  if (thread && thread.answer) {
-    this.copyToClipboardFallback(thread.answer)
+  if (!thread) return;
+
+  const text = entry.type === 'refactorization'
+    ? `Before:\n${thread.before || entry.originalText || ''}\n\nAfter:\n${thread.after || thread.answer || ''}`
+    : (thread.answer || '');
+
+  if (text) {
+    this.copyToClipboardFallback(text)
       .then(() => this.showToast('Copied to clipboard!'))
       .catch((error) => {
         console.error('History copy failed:', error);
@@ -182,7 +365,7 @@ export async function _saveEditHistoryTitle() {
   if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
   await this._persistAiHistory();
 
-  const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
+  const typeIcon = entry.type === 'breakdown' ? '🧠' : entry.type === 'refactorization' ? '✨' : '📝';
   const titleEl = document.getElementById('aiHistoryModalTitle');
   if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
   this._cancelEditHistoryTitle();
@@ -203,6 +386,7 @@ export async function clearAllAiHistory() {
   this.aiHistoryEntries = [];
   this._activeBreakdownHistoryId = null;
   this._activeSummaryHistoryId = null;
+  resetAiHistoryListPagination.call(this);
   await this._persistAiHistory();
   this.renderAiHistoryList();
   this.showToast('AI history cleared');
@@ -285,14 +469,24 @@ function _filterHistoryEntries(app) {
 function _historyEntryMatchesQuery(entry, query) {
   const title = (entry.title || '').toLowerCase();
   const text = (entry.originalText || '').toLowerCase();
-  const answers = (entry.threads || []).map(t => (t.answer || '').toLowerCase()).join(' ');
-  return title.includes(query) || text.includes(query) || answers.includes(query);
+  const threads = entry.threads || [];
+  const answers = threads.map(t => (t.answer || '').toLowerCase()).join(' ');
+  const beforeAfter = threads.map(t => `${t.before || ''} ${t.after || ''}`).join(' ').toLowerCase();
+  return title.includes(query) || text.includes(query) || answers.includes(query) || beforeAfter.includes(query);
 }
 
 function _renderEmptyHistory(app) {
   const query = app._aiHistorySearchQuery || '';
-  const msg = query ? 'No results match your search' : 'Your AI Summary and Breakdown conversations will appear here';
-  const heading = query ? 'No matches' : 'No history yet';
+  const filter = app._aiHistoryFilterType || 'all';
+  let msg = 'Your AI Summary, Breakdown, and Refactorization history will appear here';
+  let heading = 'No history yet';
+  if (query) {
+    msg = 'No results match your search';
+    heading = 'No matches';
+  } else if (filter === 'refactorization') {
+    msg = 'Refactorizations appear here after you run AI Lab Refactorization or Craft Clips (AI Refactoring)';
+    heading = 'No refactorizations yet';
+  }
   return `
     <div class="empty-state">
       <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
@@ -301,22 +495,33 @@ function _renderEmptyHistory(app) {
     </div>`;
 }
 
+function _historyTypeMeta(entry) {
+  if (entry.type === 'breakdown') {
+    return { icon: '🧠', badgeClass: 'breakdown', badgeLabel: 'Breakdown' };
+  }
+  if (entry.type === 'refactorization') {
+    return { icon: '✨', badgeClass: 'refactorization', badgeLabel: 'Refactor' };
+  }
+  return { icon: '📝', badgeClass: 'summary', badgeLabel: 'Summary' };
+}
+
 function _renderHistoryEntry(app, entry) {
-  const icon = entry.type === 'breakdown' ? '🧠' : '📝';
-  const badgeClass = entry.type === 'breakdown' ? 'breakdown' : 'summary';
-  const badgeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
+  const meta = _historyTypeMeta(entry);
   const threadCount = (entry.threads || []).length;
   const timeStr = app.getTimeAgo ? app.getTimeAgo(entry.createdAt) : new Date(entry.createdAt).toLocaleDateString();
   const title = app.escapeHtml ? app.escapeHtml(entry.title || 'Untitled') : (entry.title || 'Untitled');
+  const metaLabel = entry.type === 'refactorization'
+    ? `${timeStr} · before/after`
+    : `${timeStr} · ${threadCount} response${threadCount !== 1 ? 's' : ''}`;
 
   return `
     <div class="ai-history-entry" data-history-id="${entry.id}">
-      <span class="ai-history-entry-icon">${icon}</span>
+      <span class="ai-history-entry-icon">${meta.icon}</span>
       <div class="ai-history-entry-info">
         <div class="ai-history-entry-title">${title}</div>
-        <div class="ai-history-entry-meta">${timeStr} &middot; ${threadCount} response${threadCount !== 1 ? 's' : ''}</div>
+        <div class="ai-history-entry-meta">${metaLabel}</div>
       </div>
-      <span class="ai-history-entry-badge ${badgeClass}">${badgeLabel}</span>
+      <span class="ai-history-entry-badge ${meta.badgeClass}">${meta.badgeLabel}</span>
       <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete"><i data-lucide="trash-2"></i></button>
     </div>`;
 }
@@ -344,18 +549,77 @@ function _attachHistoryListHandlers(app, container) {
 }
 
 function _renderHistoryModalHeader(entry, titleEl, subtitleEl) {
-  const typeIcon = entry.type === 'breakdown' ? '🧠' : '📝';
-  const typeLabel = entry.type === 'breakdown' ? 'Breakdown' : 'Summary';
-  if (titleEl) titleEl.textContent = `${typeIcon} ${entry.title || 'Untitled'}`;
-  if (subtitleEl) subtitleEl.textContent = `${typeLabel} — ${(entry.threads || []).length} response(s)`;
+  const meta = _historyTypeMeta(entry);
+  const threadCount = (entry.threads || []).length;
+  if (titleEl) titleEl.textContent = `${meta.icon} ${entry.title || 'Untitled'}`;
+  if (subtitleEl) {
+    subtitleEl.textContent = entry.type === 'refactorization'
+      ? `AI Refactorization · ${(entry.threads?.[0]?.refactorLevel || 'college')} level`
+      : `${meta.badgeLabel} — ${threadCount} response(s)`;
+  }
+}
+
+function _toggleRefactorModalUi(entry) {
+  const isRefactor = entry?.type === 'refactorization';
+  const continueBtn = document.getElementById('continueConversationBtn');
+  const reportWrap = document.getElementById('aiRefactorReportWrap');
+  const reportForm = document.getElementById('aiRefactorReportForm');
+  const reportInput = document.getElementById('aiRefactorReportInput');
+  if (continueBtn) continueBtn.style.display = isRefactor ? 'none' : '';
+  if (reportWrap) reportWrap.style.display = isRefactor ? 'block' : 'none';
+  if (reportForm) reportForm.style.display = 'none';
+  if (reportInput) reportInput.value = '';
 }
 
 async function _renderCurrentHistoryThread(app, entry, resultEl) {
-  if (entry.threads && entry.threads.length > 0) {
-    if (resultEl) resultEl.innerHTML = await app._renderAiResponse(entry.threads[0].answer);
-  } else if (resultEl) {
-    resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
+  if (!entry.threads || entry.threads.length === 0) {
+    if (resultEl) resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
+    return;
   }
+
+  if (entry.type === 'refactorization') {
+    if (resultEl) resultEl.innerHTML = _renderRefactorCompareHtml(app, entry.threads[0]);
+    return;
+  }
+
+  if (resultEl) {
+    resultEl.innerHTML = await app._renderAiResponse(entry.threads[0].answer);
+  }
+}
+
+function _renderRefactorCompareHtml(app, thread) {
+  const esc = app.escapeHtml ? app.escapeHtml.bind(app) : (s) => String(s || '');
+  const before = thread.before || thread.question || '';
+  const after = thread.after || thread.answer || '';
+  const synthesis = thread.synthesis || {};
+  const level = thread.refactorLevel || synthesis.level || 'college';
+  const outcome = synthesis.outcome ? String(synthesis.outcome) : 'changed';
+  const summary = synthesis.synthesis ? String(synthesis.synthesis) : '';
+  const reasons = Array.isArray(synthesis.reasons) ? synthesis.reasons : [];
+
+  return `
+    <div class="refactor-history-compare">
+      <div class="refactor-history-meta">
+        <span class="refactor-history-level">${esc(level)} level</span>
+        <span class="refactor-history-outcome outcome-${esc(outcome)}">${esc(outcome.replace(/_/g, ' '))}</span>
+      </div>
+      <div class="refactor-history-stack">
+        <section class="refactor-history-pane">
+          <h4>Before</h4>
+          <div class="refactor-history-text">${esc(before)}</div>
+        </section>
+        <section class="refactor-history-pane after">
+          <h4>After</h4>
+          <div class="refactor-history-text">${esc(after)}</div>
+        </section>
+      </div>
+      ${summary || reasons.length ? `
+        <div class="refactor-history-synthesis">
+          <h4>AI diagnostic</h4>
+          ${summary ? `<p>${esc(summary)}</p>` : ''}
+          ${reasons.length ? `<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+        </div>` : ''}
+    </div>`;
 }
 
 function _createHistoryThreadBox(app, thread, index) {

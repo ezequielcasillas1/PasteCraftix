@@ -66,6 +66,10 @@ serve(async (req) => {
         return respond({ ok: true, data: await restoreQuarantine(supabase, payload.user_id) })
       case 'confirm_delete_quarantine':
         return respond({ ok: true, data: await confirmDeleteQuarantine(supabase, payload.user_id) })
+      case 'list_refactor_tickets':
+        return respond({ ok: true, data: await listRefactorTickets(supabase, payload) })
+      case 'resolve_refactor_ticket':
+        return respond({ ok: true, data: await resolveRefactorTicket(supabase, payload.ticket_id, user.id) })
       default: return respond({ ok: false, error: `Unknown action: ${action}` }, 400)
     }
   } catch (err) {
@@ -646,4 +650,64 @@ async function confirmDeleteQuarantine(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc('pc_confirm_delete_quarantined_user', { target_user: userId })
   if (error) throw new Error(`confirm_delete_quarantine: ${error.message}`)
   return { deleted: data ?? 0, user_id: userId }
+}
+
+async function listRefactorTickets(supabase: any, payload: any) {
+  const status = payload?.status ? String(payload.status) : ''
+  let query = supabase
+    .from('refactor_tickets')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (status && ['open', 'reviewed', 'resolved'].includes(status)) {
+    query = query.eq('status', status)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(`list_refactor_tickets: ${error.message}`)
+
+  const userIds = Array.from(new Set((data || []).map((t: any) => t.user_id).filter(Boolean)))
+  const emailByUser: Record<string, string> = {}
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, auth_user_id')
+      .in('user_id', userIds)
+
+    const authIds = (profiles || []).map((p: any) => p.auth_user_id).filter(Boolean)
+    if (authIds.length) {
+      try {
+        const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        const authEmail: Record<string, string> = {}
+        for (const u of users || []) authEmail[String(u.id)] = u.email || ''
+        for (const p of profiles || []) {
+          if (p.auth_user_id) emailByUser[p.user_id] = authEmail[String(p.auth_user_id)] || ''
+        }
+      } catch (_) { /* best effort */ }
+    }
+  }
+
+  return (data || []).map((t: any) => ({
+    ...t,
+    email: emailByUser[t.user_id] || null,
+  }))
+}
+
+async function resolveRefactorTicket(supabase: any, ticketId: string, adminUserId: string) {
+  if (!ticketId) throw new Error('ticket_id required')
+  const { data, error } = await supabase
+    .from('refactor_tickets')
+    .update({
+      status: 'resolved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminUserId,
+    })
+    .eq('id', ticketId)
+    .select('*')
+    .maybeSingle()
+
+  if (error) throw new Error(`resolve_refactor_ticket: ${error.message}`)
+  if (!data) throw new Error('Ticket not found')
+  return data
 }
