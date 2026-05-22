@@ -55,7 +55,7 @@ async syncArchivedClipsToSupabase(localArchivedClips) {
     console.error('❌ Failed to sync archived clips to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Sync archived clips from Supabase to local storage (all devices for automatic cross-device sync)

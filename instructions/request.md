@@ -575,7 +575,7 @@ state management.
 **Status:** In progress — ships as **Craft Clips** (`ai-lab.magic.js`, settings in `ai-lab.craft-clips.*`)
 **Requirements:**
 - Rebrand UI/copy: Magic Wand → **Craft Clips**; **action cards** per clip (categorize, format/refactor, cleanup, dedupe)
-- **Smart categorize** toggle: rules + optional `ai-categorize` batch; categories via `createCategory` CRUD
+- **Smart categorize** toggle: premium → 5 AI title picker modal after craft, then apply; else rules; `createCategory` CRUD
 - **AI modes (one per craft):** **AI Formatted** (`ai-format`, polishes `text`) *or* **AI Refactoring** (`ai-refactor`, levels ELI5–Wise Man, keeps original clip + adds new refactored clip in recents)
 - **Settings:** categorize on/off, archive-duplicates on/off, refactor level chips with ⓘ tooltips
 - **Duplicates:** archive younger copies to `searchOnlyClips` when toggle on; undo restores clips + archived

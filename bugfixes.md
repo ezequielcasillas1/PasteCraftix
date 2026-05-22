@@ -1,3 +1,8 @@
+### May 21, 2026 - Floating widget missing after content-script split
+**Status:** Fixed (pending reload test)
+**Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json
+**Result:** Phase C replaced monolithic content-script with `import` shim; Repo Loader manifest lacked `type: module`, so script parse failed and widget never init. Bootstrap now uses dynamic `import()` with repo-loader paths; content init waits for `document.body`; widget visibility fallback if storage is slow.
+
 ### May 21, 2026 - AI History load-more UX (user feedback)
 **Status:** Fixed (pending verify)
 **Files:** ai-lab.history.js, popup.html, popup.js, modals-shared.events.js

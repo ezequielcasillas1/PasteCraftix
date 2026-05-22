@@ -33,12 +33,14 @@
     {
       "matches": ["<all_urls>"],
       "js": ["extension/content-script.js"],
+      "type": "module",
       "run_at": "document_end"
     }
   ],
   "action": {},
   "background": {
-    "service_worker": "extension/background.js"
+    "service_worker": "extension/background.js",
+    "type": "module"
   },
   "icons": {
     "16": "extension/icon.png",
@@ -51,6 +53,9 @@
       "resources": [
         "extension/popup.html",
         "extension/popup.js",
+        "extension/content/*.js",
+        "extension/content/quick-paste/*.js",
+        "extension/content/widget/*.js",
         "extension/styles.css",
         "extension/logo.svg",
         "extension/icon.png",

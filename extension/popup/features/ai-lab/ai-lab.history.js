@@ -25,6 +25,88 @@ export async function _persistAiHistory() {
   } catch (_) {}
 }
 
+export async function saveRefactorHistory(records) {
+  try {
+    if (!Array.isArray(records) || records.length === 0) return;
+    await this.loadAiHistory();
+
+    for (const record of records) {
+      const before = String(record.before || '').trim();
+      const after = String(record.after || '').trim();
+      if (!before || !after) continue;
+
+      const placeholderTitle = before.substring(0, 40).replace(/\n/g, ' ').trim() || 'Refactor';
+      const entry = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: 'refactorization',
+        title: `${placeholderTitle}...`,
+        originalText: before.substring(0, 2000),
+        threads: [{
+          question: 'Before',
+          answer: after.substring(0, 4000),
+          before,
+          after,
+          refactorLevel: record.refactorLevel || 'college',
+          sourceClipId: record.sourceClipId || '',
+          newClipId: record.newClipId || '',
+          synthesis: record.synthesis || {},
+          timestamp: Date.now(),
+        }],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      this.aiHistoryEntries.unshift(entry);
+      this._generateAiHistoryTitle(entry.id, before);
+    }
+
+    await this._persistAiHistory();
+    if (this.currentTab === 'aiHistory') {
+      this.renderAiHistoryList();
+    }
+  } catch (err) {
+    console.error('saveRefactorHistory failed:', err);
+  }
+}
+
+export async function submitRefactorTicket(message) {
+  const entry = this.currentHistoryEntry;
+  if (!entry || entry.type !== 'refactorization') {
+    this.showToast('No refactor entry selected', 'error');
+    return false;
+  }
+
+  const trimmed = String(message || '').trim();
+  if (!trimmed) {
+    this.showToast('Describe what went wrong', 'error');
+    return false;
+  }
+
+  const thread = (entry.threads || [])[0] || {};
+  const before = thread.before || entry.originalText || thread.question || '';
+  const after = thread.after || thread.answer || '';
+
+  try {
+    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.submitRefactorTicket) {
+      throw new Error('Cloud sync unavailable');
+    }
+    await pasteCraftSupabase.submitRefactorTicket({
+      historyId: entry.id,
+      message: trimmed,
+      beforeText: before,
+      afterText: after,
+      refactorLevel: thread.refactorLevel || '',
+      synthesis: thread.synthesis || {},
+    });
+    this.showToast('Ticket sent — thank you!');
+    return true;
+  } catch (err) {
+    console.error('submitRefactorTicket failed:', err);
+    this.showToast(err.message || 'Failed to send ticket', 'error');
+    return false;
+  }
+}
+
 export async function saveAiHistory(type, originalText, threads) {
   try {
     if (!threads || threads.length === 0) {

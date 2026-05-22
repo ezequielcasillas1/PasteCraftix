@@ -43,6 +43,8 @@ export const REFACTOR_LEVEL_INFO = {
   wiseman: 'Philosophical, metaphor-rich voice. Best for quotes and reflective text—not code or URLs.',
 };
 
+export const CRAFT_CATEGORY_SUGGESTION_COUNT = 5;
+
 export const CRAFT_CLIP_ACTIONS = {
   CATEGORIZE: 'categorize',
   FORMAT: 'format',

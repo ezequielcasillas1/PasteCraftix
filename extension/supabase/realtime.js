@@ -113,7 +113,7 @@ async setupRealtimeSubscriptions() {
   } catch (error) {
     console.error('❌ Failed to setup realtime subscriptions:', error);
   }
-}
+},
 
 _shouldThrottleRealtime(eventType) {
   const now = Date.now();
@@ -124,7 +124,7 @@ _shouldThrottleRealtime(eventType) {
   }
   this._realtimeThrottle[eventType] = now;
   return false;
-}
+},
 
 async handleClipsChange(payload) {
   if (this._shouldThrottleRealtime('clips')) return;
@@ -145,7 +145,7 @@ async handleClipsChange(payload) {
       detail: { type: 'clips' } 
     }));
   }
-}
+},
 
 async handleCategoriesChange(payload) {
   if (this._shouldThrottleRealtime('categories')) return;
@@ -163,7 +163,7 @@ async handleCategoriesChange(payload) {
       detail: { type: 'categories' } 
     }));
   }
-}
+},
 
 async handleArchivedClipsChange(payload) {
   if (this._shouldThrottleRealtime('archivedClips')) return;
@@ -181,7 +181,7 @@ async handleArchivedClipsChange(payload) {
       detail: { type: 'archivedClips' } 
     }));
   }
-}
+},
 
 async handleNotesChange(payload) {
   if (this._shouldThrottleRealtime('notes')) return;
@@ -199,7 +199,7 @@ async handleNotesChange(payload) {
       detail: { type: 'notes' }
     }));
   }
-}
+},
 
 async handleSettingsChange(payload) {
   if (this._shouldThrottleRealtime('settings')) return;
@@ -215,7 +215,7 @@ async handleSettingsChange(payload) {
       detail: { type: 'settings' } 
     }));
   }
-}
+},
 
 async handleProfileChange(payload) {
   if (this._shouldThrottleRealtime('profile')) return;
@@ -267,7 +267,7 @@ async handleProfileChange(payload) {
       detail: { type: 'profile' } 
     }));
   }
-}
+},
 
 unsubscribeAll() {
   this.realtimeChannels.forEach(channel => {
@@ -275,7 +275,7 @@ unsubscribeAll() {
   });
   this.realtimeChannels = [];
   console.log('🔕 All realtime subscriptions removed');
-}
+},
 
 // User Profile Methods
 async getUserProfile(userId) {
@@ -297,7 +297,7 @@ async getUserProfile(userId) {
     console.error('Failed to get user profile:', error);
     return null;
   }
-}
+},
 
 async createUserProfile(profileData) {
   if (!this.initialized) {
@@ -318,7 +318,7 @@ async createUserProfile(profileData) {
     console.error('Failed to create user profile:', error);
     return null;
   }
-}
+},
 
 async updateUserProfile(userId, updates) {
   if (!this.initialized) {
@@ -340,7 +340,7 @@ async updateUserProfile(userId, updates) {
     console.error('Failed to update user profile:', error);
     return null;
   }
-}
+},
 
 async uploadProfileImage(userId, imageFile) {
   if (!this.initialized) {
@@ -370,7 +370,7 @@ async uploadProfileImage(userId, imageFile) {
     console.error('Failed to upload profile image:', error);
     return null;
   }
-}
+},
 
 /**
  * Download image from temporary URL and upload to Supabase Storage

@@ -1,16 +1,22 @@
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
 
-// Initialize Quick Paste when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    window.pasteCraftQuickPaste = new QuickPasteInterface();
-    window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
-  });
-} else {
+function pastecraftInitContent() {
+  if (!document.body) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', pastecraftInitContent, { once: true });
+    } else {
+      requestAnimationFrame(pastecraftInitContent);
+    }
+    return;
+  }
+  if (window.pasteCraftFloatingWidget) return;
+
   window.pasteCraftQuickPaste = new QuickPasteInterface();
   window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
 }
+
+pastecraftInitContent();
 
 // Add toast animation styles
 const toastStyles = document.createElement('style');
@@ -25,5 +31,12 @@ toastStyles.textContent = `
     to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
   }
 `;
-document.head.appendChild(toastStyles);
-
+if (document.head) {
+  document.head.appendChild(toastStyles);
+} else {
+  document.addEventListener(
+    'DOMContentLoaded',
+    () => document.head?.appendChild(toastStyles),
+    { once: true }
+  );
+}

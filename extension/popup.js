@@ -732,6 +732,14 @@ class PasteCraftPopup {
     return this.aiLabFeature.magic._showMagicResults.call(this, stats);
   }
 
+  async _finishCraftFlow(stats) {
+    return this.aiLabFeature.magic._finishCraftFlow.call(this, stats);
+  }
+
+  async _applyCraftCategoryPick(categoryName, clipIds) {
+    return this.aiLabFeature.magic._applyCraftCategoryPick.call(this, categoryName, clipIds);
+  }
+
   
   showConfetti() {
     return PasteCraftPopupUi.showConfetti();

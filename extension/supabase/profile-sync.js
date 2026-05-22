@@ -66,7 +66,7 @@ async syncUserProfileToSupabase(localProfile) {
     console.error('❌ Failed to sync user profile to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Fire a usage beacon event for admin attribution.
@@ -91,7 +91,7 @@ async pcBeacon(event, meta = {}) {
       keepalive: true,
     }).catch(() => {});
   } catch (_) { /* silent */ }
-}
+},
 
 /**
  * Sync user profile from Supabase
@@ -139,7 +139,7 @@ async syncUserProfileFromSupabase() {
     console.error('❌ Failed to fetch user profile from Supabase:', error);
     return null;
   }
-}
+},
 
 // =====================================================
 // REALTIME SUBSCRIPTIONS
@@ -168,7 +168,7 @@ subscribeToClipChanges(callback) {
     });
 
   return channel;
-}
+},
 
 /**
  * Subscribe to real-time category changes
@@ -193,7 +193,7 @@ subscribeToCategoryChanges(callback) {
     });
 
   return channel;
-}
+},
 
 /**
  * Unsubscribe from channel

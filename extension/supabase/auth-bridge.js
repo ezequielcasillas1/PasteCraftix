@@ -47,7 +47,7 @@ setupAuthSessionBridge() {
   } catch (_) {
     // Back-compat: if onAuthStateChange is not available, we still wrote initial snapshot.
   }
-}
+},
 
 async getStoredAccessToken() {
   try {

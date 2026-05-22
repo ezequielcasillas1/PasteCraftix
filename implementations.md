@@ -1,3 +1,8 @@
+### May 21, 2026 - Smart categorize custom AI titles
+**Status:** PENDING USER VERIFY
+**Files:** supabase/functions/ai-categorize/index.ts, ai-lab.magic.js, ai-lab.craft-clips.category-pick.js
+**Result:** Removed preset padding (Quick Notes/Links/Work). Edge prompt asks for content-specific titles; filters generic buckets; retries once if empty/generic. Client shows 1–5 AI titles only; rule-based fallback only when AI returns none. Redeploy `ai-categorize` required.
+
 ### May 21, 2026 - Vertical slice refactor (Phases B–D)
 **Status:** PENDING USER VERIFY
 **Files:** extension/supabase/*, extension/supabase-client.js, extension/content/*, extension/content-script.js, extension/background/*, extension/background.js, extension/manifest.json, extension/popup/features/app/popup.boot.js, scripts/split-*.mjs, REFACTOR_REMAINING.md

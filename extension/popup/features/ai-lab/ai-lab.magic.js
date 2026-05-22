@@ -2,12 +2,14 @@
 import {
   CRAFT_CLIPS_AI_MODES,
   CRAFT_CLIP_ACTIONS,
+  CRAFT_CATEGORY_SUGGESTION_COUNT,
 } from './ai-lab.craft-clips.constants.js';
 import {
   loadCraftClipsSettings,
   resolveRefactorEdgeLevel,
   syncCraftClipsSettingsToUi,
 } from './ai-lab.craft-clips.settings.js';
+import { openCraftCategoryPickModal } from './ai-lab.craft-clips.category-pick.js';
 import { createCategory } from '../categories/categories.service.js';
 
 // ────────────────────────────────────────────────────────────
@@ -508,19 +510,25 @@ export async function _craftMagic(clipIds) {
   const skipTypes = app._skipAiFormatTypes();
   const aiEligibleTargets = _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes);
   const hasAi = app._hasAiAccess();
+  const deferCategoryPick = settings.smartCategorize
+    && hasAi
+    && uncategorizedTargets.length > 0;
 
   let aiCategoryMap = new Map();
   let aiFormatMap = new Map();
   let aiRefactorMap = new Map();
+  let refactorDiagnostics = new Map();
 
-  if (settings.smartCategorize) {
+  if (settings.smartCategorize && !deferCategoryPick) {
     aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats);
   }
 
   if (hasAi && aiEligibleTargets.length > 0) {
     if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
       const edgeLevel = resolveRefactorEdgeLevel(settings.refactorLevel);
-      aiRefactorMap = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
+      const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
+      aiRefactorMap = refactorResult.map;
+      refactorDiagnostics = refactorResult.diagnostics;
     } else {
       aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
     }
@@ -532,10 +540,12 @@ export async function _craftMagic(clipIds) {
     aiCategoryMap,
     aiFormatMap,
     aiRefactorMap,
+    refactorDiagnostics,
     refactorNewClips: [],
     queue: categoryQueue,
     stats,
     settings,
+    deferCategoryPick,
   };
   _processMagicTargetClips(app, ctx);
   _insertRefactoredSiblingClips(app, ctx, targetSet);
@@ -555,9 +565,20 @@ export async function _craftMagic(clipIds) {
   await _syncMagicToSupabase(app);
   _refreshMagicCreditsAndUi(app, stats);
 
+  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING && ctx.refactorNewClips.length > 0) {
+    await _saveCraftRefactorHistory(app, ctx);
+  }
+
   stats.craftAiMode = settings.aiMode;
   stats.refactorLevel = settings.refactorLevel;
   stats.duplicateHandling = settings.duplicateHandling;
+
+  if (deferCategoryPick) {
+    stats.needsCategoryPick = true;
+    stats.pendingCategoryClipIds = uncategorizedTargets.map((c) => String(c.id));
+    stats.categorySuggestions = await _fetchCategorySuggestions(app, uncategorizedTargets, hasAi);
+  }
+
   return stats;
 }
 
@@ -606,6 +627,114 @@ function _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes) {
   return out;
 }
 
+async function _fetchCategorySuggestions(app, targets, hasAi) {
+  if (targets.length === 0) return [];
+  if (hasAi) {
+    try {
+      const ai = await pasteCraftSupabase.aiCategorizeSuggestions(targets);
+      const custom = _normalizeAiCategorySuggestions(ai);
+      if (custom.length > 0) return custom;
+      const customFromSummary = await _fetchCategorySuggestionsFromSummaryAi(targets);
+      if (customFromSummary.length > 0) return customFromSummary;
+    } catch (e) {
+      console.error('AI category suggestion flow failed:', e);
+    }
+  }
+  return _fallbackCategorySuggestions(app, targets);
+}
+
+function _normalizeAiCategorySuggestions(raw) {
+  const generic = new Set([
+    'quick notes', 'links', 'work', 'personal', 'reference', 'quick', 'notes',
+    'contacts', 'code', 'data', 'markup', 'diagrams', 'uncategorized', 'general',
+  ]);
+  const seen = new Set();
+  const out = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const name = String(item || '').trim();
+    if (!name || generic.has(name.toLowerCase())) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+    if (out.length >= CRAFT_CATEGORY_SUGGESTION_COUNT) break;
+  }
+  return out;
+}
+
+async function _fetchCategorySuggestionsFromSummaryAi(targets) {
+  if (!Array.isArray(targets) || targets.length === 0) return [];
+  try {
+    const source = targets
+      .slice(0, 12)
+      .map((clip, idx) => {
+        const hint = _clipSourceHint(clip);
+        const text = String(clip?.text || '').trim().slice(0, 260);
+        return hint
+          ? `Snippet ${idx + 1}: ${text} [source:${hint}]`
+          : `Snippet ${idx + 1}: ${text}`;
+      })
+      .join('\n');
+    const prompt =
+      'Return up to 5 custom clipboard category titles that match these snippets. ' +
+      'If a source hint appears like [source:example.com], use it as context. ' +
+      'If source/topic hints suggest Bible content, prefer canonical book-level titles like Psalms/Proverbs/Romans. ' +
+      'For wiki/docs/information sites, prefer topic-specific titles from snippet and source/topic hints. ' +
+      'Use specific topical names (not generic words like Work, Personal, Links, Quick, Reference). ' +
+      'Output titles only, one per line, no numbering.';
+    const summary = await pasteCraftSupabase.generateSummary(source, prompt);
+    return _normalizeAiCategorySuggestions(_parseTitleLines(summary));
+  } catch (e) {
+    console.error('Summary AI category fallback failed:', e);
+    return [];
+  }
+}
+
+function _parseTitleLines(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  return text
+    .split(/\r?\n|[|•]/g)
+    .map((line) => String(line || '').replace(/^\s*(?:[-*]|\d+[\).\s])\s*/, '').trim())
+    .filter(Boolean);
+}
+
+function _clipSourceHint(clip) {
+  const meta = clip && typeof clip.meta === 'object' ? clip.meta : {};
+  const fromMeta = String(meta.sourcePageUrl || meta.url || '').trim();
+  const fromClip = String(clip?.sourcePageUrl || clip?.url || '').trim();
+  const raw = fromMeta || fromClip;
+  if (!raw) return '';
+  try {
+    return String(new URL(raw).hostname || '').toLowerCase().slice(0, 80);
+  } catch (_) {
+    return raw.slice(0, 80).toLowerCase();
+  }
+}
+
+function _fallbackCategorySuggestions(app, targets) {
+  const names = [];
+  const seen = new Set();
+  for (const clip of targets) {
+    const contentType = app._detectContentType(clip.text, clip.meta);
+    const name = app._suggestCategory(contentType).name;
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      names.push(name);
+    }
+  }
+  const pads = ['Quick Notes', 'Links', 'Work', 'Personal', 'Reference'];
+  for (const p of pads) {
+    if (names.length >= CRAFT_CATEGORY_SUGGESTION_COUNT) break;
+    if (!seen.has(p.toLowerCase())) {
+      names.push(p);
+      seen.add(p.toLowerCase());
+    }
+  }
+  return names.slice(0, CRAFT_CATEGORY_SUGGESTION_COUNT);
+}
+
 async function _runAiCategorization(targets, hasAi, stats) {
   const map = new Map();
   if (targets.length === 0 || !hasAi) return map;
@@ -641,16 +770,30 @@ async function _runAiFormatting(targets, hasAi) {
 
 async function _runAiRefactoring(targets, edgeLevel, stats) {
   const map = new Map();
-  if (targets.length === 0) return map;
+  const diagnostics = new Map();
+  if (targets.length === 0) return { map, diagnostics };
   try {
-    const aiResults = await pasteCraftSupabase.aiRefactor(targets, edgeLevel);
-    if (Array.isArray(aiResults) && aiResults.length > 0) {
+    const result = await pasteCraftSupabase.aiRefactor(targets, edgeLevel);
+    const aiResults = Array.isArray(result?.refactored) ? result.refactored : [];
+    const diagList = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
+    if (aiResults.length > 0) {
       _populateAiRefactorMap(map, targets, aiResults, stats);
     }
-  } catch (_) {
-    /* fall through — rule-based enhance still runs */
+    targets.forEach((target, i) => {
+      const diag = diagList[i] || diagList.find((d) => d?.index === i) || null;
+      if (diag) diagnostics.set(String(target.id), diag);
+    });
+  } catch (err) {
+    targets.forEach((target) => {
+      diagnostics.set(String(target.id), {
+        outcome: 'failed',
+        reasons: [String(err?.message || 'AI refactor request failed')],
+        synthesis: 'The refactor request failed before the model could rewrite this clip.',
+        level: edgeLevel,
+      });
+    });
   }
-  return map;
+  return { map, diagnostics };
 }
 
 function _populateAiRefactorMap(map, targets, aiResults, stats) {
@@ -681,7 +824,7 @@ function _processMagicTargetClips(app, ctx) {
     if (!ctx.targetSet.has(String(clip.id))) continue;
     const contentType = ctx.clipTypeMap.get(String(clip.id)) || 'text';
     ctx.stats.typesFound[contentType] = (ctx.stats.typesFound[contentType] || 0) + 1;
-    if (ctx.settings?.smartCategorize) {
+    if (ctx.settings?.smartCategorize && !ctx.deferCategoryPick) {
       _categorizeClipForMagic(app, clip, contentType, ctx);
     }
     _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx);
@@ -776,6 +919,29 @@ function _insertRefactoredSiblingClips(app, ctx, targetSet) {
 
   if (typeof app.enforceClipLimit === 'function') {
     void app.enforceClipLimit();
+  }
+}
+
+async function _saveCraftRefactorHistory(app, ctx) {
+  if (typeof app.saveRefactorHistory !== 'function') return;
+  const records = [];
+  for (const newClip of ctx.refactorNewClips || []) {
+    const sourceId = newClip.meta?.craftRefactorSourceId;
+    const sourceClip = app.clips.find((c) => String(c.id) === String(sourceId));
+    const before = String(sourceClip?.text || '').trim();
+    const after = String(newClip.text || '').trim();
+    if (!before || !after) continue;
+    records.push({
+      before,
+      after,
+      refactorLevel: ctx.settings?.refactorLevel || 'college',
+      sourceClipId: String(sourceId || ''),
+      newClipId: String(newClip.id),
+      synthesis: ctx.refactorDiagnostics?.get(String(sourceId)) || {},
+    });
+  }
+  if (records.length > 0) {
+    await app.saveRefactorHistory(records);
   }
 }
 
@@ -963,6 +1129,61 @@ async function _persistUndoMagicChanges(app) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Category pick (after craft, before results)
+// ────────────────────────────────────────────────────────────
+
+export async function _applyCraftCategoryPick(categoryName, clipIds) {
+  const app = this;
+  const name = String(categoryName || '').trim();
+  if (!name || !Array.isArray(clipIds) || clipIds.length === 0) return 0;
+
+  const idSet = new Set(clipIds.map(String));
+  let existingCat = app.categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+
+  if (!existingCat) {
+    try {
+      await createCategory(app, name, '🏷️', { silent: true });
+      existingCat = app.categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    } catch (_) { /* may exist from race */ }
+  }
+
+  if (!existingCat) return 0;
+
+  let assigned = 0;
+  for (const clip of app.clips) {
+    if (!idSet.has(String(clip.id))) continue;
+    const clipsInCat = app.clips.filter((c) => c.category === existingCat.name);
+    if (clipsInCat.length >= 150 && clip.category !== existingCat.name) continue;
+    clip.category = existingCat.name;
+    assigned++;
+  }
+
+  if (assigned > 0) {
+    await _persistMagicChanges(app);
+    await _syncMagicToSupabase(app);
+    _refreshMagicCreditsAndUi(app, { aiCategorized: true });
+  }
+
+  return assigned;
+}
+
+export async function _finishCraftFlow(stats) {
+  const app = this;
+
+  if (stats.needsCategoryPick && stats.categorySuggestions?.length) {
+    const chosen = await openCraftCategoryPickModal(stats.categorySuggestions);
+    if (chosen) {
+      const count = await _applyCraftCategoryPick.call(app, chosen, stats.pendingCategoryClipIds);
+      stats.categorized = count;
+      stats.aiCategorized = true;
+      stats.chosenCategory = chosen;
+    }
+  }
+
+  app._showMagicResults(stats);
+}
+
+// ────────────────────────────────────────────────────────────
 // Results modal
 // ────────────────────────────────────────────────────────────
 
@@ -1037,7 +1258,13 @@ function _populateMagicResultsModal(app, stats) {
     } else {
       parts.push('Rule-based cleanup and categorize only (premium for AI).');
     }
-    if (stats.aiCategorized) parts.push('Categories used AI batch.');
+    if (stats.chosenCategory) {
+      parts.push(`Category: "${stats.chosenCategory}".`);
+    } else if (stats.aiCategorized) {
+      parts.push('Categories used AI batch.');
+    } else if (stats.needsCategoryPick) {
+      parts.push('Category pick skipped — clips left uncategorized.');
+    }
     summaryEl.textContent = parts.join(' ');
   }
 

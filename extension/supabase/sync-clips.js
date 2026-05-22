@@ -69,7 +69,7 @@ async syncClipsToSupabase(localClips) {
     console.error('❌ Failed to sync clips to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Sync local clips to Supabase for a specific userId (used for legacy→auth migration).
@@ -91,7 +91,7 @@ async syncClipsToSupabaseForUser(localClips, userId) {
   } catch (_) {
     return false;
   }
-}
+},
 
 buildDbClipsForUpsert(localClips, userId, deviceId) {
   const arr = Array.isArray(localClips) ? localClips : [];
@@ -172,7 +172,7 @@ buildDbClipsForUpsert(localClips, userId, deviceId) {
   const out = Array.from(seen.values());
   out._pcStats = { inputCount: arr.length, outCount: out.length, droppedNoText, droppedInvalid, droppedImported, inferredIds };
   return out;
-}
+},
 
 async insertAuditLogs(rows) {
   if (!this.client) return;
@@ -182,7 +182,7 @@ async insertAuditLogs(rows) {
   } catch (error) {
     console.warn('⚠️ Audit log insert failed:', error?.message || error);
   }
-}
+},
 
 async syncDeletedClipsToSupabase(deletedClips) {
   if (!this.client) {
@@ -226,7 +226,7 @@ async syncDeletedClipsToSupabase(deletedClips) {
     console.error('❌ Failed to sync deleted clips to Supabase:', error);
     return false;
   }
-}
+},
 
 async syncDeletedArchivedClipsToSupabase(deletedClips) {
   if (!this.client) {
@@ -270,7 +270,7 @@ async syncDeletedArchivedClipsToSupabase(deletedClips) {
     console.error('❌ Failed to sync deleted archived clips to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Batch sync clips to Supabase (for large datasets)
@@ -327,7 +327,7 @@ async syncClipsToSupabaseBatch(localClips, userId, deviceId) {
 
   console.log(`✅ Batch sync complete: ${syncedCount} clips synced`);
   return true;
-}
+},
 
 /**
  * Sync clips from Supabase to local storage (with batch support for large datasets)
@@ -388,7 +388,7 @@ async syncClipsFromSupabase(userIdOverride = null) {
     console.error('❌ Failed to fetch clips from Supabase:', error);
     return null;
   }
-}
+},
 
 /**
  * Batch fetch clips from Supabase (for large datasets)
@@ -446,7 +446,7 @@ async syncClipsFromSupabaseBatch(userId, totalClips) {
 
   console.log(`✅ Batch fetch complete: ${allClips.length} clips fetched`);
   return allClips;
-}
+},
 
 // =====================================================
 // PAGINATED FETCH FUNCTIONS (for lazy loading)
@@ -476,7 +476,7 @@ async getClipsCount(userIdOverride = null) {
     console.error('Failed to get clips count:', e);
     return 0;
   }
-}
+},
 
 /**
  * Fetch a single page of clips for lazy loading
@@ -519,7 +519,7 @@ async fetchClipsPage(offset, limit, userIdOverride = null) {
     console.error(`Failed to fetch clips page (offset=${offset}, limit=${limit}):`, e);
     return [];
   }
-}
+},
 
 /**
  * Get total notes count for the user (for pagination)
@@ -544,7 +544,7 @@ async getNotesCount() {
     console.error('Failed to get notes count:', e);
     return 0;
   }
-}
+},
 
 /**
  * Fetch a single page of notes for lazy loading
@@ -590,7 +590,7 @@ async fetchNotesPage(offset, limit) {
     console.error(`Failed to fetch notes page (offset=${offset}, limit=${limit}):`, e);
     return [];
   }
-}
+},
 
 /**
  * Get total archived clips count for the user (for pagination)
@@ -615,7 +615,7 @@ async getArchivedClipsCount() {
     console.error('Failed to get archived clips count:', e);
     return 0;
   }
-}
+},
 
 /**
  * Fetch a single page of archived clips for lazy loading
@@ -657,7 +657,7 @@ async fetchArchivedClipsPage(offset, limit) {
     console.error(`Failed to fetch archived clips page (offset=${offset}, limit=${limit}):`, e);
     return [];
   }
-}
+},
 
 /**
  * Check if user is authenticated (has valid session)
@@ -665,7 +665,7 @@ async fetchArchivedClipsPage(offset, limit) {
  */
 isAuthenticated() {
   return !!(this.client && this._currentSession);
-}
+},
 
 /**
  * Merge local and remote clips (newest wins)
@@ -731,7 +731,7 @@ async mergeClips(localClips, remoteClips) {
   remoteClips.forEach(add);
 
   return Array.from(contentMerged.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-}
+},
 
 /**
  * Merge local and remote categories (newest wins by ID).
@@ -812,7 +812,7 @@ async mergeCategories(localCategories, remoteCategories) {
 
   // Sort by name for consistent display
   return Array.from(dedupedByName.values()).sort((a, b) => a.name.localeCompare(b.name));
-}
+},
 
 /**
  * Merge local and remote archived clips (newest wins)

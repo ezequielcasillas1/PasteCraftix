@@ -20,7 +20,7 @@ async getChromeUserId() {
       }
     });
   });
-}
+},
 
 /**
  * Get a stable user id for cloud sync.
@@ -39,7 +39,7 @@ async hasActiveAuthSession() {
   } catch (_) {
     return false;
   }
-}
+},
 
 async getSyncUserId() {
   // If authenticated, always use auth user UUID as the stable cross-device sync key.
@@ -96,7 +96,7 @@ async getSyncUserId() {
   const chromeUserId = await this.getChromeUserId();
   await this.ensureUserProfileRow(chromeUserId);
   return chromeUserId;
-}
+},
 
 async ensureUserProfileRow(userId) {
   if (!this.client) return;
@@ -113,7 +113,7 @@ async ensureUserProfileRow(userId) {
   } catch (_) {
     // Don't block sync if profile row can't be ensured
   }
-}
+},
 
 /**
  * Set RLS context for user
@@ -121,7 +121,7 @@ async ensureUserProfileRow(userId) {
 async setUserContext(userId) {
   if (!this.client) return;
   if (!userId) return;
-}
+},
 
 /**
  * Fetch the set of entity ids that are already tombstoned (soft-deleted) on Supabase
@@ -155,7 +155,7 @@ async _fetchTombstonedIds(tableName, idColumn) {
     // On failure, return an empty set. We'd rather allow the upsert than block sync entirely.
     return empty;
   }
-}
+},
 
 /**
  * Persist discovered remote tombstones into the local pc_deleted_<entity> list

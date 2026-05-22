@@ -23,7 +23,7 @@ setupConnectionMonitor() {
   
   // Initial status update
   this.updateSyncStatus(this.isOnline ? 'synced' : 'offline');
-}
+},
 
 async getDeviceId() {
   if (this.deviceId) return this.deviceId;
@@ -45,7 +45,7 @@ async getDeviceId() {
   }
   this.deviceId = deviceId;
   return deviceId;
-}
+},
 
 _isMergeableQueueType(type) {
   return [
@@ -58,7 +58,7 @@ _isMergeableQueueType(type) {
     'syncDeletedCategories',
     'syncDeletedNotes'
   ].includes(String(type || ''));
-}
+},
 
 _getQueueEntityKey(type, item) {
   if (!item || typeof item !== 'object') return '';
@@ -77,7 +77,7 @@ _getQueueEntityKey(type, item) {
     default:
       return '';
   }
-}
+},
 
 _getQueueEntityVersion(item) {
   if (!item || typeof item !== 'object') return 0;
@@ -98,7 +98,7 @@ _getQueueEntityVersion(item) {
     }
   }
   return 0;
-}
+},
 
 _mergeQueueOperationData(type, existingData, incomingData) {
   const existing = Array.isArray(existingData) ? existingData : [];
@@ -120,7 +120,7 @@ _mergeQueueOperationData(type, existingData, incomingData) {
   });
 
   return Array.from(merged.values());
-}
+},
 
 _compactSyncQueue(queue) {
   const items = Array.isArray(queue) ? queue : [];
@@ -150,7 +150,7 @@ _compactSyncQueue(queue) {
   });
 
   return compacted;
-}
+},
 
 async loadSyncQueue() {
   try {
@@ -173,7 +173,7 @@ async loadSyncQueue() {
     console.error('❌ Failed to load sync queue:', error);
     this.syncQueue = [];
   }
-}
+},
 
 async saveSyncQueue() {
   try {
@@ -183,7 +183,7 @@ async saveSyncQueue() {
   } catch (error) {
     console.error('❌ Failed to save sync queue:', error);
   }
-}
+},
 
 async addToSyncQueue(operation) {
   const nextOperation = {
@@ -194,7 +194,7 @@ async addToSyncQueue(operation) {
   this.syncQueue = this._compactSyncQueue([...this.syncQueue, nextOperation]);
   await this.saveSyncQueue();
   console.log(`➕ Added to sync queue: ${operation.type} (${this.syncQueue.length} pending)`);
-}
+},
 
 async processSyncQueue() {
   if (this._pauseSync) return;
@@ -236,7 +236,7 @@ async processSyncQueue() {
   } finally {
     this._isProcessingSyncQueue = false;
   }
-}
+},
 
 async executeSyncOperation(operation) {
   let result = true;
@@ -283,7 +283,7 @@ async executeSyncOperation(operation) {
   } finally {
     this._activeSyncTypes.delete(type);
   }
-}
+},
 
 updateSyncStatus(status) {
   this.syncStatus = status;
@@ -291,7 +291,7 @@ updateSyncStatus(status) {
   window.dispatchEvent(new CustomEvent('syncStatusChanged', { 
     detail: { status, queueLength: this.syncQueue.length } 
   }));
-}
+},
 
 updateSyncProgress(current, total, percentage) {
   this.syncProgress = { current, total, percentage };
@@ -299,7 +299,7 @@ updateSyncProgress(current, total, percentage) {
   window.dispatchEvent(new CustomEvent('syncProgress', {
     detail: { current, total, percentage }
   }));
-}
+},
 
 async syncWithQueue(type, data, syncMethod) {
   const op = { type, data };

@@ -38,7 +38,7 @@ async syncAiHistoryToSupabase(localHistory) {
     console.error('❌ Failed to sync AI history to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Fetch AI history from Supabase
@@ -73,7 +73,7 @@ async fetchAiHistoryFromSupabase() {
     console.error('❌ Failed to fetch AI history from Supabase:', error);
     return [];
   }
-}
+},
 
 /**
  * Merge local and remote AI history (remote wins on conflict, newer wins)

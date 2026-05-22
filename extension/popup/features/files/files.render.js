@@ -166,13 +166,13 @@ export function openManageCategoriesModal(app, file) {
 
   const fileCatIds = new Set((app.fileCategories || [])
     .filter(fc => fc.fileId === file.id)
-    .map(fc => fc.categoryId));
+    .map(fc => String(fc.categoryId)));
 
   (app.categories || []).forEach(cat => {
     const item = document.createElement('label');
     item.className = 'manage-category-item';
     
-    const isChecked = fileCatIds.has(cat.id);
+    const isChecked = fileCatIds.has(String(cat.id));
     
     item.innerHTML = `
       <input type="checkbox" value="${cat.id}" ${isChecked ? 'checked' : ''}>

@@ -13,7 +13,7 @@ _pickPreferredNoteRow(existing, candidate) {
   if (candidateMs < existingMs) return existing;
   if (candidate?.deleted_at && !existing?.deleted_at) return candidate;
   return existing;
-}
+},
 
 _dedupeNotesByKey(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
@@ -24,13 +24,13 @@ _dedupeNotesByKey(rows) {
     map.set(key, existing ? this._pickPreferredNoteRow(existing, row) : row);
   });
   return Array.from(map.values());
-}
+},
 
 _filterSnapshotsToRows(snapshots, rows) {
   if (!Array.isArray(snapshots) || snapshots.length === 0) return [];
   const allowed = new Set(rows.map(r => `${r.user_id}::${String(r.note_id)}`));
   return snapshots.filter(s => allowed.has(`${s.user_id}::${String(s.note_id)}`));
-}
+},
 
 buildDbNotesForUpsert(localNotes, userId, deviceId) {
   const allNotes = Array.isArray(localNotes) ? localNotes : [];
@@ -124,7 +124,7 @@ buildDbNotesForUpsert(localNotes, userId, deviceId) {
   });
 
   return { rows, snapshots };
-}
+},
 
 async syncNotesToSupabase(localNotes) {
   if (!this.client) {
@@ -188,7 +188,7 @@ async syncNotesToSupabase(localNotes) {
     console.error('❌ Failed to sync notes to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Sync notes from Supabase (all devices for automatic cross-device sync)
@@ -244,7 +244,7 @@ async syncNotesFromSupabase() {
     console.error('❌ Failed to sync notes from Supabase:', error);
     return null;
   }
-}
+},
 
 async mergeNotes(localNotes, remoteNotes) {
   const merged = new Map();
@@ -308,7 +308,7 @@ async mergeNotes(localNotes, remoteNotes) {
   });
 
   return Array.from(merged.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-}
+},
 
 async syncDeletedNotesToSupabase(deletedNotes) {
   if (!this.client) {

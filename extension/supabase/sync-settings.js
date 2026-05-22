@@ -52,7 +52,7 @@ async syncSettingsToSupabase(localSettings) {
     console.error('❌ Failed to sync settings to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Sync settings from Supabase

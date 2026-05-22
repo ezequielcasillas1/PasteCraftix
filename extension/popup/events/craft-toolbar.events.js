@@ -128,7 +128,7 @@ export function registerCraftToolbarEvents(app) {
       app.aiLabFeature.magic.saveMagicUndoSnapshot.call(app);
       document.getElementById('magicPreviewModal').style.display = 'none';
       const stats = await app._craftMagic([...app._magicSelected]);
-      app._showMagicResults(stats);
+      await app._finishCraftFlow(stats);
     });
 
     // Magic preview: Craft all Magic to clips
@@ -136,7 +136,7 @@ export function registerCraftToolbarEvents(app) {
     if (craftAllBtn) craftAllBtn.addEventListener('click', async () => {
       document.getElementById('magicPreviewModal').style.display = 'none';
       const stats = await app._craftAllMagic();
-      app._showMagicResults(stats);
+      await app._finishCraftFlow(stats);
     });
 
     // Magic preview: Undo

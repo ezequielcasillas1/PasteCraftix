@@ -35,7 +35,7 @@ async signUpWithEmail(email, password) {
     console.error('❌ Sign up failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Resend verification email
@@ -64,7 +64,7 @@ async resendVerificationEmail(email) {
     console.error('❌ Resend failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Request password reset email
@@ -92,7 +92,7 @@ async resetPassword(email) {
     console.error('❌ Password reset failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Update user password (after reset)
@@ -117,7 +117,7 @@ async updatePassword(newPassword) {
     console.error('❌ Password update failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Sign in with email and password
@@ -143,7 +143,7 @@ async signInWithEmail(email, password) {
     console.error('❌ Sign in failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Sign in with Google OAuth
@@ -233,7 +233,7 @@ async signInWithGoogle() {
     console.error('❌ Google sign in failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 /**
  * Sign out current user
@@ -259,7 +259,7 @@ async signOut() {
     console.error('❌ Sign out failed:', error);
     return { success: false, error: error.message };
   }
-}
+},
 
 // =====================================================
 // FAST SIGN-OUT (local-first, non-blocking global revoke)
@@ -276,7 +276,7 @@ _getSupabaseAuthStorageKey() {
   } catch (_) {
     return '';
   }
-}
+},
 
 async _clearCachedAuthState() {
   // Best-effort: clear extension-side caches/ids without deleting user data.
@@ -288,7 +288,7 @@ async _clearCachedAuthState() {
   try {
     await new Promise((resolve) => chrome.storage.sync.remove(['accountUserId'], resolve));
   } catch (_) {}
-}
+},
 
 _clearSupabaseLocalStorage() {
   try {
@@ -297,7 +297,7 @@ _clearSupabaseLocalStorage() {
       localStorage.removeItem(key);
     }
   } catch (_) {}
-}
+},
 
 async signOutFast() {
   if (!this.client) {
@@ -341,7 +341,7 @@ async signOutFast() {
   }
 
   return { success: true };
-}
+},
 
 /**
  * Get current user session
@@ -378,7 +378,7 @@ async getCurrentUser() {
     console.error('❌ Get current user failed:', error);
     return null;
   }
-}
+},
 
 /**
  * Create user subscription record
@@ -404,7 +404,7 @@ async createUserSubscription(userId, email, tier = 'free') {
     console.error('❌ Failed to create subscription:', error);
     return false;
   }
-}
+},
 
 /**
  * Get user subscription info
@@ -444,7 +444,7 @@ async getUserSubscription(userId) {
     console.error('❌ Failed to get subscription:', error);
     return null;
   }
-}
+},
 
 /**
  * Direct REST fallback for getUserSubscription when Supabase auth client is stuck.
@@ -470,7 +470,7 @@ async _getUserSubscriptionDirect(userId) {
     console.error('❌ Direct subscription fetch failed:', error);
     return null;
   }
-}
+},
 
 /**
  * Check if user has premium access
@@ -514,7 +514,7 @@ async isPremiumUser(userId) {
 
   const isPremium = isPaidPremium || hasCouponAiAccess;
   return isPremium;
-}
+},
 
 /**
  * Check if user has cloud sync access (basic or premium tier)
@@ -547,7 +547,7 @@ async hasCloudSyncAccess(userId) {
   const hasPaidTierAccess = allowedTiers.includes(tier) && allowedStatuses.includes(status);
   const hasAccess = hasPaidTierAccess || hasCouponCloudAccess;
   return hasAccess;
-}
+},
 
 async getEffectiveAccessState(userId) {
   if (!userId || !this.client) return null;
@@ -565,7 +565,7 @@ async getEffectiveAccessState(userId) {
     console.warn('get_effective_access_state failed:', err?.message || err);
     return null;
   }
-}
+},
 
 /**
  * Check cloud sync access and show upgrade prompt if not allowed
@@ -581,7 +581,7 @@ async checkCloudSyncAccess(userId) {
   }
   
   return true;
-}
+},
 
 /**
  * Check premium access and redirect to upgrade page if not premium
@@ -598,7 +598,7 @@ async checkPremiumAccess(userId, featureName = 'feature') {
   }
   
   return true;
-}
+},
 
 /**
  * Admin sign in (checks for admin tier)

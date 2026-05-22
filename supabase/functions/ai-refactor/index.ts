@@ -27,6 +27,92 @@ const levelPrompts: Record<string, string> = {
   wiseman: `Rewrite each snippet in a wise, philosophical voice with metaphor where natural. ${rewriteRules}`,
 }
 
+const CODE_OR_URL_RE = /^(https?:\/\/|www\.|[a-z0-9._%+-]+@|[{[\(<]|```|<\/?[a-z])/i
+const STRUCTURED_RE = /^[\s]*[{[\]"]/ 
+
+function similarityRatio(a: string, b: string): number {
+  if (!a && !b) return 1
+  if (!a || !b) return 0
+  const longer = a.length >= b.length ? a : b
+  const shorter = a.length >= b.length ? b : a
+  if (!longer.length) return 1
+  let matches = 0
+  for (let i = 0; i < shorter.length; i++) {
+    if (shorter[i] === longer[i]) matches++
+  }
+  return matches / longer.length
+}
+
+function isPreservedContent(text: string): boolean {
+  const t = String(text || '').trim()
+  if (!t) return false
+  if (CODE_OR_URL_RE.test(t)) return true
+  if (STRUCTURED_RE.test(t)) return true
+  if (/^[\d\s+\-().]+$/.test(t) && t.replace(/\D/g, '').length >= 7) return true
+  return false
+}
+
+function buildSynthesis(outcome: string, reasons: string[], level: string): string {
+  const reasonText = reasons.length ? reasons.join(' ') : 'No specific blockers recorded.'
+  switch (outcome) {
+    case 'changed':
+      return `Refactor at ${level} level succeeded with a meaningful rewrite.`
+    case 'minimal_change':
+      return `The model made only tiny edits at ${level} level. ${reasonText} The clip may already match that register or the content resisted deeper rewriting.`
+    case 'unchanged':
+      return `The model returned text identical to the input at ${level} level. ${reasonText} Try a higher-contrast level or check if the clip is code, a URL, or already polished.`
+    case 'partial':
+      return `The AI response was incomplete or hard to parse at ${level} level. ${reasonText} Original text was kept as fallback.`
+    case 'preserved':
+      return `Content looks like code, a URL, email, phone, or structured data — refactor rules preserve it unchanged at ${level} level.`
+    default:
+      return reasonText
+  }
+}
+
+function buildDiagnostic(
+  original: string,
+  refactored: string,
+  index: number,
+  level: string,
+  parseOk: boolean,
+  usedFallback: boolean,
+): Record<string, unknown> {
+  const reasons: string[] = []
+  let outcome = 'changed'
+
+  if (!parseOk) {
+    reasons.push('AI JSON response could not be parsed cleanly.')
+    outcome = 'partial'
+  }
+  if (usedFallback) {
+    reasons.push('Missing AI output slot was filled with the original clip.')
+    if (outcome === 'changed') outcome = 'partial'
+  }
+  if (isPreservedContent(original)) {
+    reasons.push('Input matches preserve-as-is rules (code, URL, email, phone, or structured data).')
+    if (original === refactored) outcome = 'preserved'
+  }
+  if (original === refactored) {
+    reasons.push('Output matched input exactly — no rewrite was applied.')
+    outcome = outcome === 'partial' ? 'partial' : 'unchanged'
+  } else {
+    const ratio = similarityRatio(original, refactored)
+    if (ratio >= 0.92 && outcome === 'changed') {
+      reasons.push(`Output was ${Math.round(ratio * 100)}% similar to the original — only minimal wording shifted.`)
+      outcome = 'minimal_change'
+    }
+  }
+
+  return {
+    index,
+    outcome,
+    level,
+    reasons,
+    synthesis: buildSynthesis(outcome, reasons, level),
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -83,8 +169,11 @@ serve(async (req) => {
       }
     }
 
-    const refactored: string[] = Array.isArray(parsed?.refactored)
-      ? parsed.refactored.map((t: unknown) => String(t || '').trim())
+    const parseOk = Array.isArray(parsed?.refactored)
+    const aiCount = parseOk ? parsed!.refactored!.length : 0
+
+    const refactored: string[] = parseOk
+      ? parsed!.refactored!.map((t: unknown) => String(t || '').trim())
       : []
 
     while (refactored.length < batch.length) {
@@ -92,10 +181,17 @@ serve(async (req) => {
     }
     if (refactored.length > batch.length) refactored.length = batch.length
 
+    const diagnostics = batch.map((c: { text?: string }, i: number) => {
+      const original = String(c.text || '').trim()
+      const out = refactored[i] || original
+      const usedFallback = i >= aiCount
+      return buildDiagnostic(original, out, i, edgeLevel, parseOk, usedFallback)
+    })
+
     const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
 
     return new Response(
-      JSON.stringify({ refactored, ...credits }),
+      JSON.stringify({ refactored, diagnostics, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {

@@ -156,7 +156,7 @@ async syncCategoriesToSupabase(localCategories) {
     console.error('❌ Failed to sync categories to Supabase:', error);
     return false;
   }
-}
+},
 
 async syncDeletedCategoriesToSupabase(deletedCategories) {
   if (!this.client) {
@@ -220,7 +220,7 @@ async syncDeletedCategoriesToSupabase(deletedCategories) {
     console.error('❌ Failed to sync deleted categories to Supabase:', error);
     return false;
   }
-}
+},
 
 /**
  * Sync categories from Supabase (all devices for automatic cross-device sync)
@@ -259,7 +259,7 @@ async syncCategoriesFromSupabase() {
     console.error('❌ Failed to fetch categories from Supabase:', error);
     return null;
   }
-}
+},
 
 /**
  * Soft-delete a category row from Supabase.

@@ -18,7 +18,9 @@ import { aiHistorySyncMixin } from './ai-history-sync.js';
 import { profileSyncMixin } from './profile-sync.js';
 import { authMixin } from './auth.js';
 import { fullSyncMixin } from './full-sync.js';
+import { storageAdapterMixin } from './storage-adapter.js';
 
+Object.assign(PasteCraftSupabase.prototype, storageAdapterMixin);
 Object.assign(PasteCraftSupabase.prototype, aiWorkflowMixin);
 Object.assign(PasteCraftSupabase.prototype, coreMixin);
 Object.assign(PasteCraftSupabase.prototype, subscriptionMixin);

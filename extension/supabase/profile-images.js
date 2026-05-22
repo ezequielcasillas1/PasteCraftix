@@ -4,11 +4,11 @@ export const profileImagesMixin = {
 // =====================================================
 _pcIsDataImageUrl(u) {
   return typeof u === 'string' && u.startsWith('data:image/');
-}
+},
 
 _pcTryParseUrl(u) {
   try { return new URL(String(u || '')); } catch (_) { return null; }
-}
+},
 
 _pcGetSupabaseHost() {
   try {
@@ -19,7 +19,7 @@ _pcGetSupabaseHost() {
   } catch (_) {
     return '';
   }
-}
+},
 
 _pcIsExpiredSas(u) {
   const urlObj = this._pcTryParseUrl(u);
@@ -29,7 +29,7 @@ _pcIsExpiredSas(u) {
   const ms = Date.parse(se);
   if (!Number.isFinite(ms)) return false;
   return Date.now() > ms;
-}
+},
 
 async uploadDataUrlToProfileImages(dataUrl, userId) {
   if (!this.client) return null;
@@ -75,7 +75,7 @@ async uploadDataUrlToProfileImages(dataUrl, userId) {
   } catch (_) {
     return null;
   }
-}
+},
 
 async convertToPermanentProfileImageUrl(imageUrl, userId) {
   const u = typeof imageUrl === 'string' ? imageUrl : '';

@@ -17,7 +17,7 @@ async getCachedSubscription(userId) {
   } catch (_) {
     return null;
   }
-}
+},
 
 async setCachedSubscription(userId, subscription) {
   try {
@@ -32,7 +32,7 @@ async setCachedSubscription(userId, subscription) {
   } catch (_) {
     // ignore
   }
-}
+},
 
 async init() {
   try {

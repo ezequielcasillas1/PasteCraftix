@@ -3125,17 +3125,23 @@ export class PasteCraftFloatingWidget {
   }
 
   loadSavedPosition() {
+    const revealWidget = () => {
+      if (this.widget) {
+        this.widget.style.visibility = 'visible';
+      }
+    };
+
     chrome.storage.local.get(['widgetPosition'], (result) => {
       if (result.widgetPosition && this.widget) {
         this.position = result.widgetPosition;
         this.widget.style.top = this.position.top + '%';
         console.log('📍 Widget position loaded:', this.position.top + '%');
       }
-      // Show widget now that position is resolved (prevents flash at default spot)
-      if (this.widget) {
-        this.widget.style.visibility = 'visible';
-      }
+      revealWidget();
     });
+
+    // Fallback: never leave widget hidden if storage callback is delayed
+    setTimeout(revealWidget, 800);
   }
   
   savePosition() {

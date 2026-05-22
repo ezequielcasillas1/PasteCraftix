@@ -1,5 +1,30 @@
 /** Vertical slice: ai-functions.js */
 export const aiFunctionsMixin = {
+_buildCategorizeClipPayload(clips, textLimit = 200) {
+  return (Array.isArray(clips) ? clips : []).map((c) => {
+    const meta = c && typeof c.meta === 'object' ? c.meta : {};
+    const text = String(c?.text || '').slice(0, textLimit);
+    const sourcePageUrl = String(meta.sourcePageUrl || meta.url || c?.sourcePageUrl || c?.url || '').slice(0, 400);
+    let sourceHost = '';
+    let sourceTopic = '';
+    if (sourcePageUrl) {
+      try {
+        const u = new URL(sourcePageUrl);
+        sourceHost = String(u.hostname || '').toLowerCase();
+        const pathParts = String(u.pathname || '')
+          .split('/')
+          .map((p) => p.trim())
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p) => p.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim())
+          .filter(Boolean);
+        sourceTopic = pathParts.join(' ').slice(0, 120);
+      } catch (_) {}
+    }
+    return { text, sourcePageUrl, sourceHost, sourceTopic };
+  });
+},
+
 // OpenAI Integration Methods
 async generateAIName(userName) {
   try {
@@ -35,7 +60,7 @@ async generateAIName(userName) {
     console.error('Failed to generate AI name:', error);
     return null;
   }
-}
+},
 
 async analyzePhotoWithVision(imageBase64) {
   try {
@@ -73,7 +98,7 @@ async analyzePhotoWithVision(imageBase64) {
     console.error('Failed to analyze photo:', error);
     throw error;
   }
-}
+},
 
 // ─── AI Smart Categorization (Magic Wand) ───
 async aiCategorize(clips) {
@@ -88,7 +113,7 @@ async aiCategorize(clips) {
     } catch (_) {}
 
     const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-categorize`;
-    const body = { clips: clips.map(c => ({ text: String(c.text || '').slice(0, 200) })) };
+    const body = { clips: this._buildCategorizeClipPayload(clips, 200) };
 
     const response = await this._fetchWithTimeout(url, {
       method: 'POST',
@@ -112,11 +137,13 @@ async aiCategorize(clips) {
     console.error('AI categorize failed:', error);
     return [];
   }
-}
+},
 
 async aiCategorizeSuggestions(clips) {
   try {
-    if (!Array.isArray(clips) || clips.length === 0) return [];
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return [];
+    }
 
     let accessToken = '';
     try {
@@ -127,7 +154,7 @@ async aiCategorizeSuggestions(clips) {
     const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-categorize`;
     const body = {
       mode: 'suggestions',
-      clips: clips.map(c => ({ text: String(c.text || '').slice(0, 200) })),
+      clips: this._buildCategorizeClipPayload(clips, 200),
     };
 
     const response = await this._fetchWithTimeout(url, {
@@ -142,8 +169,8 @@ async aiCategorizeSuggestions(clips) {
     }, 20000, 'AI category suggestions timed out');
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'AI category suggestions failed');
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || 'AI category suggestions failed');
     }
 
     const data = await response.json();
@@ -152,7 +179,7 @@ async aiCategorizeSuggestions(clips) {
     console.error('AI categorize suggestions failed:', error);
     return [];
   }
-}
+},
 
 // ─── AI Smart Format (Magic Wand) ───
 async aiFormat(clips) {
@@ -190,12 +217,14 @@ async aiFormat(clips) {
     console.error('AI format failed:', error);
     return [];
   }
-}
+},
 
 // ─── AI Refactoring (Craft Clips) ───
 async aiRefactor(clips, level = 'college') {
   try {
-    if (!Array.isArray(clips) || clips.length === 0) return [];
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return { refactored: [], diagnostics: [] };
+    }
 
     let accessToken = '';
     try {
@@ -226,12 +255,40 @@ async aiRefactor(clips, level = 'college') {
     }
 
     const data = await response.json();
-    return Array.isArray(data.refactored) ? data.refactored : [];
+    return {
+      refactored: Array.isArray(data.refactored) ? data.refactored : [],
+      diagnostics: Array.isArray(data.diagnostics) ? data.diagnostics : [],
+    };
   } catch (error) {
     console.error('AI refactor failed:', error);
-    return [];
+    return { refactored: [], diagnostics: [] };
   }
-}
+},
+
+async submitRefactorTicket(ticket) {
+  if (!this.client) throw new Error('Not connected');
+  const userId = await this.getSyncUserId();
+  if (!userId) throw new Error('Sign in to report a ticket');
+
+  const row = {
+    user_id: userId,
+    history_id: ticket.historyId != null ? Number(ticket.historyId) : null,
+    user_message: String(ticket.message || '').trim().slice(0, 2000),
+    before_text: String(ticket.beforeText || '').slice(0, 4000),
+    after_text: String(ticket.afterText || '').slice(0, 4000),
+    refactor_level: String(ticket.refactorLevel || '').slice(0, 64),
+    synthesis: ticket.synthesis && typeof ticket.synthesis === 'object' ? ticket.synthesis : {},
+  };
+
+  const { data, error } = await this.client
+    .from('refactor_tickets')
+    .insert(row)
+    .select('id')
+    .single();
+
+  if (error) throw new Error(error.message || 'Failed to submit ticket');
+  return data;
+},
 
 async breakdownText(text, level = 'child') {
   try {
@@ -277,7 +334,7 @@ async breakdownText(text, level = 'child') {
     console.error('Failed to breakdown text:', error);
     throw error;
   }
-}
+},
 
 async generateSummaryQuestions(text) {
   try {
@@ -323,7 +380,7 @@ async generateSummaryQuestions(text) {
     console.error('Failed to generate questions:', error);
     throw error;
   }
-}
+},
 
 async generateSummary(text, question) {
   try {
@@ -369,7 +426,7 @@ async generateSummary(text, question) {
     console.error('Failed to generate summary:', error);
     throw error;
   }
-}
+},
 
 async generateProfileImage(description, userImageBase64 = null, aiGeneratedName = null) {
   try {

@@ -17,9 +17,9 @@ _normalizeAiWorkflow(raw) {
   const preset = allowedPresets.has(String(obj.preset || 'default')) ? String(obj.preset || 'default') : 'default';
   const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
   return { enabled, provider, preset, updatedAt };
-}
+},
 
-async getAiWorkflowConfig() {
+  async getAiWorkflowConfig() {
   // Cache for a few seconds to avoid storage overhead on rapid calls.
   try {
     const now = Date.now();
@@ -51,14 +51,14 @@ async getAiWorkflowConfig() {
   } catch (_) {
     return null;
   }
-}
+},
 
 /**
  * Directly set the in-memory AI workflow cache (bypasses storage read).
  * Call this after saving workflow from the UI so the next AI call
  * immediately reflects the user's selection.
  */
-setAiWorkflowConfigDirect(cfg) {
+  setAiWorkflowConfigDirect(cfg) {
   if (!cfg || typeof cfg !== 'object') {
     this._aiWorkflowCache = { value: null, at: 0 };
     return;
@@ -68,9 +68,9 @@ setAiWorkflowConfigDirect(cfg) {
     ? { enabled: true, provider: normalized.provider, preset: normalized.preset, updatedAt: normalized.updatedAt }
     : null;
   this._aiWorkflowCache = { value: finalCfg, at: Date.now() };
-}
+},
 
-async _withAiWorkflow(body) {
+  async _withAiWorkflow(body) {
   try {
     const base = (body && typeof body === 'object') ? body : {};
     const cfg = await this.getAiWorkflowConfig();
