@@ -25,6 +25,8 @@ export class PasteCraftSupabase {
     // Cache flag to avoid repeated ensureUserProfileRow calls (quota optimization)
     this._profileRowEnsured = false;
     this._profileRowEnsuredUserId = null;
+    // Sync flag for isAuthenticated(); updated from auth bridge + getSession.
+    this._sessionBridgeActive = false;
     // Throttle realtime handlers to avoid exceeding Chrome storage quota (120 writes/min)
     this._realtimeThrottle = {};
     this._realtimeThrottleMs = 5000; // minimum 5 seconds between handling same event type

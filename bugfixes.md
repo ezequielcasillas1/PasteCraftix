@@ -1,3 +1,8 @@
+### May 23, 2026 - isAuthenticated always false (cloud lazy-load blocked)
+**Status:** Fixed (pending verify)
+**Files:** extension/supabase/auth-bridge.js, sync-clips.js, subscription.js, auth.js, clips.service.js
+**Result:** `isAuthenticated()` read `_currentSession`, which was never assigned. Signed-in users with bridge JWT saw "Sign in to view more" on paged clips and skipped tiered-storage migration. Flag now tracks `pc_supabase_session_v1`; `enforceClipLimit` bumps `pc_local_updatedAt`.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

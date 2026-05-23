@@ -16,6 +16,7 @@ setupAuthSessionBridge() {
       if (!session || !session.access_token) {
         if (options.clearMissing === true) {
           await chrome.storage.local.remove([this._sessionBridgeKey]);
+          this._sessionBridgeActive = false;
         }
         return;
       }
@@ -28,6 +29,7 @@ setupAuthSessionBridge() {
           updated_at: Date.now()
         }
       });
+      this._sessionBridgeActive = true;
     } catch (_) {
       // ignore
     }
@@ -58,6 +60,16 @@ async getStoredAccessToken() {
   } catch (_) {
     return '';
   }
+},
+
+async refreshBridgeSessionState() {
+  try {
+    const tok = await this.getStoredAccessToken();
+    this._sessionBridgeActive = !!tok;
+  } catch (_) {
+    this._sessionBridgeActive = false;
+  }
+  return this._sessionBridgeActive;
 }
 
 // =====================================================

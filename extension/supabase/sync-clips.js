@@ -664,7 +664,8 @@ async fetchArchivedClipsPage(offset, limit) {
  * @returns {boolean}
  */
 isAuthenticated() {
-  return !!(this.client && this._currentSession);
+  if (!this.client) return false;
+  return !!(this._sessionBridgeActive);
 },
 
 /**

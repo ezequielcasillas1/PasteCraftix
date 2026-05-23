@@ -67,6 +67,7 @@ async init() {
     // Persist auth session into chrome.storage so content-script can use it for
     // authenticated Edge Function calls (e.g., premium AI tips in-page).
     this.setupAuthSessionBridge();
+    await this.refreshBridgeSessionState();
     
     // Setup realtime subscriptions after initialization
     await this.setupRealtimeSubscriptions();

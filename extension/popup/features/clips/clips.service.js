@@ -176,6 +176,7 @@ export async function enforceClipLimit(app) {
   await chrome.storage.local.set({
     [CLIPS_STORAGE_KEYS.ACTIVE]: app.clips,
     [CLIPS_STORAGE_KEYS.ARCHIVED]: app.searchOnlyClips,
+    [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
   });
   if (app._idbReady && app.idb) {
     await app.idb.syncEntityFromLocalStorage(CLIPS_STORAGE_KEYS.ACTIVE, app.clips);

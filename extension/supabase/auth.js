@@ -314,6 +314,10 @@ async signOutFast() {
   // Clear local caches/ids and local auth token storage (best-effort).
   await this._clearCachedAuthState();
   this._clearSupabaseLocalStorage();
+  this._sessionBridgeActive = false;
+  try {
+    await chrome.storage.local.remove([this._sessionBridgeKey]);
+  } catch (_) {}
 
   // Local sign-out should not require network and should be fast.
   try {
