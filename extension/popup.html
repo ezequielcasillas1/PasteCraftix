@@ -5438,65 +5438,6 @@
             color: #1f2937;
             margin: 0;
         }
-        
-        .ai-lab-subtitle {
-            color: #6b7280;
-            font-size: 14px;
-            margin: 0;
-        }
-
-        /* AI Workflow Controls (Provider + Preset) */
-        .ai-workflow-controls {
-            margin-top: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            align-items: stretch;
-        }
-
-        .ai-workflow-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .ai-workflow-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #6b7280;
-            user-select: none;
-        }
-
-        .ai-workflow-select {
-            padding: 8px 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            background: #f8fafc;
-            font-size: 12px;
-            font-weight: 700;
-            color: #111827;
-            cursor: pointer;
-        }
-
-        .ai-workflow-select:disabled {
-            cursor: not-allowed;
-            opacity: 0.65;
-        }
-
-        .ai-workflow-select option:disabled {
-            color: #9ca3af;
-            font-style: italic;
-        }
-
-        .ai-workflow-note {
-            margin: 0;
-            font-size: 12px;
-            color: #6b7280;
-            text-align: center;
-        }
-
         /* AI Lab Internal Tabs — match feature-card touch targets */
         .ai-lab-tabs {
             display: flex;
@@ -9553,33 +9494,6 @@
                                 Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits.
                             </span>
                         </div>
-                    </div>
-                    <p class="ai-lab-subtitle">Experimental AI features and tools</p>
-
-                    <!-- AI Workflow (Provider + Preset) -->
-                    <div class="ai-workflow-controls" id="aiWorkflowControls" aria-label="AI Workflow Controls">
-                        <div class="ai-workflow-row">
-                            <label class="toggle" style="margin: 0;" title="Override which AI models PasteCraft uses">
-                                <input type="checkbox" id="aiWorkflowOverrideToggle" aria-label="Enable AI workflow override">
-                                <div class="toggle-switch"></div>
-                                <span>AI Workflow Override</span>
-                            </label>
-                        </div>
-                        <div class="ai-workflow-row" aria-label="AI Workflow Selection">
-                            <label class="ai-workflow-label" for="aiProviderSelect">Provider</label>
-                            <select id="aiProviderSelect" class="ai-workflow-select" aria-label="AI provider">
-                                <option value="openai">OpenAI</option>
-                                <option value="google" disabled>Google Gemini (Soon)</option>
-                                <option value="anthropic" disabled>Anthropic (Soon)</option>
-                                <option value="groq" disabled>Groq (Soon)</option>
-                                <option value="grok" disabled>xAI Grok (Soon)</option>
-                            </select>
-                            <label class="ai-workflow-label" for="aiWorkflowPresetSelect">Workflow</label>
-                            <select id="aiWorkflowPresetSelect" class="ai-workflow-select" aria-label="AI workflow preset">
-                                <!-- Populated dynamically by JS based on provider -->
-                            </select>
-                        </div>
-                        <p class="ai-workflow-note" id="aiWorkflowNote">Applies to text, vision, and image generation.</p>
                     </div>
                 </div>
 

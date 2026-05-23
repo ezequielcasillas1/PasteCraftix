@@ -3,7 +3,7 @@ import {
   AI_CREDIT_COSTS,
   AI_PROVIDER_PRESETS,
 } from './ai-lab.constants.js';
-import { getCreditsElements, getWorkflowElements } from './ai-lab.selectors.js';
+import { getCreditsElements } from './ai-lab.selectors.js';
 
 export function _normalizeAiWorkflow(raw) {
   const obj = (raw && typeof raw === 'object') ? raw : {};
@@ -39,19 +39,8 @@ export async function loadAiWorkflow() {
 }
 
 export function applyAiWorkflowToUi() {
-  try {
-    const { toggle, providerEl, presetEl } = getWorkflowElements();
-    const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
-    this.aiWorkflow = cfg;
-
-    if (toggle) toggle.checked = !!cfg.enabled;
-    if (providerEl) providerEl.value = cfg.provider || 'openai';
-    _renderPresetOptions(presetEl, cfg);
-
-    const disabled = !cfg.enabled;
-    if (providerEl) providerEl.disabled = disabled;
-    if (presetEl) presetEl.disabled = disabled;
-  } catch (_) {}
+  const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
+  this.aiWorkflow = cfg;
 }
 
 export async function saveAiWorkflowFromUi(silent = true) {
@@ -195,29 +184,9 @@ async function _readLocalWorkflow(key) {
   }
 }
 
-function _renderPresetOptions(presetEl, cfg) {
-  if (!presetEl) return;
-  const presets = AI_PROVIDER_PRESETS[cfg.provider] || AI_PROVIDER_PRESETS.openai;
-  presetEl.innerHTML = '';
-  for (const p of presets) {
-    const opt = document.createElement('option');
-    opt.value = p.value;
-    opt.textContent = p.label;
-    presetEl.appendChild(opt);
-  }
-  presetEl.value = cfg.preset || 'default';
-}
-
 function _readWorkflowFromUi(app) {
-  const { toggle, providerEl, presetEl } = getWorkflowElements();
-  if (!toggle || !providerEl || !presetEl) {
-    throw new Error('AI workflow UI elements not found');
-  }
-
   return app._normalizeAiWorkflow({
-    enabled: !!toggle.checked,
-    provider: String(providerEl.value || 'openai'),
-    preset: String(presetEl.value || 'default'),
+    ...app.aiWorkflow,
     updatedAt: Date.now(),
   });
 }

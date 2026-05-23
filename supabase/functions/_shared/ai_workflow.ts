@@ -151,6 +151,114 @@ export function getChatModelFallbackChain(model: string, provider: AiWorkflowPro
   return [m, 'gpt-4o-mini'];
 }
 
+const CLAUDE_FALLBACK_MODEL = 'claude-3-5-haiku-latest';
+
+function payloadHasVisionContent(payload: any): boolean {
+  const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+  return messages.some((msg: any) => {
+    if (!Array.isArray(msg?.content)) return false;
+    return msg.content.some((part: any) => part?.type === 'image_url' || part?.type === 'image');
+  });
+}
+
+function toAnthropicMessages(payload: any): { system?: string; messages: Array<{ role: string; content: unknown }> } {
+  const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [];
+  let system: string | undefined;
+  const messages: Array<{ role: string; content: unknown }> = [];
+
+  for (const msg of rawMessages) {
+    const role = String(msg?.role || 'user');
+    if (role === 'system') {
+      const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content ?? '');
+      system = system ? `${system}\n\n${text}` : text;
+      continue;
+    }
+    if (role === 'assistant') {
+      messages.push({
+        role: 'assistant',
+        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content ?? ''),
+      });
+      continue;
+    }
+    messages.push({
+      role: 'user',
+      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content ?? ''),
+    });
+  }
+
+  if (!messages.length) {
+    messages.push({ role: 'user', content: 'Hello' });
+  }
+
+  return { system, messages };
+}
+
+function toOpenAiChatResponse(anthropicData: any) {
+  const text = Array.isArray(anthropicData?.content)
+    ? anthropicData.content
+      .filter((part: any) => part?.type === 'text')
+      .map((part: any) => String(part.text || ''))
+      .join('')
+    : '';
+
+  return {
+    choices: [{ message: { role: 'assistant', content: text } }],
+  };
+}
+
+async function fetchClaudeChatFallback(payload: any) {
+  const apiKey = Deno.env.get('ANTHROPIC_API_KEY') || '';
+  if (!apiKey) return null;
+
+  const { system, messages } = toAnthropicMessages(payload);
+  const maxTokens = Number(payload?.max_completion_tokens ?? payload?.max_tokens ?? 1024);
+  const body: Record<string, unknown> = {
+    model: CLAUDE_FALLBACK_MODEL,
+    max_tokens: Number.isFinite(maxTokens) ? Math.max(256, Math.min(maxTokens, 4096)) : 1024,
+    messages,
+  };
+  if (system) body.system = system;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) return null;
+
+  const data = await resp.json();
+  return { data: toOpenAiChatResponse(data), usedModel: CLAUDE_FALLBACK_MODEL };
+}
+
+export async function verifyAnthropicFallback() {
+  const configured = !!(Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+  if (!configured) {
+    return {
+      configured: false,
+      reachable: false,
+      model: CLAUDE_FALLBACK_MODEL,
+      detail: 'ANTHROPIC_API_KEY not set',
+    };
+  }
+
+  const result = await fetchClaudeChatFallback({
+    messages: [{ role: 'user', content: 'Reply with exactly: ok' }],
+    max_tokens: 16,
+  });
+
+  return {
+    configured: true,
+    reachable: !!result,
+    model: CLAUDE_FALLBACK_MODEL,
+    detail: result ? 'Claude fallback reachable' : 'Claude API call failed',
+  };
+}
+
 export async function fetchChatCompletionsWithModelFallback(
   apiKey: string,
   payload: any,
@@ -201,13 +309,21 @@ export async function fetchChatCompletionsWithModelFallback(
       }
     }
 
-    // Only retry on "model missing" class errors; otherwise fail fast.
+    // Only retry on "model missing" class errors; otherwise try Claude fallback.
     if (!looksLikeMissingModelError(msg)) {
+      if (!payloadHasVisionContent(payload)) {
+        const claudeResult = await fetchClaudeChatFallback(payload);
+        if (claudeResult) return claudeResult;
+      }
       throw new Error(msg || `${provider} API error`);
     }
   }
 
   const msg = String(lastErr?.error?.message || lastErr?.error || `${provider} API error`);
+  if (!payloadHasVisionContent(payload)) {
+    const claudeResult = await fetchClaudeChatFallback(payload);
+    if (claudeResult) return claudeResult;
+  }
   throw new Error(msg);
 }
 

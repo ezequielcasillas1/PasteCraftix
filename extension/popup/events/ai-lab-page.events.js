@@ -92,44 +92,6 @@ export function registerAiLabPageEvents(app) {
       });
     }
 
-    // AI Workflow controls (toggle + selects)
-    try {
-      const overrideToggle = document.getElementById('aiWorkflowOverrideToggle');
-      const providerEl = document.getElementById('aiProviderSelect');
-      const presetEl = document.getElementById('aiWorkflowPresetSelect');
-
-      const onChange = () => {
-        // Clear stale AI result caches when model/preset changes
-        app.breakdownCache = {};
-        // Save quietly, then ensure UI enabled/disabled state is correct.
-        app.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      // When provider changes, rebuild presets then save
-      const onProviderChange = () => {
-        const selectedProvider = providerEl ? providerEl.value : 'openai';
-        app.aiWorkflow.provider = selectedProvider;
-        app.aiWorkflow.preset = 'default'; // reset preset on provider switch
-        // Clear stale AI result caches when provider changes
-        app.breakdownCache = {};
-        app.applyAiWorkflowToUi();
-        // Refresh tooltip with new provider's credit costs
-        app.updateAiCreditsPills('provider-change');
-        // Immediately sync cache so any in-flight AI call uses new provider
-        if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.setAiWorkflowConfigDirect) {
-          pasteCraftSupabase.setAiWorkflowConfigDirect(app.aiWorkflow);
-        }
-        app.saveAiWorkflowFromUi(true).catch(() => {});
-      };
-
-      if (overrideToggle) overrideToggle.addEventListener('change', onChange);
-      if (providerEl) providerEl.addEventListener('change', onProviderChange);
-      if (presetEl) presetEl.addEventListener('change', onChange);
-
-      // Initial UI state
-      app.applyAiWorkflowToUi();
-    } catch (_) {}
-
     // AI Breakdown page state
     app.selectedBreakdownLevel = null;
 

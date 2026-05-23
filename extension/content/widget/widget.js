@@ -217,7 +217,7 @@ export class PasteCraftFloatingWidget {
             if (quickViewIframe.contentWindow) {
               quickViewIframe.contentWindow.postMessage(
                 { type: 'quickview-clips-data', clips: recentClips },
-                '*'
+                window.location.origin
               );
             }
           });
@@ -2466,6 +2466,7 @@ export class PasteCraftFloatingWidget {
   }
   
   loadQuickViewContent(iframe) {
+    const quickViewTargetOrigin = window.location.origin;
     // Create a custom HTML content for the Quick View
     const content = `
       <!DOCTYPE html>
@@ -2648,7 +2649,7 @@ export class PasteCraftFloatingWidget {
         <script>
           function loadClips() {
             // This will communicate with parent to get clips
-            window.parent.postMessage({ type: 'quickview-get-clips' }, '*');
+            window.parent.postMessage({ type: 'quickview-get-clips' }, window.location.origin);
           }
           
           function refreshClips() {
@@ -2656,15 +2657,15 @@ export class PasteCraftFloatingWidget {
           }
           
           function openSettings() {
-            window.parent.postMessage({ type: 'quickview-open-settings' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-settings' }, window.location.origin);
           }
 
           function openMiniWindow() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, window.location.origin);
           }
 
           function dockMiniBottomRight() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, '*');
+            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, window.location.origin);
           }
 
           function isFromExtension(e) {
@@ -2687,7 +2688,7 @@ export class PasteCraftFloatingWidget {
           
           function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, '*');
+              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, window.location.origin);
             }
           }
           
@@ -2844,7 +2845,7 @@ export class PasteCraftFloatingWidget {
       getQuickViewClips()
         .then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
           }
         })
         .catch(() => {});
@@ -2862,7 +2863,7 @@ export class PasteCraftFloatingWidget {
       if (e.data.type === 'quickview-get-clips') {
         getQuickViewClips().then((clips) => {
           if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, '*');
+            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
           }
         }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
@@ -2910,7 +2911,7 @@ export class PasteCraftFloatingWidget {
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {
               if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, '*');
+                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, quickViewTargetOrigin);
               }
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }).catch(() => {});
