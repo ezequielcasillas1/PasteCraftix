@@ -1,3 +1,8 @@
+### 2026-05-23 - isAuthenticated bridge session flag
+**Status:** Fixed (pending user verify)
+**Files:** extension/supabase/auth-bridge.js, sync-clips.js, subscription.js, auth.js, clips.service.js, tests/supabase-bridge-auth.test.mjs
+**Result:** `isAuthenticated()` used `_currentSession` (never set); cloud lazy-load and tiered migration were blocked for signed-in users. Bridge token flag + `pc_local_updatedAt` on enforceClipLimit.
+
 ### 2026-05-21 - AI Refactorization History + Admin Tickets
 **Status:** PARTIAL
 **Files:** extension/popup/features/ai-lab/ai-lab.history.js, ai-lab.magic.js, popup.html, supabase/functions/ai-refactor/index.ts, admin/index.html, admin/admin.js, db/migrations/20260521_refactor_tickets_and_ai_history_type.sql
