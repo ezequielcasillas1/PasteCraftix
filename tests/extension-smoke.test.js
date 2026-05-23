@@ -5,8 +5,14 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const localOnlyResources = [/^config\.js$/, /^lib\//];
+
+function isLocalOnlyResource(relativePath) {
+  return localOnlyResources.some((pattern) => pattern.test(relativePath));
+}
 
 function assertExtensionFile(relativePath) {
+  if (isLocalOnlyResource(relativePath)) return;
   const filePath = path.join(extensionDir, relativePath);
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }

@@ -5,7 +5,8 @@
   "author": "Ezequiel Casillas",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/extension-smoke.test.js && node --test tests/popup-events-smoke.test.mjs",
+    "test": "node tests/extension-smoke.test.js && node --test tests/popup-events-smoke.test.mjs && node --test tests/ai-workflow-regression.test.mjs",
+    "test:ai-workflow": "node --test tests/ai-workflow-regression.test.mjs",
     "test:popup-events": "node --test tests/popup-events-smoke.test.mjs",
     "test:rate-limit": "node tests/extension-smoke.test.js",
     "test:browsers": "node tests/chromium-browser-test.js list",
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.102.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "typescript": "^6.0.3"
   }
 }
