@@ -10,7 +10,7 @@ const widgetPath = path.join(root, 'extension/content/widget/widget.js');
 const widgetSource = fs.readFileSync(widgetPath, 'utf8');
 
 function getMethodSource(methodName) {
-  const marker = `${methodName}(`;
+  const marker = `\n  ${methodName}(`;
   const markerIndex = widgetSource.indexOf(marker);
   assert.notEqual(markerIndex, -1, `method not found: ${methodName}`);
 
