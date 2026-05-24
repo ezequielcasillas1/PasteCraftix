@@ -10,8 +10,9 @@ const widgetPath = path.join(root, 'extension/content/widget/widget.js');
 const widgetSource = fs.readFileSync(widgetPath, 'utf8');
 
 function getMethodSource(methodName) {
-  const marker = `\n  ${methodName}(`;
-  const markerIndex = widgetSource.indexOf(marker);
+  const methodPattern = new RegExp(`\\n  (?:async\\s+)?${methodName}\\(`);
+  const match = widgetSource.match(methodPattern);
+  const markerIndex = match ? match.index : -1;
   assert.notEqual(markerIndex, -1, `method not found: ${methodName}`);
 
   const openBraceIndex = widgetSource.indexOf('{', markerIndex);
