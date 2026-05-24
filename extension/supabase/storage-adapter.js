@@ -20,17 +20,8 @@ export const storageAdapterMixin = {
     } catch (err) {
       const msg = String(err?.message || err || '');
       if (msg.includes('QUOTA') || msg.includes('quota')) {
-        console.warn('⚠️ Chrome storage quota exceeded, saving to IndexedDB only');
-        if (typeof indexedDB !== 'undefined') {
-          for (const [key, value] of Object.entries(data)) {
-            try {
-              await this._saveToIdb(key, value);
-            } catch (idbErr) {
-              console.error(`Failed to save ${key} to IndexedDB:`, idbErr);
-            }
-          }
-        }
-        return true;
+        console.error('❌ Chrome storage quota exceeded — merge not persisted (IDB fallback is not read on load)');
+        return false;
       }
       console.error('Failed to save to chrome.storage.local:', err);
       return false;

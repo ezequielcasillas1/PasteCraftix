@@ -1,3 +1,8 @@
+### May 24, 2026 - Clip delete resurrection + storage quota false success
+**Status:** Fixed (pending verify)
+**Files:** extension/shared/clip-tombstones.js, clips.service.js, widget.js, storage-adapter.js, full-sync.js
+**Result:** Deletes from popup/quick view only removed local arrays; full sync merged remote rows back. Now writes pc_deleted_* tombstones and queues syncDeletedClips. _safeStorageSet no longer returns true on quota errors (IDB fallback was never read).
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

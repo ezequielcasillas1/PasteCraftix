@@ -1,3 +1,4 @@
+import { recordClipDeletionTombstones } from '../../shared/clip-tombstones.js';
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
 import { createClosedShadowHost, injectShadowStyles } from '../safety/shadow-host.js';
 
@@ -2908,7 +2909,31 @@ export class PasteCraftFloatingWidget {
             }
           }
 
+          const clipIdOf = (c) => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '');
+          const toTombstone = (c) => ({
+            id: clipIdOf(c),
+            text: String(c?.text || '').trim() || '(deleted)',
+            category: c?.category || 'Uncategorized',
+            timestamp: c?.timestamp || Date.now(),
+          });
+          const removedActiveIds = clips
+            .filter((c) => {
+              const id = clipIdOf(c);
+              return id && !nextClips.some((n) => clipIdOf(n) === id);
+            })
+            .map(toTombstone);
+          const removedArchivedIds = archived
+            .filter((c) => {
+              const id = clipIdOf(c);
+              return id && !nextArchived.some((n) => clipIdOf(n) === id);
+            })
+            .map(toTombstone);
+
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
+            recordClipDeletionTombstones({
+              activeIds: removedActiveIds,
+              archivedIds: removedArchivedIds,
+            }).catch(() => {});
             getQuickViewClips().then((merged) => {
               if (iframe.contentWindow) {
                 iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, quickViewTargetOrigin);

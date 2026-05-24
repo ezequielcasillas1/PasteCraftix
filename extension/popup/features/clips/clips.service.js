@@ -1,3 +1,4 @@
+import { recordClipDeletionTombstones } from '../../../shared/clip-tombstones.js';
 import { CLIPS_STORAGE_KEYS, CLIPS_SYNC_QUEUE_KEYS } from './clips.constants.js';
 import {
   getClipIdKey,
@@ -22,10 +23,31 @@ function createDeleteState(app, ids, includeArchived, crud) {
   const nextClips = active.filter(c => !idSet.has(getClipIdKey(c?.id)));
   const nextArchived = includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived;
 
+  const removedActiveIds = active
+    .filter((c) => idSet.has(getClipIdKey(c?.id)))
+    .map((c) => ({
+      id: getClipIdKey(c.id),
+      text: String(c?.text || '').trim() || '(deleted)',
+      category: c?.category || 'Uncategorized',
+      timestamp: c?.timestamp || Date.now(),
+    }));
+  const removedArchivedIds = includeArchived
+    ? archived
+      .filter((c) => idSet.has(getClipIdKey(c?.id)))
+      .map((c) => ({
+        id: getClipIdKey(c.id),
+        text: String(c?.text || '').trim() || '(deleted)',
+        category: c?.category || 'Uncategorized',
+        timestamp: c?.timestamp || Date.now(),
+      }))
+    : [];
+
   return {
     idSet,
     beforeActive: active.length,
     beforeArchived: archived.length,
+    removedActiveIds,
+    removedArchivedIds,
     nextClips,
     nextArchived,
     snapshot: {
@@ -91,7 +113,14 @@ function clearDeletedClipSelections(app, ids) {
   app.selectedCategoryClips.clear();
 }
 
-function syncDeletedClipState(app, includeArchived) {
+function syncDeletedClipState(app, includeArchived, removedActiveIds = [], removedArchivedIds = []) {
+  Promise.resolve()
+    .then(() => recordClipDeletionTombstones({
+      activeIds: removedActiveIds,
+      archivedIds: removedArchivedIds,
+    }))
+    .catch((err) => console.warn('⚠️ Clip tombstone sync failed:', err?.message || err));
+
   Promise.resolve()
     .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ACTIVE, app.clips, pasteCraftSupabase.syncClipsToSupabase))
     .catch(() => {});
@@ -153,7 +182,12 @@ export async function deleteClipsByIdKeys(app, idKeys, {
         rerender,
         ids,
       });
-      syncDeletedClipState(app, includeArchived);
+      syncDeletedClipState(
+        app,
+        includeArchived,
+        state.removedActiveIds,
+        state.removedArchivedIds,
+      );
       return getDeletionResult(state, app, includeArchived, reason);
     } catch (error) {
       console.error('❌ Clip deletion failed, rolling back:', error);

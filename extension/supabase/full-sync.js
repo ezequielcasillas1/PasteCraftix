@@ -94,8 +94,12 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ clips: mergedClips });
-        console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        const clipsSaved = await this._safeStorageSet({ clips: mergedClips });
+        if (clipsSaved) {
+          console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        } else {
+          console.warn('⏭️ Clips merge not persisted — storage save failed');
+        }
       }
     }
 
