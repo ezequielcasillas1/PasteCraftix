@@ -1,3 +1,8 @@
+### May 25, 2026 - Full sync dropped distinct clips with identical text
+**Status:** Fixed (tests pass)
+**Files:** extension/supabase/sync-clips.js, tests/merge-clips.test.mjs
+**Result:** `mergeClips` / `mergeArchivedClips` keyed only by content hash + 3s bucket, so two clips with different ids but same body lost one on `performFullSync` / realtime merge. Merge now uses clip id when present; content bucket only for legacy id-less rows.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

@@ -711,6 +711,12 @@ async mergeClips(localClips, remoteClips) {
     return `${hashText(text)}:${bucket}:${cat}`;
   };
 
+  const mergeKey = (clip) => {
+    const id = clip?.id != null ? String(clip.id) : '';
+    if (id) return `id:${id}`;
+    return `content:${contentKey(clip)}`;
+  };
+
   const add = (clip) => {
     if (!clip || !clip.text) return;
     const id = clip?.id != null ? String(clip.id) : '';
@@ -719,7 +725,7 @@ async mergeClips(localClips, remoteClips) {
     if (deletedAt && deletedAt >= clipUpdatedAt) {
       return;
     }
-    const k = contentKey(clip);
+    const k = mergeKey(clip);
     const prev = contentMerged.get(k);
     const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : (prev?.timestamp || 0);
     if (!prev || clipUpdatedAt > prevUpdatedAt || ((clipUpdatedAt === prevUpdatedAt) && (clip.timestamp || 0) > (prev.timestamp || 0))) {
@@ -857,13 +863,19 @@ async mergeArchivedClips(localArchivedClips, remoteArchivedClips) {
     return `${hashText(text)}:${bucket}:${cat}`;
   };
 
+  const mergeKey = (clip) => {
+    const id = clip?.id != null ? String(clip.id) : '';
+    if (id) return `id:${id}`;
+    return `content:${contentKey(clip)}`;
+  };
+
   const add = (clip) => {
     if (!clip || !clip.text) return;
     const id = clip?.id != null ? String(clip.id) : '';
     const deletedAt = id ? deletedById.get(id) : null;
     const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
     if (deletedAt && deletedAt >= clipUpdatedAt) return;
-    const k = contentKey(clip);
+    const k = mergeKey(clip);
     const prev = contentMerged.get(k);
     const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : (prev?.timestamp || 0);
     if (!prev || clipUpdatedAt > prevUpdatedAt || ((clipUpdatedAt === prevUpdatedAt) && (clip.timestamp || 0) > (prev.timestamp || 0))) {
