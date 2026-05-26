@@ -23,6 +23,34 @@ const featureItems = [
     copy: 'Use summaries, breakdowns, and image tools only when they help, with a product experience that stays calm and usable.',
   },
 ];
+
+const testimonials = [
+  {
+    name: 'Sarah M.',
+    role: 'UX Researcher',
+    avatar: 'https://i.pravatar.cc/64?img=1',
+    quote: 'PasteCraft completely replaced my old clipboard workflow. The categories and cloud sync are exactly what I needed for cross-device research.',
+  },
+  {
+    name: 'James K.',
+    role: 'Software Engineer',
+    avatar: 'https://i.pravatar.cc/64?img=3',
+    quote: 'The AI breakdown feature saves me so much time parsing docs and code snippets. Clean UI, no friction — it just works.',
+  },
+  {
+    name: 'Priya L.',
+    role: 'Content Strategist',
+    avatar: 'https://i.pravatar.cc/64?img=5',
+    quote: 'I copy a LOT of stuff every day. PasteCraft makes it all findable and usable. The free plan alone is already better than anything else I tried.',
+  },
+];
+
+const counterStats = [
+  { value: 10000, suffix: '+', label: 'Clips saved', prefix: '' },
+  { value: 500, suffix: '+', label: 'Active users', prefix: '' },
+  { value: 190, suffix: '+', label: 'Languages', prefix: '' },
+  { value: 4.8, suffix: '★', label: 'Average rating', prefix: '' },
+];
 ---
 
 <BaseLayout
@@ -50,26 +78,19 @@ const featureItems = [
         <div class="hero-panel surface-card panel accent">
           <span class="hero-label">Readable design</span>
           <strong>Built around the PasteCraft palette.</strong>
-          <p>Deep navy, clean teal, and soft glass surfaces make dense information easier to scan.</p>
+          <p>Deep navy, rich gold, and soft glass surfaces make dense information easier to scan.</p>
         </div>
       </div>
-      <div class="stats-row">
-        <div class="stat">
-          <strong>190+</strong>
-          <span>Languages supported</span>
-        </div>
-        <div class="stat">
-          <strong>20+</strong>
-          <span>Markup formats</span>
-        </div>
-        <div class="stat">
-          <strong>3</strong>
-          <span>Flexible plan tiers</span>
-        </div>
-        <div class="stat">
-          <strong>0</strong>
-          <span>Friction in your default workflow</span>
-        </div>
+
+      <div class="browser-pills">
+        <span class="pill pill-live">
+          <span class="pill-dot"></span>
+          Edge — Live Now
+        </span>
+        <span class="pill pill-soon">
+          <span class="pill-dot"></span>
+          Chrome — Coming Soon
+        </span>
       </div>
     </div>
 
@@ -82,6 +103,21 @@ const featureItems = [
     </Fragment>
   </Hero>
 
+  <section class="section stats-section" id="stats">
+    <div class="container">
+      <div class="stats-counter-grid">
+        {counterStats.map((stat) => (
+          <div class="counter-card surface-card panel">
+            <strong class="counter-number" data-target={stat.value} data-suffix={stat.suffix} data-prefix={stat.prefix}>
+              {stat.prefix}{stat.value.toLocaleString()}{stat.suffix}
+            </strong>
+            <span class="counter-label">{stat.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
   <SectionShell
     eyebrow="What changes"
     title="The upgrade from copy-and-paste to pastecrafting"
@@ -90,10 +126,55 @@ const featureItems = [
     <FeatureGrid items={featureItems} />
   </SectionShell>
 
+  <section class="section mockup-section">
+    <div class="container">
+      <div class="mockup-shell">
+        <div class="mockup-text stack">
+          <span class="eyebrow">Extension preview</span>
+          <h2 class="section-title">See it in action</h2>
+          <p class="section-copy">A focused panel right in your browser. Copy something, open PasteCraft, and it's already there — organized, searchable, and ready.</p>
+          <div class="button-row">
+            <a class="button" href="/pricing">Get started free</a>
+            <a class="ghost-button" href="/about">Learn more</a>
+          </div>
+        </div>
+        <div class="mockup-frame surface-card">
+          <div class="mockup-topbar">
+            <span class="mockup-dot red"></span>
+            <span class="mockup-dot yellow"></span>
+            <span class="mockup-dot green"></span>
+            <span class="mockup-title">PasteCraft</span>
+          </div>
+          <div class="mockup-body">
+            <div class="mockup-search">
+              <span class="mockup-search-icon">🔍</span>
+              <span class="mockup-search-placeholder">Search clips...</span>
+            </div>
+            <div class="mockup-clip">
+              <span class="mockup-clip-tag">Code</span>
+              <p>const result = await fetch('/api/clips')...</p>
+              <span class="mockup-clip-time">2 min ago</span>
+            </div>
+            <div class="mockup-clip">
+              <span class="mockup-clip-tag">Research</span>
+              <p>PasteCraft helps you keep every clip readable and organized...</p>
+              <span class="mockup-clip-time">15 min ago</span>
+            </div>
+            <div class="mockup-clip">
+              <span class="mockup-clip-tag">Notes</span>
+              <p>Meeting notes: Q3 roadmap includes AI summarization...</p>
+              <span class="mockup-clip-time">1 hr ago</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <SectionShell
     eyebrow="Why it reads better"
     title="Made to reduce friction, not add spectacle."
-    copy="The new visual system uses the logo’s own tones to create a calmer reading surface for dense content, settings, pricing, and support flows."
+    copy="The new visual system uses the logo's own tones to create a calmer reading surface for dense content, settings, pricing, and support flows."
   >
     <div class="split">
       <article class="surface-card panel stack">
@@ -115,6 +196,30 @@ const featureItems = [
       </article>
     </div>
   </SectionShell>
+
+  <section class="section testimonials-section">
+    <div class="container">
+      <div class="section-header stack">
+        <span class="eyebrow">What users say</span>
+        <h2 class="section-title">Built for people who copy a lot</h2>
+      </div>
+      <div class="testimonials-grid">
+        {testimonials.map((t) => (
+          <article class="testimonial-card surface-card panel">
+            <div class="testimonial-stars">★★★★★</div>
+            <p class="testimonial-quote">"{t.quote}"</p>
+            <div class="testimonial-author">
+              <img src={t.avatar} alt={t.name} width="40" height="40" class="testimonial-avatar" loading="lazy" />
+              <div>
+                <strong>{t.name}</strong>
+                <span>{t.role}</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
 
   <SectionShell
     eyebrow="Plans"
@@ -150,6 +255,46 @@ const featureItems = [
         window.location.replace('/reset-password' + (window.location.hash || ''));
       }
     } catch (_) {}
+  </script>
+
+  <script is:inline>
+    (function () {
+      var counters = document.querySelectorAll('.counter-number');
+      if (!counters.length) return;
+
+      function animateCounter(el) {
+        var target = parseFloat(el.dataset.target);
+        var suffix = el.dataset.suffix || '';
+        var prefix = el.dataset.prefix || '';
+        var duration = 1800;
+        var start = performance.now();
+        var isDecimal = target % 1 !== 0;
+
+        function step(now) {
+          var elapsed = now - start;
+          var progress = Math.min(elapsed / duration, 1);
+          var eased = 1 - Math.pow(1 - progress, 3);
+          var current = target * eased;
+          el.textContent = prefix + (isDecimal ? current.toFixed(1) : Math.floor(current).toLocaleString()) + suffix;
+          if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              animateCounter(entry.target);
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.3 });
+        counters.forEach(function (el) { observer.observe(el); });
+      } else {
+        counters.forEach(animateCounter);
+      }
+    })();
   </script>
 
   <SectionShell
@@ -194,7 +339,7 @@ const featureItems = [
     }
 
     .hero-label {
-      color: var(--brand-soft);
+      color: var(--gold);
       text-transform: uppercase;
       letter-spacing: 0.14em;
       font-size: 0.72rem;
@@ -203,8 +348,262 @@ const featureItems = [
 
     .accent {
       background:
-        linear-gradient(180deg, rgba(235, 180, 65, 0.18) 0%, rgba(7, 21, 35, 0) 100%),
+        linear-gradient(180deg, rgba(251, 191, 36, 0.1) 0%, rgba(8, 12, 42, 0) 100%),
         var(--surface);
+      border-color: rgba(251, 191, 36, 0.2);
+    }
+
+    .browser-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .pill-live {
+      background: rgba(37, 99, 235, 0.12);
+      border: 1px solid rgba(37, 99, 235, 0.4);
+      color: #93c5fd;
+    }
+
+    .pill-live .pill-dot {
+      background: #22d3ee;
+      box-shadow: 0 0 6px #22d3ee;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .pill-soon {
+      background: rgba(251, 191, 36, 0.08);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: var(--gold);
+    }
+
+    .pill-soon .pill-dot {
+      background: var(--gold);
+      opacity: 0.6;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .stats-section {
+      padding: 2rem 0 3rem;
+    }
+
+    .stats-counter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.25rem;
+    }
+
+    .counter-card {
+      text-align: center;
+      border: 1px solid rgba(37, 99, 235, 0.25);
+      transition: transform 200ms ease, border-color 200ms ease;
+    }
+
+    .counter-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .counter-number {
+      display: block;
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      background: var(--gradient-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .counter-label {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .mockup-section {
+      background: linear-gradient(180deg, transparent 0%, rgba(13, 18, 64, 0.4) 50%, transparent 100%);
+    }
+
+    .mockup-shell {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .mockup-frame {
+      border: 1px solid rgba(37, 99, 235, 0.35);
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(8, 12, 42, 0.6), 0 0 40px rgba(37, 99, 235, 0.1);
+    }
+
+    .mockup-topbar {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.85rem 1rem;
+      background: rgba(8, 12, 42, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .mockup-dot.red { background: #ff5f57; }
+    .mockup-dot.yellow { background: #febc2e; }
+    .mockup-dot.green { background: #28c840; }
+
+    .mockup-title {
+      margin-left: 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .mockup-body {
+      padding: 1rem;
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .mockup-search {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: var(--radius-sm);
+      background: rgba(8, 12, 42, 0.5);
+      border: 1px solid var(--border);
+    }
+
+    .mockup-search-placeholder {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .mockup-clip {
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius-sm);
+      background: rgba(37, 99, 235, 0.06);
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .mockup-clip p {
+      margin: 0;
+      font-size: 0.83rem;
+      color: var(--text-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mockup-clip-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gold);
+    }
+
+    .mockup-clip-time {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .testimonials-section {
+      padding: 4.5rem 0;
+    }
+
+    .section-header {
+      margin-bottom: 2.5rem;
+    }
+
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+
+    .testimonial-card {
+      display: grid;
+      gap: 1rem;
+      border: 1px solid rgba(37, 99, 235, 0.22);
+      backdrop-filter: blur(20px);
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(13, 18, 64, 0.6) 100%),
+        var(--surface);
+      transition: transform 200ms ease, border-color 200ms ease;
+    }
+
+    .testimonial-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .testimonial-stars {
+      color: var(--gold);
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+    }
+
+    .testimonial-quote {
+      margin: 0;
+      color: var(--text-soft);
+      line-height: 1.75;
+      font-style: italic;
+    }
+
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .testimonial-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid rgba(251, 191, 36, 0.3);
+      flex-shrink: 0;
+    }
+
+    .testimonial-author strong {
+      display: block;
+      font-size: 0.92rem;
+    }
+
+    .testimonial-author span {
+      font-size: 0.78rem;
+      color: var(--text-muted);
     }
 
     .cta-band {
@@ -212,6 +611,10 @@ const featureItems = [
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      background:
+        linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%),
+        var(--surface);
     }
 
     .cta-band h3 {
@@ -221,8 +624,13 @@ const featureItems = [
 
     @media (max-width: 980px) {
       .hero-matrix,
-      .cta-band {
+      .stats-counter-grid,
+      .testimonials-grid,
+      .mockup-shell {
         grid-template-columns: 1fr;
+      }
+
+      .cta-band {
         flex-direction: column;
         align-items: stretch;
       }
