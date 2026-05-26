@@ -22,10 +22,14 @@ You have everything ready to go! Follow these steps to deploy your website and a
 2. Go to Netlify → "Add new site" → "Import an existing project"
 3. Connect to GitHub
 4. Select your repository
-5. Build settings:
+5. Build settings (also defined in repo-root `netlify.toml`):
    - **Base directory:** `website`
-   - **Publish directory:** `.` (current directory)
+   - **Build command:** `npm run build`
+   - **Publish directory:** `dist` (Astro build output — not the repo root)
+   - **Production branch:** `main` (feature branches do not update pastecraft.com)
 6. Click "Deploy site"
+
+> **Important:** Netlify builds from `website/src/` via Astro. Legacy files like `website/index.html` are not published when the Astro build runs.
 
 ### Configure Custom Domain
 
