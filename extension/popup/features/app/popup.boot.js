@@ -1,5 +1,13 @@
 /** DOM boot, fallback UI, and background message listener. */
 
+export function isWarmShellOnly() {
+  try {
+    return new URLSearchParams(window.location.search).get('pcWarmShell') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 async function ensureSupabaseGlobals() {
   if (globalThis.pasteCraftSupabase) return;
   const mod = await import('../../../supabase/index.js');
@@ -11,7 +19,7 @@ async function startPopup(PasteCraftPopupClass) {
   await ensureSupabaseGlobals();
   window.renderLucideIcons?.();
   try {
-    window.pasteCraftPopup = new PasteCraftPopupClass();
+    window.pasteCraftPopup = new PasteCraftPopupClass({ warmShellOnly: isWarmShellOnly() });
   } catch (error) {
     console.error('? Popup initialization failed:', error);
     document.body.innerHTML = `

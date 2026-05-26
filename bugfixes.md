@@ -1,3 +1,8 @@
+### May 26, 2026 - Widget popup preload ran full sync (race / data risk)
+**Status:** Fixed
+**Files:** widget.js, popup.js, popup.boot.js, sync-queue.js
+**Result:** Hidden warm iframe loaded popup.html and ran full init + performFullSync on hover, racing toolbar popup and IndexedDB. Warm iframes now use `?pcWarmShell=1` to defer init until panel reveal. Sync queue no longer clears storage before processing (avoids losing pending ops on SW kill).
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

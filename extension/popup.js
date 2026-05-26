@@ -25,8 +25,10 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
 // PasteCraftCRUD — loaded from popup/shared/pastecraft-crud.js (before popup.js)
 
 class PasteCraftPopup {
-  constructor() {
+  constructor(options = {}) {
     console.log('?? PasteCraftPopup constructor called');
+    this._warmShellOnly = !!options.warmShellOnly;
+    this._warmShellInitStarted = false;
     this.clips = [];
     this.categories = [];
     // NOTE: selectedChips stores stable clip id keys (String(clip.id)), not indices.
@@ -176,8 +178,21 @@ class PasteCraftPopup {
     
     // BroadcastChannel is initialized by settingsFeature during popup init
     this._broadcastChannel = null;
-    
+
+    if (this._warmShellOnly) {
+      console.log('Warm shell: deferring popup init until panel is shown');
+      return;
+    }
+
     this.init();
+  }
+
+  /** Complete init for popup.html loaded with ?pcWarmShell=1 (widget preload iframe). */
+  async completeWarmShellInit() {
+    if (!this._warmShellOnly || this._warmShellInitStarted) return;
+    this._warmShellInitStarted = true;
+    this._warmShellOnly = false;
+    await this.init();
   }
 
   _normalizeAiWorkflow(raw) {

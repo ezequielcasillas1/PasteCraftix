@@ -88,7 +88,8 @@ export class PasteCraftFloatingWidget {
     if (document.querySelector('[data-pastecraft-popup-preload="1"]')) return;
 
     const iframe = document.createElement('iframe');
-    iframe.src = pastecraftGetURL('popup.html');
+    const warmBase = pastecraftGetURL('popup.html');
+    iframe.src = `${warmBase}${warmBase.includes('?') ? '&' : '?'}pcWarmShell=1`;
     iframe.setAttribute('data-pastecraft-popup-preload', '1');
     iframe.setAttribute('aria-hidden', 'true');
     iframe.tabIndex = -1;
@@ -1003,9 +1004,17 @@ export class PasteCraftFloatingWidget {
     document.body.appendChild(container);
     container.appendChild(iframe);
 
-    const revealPopupPanel = () => {
+    const revealPopupPanel = async () => {
       if (!container.isConnected) return;
       this._clearPopupRevealTimer();
+      try {
+        const popup = iframe.contentWindow?.pasteCraftPopup;
+        if (popup?._warmShellOnly && typeof popup.completeWarmShellInit === 'function') {
+          await popup.completeWarmShellInit();
+        }
+      } catch (err) {
+        console.warn('[widget] warm-shell init failed:', err);
+      }
       loader.remove();
       this._revealPopupIframe(iframe);
       container.classList.remove('pastecraft-overlay-panel-loading');

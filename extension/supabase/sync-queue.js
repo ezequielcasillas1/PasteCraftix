@@ -216,20 +216,19 @@ async processSyncQueue() {
     this.updateSyncStatus('syncing');
     
     const queue = [...this.syncQueue];
-    this.syncQueue = [];
-    
+    const remaining = [];
+
     for (const operation of queue) {
       try {
         await this.executeSyncOperation(operation);
         console.log(`✅ Processed: ${operation.type}`);
       } catch (error) {
         console.error(`❌ Failed to process ${operation.type}:`, error);
-        // Re-queue failed operations
-        this.syncQueue.push(operation);
+        remaining.push(operation);
       }
     }
-    
-    this.syncQueue = this._compactSyncQueue(this.syncQueue);
+
+    this.syncQueue = this._compactSyncQueue(remaining);
     await this.saveSyncQueue();
     this.updateSyncStatus(this.syncQueue.length > 0 ? 'syncing' : 'synced');
     console.log(`✅ Queue processed. ${this.syncQueue.length} operations remaining.`);
