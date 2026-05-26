@@ -7,6 +7,8 @@ import {
   requireAuthenticatedUser,
   checkAiNameRateLimit,
 } from "../_shared/ai_workflow.ts"
+import { guardAiFields, AI_MAX_NAME_CHARS } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText } from "../_shared/ai_output_guard.ts"
 import {
   FUNKY_ANIMALS,
   buildFallbackFunkyName,
@@ -64,7 +66,17 @@ serve(async (req) => {
       throw new Error('User name is required')
     }
 
-    const safeName = String(userName).slice(0, 80)
+    const guarded = await guardAiFields(
+      gate.supabase,
+      gate.userId,
+      { userName: String(userName) },
+      'ai-name',
+      corsHeaders,
+      { userName: AI_MAX_NAME_CHARS },
+    )
+    if (guarded instanceof Response) return guarded
+
+    const safeName = guarded.userName
     const savedDeck = await loadAnimalDeck(gate.supabase, gate.userId)
     const { animal: chosenAnimal, deck: nextDeck, cycleReset, cycleComplete } = drawNextAnimal(savedDeck, FUNKY_ANIMALS)
 
@@ -100,6 +112,9 @@ Return ONLY the generated name.`
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
     let aiName = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guardedName = await guardAiModelText(gate.supabase, gate.userId, aiName, 'ai-name', corsHeaders, { apiKey })
+    if (guardedName instanceof Response) return guardedName
+    aiName = guardedName
 
     if (!isValidFunkyAnimalName(aiName, safeName, FUNKY_ANIMALS, chosenAnimal)) {
       aiName = buildFallbackFunkyName(safeName, FUNKY_ANIMALS, chosenAnimal)

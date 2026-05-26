@@ -1,7 +1,32 @@
+### May 26, 2026 - Website Blue-Gold Redesign + Lucide Icons
+**Status:** SUCCESS (pending user confirm)
+**Files:** website/index.html, website/pricing.html, website/about.html, website/contact.html
+**Result:** Replaced purple gradient (#667eea/#764ba2) with deep blue-gold palette (--navy-deep #0d1240, --navy #1a1f5e, --blue #2563eb, --gold #f59e0b). Added lucide CDN icons for all 12 feature cards + logo. Gold CTA buttons with glow shadow. Richer hero gradient with depth. Dark navy footer with gold accent border. Account nav button gold pill. All pages updated consistently.
+
+### May 26, 2026 - Website Visual Enhancements
+**Status:** SUCCESS (pending user confirm)
+**Files:** website/index.html
+**Result:** Added floating hero orbs, browser availability badges (Edge/Chrome), animated stats counters (10k+/500+/20+/190+), extension preview mockup section, glassmorphism testimonials with pravatar.cc avatars, IntersectionObserver scroll fade-in animations. All free/no-key APIs.
+
+### May 26, 2026 - AI output guard (moderation + redaction)
+**Status:** SUCCESS (pending deploy + user confirm)
+**Files:** supabase/functions/_shared/ai_output_guard.ts, ai-refactor/format/summary/breakdown/name/categorize/vision/image
+**Result:** OpenAI moderation blocks toxic output (422); redact echoed secrets; strip system-prompt leaks.
+
+### May 26, 2026 - Security operations reference MD
+**Status:** SUCCESS
+**Files:** docs/security/pastecraft-security-operations-reference.md
+**Result:** Full ops doc: auth levels, AI risk/guard limits, bans/quarantine/rates, security_events catalog, troubleshooting + tuning.
+
+### May 26, 2026 - AI input guard (Edge Functions)
+**Status:** SUCCESS
+**Files:** supabase/functions/_shared/ai_input_guard.ts, ai-refactor, ai-format, ai-categorize, ai-summary, ai-breakdown, ai-name, ai-image
+**Result:** Scrub secrets/PII, block prompt-injection patterns, cap length, log security_events. Deployed all 7 AI functions to prod. ai_name_attempt_log INSERT RLS fixed (uuid).
+
 ### May 26, 2026 - Security RLS hardening migration
-**Status:** PARTIAL
-**Files:** db/migrations/20260526180000_security_rls_hardening.sql, scripts/security/apply-and-verify.mjs, scripts/security/verify-security-rls.sql, package.json
-**Result:** Migration fixes F-1 profile guard, F-2 ban_gate policies, S-1 storage RLS, F-3 settings/clipboard burst limits. Apply script needs DATABASE_URL; not run in cloud (no creds).
+**Status:** SUCCESS
+**Files:** db/migrations/20260526180000_security_rls_hardening.sql
+**Result:** Applied to prod via user-supabase MCP (`security_rls_hardening_20260526`). Verified: aaa_guard_user_profiles trigger, 14 ban_gate policies, storage INSERT/UPDATE/DELETE scoped, burst limits on settings + clipboard_history.
 
 ### May 26, 2026 - Security + Storage RLS audit
 **Status:** SUCCESS

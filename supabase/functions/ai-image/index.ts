@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved } from "../_shared/ai_workflow.ts"
 import { requireNotBanned } from "../_shared/security-gate.ts"
+import { guardAiFields, AI_MAX_IMAGE_PROMPT_CHARS } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText } from "../_shared/ai_output_guard.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -294,14 +296,28 @@ serve(async (req) => {
       }
 
       const { data: visionData } = await fetchChatCompletionsWithModelFallback(apiKey, visionPayload, models.chatVisionModel, models)
-      const personDescription = String(visionData?.choices?.[0]?.message?.content || '').trim()
+      let personDescription = String(visionData?.choices?.[0]?.message?.content || '').trim()
+      const guardedDesc = await guardAiModelText(supabase, user.id, personDescription, 'ai-image-vision', corsHeaders, { apiKey })
+      if (guardedDesc instanceof Response) return guardedDesc
+      personDescription = guardedDesc
 
       finalPrompt = buildCartoonAvatarPrompt(personDescription)
     } else if (prompt) {
-      finalPrompt = prompt
+      finalPrompt = String(prompt)
     } else {
       throw new Error('Invalid request: provide prompt, animal type, or image')
     }
+
+    const promptGuard = await guardAiFields(
+      supabase,
+      user.id,
+      { finalPrompt },
+      'ai-image',
+      corsHeaders,
+      { finalPrompt: AI_MAX_IMAGE_PROMPT_CHARS },
+    )
+    if (promptGuard instanceof Response) return promptGuard
+    finalPrompt = promptGuard.finalPrompt
 
     // Generate image with gpt-image-1 (returns b64_json, not a URL)
     const response = await fetch('https://api.openai.com/v1/images/generations', {

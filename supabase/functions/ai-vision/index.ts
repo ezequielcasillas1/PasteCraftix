@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
 import type { TextCreditGate } from "../_shared/ai_workflow.ts"
+import { guardAiModelText } from "../_shared/ai_output_guard.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,7 +48,10 @@ serve(async (req) => {
     }
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatVisionModel, models)
-    const description = String(data?.choices?.[0]?.message?.content || '').trim()
+    let description = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guarded = await guardAiModelText(gate.supabase, gate.userId, description, 'ai-vision', corsHeaders, { apiKey })
+    if (guarded instanceof Response) return guarded
+    description = guarded
 
     // Decrement weighted text credits after successful generation
     const credits = await decrementTextCredits(gate, getTextCreditCost(models.provider, models.preset))

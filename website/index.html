@@ -6,179 +6,273 @@
     <title>PasteCraft - Your Ultimate Clipboard Manager</title>
     <meta name="description" content="PasteCraft turns clipboard managing into an effective learning style. Save, organize, and reuse clips with AI breakdown, summaries, and study tools.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <style>
+        :root {
+            --navy-deep: #0d1240;
+            --navy: #1a1f5e;
+            --blue: #2563eb;
+            --blue-mid: #1e3a8a;
+            --gold: #f59e0b;
+            --gold-dark: #d97706;
+            --gold-light: #fbbf24;
+            --text-dark: #0f172a;
+            --text-mid: #334155;
+            --text-light: #64748b;
+            --bg-light: #f0f4ff;
+            --white: #ffffff;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
-            color: #2d3748;
-            background: #ffffff;
+            color: var(--text-dark);
+            background: var(--white);
         }
-        
+
         /* Header */
         header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 55%, var(--blue-mid) 100%);
             color: white;
-            padding: 20px 0;
+            padding: 18px 0;
             position: sticky;
             top: 0;
             z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 24px rgba(13,18,64,0.45);
+            border-bottom: 1px solid rgba(245,158,11,0.18);
         }
-        
+
         nav {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 0 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .logo {
             display: flex;
             align-items: center;
             gap: 10px;
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.3px;
         }
-        
+
+        .logo-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            border-radius: 8px;
+            color: var(--navy-deep);
+        }
+
         .nav-links {
             display: flex;
-            gap: 30px;
+            gap: 28px;
             list-style: none;
+            align-items: center;
         }
-        
+
         .nav-links a {
-            color: white;
+            color: rgba(255,255,255,0.88);
             text-decoration: none;
             font-weight: 500;
-            transition: opacity 0.3s;
+            font-size: 15px;
+            transition: color 0.2s;
         }
-        
+
         .nav-links a:hover {
-            opacity: 0.8;
+            color: var(--gold-light);
         }
-        
+
+        .nav-links .nav-account {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--navy-deep) !important;
+            padding: 7px 18px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .nav-links .nav-account:hover {
+            color: var(--navy-deep) !important;
+            filter: brightness(1.1);
+        }
+
         /* Hero Section */
         .hero {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(155deg, var(--navy-deep) 0%, var(--navy) 40%, var(--blue-mid) 75%, #1d4ed8 100%);
             color: white;
-            padding: 100px 20px;
+            padding: 110px 20px 120px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -80px;
+            right: -80px;
+            width: 420px;
+            height: 420px;
+            background: radial-gradient(circle, rgba(245,158,11,0.18) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -60px;
+            left: -60px;
+            width: 340px;
+            height: 340px;
+            background: radial-gradient(circle, rgba(37,99,235,0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
         .hero h1 {
-            font-size: 56px;
-            margin-bottom: 20px;
+            font-size: 58px;
+            margin-bottom: 22px;
             font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.1;
+            position: relative;
         }
-        
+
+        .hero h1 span {
+            background: linear-gradient(90deg, var(--gold-light), var(--gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
         .hero p {
-            font-size: 24px;
-            margin-bottom: 40px;
-            opacity: 0.95;
+            font-size: 22px;
+            margin-bottom: 44px;
+            color: rgba(255,255,255,0.88);
+            max-width: 680px;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
         }
-        
+
         .cta-buttons {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             justify-content: center;
             flex-wrap: wrap;
+            position: relative;
         }
-        
+
         .btn {
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: 600;
+            padding: 15px 34px;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
             text-decoration: none;
             display: inline-block;
+            letter-spacing: 0.1px;
         }
-        
+
         .btn-primary {
-            background: white;
-            color: #667eea;
+            background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+            color: var(--navy-deep);
             border: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 20px rgba(245,158,11,0.45), 0 2px 8px rgba(0,0,0,0.2);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 28px rgba(245,158,11,0.55), 0 4px 12px rgba(0,0,0,0.25);
         }
-        
+
         .btn-secondary {
-            background: transparent;
+            background: rgba(255,255,255,0.08);
             color: white;
-            border: 2px solid white;
+            border: 2px solid rgba(255,255,255,0.55);
+            backdrop-filter: blur(4px);
         }
-        
+
         .btn-secondary:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.16);
+            border-color: rgba(255,255,255,0.8);
         }
-        
+
         /* Features Section */
         .features {
             max-width: 1200px;
-            margin: 80px auto;
-            padding: 0 20px;
+            margin: 90px auto;
+            padding: 0 24px;
         }
-        
+
         .features h2 {
             text-align: center;
-            font-size: 42px;
-            margin-bottom: 60px;
-            color: #1a202c;
+            font-size: 40px;
+            margin-bottom: 16px;
+            color: var(--navy);
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
-        
+
+        .section-subtitle {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 56px;
+            font-size: 17px;
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
         .feature-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
+            gap: 28px;
         }
-        
+
         .feature-card {
             text-align: center;
-            border-radius: 16px;
+            border-radius: 18px;
             cursor: pointer;
             position: relative;
             height: 280px;
-            perspective: 800px;
-            transition: box-shadow 0.3s;
+            perspective: 900px;
         }
-        
-        .feature-card:hover {
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
+
         .feature-card-inner {
             position: relative;
             width: 100%;
             height: 100%;
-            transition: transform 0.6s ease;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
             transform-style: preserve-3d;
         }
-        
+
         .feature-card:hover .feature-card-inner {
-            transform: translateY(-5px);
+            transform: translateY(-6px);
+            filter: drop-shadow(0 16px 32px rgba(26,31,94,0.18));
         }
-        
+
         .feature-card.flipped .feature-card-inner {
             transform: rotateY(180deg);
         }
-        
+
         .feature-card.flipped:hover .feature-card-inner {
-            transform: rotateY(180deg) translateY(-5px);
+            transform: rotateY(180deg) translateY(-6px);
         }
-        
+
         .feature-card-front,
         .feature-card-back {
             position: absolute;
@@ -188,58 +282,64 @@
             height: 100%;
             backface-visibility: hidden;
             -webkit-backface-visibility: hidden;
-            border-radius: 16px;
+            border-radius: 18px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 30px;
+            padding: 32px;
         }
-        
+
         .feature-card-front {
-            background: #f7fafc;
+            background: white;
+            border: 1.5px solid rgba(26,31,94,0.09);
+            box-shadow: 0 2px 16px rgba(26,31,94,0.07), 0 1px 4px rgba(0,0,0,0.04);
         }
-        
+
         .feature-card-back {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(145deg, var(--navy) 0%, var(--blue-mid) 55%, var(--blue) 100%);
             color: white;
             transform: rotateY(180deg);
+            box-shadow: 0 8px 32px rgba(13,18,64,0.4);
         }
-        
+
         .feature-card-back h4 {
-            font-size: 20px;
-            margin-bottom: 15px;
-            font-weight: 600;
+            font-size: 19px;
+            margin-bottom: 12px;
+            font-weight: 700;
         }
-        
+
         .feature-card-back p {
             font-size: 14px;
-            line-height: 1.6;
-            color: rgba(255,255,255,0.95);
+            line-height: 1.65;
+            color: rgba(255,255,255,0.9);
         }
-        
+
         .feature-card-back .badge {
             display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-top: 10px;
-            font-weight: 500;
+            background: rgba(245,158,11,0.25);
+            border: 1px solid rgba(245,158,11,0.5);
+            color: var(--gold-light);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            margin-top: 14px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
         }
-        
+
         /* Markup languages card */
         .feature-card.markup-card {
             height: 360px;
         }
-        
+
         .markup-back {
             justify-content: flex-start !important;
             padding-top: 22px !important;
             padding-bottom: 16px !important;
             overflow-y: auto;
         }
-        
+
         .markup-list {
             display: flex;
             flex-wrap: wrap;
@@ -247,7 +347,7 @@
             justify-content: center;
             margin: 10px 0 6px;
         }
-        
+
         .ml-tag {
             display: inline-block;
             background: var(--tag-bg, #555);
@@ -259,75 +359,373 @@
             letter-spacing: 0.3px;
             white-space: nowrap;
         }
-        
+
         .feature-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+            background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(37,99,235,0.1));
+            color: var(--navy);
         }
-        
+
+        .feature-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--navy);
+        }
+
         .feature-card h3 {
-            font-size: 24px;
-            margin-bottom: 15px;
-            color: #1a202c;
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--navy);
+            font-weight: 700;
         }
-        
+
         .feature-card p {
-            color: #4a5568;
-            font-size: 16px;
+            color: var(--text-light);
+            font-size: 15px;
+            line-height: 1.6;
         }
-        
+
         /* Pricing CTA Section */
         .pricing-cta {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 50%, var(--blue-mid) 100%);
             color: white;
+            padding: 90px 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pricing-cta::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 300px;
+            background: radial-gradient(ellipse, rgba(245,158,11,0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .pricing-cta h2 {
+            font-size: 40px;
+            margin-bottom: 16px;
+            font-weight: 800;
+            position: relative;
+        }
+
+        .pricing-cta p {
+            font-size: 18px;
+            margin-bottom: 40px;
+            color: rgba(255,255,255,0.85);
+            position: relative;
+        }
+
+        .pricing-cta .btn-primary {
+            position: relative;
+        }
+
+        /* Install Section */
+        .install-section {
+            background: var(--bg-light);
             padding: 80px 20px;
+        }
+
+        .install-section h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 14px;
+            color: var(--navy);
+            font-weight: 800;
+        }
+
+        .install-section p {
+            color: var(--text-light);
+        }
+
+        .install-inner {
+            max-width: 600px;
+            margin: 0 auto;
             text-align: center;
         }
-        
-        .pricing-cta h2 {
-            font-size: 42px;
-            margin-bottom: 20px;
+
+        .install-inner p {
+            font-size: 17px;
+            margin-bottom: 30px;
         }
-        
-        .pricing-cta p {
-            font-size: 20px;
-            margin-bottom: 40px;
-            opacity: 0.95;
-        }
-        
+
         /* Footer */
         footer {
-            background: #1a202c;
-            color: white;
-            padding: 40px 20px;
+            background: var(--navy-deep);
+            color: rgba(255,255,255,0.75);
+            padding: 48px 20px;
             text-align: center;
+            border-top: 2px solid rgba(245,158,11,0.2);
         }
-        
+
         footer p {
             margin-bottom: 10px;
+            font-size: 14px;
         }
-        
+
         footer a {
-            color: #667eea;
+            color: var(--gold-light);
             text-decoration: none;
+            transition: color 0.2s;
         }
-        
+
         footer a:hover {
+            color: var(--gold);
             text-decoration: underline;
         }
-        
+
         @media (max-width: 768px) {
             .hero h1 {
                 font-size: 36px;
             }
-            
+
             .hero p {
-                font-size: 18px;
+                font-size: 17px;
             }
-            
+
             .nav-links {
-                gap: 15px;
+                gap: 14px;
             }
+
+            .features h2 {
+                font-size: 30px;
+            }
+        }
+
+        /* === VISUAL ENHANCEMENTS === */
+
+        /* Hero floating orbs */
+        .hero-orb {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            pointer-events: none;
+            animation: float-orb 7s ease-in-out infinite;
+        }
+        .hero-orb-1 { width: 360px; height: 360px; top: -100px; left: -80px; animation-delay: 0s; }
+        .hero-orb-2 { width: 200px; height: 200px; bottom: -60px; right: 8%; animation-delay: 2.5s; }
+        .hero-orb-3 { width: 110px; height: 110px; top: 45%; left: 18%; animation-delay: 4s; }
+        @keyframes float-orb {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.05); }
+        }
+
+        /* Browser availability badges */
+        .browser-badges {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 28px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 2;
+        }
+        .browser-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.22);
+            color: rgba(255,255,255,0.92);
+            padding: 10px 22px;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.3s, transform 0.25s;
+        }
+        .browser-badge:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+        .badge-new {
+            background: var(--gold);
+            color: var(--navy-deep);
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* Stats section */
+        .stats-section {
+            background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+            padding: 60px 20px;
+        }
+        .stats-grid {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+            gap: 28px;
+            text-align: center;
+        }
+        .stat-item { padding: 8px; }
+        .stat-item .stat-number {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+        }
+        .stat-item .stat-label { color: var(--text-mid); font-size: 15px; margin-top: 8px; font-weight: 500; }
+
+        /* Extension preview mockup */
+        .preview-section {
+            padding: 80px 20px;
+            background: var(--bg-light);
+            text-align: center;
+        }
+        .preview-section h2 { font-size: 36px; margin-bottom: 12px; color: var(--navy-deep); }
+        .preview-section > p { font-size: 17px; color: var(--text-light); max-width: 560px; margin: 0 auto 44px; }
+        .preview-mockup {
+            max-width: 840px;
+            margin: 0 auto;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 28px 70px rgba(13,18,64,0.2);
+        }
+        .mockup-bar {
+            background: #1e2235;
+            padding: 11px 18px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .mockup-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .mockup-dot-red { background: #fc5c65; }
+        .mockup-dot-yellow { background: #fed330; }
+        .mockup-dot-green { background: #20bf6b; }
+        .mockup-url {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            border-radius: 5px;
+            padding: 3px 14px;
+            color: rgba(255,255,255,0.5);
+            font-size: 12px;
+            text-align: center;
+        }
+        .mockup-body {
+            background: linear-gradient(155deg, var(--navy-deep) 0%, var(--navy) 45%, var(--blue-mid) 100%);
+            padding: 48px 24px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            min-height: 270px;
+        }
+        .mockup-card {
+            background: rgba(255,255,255,0.97);
+            border-radius: 14px;
+            padding: 16px 14px;
+            width: 184px;
+            text-align: left;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+        }
+        .mockup-card-header {
+            font-size: 10px;
+            color: var(--blue);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .mockup-clip {
+            background: #f0f4ff;
+            border-radius: 6px;
+            padding: 6px 9px;
+            font-size: 11px;
+            color: #334155;
+            margin-bottom: 5px;
+            border-left: 3px solid var(--blue);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mockup-clip.ai { border-left-color: #7c3aed; }
+        .mockup-clip.synced { border-left-color: #059669; }
+        .mockup-caption {
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+            margin-top: 22px;
+            display: block;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            background: var(--navy-deep);
+            padding: 80px 20px;
+        }
+        .testimonials-header { text-align: center; margin-bottom: 48px; }
+        .testimonials-header h2 { font-size: 36px; color: white; margin-bottom: 10px; }
+        .testimonials-header p { color: #94a3b8; font-size: 16px; }
+        .testimonials-grid {
+            max-width: 1080px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+            gap: 22px;
+        }
+        .testimonial-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 26px;
+            transition: transform 0.3s, background 0.3s;
+        }
+        .testimonial-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.08); }
+        .testimonial-stars { color: var(--gold-light); font-size: 16px; margin-bottom: 13px; letter-spacing: 2px; }
+        .testimonial-text {
+            font-size: 14px;
+            line-height: 1.75;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        .testimonial-author { display: flex; align-items: center; gap: 11px; }
+        .testimonial-avatar {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            border: 2px solid rgba(245,158,11,0.5);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .testimonial-name { font-weight: 700; font-size: 14px; color: white; }
+        .testimonial-role { font-size: 12px; color: #64748b; }
+
+        /* Scroll fade-in */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-in-up.visible { opacity: 1; transform: translateY(0); }
+        .fade-in-up.d1 { transition-delay: 0.1s; }
+        .fade-in-up.d2 { transition-delay: 0.2s; }
+        .fade-in-up.d3 { transition-delay: 0.3s; }
+        .fade-in-up.d4 { transition-delay: 0.4s; }
+
+        @media (max-width: 640px) {
+            .stat-item .stat-number { font-size: 36px; }
+            .testimonials-header h2, .preview-section h2 { font-size: 26px; }
+            .mockup-body { padding: 28px 12px; }
+            .browser-badge { font-size: 13px; padding: 8px 16px; }
         }
     </style>
 </head>
@@ -336,7 +734,7 @@
     <header>
         <nav>
             <div class="logo">
-                <span>📋</span>
+                <div class="logo-icon"><i data-lucide="clipboard" style="width:18px;height:18px;stroke-width:2.5"></i></div>
                 <span>PasteCraft</span>
             </div>
             <ul class="nav-links">
@@ -345,32 +743,65 @@
                 <li><a href="pricing.html">Pricing</a></li>
                 <li><a href="about.html">About</a></li>
                 <li><a href="contact.html">Contact</a></li>
-                <li><a href="account.html" style="background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px;">Account</a></li>
+                <li><a href="account.html" class="nav-account">Account</a></li>
             </ul>
         </nav>
     </header>
 
     <!-- Hero Section -->
     <section class="hero">
-        <h1>📋 Your Ultimate Clipboard Manager</h1>
-        <p>Save, organize, and reuse everything you copy. Clipboard managing as an effective learning style—break down text, summarize research, and study smarter.</p>
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+        <div class="hero-orb hero-orb-3"></div>
+        <h1>Your Ultimate <span>Clipboard Manager</span></h1>
+        <p>Save, organize, and reuse everything you copy. Break down complex text, summarize research, and work smarter with AI-powered clipboard tools.</p>
         <div class="cta-buttons">
             <a href="#install" class="btn btn-primary">Get Started Free</a>
             <a href="pricing.html" class="btn btn-secondary">View Pricing</a>
+        </div>
+        <div class="browser-badges">
+            <a href="https://microsoftedge.microsoft.com/addons" target="_blank" rel="noopener" class="browser-badge">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                Available on Edge
+            </a>
+            <a href="#install" class="browser-badge">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
+                Chrome <span class="badge-new">Soon</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-item fade-in-up">
+                <div class="stat-number" data-target="10000" data-suffix="+">0</div>
+                <div class="stat-label">Clips Saved</div>
+            </div>
+            <div class="stat-item fade-in-up d1">
+                <div class="stat-number" data-target="500" data-suffix="+">0</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+            <div class="stat-item fade-in-up d2">
+                <div class="stat-number" data-target="20" data-suffix="+">0</div>
+                <div class="stat-label">Markup Formats</div>
+            </div>
+            <div class="stat-item fade-in-up d3">
+                <div class="stat-number" data-target="190" data-suffix="+">0</div>
+                <div class="stat-label">Languages Supported</div>
+            </div>
         </div>
     </section>
 
     <!-- Features Section -->
     <section class="features" id="features">
         <h2>Powerful Features</h2>
-        <p style="text-align: center; max-width: 800px; margin: 0 auto 40px; font-size: 18px; color: #4a5568;">
-            Click any card to learn more. Supporting 20+ markup formats and 190+ programming languages.
-        </p>
+        <p class="section-subtitle">Click any card to learn more. Supporting 20+ markup formats and 190+ programming languages.</p>
         <div class="feature-grid">
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">📋</div>
+                        <div class="feature-icon"><i data-lucide="clipboard-list"></i></div>
                         <h3>Unlimited Clips</h3>
                         <p>Never lose your clipboard history. Save and access unlimited clips with premium.</p>
                     </div>
@@ -385,7 +816,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🤖</div>
+                        <div class="feature-icon"><i data-lucide="brain"></i></div>
                         <h3>AI Breakdown</h3>
                         <p>Understand complex text at any level - from ELI5 to PhD explanations.</p>
                     </div>
@@ -400,7 +831,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">✨</div>
+                        <div class="feature-icon"><i data-lucide="sparkles"></i></div>
                         <h3>AI Summaries</h3>
                         <p>Get intelligent summaries and answers about your clipboard content.</p>
                     </div>
@@ -415,7 +846,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🕘</div>
+                        <div class="feature-icon"><i data-lucide="history"></i></div>
                         <h3>AI History Details</h3>
                         <p>Review complete AI actions with prompts, outputs, and usage details in one timeline.</p>
                     </div>
@@ -430,7 +861,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🎨</div>
+                        <div class="feature-icon"><i data-lucide="image-plus"></i></div>
                         <h3>Image Generation</h3>
                         <p>Transform text into stunning AI-generated images instantly.</p>
                     </div>
@@ -445,7 +876,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🗂️</div>
+                        <div class="feature-icon"><i data-lucide="folders"></i></div>
                         <h3>Smart Categories</h3>
                         <p>Organize your clips with custom categories and icons.</p>
                     </div>
@@ -460,7 +891,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">☁️</div>
+                        <div class="feature-icon"><i data-lucide="cloud-upload"></i></div>
                         <h3>Cloud Sync</h3>
                         <p>Access your clips across all devices with seamless cloud synchronization.</p>
                     </div>
@@ -475,7 +906,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🪄</div>
+                        <div class="feature-icon"><i data-lucide="wand-2"></i></div>
                         <h3>Magic Wand</h3>
                         <p>AI-powered clip organization — smart categorization, grammar polish, and content cleanup in one click.</p>
                     </div>
@@ -490,7 +921,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">📒</div>
+                        <div class="feature-icon"><i data-lucide="book-open"></i></div>
                         <h3>Notes & Albums</h3>
                         <p>Create rich notes with albums to organize thoughts, attach clips, and build personal collections.</p>
                     </div>
@@ -505,7 +936,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">🔗</div>
+                        <div class="feature-icon"><i data-lucide="link-2"></i></div>
                         <h3>Clip Joiner</h3>
                         <p>Merge multiple clips into one with custom delimiters — no AI or premium required.</p>
                     </div>
@@ -520,7 +951,7 @@
             <div class="feature-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">⚙️</div>
+                        <div class="feature-icon"><i data-lucide="sliders-horizontal"></i></div>
                         <h3>Clip Settings</h3>
                         <p>Per-clip controls for deduplication, sorting, uppercase, and delimiter presets — available to everyone.</p>
                     </div>
@@ -535,7 +966,7 @@
             <div class="feature-card markup-card" onclick="this.classList.toggle('flipped')">
                 <div class="feature-card-inner">
                     <div class="feature-card-front">
-                        <div class="feature-icon">📝</div>
+                        <div class="feature-icon"><i data-lucide="file-code-2"></i></div>
                         <h3>Rich Format Support</h3>
                         <p>20+ markup formats & 190+ programming languages with syntax highlighting.</p>
                     </div>
@@ -569,6 +1000,44 @@
         </div>
     </section>
 
+    <!-- Preview Mockup Section -->
+    <section class="preview-section">
+        <h2 class="fade-in-up">See It In Action</h2>
+        <p class="fade-in-up d1">A lightweight popup that lives in your browser — always ready when you need it.</p>
+        <div class="preview-mockup fade-in-up d2">
+            <div class="mockup-bar">
+                <div class="mockup-dot mockup-dot-red"></div>
+                <div class="mockup-dot mockup-dot-yellow"></div>
+                <div class="mockup-dot mockup-dot-green"></div>
+                <div class="mockup-url">pastecraft.com — Your Clipboard, Supercharged</div>
+            </div>
+            <div class="mockup-body">
+                <div class="mockup-card">
+                    <div class="mockup-card-header">📋 Recent Clips</div>
+                    <div class="mockup-clip">npm install pastecraft</div>
+                    <div class="mockup-clip">Meeting notes: Q2 goals…</div>
+                    <div class="mockup-clip">https://github.com/…</div>
+                    <div class="mockup-clip synced">✓ Synced across devices</div>
+                </div>
+                <div class="mockup-card">
+                    <div class="mockup-card-header">🤖 AI Breakdown</div>
+                    <div class="mockup-clip ai">ELI5: Like a sticky note…</div>
+                    <div class="mockup-clip ai">Summary generated ✨</div>
+                    <div class="mockup-clip ai">Category: Research</div>
+                    <div class="mockup-clip ai">Refactored: Clean copy</div>
+                </div>
+                <div class="mockup-card">
+                    <div class="mockup-card-header">🗂️ Categories</div>
+                    <div class="mockup-clip">📁 Work (14 clips)</div>
+                    <div class="mockup-clip">💡 Ideas (8 clips)</div>
+                    <div class="mockup-clip">🔗 Links (22 clips)</div>
+                    <div class="mockup-clip">📝 Notes (5 clips)</div>
+                </div>
+                <span class="mockup-caption">Extension popup · All features at your fingertips</span>
+            </div>
+        </div>
+    </section>
+
     <!-- Pricing CTA -->
     <section class="pricing-cta">
         <h2>Ready to Upgrade?</h2>
@@ -576,14 +1045,55 @@
         <a href="pricing.html" class="btn btn-primary">View Plans & Pricing</a>
     </section>
 
+    <!-- Testimonials Section -->
+    <section class="testimonials">
+        <div class="testimonials-header fade-in-up">
+            <h2>Loved by Productivity Enthusiasts</h2>
+            <p>Join thousands who've transformed how they work with their clipboard.</p>
+        </div>
+        <div class="testimonials-grid">
+            <div class="testimonial-card fade-in-up d1">
+                <div class="testimonial-stars">★★★★★</div>
+                <p class="testimonial-text">"PasteCraft completely changed how I do research. The AI breakdown feature explains complex papers at exactly the level I need. It's like having a study partner built into my clipboard."</p>
+                <div class="testimonial-author">
+                    <img src="https://i.pravatar.cc/80?img=11" alt="User avatar" class="testimonial-avatar" loading="lazy">
+                    <div>
+                        <div class="testimonial-name">Sarah M.</div>
+                        <div class="testimonial-role">PhD Student, Neuroscience</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card fade-in-up d2">
+                <div class="testimonial-stars">★★★★★</div>
+                <p class="testimonial-text">"I copy code snippets dozens of times a day. PasteCraft's cloud sync means I have everything on my work machine and laptop. The categories are a lifesaver for organizing client projects."</p>
+                <div class="testimonial-author">
+                    <img src="https://i.pravatar.cc/80?img=33" alt="User avatar" class="testimonial-avatar" loading="lazy">
+                    <div>
+                        <div class="testimonial-name">James T.</div>
+                        <div class="testimonial-role">Full-Stack Developer</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card fade-in-up d3">
+                <div class="testimonial-stars">★★★★★</div>
+                <p class="testimonial-text">"The AI summaries save me hours every week. I copy articles, run a summary, and get the key points instantly. The markup support means my code snippets always look perfect too."</p>
+                <div class="testimonial-author">
+                    <img src="https://i.pravatar.cc/80?img=47" alt="User avatar" class="testimonial-avatar" loading="lazy">
+                    <div>
+                        <div class="testimonial-name">Priya K.</div>
+                        <div class="testimonial-role">Content Strategist</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Install Section -->
-    <section class="features" id="install">
-        <h2>Get Started</h2>
-        <div style="text-align: center; max-width: 600px; margin: 0 auto;">
-            <p style="font-size: 18px; margin-bottom: 30px;">
-                Install PasteCraft from the Microsoft Edge Add-ons store and start supercharging your clipboard today!
-            </p>
-            <a href="https://microsoftedge.microsoft.com/addons" class="btn btn-primary">
+    <section class="install-section" id="install">
+        <div class="install-inner">
+            <h2>Get Started Free</h2>
+            <p>Install PasteCraft from the Microsoft Edge Add-ons store and start supercharging your clipboard today!</p>
+            <a href="https://microsoftedge.microsoft.com/addons" class="btn btn-primary" style="background: linear-gradient(135deg,#fbbf24,#f59e0b,#d97706); color: #0d1240;">
                 Install for Edge
             </a>
         </div>
@@ -602,6 +1112,42 @@
         <p style="margin-top: 12px; font-size: 14px;">Follow us for updates: <a href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener">Facebook</a> | <a href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener">Reddit</a></p>
     </footer>
     <script defer src="/analytics.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+
+            // Scroll fade-in via IntersectionObserver
+            const fadeEls = document.querySelectorAll('.fade-in-up');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+            }, { threshold: 0.15 });
+            fadeEls.forEach(el => observer.observe(el));
+
+            // Animated number counters
+            function animateCounter(el) {
+                const target = parseInt(el.dataset.target, 10);
+                const suffix = el.dataset.suffix || '';
+                const duration = 1800;
+                const step = Math.ceil(target / (duration / 16));
+                let current = 0;
+                const timer = setInterval(() => {
+                    current = Math.min(current + step, target);
+                    el.textContent = current.toLocaleString() + suffix;
+                    if (current >= target) clearInterval(timer);
+                }, 16);
+            }
+
+            const counterObserver = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        animateCounter(e.target);
+                        counterObserver.unobserve(e.target);
+                    }
+                });
+            }, { threshold: 0.4 });
+            document.querySelectorAll('.stat-number[data-target]').forEach(el => counterObserver.observe(el));
+        });
+    </script>
 </body>
 </html>
 

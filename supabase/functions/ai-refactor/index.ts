@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { guardAiTexts } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText, guardAiOutputStrings } from "../_shared/ai_output_guard.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -132,6 +134,16 @@ serve(async (req) => {
     const edgeLevel = levelPrompts[String(level || '')] ? String(level) : 'college'
     const batch = clips.slice(0, 30)
 
+    const guarded = await guardAiTexts(
+      gate.supabase,
+      gate.userId,
+      batch.map((c: { text?: string }) => String(c.text || '')),
+      'ai-refactor',
+      corsHeaders,
+      500,
+    )
+    if (guarded instanceof Response) return guarded
+
     const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
       provider: 'openai',
       preset: 'cheapest',
@@ -139,8 +151,8 @@ serve(async (req) => {
     const models = resolveModelsFromWorkflow(cheapestWorkflow)
     const apiKey = getApiKeyForResolved(models)
 
-    const clipTexts = batch.map((c: { text?: string }, i: number) => {
-      const text = String(c.text || '').trim().slice(0, 500)
+    const clipTexts = batch.map((_c: { text?: string }, i: number) => {
+      const text = String(guarded.texts[i] || '').trim()
       return `[${i}]\n${text}\n[/${i}]`
     }).join('\n')
 
@@ -157,7 +169,10 @@ serve(async (req) => {
     }
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    let raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guardedRaw = await guardAiModelText(gate.supabase, gate.userId, raw, 'ai-refactor', corsHeaders, { apiKey })
+    if (guardedRaw instanceof Response) return guardedRaw
+    raw = guardedRaw
 
     let parsed: { refactored?: unknown[] } | null = null
     try {
@@ -181,9 +196,17 @@ serve(async (req) => {
     }
     if (refactored.length > batch.length) refactored.length = batch.length
 
+    const safeRefactored = await guardAiOutputStrings(
+      gate.supabase,
+      gate.userId,
+      refactored,
+      'ai-refactor',
+      2000,
+    )
+
     const diagnostics = batch.map((c: { text?: string }, i: number) => {
       const original = String(c.text || '').trim()
-      const out = refactored[i] || original
+      const out = safeRefactored[i] || original
       const usedFallback = i >= aiCount
       return buildDiagnostic(original, out, i, edgeLevel, parseOk, usedFallback)
     })
@@ -191,7 +214,7 @@ serve(async (req) => {
     const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
 
     return new Response(
-      JSON.stringify({ refactored, diagnostics, ...credits }),
+      JSON.stringify({ refactored: safeRefactored, diagnostics, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {

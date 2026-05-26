@@ -2,6 +2,8 @@
 
 This document explains **how PasteCraft security actually works**: what gets protected, what does not, how abuse is detected and blocked, and how admins are notified. It is written for product owners and developers who need a clear mental model—not a marketing overview.
 
+**Operations reference (limits, events, tuning):** [pastecraft-security-operations-reference.md](pastecraft-security-operations-reference.md)
+
 ---
 
 ## Table of contents

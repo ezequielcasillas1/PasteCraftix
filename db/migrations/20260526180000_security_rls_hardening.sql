@@ -132,6 +132,7 @@ DROP POLICY IF EXISTS "Profile images are publicly accessible" ON storage.object
 DROP POLICY IF EXISTS "Public can view profile images"         ON storage.objects;
 
 DROP POLICY IF EXISTS "Users can upload their own profile images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can upload profile images with size limit" ON storage.objects;
 CREATE POLICY "Users can upload their own profile images"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (
@@ -140,6 +141,7 @@ CREATE POLICY "Users can upload their own profile images"
   );
 
 DROP POLICY IF EXISTS "Users can update their own profile images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update own profile images" ON storage.objects;
 CREATE POLICY "Users can update their own profile images"
   ON storage.objects FOR UPDATE TO authenticated
   USING (
@@ -148,6 +150,7 @@ CREATE POLICY "Users can update their own profile images"
   );
 
 DROP POLICY IF EXISTS "Users can delete their own profile images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete own profile images" ON storage.objects;
 CREATE POLICY "Users can delete their own profile images"
   ON storage.objects FOR DELETE TO authenticated
   USING (

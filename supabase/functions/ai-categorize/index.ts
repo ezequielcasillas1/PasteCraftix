@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { guardAiTexts } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText, guardAiOutputStrings } from "../_shared/ai_output_guard.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -129,7 +131,9 @@ async function requestCategorySuggestions(
   clipSummaries: string,
   batchLength: number,
   retryCustom: boolean,
-): Promise<string[]> {
+  supabase: any,
+  userId: string,
+): Promise<string[] | Response> {
   const systemPrompt = retryCustom
     ? SUGGESTIONS_SYSTEM_PROMPT + '\n- Your previous answer was too generic; use highly specific titles from the snippets only.'
     : SUGGESTIONS_SYSTEM_PROMPT
@@ -148,8 +152,12 @@ async function requestCategorySuggestions(
   }
 
   const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-  const raw = String(data?.choices?.[0]?.message?.content || '').trim()
-  return extractSuggestionsFromParsed(parseJsonFromModel(raw))
+  let raw = String(data?.choices?.[0]?.message?.content || '').trim()
+  const guarded = await guardAiModelText(supabase, userId, raw, 'ai-categorize-suggestions', corsHeaders, { apiKey })
+  if (guarded instanceof Response) return guarded
+  raw = guarded
+  const titles = extractSuggestionsFromParsed(parseJsonFromModel(raw))
+  return guardAiOutputStrings(supabase, userId, titles, 'ai-categorize-suggestions', MAX_CATEGORY_CHARS)
 }
 
 serve(async (req) => {
@@ -169,21 +177,41 @@ serve(async (req) => {
     }
 
     const batch = clips.slice(0, 50)
+
+    const guarded = await guardAiTexts(
+      gate.supabase,
+      gate.userId,
+      batch.map((c: any) => String(c.text || '')),
+      'ai-categorize',
+      corsHeaders,
+      200,
+    )
+    if (guarded instanceof Response) return guarded
+
+    const sanitizedBatch = batch.map((c: any, i: number) => ({ ...c, text: guarded.texts[i] }))
+
     const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
       provider: 'openai',
       preset: 'cheapest'
     }
     const models = resolveModelsFromWorkflow(cheapestWorkflow)
     const apiKey = getApiKeyForResolved(models)
-    const clipSummaries = buildClipSummaries(batch)
+    const clipSummaries = buildClipSummaries(sanitizedBatch)
 
     if (mode === 'suggestions') {
-      let suggestions = await requestCategorySuggestions(apiKey, models, clipSummaries, batch.length, false)
+      let suggestionsResult = await requestCategorySuggestions(
+        apiKey, models, clipSummaries, batch.length, false, gate.supabase, gate.userId,
+      )
+      if (suggestionsResult instanceof Response) return suggestionsResult
+      let suggestions = suggestionsResult
 
       const mostlyGeneric = suggestions.length > 0
         && suggestions.every((s) => isGenericSuggestionTitle(s))
       if (suggestions.length === 0 || mostlyGeneric) {
-        const retry = await requestCategorySuggestions(apiKey, models, clipSummaries, batch.length, true)
+        const retry = await requestCategorySuggestions(
+          apiKey, models, clipSummaries, batch.length, true, gate.supabase, gate.userId,
+        )
+        if (retry instanceof Response) return retry
         if (retry.length > 0) suggestions = retry
       }
 
@@ -220,7 +248,10 @@ serve(async (req) => {
     }
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    let raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guardedRaw = await guardAiModelText(gate.supabase, gate.userId, raw, 'ai-categorize', corsHeaders, { apiKey })
+    if (guardedRaw instanceof Response) return guardedRaw
+    raw = guardedRaw
     const parsed = parseJsonFromModel(raw)
 
     const categories: string[] = Array.isArray(parsed?.categories)
@@ -230,10 +261,18 @@ serve(async (req) => {
     while (categories.length < batch.length) categories.push('Quick')
     if (categories.length > batch.length) categories.length = batch.length
 
+    const safeCategories = await guardAiOutputStrings(
+      gate.supabase,
+      gate.userId,
+      categories,
+      'ai-categorize',
+      MAX_CATEGORY_CHARS,
+    )
+
     const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
 
     return new Response(
-      JSON.stringify({ categories, ...credits }),
+      JSON.stringify({ categories: safeCategories, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {

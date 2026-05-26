@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { guardAiTexts } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText, guardAiOutputStrings } from "../_shared/ai_output_guard.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -27,6 +29,16 @@ serve(async (req) => {
     // Cap at 30 clips per request (format needs more tokens than categorize)
     const batch = clips.slice(0, 30)
 
+    const guarded = await guardAiTexts(
+      gate.supabase,
+      gate.userId,
+      batch.map((c: any) => String(c.text || '')),
+      'ai-format',
+      corsHeaders,
+      500,
+    )
+    if (guarded instanceof Response) return guarded
+
     // Always use cheapest preset
     const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
       provider: 'openai',
@@ -36,8 +48,8 @@ serve(async (req) => {
     const apiKey = getApiKeyForResolved(models)
 
     // Build clip texts for the prompt (truncated for token efficiency)
-    const clipTexts = batch.map((c: any, i: number) => {
-      const text = String(c.text || '').trim().slice(0, 500)
+    const clipTexts = batch.map((_c: any, i: number) => {
+      const text = String(guarded.texts[i] || '').trim()
       return `[${i}]\n${text}\n[/${i}]`
     }).join('\n')
 
@@ -68,7 +80,10 @@ serve(async (req) => {
     }
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    let raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guardedRaw = await guardAiModelText(gate.supabase, gate.userId, raw, 'ai-format', corsHeaders, { apiKey })
+    if (guardedRaw instanceof Response) return guardedRaw
+    raw = guardedRaw
 
     let parsed: any = null
     try {
@@ -91,11 +106,19 @@ serve(async (req) => {
     }
     if (formatted.length > batch.length) formatted.length = batch.length
 
+    const safeFormatted = await guardAiOutputStrings(
+      gate.supabase,
+      gate.userId,
+      formatted,
+      'ai-format',
+      2000,
+    )
+
     // Decrement text credits (cheapest cost)
     const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
 
     return new Response(
-      JSON.stringify({ formatted, ...credits }),
+      JSON.stringify({ formatted: safeFormatted, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {

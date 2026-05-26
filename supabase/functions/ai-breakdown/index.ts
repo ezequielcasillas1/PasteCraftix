@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { guardAiFields, AI_MAX_SUMMARY_CHARS } from "../_shared/ai_input_guard.ts"
+import { guardAiModelText } from "../_shared/ai_output_guard.ts"
 import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -45,6 +47,18 @@ serve(async (req) => {
       throw new Error('Text is required')
     }
 
+    const guarded = await guardAiFields(
+      gate.supabase,
+      gate.userId,
+      { text: String(text) },
+      'ai-breakdown',
+      corsHeaders,
+      { text: AI_MAX_SUMMARY_CHARS },
+    )
+    if (guarded instanceof Response) return guarded
+
+    const safeText = guarded.text
+
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
     const apiKey = getApiKeyForResolved(models)
@@ -54,14 +68,17 @@ serve(async (req) => {
     const payload = {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Please explain this text:\n\n${text}` }
+        { role: 'user', content: `Please explain this text:\n\n${safeText}` }
       ],
       max_tokens: 2000,
       temperature: 0.7
     }
 
     const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const breakdown = String(data?.choices?.[0]?.message?.content || '').trim()
+    let breakdown = String(data?.choices?.[0]?.message?.content || '').trim()
+    const guarded = await guardAiModelText(gate.supabase, gate.userId, breakdown, 'ai-breakdown', corsHeaders, { apiKey })
+    if (guarded instanceof Response) return guarded
+    breakdown = guarded
 
     // Decrement weighted text credits after successful generation
     const credits = await decrementTextCredits(gate, getTextCreditCost(models.provider, models.preset))
