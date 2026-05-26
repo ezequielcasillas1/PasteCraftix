@@ -1,3 +1,18 @@
+### May 26, 2026 - Security RLS hardening migration
+**Status:** PARTIAL
+**Files:** db/migrations/20260526180000_security_rls_hardening.sql, scripts/security/apply-and-verify.mjs, scripts/security/verify-security-rls.sql, package.json
+**Result:** Migration fixes F-1 profile guard, F-2 ban_gate policies, S-1 storage RLS, F-3 settings/clipboard burst limits. Apply script needs DATABASE_URL; not run in cloud (no creds).
+
+### May 26, 2026 - Security + Storage RLS audit
+**Status:** SUCCESS
+**Files:** docs/security/security-rls-audit-2026-05-26.md
+**Result:** Repo-only audit: no automatic is_banned; quarantine/rate-limit only. Table RLS mostly hardened; flagged user_profiles self-UPDATE, missing ban_gate policy DDL, storage policy prod verify SQL.
+
+### May 26, 2026 - Security workflow educational guide
+**Status:** SUCCESS
+**Files:** docs/security/pastecraft-security-workflow.md
+**Result:** Comprehensive MD explaining defense layers, abuse/quarantine/ban workflows, admin alerts, AI gaps, Zscaler ops layer, and P0–P2 roadmap.
+
 ### May 21, 2026 - AI avatar image quality restore
 **Status:** SUCCESS
 **Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js

@@ -19,7 +19,9 @@
     "docs": "echo \"Documentation available in .md files\" && exit 0",
     "feature-icons": "node scripts/convert-feature-icons.js 256",
     "store-icons": "node scripts/convert-store-icons.js",
-    "store-screenshots": "node scripts/convert-store-screenshots.js"
+    "store-screenshots": "node scripts/convert-store-screenshots.js",
+    "security:apply": "node scripts/security/apply-and-verify.mjs",
+    "security:verify": "node scripts/security/apply-and-verify.mjs --verify-only"
   },
   "keywords": [
     "chrome-extension",
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.102.1",
+    "pg": "^8.21.0",
     "sharp": "^0.33.5"
   }
 }
