@@ -5,7 +5,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
 <footer class="site-footer">
   <div class="container footer-shell surface-card">
     <div class="footer-brand">
-      <img src="/logo.svg" alt="PasteCraft logo" width="38" height="38" style="border-radius:10px;flex-shrink:0;" />
+      <img src="/logo.svg" alt="PasteCraft logo" width="38" height="38" style="border-radius:10px;flex-shrink:0;box-shadow:0 0 14px rgba(251,191,36,0.18);" />
       <div>
         <strong>PasteCraft</strong>
         <p>Save faster, understand more, and keep your clipboard history beautifully organized.</p>
@@ -32,11 +32,16 @@ import { footerLinks, socialLinks } from '../data/site.js';
       </div>
     </div>
   </div>
+
+  <div class="container footer-bottom">
+    <p>&copy; {new Date().getFullYear()} PasteCraft. All rights reserved.</p>
+  </div>
 </footer>
 
 <style>
   .site-footer {
     padding: 0 0 2rem;
+    margin-top: 4rem;
   }
 
   .footer-shell {
@@ -44,6 +49,11 @@ import { footerLinks, socialLinks } from '../data/site.js';
     grid-template-columns: 1.1fr 0.9fr;
     gap: 1.5rem;
     padding: 1.5rem;
+    border-top: 2px solid rgba(251, 191, 36, 0.3);
+    box-shadow: 0 -4px 32px rgba(251, 191, 36, 0.06), var(--shadow-md);
+    background:
+      linear-gradient(180deg, rgba(13, 18, 64, 0.95) 0%, rgba(8, 12, 42, 0.98) 100%),
+      var(--surface);
   }
 
   .footer-brand {
@@ -56,6 +66,10 @@ import { footerLinks, socialLinks } from '../data/site.js';
     display: block;
     margin-bottom: 0.6rem;
     font-size: 1.05rem;
+    background: linear-gradient(135deg, #f0f4ff 30%, var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .footer-brand p {
@@ -74,7 +88,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
   .footer-links h3 {
     margin: 0 0 0.85rem;
     font-size: 0.95rem;
-    color: var(--brand-soft);
+    color: var(--gold);
   }
 
   .footer-links ul {
@@ -88,11 +102,23 @@ import { footerLinks, socialLinks } from '../data/site.js';
   .footer-links a {
     text-decoration: none;
     color: var(--text-soft);
+    transition: color 180ms ease;
   }
 
   .footer-links a:hover,
   .footer-links a:focus-visible {
-    color: var(--text);
+    color: var(--gold);
+  }
+
+  .footer-bottom {
+    padding-top: 1.25rem;
+    text-align: center;
+  }
+
+  .footer-bottom p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
   }
 
   @media (max-width: 800px) {

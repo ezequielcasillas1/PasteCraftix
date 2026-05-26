@@ -34,7 +34,7 @@ const { currentPath = '/' } = Astro.props;
     position: sticky;
     top: 0;
     z-index: 20;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
   }
 
   .header-shell {
@@ -43,6 +43,7 @@ const { currentPath = '/' } = Astro.props;
     justify-content: space-between;
     gap: 1rem;
     padding: 0.9rem 1rem;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.12);
   }
 
   .brand {
@@ -56,12 +57,17 @@ const { currentPath = '/' } = Astro.props;
   .brand-logo {
     border-radius: 12px;
     flex-shrink: 0;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.15);
   }
 
   .brand strong {
     display: block;
     font-size: 1.05rem;
     letter-spacing: 0.01em;
+    background: linear-gradient(135deg, #f0f4ff 30%, var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .brand small {
@@ -89,14 +95,16 @@ const { currentPath = '/' } = Astro.props;
     text-decoration: none;
     color: var(--text-soft);
     border: 1px solid transparent;
+    transition: color 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
   }
 
   .nav-list a.active,
   .nav-list a:hover,
   .nav-list a:focus-visible {
-    color: var(--text);
-    border-color: var(--border);
-    background: rgba(162, 207, 212, 0.08);
+    color: var(--gold);
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.06);
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.1);
   }
 
   @media (max-width: 860px) {
