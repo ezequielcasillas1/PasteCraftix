@@ -1,4 +1,6 @@
 /** Vertical slice: sync-clips.js */
+import { mergeClipArrays } from './merge-clips-logic.js';
+
 export const syncClipsMixin = {
 // CLIPS SYNC METHODS
 // =====================================================
@@ -671,7 +673,6 @@ isAuthenticated() {
  * Merge local and remote clips (newest wins)
  */
 async mergeClips(localClips, remoteClips) {
-  const contentMerged = new Map();
   const deletedById = new Map();
 
   remoteClips.forEach(clip => {
@@ -695,42 +696,7 @@ async mergeClips(localClips, remoteClips) {
     });
   } catch (_) { /* non-fatal */ }
 
-  const hashText = (t) => {
-    const s = String(t || '');
-    let h = 2166136261;
-    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h >>> 0).toString(36);
-  };
-
-  const contentKey = (clip) => {
-    if (!clip) return '';
-    const text = String(clip.text || '');
-    const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-    const bucket = Math.floor(ts / 3000); // 3s bucket to collapse accidental dupes
-    const cat = clip.category != null ? String(clip.category) : '';
-    return `${hashText(text)}:${bucket}:${cat}`;
-  };
-
-  const add = (clip) => {
-    if (!clip || !clip.text) return;
-    const id = clip?.id != null ? String(clip.id) : '';
-    const deletedAt = id ? deletedById.get(id) : null;
-    const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
-    if (deletedAt && deletedAt >= clipUpdatedAt) {
-      return;
-    }
-    const k = contentKey(clip);
-    const prev = contentMerged.get(k);
-    const prevUpdatedAt = Number.isFinite(prev?.updatedAt) ? prev.updatedAt : (prev?.timestamp || 0);
-    if (!prev || clipUpdatedAt > prevUpdatedAt || ((clipUpdatedAt === prevUpdatedAt) && (clip.timestamp || 0) > (prev.timestamp || 0))) {
-      contentMerged.set(k, clip);
-    }
-  };
-
-  localClips.forEach(add);
-  remoteClips.forEach(add);
-
-  return Array.from(contentMerged.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  return mergeClipArrays(localClips, remoteClips, deletedById);
 },
 
 /**

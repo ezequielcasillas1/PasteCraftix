@@ -2858,6 +2858,7 @@ export class PasteCraftFloatingWidget {
     // Listen for messages from iframe
     const messageHandler = (e) => {
       if (!e || !e.data) return;
+      if (e.origin !== quickViewTargetOrigin) return;
       if (iframe.contentWindow && e.source !== iframe.contentWindow) return;
 
       if (e.data.type === 'quickview-get-clips') {

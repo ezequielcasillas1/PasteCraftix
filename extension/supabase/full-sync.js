@@ -93,9 +93,10 @@ async performFullSync() {
       const mergedClips = await this.mergeClips(localClips, remoteClips);
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
-      } else {
-        await this._safeStorageSet({ clips: mergedClips });
+      } else if (await this._safeStorageSet({ clips: mergedClips })) {
         console.log(`✅ Clips merged: ${mergedClips.length} total`);
+      } else {
+        console.warn('⏭️ Skipping clips merge write - local storage save failed');
       }
     }
 
@@ -104,9 +105,10 @@ async performFullSync() {
       const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping categories merge write - newer local changes detected during full sync');
-      } else {
-        await this._safeStorageSet({ categories: mergedCategories });
+      } else if (await this._safeStorageSet({ categories: mergedCategories })) {
         console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+      } else {
+        console.warn('⏭️ Skipping categories merge write - local storage save failed');
       }
     }
 
@@ -115,9 +117,10 @@ async performFullSync() {
       const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping archived clips merge write - newer local changes detected during full sync');
-      } else {
-        await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
+      } else if (await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips })) {
         console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
+      } else {
+        console.warn('⏭️ Skipping archived clips merge write - local storage save failed');
       }
     }
 
@@ -126,9 +129,10 @@ async performFullSync() {
       const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping notes merge write - newer local changes detected during full sync');
-      } else {
-        await this._safeStorageSet({ notes: mergedNotes });
+      } else if (await this._safeStorageSet({ notes: mergedNotes })) {
         console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+      } else {
+        console.warn('⏭️ Skipping notes merge write - local storage save failed');
       }
     }
 
@@ -137,9 +141,10 @@ async performFullSync() {
       const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping AI history merge write - newer local changes detected during full sync');
-      } else {
-        await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
+      } else if (await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory })) {
         console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
+      } else {
+        console.warn('⏭️ Skipping AI history merge write - local storage save failed');
       }
     }
 

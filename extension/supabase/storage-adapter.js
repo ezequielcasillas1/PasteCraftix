@@ -20,41 +20,25 @@ export const storageAdapterMixin = {
     } catch (err) {
       const msg = String(err?.message || err || '');
       if (msg.includes('QUOTA') || msg.includes('quota')) {
-        console.warn('⚠️ Chrome storage quota exceeded, saving to IndexedDB only');
-        if (typeof indexedDB !== 'undefined') {
+        const idb = typeof globalThis !== 'undefined' ? globalThis.pasteCraftIndexedDB : null;
+        if (idb && typeof idb.syncEntityFromLocalStorage === 'function') {
+          console.warn('⚠️ Chrome storage quota exceeded, saving entity data to primary IndexedDB');
           for (const [key, value] of Object.entries(data)) {
+            if (key !== 'clips' && key !== 'categories' && key !== 'notes') continue;
             try {
-              await this._saveToIdb(key, value);
+              await idb.syncEntityFromLocalStorage(key, Array.isArray(value) ? value : []);
             } catch (idbErr) {
               console.error(`Failed to save ${key} to IndexedDB:`, idbErr);
+              return false;
             }
           }
+          return true;
         }
-        return true;
+        console.error('Chrome storage quota exceeded and primary IndexedDB is unavailable');
+        return false;
       }
       console.error('Failed to save to chrome.storage.local:', err);
       return false;
     }
-  },
-
-  async _saveToIdb(key, value) {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('PasteCraftFallback', 1);
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('fallback')) {
-          db.createObjectStore('fallback');
-        }
-      };
-      request.onsuccess = (e) => {
-        const db = e.target.result;
-        const tx = db.transaction('fallback', 'readwrite');
-        const store = tx.objectStore('fallback');
-        store.put(value, key);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      };
-      request.onerror = () => reject(request.error);
-    });
   },
 };
