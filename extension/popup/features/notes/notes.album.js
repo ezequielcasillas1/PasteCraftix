@@ -1,5 +1,7 @@
 // ── shared helpers ─────────────────────────────────────────────────────────
 
+import { openUrlSafely, bindSafeLinkClick } from '../../../shared/safe-open-url.js';
+
 function _collectNoteAttachments(note) {
   return [
     ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
@@ -358,7 +360,7 @@ export function openAlbumAttachmentInEdgePopup(app, noteId, attachmentIndex) {
   if (!att) return;
 
   if (att.type === 'url' && att.url) {
-    _openInPopupWindow(app, att.url, 'Failed to open URL in popup:', 'Could not open link');
+    if (!openUrlSafely(att.url)) return;
     return;
   }
 
@@ -395,18 +397,30 @@ function _resolveAttachmentOverlayTitle(app, att) {
 
 function _renderAttachmentImageBody(app, att, body) {
   const src = att.dataUrl || att.url || att.src || '';
-  body.innerHTML = src
+  const allowed =
+    typeof PCSanitize !== 'undefined' && typeof PCSanitize.isAllowedImageSrc === 'function'
+      ? PCSanitize.isAllowedImageSrc(src)
+      : /^https?:\/\//i.test(src) || /^data:image\//i.test(src);
+  body.innerHTML = src && allowed
     ? `<img src="${app.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`
-    : 'Image attachment is missing a source.';
+    : 'Image attachment is missing a source or uses a blocked URL scheme.';
 }
 
 function _renderAttachmentLinkBody(app, att, body) {
   const url = att.url || '';
-  const safeUrl = app.escapeHtml(url);
+  const linkHtml =
+    typeof PCSanitize !== 'undefined' && typeof PCSanitize.buildSafeUrlDisplayHtml === 'function'
+      ? PCSanitize.buildSafeUrlDisplayHtml(url, app.escapeHtml.bind(app))
+      : (() => {
+          const safeUrl = app.escapeHtml(url);
+          return /^https?:\/\//i.test(url)
+            ? `<a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>`
+            : `<span style="word-break:break-all;">${safeUrl}</span>`;
+        })();
   body.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:10px;">
       <div style="font-weight:600; color:#111827;">Link</div>
-      <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+      ${linkHtml}
       <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
     </div>
   `;
@@ -438,6 +452,7 @@ export function openAlbumAttachmentOverlay(app, note, att) {
   if (els.openBtn) els.openBtn.style.display = 'inline-flex';
 
   _renderAttachmentBody(app, att, els.body);
+  if (els.body) bindSafeLinkClick(els.body);
   els.modal.style.display = 'flex';
 }
 

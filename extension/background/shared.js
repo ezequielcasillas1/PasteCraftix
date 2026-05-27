@@ -1,5 +1,17 @@
 // PasteCraft Background Script
 
+import { isSiteAllowed, hydrateRemoteBlocklist } from '../content/safety/site-guard.js';
+
+hydrateRemoteBlocklist().catch(() => {});
+
+function isContextMenuSaveAction(menuItemId) {
+  return (
+    menuItemId === 'copy-to-quick-save' ||
+    menuItemId === 'copy-image-to-pastecraft' ||
+    menuItemId === 'copy-image-link-to-pastecraft'
+  );
+}
+
 export function isRepoLoaderBuild() {
   try {
     const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
@@ -303,6 +315,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   console.log('🖱️ Context menu clicked:', info.menuItemId);
   const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
   const tabUrl = tab && tab.url ? String(tab.url) : '';
+
+  if (isContextMenuSaveAction(info.menuItemId) && tabUrl && !isSiteAllowed(tabUrl)) {
+    console.warn('[PasteCraft] Context-menu save blocked on restricted page');
+    return;
+  }
   
   if (info.menuItemId === 'pastecraft-main') {
     // Main menu clicked - show appropriate action based on context

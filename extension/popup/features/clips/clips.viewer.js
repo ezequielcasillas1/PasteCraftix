@@ -2,6 +2,7 @@ import { getClipTitle } from './clips.state.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
+import { bindSafeLinkClick } from '../../../shared/safe-open-url.js';
 
 function getClipViewerElements() {
   return {
@@ -86,19 +87,27 @@ function buildClipViewerHeaderParts(app, text, meta, url, imgSrc) {
 
   if (resolvedUrl) {
     const safeUrl = app.escapeHtml(resolvedUrl);
+    const linkHtml =
+      typeof PCSanitize !== 'undefined' && typeof PCSanitize.buildSafeUrlDisplayHtml === 'function'
+        ? PCSanitize.buildSafeUrlDisplayHtml(resolvedUrl, app.escapeHtml.bind(app))
+        : /^https?:\/\//i.test(resolvedUrl)
+          ? `<a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`
+          : `<span class="pc-url-display">${safeUrl}</span>`;
     headerParts.push(`
         <div class="clip-viewer-link-card">
           <div class="clip-viewer-section-label">Link</div>
-          <a data-pc-open-url="1" href="${safeUrl}" target="_blank" rel="noreferrer">${safeUrl}</a>
+          ${linkHtml}
         </div>
       `);
   }
 
   const isRenderableImageSrc =
     imgSrc &&
-    (imgSrc.startsWith('data:image/') ||
-      imgSrc.startsWith('http://') ||
-      imgSrc.startsWith('https://'));
+    (typeof PCSanitize !== 'undefined' && typeof PCSanitize.isAllowedImageSrc === 'function'
+      ? PCSanitize.isAllowedImageSrc(imgSrc)
+      : imgSrc.startsWith('data:image/') ||
+        imgSrc.startsWith('http://') ||
+        imgSrc.startsWith('https://'));
 
   if (imgSrc && !isRenderableImageSrc) {
     headerParts.push(
@@ -142,14 +151,22 @@ function renderClipViewerMainContent(
         headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
       rendered
         .then((rHtml) => {
-          renderedEl.innerHTML = headerParts.join('') + rHtml;
+          const safeHtml =
+            typeof PCSanitize !== 'undefined' && typeof PCSanitize.strictSanitize === 'function'
+              ? PCSanitize.strictSanitize(rHtml)
+              : rHtml;
+          renderedEl.innerHTML = headerParts.join('') + safeHtml;
         })
         .catch(() => {
           renderedEl.innerHTML =
             headerParts.join('') + `<pre class="clip-viewer-pre">${safeText}</pre>`;
         });
     } else {
-      renderedEl.innerHTML = headerParts.join('') + rendered;
+      const safeRendered =
+        typeof PCSanitize !== 'undefined' && typeof PCSanitize.strictSanitize === 'function'
+          ? PCSanitize.strictSanitize(rendered)
+          : rendered;
+      renderedEl.innerHTML = headerParts.join('') + safeRendered;
     }
     renderedEl.style.display = 'block';
     return hasMarkup;
@@ -203,20 +220,9 @@ function bindClipViewerToggle(app, toggleBtn, hasMarkup) {
 function bindClipViewerLinkHandler(app, bodyEl) {
   try {
     if (app._clipViewerLinkHandlerAttached || !bodyEl) return;
-    bodyEl.addEventListener('click', (e) => {
-      const link = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
-      if (!link) return;
-      e.preventDefault();
-      const targetUrl = String(link.getAttribute('href') || '').trim();
-      if (!targetUrl) return;
-      chrome.tabs.create({ url: targetUrl, active: true }, () => {
-        if (chrome.runtime.lastError) {
-          window.open(targetUrl, '_blank', 'noopener,noreferrer');
-        }
-      });
-    });
+    bindSafeLinkClick(bodyEl);
     app._clipViewerLinkHandlerAttached = true;
-  } catch (e) {
+  } catch (_) {
     // Non-fatal
   }
 }

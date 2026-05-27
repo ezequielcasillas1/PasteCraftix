@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "updated_at": "2026-05-27T00:00:00Z",
+  "description": "PasteCraft curated phishing hostnames (seeded from extension bundled BLOCKED_HOSTS)",
+  "schema": "pastecraft-safety-blocklist-v1",
+  "hosts": [
+    "metamask-wallet.io",
+    "metamaskweb.com",
+    "walletconnect-verification.com",
+    "secure-paypal-login.com",
+    "paypal-security-check.com",
+    "appleid-verify.com",
+    "microsoft-account-alert.com",
+    "chase-online-verify.com",
+    "bankofamerica-secure-login.com"
+  ]
+}

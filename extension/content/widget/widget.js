@@ -215,9 +215,11 @@ export class PasteCraftFloatingWidget {
               .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
               .slice(0, 200);
             if (quickViewIframe.contentWindow) {
+              // srcdoc iframe origin is "null" — must use '*'.
+              // Receiver validates via e.source === window.parent.
               quickViewIframe.contentWindow.postMessage(
                 { type: 'quickview-clips-data', clips: recentClips },
-                window.location.origin
+                '*'
               );
             }
           });
@@ -2466,7 +2468,9 @@ export class PasteCraftFloatingWidget {
   }
   
   loadQuickViewContent(iframe) {
-    const quickViewTargetOrigin = window.location.origin;
+    // srcdoc iframe has opaque ("null") origin — postMessage targetOrigin must be '*'.
+    // Sender/receiver validate via e.source identity checks instead of origin.
+    const quickViewTargetOrigin = '*';
     // Create a custom HTML content for the Quick View
     const content = `
       <!DOCTYPE html>
@@ -2647,25 +2651,35 @@ export class PasteCraftFloatingWidget {
           </div>
         </div>
         <script>
-          function loadClips() {
-            // This will communicate with parent to get clips
-            window.parent.postMessage({ type: 'quickview-get-clips' }, window.location.origin);
+          // This document is loaded via iframe srcdoc, so its origin is the opaque string "null".
+          // Using window.location.origin as a postMessage targetOrigin throws SyntaxError on every
+          // browser. Send with '*' and let the parent validate by e.source === iframe.contentWindow.
+          function postToParent(msg) {
+            try {
+              window.parent.postMessage(msg, '*');
+            } catch (err) {
+              console.warn('[PasteCraft quick view] postMessage failed:', err);
+            }
           }
-          
+
+          function loadClips() {
+            postToParent({ type: 'quickview-get-clips' });
+          }
+
           function refreshClips() {
             loadClips();
           }
-          
+
           function openSettings() {
-            window.parent.postMessage({ type: 'quickview-open-settings' }, window.location.origin);
+            postToParent({ type: 'quickview-open-settings' });
           }
 
           function openMiniWindow() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, window.location.origin);
+            postToParent({ type: 'quickview-open-mini', mode: 'window' });
           }
 
           function dockMiniBottomRight() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, window.location.origin);
+            postToParent({ type: 'quickview-open-mini', mode: 'corner' });
           }
 
           function isFromExtension(e) {
@@ -2688,7 +2702,7 @@ export class PasteCraftFloatingWidget {
           
           function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, window.location.origin);
+              postToParent({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived });
             }
           }
           
@@ -2770,7 +2784,7 @@ export class PasteCraftFloatingWidget {
           }
           
           // Load clips on startup
-          loadClips();
+          try { loadClips(); } catch (err) { console.warn('[PasteCraft quick view] initial loadClips failed:', err); }
         </script>
       </body>
       </html>

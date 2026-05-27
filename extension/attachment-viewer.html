@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none';" />
     <title>PasteCraft Attachment Viewer</title>
     <style>
       body {
@@ -93,7 +94,9 @@
         <div id="viewerBody"></div>
       </div>
     </div>
-    <script src="attachment-viewer.js"></script>
+    <script src="lib/purify.min.js"></script>
+    <script src="shared/sanitize-html.js"></script>
+    <script type="module" src="attachment-viewer.js"></script>
   </body>
 </html>
 

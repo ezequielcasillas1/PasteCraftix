@@ -198,34 +198,12 @@
   }
 
   /* ──────────────────────────────────────────────
-     SANITIZE HELPER
+     SANITIZE HELPER (delegates to shared/sanitize-html.js)
      ────────────────────────────────────────────── */
   function sanitize(html) {
-    if (typeof DOMPurify !== 'undefined') {
-      return DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: [
-          'h1','h2','h3','h4','h5','h6','p','br','hr','div','span',
-          'strong','b','em','i','u','s','del','ins','mark','small','sub','sup',
-          'a','img',
-          'ul','ol','li','dl','dt','dd',
-          'table','thead','tbody','tfoot','tr','th','td','caption','colgroup','col',
-          'blockquote','pre','code',
-          'details','summary',
-          'figure','figcaption',
-          'abbr','cite','q','var','kbd','samp','time',
-          'svg','path','g','circle','rect','line','polyline','polygon','text','tspan','defs','use',
-        ],
-        ALLOWED_ATTR: [
-          'href','target','rel','src','alt','title','width','height','class','id','style',
-          'colspan','rowspan','scope','align','valign',
-          'viewBox','xmlns','d','fill','stroke','stroke-width','transform','cx','cy','r','x','y',
-          'x1','y1','x2','y2','points','font-size','text-anchor',
-        ],
-        ALLOW_DATA_ATTR: false,
-        ADD_ATTR: ['target'],
-      });
+    if (typeof PCSanitize !== 'undefined' && typeof PCSanitize.strictSanitize === 'function') {
+      return PCSanitize.strictSanitize(html);
     }
-    // Fallback: strip all tags
     const div = document.createElement('div');
     div.textContent = html;
     return div.innerHTML;
@@ -336,31 +314,31 @@
       let processed = text;
       // Replace display math $$...$$ 
       processed = processed.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
-        try { return katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false }); }
+        try { return sanitize(katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false })); }
         catch (e) { return `<code>${escapeHtml(expr)}</code>`; }
       });
       // Replace \[...\]
       processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
-        try { return katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false }); }
+        try { return sanitize(katex.renderToString(expr.trim(), { displayMode: true, throwOnError: false })); }
         catch (e) { return `<code>${escapeHtml(expr)}</code>`; }
       });
       // Replace inline math $...$
       processed = processed.replace(/\$([^$\n]+?)\$/g, (_, expr) => {
-        try { return katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false }); }
+        try { return sanitize(katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false })); }
         catch (e) { return `<code>${escapeHtml(expr)}</code>`; }
       });
       // Replace \(...\)
       processed = processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
-        try { return katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false }); }
+        try { return sanitize(katex.renderToString(expr.trim(), { displayMode: false, throwOnError: false })); }
         catch (e) { return `<code>${escapeHtml(expr)}</code>`; }
       });
       // If no replacements happened, try rendering the whole thing as display math
       if (processed === text) {
         // Try entire string as LaTeX
         const stripped = text.replace(/^\\\[|\\\]$|^\$\$|\$\$$|^\\begin\{.*?\}|\\end\{.*?\}$/g, '').trim();
-        return katex.renderToString(stripped || text, { displayMode: true, throwOnError: false });
+        return sanitize(katex.renderToString(stripped || text, { displayMode: true, throwOnError: false }));
       }
-      return `<div class="pc-latex-rendered">${processed}</div>`;
+      return `<div class="pc-latex-rendered">${sanitize(processed)}</div>`;
     } catch (_) {
       return `<pre>${escapeHtml(text)}</pre>`;
     }

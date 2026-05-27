@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "updated": "2026-05-27",
+  "hosts": [
+    "metamask-wallet.io",
+    "metamaskweb.com",
+    "walletconnect-verification.com",
+    "secure-paypal-login.com",
+    "paypal-security-check.com",
+    "appleid-verify.com",
+    "microsoft-account-alert.com",
+    "chase-online-verify.com",
+    "bankofamerica-secure-login.com"
+  ]
+}

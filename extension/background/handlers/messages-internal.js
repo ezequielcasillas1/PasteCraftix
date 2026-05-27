@@ -5,6 +5,8 @@ import {
   saveTextDirectly,
   getQuickViewClips,
 } from '../shared.js';
+import { syncRemoteBlocklist } from '../blocklist-sync.js';
+import { runClipExpiryCycle, scheduleClipExpiryAlarm } from '../clip-expiry.js';
 
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
 // =====================================================
@@ -24,6 +26,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   })();
 
   console.log('📨 Internal message received:', message.action);
+
+  if (message.action === 'pcScheduleClipExpiry') {
+    scheduleClipExpiryAlarm()
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
+
+  if (message.action === 'pcPurgeExpiredClips') {
+    runClipExpiryCycle()
+      .then((result) => sendResponse({ success: true, ...result }))
+      .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }));
+    return true;
+  }
 
   if (message.action === 'pcCopyText') {
     const text = String(message.text || '');
@@ -113,6 +129,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
 
+    return true;
+  }
+
+  if (message.action === 'syncSiteGuardBlocklist') {
+    syncRemoteBlocklist({ force: !!message.force })
+      .then((result) => sendResponse({ success: true, result }))
+      .catch((error) => {
+        console.warn('[PasteCraft] Blocklist sync message failed:', error?.message || error);
+        sendResponse({ success: false, error: error?.message || String(error) });
+      });
     return true;
   }
 

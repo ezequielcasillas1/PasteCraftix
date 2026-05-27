@@ -10,3 +10,6 @@
 
 /reset-password*
   Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-ancestors 'none'; base-uri 'self'
+
+/safety/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
