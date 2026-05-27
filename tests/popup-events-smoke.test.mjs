@@ -163,6 +163,15 @@ function createMockApp() {
     options: { deduplicate: false, sort: false, uppercase: false },
     delimiter: ',',
     _magicSelected: new Set(),
+    _refactorizationPanelBound: false,
+    aiLabFeature: {
+      refactorization: {
+        activateRefactorizationSection: noop,
+        bindRefactorizationPanelUi(app) {
+          app._refactorizationPanelBound = true;
+        },
+      },
+    },
     clipsFeature: {
       events: {
         setupCategoryClipDelegation(app) {
@@ -336,6 +345,7 @@ describe('popup events — runtime harness', () => {
 
       assert.doesNotThrow(() => registerPopupEventListeners(app));
       assert.equal(app._popupEventListenersRegistered, true);
+      assert.equal(app._refactorizationPanelBound, true);
 
       registerPopupEventListeners(app);
       assert.equal(app._popupEventListenersRegistered, true, 'idempotent second call');
