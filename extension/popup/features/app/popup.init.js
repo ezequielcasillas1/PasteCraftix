@@ -1,9 +1,25 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
 import { initializeAllPopupFeatures } from './popup.features.js';
+import { initUrlSafetyForPopup } from '../../../shared/safe-open-url.js';
+
+async function purgeExpiredClipsOnStartup(app) {
+  try {
+    // Don't block popup init on a slow service worker round-trip.
+    // SW also runs runClipExpiryCycle() on startup + alarms, so this is best-effort.
+    const resp = await Promise.race([
+      chrome.runtime.sendMessage({ action: 'pcPurgeExpiredClips' }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
+    if (resp?.purged > 0) {
+      await app.loadData();
+    }
+  } catch (_) {}
+}
 
 export async function runPopupInit(app) {
   console.log('🚀 Initializing PasteCraft popup...');
+  initUrlSafetyForPopup();
   await initializeAllPopupFeatures(app);
 
   app.setupAuthModalEvents();
@@ -23,6 +39,7 @@ export async function runPopupInit(app) {
     app.userSubscription = null;
     document.getElementById('topBar').style.display = 'flex';
     await Promise.all([app.loadData(), app.loadSettings()]);
+    await purgeExpiredClipsOnStartup(app);
     app.updateTopBarIdentity();
     await app.setupEventListeners();
     app.renderChips();
@@ -112,6 +129,8 @@ export async function runPopupInit(app) {
     app.loadAnalysisHistory(),
     app.loadAiHistory(),
   ]);
+
+  await purgeExpiredClipsOnStartup(app);
 
   if (!app.userProfile?.userName && !app.userProfile?.aiGeneratedName && !app.userProfile?.profileImageUrl) {
     try {

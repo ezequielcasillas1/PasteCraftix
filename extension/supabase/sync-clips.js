@@ -54,6 +54,9 @@ async syncClipsToSupabase(localClips) {
       return true;
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert',message:'clips upsert attempt',data:{count:safeDbClips.length,columns:safeDbClips[0]?Object.keys(safeDbClips[0]):[]},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
     const { error } = await this.client
       .from('clips')
       .upsert(safeDbClips, {
@@ -61,8 +64,16 @@ async syncClipsToSupabase(localClips) {
         ignoreDuplicates: false
       });
 
-    if (error) throw error;
+    if (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert-error',message:'clips upsert failed',data:{code:error.code,message:error.message},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
+      // #endregion
+      throw error;
+    }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert-ok',message:'clips upsert success',data:{count:safeDbClips.length},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
     console.log(`✅ Synced ${safeDbClips.length} clips to Supabase`);
     return true;
   } catch (error) {
@@ -160,7 +171,9 @@ buildDbClipsForUpsert(localClips, userId, deviceId) {
         }
         return deviceId || null;
       })(),
-      content_hash: hash(text)
+      content_hash: hash(text),
+      expires_at: (typeof clip === 'object' && clip && Number.isFinite(clip.expiresAt)) ? clip.expiresAt : null,
+      expire_preset: (typeof clip === 'object' && clip && clip.expirePreset) ? String(clip.expirePreset).slice(0, 32) : null,
     };
 
     const existing = seen.get(clipId);
@@ -310,7 +323,9 @@ async syncClipsToSupabaseBatch(localClips, userId, deviceId) {
           ignoreDuplicates: false
         });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       syncedCount += safeDbClips.length;
       const percentage = Math.round((syncedCount / totalClips) * 100);
@@ -379,7 +394,9 @@ async syncClipsFromSupabase(userIdOverride = null) {
       timestamp: clip.timestamp,
       updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
       deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
-      deviceId: clip.device_id || null
+      deviceId: clip.device_id || null,
+      expiresAt: Number.isFinite(clip.expires_at) ? clip.expires_at : null,
+      expirePreset: clip.expire_preset || null,
     }));
 
     console.log(`✅ Fetched ${localClips.length} clips from Supabase (all devices)`);
@@ -427,7 +444,9 @@ async syncClipsFromSupabaseBatch(userId, totalClips) {
         timestamp: clip.timestamp,
         updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
         deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
-        deviceId: clip.device_id || null
+        deviceId: clip.device_id || null,
+        expiresAt: Number.isFinite(clip.expires_at) ? clip.expires_at : null,
+        expirePreset: clip.expire_preset || null,
       }));
 
       allClips = allClips.concat(localClips);
@@ -513,7 +532,9 @@ async fetchClipsPage(offset, limit, userIdOverride = null) {
       timestamp: clip.timestamp,
       updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
       deviceId: clip.device_id || null,
-      meta: clip.meta || undefined
+      meta: clip.meta || undefined,
+      expiresAt: Number.isFinite(clip.expires_at) ? clip.expires_at : null,
+      expirePreset: clip.expire_preset || null,
     }));
   } catch (e) {
     console.error(`Failed to fetch clips page (offset=${offset}, limit=${limit}):`, e);
@@ -651,7 +672,9 @@ async fetchArchivedClipsPage(offset, limit) {
       timestamp: clip.timestamp,
       updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
       deviceId: clip.device_id || null,
-      meta: clip.meta || undefined
+      meta: clip.meta || undefined,
+      expiresAt: Number.isFinite(clip.expires_at) ? clip.expires_at : null,
+      expirePreset: clip.expire_preset || null,
     }));
   } catch (e) {
     console.error(`Failed to fetch archived clips page (offset=${offset}, limit=${limit}):`, e);

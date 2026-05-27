@@ -1,3 +1,18 @@
+### May 27, 2026 - Clip expiry DB migrations
+**Status:** SUCCESS
+**Files:** db/migrations/20260527_add_clip_expires_at.sql, db/migrations/20260528_auto_archive_preserve_clip_expiry.sql, db/supabase-schema.sql
+**Result:** `add_clip_expires_at` already on prod (clips + archived_clips columns). Applied `auto_archive_preserve_clip_expiry`: partial indexes + `auto_archive_old_clips` now copies title, expires_at, expire_preset to archive.
+
+### May 27, 2026 - Clip auto-expire details module
+**Status:** PARTIAL
+**Files:** extension/popup/features/clips/clips.expire.js, extension/shared/clip-expiry.js, extension/popup.html, extension/popup/features/clips/clips.render.js
+**Result:** After Set expiry (or clock click on scheduled clip), popup shows details panel: live countdown, delete-at time, preset label, Change/Clear/Done. Set form only when no active expiry or Change pressed. User verification pending.
+
+### May 27, 2026 - Free link reputation / safe browsing
+**Status:** PARTIAL
+**Files:** extension/background/blocklist-sync.js, content/safety/site-guard.js, shared/url-safety.js, shared/safe-open-url.js, shared/blocklist-remote.js, background/shared.js, content/content.js, manifest 3.0.11, website/public/safety/blocklist.json, website/public/_headers
+**Result:** Background sync merges Phishing.Database + URLhaus + pastecraft curated JSON into chrome.storage.local (24h TTL, 50k cap). site-guard hydrates remote list; safe-open-url blocks bad links in popup/viewer. No API keys in bundle. Google Safe Browsing edge fn skipped (comment-only).
+
 ### May 21, 2026 - AI avatar image quality restore
 **Status:** SUCCESS
 **Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js

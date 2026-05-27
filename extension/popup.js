@@ -865,6 +865,18 @@ class PasteCraftPopup {
     return this.clipsFeature?.share?.showShareMenuForClip?.(this, clip);
   }
 
+  showExpirePopoverForClip(clip, anchorEl, options) {
+    return this.clipsFeature?.expire?.showExpirePopoverForClip?.(this, clip, anchorEl, options);
+  }
+
+  async setClipExpiry(clipId, expiresAt, expirePreset) {
+    return this.clipsFeature?.expire?.setClipExpiry?.(this, clipId, expiresAt, expirePreset);
+  }
+
+  async clearClipExpiry(clipId) {
+    return this.clipsFeature?.expire?.clearClipExpiry?.(this, clipId);
+  }
+
   showToast(message, type) {
     return PasteCraftPopupUi.showToast(this, message, type);
   }

@@ -81,6 +81,12 @@ function applyOptionalFields(clip, normalized) {
   if (device) normalized.deviceId = device;
 
   if (clip.meta) normalized.meta = clip.meta;
+
+  const expiresAt = clip.expiresAt ?? clip.expires_at;
+  if (Number.isFinite(expiresAt)) normalized.expiresAt = Number(expiresAt);
+
+  const expirePreset = clip.expirePreset ?? clip.expire_preset;
+  if (expirePreset) normalized.expirePreset = expirePreset;
 }
 
 function normalizeSingleClip(app, clip, setChanged) {

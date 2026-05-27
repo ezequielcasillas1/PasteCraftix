@@ -648,6 +648,24 @@ state management.
 
 ---
 
+## Account Dashboard (Website — `/account`)
+
+Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admin-api).
+
+#### 50. User Security Dashboard
+**Priority:** Medium  
+**Status:** Not started  
+
+**Requirements:**
+- New **Security** panel/section on `pastecraft.com/account` (signed-in dashboard only)
+- **Account standing:** Read own `user_profiles` — show `is_banned`, `ban_reason`, `ban_expires_at`, `quarantine_paused_until` when set
+- **Devices:** List own `pastecraft_devices` (display name, `last_seen_at`); full Auth session revoke is follow-up — not in v1 unless Supabase session API is wired
+- **Usage guardrails:** Today’s clip count vs `daily_clip_limit` (warn near limit); do not expose admin-only `rate_limit_violations` rows
+- **Protection summary:** Extension link-safety read-only (site-guard blocklist last sync / `pastecraft.com/safety/blocklist.json` updated-at); count of clips with `expires_at` (auto-expire)
+- **Activity link:** Cross-link to Activity History (**#39**); user-facing `security_events` feed needs scoped RLS or user Edge Function (table is admin-only today)
+
+---
+
 ## 🎯 **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):

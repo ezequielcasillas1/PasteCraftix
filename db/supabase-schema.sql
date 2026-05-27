@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS public.clips (
     deleted_at TIMESTAMP WITH TIME ZONE,
     device_id TEXT,
     content_hash TEXT,
+    expires_at BIGINT, -- Unix ms auto-delete; NULL = no expiry
+    expire_preset TEXT, -- Extension preset key (30m, 1h, custom, etc.)
     UNIQUE(user_id, clip_id)
 );
 
@@ -73,6 +75,8 @@ CREATE TABLE IF NOT EXISTS public.archived_clips (
     deleted_at TIMESTAMP WITH TIME ZONE,
     device_id TEXT,
     content_hash TEXT,
+    expires_at BIGINT,
+    expire_preset TEXT,
     UNIQUE(user_id, clip_id)
 );
 

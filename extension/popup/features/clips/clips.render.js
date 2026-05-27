@@ -1,4 +1,5 @@
 import { CLIPS_DEFAULTS } from './clips.constants.js';
+import { clipHasActiveExpiry } from '../../../shared/clip-expiry.js';
 import { getClipElements } from './clips.selectors.js';
 import {
   getClipFallbackTitle,
@@ -6,6 +7,7 @@ import {
   getClipTitle,
   getSelectedSearchClipIdsInUiOrder,
 } from './clips.state.js';
+
 
 function getPaginationItems(currentPage, totalPages) {
   const items = [];
@@ -206,12 +208,22 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
       app.pendingClipId = clipIdKey;
       app.showCategoryModal(true);
     }],
+    ['.chip-expire-btn', (event) => {
+      const btn = event.target.closest('.chip-expire-btn');
+      if (typeof app.showExpirePopoverForClip === 'function') {
+        const currentClipIdKey = getClipIdKey(chip?.dataset?.clipId || clipIdKey);
+        app.showExpirePopoverForClip(currentClipIdKey, btn, {
+          clipIdKey: currentClipIdKey,
+          openDetails: true,
+        });
+      }
+    }],
   ];
 
   const action = actionHandlers.find(([selector]) => event.target.closest(selector));
   if (action) {
     event.stopPropagation();
-    await action[1]();
+    await action[1](event);
     return;
   }
 
@@ -407,6 +419,7 @@ export function createChip(app, clip, index) {
       <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
       <button class="chip-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
       <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
+      <button class="chip-expire-btn${clipHasActiveExpiry(clip) ? ' is-active' : ''}" title="${clipHasActiveExpiry(clip) ? 'View expiry countdown' : 'Set auto-expire'}" aria-label="${clipHasActiveExpiry(clip) ? 'View expiry countdown' : 'Set auto-expire'}"><i data-lucide="clock"></i></button>
       <button class="chip-remove" title="Remove clip">×</button>
     </div>
   `;

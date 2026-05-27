@@ -91,7 +91,9 @@ async syncArchivedClipsFromSupabase() {
       timestamp: clip.timestamp,
       updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
       deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
-      deviceId: clip.device_id || null
+      deviceId: clip.device_id || null,
+      expiresAt: Number.isFinite(clip.expires_at) ? clip.expires_at : null,
+      expirePreset: clip.expire_preset || null,
     }));
 
     console.log(`✅ Fetched ${localArchivedClips.length} archived clips from Supabase (all devices)`);

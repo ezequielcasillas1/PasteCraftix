@@ -1130,6 +1130,7 @@
         .chip-summary-btn,
         .chip-notes-btn,
         .chip-category-btn,
+        .chip-expire-btn,
         .chip-open-btn,
         .chip-share-btn {
             background: none;
@@ -1152,6 +1153,7 @@
         .chip-summary-btn:hover,
         .chip-notes-btn:hover,
         .chip-category-btn:hover,
+        .chip-expire-btn:hover,
         .chip-open-btn:hover,
         .chip-share-btn:hover {
             opacity: 1;
@@ -1224,6 +1226,202 @@
             background: rgba(239, 68, 68, 0.8);
             color: white;
             transform: scale(1.1);
+        }
+
+        .chip-expire-btn.is-active {
+            opacity: 1;
+            color: #f59e0b;
+        }
+
+        .chip.selected .chip-expire-btn.is-active {
+            color: #fde68a;
+        }
+
+        .pc-expire-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483646;
+            background: transparent;
+        }
+
+        .pc-expire-popover {
+            position: fixed;
+            width: min(280px, calc(100vw - 16px));
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .pc-expire-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .pc-expire-title {
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .pc-expire-close {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 2px 6px;
+        }
+
+        .pc-expire-current {
+            font-size: 12px;
+            color: #f59e0b;
+            margin-bottom: 8px;
+        }
+
+        .pc-expire-section {
+            margin-top: 10px;
+        }
+
+        .pc-expire-label {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 6px;
+        }
+
+        .pc-expire-presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .pc-expire-preset {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #e5e7eb;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .pc-expire-preset.is-selected {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .pc-expire-custom {
+            display: flex;
+            gap: 6px;
+        }
+
+        .pc-expire-custom-value,
+        .pc-expire-custom-unit,
+        .pc-expire-weekday {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #e5e7eb;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+
+        .pc-expire-custom-value {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pc-expire-error {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #f87171;
+        }
+
+        .pc-expire-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pc-expire-details {
+            margin-top: 4px;
+        }
+
+        .pc-expire-countdown-wrap {
+            text-align: center;
+            padding: 10px 8px 12px;
+            margin-bottom: 10px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: 10px;
+        }
+
+        .pc-expire-countdown-label {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+
+        .pc-expire-countdown {
+            font-size: 22px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #fbbf24;
+            letter-spacing: 0.02em;
+        }
+
+        .pc-expire-countdown.is-expired {
+            color: #f87171;
+            font-size: 16px;
+        }
+
+        .pc-expire-progress {
+            height: 4px;
+            margin-top: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .pc-expire-progress-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+            border-radius: 999px;
+            transition: width 0.35s ease;
+        }
+
+        .pc-expire-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .pc-expire-detail-label {
+            color: #9ca3af;
+            flex-shrink: 0;
+        }
+
+        .pc-expire-detail-value {
+            color: #e5e7eb;
+            text-align: right;
+        }
+
+        .pc-expire-detail-hint {
+            font-size: 11px;
+            color: #6b7280;
+            margin: 8px 0 0;
+            line-height: 1.4;
         }
         
         .chip-time {
@@ -10272,6 +10470,23 @@ Multiple clips are separated by:
             </div>
         </div>
 
+        <!-- Link blocked (scan before open) -->
+        <div class="modal-overlay" id="linkBlockedModal" style="display: none;" role="alertdialog" aria-labelledby="linkBlockedTitle">
+            <div class="modal-content" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h3 id="linkBlockedTitle">Link blocked</h3>
+                    <button class="modal-close" id="closeLinkBlockedModal" type="button" aria-label="Close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p id="linkBlockedReason" style="margin: 0 0 12px; color: #374151; line-height: 1.5;"></p>
+                    <p id="linkBlockedDomain" style="margin: 0; font-size: 13px; color: #6b7280; word-break: break-all;"></p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="linkBlockedCancelBtn" type="button">OK</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Clip Viewer Modal -->
         <div class="modal-overlay" id="clipViewerModal" style="display: none;">
             <div class="modal-content clip-viewer-content">
@@ -11882,6 +12097,7 @@ alice@email.com</div>
     <script src="lib/mermaid.min.js"></script>
     <script src="lib/pdf.min.js"></script>
     <script src="lib/lucide.min.js"></script>
+    <script src="shared/sanitize-html.js"></script>
     <script src="markup-renderer.js"></script>
     <script src="clip-title.js"></script>
 
