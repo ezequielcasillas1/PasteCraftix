@@ -5,6 +5,34 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const ignoredGeneratedResources = new Set([
+  "config.js",
+  "icon.png",
+  "assets/eye.gif",
+  "lib/marked.min.js",
+  "lib/purify.min.js",
+  "lib/highlight.min.js",
+  "lib/highlight-github.min.css",
+  "lib/katex.min.js",
+  "lib/katex.min.css",
+  "lib/mermaid.min.js",
+  "lib/pdf.min.js",
+  "lib/pdf.worker.min.js",
+  "lib/lucide.min.js",
+]);
+const requiredPermissions = [
+  "storage",
+  "identity",
+  "scripting",
+  "activeTab",
+  "clipboardWrite",
+  "tabs",
+  "contextMenus",
+];
+const requiredHostPermissions = [
+  "https://*.supabase.co/*",
+  "https://accounts.google.com/*",
+];
 
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
@@ -14,6 +42,18 @@ function assertExtensionFile(relativePath) {
 assert.strictEqual(manifest.manifest_version, 3, "Extension must use Manifest V3");
 assert.ok(Array.isArray(manifest.permissions), "Manifest permissions must be an array");
 assert.ok(Array.isArray(manifest.content_scripts), "Manifest content_scripts must be an array");
+assert.ok(!Object.hasOwn(manifest, "key"), "Manifest package must not include a key field");
+
+for (const permission of requiredPermissions) {
+  assert.ok(manifest.permissions.includes(permission), `Missing required permission: ${permission}`);
+}
+
+for (const permission of requiredHostPermissions) {
+  assert.ok(
+    manifest.host_permissions.includes(permission),
+    `Missing required host permission: ${permission}`
+  );
+}
 
 if (manifest.background?.service_worker) {
   assertExtensionFile(manifest.background.service_worker);
@@ -28,6 +68,7 @@ for (const script of manifest.content_scripts) {
 for (const group of manifest.web_accessible_resources || []) {
   for (const resource of group.resources || []) {
     if (resource.includes("*")) continue;
+    if (ignoredGeneratedResources.has(resource)) continue;
     assertExtensionFile(resource);
   }
 }
