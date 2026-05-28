@@ -178,6 +178,15 @@ function createMockApp() {
     categoriesFeature: { events: { registerCategoryModalEvents: noop } },
     settingsFeature: { events: { initSettingsEvents: noop } },
     activityFeature: { events: { initActivityEventListeners: noop } },
+    aiLabFeature: {
+      refactorization: {
+        activateRefactorizationSection: noop,
+        bindRefactorizationPanelUi: noop,
+      },
+      magic: {
+        saveMagicUndoSnapshot: noop,
+      },
+    },
     setupCategoryClipDelegation() {
       this.clipsFeature.events.setupCategoryClipDelegation(this);
     },
@@ -275,7 +284,7 @@ describe('popup events — static', () => {
     assert.match(popupJs, /registerPopupEventListeners/);
     assert.match(popupJs, /popup\/popup\.events\.js/);
     const methodBlock = popupJs.match(
-      /async setupEventListeners\(\)\s*\{[\s\S]*?\n  \}\n/
+      /async setupEventListeners\(\)\s*\{[\s\S]*?\r?\n  \}\r?\n/
     );
     assert.ok(methodBlock, 'setupEventListeners block not found');
     const lines = methodBlock[0].split('\n').length;

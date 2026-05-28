@@ -1,0 +1,149 @@
+name: Release
+
+# P0 continuous delivery: when a v*.*.* tag is pushed (after bumping
+# extension/manifest.json version), build the store-ready zip cross-platform
+# and publish it as a GitHub Release asset. The SAME zip is used for BOTH the
+# Chrome Web Store and Edge Add-ons — never diverge the two builds.
+#
+# P1 (optional): automated store submission jobs that run ONLY when their
+# secrets are configured. With no secrets present they skip gracefully.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build extension zip + GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.manifest.outputs.version }}
+      zip_name: ${{ steps.manifest.outputs.zip_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Manifest safety guard (no "key", MV3, semver, core permissions)
+        run: npm run verify:manifest
+
+      - name: Read manifest version
+        id: manifest
+        run: |
+          VERSION=$(node -p "require('./extension/manifest.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip_name=pastecraft-v$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "PasteCraft version: $VERSION"
+
+      - name: Build extension zip (cross-platform)
+        run: npm run package:extension
+
+      - name: Upload zip as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.manifest.outputs.zip_name }}
+          path: releases/${{ steps.manifest.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Create / update GitHub Release and attach zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: releases/${{ steps.manifest.outputs.zip_name }}
+          name: PasteCraft v${{ steps.manifest.outputs.version }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.manifest.outputs.version) }}
+          generate_release_notes: true
+          body: |
+            PasteCraft extension v${{ steps.manifest.outputs.version }}.
+
+            The attached `${{ steps.manifest.outputs.zip_name }}` is the SAME package
+            for both the Chrome Web Store and Microsoft Edge Add-ons.
+
+            Manual upload steps live in `docs/ci-cd/PIPELINE.md`.
+
+  publish-chrome:
+    name: Publish to Chrome Web Store (optional)
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Chrome Web Store secrets
+        id: guard
+        env:
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+        run: |
+          if [ -z "$CHROME_CLIENT_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Chrome Web Store secrets not configured — skipping automated publish."
+            echo "To enable: add CHROME_EXTENSION_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download release zip
+        if: steps.guard.outputs.configured == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.zip_name }}
+          path: releases
+
+      # TODO(store-automation): wire actual upload once Ezequiel confirms credentials.
+      # Recommended action: mnao305/chrome-extension-upload (or the chrome-webstore-upload-cli).
+      # Required secrets: CHROME_EXTENSION_ID, CHROME_CLIENT_ID, CHROME_CLIENT_SECRET, CHROME_REFRESH_TOKEN.
+      - name: Upload to Chrome Web Store
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          echo "Chrome secrets detected. Implement the upload step here."
+          echo "See docs/ci-cd/PIPELINE.md for the documented action + flags."
+          exit 1
+
+  publish-edge:
+    name: Publish to Edge Add-ons (optional)
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Edge Add-ons secrets
+        id: guard
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+        run: |
+          if [ -z "$EDGE_PRODUCT_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Edge Add-ons secrets not configured — skipping automated publish."
+            echo "To enable: add EDGE_PRODUCT_ID, EDGE_CLIENT_ID, EDGE_API_KEY."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download release zip
+        if: steps.guard.outputs.configured == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build-release.outputs.zip_name }}
+          path: releases
+
+      # TODO(store-automation): wire actual upload once Ezequiel confirms credentials.
+      # Recommended action: wdzeng/edge-addon (Microsoft Partner Center API v1.1).
+      # Required secrets: EDGE_PRODUCT_ID, EDGE_CLIENT_ID, EDGE_API_KEY.
+      - name: Upload to Edge Add-ons
+        if: steps.guard.outputs.configured == 'true'
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+        run: |
+          echo "Edge secrets detected. Implement the upload step here."
+          echo "See docs/ci-cd/PIPELINE.md for the documented action + flags."
+          exit 1

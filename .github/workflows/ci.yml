@@ -1,0 +1,94 @@
+name: CI
+
+# P0 continuous integration: validate the extension, guard the manifest, and
+# build the marketing site on every PR and on pushes to main / the infra branch.
+# Real-browser tests (test:chrome / test:edge / test:all-browsers) are NEVER run
+# here — they launch real browsers and are not CI-friendly.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - infra/ci-cd-pipeline
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension:
+    name: Extension tests + manifest safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Manifest safety guard (no "key", MV3, semver, core permissions)
+        run: npm run verify:manifest
+
+      - name: Extension smoke test
+        run: node tests/extension-smoke.test.js
+
+      - name: Popup events smoke test
+        run: node --test tests/popup-events-smoke.test.mjs
+
+  website:
+    name: Website build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build website (Astro -> dist)
+        working-directory: website
+        run: npm run build
+
+  edge-functions:
+    name: Supabase Edge Functions (Deno check)
+    runs-on: ubuntu-latest
+    # P1: type-check the Deno functions. Non-blocking for now because the
+    # functions use remote/npm specifiers that may need a deno.json import map;
+    # tighten to a hard gate once the function deps are pinned.
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Deno check over supabase/functions
+        run: |
+          shopt -s globstar nullglob
+          files=(supabase/functions/**/*.ts)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Edge Function TypeScript files found."
+            exit 0
+          fi
+          deno check "${files[@]}"

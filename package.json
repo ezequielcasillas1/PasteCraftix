@@ -15,6 +15,8 @@
     "test:brave": "node tests/chromium-browser-test.js launch brave",
     "test:all-browsers": "node tests/chromium-browser-test.js all",
     "test:legacy": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
+    "verify:manifest": "node scripts/verify-manifest.mjs",
+    "package:extension": "node scripts/package-extension.mjs",
     "setup": "echo \"Follow START_HERE.md for setup instructions\" && exit 0",
     "docs": "echo \"Documentation available in .md files\" && exit 0",
     "feature-icons": "node scripts/convert-feature-icons.js 256",
