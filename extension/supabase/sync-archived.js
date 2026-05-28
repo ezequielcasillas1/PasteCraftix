@@ -14,6 +14,11 @@ async syncArchivedClipsToSupabase(localArchivedClips) {
 
   try {
     const userId = await this.getSyncUserId();
+    const hasAccess = await this.hasCloudSyncAccess(userId);
+    if (!hasAccess) {
+      console.log('ℹ️ Cloud sync not available for free tier. Archived clips stay local only.');
+      return true;
+    }
     const deviceId = await this.getDeviceId();
     await this.setUserContext(userId);
 

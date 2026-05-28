@@ -29,7 +29,7 @@ async syncAiHistoryToSupabase(localHistory) {
   try {
     const userId = await this.getSyncUserId();
     const hasAccess = await this.hasCloudSyncAccess(userId);
-    if (!hasAccess) return false;
+    if (!hasAccess) return true;
 
     const rows = items.map(entry => ({
       user_id: userId,

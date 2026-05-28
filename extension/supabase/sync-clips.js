@@ -20,7 +20,8 @@ async syncClipsToSupabase(localClips) {
     const hasAccess = await this.hasCloudSyncAccess(userId);
     if (!hasAccess) {
       console.log('ℹ️ Cloud sync not available for free tier. Clips stored locally only.');
-      return false; // Silently fail - user stays on local storage
+      // Success for queue: nothing to upload; must not re-queue (return false retries forever).
+      return true;
     }
     
     await this.setUserContext(userId);

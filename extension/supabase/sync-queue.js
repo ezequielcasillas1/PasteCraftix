@@ -1,4 +1,19 @@
 /** Vertical slice: sync-queue.js */
+
+/** Queue op types that require paid cloud sync — drop when user has no access. */
+export const CLOUD_SYNC_QUEUE_TYPES = new Set([
+  'syncClips',
+  'syncArchivedClips',
+  'syncCategories',
+  'syncNotes',
+  'syncDeletedClips',
+  'syncDeletedArchivedClips',
+  'syncDeletedCategories',
+  'syncDeletedNotes',
+  'syncSettings',
+  'syncProfile',
+]);
+
 export const syncQueueMixin = {
 // CONNECTION & OFFLINE MODE
 // =====================================================
@@ -152,6 +167,23 @@ _compactSyncQueue(queue) {
   return compacted;
 },
 
+async _pruneCloudSyncQueueIfNoAccess() {
+  try {
+    const userId = await this.getSyncUserId();
+    if (!userId) return;
+    const hasAccess = await this.hasCloudSyncAccess(userId);
+    if (hasAccess) return;
+    const before = this.syncQueue.length;
+    this.syncQueue = this.syncQueue.filter((op) => !CLOUD_SYNC_QUEUE_TYPES.has(String(op?.type || '')));
+    if (this.syncQueue.length !== before) {
+      console.log(`🧹 Dropped ${before - this.syncQueue.length} cloud sync queue ops (no cloud access)`);
+      await this.saveSyncQueue();
+    }
+  } catch (_) {
+    // non-fatal
+  }
+},
+
 async loadSyncQueue() {
   try {
     const result = await new Promise((resolve) => {
@@ -163,6 +195,7 @@ async loadSyncQueue() {
       console.log(`🧹 Compacted sync queue on load: ${loadedQueue.length} -> ${this.syncQueue.length}`);
       await this.saveSyncQueue();
     }
+    await this._pruneCloudSyncQueueIfNoAccess();
     console.log(`📦 Loaded ${this.syncQueue.length} pending sync operations`);
     
     // Process queue if online
