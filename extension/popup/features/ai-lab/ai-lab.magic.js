@@ -3,12 +3,14 @@ import {
   CRAFT_CLIPS_AI_MODES,
   CRAFT_CLIP_ACTIONS,
   CRAFT_CATEGORY_SUGGESTION_COUNT,
+  CRAFT_POWER_MODES,
 } from './ai-lab.craft-clips.constants.js';
 import {
   loadCraftClipsSettings,
   saveCraftClipsSettings,
   resolveRefactorEdgeLevel,
   syncCraftClipsSettingsToUi,
+  buildMagicAiCreditNoticeText,
 } from './ai-lab.craft-clips.settings.js';
 import { openCraftCategoryPickModal } from './ai-lab.craft-clips.category-pick.js';
 import { createCategory } from '../categories/categories.service.js';
@@ -60,10 +62,7 @@ function _toggleMagicAiCreditNotice(app) {
     return;
   }
   const settings = app._craftClipsSettings || {};
-  const modeLabel = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
-    ? 'AI Refactoring'
-    : 'AI Formatted';
-  notice.textContent = `💎 Premium · ~25 credits per batch · ${modeLabel} (one AI mode per craft)`;
+  notice.textContent = buildMagicAiCreditNoticeText(settings);
   notice.style.display = 'block';
 }
 
@@ -520,18 +519,22 @@ export async function _craftMagic(clipIds) {
   let aiRefactorMap = new Map();
   let refactorDiagnostics = new Map();
 
+  const craftPower = settings.craftPower === CRAFT_POWER_MODES.SUPER
+    ? CRAFT_POWER_MODES.SUPER
+    : CRAFT_POWER_MODES.REGULAR;
+
   if (settings.smartCategorize && !deferCategoryPick) {
-    aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats);
+    aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats, craftPower);
   }
 
   if (hasAi && aiEligibleTargets.length > 0) {
     if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
       const edgeLevel = resolveRefactorEdgeLevel(settings.refactorLevel);
-      const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
+      const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats, craftPower);
       aiRefactorMap = refactorResult.map;
       refactorDiagnostics = refactorResult.diagnostics;
     } else {
-      aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
+      aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi, craftPower);
     }
   }
 
@@ -631,9 +634,12 @@ function _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes) {
 
 async function _fetchCategorySuggestions(app, targets, hasAi) {
   if (targets.length === 0) return [];
+  const craftPower = app._craftClipsSettings?.craftPower === CRAFT_POWER_MODES.SUPER
+    ? CRAFT_POWER_MODES.SUPER
+    : CRAFT_POWER_MODES.REGULAR;
   if (hasAi) {
     try {
-      const ai = await pasteCraftSupabase.aiCategorizeSuggestions(targets);
+      const ai = await pasteCraftSupabase.aiCategorizeSuggestions(targets, { craftPower });
       const custom = _normalizeAiCategorySuggestions(ai);
       if (custom.length > 0) return custom;
       const customFromSummary = await _fetchCategorySuggestionsFromSummaryAi(targets);
@@ -737,11 +743,11 @@ function _fallbackCategorySuggestions(app, targets) {
   return names.slice(0, CRAFT_CATEGORY_SUGGESTION_COUNT);
 }
 
-async function _runAiCategorization(targets, hasAi, stats) {
+async function _runAiCategorization(targets, hasAi, stats, craftPower) {
   const map = new Map();
   if (targets.length === 0 || !hasAi) return map;
   try {
-    const aiResults = await pasteCraftSupabase.aiCategorize(targets);
+    const aiResults = await pasteCraftSupabase.aiCategorize(targets, { craftPower });
     if (Array.isArray(aiResults) && aiResults.length > 0) {
       _populateAiCategoryMap(map, targets, aiResults);
       stats.aiCategorized = true;
@@ -758,11 +764,11 @@ function _populateAiCategoryMap(map, targets, aiResults) {
   }
 }
 
-async function _runAiFormatting(targets, hasAi) {
+async function _runAiFormatting(targets, hasAi, craftPower) {
   const map = new Map();
   if (targets.length === 0 || !hasAi) return map;
   try {
-    const aiResults = await pasteCraftSupabase.aiFormat(targets);
+    const aiResults = await pasteCraftSupabase.aiFormat(targets, { craftPower });
     if (Array.isArray(aiResults) && aiResults.length > 0) {
       _populateAiFormatMap(map, targets, aiResults);
     }
@@ -770,12 +776,12 @@ async function _runAiFormatting(targets, hasAi) {
   return map;
 }
 
-async function _runAiRefactoring(targets, edgeLevel, stats) {
+async function _runAiRefactoring(targets, edgeLevel, stats, craftPower) {
   const map = new Map();
   const diagnostics = new Map();
   if (targets.length === 0) return { map, diagnostics };
   try {
-    const result = await pasteCraftSupabase.aiRefactor(targets, edgeLevel);
+    const result = await pasteCraftSupabase.aiRefactor(targets, edgeLevel, { craftPower });
     const aiResults = Array.isArray(result?.refactored) ? result.refactored : [];
     const diagList = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
     if (aiResults.length > 0) {
@@ -1318,6 +1324,9 @@ export async function runRefactorizationOnly(clipIds, refactorLevel) {
     duplicateHandling: false,
     aiMode: CRAFT_CLIPS_AI_MODES.REFACTORING,
     refactorLevel: refactorLevel || 'college',
+    craftPower: prev?.craftPower === CRAFT_POWER_MODES.SUPER
+      ? CRAFT_POWER_MODES.SUPER
+      : CRAFT_POWER_MODES.REGULAR,
   };
   try {
     return await _craftMagic.call(app, clipIds);

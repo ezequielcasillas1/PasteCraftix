@@ -1,4 +1,5 @@
 import { AUTH_ELEMENT_IDS, AUTH_STORAGE_KEYS, AUTH_TAB_SELECTOR } from './auth.constants.js';
+import { stampLocalDataOwner } from '../sync/sync.loader.js';
 import {
   getAuthModal,
   getSigninForm,
@@ -88,9 +89,18 @@ function _signInErrorMessage(error) {
 async function _performSignIn(app, email, password) {
   const result = await pasteCraftSupabase.signInWithEmail(email, password);
   if (result.success) {
+    // #region agent log
+    try {
+      const _p={sessionId:'1e733c',hypothesisId:'E',location:'auth.events.js:_performSignIn',message:'signInWithEmail returned identity',data:{typedEmail:email,returnedUserId:result.user?.id||null,returnedEmail:result.user?.email||null,sessionUserId:result.session?.user?.id||null,sessionEmail:result.session?.user?.email||null},timestamp:Date.now()};
+      console.warn('[PC-DEBUG-1e733c]',JSON.stringify(_p));
+      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1e733c'},body:JSON.stringify(_p)}).catch(()=>{});
+    } catch (_) {}
+    // #endregion
     app._isFreemiumGuest = false;
     chrome.storage.local.remove(AUTH_STORAGE_KEYS.FREEMIUM_GUEST);
     await app.clearLegacyAuthPrefs();
+    // Account isolation: clear previous account's local caches if a different user signs in.
+    await stampLocalDataOwner(app, result.user?.id);
     app.showToast('✅ Welcome back!', 'success');
     app.hideAuthModal();
     window.location.reload();
@@ -155,9 +165,17 @@ async function _performSignUp(app, email, password) {
   if (result.success) {
     app._isFreemiumGuest = false;
     chrome.storage.local.remove(AUTH_STORAGE_KEYS.FREEMIUM_GUEST);
-    alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
-    app.showToast('✅ Check your email to verify your account!', 'success');
-    document.querySelector('[data-auth-tab="signin"]')?.click();
+
+    if (result.needsEmailConfirmation) {
+      alert(`✅ Account Created Successfully!\n\n📧 IMPORTANT: Check your email (${email})\n\n1️⃣ Open the verification email\n2️⃣ Click the verification link\n3️⃣ Come back here and sign in\n\n⚠️ You CANNOT sign in until you verify your email!\n\nCheck your spam folder if you don't see it.`);
+      app.showToast('✅ Check your email to verify your account!', 'success');
+      document.querySelector('[data-auth-tab="signin"]')?.click();
+      return;
+    }
+
+    alert(`✅ Account Created Successfully!\n\nYou're signed in and ready to use PasteCraft.`);
+    app.showToast('✅ Welcome to PasteCraft!', 'success');
+    window.location.reload();
   } else {
     app.showToast(`❌ ${result.error}`, 'error');
   }
@@ -200,6 +218,12 @@ async function _handleGoogleAuth(app, label) {
   const result = await pasteCraftSupabase.signInWithGoogle();
   if (result.success) {
     await app.clearLegacyAuthPrefs();
+    // Account isolation: clear previous account's local caches if a different user signs in.
+    try {
+      const bridge = await chrome.storage.local.get([AUTH_STORAGE_KEYS.SUPABASE_SESSION]);
+      const googleUserId = bridge?.[AUTH_STORAGE_KEYS.SUPABASE_SESSION]?.user_id || null;
+      await stampLocalDataOwner(app, googleUserId);
+    } catch (_) {}
     app.showToast('✅ Signed in with Google!', 'success');
     window.location.reload();
   } else {

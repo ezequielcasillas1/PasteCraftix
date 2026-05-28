@@ -1,6 +1,9 @@
 /** Extracted from popup.js setupEventListeners — behavior unchanged. */
 
 export function registerAiLabPageEvents(app) {
+    app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
+    app.aiLabFeature?.announcements?.bindAnnouncementBannerEvents?.(app);
+
     // AI button and tab handlers
     const aiBtn = document.getElementById('aiBtn');
     if (aiBtn) {

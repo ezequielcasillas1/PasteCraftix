@@ -3,6 +3,17 @@ export const BILLING_PRICE_IDS = Object.freeze({
   ENHANCED: 'price_1SUYs3LOdeLTrjapCFFDe7td',
 });
 
+/** Stripe one-time credit pack price IDs (test mode — May 2026). */
+export const CREDIT_PACK_PRICE_IDS = Object.freeze({
+  PACK_1000: 'price_1TcB5ULOdeLTrjapKaztK3oM',
+  PACK_5000: 'price_1TcB5bLOdeLTrjapqQ8kXXgE',
+});
+
+export const CREDIT_PACKS = Object.freeze([
+  { id: 'pack_1000', label: '1,000 credits', priceLabel: '$5', priceId: CREDIT_PACK_PRICE_IDS.PACK_1000, credits: 1000 },
+  { id: 'pack_5000', label: '5,000 credits', priceLabel: '$15', priceId: CREDIT_PACK_PRICE_IDS.PACK_5000, credits: 5000 },
+]);
+
 export const SUPPORT_FORM_TYPES = Object.freeze({
   REPORT_BUGS: 'reportbugs',
   HELP: 'help',

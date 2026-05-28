@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost, resolveCraftWorkflow } from "../_shared/ai_workflow.ts"
 import { guardAiTexts } from "../_shared/ai_input_guard.ts"
-import type { AiWorkflowProvider, AiWorkflowPreset, ResolvedAiModels } from "../_shared/ai_workflow.ts"
+import type { ResolvedAiModels } from "../_shared/ai_workflow.ts"
 
 // Reasoning models (gpt-5-nano) sometimes return empty/unparseable content even
 // with a generous budget. This non-reasoning model honors JSON instructions
@@ -248,6 +248,9 @@ serve(async (req) => {
       throw new Error('clips array is required')
     }
 
+    // Server-validated craft power → model/credit tier (client cannot set cost).
+    const craftWorkflow = resolveCraftWorkflow(body?.craftPower)
+
     const edgeLevel = levelPrompts[String(level || '')] ? String(level) : 'college'
     const batch = clips.slice(0, 30)
 
@@ -261,11 +264,7 @@ serve(async (req) => {
     )
     if (guarded instanceof Response) return guarded
 
-    const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'openai',
-      preset: 'cheapest',
-    }
-    const models = resolveModelsFromWorkflow(cheapestWorkflow)
+    const models = resolveModelsFromWorkflow(craftWorkflow)
     const apiKey = getApiKeyForResolved(models)
 
     const clipTexts = batch.map((_c: { text?: string }, i: number) => {
@@ -321,7 +320,7 @@ serve(async (req) => {
       return buildDiagnostic(original, out, i, edgeLevel, parseOk, usedFallback)
     })
 
-    const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+    const credits = await decrementTextCredits(gate, getTextCreditCost(craftWorkflow.provider, craftWorkflow.preset))
 
     return new Response(
       JSON.stringify({ refactored, diagnostics, ...credits }),

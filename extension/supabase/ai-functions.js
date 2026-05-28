@@ -1,5 +1,15 @@
 /** Vertical slice: ai-functions.js */
 import { extractAnimalSuffix } from '../shared/animal-names.js';
+
+/**
+ * Craft power sent to the batch Edge Functions. Only 'super' opts into the
+ * higher tier; anything else is the cheapest "regular" model. The server
+ * independently whitelists this value and recomputes the charged credits.
+ */
+function _normalizeCraftPower(value) {
+  return String(value || '').toLowerCase() === 'super' ? 'super' : 'regular';
+}
+
 export const aiFunctionsMixin = {
 _buildCategorizeClipPayload(clips, textLimit = 200) {
   return (Array.isArray(clips) ? clips : []).map((c) => {
@@ -112,7 +122,7 @@ async analyzePhotoWithVision(imageBase64) {
 },
 
 // ─── AI Smart Categorization (Magic Wand) ───
-async aiCategorize(clips) {
+async aiCategorize(clips, options = {}) {
   try {
     if (!Array.isArray(clips) || clips.length === 0) return [];
 
@@ -124,7 +134,10 @@ async aiCategorize(clips) {
     } catch (_) {}
 
     const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-categorize`;
-    const body = { clips: this._buildCategorizeClipPayload(clips, 200) };
+    const body = {
+      clips: this._buildCategorizeClipPayload(clips, 200),
+      craftPower: _normalizeCraftPower(options.craftPower),
+    };
 
     const response = await this._fetchWithTimeout(url, {
       method: 'POST',
@@ -150,7 +163,7 @@ async aiCategorize(clips) {
   }
 },
 
-async aiCategorizeSuggestions(clips) {
+async aiCategorizeSuggestions(clips, options = {}) {
   try {
     if (!Array.isArray(clips) || clips.length === 0) {
       return [];
@@ -166,6 +179,7 @@ async aiCategorizeSuggestions(clips) {
     const body = {
       mode: 'suggestions',
       clips: this._buildCategorizeClipPayload(clips, 200),
+      craftPower: _normalizeCraftPower(options.craftPower),
     };
 
     const response = await this._fetchWithTimeout(url, {
@@ -193,7 +207,7 @@ async aiCategorizeSuggestions(clips) {
 },
 
 // ─── AI Smart Format (Magic Wand) ───
-async aiFormat(clips) {
+async aiFormat(clips, options = {}) {
   try {
     if (!Array.isArray(clips) || clips.length === 0) return [];
 
@@ -204,7 +218,10 @@ async aiFormat(clips) {
     } catch (_) {}
 
     const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-format`;
-    const body = { clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })) };
+    const body = {
+      clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })),
+      craftPower: _normalizeCraftPower(options.craftPower),
+    };
 
     const response = await this._fetchWithTimeout(url, {
       method: 'POST',
@@ -231,7 +248,7 @@ async aiFormat(clips) {
 },
 
 // ─── AI Refactoring (Craft Clips) ───
-async aiRefactor(clips, level = 'college') {
+async aiRefactor(clips, level = 'college', options = {}) {
   try {
     if (!Array.isArray(clips) || clips.length === 0) {
       return { refactored: [], diagnostics: [] };
@@ -247,6 +264,7 @@ async aiRefactor(clips, level = 'college') {
     const body = {
       level: String(level || 'college'),
       clips: clips.map(c => ({ text: String(c.text || '').slice(0, 4000) })),
+      craftPower: _normalizeCraftPower(options.craftPower),
     };
 
     const response = await this._fetchWithTimeout(url, {

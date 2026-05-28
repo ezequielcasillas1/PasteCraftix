@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
-import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
+import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost, resolveCraftWorkflow } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,12 +26,9 @@ serve(async (req) => {
     // Cap at 30 clips per request (format needs more tokens than categorize)
     const batch = clips.slice(0, 30)
 
-    // Always use cheapest preset
-    const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'openai',
-      preset: 'cheapest'
-    }
-    const models = resolveModelsFromWorkflow(cheapestWorkflow)
+    // Server-validated craft power → model/credit tier (client cannot set cost).
+    const craftWorkflow = resolveCraftWorkflow(body?.craftPower)
+    const models = resolveModelsFromWorkflow(craftWorkflow)
     const apiKey = getApiKeyForResolved(models)
 
     // Build clip texts for the prompt (truncated for token efficiency)
@@ -91,8 +87,8 @@ serve(async (req) => {
     }
     if (formatted.length > batch.length) formatted.length = batch.length
 
-    // Decrement text credits (cheapest cost)
-    const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+    // Decrement text credits for the resolved craft power tier
+    const credits = await decrementTextCredits(gate, getTextCreditCost(craftWorkflow.provider, craftWorkflow.preset))
 
     return new Response(
       JSON.stringify({ formatted, ...credits }),

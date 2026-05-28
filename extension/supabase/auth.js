@@ -29,8 +29,14 @@ async signUpWithEmail(email, password) {
       await this.createUserSubscription(data.user.id, email, 'free');
     }
 
-    console.log('✅ User signed up successfully');
-    return { success: true, user: data.user };
+    const needsEmailConfirmation = Boolean(data.user && !data.session);
+    console.log('✅ User signed up successfully', { needsEmailConfirmation });
+    return {
+      success: true,
+      user: data.user,
+      session: data.session,
+      needsEmailConfirmation,
+    };
   } catch (error) {
     console.error('❌ Sign up failed:', error);
     return { success: false, error: error.message };

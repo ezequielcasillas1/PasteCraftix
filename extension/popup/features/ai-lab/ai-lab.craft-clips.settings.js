@@ -2,9 +2,17 @@ import {
   CRAFT_CLIPS_STORAGE_KEY,
   CRAFT_CLIPS_DEFAULT_SETTINGS,
   CRAFT_CLIPS_AI_MODES,
+  CRAFT_POWER_MODES,
+  CRAFT_POWER_CREDIT_COST,
   REFACTOR_LEVEL_TO_EDGE,
   REFACTOR_LEVEL_INFO,
 } from './ai-lab.craft-clips.constants.js';
+
+function normalizeCraftPower(value) {
+  return value === CRAFT_POWER_MODES.SUPER
+    ? CRAFT_POWER_MODES.SUPER
+    : CRAFT_POWER_MODES.REGULAR;
+}
 
 export async function loadCraftClipsSettings() {
   try {
@@ -23,6 +31,7 @@ export async function loadCraftClipsSettings() {
       refactorLevel: REFACTOR_LEVEL_TO_EDGE[raw.refactorLevel]
         ? raw.refactorLevel
         : CRAFT_CLIPS_DEFAULT_SETTINGS.refactorLevel,
+      craftPower: normalizeCraftPower(raw.craftPower),
     };
   } catch (_) {
     return { ...CRAFT_CLIPS_DEFAULT_SETTINGS };
@@ -37,6 +46,7 @@ export async function saveCraftClipsSettings(settings) {
       ? CRAFT_CLIPS_AI_MODES.REFACTORING
       : CRAFT_CLIPS_AI_MODES.FORMATTED,
     refactorLevel: String(settings.refactorLevel || CRAFT_CLIPS_DEFAULT_SETTINGS.refactorLevel),
+    craftPower: normalizeCraftPower(settings.craftPower),
   };
   await chrome.storage.local.set({ [CRAFT_CLIPS_STORAGE_KEY]: payload });
   return payload;
@@ -44,6 +54,22 @@ export async function saveCraftClipsSettings(settings) {
 
 export function resolveRefactorEdgeLevel(uiLevel) {
   return REFACTOR_LEVEL_TO_EDGE[uiLevel] || 'college';
+}
+
+/** Per-batch credit cost for the active craft power mode (UI display only). */
+export function craftPowerCreditCost(craftPower) {
+  return CRAFT_POWER_CREDIT_COST[normalizeCraftPower(craftPower)];
+}
+
+/** Premium credit-notice text shared by the modal + settings persistence. */
+export function buildMagicAiCreditNoticeText(settings) {
+  const modeLabel = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
+    ? 'AI Refactoring'
+    : 'AI Formatted';
+  const power = normalizeCraftPower(settings.craftPower);
+  const cost = craftPowerCreditCost(power);
+  const powerLabel = power === CRAFT_POWER_MODES.SUPER ? 'Super' : 'Regular';
+  return `💎 Premium · ~${cost} credits per batch · ${powerLabel} power · ${modeLabel}`;
 }
 
 export function syncCraftClipsSettingsToUi(settings) {
@@ -61,6 +87,24 @@ export function syncCraftClipsSettingsToUi(settings) {
     levelsWrap.style.display = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING ? 'flex' : 'none';
     levelsWrap.querySelectorAll('.craft-refactor-level-chip').forEach((chip) => {
       chip.classList.toggle('active', chip.dataset.level === settings.refactorLevel);
+    });
+  }
+
+  syncCraftPowerUi(normalizeCraftPower(settings.craftPower));
+}
+
+function syncCraftPowerUi(power) {
+  const isSuper = power === CRAFT_POWER_MODES.SUPER;
+  const toggle = document.getElementById('craftPowerToggle');
+  if (toggle) {
+    toggle.checked = isSuper;
+    toggle.setAttribute('aria-checked', String(isSuper));
+  }
+  const row = document.getElementById('craftPowerRow');
+  if (row) {
+    row.classList.toggle('craft-power-on', isSuper);
+    row.querySelectorAll('.craft-power-mode').forEach((el) => {
+      el.classList.toggle('active', el.dataset.power === power);
     });
   }
 }
@@ -81,6 +125,8 @@ export function bindCraftClipsSettingsUi(app) {
   document.getElementById('craftClipsDedupeToggle')?.addEventListener('change', persist);
   document.getElementById('craftClipsAiFormatted')?.addEventListener('change', persist);
   document.getElementById('craftClipsAiRefactoring')?.addEventListener('change', persist);
+
+  document.querySelector('[data-action="toggle-craft-power"]')?.addEventListener('change', persist);
 
   document.querySelectorAll('.craft-refactor-level-chip').forEach((chip) => {
     chip.addEventListener('click', async () => {
@@ -107,19 +153,20 @@ function _toggleMagicAiCreditNoticeForApp(app) {
   const notice = document.getElementById('magicAiCreditNotice');
   if (!notice || !app._hasAiAccess()) return;
   const settings = app._craftClipsSettings || CRAFT_CLIPS_DEFAULT_SETTINGS;
-  const modeLabel = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING ? 'AI Refactoring' : 'AI Formatted';
-  notice.textContent = `💎 Premium · ~25 credits per batch · ${modeLabel} (one AI mode per craft)`;
+  notice.textContent = buildMagicAiCreditNoticeText(settings);
 }
 
 export function readCraftClipsSettingsFromUi() {
   const catToggle = document.getElementById('craftClipsCategorizeToggle');
   const dedupeToggle = document.getElementById('craftClipsDedupeToggle');
   const refRadio = document.getElementById('craftClipsAiRefactoring');
+  const powerToggle = document.getElementById('craftPowerToggle');
   const activeChip = document.querySelector('.craft-refactor-level-chip.active');
   return {
     smartCategorize: catToggle ? catToggle.checked : true,
     duplicateHandling: dedupeToggle ? dedupeToggle.checked : false,
     aiMode: refRadio?.checked ? CRAFT_CLIPS_AI_MODES.REFACTORING : CRAFT_CLIPS_AI_MODES.FORMATTED,
     refactorLevel: activeChip?.dataset?.level || CRAFT_CLIPS_DEFAULT_SETTINGS.refactorLevel,
+    craftPower: powerToggle?.checked ? CRAFT_POWER_MODES.SUPER : CRAFT_POWER_MODES.REGULAR,
   };
 }

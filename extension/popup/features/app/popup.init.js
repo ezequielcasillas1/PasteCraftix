@@ -2,6 +2,7 @@
 
 import { initializeAllPopupFeatures } from './popup.features.js';
 import { initUrlSafetyForPopup } from '../../../shared/safe-open-url.js';
+import { enforceLocalDataOwnerOnBoot, clearLocalUserData } from '../sync/sync.loader.js';
 
 async function purgeExpiredClipsOnStartup(app) {
   try {
@@ -97,6 +98,26 @@ export async function runPopupInit(app) {
     return;
   }
 
+  // #region agent log
+  try {
+    const _idCheck = await chrome.storage.local.get(['chromeUserId', 'pc_supabase_session_v1', 'pc_local_data_owner']);
+    const _bridge = _idCheck?.pc_supabase_session_v1 || null;
+    // Decode the real supabase-js session token email (independent of the bridge fast-path).
+    let _sbEmail = null, _sbUserId = null;
+    try {
+      const _sbKey = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k));
+      if (_sbKey) {
+        const _raw = JSON.parse(localStorage.getItem(_sbKey) || 'null');
+        const _at = _raw?.access_token || _raw?.currentSession?.access_token || null;
+        if (_at) { const _pl = JSON.parse(atob(_at.split('.')[1])); _sbEmail = _pl?.email || null; _sbUserId = _pl?.sub || null; }
+      }
+    } catch (_) {}
+    const _p={sessionId:'1e733c',hypothesisId:'D,E',location:'popup.init.js:93',message:'currentUser resolved at boot',data:{resolvedUserId:currentUser?.id||null,resolvedEmail:currentUser?.email||null,bridgeUserId:_bridge?.user_id||null,bridgeEmail:_bridge?.email||null,sbTokenUserId:_sbUserId,sbTokenEmail:_sbEmail,localDataOwner:_idCheck?.pc_local_data_owner||null},timestamp:Date.now()};
+    console.warn('[PC-DEBUG-1e733c]',JSON.stringify(_p));
+    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1e733c'},body:JSON.stringify(_p)}).catch(()=>{});
+  } catch (_) {}
+  // #endregion
+
   console.log('? User authenticated:', currentUser.email);
   app.currentUser = currentUser;
 
@@ -120,6 +141,31 @@ export async function runPopupInit(app) {
 
   app.setupLocalStorageListener();
   await app._ensureIndexedDbReadyAndMigrate();
+
+  // Account isolation: if local caches belong to a different signed-in user,
+  // archive theirs and restore this account's data before loading.
+  await enforceLocalDataOwnerOnBoot(app, currentUser.id);
+
+  // #region agent log
+  // TEMP one-time remediation (debug-only): this install cross-contaminated
+  // before the isolation system existed, so the current account "adopted"
+  // another account's clips. Discard the mislabeled local copy once (the
+  // original account re-hydrates from its cloud on next sign-in).
+  try {
+    const _remKey = 'pc_isolation_remediation_v1';
+    const _rem = await chrome.storage.local.get([_remKey]);
+    if (!_rem?.[_remKey]) {
+      const _all = await chrome.storage.local.get(null);
+      const _backupKeys = Object.keys(_all).filter((k) => k.startsWith('pc_account_cache__'));
+      if (_backupKeys.length) { try { await chrome.storage.local.remove(_backupKeys); } catch (_) {} }
+      await clearLocalUserData(app);
+      await chrome.storage.local.set({ [_remKey]: true });
+      const _p={sessionId:'1e733c',hypothesisId:'A,B',location:'popup.init.js:remediation',message:'one-time remediation cleared mislabeled local data',data:{clearedBackups:_backupKeys.length,owner:currentUser.id},timestamp:Date.now()};
+      console.warn('[PC-DEBUG-1e733c]',JSON.stringify(_p));
+      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1e733c'},body:JSON.stringify(_p)}).catch(()=>{});
+    }
+  } catch (_) {}
+  // #endregion
 
   await Promise.all([
     app.loadData(),

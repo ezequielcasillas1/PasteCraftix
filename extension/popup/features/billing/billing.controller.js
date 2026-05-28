@@ -3,6 +3,8 @@ import {
   closeUpgradeModal,
   openPricingPage,
   createCheckout,
+  createCreditPackCheckout,
+  createCustomCreditCheckout,
 } from './billing.service.js';
 
 import {
@@ -17,7 +19,7 @@ import * as unsubscribe from './billing.unsubscribe.js';
 
 export function initBillingFeature(app) {
   app.billingFeature = {
-    service: { openUpgradeModal, closeUpgradeModal, openPricingPage, createCheckout },
+    service: { openUpgradeModal, closeUpgradeModal, openPricingPage, createCheckout, createCreditPackCheckout, createCustomCreditCheckout },
     support: { openSupportForm, closeSupportForm, submitSupportForm, openSupportFormSafely, initSupportEvents },
     upgradeUi,
     unsubscribe,

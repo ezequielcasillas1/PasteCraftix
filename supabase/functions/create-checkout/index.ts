@@ -2,6 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from 'https://esm.sh/stripe@14.21.0'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireNotBanned } from '../_shared/security-gate.ts'
+import {
+  calculatePriceCents,
+  getCreditAmountForPriceId,
+  isCreditPackPriceId,
+  meetsStripeMinimum,
+  parseCustomCreditAmount,
+  STRIPE_MIN_AMOUNT_CENTS,
+} from '../_shared/credit_packs.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +29,35 @@ function isAllowedRedirectUrl(raw: string): boolean {
   }
 }
 
+// Buying credit packs is itself a way to obtain AI usage, so any authenticated
+// user (free / basic / coupon months_free / premium) may purchase. The only
+// case we block is unlimited-AI users (e.g. the "unlimited" coupon): they
+// already have infinite AI, so a credit purchase would be wasted money — we
+// return a clear message instead of silently letting them pay.
+async function requireCreditPurchaseEligibility(supabase: any, userId: string): Promise<Response | null> {
+  const { data: sub, error } = await supabase
+    .from('user_subscriptions')
+    .select('has_unlimited_ai')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    return new Response(
+      JSON.stringify({ error: 'Unable to verify account' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
+    )
+  }
+
+  if (sub?.has_unlimited_ai === true) {
+    return new Response(
+      JSON.stringify({ error: 'You already have unlimited AI access — credit packs are not needed.' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 },
+    )
+  }
+
+  return null
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -31,7 +68,6 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
-    // Authenticate user
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -49,11 +85,9 @@ serve(async (req) => {
       )
     }
 
-    // Ban gate
     const banResponse = await requireNotBanned(user.id, supabase)
     if (banResponse) return banResponse
 
-    // Checkout fraud detection: >10 sessions in 1 hour → flag to security_events
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const { data: recentEvents } = await supabase
       .from('security_events')
@@ -64,7 +98,6 @@ serve(async (req) => {
 
     const recentCount = recentEvents?.length ?? 0
 
-    // Log this checkout attempt
     await supabase.from('security_events').insert({
       user_id: user.id,
       event_type: 'checkout_attempt',
@@ -74,7 +107,6 @@ serve(async (req) => {
     })
 
     if (recentCount >= 10) {
-      // Flag as fraud — admin review required
       await supabase.from('security_events').insert({
         user_id: user.id,
         event_type: 'checkout_fraud',
@@ -92,10 +124,28 @@ serve(async (req) => {
       apiVersion: '2023-10-16',
     })
 
-    const { priceId, successUrl, cancelUrl } = await req.json()
+    const body = await req.json()
+    const priceId = String(body?.priceId || body?.price_id || '').trim()
+    const rawCreditAmount = body?.creditAmount ?? body?.credit_amount ?? body?.credits
+    const hasCustomCredits = rawCreditAmount != null && rawCreditAmount !== ''
+    const successUrl = body?.successUrl || body?.success_url
+    const cancelUrl = body?.cancelUrl || body?.cancel_url
+    const requestedMode = String(body?.mode || '').toLowerCase()
 
-    if (!priceId) {
-      throw new Error('Price ID is required')
+    if (!priceId && !hasCustomCredits) {
+      throw new Error('Price ID or credit amount is required')
+    }
+
+    const isPresetCreditPack = priceId ? isCreditPackPriceId(priceId) : false
+    const isCustomCreditPack = hasCustomCredits && !priceId
+
+    if (hasCustomCredits && priceId && !isPresetCreditPack) {
+      throw new Error('Provide either priceId or custom credits, not both')
+    }
+
+    if (isPresetCreditPack || isCustomCreditPack) {
+      const eligibilityGate = await requireCreditPurchaseEligibility(supabase, user.id)
+      if (eligibilityGate) return eligibilityGate
     }
 
     const safeSuccess = isAllowedRedirectUrl(successUrl)
@@ -105,23 +155,86 @@ serve(async (req) => {
       ? cancelUrl
       : 'https://pastecraft.com/pricing.html'
 
-    const session = await stripe.checkout.sessions.create({
+    let checkoutMode = requestedMode === 'payment' ? 'payment' : 'subscription'
+    let creditAmount: number | null = null
+    let metadata: Record<string, string> = { supabase_user_id: user.id }
+    let lineItems: Record<string, unknown>[] = []
+
+    if (isCustomCreditPack) {
+      creditAmount = parseCustomCreditAmount(rawCreditAmount)
+      const amountCents = calculatePriceCents(creditAmount)
+
+      if (!meetsStripeMinimum(creditAmount)) {
+        throw new Error(
+          `Minimum Stripe charge is $${(STRIPE_MIN_AMOUNT_CENTS / 100).toFixed(2)}. Buy at least 100 credits.`,
+        )
+      }
+
+      checkoutMode = 'payment'
+
+      metadata = {
+        ...metadata,
+        purchase_type: 'credit_pack',
+        price_kind: 'custom',
+        credit_amount: String(creditAmount),
+        amount_cents: String(amountCents),
+      }
+
+      lineItems = [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: amountCents,
+          product_data: {
+            name: `${creditAmount.toLocaleString()} AI Credits`,
+            description: `PasteCraft custom credit purchase (${creditAmount.toLocaleString()} credits)`,
+          },
+        },
+        quantity: 1,
+      }]
+    } else {
+      if (!priceId) throw new Error('Price ID is required')
+
+      checkoutMode = isPresetCreditPack ? 'payment' : checkoutMode
+      creditAmount = isPresetCreditPack ? getCreditAmountForPriceId(priceId) : null
+
+      if (isPresetCreditPack && creditAmount) {
+        metadata.purchase_type = 'credit_pack'
+        metadata.price_kind = 'preset'
+        metadata.credit_amount = String(creditAmount)
+      }
+
+      lineItems = [{ price: priceId, quantity: 1 }]
+    }
+
+    const sessionParams: Record<string, unknown> = {
       payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
+      line_items: lineItems,
+      mode: checkoutMode,
       success_url: safeSuccess,
       cancel_url: safeCancel,
-      metadata: { supabase_user_id: user.id },
-    })
+      metadata,
+      customer_email: user.email || undefined,
+    }
+
+    if (checkoutMode === 'payment') {
+      sessionParams.payment_intent_data = { metadata }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams as any)
 
     return new Response(
-      JSON.stringify({ sessionId: session.id }),
+      JSON.stringify({
+        sessionId: session.id,
+        url: session.url,
+        credits: creditAmount,
+        amountCents: metadata.amount_cents ? Number(metadata.amount_cents) : undefined,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {
     console.error('Error creating checkout session:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
     )
   }

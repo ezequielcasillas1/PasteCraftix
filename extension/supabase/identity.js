@@ -67,8 +67,22 @@ async getSyncUserId() {
 
     // Migrate legacy remote clips if we have a different legacy id available
     if (localChromeUserId && localChromeUserId !== authUserId) {
+      // #region agent log
+      try {
+        const _p={sessionId:'1e733c',hypothesisId:'C',location:'identity.js:69',message:'getSyncUserId legacy-migration branch FIRED (copies prev user clips into current account)',data:{authUserId,localChromeUserId,willMigrate:true},timestamp:Date.now()};
+        console.warn('[PC-DEBUG-1e733c]',JSON.stringify(_p));
+        fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1e733c'},body:JSON.stringify(_p)}).catch(()=>{});
+      } catch (_) {}
+      // #endregion
       try {
         const legacyRemote = await this.syncClipsFromSupabase(localChromeUserId);
+        // #region agent log
+        try {
+          const _p={sessionId:'1e733c',hypothesisId:'C',location:'identity.js:71',message:'legacy remote clips fetched for OLD user, about to push into CURRENT account',data:{fromUser:localChromeUserId,toUser:authUserId,legacyClipCount:Array.isArray(legacyRemote)?legacyRemote.length:0},timestamp:Date.now()};
+          console.warn('[PC-DEBUG-1e733c]',JSON.stringify(_p));
+          fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'1e733c'},body:JSON.stringify(_p)}).catch(()=>{});
+        } catch (_) {}
+        // #endregion
         if (legacyRemote && legacyRemote.length > 0) {
           await this.syncClipsToSupabaseForUser(legacyRemote, authUserId);
         }

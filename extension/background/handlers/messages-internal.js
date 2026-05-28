@@ -193,11 +193,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const priceId = String(message.priceId || '');
+        const creditAmount = message.creditAmount != null ? Math.floor(Number(message.creditAmount)) : null;
         const accessToken = String(message.accessToken || '');
         const supabaseUrl = String(message.supabaseUrl || '');
         const anonKey = String(message.anonKey || '');
+        const checkoutMode = String(message.mode || 'subscription');
 
-        if (!priceId || !supabaseUrl || !anonKey) {
+        if ((!priceId && !Number.isFinite(creditAmount)) || !supabaseUrl || !anonKey) {
           sendResponse({ success: false, error: 'Missing checkout params' });
           return;
         }
@@ -205,36 +207,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const url = `${supabaseUrl}/functions/v1/create-checkout`;
         const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer ${anonKey}`;
 
+        const payload = {
+          successUrl: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
+          success_url: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
+          cancelUrl: 'https://pastecraft.com/pricing.html',
+          cancel_url: 'https://pastecraft.com/pricing.html',
+          mode: checkoutMode,
+          quantity: 1,
+        };
+
+        if (priceId) {
+          payload.priceId = priceId;
+          payload.price_id = priceId;
+        }
+        if (Number.isFinite(creditAmount)) {
+          payload.creditAmount = creditAmount;
+          payload.credit_amount = creditAmount;
+          payload.credits = creditAmount;
+        }
+
         const resp = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': authHeader,
           },
-          body: JSON.stringify({
-            priceId: priceId,
-            price_id: priceId,
-            successUrl: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
-            success_url: 'https://pastecraft.com/success.html?session_id={CHECKOUT_SESSION_ID}',
-            cancelUrl: 'https://pastecraft.com/pricing.html',
-            cancel_url: 'https://pastecraft.com/pricing.html',
-            mode: 'subscription',
-            quantity: 1
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await resp.json().catch(() => ({}));
         const sessionId = data?.sessionId || data?.session?.id;
+        const sessionUrl = typeof (data?.url || data?.session?.url) === 'string'
+          ? String(data?.url || data?.session?.url)
+          : '';
 
-        if (!resp.ok || !sessionId) {
+        if (!resp.ok || (!sessionId && !sessionUrl)) {
           const errorMsg = data?.error || data?.message || `HTTP ${resp.status}`;
           sendResponse({ success: false, error: errorMsg });
           return;
         }
 
-        const checkoutUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
-        chrome.tabs.create({ url: checkoutUrl });
-        sendResponse({ success: true, sessionId, checkoutUrl });
+        // Prefer the hosted checkout URL returned by Stripe. The hand-built
+        // /c/pay/{id} form is not a valid landing URL and fails to open.
+        const checkoutUrl = sessionUrl || (sessionId ? `https://checkout.stripe.com/c/pay/${sessionId}` : '');
+        if (!checkoutUrl) {
+          sendResponse({ success: false, error: 'No checkout URL returned' });
+          return;
+        }
+
+        chrome.tabs.create({ url: checkoutUrl }, () => {
+          const err = chrome.runtime.lastError;
+          if (err) {
+            sendResponse({ success: false, error: err.message || String(err) });
+          } else {
+            sendResponse({ success: true, sessionId, checkoutUrl });
+          }
+        });
       } catch (error) {
         console.error('❌ Checkout error:', error);
         sendResponse({ success: false, error: error?.message || String(error) });

@@ -1,5 +1,7 @@
 /** Craft Clips (Magic Wand revamp) — storage keys, AI modes, refactor levels. */
 
+import { AI_CREDIT_COSTS } from './ai-lab.constants.js';
+
 export const CRAFT_CLIPS_STORAGE_KEY = 'pc_craft_clips_settings_v1';
 
 export const CRAFT_CLIPS_AI_MODES = {
@@ -7,11 +9,38 @@ export const CRAFT_CLIPS_AI_MODES = {
   REFACTORING: 'refactoring',
 };
 
+/**
+ * Craft power — exactly two modes.
+ * Regular = cheapest model (default/off). Super = the single higher tier below.
+ */
+export const CRAFT_POWER_MODES = {
+  REGULAR: 'regular',
+  SUPER: 'super',
+};
+
+/** Regular always maps to the cheapest preset. */
+export const CRAFT_REGULAR_PRESET = 'cheapest';
+
+/**
+ * The single higher tier "Super" craft power requests. CHANGE THIS ONE CONSTANT
+ * to upgrade the Super model later (must be a key in AI_CREDIT_COSTS.openai,
+ * e.g. 'default' = GPT-4o Mini · 40 cr, 'gpt5_mini' = GPT-5 Mini · 200 cr).
+ * The server independently whitelists + recomputes the charged credits.
+ */
+export const CRAFT_SUPER_PRESET = 'default';
+
+/** Per-batch credit cost shown in the UI for each craft power mode. */
+export const CRAFT_POWER_CREDIT_COST = {
+  [CRAFT_POWER_MODES.REGULAR]: AI_CREDIT_COSTS.openai[CRAFT_REGULAR_PRESET],
+  [CRAFT_POWER_MODES.SUPER]: AI_CREDIT_COSTS.openai[CRAFT_SUPER_PRESET],
+};
+
 export const CRAFT_CLIPS_DEFAULT_SETTINGS = {
   smartCategorize: true,
   duplicateHandling: false,
   aiMode: CRAFT_CLIPS_AI_MODES.FORMATTED,
   refactorLevel: 'college',
+  craftPower: CRAFT_POWER_MODES.REGULAR,
 };
 
 /** UI level id → Edge ai-refactor / ai-breakdown key */

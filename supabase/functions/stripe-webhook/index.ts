@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from 'https://esm.sh/stripe@14.21.0'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  customPriceIdForCredits,
+  fulfillCreditPackPurchase,
+  getCreditAmountForPriceId,
+} from '../_shared/credit_packs.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -206,7 +211,48 @@ serve(async (req) => {
         case 'checkout.session.completed': {
           const session = event.data.object
           console.log('Checkout session completed:', session.id)
-          
+
+          // One-time credit pack purchase (mode=payment)
+          if (session.mode === 'payment') {
+            const meta = session.metadata || {}
+            const purchaseType = String(meta.purchase_type || '')
+            const userId = String(meta.supabase_user_id || '')
+            const priceKind = String(meta.price_kind || '')
+            const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+            const linePriceId = lineItems?.data?.[0]?.price?.id ? String(lineItems.data[0].price.id) : ''
+            const metaCredits = Number(meta.credit_amount) || 0
+            const priceId = linePriceId
+              || (priceKind === 'custom' && metaCredits > 0 ? customPriceIdForCredits(metaCredits) : '')
+            const creditAmount = metaCredits || getCreditAmountForPriceId(linePriceId) || 0
+
+            if (purchaseType === 'credit_pack' && userId && priceId && creditAmount > 0) {
+              const res = await fulfillCreditPackPurchase({
+                supabase,
+                userId,
+                stripeSessionId: session.id,
+                stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+                priceId,
+                creditsAmount: creditAmount,
+                amountCents: session.amount_total ?? null,
+                currency: session.currency ?? 'usd',
+              })
+
+              if (!res.ok) {
+                console.error('Credit pack fulfillment failed:', res.error)
+              } else {
+                console.log(`Credit pack fulfilled for ${userId}: +${creditAmount} credits (session=${session.id})`)
+              }
+            } else {
+              console.warn('Payment checkout completed but not a credit pack or missing metadata:', {
+                purchaseType,
+                userId,
+                priceId,
+                creditAmount,
+              })
+            }
+            break
+          }
+
           // Get customer email and subscription ID
           const customerEmail = session.customer_email || session.customer_details?.email
           const subscriptionId = session.subscription as string
