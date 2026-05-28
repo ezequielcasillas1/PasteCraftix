@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
-import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
+import { guardAiTexts } from "../_shared/ai_input_guard.ts"
+import type { AiWorkflowProvider, AiWorkflowPreset, ResolvedAiModels } from "../_shared/ai_workflow.ts"
+
+// Reasoning models (gpt-5-nano) sometimes return empty/unparseable content even
+// with a generous budget. This non-reasoning model honors JSON instructions
+// reliably and is the retry target when the primary parse fails.
+const JSON_RETRY_MODEL = 'gpt-4o-mini'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +35,96 @@ const levelPrompts: Record<string, string> = {
 
 const CODE_OR_URL_RE = /^(https?:\/\/|www\.|[a-z0-9._%+-]+@|[{[\(<]|```|<\/?[a-z])/i
 const STRUCTURED_RE = /^[\s]*[{[\]"]/ 
+
+// Max characters of each clip sent to the model. Long clips (verses, flashcards,
+// definitions) were previously cut at 500 chars, so only the opening fragment was
+// ever rewritten. Keep generous but bounded to control token cost.
+const PER_CLIP_INPUT_LIMIT = 4000
+
+const JSON_ESCAPES: Record<string, string> = {
+  n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', '"': '"', '\\': '\\', '/': '/',
+}
+
+/** Decode the backslash escape at `s[i]` (i points at the '\'). */
+function decodeEscape(s: string, i: number): { value: string; next: number } {
+  const code = s[i + 1]
+  if (code === 'u' && i + 5 < s.length) {
+    return { value: String.fromCharCode(parseInt(s.slice(i + 2, i + 6), 16)), next: i + 6 }
+  }
+  return { value: JSON_ESCAPES[code] ?? code, next: i + 2 }
+}
+
+/** Read one JSON string literal starting at the opening quote `s[start]`. */
+function readJsonString(s: string, start: number): { value: string; next: number; closed: boolean } {
+  let i = start + 1
+  let buf = ''
+  while (i < s.length) {
+    const ch = s[i]
+    if (ch === '\\' && i + 1 < s.length) {
+      const esc = decodeEscape(s, i)
+      buf += esc.value
+      i = esc.next
+    } else if (ch === '"') {
+      return { value: buf, next: i + 1, closed: true }
+    } else {
+      buf += ch
+      i++
+    }
+  }
+  return { value: buf, next: i, closed: false }
+}
+
+/** Decode a run of JSON string literals, tolerating a truncated final element. */
+function extractJsonStrings(s: string): string[] {
+  const out: string[] = []
+  let i = 0
+  while (i < s.length) {
+    if (s[i] !== '"') { i++; continue }
+    const token = readJsonString(s, i)
+    if (token.closed) out.push(token.value)
+    i = token.closed ? token.next : s.length
+  }
+  return out
+}
+
+/** Candidate substrings that might contain the JSON object. */
+function jsonCandidates(raw: string): string[] {
+  const attempts: string[] = [raw]
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fence) attempts.push(fence[1].trim())
+  const braceStart = raw.indexOf('{')
+  const braceEnd = raw.lastIndexOf('}')
+  if (braceStart >= 0 && braceEnd > braceStart) {
+    attempts.push(raw.slice(braceStart, braceEnd + 1))
+  }
+  return attempts
+}
+
+/** Parse one candidate string into the refactored array, or null. */
+function tryParseRefactoredJson(attempt: string): string[] | null {
+  try {
+    const parsed = JSON.parse(attempt)
+    if (Array.isArray(parsed?.refactored)) {
+      return parsed.refactored.map((t: unknown) => String(t ?? ''))
+    }
+  } catch (_) { /* not valid JSON */ }
+  return null
+}
+
+/** Parse {"refactored":[...]} from model output, salvaging truncated JSON. */
+function parseRefactoredArray(raw: string): string[] | null {
+  if (!raw) return null
+  for (const attempt of jsonCandidates(raw)) {
+    const parsed = tryParseRefactoredJson(attempt)
+    if (parsed) return parsed
+  }
+  const arrMatch = raw.match(/"refactored"\s*:\s*\[([\s\S]*)/)
+  if (arrMatch) {
+    const items = extractJsonStrings(arrMatch[1])
+    if (items.length) return items
+  }
+  return null
+}
 
 function similarityRatio(a: string, b: string): number {
   if (!a && !b) return 1
@@ -113,6 +209,29 @@ function buildDiagnostic(
   }
 }
 
+/** Call the model and parse {"refactored":[...]} from its content, or null. */
+async function requestRefactoredArray(
+  apiKey: string,
+  payload: Record<string, unknown>,
+  model: string,
+  models: ResolvedAiModels,
+): Promise<string[] | null> {
+  const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, model, models)
+  const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+  return parseRefactoredArray(raw)
+}
+
+/** Primary reasoning-model call with a reliable non-reasoning JSON retry. */
+async function refactorWithRetry(
+  apiKey: string,
+  payload: Record<string, unknown>,
+  models: ResolvedAiModels,
+): Promise<string[] | null> {
+  const primary = await requestRefactoredArray(apiKey, payload, models.chatTextModel, models)
+  if (primary && primary.length > 0) return primary
+  return requestRefactoredArray(apiKey, payload, JSON_RETRY_MODEL, models)
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -132,6 +251,16 @@ serve(async (req) => {
     const edgeLevel = levelPrompts[String(level || '')] ? String(level) : 'college'
     const batch = clips.slice(0, 30)
 
+    const guarded = await guardAiTexts(
+      gate.supabase,
+      gate.userId,
+      batch.map((c: { text?: string }) => String(c.text || '')),
+      'ai-refactor',
+      corsHeaders,
+      PER_CLIP_INPUT_LIMIT,
+    )
+    if (guarded instanceof Response) return guarded
+
     const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
       provider: 'openai',
       preset: 'cheapest',
@@ -139,41 +268,45 @@ serve(async (req) => {
     const models = resolveModelsFromWorkflow(cheapestWorkflow)
     const apiKey = getApiKeyForResolved(models)
 
-    const clipTexts = batch.map((c: { text?: string }, i: number) => {
-      const text = String(c.text || '').trim().slice(0, 500)
+    const clipTexts = batch.map((_c: { text?: string }, i: number) => {
+      const text = String(guarded.texts[i] || '').trim()
       return `[${i}]\n${text}\n[/${i}]`
     }).join('\n')
 
     const systemPrompt = levelPrompts[edgeLevel]
     const userPrompt = `Rewrite these ${batch.length} clipboard snippets:\n${clipTexts}`
 
+    // gpt-5-nano is a reasoning model: max_completion_tokens covers hidden
+    // reasoning AND visible output. A tiny budget (the old 80/clip formula) left
+    // nothing for the rewrite, so output came back empty/truncated and unparseable.
+    // Budget = estimated rewrite size + a reasoning buffer, bounded for cost.
+    const totalInputChars = guarded.texts.reduce(
+      (sum: number, t: string) => sum + String(t || '').trim().length,
+      0,
+    )
+    const outputTokenEstimate = Math.ceil(totalInputChars / 3)
+    const REASONING_BUFFER = 2000
+    const maxTokens = Math.min(16000, Math.max(1200, outputTokenEstimate + REASONING_BUFFER))
+
     const payload = {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: Math.min(2500, batch.length * 80 + 100),
+      max_tokens: maxTokens,
       temperature: 0.35,
+      // Force valid JSON output. The prompt already names "JSON" and the schema,
+      // which OpenAI requires to enable json_object mode. normalizeChatCompletion-
+      // Payload only touches max_tokens/temperature, so this passes through intact.
+      response_format: { type: 'json_object' },
     }
 
-    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
-
-    let parsed: { refactored?: unknown[] } | null = null
-    try {
-      parsed = JSON.parse(raw)
-    } catch (_) {
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        try { parsed = JSON.parse(jsonMatch[1].trim()) } catch (_) { parsed = null }
-      }
-    }
-
-    const parseOk = Array.isArray(parsed?.refactored)
-    const aiCount = parseOk ? parsed!.refactored!.length : 0
+    const parsedArr = await refactorWithRetry(apiKey, payload, models)
+    const parseOk = Array.isArray(parsedArr) && parsedArr.length > 0
+    const aiCount = parseOk ? parsedArr!.length : 0
 
     const refactored: string[] = parseOk
-      ? parsed!.refactored!.map((t: unknown) => String(t || '').trim())
+      ? parsedArr!.map((t: unknown) => String(t || '').trim())
       : []
 
     while (refactored.length < batch.length) {

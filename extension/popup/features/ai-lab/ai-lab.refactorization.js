@@ -30,6 +30,7 @@ export function activateRefactorizationSection(app) {
   document.querySelectorAll('.ai-lab-section').forEach((section) => section.classList.remove('active'));
   document.getElementById('aiRefactorizationSection')?.classList.add('active');
   app._currentAiLabSubTab = 'refactorization';
+  app._refactorizationSelected = new Set();
   app._saveActiveTabState();
   renderRefactorizationPanel.call(app);
 }
@@ -70,14 +71,11 @@ export function renderRefactorizationPanel() {
   }
 
   if (!app._refactorizationSelected) {
-    app._refactorizationSelected = new Set(eligible.map((c) => String(c.id)));
+    app._refactorizationSelected = new Set();
   } else {
     const validIds = new Set(eligible.map((c) => String(c.id)));
     for (const id of [...app._refactorizationSelected]) {
       if (!validIds.has(id)) app._refactorizationSelected.delete(id);
-    }
-    if (app._refactorizationSelected.size === 0) {
-      eligible.forEach((c) => app._refactorizationSelected.add(String(c.id)));
     }
   }
 

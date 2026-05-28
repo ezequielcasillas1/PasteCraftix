@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS public.ai_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id TEXT NOT NULL REFERENCES public.user_profiles(user_id) ON DELETE CASCADE,
     history_id BIGINT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('summary', 'breakdown')),
+    type TEXT NOT NULL CHECK (type IN ('summary', 'breakdown', 'refactorization')),
     title TEXT,
     threads JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

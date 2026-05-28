@@ -1,3 +1,8 @@
+### May 27, 2026 - AI history sync 400 ai_history_type_check
+**Status:** SUCCESS
+**Files:** db/migrations/20260521_refactor_tickets_and_ai_history_type.sql (applied to Supabase), db/supabase-schema.sql, extension/supabase/ai-history-sync.js
+**Result:** Client saved `type: refactorization` but production CHECK only allowed summary/breakdown. Applied missing migration; constraint now includes refactorization + refactor_tickets table.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

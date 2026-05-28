@@ -246,7 +246,7 @@ async aiRefactor(clips, level = 'college') {
     const url = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1/ai-refactor`;
     const body = {
       level: String(level || 'college'),
-      clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })),
+      clips: clips.map(c => ({ text: String(c.text || '').slice(0, 4000) })),
     };
 
     const response = await this._fetchWithTimeout(url, {
@@ -258,7 +258,7 @@ async aiRefactor(clips, level = 'college') {
           : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`,
       },
       body: JSON.stringify(body),
-    }, 30000, 'AI refactor timed out');
+    }, 60000, 'AI refactor timed out');
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

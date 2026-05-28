@@ -54,9 +54,6 @@ async syncClipsToSupabase(localClips) {
       return true;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert',message:'clips upsert attempt',data:{count:safeDbClips.length,columns:safeDbClips[0]?Object.keys(safeDbClips[0]):[]},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     const { error } = await this.client
       .from('clips')
       .upsert(safeDbClips, {
@@ -65,15 +62,9 @@ async syncClipsToSupabase(localClips) {
       });
 
     if (error) {
-      // #region agent log
-      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert-error',message:'clips upsert failed',data:{code:error.code,message:error.message},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
-      // #endregion
       throw error;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'96d59e'},body:JSON.stringify({sessionId:'96d59e',location:'sync-clips.js:upsert-ok',message:'clips upsert success',data:{count:safeDbClips.length},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     console.log(`✅ Synced ${safeDbClips.length} clips to Supabase`);
     return true;
   } catch (error) {
