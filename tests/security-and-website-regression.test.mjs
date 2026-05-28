@@ -83,7 +83,7 @@ describe('security hardening regressions', () => {
     assert.match(source, /T3_DAILY_UTC_HOUR = 15/);
 
     assert.match(migration, /cron_secret/);
-    assert.match(migration, /Bearer '\s*\|\|\s*settings\.cron_secret/);
+    assert.match(migration, /Bearer '\s*\|\|\s*(settings|s)\.cron_secret/);
     assert.doesNotMatch(migration, /Bearer '\s*\|\|\s*settings\.service_role_key/);
   });
 });
