@@ -8,6 +8,8 @@ import * as breakdown from './ai-lab.breakdown.js';
 import * as summaryModal from './ai-lab.summary-modal.js';
 import * as analysisHistory from './ai-lab.analysis-history.js';
 import * as refactorization from './ai-lab.refactorization.js';
+import * as creditPacks from './ai-lab.credit-packs.js';
+import * as announcements from './ai-lab.announcements.js';
 
 export function initAiLabFeature(_app) {
   return {
@@ -21,5 +23,7 @@ export function initAiLabFeature(_app) {
     summaryModal,
     analysisHistory,
     refactorization,
+    creditPacks,
+    announcements,
   };
 }

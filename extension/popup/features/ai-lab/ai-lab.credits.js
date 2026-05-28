@@ -88,6 +88,7 @@ export function _computeAiImageCreditsView(subscription) {
   const resetAt = _getResetAt(subscription, 'ai_image_credits_reset_at');
   const limit = _finiteNumberOrNaN(subscription.ai_image_credits_limit);
   const used = _finiteNumberOr(subscription.ai_image_credits_used, 0);
+  const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
   if (!Number.isFinite(limit) || limit <= 0) {
     const suffix = _resetSuffix(this, resetAt);
     return { state: 'pending', text: `Image credits: —${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
@@ -99,6 +100,7 @@ export function _computeAiImageCreditsView(subscription) {
     used,
     resetAt,
     titlePrefix: 'AI image credits remaining',
+    purchasedBalance,
   });
 }
 
@@ -113,6 +115,7 @@ export function _computeAiTextCreditsView(subscription) {
   const resetAt = _getResetAt(subscription, 'ai_text_credits_reset_at');
   const limit = _finiteNumberOrNaN(subscription.ai_text_credits_limit);
   const used = _finiteNumberOr(subscription.ai_text_credits_used, 0);
+  const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
   if (!Number.isFinite(limit) || limit <= 0) {
     return { state: 'unlimited', text: 'AI text credits: ∞', css: '', title: 'AI text credits are currently unlimited' };
   }
@@ -123,6 +126,7 @@ export function _computeAiTextCreditsView(subscription) {
     used,
     resetAt,
     titlePrefix: 'AI text credits remaining',
+    purchasedBalance,
   });
 }
 
@@ -159,6 +163,10 @@ export function updateAiCreditsPills(source = '') {
   if (textCosts) {
     textCosts.innerHTML = this._buildCreditCostHtml();
   }
+
+  this.aiLabFeature?.creditPacks?.refreshCreditPackBanner?.(this);
+  this.aiLabFeature?.announcements?.renderAnnouncementBanner?.(this);
+
   if (source) {
     try { console.log(`🎫 AI credits pills updated (${source})`); } catch (_) {}
   }
@@ -256,16 +264,19 @@ function _resetSuffix(app, resetAt) {
   return resetShort ? ` • resets ${resetShort}` : '';
 }
 
-function _buildCreditsView(app, { label, limit, used, resetAt, titlePrefix }) {
+function _buildCreditsView(app, { label, limit, used, resetAt, titlePrefix, purchasedBalance = 0 }) {
   const remaining = Math.max(0, limit - Math.max(0, used));
+  const purchased = Math.max(0, Number(purchasedBalance) || 0);
+  const totalRemaining = remaining + purchased;
   const resetShort = resetAt ? app._formatShortDate(resetAt) : null;
   const suffix = resetShort ? ` • resets ${resetShort}` : '';
-  const css = remaining <= 0 ? 'is-empty' : (remaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
+  const purchasedSuffix = purchased > 0 ? ` (+${purchased} purchased)` : '';
+  const css = totalRemaining <= 0 ? 'is-empty' : (totalRemaining <= Math.min(3, Math.floor(limit * 0.15)) ? 'is-low' : '');
   return {
     state: 'ok',
-    text: `${label}: ${remaining}/${limit}${suffix}`,
+    text: `${label}: ${totalRemaining}/${limit}${purchasedSuffix}${suffix}`,
     css,
-    title: `${titlePrefix}: ${remaining} of ${limit}${resetShort ? ` (resets ${resetShort})` : ''}`,
+    title: `${titlePrefix}: ${totalRemaining} of ${limit}${purchased > 0 ? ` (${purchased} purchased bonus)` : ''}${resetShort ? ` (resets ${resetShort})` : ''}`,
   };
 }
 
