@@ -12,12 +12,13 @@ Every `git commit` and `git push` must land on a **task branch whose name matche
 | Wrong | Why |
 |---|---|
 | Commit note-delete fix on `fix/activity-history-html-escape` | Branch topic ≠ diff topic; PR/review/history become misleading |
+| Clip delete fix on `feature/extension-safety-expiry-icons` | Unrelated open feature branch; fix must be `fix/clips-delete-resurrection` from `main` |
 | One branch named `ui` for weeks of mixed work | Cannot review, revert, or ship one change safely |
 | Push to `main` without explicit user approval | Breaks stable default branch policy |
 
 | Right | Example |
 |---|---|
-| Bug fix branch for bug fix work | `fix/notes-delete-persistence` |
+| Bug fix branch for bug fix work | `fix/notes-delete-persistence`, `fix/clips-delete-resurrection` |
 | Refactor branch for refactor work | `refactor/popup-events-extraction` |
 | Two focused branches when two unrelated ships | `fix/notes-delete` + `refactor/popup-event-listeners` |
 
@@ -45,8 +46,20 @@ git checkout -b fix/notes-delete-persistence   # example
 
 If work already exists on the wrong branch:
 
-- Create the correct branch from current HEAD: `git checkout -b fix/correct-topic`
-- Or move commits: cherry-pick onto new branches; leave the misnamed branch for user to delete after merge.
+- **Preferred:** cherry-pick the fix commit onto a new branch from `main`, then reset the wrong branch to remove the stray commit.
+- Create the correct branch from current HEAD only if the wrong branch has no unrelated commits you need to drop: `git checkout -b fix/correct-topic`
+- Recovery example (fix landed on wrong feature branch):
+
+```bash
+git stash push -m "wip"                    # if uncommitted work on wrong branch
+git checkout main && git pull
+git checkout -b fix/clips-delete-resurrection
+git cherry-pick <fix-commit-sha>
+git push -u origin fix/clips-delete-resurrection
+git checkout feature/wrong-branch
+git reset --hard <commit-before-fix>
+git push --force-with-lease origin feature/wrong-branch
+```
 
 Tell the user when a branch mismatch is detected **before** committing.
 
@@ -62,7 +75,7 @@ Tell the user when a branch mismatch is detected **before** committing.
 
 | Work in diff | Branch prefix | Example |
 |---|---|---|
-| Bug / regression | `fix/` | `fix/notes-delete-persistence` |
+| Bug / regression | `fix/` | `fix/notes-delete-persistence`, `fix/clips-delete-resurrection` |
 | New capability | `feat/` | `feat/activity-log-recover` |
 | Structure move, no behavior change | `refactor/` | `refactor/popup-events-extraction` |
 | Tests only | `test/` | `test/popup-events-smoke` |
