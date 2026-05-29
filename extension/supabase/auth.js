@@ -365,10 +365,11 @@ async getCurrentUser() {
       const res = await chrome.storage.local.get([this._sessionBridgeKey]);
       const payload = res?.[this._sessionBridgeKey] || null;
       const userId = payload?.user_id ? String(payload.user_id) : '';
+      const bridgeAccess = payload?.access_token ? String(payload.access_token) : '';
       const expiresAt = typeof payload?.expires_at === 'number' ? payload.expires_at : null; // seconds since epoch
       const nowSec = Math.floor(Date.now() / 1000);
       const notExpired = !expiresAt || expiresAt > (nowSec + 30);
-      if (userId && notExpired) {
+      if (userId && bridgeAccess && notExpired) {
         return { id: userId, email: payload?.email ? String(payload.email) : '' };
       }
     } catch (_) {}

@@ -35,7 +35,11 @@ async hasActiveAuthSession() {
   if (!this.client) return false;
   try {
     const { data: { session } } = await this.client.auth.getSession();
-    return !!(session?.access_token && session?.user?.id);
+    const expSec = typeof session?.expires_at === 'number' ? session.expires_at : Number(session?.expires_at);
+    const tokenFresh = Number.isFinite(expSec)
+      ? (expSec * 1000) - Date.now() >= 60000
+      : false;
+    return !!(session?.access_token && session?.user?.id && tokenFresh);
   } catch (_) {
     return false;
   }

@@ -109,14 +109,20 @@ function _withTimeout(promise, ms) {
   ]);
 }
 
-async function _hasExistingSession() {
+async function _readClientSession() {
   try {
     const existing = await _withTimeout(pasteCraftSupabase.client.auth.getSession(), AUTH_TIMEOUT_MS);
-    const sess = (existing && existing.data && existing.data.session) || null;
-    return !!(sess && sess.user && sess.user.id);
+    return (existing && existing.data && existing.data.session) || null;
   } catch (_) {
-    return false;
+    return null;
   }
+}
+
+function _sessionIsUsable(session) {
+  if (!session?.access_token || !session?.user?.id) return false;
+  const expSec = typeof session.expires_at === 'number' ? session.expires_at : Number(session.expires_at);
+  if (!Number.isFinite(expSec)) return false;
+  return (expSec * 1000) - Date.now() >= AUTH_TOKEN_REFRESH_BUFFER_MS;
 }
 
 function _accessTokenNeedsRefresh(accessToken, expiresAt) {
@@ -169,10 +175,15 @@ export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') 
     const refreshToken = String(bridge.refresh_token || '');
     if (!refreshToken) return false;
 
-    if (await _hasExistingSession()) return true;
-
+    const currentSession = await _readClientSession();
     const accessToken = await _resolveAccessToken(app, bridge, refreshToken);
     if (!accessToken) return false;
+
+    const sessionUsable = _sessionIsUsable(currentSession);
+    const sameAccessToken = sessionUsable
+      && String(currentSession.access_token) === String(accessToken);
+
+    if (sameAccessToken) return true;
 
     const result = await _setSession(accessToken, refreshToken);
     return !(result && result.error);
