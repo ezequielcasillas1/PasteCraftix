@@ -1,3 +1,8 @@
+### May 29, 2026 - Clips page delete resurrected by Supabase realtime
+**Status:** SUCCESS
+**Files:** extension/popup/features/clips/clips.service.js
+**Result:** Local delete worked but missing tombstones/IDB purge/server soft-delete let realtime merge restore clips. Added pc_deleted_clips tombstones, IDB hard-delete, syncDeletedClips queue. User verified.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

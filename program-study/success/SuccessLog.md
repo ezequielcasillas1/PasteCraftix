@@ -1,3 +1,9 @@
+### May 29, 2026 - Clips page delete resurrection fix
+**Status:** SUCCESS
+**Commit:** 86782ce on fix/clips-delete-resurrection
+**Files:** extension/popup/features/clips/clips.service.js
+**Result:** Clip deletes wrote local storage only; Supabase realtime re-hydrated deleted rows (258→254→258). Added tombstones (pc_deleted_clips), IDB hard-delete, and syncDeletedClips soft-delete queue. Verified: count stays 254 after realtime echo. User verified.
+
 ### May 22, 2026 - Widget lazy popup warm + offline banner contention fix
 **Status:** SUCCESS
 **Commit:** TBD on main

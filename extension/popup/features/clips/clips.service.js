@@ -21,9 +21,14 @@ function createDeleteState(app, ids, includeArchived, crud) {
   const { active, archived } = getStoredClipArrays(app);
   const nextClips = active.filter(c => !idSet.has(getClipIdKey(c?.id)));
   const nextArchived = includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived;
+  const deletedActive = active.filter(c => idSet.has(getClipIdKey(c?.id)));
+  const deletedArchived = includeArchived ? archived.filter(c => idSet.has(getClipIdKey(c?.id))) : [];
 
   return {
     idSet,
+    deletedAt: Date.now(),
+    deletedActive,
+    deletedArchived,
     beforeActive: active.length,
     beforeArchived: archived.length,
     nextClips,
@@ -33,6 +38,47 @@ function createDeleteState(app, ids, includeArchived, crud) {
       searchOnlyClips: crud.createSnapshot(app.searchOnlyClips),
     },
   };
+}
+
+async function appendClipTombstones(storageKey, deletedClips, deletedAt) {
+  if (!Array.isArray(deletedClips) || deletedClips.length === 0) return;
+  try {
+    const existing = await new Promise((resolve) => {
+      chrome.storage.local.get([storageKey], (res) => resolve(res || {}));
+    });
+    const prev = Array.isArray(existing[storageKey]) ? existing[storageKey] : [];
+    const known = new Set(prev.map(t => String(t?.id ?? '')));
+    const additions = deletedClips
+      .map(c => getClipIdKey(c?.id))
+      .filter(id => id && !known.has(id))
+      .map(id => ({ id, deletedAt, updatedAt: deletedAt }));
+    if (additions.length === 0) return;
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [storageKey]: [...prev, ...additions] }, resolve);
+    });
+  } catch (tombErr) {
+    console.warn('⚠️ Clip tombstone write failed:', tombErr?.message || tombErr);
+  }
+}
+
+async function hardDeleteClipsFromIdb(deletedActive) {
+  const idb = (typeof window !== 'undefined') ? window.pasteCraftIndexedDB : null;
+  if (!idb || typeof idb.deleteByIds !== 'function') return;
+  const ids = (deletedActive || []).map(c => getClipIdKey(c?.id)).filter(Boolean);
+  if (ids.length === 0) return;
+  try {
+    await idb.deleteByIds('clips', ids);
+  } catch (idbErr) {
+    console.warn('⚠️ IDB hard-delete failed for clips (chrome.storage delete succeeded):', idbErr?.message || idbErr);
+  }
+}
+
+async function recordClipDeletions(state, includeArchived) {
+  await appendClipTombstones(CLIPS_STORAGE_KEYS.DELETED_ACTIVE, state.deletedActive, state.deletedAt);
+  if (includeArchived) {
+    await appendClipTombstones(CLIPS_STORAGE_KEYS.DELETED_ARCHIVED, state.deletedArchived, state.deletedAt);
+  }
+  await hardDeleteClipsFromIdb(state.deletedActive);
 }
 
 function containsDeletedClipId(clips, idSet) {
@@ -91,16 +137,33 @@ function clearDeletedClipSelections(app, ids) {
   app.selectedCategoryClips.clear();
 }
 
-function syncDeletedClipState(app, includeArchived) {
+function syncDeletedClipState(app, includeArchived, state) {
+  const stampDeleted = (clips) => (Array.isArray(clips) ? clips : [])
+    .map(c => ({ ...c, deletedAt: state?.deletedAt || Date.now() }));
+
   Promise.resolve()
     .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ACTIVE, app.clips, pasteCraftSupabase.syncClipsToSupabase))
     .catch(() => {});
+
+  const deletedActive = stampDeleted(state?.deletedActive);
+  if (deletedActive.length > 0) {
+    Promise.resolve()
+      .then(() => pasteCraftSupabase.syncWithQueue('syncDeletedClips', deletedActive, pasteCraftSupabase.syncDeletedClipsToSupabase))
+      .catch(() => {});
+  }
 
   if (!includeArchived) return;
 
   Promise.resolve()
     .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ARCHIVED, app.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
     .catch(() => {});
+
+  const deletedArchived = stampDeleted(state?.deletedArchived);
+  if (deletedArchived.length > 0) {
+    Promise.resolve()
+      .then(() => pasteCraftSupabase.syncWithQueue('syncDeletedArchivedClips', deletedArchived, pasteCraftSupabase.syncDeletedArchivedClipsToSupabase))
+      .catch(() => {});
+  }
 }
 
 function getDeletionResult(state, app, includeArchived, reason) {
@@ -125,6 +188,8 @@ async function applyClipDeletion(app, crud, state, options) {
   if (!(await verifyDeletedClipIds(state.idSet, includeArchived))) {
     throw new Error('Verification failed: clips still exist in storage');
   }
+
+  await recordClipDeletions(state, includeArchived);
 
   if (clearSelection) clearDeletedClipSelections(app, ids);
   if (closeCategoryModal) app.hideCategoryModal();
@@ -153,7 +218,7 @@ export async function deleteClipsByIdKeys(app, idKeys, {
         rerender,
         ids,
       });
-      syncDeletedClipState(app, includeArchived);
+      syncDeletedClipState(app, includeArchived, state);
       return getDeletionResult(state, app, includeArchived, reason);
     } catch (error) {
       console.error('❌ Clip deletion failed, rolling back:', error);
