@@ -1,3 +1,5 @@
+import { filterTombstonedClips, loadDeletedClipIdSets } from '../../shared/clip-tombstones.js';
+
 function isExtensionContextValid() {
   try {
     return Boolean(chrome?.runtime?.id);
@@ -17,13 +19,18 @@ export async function fetchRawData(app) {
   }
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  const deletedIds = await loadDeletedClipIdSets();
+  clips = filterTombstonedClips(clips, deletedIds.active);
+  searchOnlyClips = filterTombstonedClips(searchOnlyClips, deletedIds.archived);
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
+    if (Array.isArray(idbClips) && idbClips.length > 0) {
+      clips = filterTombstonedClips(idbClips, deletedIds.active);
+    }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
   }
   return { clips, categories, searchOnlyClips };

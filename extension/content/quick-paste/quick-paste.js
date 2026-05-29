@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { recordClipDeletions } from '../../shared/clip-tombstones.js';
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 
 export class QuickPasteInterface {
@@ -2470,6 +2471,10 @@ export class QuickPasteInterface {
 
       // Persist once
       await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+
+      try {
+        await recordClipDeletions({ active: clip ? [clip] : [], archived: [] });
+      } catch (_) {}
 
       // Update UI
       this.updateInterface();

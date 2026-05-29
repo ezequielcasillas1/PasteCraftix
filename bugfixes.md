@@ -1,3 +1,8 @@
+### May 29, 2026 - Deleted clips resurrecting after Quick View / sync
+**Status:** Fixed (unit tests)
+**Files:** shared/clip-tombstones.js, clips.service.js, sync.loader.js, widget.js, quick-paste.js, background/shared.js
+**Result:** Clip deletes skipped `pc_deleted_clips` tombstones and `syncDeletedClips`; full sync/IDB reload merged remote or stale IDB rows back. Deletes now tombstone, queue soft-delete, filter on load, and hard-delete IDB in popup path.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

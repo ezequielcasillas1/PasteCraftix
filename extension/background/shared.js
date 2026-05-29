@@ -1,5 +1,7 @@
 // PasteCraft Background Script
 
+import { filterTombstonedClips, loadDeletedClipIdSets } from '../shared/clip-tombstones.js';
+
 export function isRepoLoaderBuild() {
   try {
     const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
@@ -126,14 +128,25 @@ export async function readIndexedDbPayloads(storeName) {
 }
 
 export async function getQuickViewClips() {
-  const [storage, idbClips] = await Promise.all([
+  const [storage, idbClips, deletedIds] = await Promise.all([
     chrome.storage.local.get(['clips', 'searchOnlyClips']),
-    readIndexedDbPayloads('clips')
+    readIndexedDbPayloads('clips'),
+    loadDeletedClipIdSets(),
   ]);
 
-  const localActive = Array.isArray(storage?.clips) ? storage.clips : [];
-  const active = Array.isArray(idbClips) && idbClips.length > 0 ? idbClips : localActive;
-  const archived = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
+  const localActive = filterTombstonedClips(
+    Array.isArray(storage?.clips) ? storage.clips : [],
+    deletedIds.active,
+  );
+  const idbFiltered = filterTombstonedClips(
+    Array.isArray(idbClips) ? idbClips : [],
+    deletedIds.active,
+  );
+  const active = idbFiltered.length > 0 ? idbFiltered : localActive;
+  const archived = filterTombstonedClips(
+    Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [],
+    deletedIds.archived,
+  );
 
   const merged = [
     ...active.map((clip, index) => normalizeQuickViewClip(clip, index, 'active')).filter(Boolean),

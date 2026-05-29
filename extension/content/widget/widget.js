@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { recordClipDeletions } from '../../shared/clip-tombstones.js';
 import { createClosedShadowHost, injectShadowStyles } from '../safety/shadow-host.js';
 
 export class PasteCraftFloatingWidget {
@@ -2871,26 +2872,29 @@ export class PasteCraftFloatingWidget {
         const clipIdKey = String(e.data.clipId || '');
         const isArchived = e.data.archived === true;
 
-        chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
+        chrome.storage.local.get(['clips', 'searchOnlyClips'], async (result) => {
           const clips = Array.isArray(result?.clips) ? result.clips : [];
           const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+          const matchId = (c) => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') === clipIdKey;
+          const filterOutById = (arr) => arr.filter((c) => !matchId(c));
 
-          const filterOutById = (arr) => arr.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== clipIdKey);
-
+          let deletedActive = [];
+          let deletedArchived = [];
           let nextClips = clips;
           let nextArchived = archived;
 
           if (clipIdKey) {
             if (isArchived) {
+              deletedArchived = archived.filter(matchId);
               nextArchived = filterOutById(archived);
             } else {
+              deletedActive = clips.filter(matchId);
               nextClips = filterOutById(clips);
             }
           }
 
           // If we couldn't delete by id (legacy/missing), fall back to index within the merged view:
-          // recompute merged list, find target at index, then delete from correct source.
-          const idDeleteWorked = (isArchived ? nextArchived.length !== archived.length : nextClips.length !== clips.length);
+          const idDeleteWorked = deletedActive.length > 0 || deletedArchived.length > 0;
           if (!idDeleteWorked && Number.isFinite(e.data.index)) {
             const idx = parseInt(e.data.index, 10);
             if (!Number.isNaN(idx) && idx >= 0) {
@@ -2901,12 +2905,20 @@ export class PasteCraftFloatingWidget {
 
               const target = merged[idx];
               if (target && target.source === 'archived') {
+                const full = archived.find((c) => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') === String(target.id));
+                if (full) deletedArchived = [full];
                 nextArchived = archived.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
               } else if (target && target.source === 'active') {
+                const full = clips.find((c) => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') === String(target.id));
+                if (full) deletedActive = [full];
                 nextClips = clips.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
               }
             }
           }
+
+          try {
+            await recordClipDeletions({ active: deletedActive, archived: deletedArchived });
+          } catch (_) {}
 
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {
