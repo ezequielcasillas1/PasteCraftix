@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
-import { AI_INPUT_MAX_CHARS, enrichShortInputMeaning, buildKnowledgeContext } from "../_shared/knowledge_enrichment.ts"
+import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,37 +40,21 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const { text, level } = body || {}
-    const rawText = String(text || '').trim()
 
-    if (!rawText) {
+    if (!text) {
       throw new Error('Text is required')
     }
-    if (rawText.length > AI_INPUT_MAX_CHARS) {
-      throw new Error(`Input exceeds the ${AI_INPUT_MAX_CHARS} character limit`)
-    }
-
-    const enrichment = await enrichShortInputMeaning(rawText)
-    if (!enrichment.isMeaningful) {
-      return new Response(
-        JSON.stringify({ error: enrichment.message || 'Meaningful input is required.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
-      )
-    }
-    const knowledgeContext = buildKnowledgeContext(enrichment.normalizedInput, enrichment.signals)
 
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
     const apiKey = getApiKeyForResolved(models)
 
     const systemPrompt = levelPrompts[level] || levelPrompts['college']
-    const userPrompt = knowledgeContext
-      ? `Please explain this text.\n\nText:\n${rawText}\n\n${knowledgeContext}`
-      : `Please explain this text:\n\n${rawText}`
 
     const payload = {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: `Please explain this text:\n\n${text}` }
       ],
       max_tokens: 2000,
       temperature: 0.7

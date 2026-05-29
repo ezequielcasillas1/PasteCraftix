@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
-import { AI_INPUT_MAX_CHARS, enrichShortInputMeaning, buildKnowledgeContext } from "../_shared/knowledge_enrichment.ts"
+import type { TextCreditGate } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,27 +20,9 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const { text, question, generateQuestions } = body || {}
 
-    const rawText = String(text || '').trim()
-    const rawQuestion = String(question || '').trim()
-
-    if (!rawText) {
+    if (!text) {
       throw new Error('Text is required')
     }
-    if (rawText.length > AI_INPUT_MAX_CHARS) {
-      throw new Error(`Input exceeds the ${AI_INPUT_MAX_CHARS} character limit`)
-    }
-    if (rawQuestion.length > AI_INPUT_MAX_CHARS) {
-      throw new Error(`Question exceeds the ${AI_INPUT_MAX_CHARS} character limit`)
-    }
-
-    const enrichment = await enrichShortInputMeaning(rawText)
-    if (!enrichment.isMeaningful) {
-      return new Response(
-        JSON.stringify({ error: enrichment.message || 'Meaningful input is required.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 422 }
-      )
-    }
-    const knowledgeContext = buildKnowledgeContext(enrichment.normalizedInput, enrichment.signals)
 
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
@@ -61,20 +43,14 @@ FORMATTING RULES (strict):
 - Be detailed but minimal. Every sentence should add value.`
 
     if (generateQuestions) {
-      systemPrompt = `You are a helpful assistant. Generate 4 short, insightful questions that help the user understand the provided input. Return ONLY the questions, one per line, no numbering or bullets.${formatRules}`
-      userPrompt = knowledgeContext
-        ? `Generate 4 questions using this input and knowledge context.\n\nInput:\n${rawText}\n\n${knowledgeContext}`
-        : `Generate 4 questions about this text:\n\n${rawText}`
-    } else if (rawQuestion) {
+      systemPrompt = `You are a helpful assistant. Generate 4 short, insightful questions about the provided text. Return ONLY the questions, one per line, no numbering or bullets.${formatRules}`
+      userPrompt = `Generate 4 questions about this text:\n\n${text}`
+    } else if (question) {
       systemPrompt = `You are a helpful assistant. Answer the question based on the provided text. Be concise but thorough.${formatRules}`
-      userPrompt = knowledgeContext
-        ? `Text: ${rawText}\n\n${knowledgeContext}\n\nQuestion: ${rawQuestion}`
-        : `Text: ${rawText}\n\nQuestion: ${rawQuestion}`
+      userPrompt = `Text: ${text}\n\nQuestion: ${question}`
     } else {
       systemPrompt = `You are a helpful assistant. Provide a clear, concise summary of the text.${formatRules}`
-      userPrompt = knowledgeContext
-        ? `Summarize this input.\n\nInput:\n${rawText}\n\n${knowledgeContext}`
-        : `Summarize this text:\n\n${rawText}`
+      userPrompt = `Summarize this text:\n\n${text}`
     }
 
     const payload = {
