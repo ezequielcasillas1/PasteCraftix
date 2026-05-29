@@ -111,13 +111,17 @@ export function _computeAiTextCreditsView(subscription) {
   if (!_hasAiCreditsEntitlement(subscription)) {
     return { state: 'no_access', text: 'AI text credits: 0', css: 'is-empty', title: 'Upgrade to access AI text features' };
   }
+  if (_hasUnlimitedAi(subscription)) {
+    return { state: 'unlimited', text: 'AI text credits: ∞', css: '', title: 'Unlimited AI text credits' };
+  }
 
   const resetAt = _getResetAt(subscription, 'ai_text_credits_reset_at');
   const limit = _finiteNumberOrNaN(subscription.ai_text_credits_limit);
   const used = _finiteNumberOr(subscription.ai_text_credits_used, 0);
   const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
   if (!Number.isFinite(limit) || limit <= 0) {
-    return { state: 'unlimited', text: 'AI text credits: ∞', css: '', title: 'AI text credits are currently unlimited' };
+    const suffix = _resetSuffix(this, resetAt);
+    return { state: 'pending', text: `AI text credits: —${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
   }
 
   return _buildCreditsView(this, {

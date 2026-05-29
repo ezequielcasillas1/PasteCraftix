@@ -16,10 +16,6 @@ import { getCreditPackBannerElements } from './ai-lab.selectors.js';
 
 
 
-const LOW_CREDIT_THRESHOLD = 500;
-
-
-
 function _hasPremiumAiAccess(subscription) {
 
   if (!subscription) return false;
@@ -44,35 +40,12 @@ function _hasPremiumAiAccess(subscription) {
 
 
 
-function _computeTotalRemaining(subscription) {
-
-  if (!subscription || subscription.has_unlimited_ai === true) return Number.POSITIVE_INFINITY;
-
-
-
-  const textLimit = Number(subscription.ai_text_credits_limit);
-
-  const textUsed = Number(subscription.ai_text_credits_used) || 0;
-
-  const imageLimit = Number(subscription.ai_image_credits_limit);
-
-  const imageUsed = Number(subscription.ai_image_credits_used) || 0;
-
-  const purchased = Number(subscription.ai_purchased_credits_balance) || 0;
-
-
-
-  const textRemaining = Number.isFinite(textLimit) ? Math.max(0, textLimit - Math.max(0, textUsed)) : 0;
-
-  const imageRemaining = Number.isFinite(imageLimit) ? Math.max(0, imageLimit - Math.max(0, imageUsed)) : 0;
-
-
-
-  return Math.max(textRemaining, imageRemaining) + Math.max(0, purchased);
-
+/** Matches create-checkout requireCreditPurchaseEligibility — who may open Stripe. */
+export function canPurchaseCreditPacks(subscription) {
+  if (!subscription) return false;
+  if (subscription.has_unlimited_ai === true) return false;
+  return _hasPremiumAiAccess(subscription);
 }
-
-
 
 function _updateCustomPreview(elements) {
 
@@ -111,15 +84,7 @@ function _updateCustomPreview(elements) {
 
 
 export function shouldShowCreditPackBanner(subscription) {
-
-  if (!_hasPremiumAiAccess(subscription)) return false;
-
-  if (subscription?.has_unlimited_ai === true) return false;
-
-  const total = _computeTotalRemaining(subscription);
-
-  return Number.isFinite(total) && total <= LOW_CREDIT_THRESHOLD;
-
+  return canPurchaseCreditPacks(subscription);
 }
 
 
