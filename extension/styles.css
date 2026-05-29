@@ -1604,6 +1604,104 @@ body {
   color: #fff;
 }
 
+/* Craft power toggle: Regular ⟷ Super (blue + gold palette) */
+.craft-power-row {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06) 0%, rgba(245, 158, 11, 0.06) 100%);
+}
+.craft-power-row.craft-power-on {
+  border-color: rgba(217, 119, 6, 0.55);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(245, 158, 11, 0.16) 100%);
+}
+.craft-power-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.craft-power-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.craft-power-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.craft-power-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: #94a3b8;
+  transition: background 0.2s ease;
+}
+.craft-power-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+.craft-power-switch-input:checked + .craft-power-track {
+  background: linear-gradient(135deg, #2563eb 0%, #f59e0b 100%);
+}
+.craft-power-switch-input:checked + .craft-power-track .craft-power-thumb {
+  transform: translateX(18px);
+}
+.craft-power-switch-input:focus-visible + .craft-power-track {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.craft-power-switch-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+.craft-power-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.craft-power-mode {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+.craft-power-mode[data-power="super"] {
+  border-color: rgba(217, 119, 6, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+.craft-power-mode.active {
+  box-shadow: 0 0 0 1px currentColor inset;
+}
+.craft-power-mode[data-power="regular"].active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+}
+.craft-power-mode[data-power="super"].active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+}
+
 .pc-refactor-badge {
   display: inline-block;
   margin-right: 6px;
@@ -2566,6 +2664,65 @@ body {
 
 .btn-skip-freemium:active {
   transform: translateY(0);
+}
+
+.btn-local-test-account {
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px 18px;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 2px solid #FCD34D;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  color: #92400E;
+}
+
+.btn-local-test-account:hover {
+  border-color: #F59E0B;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.18);
+}
+
+.local-test-account-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #FCD34D;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  color: #92400E;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.local-test-account-banner[hidden] {
+  display: none !important;
+}
+
+.local-test-exit {
+  flex-shrink: 0;
+  border: 1px solid #F59E0B;
+  background: #fff;
+  color: #92400E;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.local-test-exit:hover {
+  background: #FEF3C7;
 }
 
 .skip-disclaimer {

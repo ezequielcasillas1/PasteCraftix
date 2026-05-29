@@ -1,5 +1,9 @@
 import { AUTH_ELEMENT_IDS, AUTH_STORAGE_KEYS, AUTH_TAB_SELECTOR } from './auth.constants.js';
 import {
+  bindLocalTestAccountUi,
+  applyLocalTestAccountBanner,
+} from './local-test-account.js';
+import {
   getAuthModal,
   getSigninForm,
   getSignupForm,
@@ -440,6 +444,7 @@ function _bindSignOutButton(app) {
 export function setupAuthModalEvents(app) {
   console.log('🔧 Setting up auth modal event listeners...');
   Promise.resolve().then(() => app.applyAuthPrefsToUi()).catch(() => {});
+  applyLocalTestAccountBanner();
 
   _bindAuthTabSwitcher(app);
   _bindPasswordStrengthIndicator(app);
@@ -448,6 +453,7 @@ export function setupAuthModalEvents(app) {
   _bindSignUpHandlers(app);
   _bindGoogleAuthHandlers(app);
   _bindFreemiumSkip(app);
+  bindLocalTestAccountUi(app);
   _bindForgotPasswordFlow(app);
   _bindNewPasswordFlow(app);
   _bindCloseAppButton(app);

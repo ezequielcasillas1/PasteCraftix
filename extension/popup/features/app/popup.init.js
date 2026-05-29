@@ -1,6 +1,12 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
 import { initializeAllPopupFeatures } from './popup.features.js';
+import {
+  applyLocalTestAccountBanner,
+  bindLocalTestAccountUi,
+  initLocalTestAccountPopup,
+  isLocalTestAccountActive,
+} from '../auth/local-test-account.js';
 
 export async function runPopupInit(app) {
   console.log('🚀 Initializing PasteCraft popup...');
@@ -8,6 +14,11 @@ export async function runPopupInit(app) {
 
   app.setupAuthModalEvents();
   app._setupSupportFormEvents();
+
+  if (await isLocalTestAccountActive()) {
+    await initLocalTestAccountPopup(app);
+    return;
+  }
 
   let isLocalGuest = false;
   try {
@@ -25,6 +36,7 @@ export async function runPopupInit(app) {
     await Promise.all([app.loadData(), app.loadSettings()]);
     app.updateTopBarIdentity();
     await app.setupEventListeners();
+    bindLocalTestAccountUi(app);
     app.renderChips();
     app.updateLastCapture();
     app.updatePreview();
@@ -32,6 +44,7 @@ export async function runPopupInit(app) {
     app.updateCategoryFilter();
     app.hideLoadingOverlay();
     app.setupVisibilityListener();
+    applyLocalTestAccountBanner();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
     return;
   }
@@ -163,6 +176,8 @@ export async function runPopupInit(app) {
   app.setupVisibilityListener();
   app.setupRealtimeListeners();
   app.setupSyncStatusListeners();
+  bindLocalTestAccountUi(app);
+  applyLocalTestAccountBanner();
 
   console.log('? PasteCraft popup initialized successfully');
 }

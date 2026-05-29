@@ -1,6 +1,10 @@
 export const AUTH_STORAGE_KEYS = Object.freeze({
   SUPABASE_SESSION: 'pc_supabase_session_v1',
   FREEMIUM_GUEST: 'pc_freemium_guest',
+  LOCAL_TEST_ACCOUNT: 'pc_local_test_account_v1',
+  /** @deprecated use LOCAL_TEST_ACCOUNT */
+  FREEMIUM_TEST_SANDBOX: 'pc_freemium_test_sandbox_v1',
+  SANDBOX_BACKUP: 'pc_sandbox_backup_v1',
   AUTH_PREFS: 'pc_auth_prefs_v1',
   OAUTH_CALLBACK: 'oauth_callback',
   PASSWORD_RESET_CALLBACK: 'password_reset_callback',
@@ -21,6 +25,9 @@ export const AUTH_ELEMENT_IDS = Object.freeze({
   GOOGLE_SIGNIN_BTN: 'googleSigninBtn',
   GOOGLE_SIGNUP_BTN: 'googleSignupBtn',
   SKIP_FREEMIUM_BTN: 'skipToFreemiumBtn',
+  ENTER_LOCAL_TEST_ACCOUNT_BTN: 'enterLocalTestAccountBtn',
+  EXIT_LOCAL_TEST_ACCOUNT_BTN: 'exitLocalTestAccountBtn',
+  LOCAL_TEST_ACCOUNT_BANNER: 'localTestAccountBanner',
   RESEND_VERIFICATION_LINK: 'resendVerificationLink',
   FORGOT_PASSWORD_LINK: 'forgotPasswordLink',
   CANCEL_RESET_BTN: 'cancelResetBtn',

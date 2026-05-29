@@ -5303,9 +5303,182 @@
         
         .ai-lab-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             padding-bottom: 16px;
             border-bottom: 2px solid #f1f5f9;
+        }
+
+        .ai-lab-banner-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ai-lab-announcement-banner,
+        .ai-lab-credit-pack-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .ai-lab-announcement-banner[hidden],
+        .ai-lab-credit-pack-banner[hidden] {
+            display: none !important;
+        }
+
+        .ai-lab-credit-pack-banner {
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 10px;
+            border: 1px solid #bfdbfe;
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(135deg, #eff6ff 0%, #f5f9ff 55%, #fef9ec 100%);
+            color: #1e3a8a;
+            box-shadow: 0 1px 2px rgba(30, 58, 138, 0.06);
+        }
+
+        .ai-lab-credit-pack-banner strong {
+            display: block;
+            font-size: 12.5px;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-pack-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ai-lab-credit-pack-btn {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            min-width: 96px;
+            border: 1px solid #bfdbfe;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+        }
+
+        .ai-lab-credit-pack-btn:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.18);
+        }
+
+        .ai-lab-credit-pack-btn:active {
+            transform: translateY(1px);
+        }
+
+        .ai-lab-credit-pack-amount {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-pack-price {
+            font-size: 14px;
+            font-weight: 800;
+            color: #b45309;
+            line-height: 1;
+        }
+
+        .ai-lab-credit-custom {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #cdddf7;
+        }
+
+        .ai-lab-credit-custom label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-custom-input {
+            width: 76px;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 5px 8px;
+            font-size: 12px;
+            color: #1e3a8a;
+            background: #ffffff;
+        }
+
+        .ai-lab-credit-custom-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .ai-lab-credit-custom-preview {
+            font-size: 11px;
+            font-weight: 600;
+            color: #475e8c;
+            flex: 1 1 140px;
+        }
+
+        .ai-lab-credit-custom-buy {
+            border: none;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(29, 78, 216, 0.3);
+            transition: box-shadow 0.15s ease, filter 0.15s ease;
+        }
+
+        .ai-lab-credit-custom-buy:hover:not(:disabled) {
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
+            filter: brightness(1.05);
+        }
+
+        .ai-lab-credit-custom-buy:disabled {
+            background: #cbd5e1;
+            color: #f1f5f9;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .ai-lab-announcement-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .ai-lab-announcement-link {
+            color: #1d4ed8;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .ai-lab-announcement-dismiss {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 2px;
         }
         
         .ai-lab-title {
@@ -9031,6 +9204,11 @@
     </div>
     
     <div class="popup-container">
+        <!-- Local test account banner (hidden by default) -->
+        <div id="localTestAccountBanner" class="local-test-account-banner" hidden>
+            <span class="local-test-label">Local test account — demo clips, free tier, no cloud</span>
+            <button type="button" class="local-test-exit" id="exitLocalTestAccountBtn">Exit & restore my clips</button>
+        </div>
         <!-- Top Bar Section (Profile & Sign Out) -->
         <div id="topBar" class="top-bar" style="display: none;">
             <div id="topLeftProfileImage" class="top-bar-profile">
@@ -9493,6 +9671,26 @@
                                 <span class="tip-divider"></span>
                                 Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits.
                             </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-lab-banner-stack">
+                    <div class="ai-lab-announcement-banner" id="aiLabAnnouncementBanner" hidden>
+                        <span id="aiLabAnnouncementMessage"></span>
+                        <span class="ai-lab-announcement-actions">
+                            <a class="ai-lab-announcement-link" id="aiLabAnnouncementLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Learn more</a>
+                            <button type="button" class="ai-lab-announcement-dismiss" data-action="dismiss-announcement" aria-label="Dismiss announcement">&times;</button>
+                        </span>
+                    </div>
+                    <div class="ai-lab-credit-pack-banner" id="aiLabCreditPackBanner" hidden>
+                        <strong>Want to buy more credits?</strong>
+                        <div class="ai-lab-credit-pack-buttons" id="aiLabCreditPackButtons"></div>
+                        <div class="ai-lab-credit-custom">
+                            <label for="aiLabCreditCustomAmount">Custom credits</label>
+                            <input type="number" class="ai-lab-credit-custom-input" id="aiLabCreditCustomAmount" data-field="credit-custom-amount" min="25" step="1" placeholder="25" />
+                            <span class="ai-lab-credit-custom-preview" id="aiLabCreditCustomPreview"></span>
+                            <button type="button" class="ai-lab-credit-custom-buy" id="aiLabCreditCustomBuy" data-action="buy-custom-credit-pack" disabled>Buy</button>
                         </div>
                     </div>
                 </div>
@@ -10374,6 +10572,22 @@ Multiple clips are separated by:
                 <div class="craft-clips-settings" id="craftClipsSettings">
                     <label class="craft-setting-row"><input type="checkbox" id="craftClipsCategorizeToggle" checked> Smart categorize</label>
                     <label class="craft-setting-row"><input type="checkbox" id="craftClipsDedupeToggle"> Archive duplicate copies</label>
+                    <div class="craft-power-row" id="craftPowerRow">
+                        <div class="craft-power-head">
+                            <span class="craft-setting-label">Craft power</span>
+                            <label class="craft-power-switch" for="craftPowerToggle">
+                                <input type="checkbox" id="craftPowerToggle" class="craft-power-switch-input"
+                                       data-action="toggle-craft-power" role="switch" aria-checked="false"
+                                       aria-describedby="craftPowerModes">
+                                <span class="craft-power-track" aria-hidden="true"><span class="craft-power-thumb"></span></span>
+                                <span class="craft-power-switch-text">Increase Craft Power</span>
+                            </label>
+                        </div>
+                        <div class="craft-power-modes" id="craftPowerModes">
+                            <span class="craft-power-mode active" data-power="regular">Regular · GPT-5 Nano · 25 cr/batch</span>
+                            <span class="craft-power-mode" data-power="super">Super · higher quality · 40 cr/batch</span>
+                        </div>
+                    </div>
                     <div class="craft-ai-mode-row">
                         <span class="craft-setting-label">AI mode (one per craft):</span>
                         <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted</label>
@@ -11473,8 +11687,12 @@ Multiple clips are separated by:
                         <span class="skip-icon">🚀</span>
                         <span class="skip-text">Skip to PasteCraft</span>
                     </button>
+                    <button class="btn-local-test-account" id="enterLocalTestAccountBtn" type="button">
+                        <span class="skip-icon">🧪</span>
+                        <span class="skip-text">Use local test account</span>
+                    </button>
                     <p class="skip-disclaimer">Use PasteCraft free in local mode — no account needed.<br>
-                        <span class="skip-note">Go local if you don't want to connect right away; you can sign in later to sync your data. Once logged in (basic or enhanced), data saves to the database.</span>
+                        <span class="skip-note"><strong>Local test account</strong> hides your real clips, loads demo data, and simulates free tier — no sign-in or Stripe needed.</span>
                     </p>
                 </div>
             </div>

@@ -14,6 +14,18 @@ async performFullSync() {
       message: 'Supabase not configured'
     };
   }
+
+  try {
+    const localTestRes = await chrome.storage.local.get([
+      'pc_local_test_account_v1',
+      'pc_freemium_test_sandbox_v1',
+    ]);
+    if (localTestRes?.pc_local_test_account_v1 === true
+      || localTestRes?.pc_freemium_test_sandbox_v1 === true) {
+      return { success: false, message: 'Local test account — cloud sync disabled' };
+    }
+  } catch (_) {}
+
   if (this._fullSyncPromise) {
     return await this._fullSyncPromise;
   }

@@ -5,6 +5,16 @@
 
 export async function performBackgroundSync(app, { force = false, reason = 'background-sync' } = {}) {
   try {
+    const localTestRes = await chrome.storage.local.get([
+      'pc_local_test_account_v1',
+      'pc_freemium_test_sandbox_v1',
+    ]);
+    if (localTestRes?.pc_local_test_account_v1 === true
+      || localTestRes?.pc_freemium_test_sandbox_v1 === true) {
+      console.log('⏸️ Skipping background sync (local test account)');
+      return;
+    }
+
     if (!force) {
       try {
         const res = await chrome.storage.local.get([app._lastRestoreAtKey]);
