@@ -1,5 +1,6 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
+import { flushPendingClipTombstonesToCloud } from '../clips/clips.service.js';
 import { initializeAllPopupFeatures } from './popup.features.js';
 
 export async function runPopupInit(app) {
@@ -103,6 +104,7 @@ export async function runPopupInit(app) {
 
   app.setupLocalStorageListener();
   await app._ensureIndexedDbReadyAndMigrate();
+  await flushPendingClipTombstonesToCloud();
 
   await Promise.all([
     app.loadData(),

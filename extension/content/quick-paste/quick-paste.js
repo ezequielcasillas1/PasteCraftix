@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { appendClipTombstones, pickClipsByIdKeys } from '../../shared/clip-tombstones.js';
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 
 export class QuickPasteInterface {
@@ -2456,6 +2457,7 @@ export class QuickPasteInterface {
     return this._queueClipOp(async () => {
       const before = this.clips.length;
       const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
+      const removed = pickClipsByIdKeys(this.clips, [id]);
 
       // Compute next state
       this.clips = this.clips.filter(c => this._clipIdKey(c?.id) !== id);
@@ -2467,6 +2469,11 @@ export class QuickPasteInterface {
         this.updateCopyMultipleButton();
         return;
       }
+
+      const deletedAt = Date.now();
+      try {
+        await appendClipTombstones(removed.length ? removed : (clip ? [clip] : []), { archived: false, deletedAt });
+      } catch (_) {}
 
       // Persist once
       await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });

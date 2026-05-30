@@ -1,3 +1,8 @@
+import {
+  appendClipTombstones,
+  pickClipsByIdKeys,
+  toDeletedClipSyncPayload,
+} from '../../../shared/clip-tombstones.js';
 import { CLIPS_STORAGE_KEYS, CLIPS_SYNC_QUEUE_KEYS } from './clips.constants.js';
 import {
   getClipIdKey,
@@ -19,6 +24,8 @@ function getStoredClipArrays(app) {
 function createDeleteState(app, ids, includeArchived, crud) {
   const idSet = new Set(ids);
   const { active, archived } = getStoredClipArrays(app);
+  const removedActive = pickClipsByIdKeys(active, idSet);
+  const removedArchived = includeArchived ? pickClipsByIdKeys(archived, idSet) : [];
   const nextClips = active.filter(c => !idSet.has(getClipIdKey(c?.id)));
   const nextArchived = includeArchived ? archived.filter(c => !idSet.has(getClipIdKey(c?.id))) : archived;
 
@@ -26,6 +33,8 @@ function createDeleteState(app, ids, includeArchived, crud) {
     idSet,
     beforeActive: active.length,
     beforeArchived: archived.length,
+    removedActive,
+    removedArchived,
     nextClips,
     nextArchived,
     snapshot: {
@@ -91,6 +100,29 @@ function clearDeletedClipSelections(app, ids) {
   app.selectedCategoryClips.clear();
 }
 
+async function tombstoneAndQueueClipDeletes(state) {
+  const deletedAt = Date.now();
+  const { removedActive = [], removedArchived = [] } = state || {};
+
+  if (removedActive.length > 0) {
+    await appendClipTombstones(removedActive, { archived: false, deletedAt });
+    await pasteCraftSupabase.syncWithQueue(
+      CLIPS_SYNC_QUEUE_KEYS.DELETED_ACTIVE,
+      toDeletedClipSyncPayload(removedActive, deletedAt),
+      pasteCraftSupabase.syncDeletedClipsToSupabase,
+    );
+  }
+
+  if (removedArchived.length > 0) {
+    await appendClipTombstones(removedArchived, { archived: true, deletedAt });
+    await pasteCraftSupabase.syncWithQueue(
+      CLIPS_SYNC_QUEUE_KEYS.DELETED_ARCHIVED,
+      toDeletedClipSyncPayload(removedArchived, deletedAt),
+      pasteCraftSupabase.syncDeletedArchivedClipsToSupabase,
+    );
+  }
+}
+
 function syncDeletedClipState(app, includeArchived) {
   Promise.resolve()
     .then(() => pasteCraftSupabase.syncWithQueue(CLIPS_SYNC_QUEUE_KEYS.ACTIVE, app.clips, pasteCraftSupabase.syncClipsToSupabase))
@@ -131,6 +163,38 @@ async function applyClipDeletion(app, crud, state, options) {
   if (rerender) renderAfterDeletion(app);
 }
 
+/** Push local pc_deleted_* tombstones to Supabase (e.g. after content-script deletes). */
+export async function flushPendingClipTombstonesToCloud() {
+  try {
+    const data = await chrome.storage.local.get([
+      CLIPS_STORAGE_KEYS.DELETED_ACTIVE,
+      CLIPS_STORAGE_KEYS.DELETED_ARCHIVED,
+    ]);
+    const active = Array.isArray(data[CLIPS_STORAGE_KEYS.DELETED_ACTIVE])
+      ? data[CLIPS_STORAGE_KEYS.DELETED_ACTIVE]
+      : [];
+    const archived = Array.isArray(data[CLIPS_STORAGE_KEYS.DELETED_ARCHIVED])
+      ? data[CLIPS_STORAGE_KEYS.DELETED_ARCHIVED]
+      : [];
+    if (active.length) {
+      await pasteCraftSupabase.syncWithQueue(
+        CLIPS_SYNC_QUEUE_KEYS.DELETED_ACTIVE,
+        active,
+        pasteCraftSupabase.syncDeletedClipsToSupabase,
+      );
+    }
+    if (archived.length) {
+      await pasteCraftSupabase.syncWithQueue(
+        CLIPS_SYNC_QUEUE_KEYS.DELETED_ARCHIVED,
+        archived,
+        pasteCraftSupabase.syncDeletedArchivedClipsToSupabase,
+      );
+    }
+  } catch (error) {
+    console.warn('[flushPendingClipTombstonesToCloud]', error?.message || error);
+  }
+}
+
 export async function deleteClipsByIdKeys(app, idKeys, {
   includeArchived = true,
   reason = 'delete:unknown',
@@ -153,6 +217,7 @@ export async function deleteClipsByIdKeys(app, idKeys, {
         rerender,
         ids,
       });
+      await tombstoneAndQueueClipDeletes(state);
       syncDeletedClipState(app, includeArchived);
       return getDeletionResult(state, app, includeArchived, reason);
     } catch (error) {
