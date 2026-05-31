@@ -208,29 +208,31 @@ async processSyncQueue() {
   if (compactedQueue.length !== this.syncQueue.length) {
     console.log(`🧹 Compacted sync queue before processing: ${this.syncQueue.length} -> ${compactedQueue.length}`);
     this.syncQueue = compactedQueue;
+    await this.saveSyncQueue();
   }
 
   this._isProcessingSyncQueue = true;
   try {
     console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
     this.updateSyncStatus('syncing');
-    
-    const queue = [...this.syncQueue];
-    this.syncQueue = [];
-    
-    for (const operation of queue) {
+
+    // Process in place and persist after each success. Clearing the whole queue
+    // before saveSyncQueue() could lose pending writes if the popup closes mid-run.
+    let index = 0;
+    while (index < this.syncQueue.length) {
+      const operation = this.syncQueue[index];
       try {
         await this.executeSyncOperation(operation);
         console.log(`✅ Processed: ${operation.type}`);
+        this.syncQueue.splice(index, 1);
+        this.syncQueue = this._compactSyncQueue(this.syncQueue);
+        await this.saveSyncQueue();
       } catch (error) {
         console.error(`❌ Failed to process ${operation.type}:`, error);
-        // Re-queue failed operations
-        this.syncQueue.push(operation);
+        index += 1;
       }
     }
-    
-    this.syncQueue = this._compactSyncQueue(this.syncQueue);
-    await this.saveSyncQueue();
+
     this.updateSyncStatus(this.syncQueue.length > 0 ? 'syncing' : 'synced');
     console.log(`✅ Queue processed. ${this.syncQueue.length} operations remaining.`);
   } finally {
