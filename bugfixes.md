@@ -1,3 +1,8 @@
+### May 31, 2026 - Sync queue data loss on popup close mid-process
+**Status:** Fixed (automated test)
+**Files:** extension/supabase/sync-queue.js, tests/sync-queue.test.mjs
+**Result:** `processSyncQueue` drained the in-memory queue before `saveSyncQueue`; closing the popup during processing dropped pending writes. Now dequeues one op at a time and persists after each success.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json
