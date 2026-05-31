@@ -178,6 +178,12 @@ function createMockApp() {
     categoriesFeature: { events: { registerCategoryModalEvents: noop } },
     settingsFeature: { events: { initSettingsEvents: noop } },
     activityFeature: { events: { initActivityEventListeners: noop } },
+    aiLabFeature: {
+      refactorization: {
+        activateRefactorizationSection: noop,
+        bindRefactorizationPanelUi: noop,
+      },
+    },
     setupCategoryClipDelegation() {
       this.clipsFeature.events.setupCategoryClipDelegation(this);
     },
@@ -199,6 +205,7 @@ function createMockApp() {
     renderNotes: noop,
     loadAiHistory: asyncNoop,
     renderAiHistoryList: noop,
+    _renderOpenRecentConversation: noop,
     _saveActiveTabState: noop,
     showProfileModal: noop,
     hideProfileModal: noop,
