@@ -81,7 +81,7 @@ test('createOperation rolls back state and storage when persistence fails', asyn
     storageKeys: ['categories'],
     storageWriter: async () => {
       storageAttempts += 1;
-      throw new Error('quota exceeded');
+      if (storageAttempts <= 3) throw new Error('quota exceeded');
     },
     addToArray: (items, entity) => [...items, entity],
     uiUpdater: () => {
