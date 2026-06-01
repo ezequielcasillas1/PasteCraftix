@@ -1,3 +1,5 @@
+import { mutateNote } from './notes.service.js';
+
 // ── shared helpers ─────────────────────────────────────────────────────────
 
 function _collectNoteAttachments(note) {
@@ -851,13 +853,14 @@ export async function addNoteToAlbum(app, albumId) {
   const sourceNote = app.pendingNoteForAlbum;
   if (!album || !sourceNote) return;
 
-  _ensureAlbumCollections(album);
-  _addSourceNoteIdToAlbum(album, sourceNote.id);
-  _mergeSourceContentIntoAlbum(album, sourceNote);
+  await mutateNote(app, album.id, (draft) => {
+    _ensureAlbumCollections(draft);
+    _addSourceNoteIdToAlbum(draft, sourceNote.id);
+    _mergeSourceContentIntoAlbum(draft, sourceNote);
+    draft.updatedAt = Date.now();
+    return draft;
+  });
 
-  album.updatedAt = Date.now();
-  await app.saveNotes();
-  await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(album)], pasteCraftSupabase.syncNotesToSupabase);
   app.closeAlbumPicker();
   app.pendingNoteForAlbum = null;
   app.showToast(`Note added to album "${album.title}"`);

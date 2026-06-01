@@ -400,7 +400,7 @@ export function createChip(app, clip, index) {
     </span>
     <span class="chip-time">${timeAgo}</span>
     <div class="chip-actions">
-      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
+      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
       <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
       <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
       <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
@@ -596,7 +596,7 @@ export function createSearchResultItem(app, clip) {
       </div>
     </div>
     <div class="search-result-actions">
-      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil"></i></button>
+      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
       <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
       <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
       <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
@@ -681,7 +681,7 @@ export function createCategoryClipsHTML(app, clips) {
           <div class="category-clip-time">${timeAgo}</div>
         </div>
         <div class="category-clip-actions">
-          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil"></i></button>
+          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
           <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
           <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
           <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
@@ -691,7 +691,6 @@ export function createCategoryClipsHTML(app, clips) {
         </div>
       </div>
     `;
-    console.log(`🏗️ Creating category clip with ID: ${clip.id} (type: ${typeof clip.id})`);
     return html;
   }).join('');
 }

@@ -1,5 +1,6 @@
 /** Vertical slice: ai-functions.js */
 import { extractAnimalSuffix } from '../shared/animal-names.js';
+const AI_TEXT_INPUT_MAX_CHARS = 12000;
 export const aiFunctionsMixin = {
 _buildCategorizeClipPayload(clips, textLimit = 200) {
   return (Array.isArray(clips) ? clips : []).map((c) => {
@@ -24,6 +25,10 @@ _buildCategorizeClipPayload(clips, textLimit = 200) {
     }
     return { text, sourcePageUrl, sourceHost, sourceTopic };
   });
+},
+
+_truncateAiInputText(value, maxChars = AI_TEXT_INPUT_MAX_CHARS) {
+  return String(value ?? '').slice(0, maxChars);
 },
 
 // OpenAI Integration Methods
@@ -307,7 +312,7 @@ async breakdownText(text, level = 'child') {
 
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-breakdown`, `${baseUrl}/explain-at-level`];
-    const body = await this._withAiWorkflow({ text, level });
+    const body = await this._withAiWorkflow({ text: this._truncateAiInputText(text), level });
 
     let accessToken = '';
     try {
@@ -353,7 +358,10 @@ async generateSummaryQuestions(text) {
 
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
-    const body = await this._withAiWorkflow({ text: text.substring(0, 3000), generateQuestions: true });
+    const body = await this._withAiWorkflow({
+      text: this._truncateAiInputText(text),
+      generateQuestions: true,
+    });
 
     let accessToken = '';
     try {
@@ -399,7 +407,10 @@ async generateSummary(text, question) {
 
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-summary`, `${baseUrl}/summarize-or-qa`];
-    const body = await this._withAiWorkflow({ text, question });
+    const body = await this._withAiWorkflow({
+      text: this._truncateAiInputText(text),
+      question: this._truncateAiInputText(question),
+    });
 
     let accessToken = '';
     try {

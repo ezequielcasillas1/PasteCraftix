@@ -2,15 +2,20 @@ export const AUTH_STORAGE_KEYS = Object.freeze({
   SUPABASE_SESSION: 'pc_supabase_session_v1',
   FREEMIUM_GUEST: 'pc_freemium_guest',
   AUTH_PREFS: 'pc_auth_prefs_v1',
+  VERIFIED_EMAILS: 'pc_verified_emails_v1',
   OAUTH_CALLBACK: 'oauth_callback',
   PASSWORD_RESET_CALLBACK: 'password_reset_callback',
 });
+
+export const AUTH_EMAIL_CACHE_MAX = 10;
+export const AUTH_EMAIL_SUGGESTION_LIMIT = 6;
 
 export const AUTH_ELEMENT_IDS = Object.freeze({
   AUTH_MODAL: 'authModal',
   SIGNIN_FORM: 'signinForm',
   SIGNUP_FORM: 'signupForm',
   SIGNIN_EMAIL: 'signinEmail',
+  SIGNIN_EMAIL_SUGGESTIONS: 'signinEmailSuggestions',
   SIGNIN_PASSWORD: 'signinPassword',
   SIGNIN_BTN: 'signinBtn',
   SIGNUP_EMAIL: 'signupEmail',

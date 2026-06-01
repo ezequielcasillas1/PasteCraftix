@@ -1,3 +1,5 @@
+import { createNote, mutateNote, updateNote } from './notes.service.js';
+
 // ── openNoteEditor ─────────────────────────────────────────────────────────
 
 function _getNoteEditorElements() {
@@ -179,17 +181,19 @@ export async function saveNote(app) {
   if (saveBtn) saveBtn.disabled = true;
 
   try {
-    _commitNoteToList(app, noteData);
-
     try { _refreshAlbumsIfNote(app, noteData); }
     catch (e) { console.warn('refreshAlbumsForNote failed:', e); }
 
     try {
-      await app.saveNotes();
-      await app.saveNotesPrefs();
+      if (isUpdate) {
+        await updateNote(app, app.currentNoteId, noteData);
+      } else {
+        await createNote(app, noteData);
+      }
     } catch (e) {
       console.error('Failed to persist note:', e);
       app.showToast('Failed to save note');
+      return;
     }
 
     app.renderNotes();
@@ -197,7 +201,6 @@ export async function saveNote(app) {
 
     _maybeReopenAlbumPicker(app);
     app.showToast(isUpdate ? 'Note updated!' : 'Note created!');
-    _scheduleNotesSync(app);
   } finally {
     app._noteSaveInProgress = false;
     if (saveBtn) saveBtn.disabled = false;
@@ -653,12 +656,16 @@ export function exportNoteToPDF(app, noteId) {
 
 async function _addBulkClipsToNote(app, note) {
   const now = Date.now();
-  app.pendingBulkClipsForNotes.forEach(clip => note.clips.push(app._clipAttachment(clip, now)));
   const count = app.pendingBulkClipsForNotes.length;
-  note.updatedAt = now;
-  app.refreshAlbumsForNote(note);
-  await app.saveNotes();
-  await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
+  const pendingClips = app.pendingBulkClipsForNotes.slice();
+  await mutateNote(app, note.id, (draft) => {
+    if (!Array.isArray(draft.clips)) draft.clips = [];
+    pendingClips.forEach((clip) => draft.clips.push(app._clipAttachment(clip, now)));
+    draft.updatedAt = now;
+    app.refreshAlbumsForNote(draft);
+    return draft;
+  });
+
   app.closeAlbumPicker();
   app.pendingBulkClipsForNotes = null;
   app.selectedChips.clear();
@@ -680,7 +687,6 @@ function _resolveSingleClipToAdd(app) {
 export async function addCurrentClipToNote(app, noteId) {
   const note = app.notes.find(n => n.id == noteId);
   if (!note) return;
-  if (!note.clips) note.clips = [];
 
   if (_hasPendingBulkClips(app)) {
     await _addBulkClipsToNote(app, note);
@@ -690,11 +696,15 @@ export async function addCurrentClipToNote(app, noteId) {
   const clipToAdd = _resolveSingleClipToAdd(app);
   if (!clipToAdd) { app.showToast('No clips to add'); return; }
 
-  note.clips.push(app._clipAttachment(clipToAdd, Date.now()));
-  note.updatedAt = Date.now();
-  app.refreshAlbumsForNote(note);
-  await app.saveNotes();
-  await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(note)], pasteCraftSupabase.syncNotesToSupabase);
+  const now = Date.now();
+  await mutateNote(app, note.id, (draft) => {
+    if (!Array.isArray(draft.clips)) draft.clips = [];
+    draft.clips.push(app._clipAttachment(clipToAdd, now));
+    draft.updatedAt = now;
+    app.refreshAlbumsForNote(draft);
+    return draft;
+  });
+
   app.closeAlbumPicker();
   app.pendingClipForNotes = null;
   app.showToast(`Clip added to "${note.title}"`);

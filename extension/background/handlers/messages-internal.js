@@ -167,14 +167,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const priceId = String(message.priceId || '');
-        const creditAmount = message.creditAmount != null ? Math.floor(Number(message.creditAmount)) : null;
+        const rawCreditAmount = message.creditAmount ?? message.credit_amount ?? message.credits;
+        const creditAmount = rawCreditAmount != null ? Math.floor(Number(rawCreditAmount)) : null;
         const accessToken = String(message.accessToken || '');
         const supabaseUrl = String(message.supabaseUrl || '');
         const anonKey = String(message.anonKey || '');
         const checkoutMode = String(message.mode || 'subscription');
 
         if ((!priceId && !Number.isFinite(creditAmount)) || !supabaseUrl || !anonKey) {
-          sendResponse({ success: false, error: 'Missing checkout params' });
+          sendResponse({
+            success: false,
+            error: 'Missing checkout params',
+            details: {
+              hasPriceId: !!priceId,
+              hasCreditAmount: Number.isFinite(creditAmount),
+              hasSupabaseUrl: !!supabaseUrl,
+              hasAnonKey: !!anonKey,
+              mode: checkoutMode,
+            },
+          });
           return;
         }
 

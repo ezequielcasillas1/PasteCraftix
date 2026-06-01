@@ -976,7 +976,8 @@ body {
 
 .chip-breakdown-btn,
 .chip-summary-btn,
-.chip-category-btn {
+.chip-category-btn,
+.chip-title-btn {
   background: none;
   border: none;
   cursor: pointer;
@@ -991,7 +992,8 @@ body {
 
 .chip-breakdown-btn:hover,
 .chip-summary-btn:hover,
-.chip-category-btn:hover {
+.chip-category-btn:hover,
+.chip-title-btn:hover {
   opacity: 1;
   transform: scale(1.15);
 }

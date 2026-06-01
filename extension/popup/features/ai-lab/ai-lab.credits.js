@@ -90,6 +90,14 @@ export function _computeAiImageCreditsView(subscription) {
   const used = _finiteNumberOr(subscription.ai_image_credits_used, 0);
   const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
   if (!Number.isFinite(limit) || limit <= 0) {
+    if (purchasedBalance > 0) {
+      return {
+        state: 'ok',
+        text: `Image credits: ${purchasedBalance} purchased`,
+        css: '',
+        title: `${purchasedBalance} purchased credits available for images`,
+      };
+    }
     const suffix = _resetSuffix(this, resetAt);
     return { state: 'pending', text: `Image credits: —${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
   }
@@ -120,6 +128,14 @@ export function _computeAiTextCreditsView(subscription) {
   const used = _finiteNumberOr(subscription.ai_text_credits_used, 0);
   const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
   if (!Number.isFinite(limit) || limit <= 0) {
+    if (purchasedBalance > 0) {
+      return {
+        state: 'ok',
+        text: `AI text credits: ${purchasedBalance} purchased`,
+        css: '',
+        title: `${purchasedBalance} purchased credits available for AI text`,
+      };
+    }
     const suffix = _resetSuffix(this, resetAt);
     return { state: 'pending', text: `AI text credits: —${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
   }
@@ -241,7 +257,12 @@ function _hasAiCreditsEntitlement(subscription) {
     subscription.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   );
-  return (tier === 'premium' && (status === 'active' || status === 'past_due')) || hasCouponAiAccess;
+  const isPaidTier = (tier === 'premium' || tier === 'basic')
+    && (status === 'active' || status === 'past_due');
+  const purchasedBalance = Number.isFinite(Number(subscription.ai_purchased_credits_balance))
+    ? Math.max(0, Number(subscription.ai_purchased_credits_balance))
+    : 0;
+  return isPaidTier || hasCouponAiAccess || purchasedBalance > 0;
 }
 
 function _hasUnlimitedAi(subscription) {

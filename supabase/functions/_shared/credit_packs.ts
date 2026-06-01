@@ -54,6 +54,42 @@ export function computeTotalRemaining(subRemaining: number, purchasedBalance: nu
   return Math.max(0, subRemaining) + Math.max(0, purchasedBalance);
 }
 
+export function readPurchasedBalance(sub: { ai_purchased_credits_balance?: number | null }): number {
+  return Number.isFinite(Number(sub?.ai_purchased_credits_balance))
+    ? Math.max(0, Number(sub.ai_purchased_credits_balance))
+    : 0;
+}
+
+/** Active Basic/Premium subscription or time-boxed / unlimited coupon AI access. */
+export function hasSubscriptionAiAllowance(sub: {
+  subscription_tier?: string;
+  subscription_status?: string;
+  has_unlimited_ai?: boolean;
+  ai_access_expires_at?: string | null;
+}): boolean {
+  const tier = String(sub.subscription_tier || '').toLowerCase();
+  const status = String(sub.subscription_status || '').toLowerCase();
+  const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
+  const hasCouponAiAccess = !!(
+    sub.has_unlimited_ai === true ||
+    (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
+  );
+  const isPaidTier = (tier === 'premium' || tier === 'basic')
+    && (status === 'active' || status === 'past_due');
+  return isPaidTier || hasCouponAiAccess;
+}
+
+/** May consume AI credits: paid tier, coupon access, or a purchased balance. */
+export function hasAiUsageEntitlement(sub: {
+  subscription_tier?: string;
+  subscription_status?: string;
+  has_unlimited_ai?: boolean;
+  ai_access_expires_at?: string | null;
+  ai_purchased_credits_balance?: number | null;
+}): boolean {
+  return hasSubscriptionAiAllowance(sub) || readPurchasedBalance(sub) > 0;
+}
+
 export type CreditDrainPlan = {
   subUsedDelta: number;
   purchasedDelta: number;

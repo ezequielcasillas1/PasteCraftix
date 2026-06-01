@@ -1,3 +1,11 @@
+### May 31, 2026 - AI Lab input validation + refactorization opt-in
+**Status:** PENDING USER VERIFY
+**Files:** ai-lab.input-validation.js, ai-lab-page.events.js, ai-lab.constants.js, ai-lab.refactorization.js, ai-lab.summary.js, ai-lab.breakdown.js, ai-functions.js, popup.html
+**Result:** Restored stashed 1-word minimum for Summary/Breakdown/follow-ups; 12k char limits; refactorization clips start unchecked (Select all optional). Backend RAG enrichment not included (stripped in ae85316).
+**Status:** SUCCESS
+**Files:** extension/popup/features/ai-lab/ai-lab.credit-error.js (new), ai-lab.breakdown.js, ai-lab.summary.js, popup.html
+**Result:** Added `isOutOfCreditsError` + `showCreditExhaustedInline` helper. When backend returns 402 "No * credits remaining", AI Lab catch blocks now render a styled amber card with "Buy Credits" (scrolls to credit pack banner) and "Upgrade Plan" (opens upgrade modal) instead of the generic error toast.
+
 ### May 21, 2026 - AI avatar image quality restore
 **Status:** SUCCESS
 **Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js

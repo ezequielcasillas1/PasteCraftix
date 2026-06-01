@@ -1,4 +1,5 @@
 import { CATEGORIES_DEFAULTS } from './categories.constants.js';
+import { createClips, mutateClipCollections } from '../clips/clips.service.js';
 
 // ── createCategory ─────────────────────────────────────────────────────────
 
@@ -250,18 +251,46 @@ async function handleBulkReassignment(app) {
     return;
   }
 
-  const { changedActiveClips, changedArchivedClips, moved } = bulkReassignClips(app, ids, targetCategory, updatedAt);
+  let changedActiveClips = [];
+  let changedArchivedClips = [];
+  let moved = 0;
 
-  await chrome.storage.local.set({ clips: app.clips, searchOnlyClips: app.searchOnlyClips, pc_local_updatedAt: updatedAt });
-  syncBulkReassignment(changedActiveClips, changedArchivedClips);
+  await mutateClipCollections(app, async (state) => {
+    const draftApp = {
+      ...app,
+      clips: Array.isArray(state.clips) ? state.clips : [],
+      searchOnlyClips: Array.isArray(state.searchOnlyClips) ? state.searchOnlyClips : [],
+    };
+    const changed = bulkReassignClips(draftApp, ids, targetCategory, updatedAt);
+    state.clips = draftApp.clips;
+    state.searchOnlyClips = draftApp.searchOnlyClips;
+    changedActiveClips = changed.changedActiveClips;
+    changedArchivedClips = changed.changedArchivedClips;
+    moved = changed.moved;
+  }, {
+    verifier: async () => {
+      const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+      const pool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
+      return ids.every((id) => {
+        const clip = pool.find((item) => app._clipIdKey(item?.id) === id);
+        return clip && clip.category === targetCategory;
+      });
+    },
+    backgroundSync: async () => {
+      syncBulkReassignment(changedActiveClips, changedArchivedClips);
+    },
+    uiUpdater: () => {
+      app.selectedChips.clear();
+      app.updateQuickCopyButton();
+      app.renderChips();
+      app.renderSearchResults();
+      app.renderCategories();
+      app.updateCategoryFilter();
+      app.hideCategoryModal();
+    },
+    errorMessage: 'Failed to move clips',
+  });
 
-  app.selectedChips.clear();
-  app.updateQuickCopyButton();
-  app.renderChips();
-  app.renderSearchResults();
-  app.renderCategories();
-  app.updateCategoryFilter();
-  app.hideCategoryModal();
   app.showToast(`Moved ${moved} clip${moved === 1 ? '' : 's'} to ${targetCategory}`);
 }
 
@@ -303,21 +332,44 @@ async function handleExistingClipReassignment(app) {
   }
 
   const updatedAt = Date.now();
-  const { changedActiveClip, changedArchivedClip } = reassignSingleClip(app, idKey, updatedAt);
+  let changedActiveClip = null;
+  let changedArchivedClip = null;
+  await mutateClipCollections(app, async (state) => {
+    const draftApp = {
+      ...app,
+      clips: Array.isArray(state.clips) ? state.clips : [],
+      searchOnlyClips: Array.isArray(state.searchOnlyClips) ? state.searchOnlyClips : [],
+      selectedCategoryForSave: app.selectedCategoryForSave,
+    };
+    const changed = reassignSingleClip(draftApp, idKey, updatedAt);
+    state.clips = draftApp.clips;
+    state.searchOnlyClips = draftApp.searchOnlyClips;
+    changedActiveClip = changed.changedActiveClip;
+    changedArchivedClip = changed.changedArchivedClip;
+  }, {
+    verifier: async () => {
+      const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+      const pool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
+      const clip = pool.find((item) => app._clipIdKey(item?.id) === idKey);
+      return !!clip && clip.category === app.selectedCategoryForSave;
+    },
+    backgroundSync: async () => {
+      try {
+        if (changedActiveClip) await window.pasteCraftSupabase.syncWithQueue('syncClips', [changedActiveClip], window.pasteCraftSupabase.syncClipsToSupabase);
+        if (changedArchivedClip) await window.pasteCraftSupabase.syncWithQueue('syncArchivedClips', [changedArchivedClip], window.pasteCraftSupabase.syncArchivedClipsToSupabase);
+      } catch (err) {
+        console.error('⚠️ Failed to sync category update:', err);
+      }
+    },
+    uiUpdater: () => {
+      app.renderChips();
+      app.renderSearchResults();
+      app.renderCategories();
+      app.updateCategoryFilter();
+    },
+    errorMessage: 'Failed to move clip',
+  });
 
-  await chrome.storage.local.set({ clips: app.clips, searchOnlyClips: app.searchOnlyClips, pc_local_updatedAt: updatedAt });
-
-  try {
-    if (changedActiveClip) await window.pasteCraftSupabase.syncWithQueue('syncClips', [changedActiveClip], window.pasteCraftSupabase.syncClipsToSupabase);
-    if (changedArchivedClip) await window.pasteCraftSupabase.syncWithQueue('syncArchivedClips', [changedArchivedClip], window.pasteCraftSupabase.syncArchivedClipsToSupabase);
-  } catch (err) {
-    console.error('⚠️ Failed to sync category update:', err);
-  }
-
-  app.renderChips();
-  app.renderSearchResults();
-  app.renderCategories();
-  app.updateCategoryFilter();
   app.showToast(`Moved to ${app.selectedCategoryForSave}!`);
 }
 
@@ -331,32 +383,23 @@ async function handleNewClipSave(app) {
     }
   }
 
-  const newClip = { id: Date.now() + Math.random(), text: app.pendingText, category: targetCategory, timestamp: Date.now() };
-  app.clips.unshift(newClip);
-  await app.enforceClipLimit();
-  app.currentPage = 0;
-  await chrome.storage.local.set({ clips: app.clips, searchOnlyClips: app.searchOnlyClips, pc_local_updatedAt: Date.now() });
+  const now = Date.now();
+  const newClip = {
+    id: now + Math.random(),
+    text: app.pendingText,
+    category: targetCategory,
+    timestamp: now,
+    updatedAt: now,
+  };
 
-  try {
-    await window.pasteCraftSupabase.syncClipsToSupabase(app.clips);
-    await window.pasteCraftSupabase.syncArchivedClipsToSupabase(app.searchOnlyClips);
-  } catch (err) {
-    console.error('⚠️ Failed to sync new clip:', err);
+  const result = await createClips(app, [newClip], {
+    successMessage: `Saved to ${targetCategory}!`,
+    autoShowSavedClip: true,
+  });
+
+  if (!result.success) {
+    app.showToast('Failed to save clip', 'error');
   }
-
-  try {
-    chrome.tabs.query({}, tabs => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, { action: 'clipSaved', clip: newClip, autoShow: true }).catch(() => {});
-      });
-    });
-  } catch (_) {}
-
-  app.renderChips();
-  app.renderCategories();
-  app.updateCategoryFilter();
-  app.updateManualInputCategories();
-  app.showToast(`Saved to ${targetCategory}!`);
 }
 
 export async function saveTextWithCategory(app) {

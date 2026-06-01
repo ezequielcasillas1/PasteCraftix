@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved } from "../_shared/ai_workflow.ts"
+import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance } from "../_shared/credit_packs.ts"
 import { requireNotBanned } from "../_shared/security-gate.ts"
 
 const corsHeaders = {
@@ -118,6 +119,7 @@ serve(async (req) => {
         'ai_image_credits_limit',
         'ai_image_credits_used',
         'ai_image_credits_reset_at',
+        'ai_purchased_credits_balance',
       ].join(','))
       .eq('user_id', user.id)
       .maybeSingle()
@@ -146,10 +148,10 @@ serve(async (req) => {
       (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
     ))
 
-    const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due')
-    const entitled = isPaidPremium || hasCouponAiAccess
+    const isPaidTier = (tier === 'premium' || tier === 'basic')
+      && (status === 'active' || status === 'past_due')
 
-    if (!entitled) {
+    if (!hasAiUsageEntitlement(sub)) {
       return new Response(
         JSON.stringify({ error: 'Upgrade required' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 }
@@ -157,6 +159,7 @@ serve(async (req) => {
     }
 
     const unlimited = sub.has_unlimited_ai === true
+    let purchasedBalance = readPurchasedBalance(sub)
 
     // Determine reset timestamp (next billing / next refresh)
     const stripePeriodEndIso = sub.stripe_current_period_end
@@ -175,7 +178,9 @@ serve(async (req) => {
     let creditsUsed = Number.isFinite(Number(sub.ai_image_credits_used)) ? Number(sub.ai_image_credits_used) : 0
     let creditsLimit = Number.isFinite(Number(sub.ai_image_credits_limit)) ? Number(sub.ai_image_credits_limit) : NaN
     if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
-      creditsLimit = unlimited ? Number.POSITIVE_INFINITY : computeCreditsLimitFallback(resetAtIso)
+      creditsLimit = unlimited
+        ? Number.POSITIVE_INFINITY
+        : ((isPaidTier || hasCouponAiAccess) ? computeCreditsLimitFallback(resetAtIso) : 0)
     }
 
     // Refresh window: if reset passed, or Stripe period end moved forward, reset usage.
@@ -219,10 +224,11 @@ serve(async (req) => {
     }
 
     if (!unlimited) {
-      const remaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed))
-      if (remaining <= 0) {
+      const subRemaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed))
+      const totalRemaining = computeTotalRemaining(subRemaining, purchasedBalance)
+      if (totalRemaining <= 0) {
         return new Response(
-          JSON.stringify({ error: 'No credits remaining', creditsRemaining: 0, creditsLimit, creditsResetAt: resetAtIso }),
+          JSON.stringify({ error: 'No credits remaining', creditsRemaining: 0, creditsLimit, creditsResetAt: resetAtIso, purchasedBalance }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
         )
       }
@@ -337,46 +343,60 @@ serve(async (req) => {
     let creditsLimitOut: number | null = unlimited ? null : Number(creditsLimit)
 
     if (!unlimited) {
-      // Compare-and-set update to avoid simple double-spend races.
+      const imageCost = 1
       let updatedUsed: number | null = null
+      let updatedPurchased: number | null = null
       for (let attempt = 0; attempt < 3; attempt++) {
-        const expectedUsed = creditsUsed
-        const nextUsed = expectedUsed + 1
+        const subRemaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed))
+        const drainPlan = planCreditDrain(subRemaining, purchasedBalance, imageCost)
+        if (!drainPlan) break
 
-        const q = supabase
+        const expectedUsed = creditsUsed
+        const expectedPurchased = purchasedBalance
+        const nextUsed = expectedUsed + drainPlan.subUsedDelta
+        const nextPurchased = Math.max(0, expectedPurchased - drainPlan.purchasedDelta)
+
+        const { data: updated, error: updErr } = await supabase
           .from('user_subscriptions')
           .update({
             ai_image_credits_used: nextUsed,
             ai_image_credits_limit: Number.isFinite(creditsLimit) ? creditsLimit : null,
             ai_image_credits_reset_at: resetAtIso,
+            ai_purchased_credits_balance: nextPurchased,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', user.id)
           .eq('ai_image_credits_used', expectedUsed)
-
-        const { data: updated, error: updErr } = await q.select('ai_image_credits_used, ai_image_credits_limit, ai_image_credits_reset_at').maybeSingle()
+          .eq('ai_purchased_credits_balance', expectedPurchased)
+          .select('ai_image_credits_used, ai_image_credits_limit, ai_image_credits_reset_at, ai_purchased_credits_balance')
+          .maybeSingle()
         if (!updErr && updated) {
           updatedUsed = Number(updated.ai_image_credits_used)
+          updatedPurchased = Number(updated.ai_purchased_credits_balance)
           creditsLimitOut = Number.isFinite(Number(updated.ai_image_credits_limit)) ? Number(updated.ai_image_credits_limit) : Number(creditsLimit)
           creditsResetAt = updated.ai_image_credits_reset_at ? new Date(updated.ai_image_credits_reset_at).toISOString() : creditsResetAt
+          purchasedBalance = updatedPurchased
           break
         }
 
         // Re-fetch and retry if needed
         const { data: refetched } = await supabase
           .from('user_subscriptions')
-          .select('ai_image_credits_used, ai_image_credits_limit, ai_image_credits_reset_at')
+          .select('ai_image_credits_used, ai_image_credits_limit, ai_image_credits_reset_at, ai_purchased_credits_balance')
           .eq('user_id', user.id)
           .maybeSingle()
 
         creditsUsed = Number.isFinite(Number(refetched?.ai_image_credits_used)) ? Number(refetched?.ai_image_credits_used) : creditsUsed
         creditsLimit = Number.isFinite(Number(refetched?.ai_image_credits_limit)) ? Number(refetched?.ai_image_credits_limit) : creditsLimit
+        purchasedBalance = readPurchasedBalance(refetched || {})
         resetAtIso = refetched?.ai_image_credits_reset_at ? new Date(refetched.ai_image_credits_reset_at).toISOString() : resetAtIso
       }
 
-      const finalUsed = updatedUsed ?? (creditsUsed + 1)
+      const finalUsed = updatedUsed ?? creditsUsed
       const finalLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit)
-      creditsRemaining = Math.max(0, finalLimit - Math.max(0, finalUsed))
+      const finalPurchased = updatedPurchased ?? purchasedBalance
+      const subRem = Math.max(0, finalLimit - Math.max(0, finalUsed))
+      creditsRemaining = computeTotalRemaining(subRem, finalPurchased)
     }
 
     return new Response(

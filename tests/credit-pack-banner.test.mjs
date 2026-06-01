@@ -10,23 +10,28 @@ test('premium active user can purchase credit packs', () => {
     subscription_tier: 'premium',
     subscription_status: 'active',
     has_unlimited_ai: false,
-    ai_text_credits_limit: 2500,
-    ai_text_credits_used: 100,
   };
   assert.equal(canPurchaseCreditPacks(sub), true);
   assert.equal(shouldShowCreditPackBanner(sub), true);
 });
 
-test('premium user with high remaining credits still sees buy banner', () => {
+test('basic active user can purchase credit packs', () => {
   const sub = {
-    subscription_tier: 'premium',
+    subscription_tier: 'basic',
     subscription_status: 'active',
     has_unlimited_ai: false,
-    ai_text_credits_limit: 2500,
-    ai_text_credits_used: 0,
-    ai_image_credits_limit: 624,
-    ai_image_credits_used: 0,
   };
+  assert.equal(canPurchaseCreditPacks(sub), true);
+  assert.equal(shouldShowCreditPackBanner(sub), true);
+});
+
+test('free tier signed-in user can purchase credit packs', () => {
+  const sub = {
+    subscription_tier: 'free',
+    subscription_status: 'active',
+    has_unlimited_ai: false,
+  };
+  assert.equal(canPurchaseCreditPacks(sub), true);
   assert.equal(shouldShowCreditPackBanner(sub), true);
 });
 
@@ -40,11 +45,6 @@ test('unlimited coupon users cannot purchase credit packs', () => {
   assert.equal(shouldShowCreditPackBanner(sub), false);
 });
 
-test('free tier without AI access cannot purchase credit packs', () => {
-  const sub = {
-    subscription_tier: 'free',
-    subscription_status: 'active',
-    has_unlimited_ai: false,
-  };
-  assert.equal(canPurchaseCreditPacks(sub), false);
+test('unsigned user cannot purchase credit packs', () => {
+  assert.equal(canPurchaseCreditPacks(null), false);
 });

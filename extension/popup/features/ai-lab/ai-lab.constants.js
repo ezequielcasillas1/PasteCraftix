@@ -33,6 +33,7 @@ export const AI_STORAGE_KEYS = {
 };
 
 export const AI_HISTORY_PAGE_SIZE = 7;
+export const AI_TEXT_INPUT_MAX_CHARS = 12000;
 
 export const OPEN_RECENT_CONVERSATION_TOOLTIPS = Object.freeze({
   breakdown:

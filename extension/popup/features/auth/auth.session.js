@@ -254,17 +254,8 @@ function _restoreSummary(app, stored, canRestore) {
   }
 }
 
-function _logSessionRestore(stored) {
-  const bdPage = stored.pc_breakdownPageState_v1;
-  const bdModal = stored.pc_breakdownModalState_v1;
-  const sum = stored.pc_summaryState_v1;
-  console.log('✅ Session state restored:', {
-    tab: stored.pc_activeTab_v1 || 'clips',
-    aiSubTab: stored.pc_aiLabSubTab_v1 || 'generator',
-    hasBreakdownPage: !!(bdPage && bdPage.inputText),
-    hasBreakdownModal: !!(bdModal && bdModal.originalText),
-    hasSummary: !!(sum && sum.inputText),
-  });
+function _logSessionRestore(_stored) {
+  // Session restore is silent in production.
 }
 
 export async function _restoreSessionState(app) {

@@ -1,3 +1,5 @@
+import { createClips } from './clips.service.js';
+
 export function initPdfExtraction(app) {
   const pdfBtn = document.getElementById('pdfUploadBtn');
   const pdfInput = document.getElementById('pdfFileInput');
@@ -241,41 +243,15 @@ export async function savePdfClips(app) {
       }
     }
 
-    app.clips.unshift(...clipsToSave);
-    await app.enforceClipLimit();
-
-    app.currentPage = 0;
-
-    await chrome.storage.local.set({
-      clips: app.clips,
-      searchOnlyClips: app.searchOnlyClips,
-      pc_local_updatedAt: Date.now()
+    const result = await createClips(app, clipsToSave, {
+      successMessage: `Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`,
+      autoShowSavedClip: false,
     });
 
-    try {
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach(tab => {
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'clipSaved',
-            clip: clipsToSave[0],
-            autoShow: false
-          }).catch(() => {});
-        });
-      });
-    } catch (_) {}
-
-    app.renderChips();
-    app.renderCategories();
-    app.updateCategoryFilter();
-    app.updateManualInputCategories();
-    app.showToast(`Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`);
-
-    Promise.resolve()
-      .then(() => pasteCraftSupabase.syncWithQueue('syncClips', app.clips, pasteCraftSupabase.syncClipsToSupabase))
-      .catch(() => {});
-    Promise.resolve()
-      .then(() => pasteCraftSupabase.syncWithQueue('syncArchivedClips', app.searchOnlyClips, pasteCraftSupabase.syncArchivedClipsToSupabase))
-      .catch(() => {});
+    if (!result.success) {
+      app.showToast('Failed to save PDF clips', 'error');
+      return;
+    }
 
     closePdfModal(app);
   } finally {

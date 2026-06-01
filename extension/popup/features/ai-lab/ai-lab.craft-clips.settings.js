@@ -30,6 +30,7 @@ export async function loadCraftClipsSettings() {
 }
 
 export async function saveCraftClipsSettings(settings) {
+  const previous = await loadCraftClipsSettings();
   const payload = {
     smartCategorize: settings.smartCategorize !== false,
     duplicateHandling: !!settings.duplicateHandling,
@@ -38,7 +39,41 @@ export async function saveCraftClipsSettings(settings) {
       : CRAFT_CLIPS_AI_MODES.FORMATTED,
     refactorLevel: String(settings.refactorLevel || CRAFT_CLIPS_DEFAULT_SETTINGS.refactorLevel),
   };
-  await chrome.storage.local.set({ [CRAFT_CLIPS_STORAGE_KEY]: payload });
+
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      craftClipsSettings: { ...CRAFT_CLIPS_DEFAULT_SETTINGS, ...previous },
+    }),
+    stateSetter: async () => {},
+    stateKeys: ['craftClipsSettings'],
+    validator: () => ({ valid: true }),
+    mutateState: async (state) => {
+      state.craftClipsSettings = { ...CRAFT_CLIPS_DEFAULT_SETTINGS, ...payload };
+      return { payload };
+    },
+    storageKeys: ['craftClipsSettings'],
+    buildStorageData: async (_state, meta) => ({ [CRAFT_CLIPS_STORAGE_KEY]: meta.payload }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (_meta) => {
+      const stored = await chrome.storage.local.get([CRAFT_CLIPS_STORAGE_KEY]);
+      const current = stored?.[CRAFT_CLIPS_STORAGE_KEY];
+      return !!current &&
+        current.smartCategorize === payload.smartCategorize &&
+        current.duplicateHandling === payload.duplicateHandling &&
+        current.aiMode === payload.aiMode &&
+        current.refactorLevel === payload.refactorLevel;
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to save craft settings: ${error.message || 'Unknown error'}`,
+    showToast: null,
+  });
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save craft settings');
+  }
+
   return payload;
 }
 

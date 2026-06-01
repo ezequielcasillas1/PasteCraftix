@@ -283,6 +283,333 @@ class PasteCraftCRUD {
   }
 
   /**
+   * Generic CRUD DELETE-MANY operation with all 5 best practices
+   */
+  static async deleteManyOperation({
+    entityIds,
+    entityType,
+    stateGetter,
+    stateSetter,
+    stateKeys,
+    validator,
+    idempotencyCheck,
+    resolveEntities,
+    storageKeys,
+    storageWriter,
+    deleteFromArray,
+    updateRelatedEntities,
+    itemIdGetter,
+    idbStoreName,
+    idbIdsResolver,
+    tombstoneStorageKey,
+    writeTombstones,
+    verifier,
+    uiUpdater,
+    backgroundSync,
+    successMessage,
+    errorMessage,
+    showToast
+  }) {
+    const normalizedIds = Array.isArray(entityIds)
+      ? Array.from(new Set(entityIds.map(id => String(id)).filter(Boolean)))
+      : [];
+
+    if (normalizedIds.length === 0) {
+      const msg = typeof errorMessage === 'function' ? errorMessage('Invalid entity IDs') : errorMessage;
+      showToast?.(msg || 'Invalid entities - cannot delete', 'error');
+      return { success: false, error: 'Invalid entity IDs' };
+    }
+
+    const currentState = stateGetter();
+    if (!currentState || typeof currentState !== 'object') {
+      const msg = typeof errorMessage === 'function' ? errorMessage('Invalid state') : errorMessage;
+      showToast?.(msg || 'Invalid state - cannot delete', 'error');
+      return { success: false, error: 'Invalid state' };
+    }
+
+    if (validator) {
+      const validation = validator({ ids: normalizedIds }, currentState);
+      if (!validation.valid) {
+        showToast?.(validation.error || 'Validation failed', 'error');
+        return { success: false, error: validation.error || 'Validation failed' };
+      }
+    }
+
+    if (idempotencyCheck && idempotencyCheck(normalizedIds, currentState)) {
+      const msg = typeof successMessage === 'function' ? successMessage([]) : successMessage;
+      if (msg) showToast?.(msg, 'success');
+      return { success: true, skipped: true, entities: [] };
+    }
+
+    const snapshot = {};
+    stateKeys.forEach(key => {
+      if (currentState[key] !== undefined) {
+        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
+      }
+    });
+
+    const rollback = async () => {
+      try {
+        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
+        await stateSetter(currentState);
+        if (storageWriter) {
+          await PasteCraftCRUD.retryOperation(async () => {
+            const storageData = {};
+            storageKeys.forEach(key => {
+              if (currentState[key] !== undefined) {
+                storageData[key] = currentState[key];
+              }
+            });
+            await storageWriter(storageData);
+          });
+        }
+        uiUpdater?.();
+      } catch (rollbackError) {
+        console.error(`? Rollback failed for ${entityType} batch delete:`, rollbackError);
+      }
+    };
+
+    try {
+      const deletedAt = Date.now();
+      const idSet = new Set(normalizedIds);
+      const entities = resolveEntities
+        ? (resolveEntities(normalizedIds, currentState, deletedAt) || [])
+        : normalizedIds.map(id => ({ id, deletedAt }));
+
+      if (updateRelatedEntities) {
+        updateRelatedEntities(currentState, entities);
+      }
+
+      if (deleteFromArray) {
+        stateKeys.forEach(key => {
+          if (Array.isArray(currentState[key])) {
+            currentState[key] = deleteFromArray(currentState[key], idSet, entities);
+          }
+        });
+      }
+
+      const getItemId = typeof itemIdGetter === 'function'
+        ? itemIdGetter
+        : (item) => String(item?.id ?? '');
+
+      const stillExists = stateKeys.some(key => {
+        if (!Array.isArray(currentState[key])) return false;
+        return currentState[key].some((item) => idSet.has(getItemId(item)));
+      });
+      if (stillExists) {
+        throw new Error(`${entityType} items still exist after deletion operation`);
+      }
+
+      await stateSetter(currentState);
+
+      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} batch delete, optimistic):`, uiErr); }
+
+      if (storageWriter) {
+        await PasteCraftCRUD.retryOperation(async () => {
+          const storageData = {};
+          storageKeys.forEach(key => {
+            if (currentState[key] !== undefined) {
+              storageData[key] = currentState[key];
+            }
+          });
+          storageData.pc_local_updatedAt = Date.now();
+          await storageWriter(storageData);
+        });
+      }
+
+      if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+        try {
+          const resolvedIds = typeof idbIdsResolver === 'function'
+            ? idbIdsResolver(entities, normalizedIds)
+            : normalizedIds;
+          const ids = Array.isArray(resolvedIds)
+            ? Array.from(new Set(resolvedIds.map(String).filter(Boolean)))
+            : [];
+          if (ids.length > 0) {
+            await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
+          }
+          const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+          if (idbStateKey && Array.isArray(currentState[idbStateKey]) && typeof window.pasteCraftIndexedDB.syncEntityFromLocalStorage === 'function') {
+            await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(idbStoreName, currentState[idbStateKey]);
+          }
+        } catch (idbErr) {
+          console.warn(`?? IDB hard-delete failed for ${entityType} batch delete:`, idbErr?.message || idbErr);
+        }
+      }
+
+      if (typeof writeTombstones === 'function') {
+        try {
+          await writeTombstones(entities, deletedAt);
+        } catch (tombErr) {
+          console.warn(`?? Custom tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
+        }
+      } else if (tombstoneStorageKey) {
+        try {
+          const existing = await new Promise((resolve) => {
+            chrome.storage.local.get([tombstoneStorageKey], (res) => resolve(res || {}));
+          });
+          const prev = Array.isArray(existing[tombstoneStorageKey]) ? existing[tombstoneStorageKey] : [];
+          const prevIds = new Set(prev.map((t) => String(t?.id || '')).filter(Boolean));
+          const next = entities
+            .filter((entity) => !prevIds.has(String(entity?.id || '')))
+            .map((entity) => ({
+              ...entity,
+              deletedAt,
+              updatedAt: deletedAt,
+            }));
+          if (next.length > 0) {
+            await new Promise((resolve) => {
+              chrome.storage.local.set({ [tombstoneStorageKey]: [...prev, ...next] }, resolve);
+            });
+          }
+        } catch (tombErr) {
+          console.warn(`?? Tombstone write failed for ${entityType}:`, tombErr?.message || tombErr);
+        }
+      }
+
+      const msg = typeof successMessage === 'function' ? successMessage(entities) : successMessage;
+      if (msg) showToast?.(msg, 'success');
+
+      if (verifier) {
+        Promise.resolve()
+          .then(() => verifier(normalizedIds, entities))
+          .then((ok) => {
+            if (!ok) console.warn(`?? Post-write verification still sees ${entityType} batch delete:`, normalizedIds);
+          })
+          .catch((verErr) => console.warn(`?? Verifier threw (${entityType} batch delete):`, verErr));
+      }
+
+      if (backgroundSync) {
+        Promise.resolve()
+          .then(() => backgroundSync(entities, deletedAt))
+          .catch((error) => {
+            console.error(`?? Background sync failed for ${entityType} batch delete (local deletion succeeded):`, error);
+          });
+      }
+
+      return { success: true, entities, deletedAt };
+    } catch (error) {
+      console.error(`? ${entityType} batch deletion failed, rolling back:`, error);
+      await rollback();
+      const msg = typeof errorMessage === 'function' ? errorMessage(error) : errorMessage;
+      showToast?.(msg || `Failed to delete ${entityType}: ${error.message || 'Unknown error'}`, 'error');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+  }
+
+  /**
+   * Generic CRUD SAVE/MUTATE operation with all 5 best practices
+   */
+  static async saveOperation({
+    stateGetter,
+    stateSetter,
+    stateKeys,
+    validator,
+    mutateState,
+    storageKeys,
+    storageWriter,
+    buildStorageData,
+    verifier,
+    uiUpdater,
+    backgroundSync,
+    successMessage,
+    errorMessage,
+    showToast
+  }) {
+    const currentState = stateGetter();
+    if (!currentState || typeof currentState !== 'object') {
+      const msg = typeof errorMessage === 'function' ? errorMessage('Invalid state') : errorMessage;
+      showToast?.(msg || 'Invalid state - cannot save', 'error');
+      return { success: false, error: 'Invalid state' };
+    }
+
+    if (validator) {
+      const validation = await validator(currentState);
+      if (!validation.valid) {
+        showToast?.(validation.error || 'Validation failed', 'error');
+        return { success: false, error: validation.error || 'Validation failed' };
+      }
+    }
+
+    const snapshot = {};
+    stateKeys.forEach(key => {
+      if (currentState[key] !== undefined) {
+        snapshot[key] = PasteCraftCRUD.createSnapshot(currentState[key]);
+      }
+    });
+
+    const buildData = async (state, meta) => {
+      if (typeof buildStorageData === 'function') {
+        return await buildStorageData(state, meta);
+      }
+      const storageData = {};
+      storageKeys.forEach(key => {
+        if (state[key] !== undefined) {
+          storageData[key] = state[key];
+        }
+      });
+      return storageData;
+    };
+
+    const rollback = async () => {
+      try {
+        PasteCraftCRUD.restoreSnapshot(currentState, snapshot);
+        await stateSetter(currentState);
+        if (storageWriter) {
+          await PasteCraftCRUD.retryOperation(async () => {
+            const storageData = await buildData(currentState, { rollback: true });
+            await storageWriter(storageData, currentState, { rollback: true });
+          });
+        }
+        uiUpdater?.({ rollback: true });
+      } catch (rollbackError) {
+        console.error('? Rollback failed:', rollbackError);
+      }
+    };
+
+    try {
+      const meta = await (mutateState?.(currentState) || {});
+      await stateSetter(currentState, meta);
+
+      try { uiUpdater?.(meta); } catch (uiErr) { console.error('?? uiUpdater threw (save, optimistic):', uiErr); }
+
+      if (storageWriter) {
+        await PasteCraftCRUD.retryOperation(async () => {
+          const storageData = await buildData(currentState, meta);
+          await storageWriter(storageData, currentState, meta);
+        });
+      }
+
+      const msg = typeof successMessage === 'function' ? successMessage(meta, currentState) : successMessage;
+      if (msg) showToast?.(msg, 'success');
+
+      if (verifier) {
+        Promise.resolve()
+          .then(() => verifier(meta, currentState))
+          .then((ok) => {
+            if (!ok) console.warn('?? Post-write verification failed (save operation)');
+          })
+          .catch((verErr) => console.warn('?? Verifier threw (save operation):', verErr));
+      }
+
+      if (backgroundSync) {
+        Promise.resolve()
+          .then(() => backgroundSync(meta, currentState))
+          .catch((error) => {
+            console.error('?? Background sync failed (local save succeeded):', error);
+          });
+      }
+
+      return { success: true, ...(meta || {}) };
+    } catch (error) {
+      await rollback();
+      const msg = typeof errorMessage === 'function' ? errorMessage(error) : errorMessage;
+      showToast?.(msg || `Failed to save: ${error.message || 'Unknown error'}`, 'error');
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+  }
+
+  /**
    * Generic CRUD CREATE operation with all 5 best practices
    */
   static async createOperation({

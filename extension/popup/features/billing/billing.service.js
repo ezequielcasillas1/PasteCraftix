@@ -49,7 +49,17 @@ function _notify(app, message, type = 'error') {
 function _sendCheckoutMessage({ priceId, creditAmount, accessToken, supabaseUrl, anonKey, mode = 'subscription' }) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
-      { action: 'pcCreateCheckout', priceId, creditAmount, accessToken, supabaseUrl, anonKey, mode },
+      {
+        action: 'pcCreateCheckout',
+        priceId,
+        creditAmount,
+        credit_amount: creditAmount,
+        credits: creditAmount,
+        accessToken,
+        supabaseUrl,
+        anonKey,
+        mode,
+      },
       resolve,
     );
   });

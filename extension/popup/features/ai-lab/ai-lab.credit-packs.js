@@ -16,35 +16,11 @@ import { getCreditPackBannerElements } from './ai-lab.selectors.js';
 
 
 
-function _hasPremiumAiAccess(subscription) {
-
-  if (!subscription) return false;
-
-  const tier = String(subscription.subscription_tier || '').toLowerCase();
-
-  const status = String(subscription.subscription_status || '').toLowerCase();
-
-  const expiresAtMs = subscription?.ai_access_expires_at ? Date.parse(subscription.ai_access_expires_at) : NaN;
-
-  const hasCouponAiAccess = !!(
-
-    subscription.has_unlimited_ai === true ||
-
-    (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
-
-  );
-
-  return (tier === 'premium' && (status === 'active' || status === 'past_due')) || hasCouponAiAccess;
-
-}
-
-
-
-/** Matches create-checkout requireCreditPurchaseEligibility — who may open Stripe. */
+/** Matches create-checkout requireCreditPurchaseEligibility — any signed-in tier except unlimited AI. */
 export function canPurchaseCreditPacks(subscription) {
   if (!subscription) return false;
   if (subscription.has_unlimited_ai === true) return false;
-  return _hasPremiumAiAccess(subscription);
+  return true;
 }
 
 function _updateCustomPreview(elements) {
@@ -108,7 +84,7 @@ export function renderCreditPackBanner(app) {
 
 
   packRow.innerHTML = CREDIT_PACKS.map((pack) => (
-    `<button type="button" class="ai-lab-credit-pack-btn" data-action="buy-credit-pack" data-price-id="${pack.priceId}" title="${pack.label} for ${pack.priceLabel}">
+    `<button type="button" class="ai-lab-credit-pack-btn" data-action="buy-credit-pack" data-credits="${pack.credits}" title="${pack.label} for ${pack.priceLabel}">
       <span class="ai-lab-credit-pack-amount">${pack.label}</span>
       <span class="ai-lab-credit-pack-price">${pack.priceLabel}</span>
     </button>`
@@ -140,11 +116,11 @@ export function bindCreditPackBannerEvents(app) {
 
     if (presetBtn) {
 
-      const priceId = String(presetBtn.dataset.priceId || '');
-
-      if (!priceId) return;
-
-      app.billingFeature?.service?.createCreditPackCheckout?.(app, priceId);
+      const credits = Math.floor(Number(presetBtn.dataset.credits));
+      if (!Number.isFinite(credits)) return;
+      // Route preset packs through custom checkout pricing to avoid
+      // Stripe mode mismatch on hard-coded price IDs.
+      app.billingFeature?.service?.createCustomCreditCheckout?.(app, credits);
 
       return;
 

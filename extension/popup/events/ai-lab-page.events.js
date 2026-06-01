@@ -1,8 +1,22 @@
-/** Extracted from popup.js setupEventListeners — behavior unchanged. */
+﻿/** Extracted from popup.js setupEventListeners — behavior unchanged. */
+import {
+  AI_TEXT_INPUT_MAX_CHARS,
+} from '../features/ai-lab/ai-lab.constants.js';
+import {
+  clampAiInputLength,
+  hasMeaningfulInput,
+  getRemainingMeaningfulWords,
+} from '../features/ai-lab/ai-lab.input-validation.js';
 
 export function registerAiLabPageEvents(app) {
     app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
     app.aiLabFeature?.announcements?.bindAnnouncementBannerEvents?.(app);
+
+    const minWordsForAi = 1;
+
+    const applyAiInputLimit = (inputEl) => {
+      if (inputEl) inputEl.maxLength = AI_TEXT_INPUT_MAX_CHARS;
+    };
 
     // AI button and tab handlers
     const aiBtn = document.getElementById('aiBtn');
@@ -71,14 +85,17 @@ export function registerAiLabPageEvents(app) {
     }
 
     // AI Refactorization standalone button
+    const refactorFeature = app.aiLabFeature?.refactorization;
     const refactorButton = document.querySelector('.ai-refactorization-feature');
-    if (refactorButton) {
+    if (refactorButton && refactorFeature?.activateRefactorizationSection) {
       refactorButton.addEventListener('click', () => {
-        app.aiLabFeature.refactorization.activateRefactorizationSection(app);
+        refactorFeature.activateRefactorizationSection(app);
       });
     }
 
-    app.aiLabFeature.refactorization.bindRefactorizationPanelUi(app);
+    if (refactorFeature?.bindRefactorizationPanelUi) {
+      refactorFeature.bindRefactorizationPanelUi(app);
+    }
 
     // AI Breakdown standalone button
     const breakdownButton = document.querySelector('.ai-breakdown-feature');
@@ -105,6 +122,7 @@ export function registerAiLabPageEvents(app) {
     const analyzeLevelBtn = document.getElementById('analyzeLevelBtn');
     const levelChips = document.querySelectorAll('.level-chip');
     const levelSelectionHint = document.getElementById('levelSelectionHint');
+    applyAiInputLimit(breakdownInput);
 
     if (clearBreakdownInput && breakdownInput) {
       clearBreakdownInput.addEventListener('click', () => {
@@ -123,7 +141,7 @@ export function registerAiLabPageEvents(app) {
         
         // Reset hint
         if (levelSelectionHint) {
-          levelSelectionHint.textContent = 'Type at least one sentence above to enable levels';
+          levelSelectionHint.textContent = 'Type at least one meaningful word above to enable levels';
         }
         
         // Hide inline results
@@ -145,15 +163,15 @@ export function registerAiLabPageEvents(app) {
       let _bdInputSaveTimer = null;
 
       breakdownInput.addEventListener('input', () => {
+        const clamped = clampAiInputLength(breakdownInput.value);
+        if (clamped !== breakdownInput.value) breakdownInput.value = clamped;
+
         const text = breakdownInput.value.trim();
         const length = breakdownInput.value.length;
-        const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+        const hasEnoughText = hasMeaningfulInput(text, minWordsForAi);
         
         charCounter.textContent = `${length} character${length !== 1 ? 's' : ''}`;
-        
-        // Enable level chips if at least 5 words (roughly one sentence)
-        const hasEnoughText = wordCount >= 5;
-        
+
         levelChips.forEach(chip => {
           chip.disabled = !hasEnoughText;
         });
@@ -162,9 +180,11 @@ export function registerAiLabPageEvents(app) {
         if (levelSelectionHint) {
           if (hasEnoughText) {
             levelSelectionHint.textContent = 'Select a level below to continue';
+          } else if (!text) {
+            levelSelectionHint.textContent = 'Type at least one meaningful word above to enable levels';
           } else {
-            const remaining = 5 - wordCount;
-            levelSelectionHint.textContent = `Type ${remaining} more word${remaining !== 1 ? 's' : ''} to enable levels`;
+            const remaining = getRemainingMeaningfulWords(text, minWordsForAi);
+            levelSelectionHint.textContent = `Type ${remaining} more meaningful word${remaining !== 1 ? 's' : ''} to enable levels`;
           }
         }
         
@@ -211,7 +231,7 @@ export function registerAiLabPageEvents(app) {
     if (analyzeLevelBtn && breakdownInput) {
       analyzeLevelBtn.addEventListener('click', () => {
         const text = breakdownInput.value.trim();
-        if (text && app.selectedBreakdownLevel) {
+        if (hasMeaningfulInput(text, minWordsForAi) && app.selectedBreakdownLevel) {
           app.startInlineBreakdown(text, app.selectedBreakdownLevel);
         }
       });
@@ -249,10 +269,13 @@ export function registerAiLabPageEvents(app) {
     // Inline follow-up button
     const bdInlineFollowupBtn = document.getElementById('bdInlineFollowupBtn');
     const bdInlineFollowupInput = document.getElementById('bdInlineFollowupInput');
+    applyAiInputLimit(bdInlineFollowupInput);
     if (bdInlineFollowupBtn && bdInlineFollowupInput) {
       const sendInlineFollowup = () => {
+        const clamped = clampAiInputLength(bdInlineFollowupInput.value);
+        if (clamped !== bdInlineFollowupInput.value) bdInlineFollowupInput.value = clamped;
         const question = bdInlineFollowupInput.value.trim();
-        if (!question || !app.currentBreakdownText) return;
+        if (!hasMeaningfulInput(question, minWordsForAi) || !app.currentBreakdownText) return;
         bdInlineFollowupInput.value = '';
         app.sendInlineBreakdownFollowup(question);
       };
@@ -277,16 +300,20 @@ export function registerAiLabPageEvents(app) {
     // Summary input character counter
     // Debounce timer for persisting summary input
     let _sumInputSaveTimer = null;
+    applyAiInputLimit(summaryInput);
+    applyAiInputLimit(customQuestionInput);
 
     if (summaryInput && summaryCharCounter) {
       summaryInput.addEventListener('input', () => {
+        const clamped = clampAiInputLength(summaryInput.value);
+        if (clamped !== summaryInput.value) summaryInput.value = clamped;
+
         const length = summaryInput.value.length;
-        const wordCount = summaryInput.value.trim().split(/\s+/).filter(w => w.length > 0).length;
         summaryCharCounter.textContent = `${length} characters`;
         
-        // Enable generate questions button if enough text (at least 5 words)
+        // Enable question generation once at least one meaningful word exists.
         if (generateQuestionsBtn) {
-          generateQuestionsBtn.disabled = wordCount < 5;
+          generateQuestionsBtn.disabled = !hasMeaningfulInput(summaryInput.value, minWordsForAi);
         }
 
         // Persist summary input (debounced)
@@ -315,7 +342,7 @@ export function registerAiLabPageEvents(app) {
     if (generateQuestionsBtn) {
       generateQuestionsBtn.addEventListener('click', () => {
         const text = summaryInput.value.trim();
-        if (text) {
+        if (hasMeaningfulInput(text, minWordsForAi)) {
           app.currentSummaryText = text;
           app.generateSummaryQuestions(text);
         }
@@ -325,7 +352,9 @@ export function registerAiLabPageEvents(app) {
     // Custom question input
     if (customQuestionInput && customQuestionBtn) {
       customQuestionInput.addEventListener('input', () => {
-        customQuestionBtn.disabled = customQuestionInput.value.trim().length < 5;
+        const clamped = clampAiInputLength(customQuestionInput.value);
+        if (clamped !== customQuestionInput.value) customQuestionInput.value = clamped;
+        customQuestionBtn.disabled = !hasMeaningfulInput(customQuestionInput.value, minWordsForAi);
       });
       
       customQuestionInput.addEventListener('keypress', (e) => {
@@ -339,7 +368,7 @@ export function registerAiLabPageEvents(app) {
     if (customQuestionBtn) {
       customQuestionBtn.addEventListener('click', () => {
         const question = customQuestionInput.value.trim();
-        if (question && app.currentSummaryText) {
+        if (hasMeaningfulInput(question, minWordsForAi) && app.currentSummaryText) {
           app.currentSummaryQuestion = question;
           app.generateSummary(app.currentSummaryText, question);
         }
@@ -394,16 +423,19 @@ export function registerAiLabPageEvents(app) {
     // Summary follow-up handlers
     const summaryFollowupInput = document.getElementById('summaryFollowupInput');
     const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
+    applyAiInputLimit(summaryFollowupInput);
 
     if (summaryFollowupInput) {
       summaryFollowupInput.addEventListener('input', (e) => {
+        const clamped = clampAiInputLength(e.target.value);
+        if (clamped !== e.target.value) e.target.value = clamped;
         if (summaryFollowupBtn) {
-          summaryFollowupBtn.disabled = e.target.value.trim() === '';
+          summaryFollowupBtn.disabled = !hasMeaningfulInput(e.target.value, minWordsForAi);
         }
       });
 
       summaryFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && app.currentSummaryText) {
+        if (e.key === 'Enter' && hasMeaningfulInput(e.target.value, minWordsForAi) && app.currentSummaryText) {
           app.handleSummaryFollowup(e.target.value.trim());
         }
       });
@@ -414,7 +446,7 @@ export function registerAiLabPageEvents(app) {
       summaryFollowupBtn.addEventListener('click', () => {
         if (summaryFollowupInput && app.currentSummaryText) {
           const followupQuestion = summaryFollowupInput.value.trim();
-          if (followupQuestion) {
+          if (hasMeaningfulInput(followupQuestion, minWordsForAi)) {
             app.handleSummaryFollowup(followupQuestion);
           }
         }
@@ -424,10 +456,13 @@ export function registerAiLabPageEvents(app) {
     // Breakdown follow-up handlers
     const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
     const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
+    applyAiInputLimit(breakdownFollowupInput);
 
     if (breakdownFollowupInput) {
       breakdownFollowupInput.addEventListener('input', (e) => {
-        const hasText = e.target.value.trim() !== '';
+        const clamped = clampAiInputLength(e.target.value);
+        if (clamped !== e.target.value) e.target.value = clamped;
+        const hasText = hasMeaningfulInput(e.target.value, minWordsForAi);
         
         // Enable/disable send button
         if (breakdownFollowupBtn) {
@@ -439,7 +474,7 @@ export function registerAiLabPageEvents(app) {
       });
 
       breakdownFollowupInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && e.target.value.trim() && app.currentBreakdownText) {
+        if (e.key === 'Enter' && hasMeaningfulInput(e.target.value, minWordsForAi) && app.currentBreakdownText) {
           app.handleBreakdownFollowup(e.target.value.trim());
         }
       });
@@ -450,7 +485,7 @@ export function registerAiLabPageEvents(app) {
       breakdownFollowupBtn.addEventListener('click', () => {
         if (breakdownFollowupInput && app.currentBreakdownText) {
           const followupQuestion = breakdownFollowupInput.value.trim();
-          if (followupQuestion) {
+          if (hasMeaningfulInput(followupQuestion, minWordsForAi)) {
             app.handleBreakdownFollowup(followupQuestion);
           }
         }
@@ -468,12 +503,10 @@ export function registerAiLabPageEvents(app) {
           tab.classList.add('selected');
           // Store selected level
           app.selectedFollowupLevel = tab.dataset.followupLevel;
-          console.log('?? Selected follow-up level:', app.selectedFollowupLevel);
           
-          // ? FIX: Auto-submit the followup when level is clicked
           if (breakdownFollowupInput && app.currentBreakdownText) {
             const followupQuestion = breakdownFollowupInput.value.trim();
-            if (followupQuestion) {
+            if (hasMeaningfulInput(followupQuestion, minWordsForAi)) {
               app.handleBreakdownFollowup(followupQuestion);
             }
           }
@@ -517,7 +550,7 @@ export function registerAiLabPageEvents(app) {
       });
     }
 
-    // Bulk AI Actions (2+ selected clips) � modularized so Clips and Categories reuse the same wiring
+    // Bulk AI Actions (2+ selected clips) ∩┐╜ modularized so Clips and Categories reuse the same wiring
     app._wireBulkAiButtons({
       summaryBtnId: 'bulkAiSummaryBtn',
       sendCategoriesBtnId: 'bulkSendCategoriesBtn',

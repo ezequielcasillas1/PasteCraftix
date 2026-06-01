@@ -23,36 +23,26 @@ export function registerTabNavEvents(app) {
         
         // Auto-reload data when switching tabs to ensure fresh counts
         if (app.currentTab === 'clips') {
-          console.log('?? Clips tab opened - reloading data...');
           await app.loadData();
           app.renderChips();
-          console.log('? Clips data refreshed');
         } else if (app.currentTab === 'categories') {
-          console.log('?? Categories tab opened - reloading data...');
           await app.loadData();
           app.renderCategories();
           app.updateCategoryBulkActions();
-          console.log('? Categories data refreshed');
         } else if (app.currentTab === 'search') {
-          console.log('?? Search tab opened - reloading data...');
           await app.loadData();
           app.renderSearchResults();
           app.updateSearchBulkActions();
-          console.log('? Search data refreshed');
         } else if (app.currentTab === 'ai') {
           app.loadAIGallery();
           app.migrateProfileImageToGallery();
         } else if (app.currentTab === 'notes') {
-          console.log('?? Notes tab opened - loading notes...');
           await app.loadNotes();
           app.renderNotes();
-          console.log('? Notes loaded');
         } else if (app.currentTab === 'aiHistory') {
-          console.log('?? AI History tab opened - loading history...');
           await app.loadAiHistory();
           app.resetAiHistoryListPagination();
           app.renderAiHistoryList();
-          console.log('? AI History loaded');
         } else if (app.currentTab === 'activity') {
           await app.activityFeature.service.loadActivityLog(app);
           app.activityFeature.render.renderActivityList(app);

@@ -28,7 +28,6 @@ async function startPopup(PasteCraftPopupClass) {
 
 export function bootPopupPage(PasteCraftPopupClass) {
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('?? Popup script loaded');
     startPopup(PasteCraftPopupClass);
   });
 

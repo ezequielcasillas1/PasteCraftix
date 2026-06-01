@@ -15,12 +15,24 @@ import {
   getNewPasswordValue,
   getConfirmNewPasswordValue,
 } from './auth.selectors.js';
+import {
+  rememberVerifiedEmail,
+  bootstrapVerifiedEmailCache,
+  rememberVerifiedEmailsFromSession,
+} from './auth.email-cache.js';
+import {
+  applyLastVerifiedEmailToSignin,
+  initSigninEmailAutocomplete,
+} from './auth.email-autocomplete.js';
 
 export function showAuthModal(app) {
-  console.log('🔐 Showing auth modal...');
   app.hideLoadingOverlay();
   const modal = getAuthModal();
   if (modal) modal.style.display = 'flex';
+  Promise.resolve()
+    .then(() => bootstrapVerifiedEmailCache())
+    .then(() => applyLastVerifiedEmailToSignin())
+    .catch(() => {});
 }
 
 export function hideAuthModal(app) {
@@ -88,6 +100,7 @@ function _signInErrorMessage(error) {
 async function _performSignIn(app, email, password) {
   const result = await pasteCraftSupabase.signInWithEmail(email, password);
   if (result.success) {
+    await rememberVerifiedEmail(email);
     app._isFreemiumGuest = false;
     chrome.storage.local.remove(AUTH_STORAGE_KEYS.FREEMIUM_GUEST);
     await app.clearLegacyAuthPrefs();
@@ -101,7 +114,6 @@ async function _performSignIn(app, email, password) {
 
 function _bindSignInHandlers(app) {
   const handleSignIn = async () => {
-    console.log('🔐 Sign In triggered');
     const email = getSigninEmailValue();
     const password = getSigninPasswordValue();
     if (!email || !password) {
@@ -165,7 +177,6 @@ async function _performSignUp(app, email, password) {
 
 function _bindSignUpHandlers(app) {
   const handleSignUp = async () => {
-    console.log('📝 Sign Up triggered');
     const form = {
       email: getSignupEmailValue(),
       password: getSignupPasswordValue(),
@@ -192,7 +203,6 @@ function _bindSignUpHandlers(app) {
 }
 
 async function _handleGoogleAuth(app, label) {
-  console.log(`🔵 Google ${label} button clicked`);
   app._isFreemiumGuest = false;
   chrome.storage.local.remove(AUTH_STORAGE_KEYS.FREEMIUM_GUEST);
   app.showToast(`🔵 Opening Google ${label.toLowerCase()}...`, 'info');
@@ -243,7 +253,6 @@ function _bindFreemiumSkip(app) {
   const skipBtn = document.getElementById(AUTH_ELEMENT_IDS.SKIP_FREEMIUM_BTN);
   if (!skipBtn) return;
   skipBtn.addEventListener('click', async () => {
-    console.log('🚀 Skip to PasteCraft (freemium guest) clicked');
     await _enterFreemiumGuestMode(app);
   });
 }
@@ -262,7 +271,6 @@ function _openForgotPasswordModal() {
 }
 
 async function _performPasswordReset(app, email) {
-  console.log('📧 Requesting password reset for:', email);
   app.showToast('📧 Sending reset link...', 'info');
   const result = await pasteCraftSupabase.resetPassword(email);
   if (result.success) {
@@ -291,7 +299,6 @@ function _bindForgotPasswordFlow(app) {
   if (link) {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      console.log('🔑 Forgot password link clicked');
       _openForgotPasswordModal();
     });
   }
@@ -299,7 +306,6 @@ function _bindForgotPasswordFlow(app) {
   const cancelBtn = document.getElementById(AUTH_ELEMENT_IDS.CANCEL_RESET_BTN);
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
-      console.log('🔙 Cancel reset, back to sign in');
       const resetModal = getPasswordResetModal();
       const authModal = getAuthModal();
       if (resetModal) resetModal.style.display = 'none';
@@ -343,7 +349,6 @@ function _bindNewPasswordStrength(app) {
 }
 
 async function _performNewPasswordUpdate(app, newPassword) {
-  console.log('🔐 Updating password...');
   app.showToast('🔄 Updating password...', 'info');
   const result = await pasteCraftSupabase.updatePassword(newPassword);
   if (result.success) {
@@ -409,7 +414,10 @@ function _bindCloseAppButton(app) {
   });
 }
 
-function _performSignOutCleanup(app) {
+async function _performSignOutCleanup(app) {
+  const extras = app.currentUser?.email ? [app.currentUser.email] : [];
+  await rememberVerifiedEmailsFromSession(extras);
+
   try {
     const topBar = document.getElementById(AUTH_ELEMENT_IDS.TOP_BAR);
     if (topBar) topBar.style.display = 'none';
@@ -430,15 +438,15 @@ function _performSignOutCleanup(app) {
 function _bindSignOutButton(app) {
   const btn = document.getElementById(AUTH_ELEMENT_IDS.SIGN_OUT_BTN);
   if (!btn) return;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     if (confirm('Are you sure you want to sign out?')) {
-      _performSignOutCleanup(app);
+      await _performSignOutCleanup(app);
     }
   });
 }
 
 export function setupAuthModalEvents(app) {
-  console.log('🔧 Setting up auth modal event listeners...');
+  initSigninEmailAutocomplete();
   Promise.resolve().then(() => app.applyAuthPrefsToUi()).catch(() => {});
 
   _bindAuthTabSwitcher(app);

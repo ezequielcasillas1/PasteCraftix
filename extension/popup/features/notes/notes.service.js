@@ -303,31 +303,190 @@ async function _rollbackNotes(app, snapshot) {
 }
 
 export async function saveNotes(app) {
-  const snapshot = PasteCraftCRUD.createSnapshot(app.notes);
+  let savedToIdbOnly = false;
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({ notes: app.notes }),
+    stateSetter: async (newState) => {
+      app.notes = Array.isArray(newState.notes) ? newState.notes : [];
+    },
+    stateKeys: ['notes'],
+    mutateState: async (state) => {
+      state.notes = sortNotesByRecency(dedupeNotesById(Array.isArray(state.notes) ? state.notes : []));
+    },
+    storageKeys: ['notes'],
+    storageWriter: async () => {
+      savedToIdbOnly = await _writeNotesToLocalStorage(app);
+      await _syncNotesToIdb(app);
+    },
+    verifier: async () => {
+      await _verifyNotesSaved(app, savedToIdbOnly);
+      return true;
+    },
+    errorMessage: (error) => `Failed to save notes: ${error.message || 'Unknown error'}`,
+    showToast: null,
+  });
 
-  app.notes = dedupeNotesById(app.notes);
-  app.notes = sortNotesByRecency(app.notes);
-
-  try {
-    const savedToIdbOnly = await _writeNotesToLocalStorage(app);
-    await _syncNotesToIdb(app);
-    await _verifyNotesSaved(app, savedToIdbOnly);
-    console.log(`💾 Saved ${app.notes.length} notes${savedToIdbOnly ? ' (IDB only - quota exceeded)' : ''}`);
-  } catch (error) {
-    console.error('❌ Notes save failed, rolling back:', error);
-    await _rollbackNotes(app, snapshot);
-    throw error;
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save notes');
   }
+
+  console.log(`💾 Saved ${app.notes.length} notes${savedToIdbOnly ? ' (IDB only - quota exceeded)' : ''}`);
 }
 
 // ── saveNotesPrefs ─────────────────────────────────────────────────────────
 
 export async function saveNotesPrefs(app) {
-  await chrome.storage.local.set({
-    notesViewMode: app.notesViewMode,
-    notesPageIndex: app.notesPageIndex,
-    notesAiEnabled: app.notesAiEnabled
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      notesViewMode: app.notesViewMode,
+      notesPageIndex: app.notesPageIndex,
+      notesAiEnabled: app.notesAiEnabled,
+    }),
+    stateSetter: async () => {},
+    stateKeys: ['notesViewMode', 'notesPageIndex', 'notesAiEnabled'],
+    mutateState: async () => {},
+    storageKeys: ['notesViewMode', 'notesPageIndex', 'notesAiEnabled'],
+    buildStorageData: async (state) => ({
+      notesViewMode: state.notesViewMode,
+      notesPageIndex: state.notesPageIndex,
+      notesAiEnabled: state.notesAiEnabled,
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (meta, state) => {
+      const stored = await chrome.storage.local.get(['notesViewMode', 'notesPageIndex', 'notesAiEnabled']);
+      return (
+        stored.notesViewMode === state.notesViewMode &&
+        stored.notesPageIndex === state.notesPageIndex &&
+        stored.notesAiEnabled === state.notesAiEnabled
+      );
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to save note prefs: ${error.message || 'Unknown error'}`,
+    showToast: null,
   });
+
+  if (!result.success) throw new Error(result.error || 'Failed to save note prefs');
+}
+
+function _persistSingleNoteVerification(noteId) {
+  return async () => {
+    const verification = await chrome.storage.local.get(['notes']);
+    const notes = Array.isArray(verification.notes) ? verification.notes : [];
+    return notes.some((note) => note.id == noteId);
+  };
+}
+
+function _buildNoteCrudUi(app) {
+  return () => {
+    app.renderNotes();
+  };
+}
+
+function _buildNoteCrudToast(app) {
+  return (msg, type) => {
+    if (msg) app.showToast(msg, type);
+  };
+}
+
+export async function createNote(app, noteData) {
+  const result = await PasteCraftCRUD.createOperation({
+    entity: noteData,
+    stateGetter: () => ({ notes: app.notes }),
+    stateSetter: async (newState) => {
+      app.notes = Array.isArray(newState.notes) ? newState.notes : [];
+      app.notesPageIndex = 0;
+    },
+    stateKeys: ['notes'],
+    validator: (entity) => {
+      if (!entity || entity.id == null) return { valid: false, error: 'Invalid note' };
+      return { valid: true };
+    },
+    duplicateCheck: (entity, state) =>
+      Array.isArray(state.notes) && state.notes.some((note) => note.id == entity.id),
+    storageKeys: ['notes'],
+    storageWriter: async (data) => {
+      await chrome.storage.local.set({
+        ...data,
+        pc_local_updatedAt: Date.now(),
+        notesViewMode: app.notesViewMode,
+        notesPageIndex: app.notesPageIndex,
+        notesAiEnabled: app.notesAiEnabled,
+      });
+      await _syncNotesToIdb(app);
+    },
+    addToArray: (items, entity) => sortNotesByRecency(dedupeNotesById([entity, ...items])),
+    verifier: _persistSingleNoteVerification(noteData.id),
+    uiUpdater: _buildNoteCrudUi(app),
+    backgroundSync: async (entity) => {
+      await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(entity)], pasteCraftSupabase.syncNotesToSupabase);
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to create note: ${error.message || 'Unknown error'}`,
+    showToast: _buildNoteCrudToast(app),
+  });
+
+  if (!result.success) throw new Error(result.error || 'Failed to create note');
+  return result;
+}
+
+export async function updateNote(app, noteId, noteData) {
+  const result = await PasteCraftCRUD.updateOperation({
+    entityId: noteId,
+    updates: noteData,
+    stateGetter: () => ({ notes: app.notes }),
+    stateSetter: async (newState) => {
+      app.notes = Array.isArray(newState.notes) ? sortNotesByRecency(dedupeNotesById(newState.notes)) : [];
+    },
+    stateKeys: ['notes'],
+    validator: (entity) => {
+      if (!entity || entity.id == null) return { valid: false, error: 'Invalid note' };
+      return { valid: true };
+    },
+    storageKeys: ['notes'],
+    storageWriter: async (data) => {
+      await chrome.storage.local.set({
+        ...data,
+        pc_local_updatedAt: Date.now(),
+        notesViewMode: app.notesViewMode,
+        notesPageIndex: app.notesPageIndex,
+        notesAiEnabled: app.notesAiEnabled,
+      });
+      await _syncNotesToIdb(app);
+    },
+    updateInArray: (items, entityId, updates) =>
+      sortNotesByRecency(dedupeNotesById(items.map((item) => item.id == entityId ? { ...item, ...updates } : item))),
+    verifier: _persistSingleNoteVerification(noteId),
+    uiUpdater: _buildNoteCrudUi(app),
+    backgroundSync: async (entity) => {
+      await pasteCraftSupabase.syncWithQueue('syncNotes', [PasteCraftCRUD.createSnapshot(entity)], pasteCraftSupabase.syncNotesToSupabase);
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to update note: ${error.message || 'Unknown error'}`,
+    showToast: _buildNoteCrudToast(app),
+  });
+
+  if (!result.success) throw new Error(result.error || 'Failed to update note');
+  return result;
+}
+
+export async function mutateNote(app, noteId, mutator, options = {}) {
+  const current = Array.isArray(app.notes) ? app.notes.find((note) => note.id == noteId) : null;
+  if (!current) throw new Error('Note not found');
+
+  const draft = PasteCraftCRUD.createSnapshot(current);
+  const maybeNext = await mutator(draft, current);
+  const next = maybeNext && typeof maybeNext === 'object' ? maybeNext : draft;
+  if (!next || next.id == null) throw new Error('Invalid note mutation');
+
+  const result = await updateNote(app, noteId, next);
+
+  if (typeof options.afterUpdate === 'function') {
+    await options.afterUpdate(result?.entity || next);
+  }
+
+  return result;
 }
 
 // ── lazyLoadNotesPage ──────────────────────────────────────────────────────

@@ -33,84 +33,95 @@ export async function updateClipTitleById(app, clipId, title) {
     : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
 
   return app._queueClipOp(async () => {
-    const location = findClipLocationById(app, idKey);
-    if (!location?.clip) {
-      app.showToast('Clip not found');
-      return false;
-    }
-
-    const snapshot = {
-      clips: PasteCraftCRUD.createSnapshot(app.clips),
-      searchOnlyClips: PasteCraftCRUD.createSnapshot(app.searchOnlyClips),
-      notes: PasteCraftCRUD.createSnapshot(app.notes)
-    };
-
-    const updatedAt = Date.now();
-    const nextClip = {
-      ...location.clip,
-      title: normalizedTitle,
-      updatedAt
-    };
-
-    if (location.listName === 'clips') {
-      app.clips[location.index] = nextClip;
-    } else {
-      app.searchOnlyClips[location.index] = nextClip;
-    }
-
-    const changedNotes = updateNoteClipTitlesById(app, idKey, normalizedTitle, updatedAt);
-
-    try {
-      await PasteCraftCRUD.retryOperation(async () => {
-        await chrome.storage.local.set({
-          clips: app.clips,
-          searchOnlyClips: app.searchOnlyClips,
-          notes: app.notes,
-          pc_local_updatedAt: updatedAt
-        });
-      });
-
-      const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
-      const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
-      const verifiedClip = verifiedPool.find(c => app._clipIdKey(c?.id) === idKey);
-      if (!verifiedClip || app._clipTitle(verifiedClip) !== normalizedTitle) {
-        throw new Error('Verification failed: clip title was not persisted');
-      }
-
-      const syncName = location.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
-      const syncFn = location.listName === 'clips'
-        ? pasteCraftSupabase.syncClipsToSupabase
-        : pasteCraftSupabase.syncArchivedClipsToSupabase;
-      Promise.resolve()
-        .then(() => pasteCraftSupabase.syncWithQueue(syncName, [nextClip], syncFn))
-        .catch((error) => console.error('Failed to sync clip title:', error));
-
-      if (changedNotes.length > 0) {
-        Promise.resolve()
-          .then(() => pasteCraftSupabase.syncWithQueue('syncNotes', changedNotes, pasteCraftSupabase.syncNotesToSupabase))
-          .catch((error) => console.error('Failed to sync note clip titles:', error));
-      }
-
-      app.renderChips();
-      app.renderSearchResults();
-      app.renderCategories();
-      app.renderNotes();
-      app.showToast(normalizedTitle ? 'Clip title updated' : 'Clip title cleared');
-      return true;
-    } catch (error) {
-      app.clips = snapshot.clips;
-      app.searchOnlyClips = snapshot.searchOnlyClips;
-      app.notes = snapshot.notes;
-      await chrome.storage.local.set({
+    const result = await PasteCraftCRUD.saveOperation({
+      stateGetter: () => ({
         clips: app.clips,
         searchOnlyClips: app.searchOnlyClips,
         notes: app.notes,
-        pc_local_updatedAt: Date.now()
-      });
-      console.error('? Clip title update failed:', error);
+      }),
+      stateSetter: async (newState) => {
+        app.clips = Array.isArray(newState.clips) ? newState.clips : [];
+        app.searchOnlyClips = Array.isArray(newState.searchOnlyClips) ? newState.searchOnlyClips : [];
+        app.notes = Array.isArray(newState.notes) ? newState.notes : [];
+      },
+      stateKeys: ['clips', 'searchOnlyClips', 'notes'],
+      validator: () => {
+        const location = findClipLocationById(app, idKey);
+        return { valid: !!location?.clip, error: 'Clip not found' };
+      },
+      mutateState: async (state) => {
+        const location = findClipLocationById({
+          ...app,
+          clips: state.clips,
+          searchOnlyClips: state.searchOnlyClips,
+        }, idKey);
+        if (!location?.clip) throw new Error('Clip not found');
+
+        const updatedAt = Date.now();
+        const nextClip = {
+          ...location.clip,
+          title: normalizedTitle,
+          updatedAt,
+        };
+
+        if (location.listName === 'clips') {
+          state.clips[location.index] = nextClip;
+        } else {
+          state.searchOnlyClips[location.index] = nextClip;
+        }
+
+        const notesApp = { ...app, notes: state.notes };
+        const changedNotes = updateNoteClipTitlesById(notesApp, idKey, normalizedTitle, updatedAt);
+        state.notes = notesApp.notes;
+
+        return { changedNotes, nextClip, listName: location.listName };
+      },
+      storageKeys: ['clips', 'searchOnlyClips', 'notes'],
+      storageWriter: async (data) => {
+        await chrome.storage.local.set({
+          clips: data.clips,
+          searchOnlyClips: data.searchOnlyClips,
+          notes: data.notes,
+          pc_local_updatedAt: Date.now(),
+        });
+      },
+      verifier: async () => {
+        const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+        const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
+        const verifiedClip = verifiedPool.find(c => app._clipIdKey(c?.id) === idKey);
+        return !!verifiedClip && app._clipTitle(verifiedClip) === normalizedTitle;
+      },
+      uiUpdater: () => {
+        app.renderChips();
+        app.renderSearchResults();
+        app.renderCategories();
+        app.renderNotes();
+      },
+      backgroundSync: async (meta) => {
+        const syncName = meta.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
+        const syncFn = meta.listName === 'clips'
+          ? pasteCraftSupabase.syncClipsToSupabase
+          : pasteCraftSupabase.syncArchivedClipsToSupabase;
+        await pasteCraftSupabase.syncWithQueue(syncName, [meta.nextClip], syncFn);
+
+        if (meta.changedNotes.length > 0) {
+          await pasteCraftSupabase.syncWithQueue('syncNotes', meta.changedNotes, pasteCraftSupabase.syncNotesToSupabase);
+        }
+      },
+      successMessage: () => '',
+      errorMessage: (error) => `Failed to update clip title: ${error.message || 'Unknown error'}`,
+      showToast: (msg, type) => {
+        if (msg) app.showToast(msg, type);
+      },
+    });
+
+    if (!result.success) {
       app.showToast('Failed to update clip title');
       return false;
     }
+
+    app.showToast(normalizedTitle ? 'Clip title updated' : 'Clip title cleared');
+    return true;
   });
 }
 

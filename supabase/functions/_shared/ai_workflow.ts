@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireNotBanned } from './security-gate.ts'
-import { computeTotalRemaining, planCreditDrain } from './credit_packs.ts'
+import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance } from './credit_packs.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
 export type AiWorkflowProvider = 'openai' | 'google';
@@ -472,10 +472,10 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     sub.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   ));
-  const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
-  const entitled = isPaidPremium || hasCouponAiAccess;
+  const purchasedBalance = readPurchasedBalance(sub);
+  const hasAllowance = hasAiUsageEntitlement(sub);
 
-  if (!entitled) {
+  if (!hasAllowance) {
     return new Response(
       JSON.stringify({ error: 'Upgrade required' }),
       { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 403 }
@@ -483,6 +483,8 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   }
 
   const unlimited = sub.has_unlimited_ai === true;
+  const isPaidTier = (tier === 'premium' || tier === 'basic')
+    && (status === 'active' || status === 'past_due');
 
   const stripePeriodEndIso = sub.stripe_current_period_end
     ? new Date(sub.stripe_current_period_end).toISOString()
@@ -497,11 +499,10 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
 
   let creditsUsed = Number.isFinite(Number(sub.ai_text_credits_used)) ? Number(sub.ai_text_credits_used) : 0;
   let creditsLimit = Number.isFinite(Number(sub.ai_text_credits_limit)) ? Number(sub.ai_text_credits_limit) : NaN;
-  let purchasedBalance = Number.isFinite(Number(sub.ai_purchased_credits_balance))
-    ? Math.max(0, Number(sub.ai_purchased_credits_balance))
-    : 0;
   if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
-    creditsLimit = unlimited ? Number.POSITIVE_INFINITY : computeTextCreditsLimitFallback(resetAtIso);
+    creditsLimit = unlimited
+      ? Number.POSITIVE_INFINITY
+      : ((isPaidTier || hasCouponAiAccess) ? computeTextCreditsLimitFallback(resetAtIso) : 0);
   }
 
   // Auto-reset if period passed

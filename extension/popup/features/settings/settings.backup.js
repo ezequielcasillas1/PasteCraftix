@@ -86,6 +86,56 @@ async function _readJsonFile(file) {
   return JSON.parse(text);
 }
 
+async function _persistImportedPopupData(next) {
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      clips: Array.isArray(next.clips) ? next.clips : [],
+      searchOnlyClips: Array.isArray(next.searchOnlyClips) ? next.searchOnlyClips : [],
+      categories: Array.isArray(next.categories) ? next.categories : [],
+      notes: Array.isArray(next.notes) ? next.notes : [],
+      autoDeletePeriod: next.autoDeletePeriod,
+      quickPasteSettings: next.quickPasteSettings,
+      albumAttachmentOpenMode: next.albumAttachmentOpenMode,
+      theme: next.theme,
+      settingsUpdatedAt: next.settingsUpdatedAt,
+      pc_local_updatedAt: next.pc_local_updatedAt,
+    }),
+    stateSetter: async () => {},
+    stateKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
+    mutateState: async () => {},
+    storageKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
+    buildStorageData: async (state) => ({
+      clips: state.clips,
+      searchOnlyClips: state.searchOnlyClips,
+      categories: state.categories,
+      notes: state.notes,
+      autoDeletePeriod: state.autoDeletePeriod,
+      quickPasteSettings: state.quickPasteSettings,
+      albumAttachmentOpenMode: state.albumAttachmentOpenMode,
+      theme: state.theme,
+      settingsUpdatedAt: state.settingsUpdatedAt,
+      pc_local_updatedAt: state.pc_local_updatedAt,
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async () => {
+      const stored = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes']);
+      return (
+        (Array.isArray(stored.clips) ? stored.clips.length : 0) === (Array.isArray(next.clips) ? next.clips.length : 0) &&
+        (Array.isArray(stored.searchOnlyClips) ? stored.searchOnlyClips.length : 0) === (Array.isArray(next.searchOnlyClips) ? next.searchOnlyClips.length : 0) &&
+        (Array.isArray(stored.categories) ? stored.categories.length : 0) === (Array.isArray(next.categories) ? next.categories.length : 0) &&
+        (Array.isArray(stored.notes) ? stored.notes.length : 0) === (Array.isArray(next.notes) ? next.notes.length : 0)
+      );
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to import backup: ${error.message || 'Unknown error'}`,
+    showToast: null,
+  });
+
+  if (!result.success) throw new Error(result.error || 'Failed to import backup');
+}
+
 export async function importBackupFromJsonMerge(app, file) {
   const backup = _extractBackupData(await _readJsonFile(file));
   const current = await chrome.storage.local.get(BACKUP_KEYS);
@@ -102,7 +152,7 @@ export async function importBackupFromJsonMerge(app, file) {
     if (backup[key] !== undefined) next[key] = backup[key];
   });
 
-  await chrome.storage.local.set(next);
+  await _persistImportedPopupData(next);
   await app.loadData();
   await app.loadSettings();
   app.renderChips();

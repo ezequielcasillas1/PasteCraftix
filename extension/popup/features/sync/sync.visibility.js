@@ -6,7 +6,6 @@ export function setupVisibilityListener(app) {
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
 
-    console.log('?? Popup became visible - reloading data...');
     await app.loadData();
     await app.loadUserProfile();
     app.renderChips();
@@ -15,6 +14,5 @@ export function setupVisibilityListener(app) {
     app.renderCategories();
     app.updateCategoryFilter();
     app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
-    console.log('? Data reloaded successfully');
   });
 }
