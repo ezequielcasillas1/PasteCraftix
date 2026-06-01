@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { appendClipTombstones, pickClipsByIdKeys } from '../../shared/clip-tombstones.js';
 import { createClosedShadowHost, injectShadowStyles } from '../safety/shadow-host.js';
 
 export class PasteCraftFloatingWidget {
@@ -2871,7 +2872,7 @@ export class PasteCraftFloatingWidget {
         const clipIdKey = String(e.data.clipId || '');
         const isArchived = e.data.archived === true;
 
-        chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
+        chrome.storage.local.get(['clips', 'searchOnlyClips'], async (result) => {
           const clips = Array.isArray(result?.clips) ? result.clips : [];
           const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
 
@@ -2879,6 +2880,8 @@ export class PasteCraftFloatingWidget {
 
           let nextClips = clips;
           let nextArchived = archived;
+          let removedActive = clipIdKey && !isArchived ? pickClipsByIdKeys(clips, [clipIdKey]) : [];
+          let removedArchived = clipIdKey && isArchived ? pickClipsByIdKeys(archived, [clipIdKey]) : [];
 
           if (clipIdKey) {
             if (isArchived) {
@@ -2901,12 +2904,20 @@ export class PasteCraftFloatingWidget {
 
               const target = merged[idx];
               if (target && target.source === 'archived') {
+                removedArchived = pickClipsByIdKeys(archived, [String(target.id)]);
                 nextArchived = archived.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
               } else if (target && target.source === 'active') {
+                removedActive = pickClipsByIdKeys(clips, [String(target.id)]);
                 nextClips = clips.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
               }
             }
           }
+
+          const deletedAt = Date.now();
+          try {
+            if (removedActive.length) await appendClipTombstones(removedActive, { archived: false, deletedAt });
+            if (removedArchived.length) await appendClipTombstones(removedArchived, { archived: true, deletedAt });
+          } catch (_) {}
 
           chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
             getQuickViewClips().then((merged) => {

@@ -9,6 +9,8 @@ export const CLIPS_STORAGE_KEYS = Object.freeze({
 export const CLIPS_SYNC_QUEUE_KEYS = Object.freeze({
   ACTIVE: 'syncClips',
   ARCHIVED: 'syncArchivedClips',
+  DELETED_ACTIVE: 'syncDeletedClips',
+  DELETED_ARCHIVED: 'syncDeletedArchivedClips',
 });
 
 export const CLIPS_DEFAULTS = Object.freeze({

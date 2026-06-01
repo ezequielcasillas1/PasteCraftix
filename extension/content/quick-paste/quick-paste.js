@@ -1,4 +1,5 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { appendClipTombstones, pickClipsByIdKeys } from '../../shared/clip-tombstones.js';
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 
 export class QuickPasteInterface {
@@ -29,8 +30,21 @@ export class QuickPasteInterface {
 
     // Serialize clip mutations to prevent races / double-click issues.
     this._clipOpQueue = Promise.resolve();
-    
+
+    this.setupMessageListener();
     this.init();
+  }
+
+  _isPointerInsidePanel(e) {
+    const mount = this.shadowMount;
+    const panel = this.container;
+    if (!mount || !panel) return false;
+
+    const target = e?.target;
+    if (target === mount.host) return true;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    return path.includes(panel) || path.includes(mount.root) || path.includes(mount.host);
   }
 
   _clipIdKey(id) {
@@ -58,7 +72,6 @@ export class QuickPasteInterface {
     await this.loadSettings();
     this.createInterface();
     this.setupEventListeners();
-    this.setupMessageListener();
     this.setupStorageSync();
     
     // Removed auto-show on right-click - now controlled by context menu
@@ -1172,7 +1185,7 @@ export class QuickPasteInterface {
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
       // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (this.isVisible && !this._isPointerInsidePanel(e) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -2456,6 +2469,7 @@ export class QuickPasteInterface {
     return this._queueClipOp(async () => {
       const before = this.clips.length;
       const clip = this.clips.find(c => this._clipIdKey(c?.id) === id);
+      const removed = pickClipsByIdKeys(this.clips, [id]);
 
       // Compute next state
       this.clips = this.clips.filter(c => this._clipIdKey(c?.id) !== id);
@@ -2467,6 +2481,11 @@ export class QuickPasteInterface {
         this.updateCopyMultipleButton();
         return;
       }
+
+      const deletedAt = Date.now();
+      try {
+        await appendClipTombstones(removed.length ? removed : (clip ? [clip] : []), { archived: false, deletedAt });
+      } catch (_) {}
 
       // Persist once
       await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
