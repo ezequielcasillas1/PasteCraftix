@@ -347,6 +347,9 @@
             font-size: 11px;
             margin-top: 4px;
             opacity: 0.95;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+            min-height: 16px;
         }
         
         .sync-indicator {
@@ -391,8 +394,23 @@
             margin-left: 4px;
         }
         
+        .header-sync-block {
+            min-height: 44px;
+        }
+
         .sync-progress-container {
             margin-top: 6px;
+            min-height: 22px;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .sync-progress-container.is-visible {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
         }
         
         .sync-progress-bar {
@@ -416,6 +434,8 @@
             font-size: 10px;
             color: rgba(255, 255, 255, 0.9);
             font-weight: 500;
+            min-height: 14px;
+            line-height: 14px;
         }
         
         .settings-btn {
@@ -1131,7 +1151,8 @@
         .chip-notes-btn,
         .chip-category-btn,
         .chip-open-btn,
-        .chip-share-btn {
+        .chip-share-btn,
+        .chip-title-btn {
             background: none;
             border: none;
             cursor: pointer;
@@ -1153,7 +1174,8 @@
         .chip-notes-btn:hover,
         .chip-category-btn:hover,
         .chip-open-btn:hover,
-        .chip-share-btn:hover {
+        .chip-share-btn:hover,
+        .chip-title-btn:hover {
             opacity: 1;
             transform: scale(1.15);
         }
@@ -4734,6 +4756,66 @@
             border-color: #CBD5E1;
         }
 
+        .auth-email-suggestions {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 6px;
+            border: 2px solid #E2E8F0;
+            border-radius: 12px;
+            background: #FFFFFF;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .auth-email-suggestions[hidden] {
+            display: none !important;
+        }
+
+        .auth-email-suggestion-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #1E293B;
+            font-size: 14px;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .auth-email-suggestion-item:hover,
+        .auth-email-suggestion-item.active {
+            background: #EFF6FF;
+        }
+
+        .auth-email-suggestion-icon {
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+
+        .auth-email-suggestion-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .auth-email-suggestion-text strong {
+            color: #2563EB;
+            font-weight: 600;
+        }
+
         .input-hint {
             font-size: 12px;
             color: #64748B;
@@ -5303,9 +5385,278 @@
         
         .ai-lab-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             padding-bottom: 16px;
             border-bottom: 2px solid #f1f5f9;
+        }
+
+        .ai-lab-banner-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ai-lab-announcement-banner,
+        .ai-lab-credit-pack-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .ai-lab-announcement-banner[hidden],
+        .ai-lab-credit-pack-banner[hidden] {
+            display: none !important;
+        }
+
+        .ai-lab-credit-pack-banner {
+            flex-direction: column;
+            align-items: stretch;
+            justify-content: flex-start;
+            gap: 10px;
+            border: 1px solid #bfdbfe;
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(135deg, #eff6ff 0%, #f5f9ff 55%, #fef9ec 100%);
+            color: #1e3a8a;
+            box-shadow: 0 1px 2px rgba(30, 58, 138, 0.06);
+        }
+
+        .ai-lab-credit-pack-banner strong {
+            display: block;
+            font-size: 12.5px;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-pack-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .ai-lab-credit-pack-btn {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            min-width: 96px;
+            border: 1px solid #bfdbfe;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+        }
+
+        .ai-lab-credit-pack-btn:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.18);
+        }
+
+        .ai-lab-credit-pack-btn:active {
+            transform: translateY(1px);
+        }
+
+        .ai-lab-credit-pack-amount {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-pack-price {
+            font-size: 14px;
+            font-weight: 800;
+            color: #b45309;
+            line-height: 1;
+        }
+
+        .ai-lab-credit-custom {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #cdddf7;
+        }
+
+        .ai-lab-credit-custom label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e3a8a;
+        }
+
+        .ai-lab-credit-custom-input {
+            width: 76px;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 5px 8px;
+            font-size: 12px;
+            color: #1e3a8a;
+            background: #ffffff;
+        }
+
+        .ai-lab-credit-custom-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .ai-lab-credit-custom-preview {
+            font-size: 11px;
+            font-weight: 600;
+            color: #475e8c;
+            flex: 1 1 140px;
+        }
+
+        .ai-lab-credit-custom-buy {
+            border: none;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(29, 78, 216, 0.3);
+            transition: box-shadow 0.15s ease, filter 0.15s ease;
+        }
+
+        .ai-lab-credit-custom-buy:hover:not(:disabled) {
+            box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
+            filter: brightness(1.05);
+        }
+
+        .ai-lab-credit-custom-buy:disabled {
+            background: #cbd5e1;
+            color: #f1f5f9;
+            box-shadow: none;
+            cursor: not-allowed;
+
+        /* ── Out-of-credits inline card ─────────────────────── */
+        .ai-credit-empty-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 14px 14px 12px;
+            border-radius: 12px;
+            border: 1px solid #fed7aa;
+            border-left: 4px solid #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 60%, #fef3c7 100%);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.10);
+            margin: 8px 0;
+        }
+
+        .ai-credit-empty-icon {
+            font-size: 20px;
+            line-height: 1;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .ai-credit-empty-body {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .ai-credit-empty-title {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: #92400e;
+            line-height: 1.3;
+        }
+
+        .ai-credit-empty-text {
+            margin: 0;
+            font-size: 12px;
+            color: #78350f;
+            line-height: 1.45;
+        }
+
+        .ai-credit-empty-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .ai-credit-empty-btn-buy {
+            border: none;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #ffffff;
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 1px 4px rgba(217, 119, 6, 0.35);
+            transition: filter 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .ai-credit-empty-btn-buy:hover {
+            filter: brightness(1.06);
+            box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45);
+        }
+
+        .ai-credit-empty-btn-upgrade {
+            border: 1.5px solid #bfdbfe;
+            background: #ffffff;
+            color: #1d4ed8;
+            border-radius: 999px;
+            padding: 5px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .ai-credit-empty-btn-upgrade:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        /* Pulse highlight when Buy Credits scrolls to banner */
+        @keyframes credit-banner-pulse {
+            0%   { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+            70%  { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        .ai-credit-pack-highlight {
+            animation: credit-banner-pulse 0.8s ease-out 2;
+        }
+        }
+
+        .ai-lab-announcement-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .ai-lab-announcement-link {
+            color: #1d4ed8;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .ai-lab-announcement-dismiss {
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 2px;
         }
         
         .ai-lab-title {
@@ -9072,16 +9423,18 @@
                 <div class="header-info">
                     <h1>PasteCraft</h1>
                     <div class="last-capture" id="lastCapture">No recent captures</div>
+                    <div class="header-sync-block">
                     <div class="sync-status" id="syncStatus">
                         <div class="sync-indicator synced" id="syncIndicator"></div>
                         <span class="sync-status-text" id="syncStatusText">Synced</span>
                         <span class="sync-queue-count" id="syncQueueCount" style="display: none;"></span>
                     </div>
-                    <div class="sync-progress-container" id="syncProgressContainer" style="display: none;">
+                    <div class="sync-progress-container" id="syncProgressContainer">
                         <div class="sync-progress-bar">
                             <div class="sync-progress-fill" id="syncProgressFill"></div>
                         </div>
                         <span class="sync-progress-text" id="syncProgressText">0 / 0 (0%)</span>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -9102,7 +9455,7 @@
         <!-- Manual Text Input Section -->
         <section class="manual-input-section" id="manualInputSection">
             <div class="manual-input-header">
-                <span class="manual-input-icon"><i data-lucide="pencil"></i></span>
+                <span class="manual-input-icon"><i data-lucide="pencil-line"></i></span>
                 <span class="manual-input-title">Quick Save Text</span>
                 <button class="manual-input-toggle" id="manualInputToggle" title="Toggle input">
                     ▼
@@ -9327,7 +9680,7 @@
             <div class="activity-filters" style="display:flex;gap:6px;margin:12px 0;">
                 <button class="activity-filter-chip active" data-filter="all" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;">All</button>
                 <button class="activity-filter-chip" data-filter="INSERT" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="plus"></i> Created</button>
-                <button class="activity-filter-chip" data-filter="UPDATE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="pencil"></i> Updated</button>
+                <button class="activity-filter-chip" data-filter="UPDATE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="pencil-line"></i> Updated</button>
                 <button class="activity-filter-chip" data-filter="DELETE" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="trash-2"></i> Deleted</button>
             </div>
 
@@ -9497,6 +9850,26 @@
                     </div>
                 </div>
 
+                <div class="ai-lab-banner-stack">
+                    <div class="ai-lab-announcement-banner" id="aiLabAnnouncementBanner" hidden>
+                        <span id="aiLabAnnouncementMessage"></span>
+                        <span class="ai-lab-announcement-actions">
+                            <a class="ai-lab-announcement-link" id="aiLabAnnouncementLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Learn more</a>
+                            <button type="button" class="ai-lab-announcement-dismiss" data-action="dismiss-announcement" aria-label="Dismiss announcement">&times;</button>
+                        </span>
+                    </div>
+                    <div class="ai-lab-credit-pack-banner" id="aiLabCreditPackBanner" hidden>
+                        <strong>Want to buy more credits?</strong>
+                        <div class="ai-lab-credit-pack-buttons" id="aiLabCreditPackButtons"></div>
+                        <div class="ai-lab-credit-custom">
+                            <label for="aiLabCreditCustomAmount">Custom credits</label>
+                            <input type="number" class="ai-lab-credit-custom-input" id="aiLabCreditCustomAmount" data-field="credit-custom-amount" min="25" step="1" placeholder="25" />
+                            <span class="ai-lab-credit-custom-preview" id="aiLabCreditCustomPreview"></span>
+                            <button type="button" class="ai-lab-credit-custom-buy" id="aiLabCreditCustomBuy" data-action="buy-custom-credit-pack" disabled>Buy</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- AI Lab Internal Tabs -->
                 <nav class="ai-lab-tabs">
                     <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji"><i data-lucide="palette"></i></span><span class="tab-text"> Generator</span></button>
@@ -9597,6 +9970,7 @@
 Multiple clips are separated by:
 ---"
                                 rows="12"
+                                maxlength="12000"
                             ></textarea>
                             
                             <div class="summary-input-actions">
@@ -9628,7 +10002,7 @@ Multiple clips are separated by:
                             
                             <div class="custom-question-section">
                                 <label for="customQuestionInput" class="custom-question-label">
-                                    <span><i data-lucide="pencil"></i></span>
+                                    <span><i data-lucide="pencil-line"></i></span>
                                     <span>Or write your own question:</span>
                                 </label>
                                 <input 
@@ -9636,6 +10010,7 @@ Multiple clips are separated by:
                                     id="customQuestionInput" 
                                     class="custom-question-input" 
                                     placeholder="e.g., Summarize the main arguments in 3 bullet points..."
+                                    maxlength="12000"
                                 />
                                 <button id="customQuestionBtn" class="btn-primary custom-question-btn" disabled>
                                     <span><i data-lucide="notebook-pen"></i></span>
@@ -9678,6 +10053,7 @@ Multiple clips are separated by:
                                         id="summaryFollowupInput" 
                                         class="followup-input" 
                                         placeholder="Continue questioning about the problem..."
+                                        maxlength="12000"
                                     />
                                     <button id="summaryFollowupBtn" class="followup-send-btn" title="Send follow-up">
                                         <span>Send</span>
@@ -9771,6 +10147,7 @@ Multiple clips are separated by:
                                     class="bd-textarea" 
                                     placeholder="Paste any text here—articles, quotes, definitions, concepts, code snippets, or anything you want to understand better..."
                                     rows="5"
+                                    maxlength="12000"
                                 ></textarea>
                                 <button id="clearBreakdownInput" class="bd-clear-btn" title="Clear text">
                                     <span><i data-lucide="trash-2"></i></span> Clear All
@@ -9784,7 +10161,7 @@ Multiple clips are separated by:
                                 <span class="bd-step-num">2</span>
                                 <div class="bd-step-info">
                                     <h4 class="bd-step-title">Choose comprehension level</h4>
-                                    <span class="bd-step-hint" id="levelSelectionHint">Type at least one sentence above to enable levels</span>
+                                    <span class="bd-step-hint" id="levelSelectionHint">Type at least one meaningful word above to enable levels</span>
                                 </div>
                             </div>
                             <div class="bd-levels-grid" id="levelChipsContainer">
@@ -9896,6 +10273,7 @@ Multiple clips are separated by:
                                         id="bdInlineFollowupInput" 
                                         class="followup-input" 
                                         placeholder="Ask anything about this explanation..."
+                                        maxlength="12000"
                                     />
                                     <button id="bdInlineFollowupBtn" class="followup-send-btn" title="Send follow-up">
                                         <span>Send</span>
@@ -10163,6 +10541,7 @@ Multiple clips are separated by:
                                     id="breakdownFollowupInput" 
                                     class="followup-input" 
                                     placeholder="Continue questioning about the explanation..."
+                                    maxlength="12000"
                                 />
                                 <button id="breakdownFollowupBtn" class="followup-send-btn" title="Send follow-up">
                                     <span>Send</span>
@@ -10230,7 +10609,7 @@ Multiple clips are separated by:
                         <p class="breakdown-header-subtitle" id="aiHistoryModalSubtitle"></p>
                     </div>
                     <div class="breakdown-header-actions">
-                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title"><i data-lucide="pencil"></i></button>
+                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title"><i data-lucide="pencil-line"></i></button>
                         <button class="modal-close" id="closeAiHistoryModal">✕</button>
                     </div>
                 </div>
@@ -10374,6 +10753,22 @@ Multiple clips are separated by:
                 <div class="craft-clips-settings" id="craftClipsSettings">
                     <label class="craft-setting-row"><input type="checkbox" id="craftClipsCategorizeToggle" checked> Smart categorize</label>
                     <label class="craft-setting-row"><input type="checkbox" id="craftClipsDedupeToggle"> Archive duplicate copies</label>
+                    <div class="craft-power-row" id="craftPowerRow">
+                        <div class="craft-power-head">
+                            <span class="craft-setting-label">Craft power</span>
+                            <label class="craft-power-switch" for="craftPowerToggle">
+                                <input type="checkbox" id="craftPowerToggle" class="craft-power-switch-input"
+                                       data-action="toggle-craft-power" role="switch" aria-checked="false"
+                                       aria-describedby="craftPowerModes">
+                                <span class="craft-power-track" aria-hidden="true"><span class="craft-power-thumb"></span></span>
+                                <span class="craft-power-switch-text">Increase Craft Power</span>
+                            </label>
+                        </div>
+                        <div class="craft-power-modes" id="craftPowerModes">
+                            <span class="craft-power-mode active" data-power="regular">Regular · GPT-5 Nano · 25 cr/batch</span>
+                            <span class="craft-power-mode" data-power="super">Super · higher quality · 40 cr/batch</span>
+                        </div>
+                    </div>
                     <div class="craft-ai-mode-row">
                         <span class="craft-setting-label">AI mode (one per craft):</span>
                         <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted</label>
@@ -11294,11 +11689,15 @@ Multiple clips are separated by:
                             <span class="label-icon">📧</span>
                             Email Address
                         </label>
-                        <input 
-                            type="email" 
-                            id="signinEmail" 
-                            class="auth-input-new" 
+                        <input
+                            type="email"
+                            id="signinEmail"
+                            class="auth-input-new"
                             placeholder="Enter your email"
+                            autocomplete="off"
+                            aria-autocomplete="list"
+                            aria-controls="signinEmailSuggestions"
+                            aria-expanded="false"
                             required>
                     </div>
 

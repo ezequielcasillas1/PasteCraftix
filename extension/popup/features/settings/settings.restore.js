@@ -29,7 +29,28 @@ async function loadRestorePoints(app) {
 
 async function saveRestorePoints(app, points) {
   try {
-    await chrome.storage.local.set({ [app._restorePointsKey]: points });
+    const result = await PasteCraftCRUD.saveOperation({
+      stateGetter: () => ({
+        restorePoints: Array.isArray(points) ? points : [],
+      }),
+      stateSetter: async () => {},
+      stateKeys: ['restorePoints'],
+      mutateState: async () => {},
+      storageKeys: ['restorePoints'],
+      buildStorageData: async (state) => ({ [app._restorePointsKey]: state.restorePoints }),
+      storageWriter: async (data) => {
+        await chrome.storage.local.set(data);
+      },
+      verifier: async (_meta, state) => {
+        const stored = await chrome.storage.local.get([app._restorePointsKey]);
+        const saved = Array.isArray(stored?.[app._restorePointsKey]) ? stored[app._restorePointsKey] : [];
+        return saved.length === state.restorePoints.length;
+      },
+      successMessage: () => '',
+      errorMessage: (error) => `Failed to save restore points: ${error.message || 'Unknown error'}`,
+      showToast: null,
+    });
+    if (!result.success) throw new Error(result.error || 'Failed to save restore points');
   } catch (_) {
     // ignore
   }
@@ -166,6 +187,51 @@ export async function previewRestore(app, windowKey) {
   return { point, cutoffMs };
 }
 
+async function _persistRestoredPopupData(payload) {
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      clips: payload.clips,
+      searchOnlyClips: payload.searchOnlyClips,
+      categories: payload.categories,
+      notes: payload.notes,
+      pc_local_updatedAt: payload.pc_local_updatedAt,
+      [RESTORE_STORAGE_KEYS.LAST_AT]: payload[RESTORE_STORAGE_KEYS.LAST_AT],
+      [RESTORE_STORAGE_KEYS.LAST_POINT_ID]: payload[RESTORE_STORAGE_KEYS.LAST_POINT_ID],
+    }),
+    stateSetter: async () => {},
+    stateKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'pc_local_updatedAt', RESTORE_STORAGE_KEYS.LAST_AT, RESTORE_STORAGE_KEYS.LAST_POINT_ID],
+    mutateState: async () => {},
+    storageKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'pc_local_updatedAt', RESTORE_STORAGE_KEYS.LAST_AT, RESTORE_STORAGE_KEYS.LAST_POINT_ID],
+    buildStorageData: async (state) => ({
+      clips: state.clips,
+      searchOnlyClips: state.searchOnlyClips,
+      categories: state.categories,
+      notes: state.notes,
+      pc_local_updatedAt: state.pc_local_updatedAt,
+      [RESTORE_STORAGE_KEYS.LAST_AT]: state[RESTORE_STORAGE_KEYS.LAST_AT],
+      [RESTORE_STORAGE_KEYS.LAST_POINT_ID]: state[RESTORE_STORAGE_KEYS.LAST_POINT_ID],
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async () => {
+      const stored = await chrome.storage.local.get(['clips', 'searchOnlyClips', 'categories', 'notes', RESTORE_STORAGE_KEYS.LAST_POINT_ID]);
+      return (
+        (Array.isArray(stored.clips) ? stored.clips.length : 0) === payload.clips.length &&
+        (Array.isArray(stored.searchOnlyClips) ? stored.searchOnlyClips.length : 0) === payload.searchOnlyClips.length &&
+        (Array.isArray(stored.categories) ? stored.categories.length : 0) === payload.categories.length &&
+        (Array.isArray(stored.notes) ? stored.notes.length : 0) === payload.notes.length &&
+        stored[RESTORE_STORAGE_KEYS.LAST_POINT_ID] === payload[RESTORE_STORAGE_KEYS.LAST_POINT_ID]
+      );
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to restore data: ${error.message || 'Unknown error'}`,
+    showToast: null,
+  });
+
+  if (!result.success) throw new Error(result.error || 'Failed to restore data');
+}
+
 export async function applyRestoreFromPreview(app) {
   const preview = app._lastPreviewRestore;
   const point = preview?.point ? preview.point : null;
@@ -189,7 +255,7 @@ export async function applyRestoreFromPreview(app) {
   const notes = Array.isArray(point.notes) ? point.notes.slice(0, RESTORE_LIMITS.MAX_NOTES) : [];
 
   const appliedAt = Date.now();
-  await chrome.storage.local.set({
+  await _persistRestoredPopupData({
     clips,
     searchOnlyClips,
     categories,

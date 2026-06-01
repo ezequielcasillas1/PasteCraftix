@@ -30,7 +30,12 @@ export async function performBackgroundSync(app, { force = false, reason = 'back
       await app.loadUserProfile();
       app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
     } else {
-      console.warn('⚠️ Background sync failed:', syncResult.message);
+      const msg = String(syncResult?.message || '');
+      if (msg.includes('Cloud sync requires Basic or Enhanced subscription')) {
+        console.info('ℹ️ Background sync skipped for free tier:', msg);
+      } else {
+        console.warn('⚠️ Background sync failed:', msg || 'Unknown sync error');
+      }
     }
   } catch (error) {
     console.error('❌ Background sync error:', error);
@@ -59,8 +64,7 @@ export function clearSyncAutoRefresh(app) {
 export function isSyncProgressVisible() {
   const el = document.getElementById('syncProgressContainer');
   if (!el) return false;
-  const style = window.getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  return el.classList.contains('is-visible');
 }
 
 export function scheduleSyncAutoRefreshTick(app) {
@@ -159,12 +163,14 @@ export function updateSyncProgress(app, current, total, percentage) {
   if (!progressContainer || !progressFill || !progressText) return;
   
   if (total > 100 && current < total) {
-    progressContainer.style.display = 'block';
+    progressContainer.classList.add('is-visible');
     progressFill.style.width = `${percentage}%`;
     progressText.textContent = `${current} / ${total} (${percentage}%)`;
     scheduleSyncAutoRefreshTick(app);
   } else {
-    progressContainer.style.display = 'none';
+    progressContainer.classList.remove('is-visible');
+    progressFill.style.width = '0%';
+    progressText.textContent = '0 / 0 (0%)';
     clearSyncAutoRefresh(app);
   }
 }

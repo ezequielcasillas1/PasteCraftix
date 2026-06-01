@@ -118,66 +118,137 @@ async function _persistMergedSettingsLocal(app) {
 
 // ── saveSettings ─────────────────────────────────────────────────────────────
 
-export async function saveSettings(app, silent = false, _skipAuthPrefs = false) {
-  const snapshot = _snapshotSettings(app);
-  const rollback = () => _rollbackSettings(app, snapshot);
-
-  try {
-    const validated = _readAndValidateFromUI();
-    _applyValidatedToApp(app, validated);
-
-    const settingsUpdatedAt = Date.now();
-    app.settingsUpdatedAt = settingsUpdatedAt;
-
-    await _persistSaveLocal(app, settingsUpdatedAt);
-    await _persistSaveSync(app, settingsUpdatedAt);
-    await _verifySave(app);
-    _broadcastAndCloudSync(app, silent);
-
-    if (!_skipAuthPrefs) {
-      try { await app.clearLegacyAuthPrefs(); } catch (_) {}
-    }
-
-    if (!silent) {
-      app.showToast('✅ Settings saved!');
-      app.hideSettingsModal();
-    }
-
-    app.renderChips();
-    app.updateCategoryFilter();
-    app.cleanupOldClips().catch(() => {});
-    _notifyContentScripts(app);
-  } catch (error) {
-    console.error('❌ Settings save failed, rolling back:', error);
-    await rollback();
-    if (!silent) app.showToast(`❌ Failed to save settings: ${error.message || 'Unknown error'}`, 'error');
-  }
-}
-
-function _snapshotSettings(app) {
+function _buildSettingsState(app) {
   return {
     autoDeletePeriod: app.autoDeletePeriod,
     theme: app.theme,
-    quickPasteSettings: JSON.parse(JSON.stringify(app.quickPasteSettings)),
+    quickPasteSettings: JSON.parse(JSON.stringify(app.quickPasteSettings || SETTINGS_DEFAULTS.quickPasteSettings)),
     albumAttachmentOpenMode: app.albumAttachmentOpenMode,
+    settingsUpdatedAt: app.settingsUpdatedAt || 0,
   };
 }
 
-async function _rollbackSettings(app, snapshot) {
+function _applySettingsStateToApp(app, state) {
+  app.autoDeletePeriod = state.autoDeletePeriod;
+  app.theme = _normalizeTheme(state.theme);
+  app.quickPasteSettings = _buildQuickPasteDefaults(state.quickPasteSettings || {});
+  _stripThemeKey(app.quickPasteSettings);
+  app.albumAttachmentOpenMode = _normalizeAlbumMode(state.albumAttachmentOpenMode);
+  app.settingsUpdatedAt = state.settingsUpdatedAt || Date.now();
+}
+
+function _buildSettingsStoragePayload(state) {
+  return {
+    [SETTINGS_STORAGE_KEYS.AUTO_DELETE_PERIOD]: state.autoDeletePeriod,
+    [SETTINGS_STORAGE_KEYS.THEME]: state.theme,
+    [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: state.quickPasteSettings,
+    [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: state.albumAttachmentOpenMode,
+    [SETTINGS_STORAGE_KEYS.UPDATED_AT]: state.settingsUpdatedAt,
+  };
+}
+
+async function _persistSettingsLocalState(state) {
+  await chrome.storage.local.set(_buildSettingsStoragePayload(state));
+}
+
+async function _persistSettingsSyncState(state) {
   try {
-    app.autoDeletePeriod = snapshot.autoDeletePeriod;
-    app.theme = snapshot.theme;
-    app.quickPasteSettings = snapshot.quickPasteSettings;
-    app.albumAttachmentOpenMode = snapshot.albumAttachmentOpenMode;
-    await chrome.storage.local.set({
-      [SETTINGS_STORAGE_KEYS.AUTO_DELETE_PERIOD]: app.autoDeletePeriod,
-      [SETTINGS_STORAGE_KEYS.THEME]: app.theme,
-      [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: app.quickPasteSettings,
-      [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: app.albumAttachmentOpenMode,
-    });
-  } catch (e) {
-    console.error('❌ Settings rollback failed:', e);
+    await new Promise((resolve) => chrome.storage.sync.set(_buildSettingsStoragePayload(state), resolve));
+  } catch (_) {}
+}
+
+async function _verifySettingsState(state) {
+  const v = await chrome.storage.local.get([
+    SETTINGS_STORAGE_KEYS.AUTO_DELETE_PERIOD,
+    SETTINGS_STORAGE_KEYS.THEME,
+    SETTINGS_STORAGE_KEYS.UPDATED_AT,
+  ]);
+  return (
+    v[SETTINGS_STORAGE_KEYS.AUTO_DELETE_PERIOD] === state.autoDeletePeriod &&
+    v[SETTINGS_STORAGE_KEYS.THEME] === state.theme &&
+    v[SETTINGS_STORAGE_KEYS.UPDATED_AT] === state.settingsUpdatedAt
+  );
+}
+
+function _buildSettingsSyncPayload(state) {
+  return {
+    autoDeletePeriod: state.autoDeletePeriod,
+    theme: state.theme,
+    quickPasteSettings: state.quickPasteSettings,
+    albumAttachmentOpenMode: state.albumAttachmentOpenMode,
+  };
+}
+
+async function _runSettingsBackgroundSync(app, state, silent, skipAuthPrefs) {
+  await _persistSettingsSyncState(state);
+
+  if (!skipAuthPrefs) {
+    try { await app.clearLegacyAuthPrefs(); } catch (_) {}
   }
+
+  const settingsData = _buildSettingsSyncPayload(state);
+  try {
+    await pasteCraftSupabase.syncSettingsToSupabase(settingsData);
+  } catch (_) {}
+
+  _trySendBroadcast(app, settingsData);
+  _notifyContentScripts(app);
+  app.cleanupOldClips().catch(() => {});
+  if (!silent) app.showToast('✅ Settings saved!', 'success');
+}
+
+export async function saveSettings(app, silent = false, _skipAuthPrefs = false) {
+  const validated = _readAndValidateFromUI();
+
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => _buildSettingsState(app),
+    stateSetter: async (newState) => {
+      _applySettingsStateToApp(app, newState);
+      syncThemeToggles(app);
+    },
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    validator: () => ({ valid: true }),
+    mutateState: async (state) => {
+      state.autoDeletePeriod = validated.autoDeletePeriod;
+      state.theme = validated.theme;
+      state.quickPasteSettings = _buildQuickPasteDefaults({
+        ...state.quickPasteSettings,
+        autoHide: validated.autoHide,
+        showTimestamps: validated.showTimestamps,
+        maxClipsDisplay: validated.maxClipsDisplay,
+      });
+      _stripThemeKey(state.quickPasteSettings);
+      state.albumAttachmentOpenMode = validated.albumAttachmentOpenMode;
+      state.settingsUpdatedAt = Date.now();
+      return { settingsUpdatedAt: state.settingsUpdatedAt };
+    },
+    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    buildStorageData: async (state) => _buildSettingsStoragePayload(state),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (_meta, state) => _verifySettingsState(state),
+    uiUpdater: () => {
+      app.renderChips();
+      app.updateCategoryFilter();
+    },
+    backgroundSync: async (_meta, state) => {
+      await _runSettingsBackgroundSync(app, state, silent, _skipAuthPrefs);
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to save settings: ${error.message || 'Unknown error'}`,
+    showToast: (msg, type) => {
+      if (msg) app.showToast(msg, type);
+    },
+  });
+
+  if (!result.success) {
+    if (!silent) app.showToast(`❌ Failed to save settings: ${result.error || 'Unknown error'}`, 'error');
+    return false;
+  }
+
+  if (!silent) app.hideSettingsModal();
+  return true;
 }
 
 function _getRequiredEls() {
@@ -308,37 +379,53 @@ export function syncThemeToggles(app) {
 
 export async function saveThemeOnly(app, nextTheme, silent = false) {
   const normalized = _normalizeTheme(nextTheme);
-  const prev = app.theme;
-  app.theme = normalized;
-  syncThemeToggles(app);
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => _buildSettingsState(app),
+    stateSetter: async (newState) => {
+      _applySettingsStateToApp(app, newState);
+      syncThemeToggles(app);
+    },
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    validator: () => ({ valid: true }),
+    mutateState: async (state) => {
+      state.theme = normalized;
+      state.settingsUpdatedAt = Date.now();
+    },
+    storageKeys: ['theme', 'settingsUpdatedAt'],
+    buildStorageData: async (state) => ({
+      [SETTINGS_STORAGE_KEYS.THEME]: state.theme,
+      [SETTINGS_STORAGE_KEYS.UPDATED_AT]: state.settingsUpdatedAt,
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (_meta, state) => {
+      const v = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.THEME, SETTINGS_STORAGE_KEYS.UPDATED_AT]);
+      return (
+        v[SETTINGS_STORAGE_KEYS.THEME] === state.theme &&
+        v[SETTINGS_STORAGE_KEYS.UPDATED_AT] === state.settingsUpdatedAt
+      );
+    },
+    backgroundSync: async (_meta, state) => {
+      await _persistSettingsSyncState(state);
+      try { await pasteCraftSupabase.syncSettingsToSupabase(_buildSettingsSyncPayload(state)); } catch (_) {}
+      _trySendBroadcast(app, _buildSettingsSyncPayload(state));
+      _notifyContentScripts(app);
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Theme update failed: ${error.message || 'Unknown error'}`,
+    showToast: (msg, type) => {
+      if (msg) app.showToast(msg, type);
+    },
+  });
 
-  try {
-    const settingsUpdatedAt = Date.now();
-    await chrome.storage.local.set({ [SETTINGS_STORAGE_KEYS.THEME]: app.theme, [SETTINGS_STORAGE_KEYS.UPDATED_AT]: settingsUpdatedAt });
-    try {
-      await new Promise((resolve) => chrome.storage.sync.set({ [SETTINGS_STORAGE_KEYS.THEME]: app.theme, [SETTINGS_STORAGE_KEYS.UPDATED_AT]: settingsUpdatedAt }, resolve));
-    } catch (_) {}
-
-    const v = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.THEME]);
-    if (v[SETTINGS_STORAGE_KEYS.THEME] !== app.theme) throw new Error('Verification failed: theme not persisted correctly');
-
-    const settingsData = {
-      autoDeletePeriod: app.autoDeletePeriod,
-      theme: app.theme,
-      quickPasteSettings: app.quickPasteSettings,
-      albumAttachmentOpenMode: app.albumAttachmentOpenMode,
-    };
-    pasteCraftSupabase.syncSettingsToSupabase(settingsData).catch(() => {});
-    _notifyContentScripts(app);
-
-    if (!silent) app.showToast('✅ Theme updated!', 'success');
-    return true;
-  } catch (e) {
-    app.theme = prev;
-    syncThemeToggles(app);
-    if (!silent) app.showToast(`❌ Theme update failed: ${e.message}`, 'error');
+  if (!result.success) {
+    if (!silent) app.showToast(`❌ Theme update failed: ${result.error || 'Unknown error'}`, 'error');
     return false;
   }
+
+  if (!silent) app.showToast('✅ Theme updated!', 'success');
+  return true;
 }
 
 // ── saveWidgetIconUseProfileImage ─────────────────────────────────────────────
@@ -346,38 +433,58 @@ export async function saveThemeOnly(app, nextTheme, silent = false) {
 export async function saveWidgetIconUseProfileImage(app, enabled, silent = false) {
   const snapshot = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.WIDGET]);
   const prev = (snapshot?.widgetSettings && typeof snapshot.widgetSettings === 'object') ? snapshot.widgetSettings : {};
-
-  try {
-    const nextEnabled = !!enabled;
-    const next = { ...prev, widgetIconUseProfileImage: nextEnabled };
-
-    await chrome.storage.local.set({ [SETTINGS_STORAGE_KEYS.WIDGET]: next, pc_local_updatedAt: Date.now() });
-    try { await new Promise((resolve) => chrome.storage.sync.set({ [SETTINGS_STORAGE_KEYS.WIDGET]: next }, resolve)); } catch (_) {}
-
-    const v = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.WIDGET]);
-    if (!v.widgetSettings || v.widgetSettings.widgetIconUseProfileImage !== nextEnabled) {
-      throw new Error('Verification failed: widget icon preference not persisted');
-    }
-
-    try {
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach((tab) => {
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'widgetSettingsUpdated',
-            widgetSettings: { widgetIconUseProfileImage: nextEnabled },
-          }).catch(() => {});
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      widgetSettings: JSON.parse(JSON.stringify(prev)),
+    }),
+    stateSetter: async () => {},
+    stateKeys: ['widgetSettings'],
+    validator: () => ({ valid: true }),
+    mutateState: async (state) => {
+      state.widgetSettings = {
+        ...state.widgetSettings,
+        widgetIconUseProfileImage: !!enabled,
+      };
+    },
+    storageKeys: ['widgetSettings'],
+    buildStorageData: async (state) => ({
+      [SETTINGS_STORAGE_KEYS.WIDGET]: state.widgetSettings,
+      pc_local_updatedAt: Date.now(),
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (_meta, state) => {
+      const v = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.WIDGET]);
+      return !!v.widgetSettings && v.widgetSettings.widgetIconUseProfileImage === state.widgetSettings.widgetIconUseProfileImage;
+    },
+    backgroundSync: async (_meta, state) => {
+      try { await new Promise((resolve) => chrome.storage.sync.set({ [SETTINGS_STORAGE_KEYS.WIDGET]: state.widgetSettings }, resolve)); } catch (_) {}
+      try {
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach((tab) => {
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'widgetSettingsUpdated',
+              widgetSettings: { widgetIconUseProfileImage: !!state.widgetSettings.widgetIconUseProfileImage },
+            }).catch(() => {});
+          });
         });
-      });
-    } catch (_) {}
+      } catch (_) {}
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to save: ${error.message || 'Unknown error'}`,
+    showToast: (msg, type) => {
+      if (msg) app.showToast(msg, type);
+    },
+  });
 
-    if (!silent) app.showToast('✅ Widget icon preference saved');
-    return true;
-  } catch (e) {
-    console.error('❌ Failed to save widget icon preference:', e);
-    try { await chrome.storage.local.set({ [SETTINGS_STORAGE_KEYS.WIDGET]: prev }); } catch (_) {}
-    if (!silent) app.showToast(`❌ Failed to save: ${e.message || 'Unknown error'}`, 'error');
+  if (!result.success) {
+    if (!silent) app.showToast(`❌ Failed to save: ${result.error || 'Unknown error'}`, 'error');
     return false;
   }
+
+  if (!silent) app.showToast('✅ Widget icon preference saved');
+  return true;
 }
 
 // ── cleanupOldClips / getCutoffTime ──────────────────────────────────────────

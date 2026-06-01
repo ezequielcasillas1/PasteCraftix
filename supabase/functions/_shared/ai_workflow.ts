@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireNotBanned } from './security-gate.ts'
+import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance } from './credit_packs.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
 export type AiWorkflowProvider = 'openai' | 'google';
@@ -36,6 +37,23 @@ function normalizePreset(preset: unknown, provider: AiWorkflowProvider = 'openai
   const p = String(preset || 'default') as AiWorkflowPreset;
   const allowed = PRESETS_BY_PROVIDER[provider] || PRESETS_BY_PROVIDER.openai;
   return allowed.has(p) ? p : 'default';
+}
+
+// ── Craft power (two modes: regular | super) ───────────────────
+// Craft batch operations (refactor/format/categorize) default to the cheapest
+// model. "Super" opts into a single higher tier. CHANGE CRAFT_SUPER_PRESET to
+// upgrade the Super model later — it must stay a valid OpenAI preset key.
+export const CRAFT_REGULAR_PRESET: AiWorkflowPreset = 'cheapest';
+export const CRAFT_SUPER_PRESET: AiWorkflowPreset = 'default';
+
+/**
+ * Map an untrusted client craftPower value to a server-whitelisted workflow.
+ * Only the literal 'super' unlocks the higher tier; everything else (including
+ * unknown/missing values) falls back to the cheapest regular preset.
+ */
+export function resolveCraftWorkflow(craftPower: unknown): { provider: AiWorkflowProvider; preset: AiWorkflowPreset } {
+  const isSuper = String(craftPower || '').toLowerCase() === 'super';
+  return { provider: 'openai', preset: isSuper ? CRAFT_SUPER_PRESET : CRAFT_REGULAR_PRESET };
 }
 
 export function parseAiWorkflowFromBody(body: any): { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null {
@@ -389,6 +407,7 @@ export type TextCreditGate = {
   unlimited: boolean;
   creditsUsed: number;
   creditsLimit: number;
+  purchasedBalance: number;
   resetAtIso: string | null;
 };
 
@@ -434,6 +453,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
       'has_unlimited_ai', 'ai_access_expires_at',
       'stripe_current_period_end',
       'ai_text_credits_limit', 'ai_text_credits_used', 'ai_text_credits_reset_at',
+      'ai_purchased_credits_balance',
     ].join(','))
     .eq('user_id', user.id)
     .maybeSingle();
@@ -452,10 +472,10 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     sub.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   ));
-  const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
-  const entitled = isPaidPremium || hasCouponAiAccess;
+  const purchasedBalance = readPurchasedBalance(sub);
+  const hasAllowance = hasAiUsageEntitlement(sub);
 
-  if (!entitled) {
+  if (!hasAllowance) {
     return new Response(
       JSON.stringify({ error: 'Upgrade required' }),
       { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 403 }
@@ -463,6 +483,8 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   }
 
   const unlimited = sub.has_unlimited_ai === true;
+  const isPaidTier = (tier === 'premium' || tier === 'basic')
+    && (status === 'active' || status === 'past_due');
 
   const stripePeriodEndIso = sub.stripe_current_period_end
     ? new Date(sub.stripe_current_period_end).toISOString()
@@ -478,7 +500,9 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   let creditsUsed = Number.isFinite(Number(sub.ai_text_credits_used)) ? Number(sub.ai_text_credits_used) : 0;
   let creditsLimit = Number.isFinite(Number(sub.ai_text_credits_limit)) ? Number(sub.ai_text_credits_limit) : NaN;
   if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
-    creditsLimit = unlimited ? Number.POSITIVE_INFINITY : computeTextCreditsLimitFallback(resetAtIso);
+    creditsLimit = unlimited
+      ? Number.POSITIVE_INFINITY
+      : ((isPaidTier || hasCouponAiAccess) ? computeTextCreditsLimitFallback(resetAtIso) : 0);
   }
 
   // Auto-reset if period passed
@@ -533,16 +557,23 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   }
 
   if (!unlimited) {
-    const remaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed));
-    if (remaining <= 0) {
+    const subRemaining = Math.max(0, Number(creditsLimit) - Math.max(0, creditsUsed));
+    const totalRemaining = computeTotalRemaining(subRemaining, purchasedBalance);
+    if (totalRemaining <= 0) {
       return new Response(
-        JSON.stringify({ error: 'No text credits remaining', creditsRemaining: 0, creditsLimit, creditsResetAt: resetAtIso }),
+        JSON.stringify({
+          error: 'No text credits remaining',
+          creditsRemaining: 0,
+          creditsLimit,
+          purchasedBalance,
+          creditsResetAt: resetAtIso,
+        }),
         { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 402 }
       );
     }
   }
 
-  return { user, userId: user.id, supabase, unlimited, creditsUsed, creditsLimit, resetAtIso };
+  return { user, userId: user.id, supabase, unlimited, creditsUsed, creditsLimit, purchasedBalance, resetAtIso };
 }
 
 /**
@@ -550,20 +581,33 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
  * @param cost Weighted credit cost for the model used (default 40).
  * Returns { creditsRemaining, creditsLimit, creditsResetAt }.
  */
-export async function decrementTextCredits(gate: TextCreditGate, cost: number = 40): Promise<{ creditsRemaining: number | null; creditsLimit: number | null; creditsResetAt: string | null }> {
+export async function decrementTextCredits(
+  gate: TextCreditGate,
+  cost: number = 40,
+): Promise<{ creditsRemaining: number | null; creditsLimit: number | null; creditsResetAt: string | null; purchasedBalance: number | null }> {
   if (gate.unlimited) {
-    return { creditsRemaining: null, creditsLimit: null, creditsResetAt: gate.resetAtIso };
+    return { creditsRemaining: null, creditsLimit: null, creditsResetAt: gate.resetAtIso, purchasedBalance: null };
   }
 
   const safeCost = Math.max(1, Math.round(cost));
-  let { creditsUsed, creditsLimit, resetAtIso, supabase, userId } = gate;
+  let { creditsUsed, creditsLimit, purchasedBalance, resetAtIso, supabase, userId } = gate;
   let creditsLimitOut: number | null = Number.isFinite(creditsLimit) ? creditsLimit : null;
   let creditsResetAt: string | null = resetAtIso;
+  let purchasedOut = Math.max(0, purchasedBalance);
+
+  const subRemaining = Math.max(0, Number(creditsLimitOut ?? creditsLimit) - Math.max(0, creditsUsed));
+  const drainPlan = planCreditDrain(subRemaining, purchasedOut, safeCost);
+  if (!drainPlan) {
+    return { creditsRemaining: 0, creditsLimit: creditsLimitOut, creditsResetAt, purchasedBalance: purchasedOut };
+  }
 
   let updatedUsed: number | null = null;
+  let updatedPurchased: number | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const expectedUsed = creditsUsed;
-    const nextUsed = expectedUsed + safeCost;
+    const expectedPurchased = purchasedOut;
+    const nextUsed = expectedUsed + drainPlan.subUsedDelta;
+    const nextPurchased = Math.max(0, expectedPurchased - drainPlan.purchasedDelta);
 
     const { data: updated, error: updErr } = await supabase
       .from('user_subscriptions')
@@ -571,15 +615,18 @@ export async function decrementTextCredits(gate: TextCreditGate, cost: number = 
         ai_text_credits_used: nextUsed,
         ai_text_credits_limit: creditsLimitOut,
         ai_text_credits_reset_at: resetAtIso,
+        ai_purchased_credits_balance: nextPurchased,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
       .eq('ai_text_credits_used', expectedUsed)
-      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at')
+      .eq('ai_purchased_credits_balance', expectedPurchased)
+      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at, ai_purchased_credits_balance')
       .maybeSingle();
 
     if (!updErr && updated) {
       updatedUsed = Number(updated.ai_text_credits_used);
+      updatedPurchased = Number(updated.ai_purchased_credits_balance);
       creditsLimitOut = Number.isFinite(Number(updated.ai_text_credits_limit)) ? Number(updated.ai_text_credits_limit) : creditsLimitOut;
       creditsResetAt = updated.ai_text_credits_reset_at ? new Date(updated.ai_text_credits_reset_at).toISOString() : creditsResetAt;
       break;
@@ -587,20 +634,25 @@ export async function decrementTextCredits(gate: TextCreditGate, cost: number = 
 
     const { data: refetched } = await supabase
       .from('user_subscriptions')
-      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at')
+      .select('ai_text_credits_used, ai_text_credits_limit, ai_text_credits_reset_at, ai_purchased_credits_balance')
       .eq('user_id', userId)
       .maybeSingle();
 
-    creditsUsed = Number.isFinite(Number(refetched?.ai_text_credits_used)) ? Number(refetched?.ai_text_credits_used) : creditsUsed;
-    creditsLimit = Number.isFinite(Number(refetched?.ai_text_credits_limit)) ? Number(refetched?.ai_text_credits_limit) : creditsLimit;
+    creditsUsed = Number.isFinite(Number(refetched?.ai_text_credits_used)) ? Number(refetched.ai_text_credits_used) : creditsUsed;
+    creditsLimit = Number.isFinite(Number(refetched?.ai_text_credits_limit)) ? Number(refetched.ai_text_credits_limit) : creditsLimit;
+    purchasedOut = Number.isFinite(Number(refetched?.ai_purchased_credits_balance))
+      ? Math.max(0, Number(refetched.ai_purchased_credits_balance))
+      : purchasedOut;
     resetAtIso = refetched?.ai_text_credits_reset_at ? new Date(refetched.ai_text_credits_reset_at).toISOString() : resetAtIso;
   }
 
-  const finalUsed = updatedUsed ?? (creditsUsed + safeCost);
+  const finalUsed = updatedUsed ?? (creditsUsed + drainPlan.subUsedDelta);
+  const finalPurchased = updatedPurchased ?? Math.max(0, purchasedOut - drainPlan.purchasedDelta);
   const finalLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit);
-  const creditsRemaining = Math.max(0, finalLimit - Math.max(0, finalUsed));
+  const subRem = Math.max(0, finalLimit - Math.max(0, finalUsed));
+  const creditsRemaining = computeTotalRemaining(subRem, finalPurchased);
 
-  return { creditsRemaining, creditsLimit: creditsLimitOut, creditsResetAt };
+  return { creditsRemaining, creditsLimit: creditsLimitOut, creditsResetAt, purchasedBalance: finalPurchased };
 }
 
 export type AuthenticatedUserGate = {

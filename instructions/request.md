@@ -648,6 +648,74 @@ state management.
 
 ---
 
+## Account Dashboard (Website — `/account`)
+
+Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admin-api).
+
+#### 50. User Security Dashboard
+**Priority:** Medium  
+**Status:** Not started  
+
+**Requirements:**
+- New **Security** panel/section on `pastecraft.com/account` (signed-in dashboard only)
+- **Account standing:** Read own `user_profiles` — show `is_banned`, `ban_reason`, `ban_expires_at`, `quarantine_paused_until` when set
+- **Devices:** List own `pastecraft_devices` (display name, `last_seen_at`); full Auth session revoke is follow-up — not in v1 unless Supabase session API is wired
+- **Usage guardrails:** Today’s clip count vs `daily_clip_limit` (warn near limit); do not expose admin-only `rate_limit_violations` rows
+- **Protection summary:** Extension link-safety read-only (site-guard blocklist last sync / `pastecraft.com/safety/blocklist.json` updated-at); count of clips with `expires_at` (auto-expire)
+- **Activity link:** Cross-link to Activity History (**#39**); user-facing `security_events` feed needs scoped RLS or user Edge Function (table is admin-only today)
+
+---
+
+#### 51. AI Credit Pack Purchases (Stripe One-Time)
+**Priority:** High  
+**Status:** Scaffolding in progress  
+
+**Requirements:**
+- Unified purchased credit pool (`ai_purchased_credits_balance`) — works for text (weighted) and image (1:1)
+- Stripe one-time packs: **1,000 credits / $5**, **5,000 credits / $15**
+- Custom credits: min **25** input; tiered price from credits (25–999 @ $0.005, 5000+ @ $0.003)
+- Stripe Checkout `price_data` for custom; server calculates cents from credit count
+- Checkout floor **100 credits ($0.50)** — Stripe minimum; UI previews sub-min amounts
+- Webhook fulfills via `credit_purchases` audit + balance increment
+- Premium required to buy or spend purchased credits
+
+---
+
+#### 52. AI Lab Buy-Credits Banner
+**Priority:** High  
+**Status:** Scaffolding in progress  
+
+**Requirements:**
+- Banner in AI Lab header area: “Want to buy more credits?” with pack buttons
+- Show when total remaining credits ≤ 500 (text + image + purchased)
+- Checkout via existing background `pcCreateCheckout` message (`mode: payment`)
+- Follow-up: same banner on website `/account` and popup widget header
+
+---
+
+#### 53. Real-Time Announcements System
+**Priority:** Medium  
+**Status:** Scaffolding in progress  
+
+**Requirements:**
+- Supabase `app_announcements` table (title, body, link, audience, active window, priority)
+- Edge Function `get-announcements` returns active rows for extension + website
+- AI Lab banner stack: announcements above buy-credits banner; dismiss persists locally
+- Admin authoring UI deferred — seed rows via Supabase dashboard for now
+
+---
+
+#### 54. Increase Craft Power (Regular ⟷ Super)
+**Priority:** Medium
+**Status:** Implemented
+**Requirements:**
+- Two-mode toggle in Craft Clips modal: Regular (GPT-5 Nano, 25 cr/batch, default) ⟷ Super (higher tier, more credits)
+- Super tier = single constant `CRAFT_SUPER_PRESET` (client + server, currently `default`/40 cr) — change one place to upgrade
+- Server whitelists `craftPower` and recomputes charged credits; premium-gated; unknown values fall back to Regular
+- Persist choice in `pc_craft_clips_settings_v1`; blue/gold palette; aria/focus accessible
+
+---
+
 ## 🎯 **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):

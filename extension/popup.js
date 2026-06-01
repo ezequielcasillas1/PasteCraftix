@@ -26,7 +26,6 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
 
 class PasteCraftPopup {
   constructor() {
-    console.log('?? PasteCraftPopup constructor called');
     this.clips = [];
     this.categories = [];
     // NOTE: selectedChips stores stable clip id keys (String(clip.id)), not indices.

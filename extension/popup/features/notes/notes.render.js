@@ -129,7 +129,7 @@ function _buildSendToAlbumButton(note) {
 
 function _buildNoteCardActions(note) {
   return `
-    <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil"></i></button>
+    <button class="note-action-btn edit-note" data-note-id="${note.id}" title="Edit"><i data-lucide="pencil-line"></i></button>
     <button class="note-action-btn export-note-pdf" data-note-id="${note.id}" title="Export to PDF"><i data-lucide="file-down"></i></button>
     ${_buildSendToAlbumButton(note)}
     <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete"><i data-lucide="trash-2"></i></button>

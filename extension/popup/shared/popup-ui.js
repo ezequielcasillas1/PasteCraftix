@@ -6,7 +6,6 @@
       overlay.style.transition = 'opacity 0.3s ease';
       setTimeout(() => {
         overlay.style.display = 'none';
-        console.log('? Loading overlay hidden');
       }, 300);
     }
   }

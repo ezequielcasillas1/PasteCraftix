@@ -1,9 +1,9 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
 import { initializeAllPopupFeatures } from './popup.features.js';
+import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 export async function runPopupInit(app) {
-  console.log('🚀 Initializing PasteCraft popup...');
   await initializeAllPopupFeatures(app);
 
   app.setupAuthModalEvents();
@@ -38,7 +38,6 @@ export async function runPopupInit(app) {
 
   const resetCallback = await app.checkPasswordResetCallback();
   if (resetCallback) {
-    console.log('?? Password reset callback detected from storage');
     app.hideLoadingOverlay();
     document.getElementById('newPasswordModal').style.display = 'flex';
     return;
@@ -47,15 +46,7 @@ export async function runPopupInit(app) {
   const urlParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.substring(1));
 
-  console.log('?? URL check:', {
-    search: window.location.search,
-    hash: window.location.hash,
-    type: hashParams.get('type'),
-    accessToken: hashParams.get('access_token') ? 'present' : 'missing',
-  });
-
   if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
-    console.log('?? Password reset callback detected from URL');
     const accessToken = hashParams.get('access_token') || hashParams.get('reset');
     const refreshToken = hashParams.get('refresh_token');
     if (accessToken) {
@@ -80,21 +71,19 @@ export async function runPopupInit(app) {
     return;
   }
 
-  console.log('? User authenticated:', currentUser.email);
   app.currentUser = currentUser;
+  rememberVerifiedEmailsFromSession(currentUser.email ? [currentUser.email] : []).catch(() => {});
 
   try {
     app.userSubscription = await pasteCraftSupabase.getCachedSubscription(currentUser.id);
   } catch (_) {
     app.userSubscription = null;
   }
-  console.log('?? Subscription tier (cached):', app.userSubscription?.subscription_tier);
   app.updateAiCreditsPills('cached');
   app.updateUpgradeUI();
 
   pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
     app.userSubscription = sub;
-    console.log('?? Subscription tier (fresh):', app.userSubscription?.subscription_tier);
     app.updateAiCreditsPills('fresh');
     app.updateUpgradeUI();
   }).catch(() => {});
@@ -122,7 +111,6 @@ export async function runPopupInit(app) {
       if (remoteProfile) {
         app.userProfile = { ...(app.userProfile || {}), ...remoteProfile };
         await chrome.storage.local.set({ userProfile: app.userProfile });
-        console.log('✅ Profile hydrated from Supabase on fresh device');
       }
     } catch (_) {}
   }
@@ -163,6 +151,4 @@ export async function runPopupInit(app) {
   app.setupVisibilityListener();
   app.setupRealtimeListeners();
   app.setupSyncStatusListeners();
-
-  console.log('? PasteCraft popup initialized successfully');
 }

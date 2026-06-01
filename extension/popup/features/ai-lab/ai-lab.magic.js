@@ -562,9 +562,10 @@ export async function _craftMagic(clipIds) {
 
   _promoteCraftedClipsToRecents(app, targetSet, stats);
 
-  await _persistMagicChanges(app);
-  await _syncMagicToSupabase(app);
-  _refreshMagicCreditsAndUi(app, stats);
+  await _saveMagicState(app, {
+    uiUpdater: () => _refreshMagicCreditsAndUi(app, stats),
+    syncToCloud: true,
+  });
 
   if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
     && ((ctx.refactorNewClips || []).length > 0 || (ctx.refactorDiagnostics && ctx.refactorDiagnostics.size > 0))) {
@@ -1062,13 +1063,59 @@ function _promoteCraftedClipsToRecents(app, targetSet, stats) {
   app.currentPage = 0;
 }
 
-async function _persistMagicChanges(app) {
-  await chrome.storage.local.set({
-    clips: app.clips,
-    categories: app.categories,
-    searchOnlyClips: app.searchOnlyClips,
-    pc_local_updatedAt: Date.now(),
+async function _verifyMagicState(app) {
+  const stored = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+  const clips = Array.isArray(stored.clips) ? stored.clips : [];
+  const categories = Array.isArray(stored.categories) ? stored.categories : [];
+  const searchOnlyClips = Array.isArray(stored.searchOnlyClips) ? stored.searchOnlyClips : [];
+  return (
+    clips.length === (Array.isArray(app.clips) ? app.clips.length : 0) &&
+    categories.length === (Array.isArray(app.categories) ? app.categories.length : 0) &&
+    searchOnlyClips.length === (Array.isArray(app.searchOnlyClips) ? app.searchOnlyClips.length : 0)
+  );
+}
+
+async function _saveMagicState(app, { uiUpdater = null, syncToCloud = true } = {}) {
+  const result = await PasteCraftCRUD.saveOperation({
+    stateGetter: () => ({
+      clips: app.clips,
+      categories: app.categories,
+      searchOnlyClips: app.searchOnlyClips,
+      currentPage: app.currentPage,
+    }),
+    stateSetter: async (newState) => {
+      app.clips = Array.isArray(newState.clips) ? newState.clips : [];
+      app.categories = Array.isArray(newState.categories) ? newState.categories : [];
+      app.searchOnlyClips = Array.isArray(newState.searchOnlyClips) ? newState.searchOnlyClips : [];
+      app.currentPage = typeof newState.currentPage === 'number' ? newState.currentPage : app.currentPage;
+    },
+    stateKeys: ['clips', 'categories', 'searchOnlyClips', 'currentPage'],
+    mutateState: async () => {},
+    storageKeys: ['clips', 'categories', 'searchOnlyClips'],
+    buildStorageData: async (state) => ({
+      clips: state.clips,
+      categories: state.categories,
+      searchOnlyClips: state.searchOnlyClips,
+      pc_local_updatedAt: Date.now(),
+    }),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async () => _verifyMagicState(app),
+    uiUpdater: () => {
+      if (typeof uiUpdater === 'function') uiUpdater();
+    },
+    backgroundSync: syncToCloud ? async () => {
+      await _syncMagicToSupabase(app);
+    } : null,
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to persist crafted clips: ${error.message || 'Unknown error'}`,
+    showToast: null,
   });
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to persist crafted clips');
+  }
 }
 
 async function _syncMagicToSupabase(app) {
@@ -1128,26 +1175,19 @@ export async function _undoMagic() {
   app.searchOnlyClips = app._magicUndoSnapshot.searchOnlyClips || [];
   app._magicUndoSnapshot = null;
 
-  await _persistUndoMagicChanges(app);
-  await _syncMagicToSupabase(app);
-
-  app.renderChips();
-  app.renderCategories();
-  app.updateCategoryFilter();
-  app.updateManualInputCategories();
+  await _saveMagicState(app, {
+    uiUpdater: () => {
+      app.renderChips();
+      app.renderCategories();
+      app.updateCategoryFilter();
+      app.updateManualInputCategories();
+    },
+    syncToCloud: true,
+  });
 
   const modal = document.getElementById('magicPreviewModal');
   if (modal) modal.style.display = 'none';
   app.showToast('✨ Craft Clips undone! Clips restored.');
-}
-
-async function _persistUndoMagicChanges(app) {
-  await chrome.storage.local.set({
-    clips: app.clips,
-    categories: app.categories,
-    searchOnlyClips: app.searchOnlyClips,
-    pc_local_updatedAt: Date.now(),
-  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1181,9 +1221,10 @@ export async function _applyCraftCategoryPick(categoryName, clipIds) {
   }
 
   if (assigned > 0) {
-    await _persistMagicChanges(app);
-    await _syncMagicToSupabase(app);
-    _refreshMagicCreditsAndUi(app, { aiCategorized: true });
+    await _saveMagicState(app, {
+      uiUpdater: () => _refreshMagicCreditsAndUi(app, { aiCategorized: true }),
+      syncToCloud: true,
+    });
   }
 
   return assigned;

@@ -25,6 +25,7 @@ setupAuthSessionBridge() {
           refresh_token: session.refresh_token || null,
           expires_at: session.expires_at || null,
           user_id: session.user?.id || null,
+          email: session.user?.email || null,
           updated_at: Date.now()
         }
       });

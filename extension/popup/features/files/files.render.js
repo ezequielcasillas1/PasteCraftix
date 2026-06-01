@@ -30,7 +30,7 @@ export function renderFiles(app, searchQuery = '') {
       <div class="file-box-name">${app.escapeHtml(file.name)}</div>
       <div class="file-box-actions">
         <button class="file-box-action-btn edit-file" title="Edit File">
-          <i data-lucide="pencil"></i>
+          <i data-lucide="pencil-line"></i>
         </button>
         <button class="file-box-action-btn manage-cats" title="Manage Categories">
           <i data-lucide="list"></i>

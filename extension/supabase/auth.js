@@ -369,7 +369,17 @@ async getCurrentUser() {
       const nowSec = Math.floor(Date.now() / 1000);
       const notExpired = !expiresAt || expiresAt > (nowSec + 30);
       if (userId && notExpired) {
-        return { id: userId, email: payload?.email ? String(payload.email) : '' };
+        let email = payload?.email ? String(payload.email) : '';
+        if (!email && payload?.access_token) {
+          try {
+            const jwtPart = String(payload.access_token).split('.')[1];
+            if (jwtPart) {
+              const jwtPayload = JSON.parse(atob(jwtPart));
+              email = String(jwtPayload?.email || '').trim().toLowerCase();
+            }
+          } catch (_) {}
+        }
+        return { id: userId, email };
       }
     } catch (_) {}
 

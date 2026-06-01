@@ -159,8 +159,6 @@ export function applyClipTextOptions(app, texts) {
 export function updatePreviewFromSelection(app) {
   if (app.currentTab !== 'categories') return;
 
-  console.log('🔄 Updating preview from selection:', app.selectedCategoryClips?.size || 0, 'clips selected');
-
   const previewArea = document.getElementById('previewArea');
 
   if (!app.selectedCategoryClips || app.selectedCategoryClips.size === 0) {
@@ -168,31 +166,21 @@ export function updatePreviewFromSelection(app) {
       previewArea.value = '';
       app.previewLastAutoValue = '';
     }
-    console.log('📄 Preview cleared - no clips selected');
     app.updateCategoryBulkActions();
     return;
   }
 
   const allClips = [...app.clips, ...app.searchOnlyClips];
-  console.log('🔍 All clips available:', allClips.map(c => ({ id: c.id, text: c.text.substring(0, 20) })));
-  console.log('🎯 Selected clip IDs:', Array.from(app.selectedCategoryClips));
-
   const orderedSelectedIds = getSelectedCategoryClipIdsInUiOrder(app);
   const selectedClips = orderedSelectedIds
-    .map((clipId) => {
-      const found = allClips.find(clip => getClipIdKey(clip.id) === getClipIdKey(clipId));
-      console.log(`🔎 Looking for clip ${clipId} (${typeof clipId}), found:`, found ? found.text.substring(0, 20) : 'NOT FOUND');
-      return found;
-    })
+    .map((clipId) => allClips.find(clip => getClipIdKey(clip.id) === getClipIdKey(clipId)))
     .filter(Boolean);
 
-  console.log('📋 Found selected clips:', selectedClips.length);
   const formattedText = applyClipTextOptions(app, selectedClips.map(clip => clip.text));
   if (!previewArea) return;
   previewArea.value = formattedText;
   app.previewIsManual = false;
   app.previewLastAutoValue = formattedText;
-  console.log('✅ Preview updated with formatted text:', formattedText.substring(0, 50) + '...');
   app.updateCategoryBulkActions();
 }
 

@@ -1,4 +1,5 @@
 /** Breakdown modal, thread pagination, and inline breakdown entry. */
+import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
 
 const LEVEL_DESCRIPTIONS = {
   eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
@@ -164,9 +165,14 @@ export async function generateBreakdown(level) {
     await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
   } catch (error) {
     console.error('Failed to generate breakdown:', error);
-    resultEl.innerHTML = 'Failed to generate explanation. Please check your OpenAI API key configuration.';
-    loadingEl.style.display = 'none';
-    this.showToast('Failed to generate explanation');
+    if (isOutOfCreditsError(error)) {
+      showCreditExhaustedInline(this, resultEl, loadingEl);
+    } else {
+      const message = String(error?.message || '').trim();
+      resultEl.textContent = message || 'Failed to generate explanation.';
+      loadingEl.style.display = 'none';
+      this.showToast(message || 'Failed to generate explanation');
+    }
   }
 }
 

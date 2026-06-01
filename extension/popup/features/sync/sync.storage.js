@@ -71,8 +71,6 @@ export async function initializeTieredStorage(app) {
       
       app.tieredClipsStore.totalCount = app.totalClipsCount;
       app.tieredArchivedStore.totalCount = app.totalArchivedCount;
-      
-      console.log(`?? Tiered storage initialized: ${app.clips.length} local clips, ${app.totalClipsCount} total`);
     } else {
       // No Supabase - use local counts
       app.totalClipsCount = app.clips.length;
@@ -113,9 +111,6 @@ export async function maybeMigrateTieredStorage(app) {
       return;
     }
 
-    console.log('?? Starting tiered storage migration...');
-    console.log(`?? Current storage: ${StorageMeter.formatBytes(report.total.used)} / ${StorageMeter.formatBytes(report.total.quota)} (${Math.round(report.total.percentage * 100)}%)`);
-
     // Calculate budgets
     const budgets = report.budgets;
     let migrated = { clips: 0, notes: 0, archived: 0 };
@@ -123,7 +118,6 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate clips if over budget
     if (app.clips.length > budgets.clips) {
       const excessClips = app.clips.slice(budgets.clips);
-      console.log(`?? Migrating ${excessClips.length} excess clips to cloud...`);
       
       // Push excess to Supabase
       try {
@@ -144,7 +138,6 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate notes if over budget
     if (app.notes.length > budgets.notes) {
       const excessNotes = app.notes.slice(budgets.notes);
-      console.log(`?? Migrating ${excessNotes.length} excess notes to cloud...`);
       
       try {
         await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
@@ -161,7 +154,6 @@ export async function maybeMigrateTieredStorage(app) {
     // Migrate archived clips if over budget
     if (app.searchOnlyClips.length > budgets.archived) {
       const excessArchived = app.searchOnlyClips.slice(budgets.archived);
-      console.log(`?? Migrating ${excessArchived.length} excess archived clips to cloud...`);
       
       try {
         await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
@@ -181,8 +173,6 @@ export async function maybeMigrateTieredStorage(app) {
     // Log results
     const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
     if (totalMigrated > 0) {
-      console.log(`? Tiered storage migration complete: ${migrated.clips} clips, ${migrated.notes} notes, ${migrated.archived} archived`);
-      
       // Update total counts
       app.totalClipsCount = app.clips.length + migrated.clips;
       app.totalNotesCount = app.notes.length + migrated.notes;
@@ -190,8 +180,6 @@ export async function maybeMigrateTieredStorage(app) {
       
       // Re-render to show updated pagination
       app.renderChips();
-    } else {
-      console.log('? Tiered storage migration complete (no migration needed)');
     }
 
   } catch (e) {

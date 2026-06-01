@@ -73,14 +73,14 @@ async syncSettingsFromSupabase() {
       .from('settings')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        console.log('ℹ️ No settings found in Supabase (first sync)');
-        return null;
-      }
       throw error;
+    }
+    if (!data) {
+      console.log('ℹ️ No settings found in Supabase (first sync)');
+      return null;
     }
 
     // Return settings in nested structure matching popup.js expectations

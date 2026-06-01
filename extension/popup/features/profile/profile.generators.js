@@ -130,8 +130,6 @@ async function _onAnimalGenSuccess(app, imageUrl, animalType) {
 }
 
 export async function generateAnimalAvatar(app) {
-  console.log('🦁 generateAnimalAvatar() CALLED!');
-
   const hasAccess = await _checkPremiumAccess(app, 'avatar');
   if (!hasAccess) return;
 
@@ -199,8 +197,6 @@ async function _onCartoonGenSuccess(app, imageUrl, userImageBase64) {
 }
 
 export async function generateMyCartoon(app) {
-  console.log('🎨 generateMyCartoon() CALLED!');
-
   const hasAccess = await _checkPremiumAccess(app, 'cartoon');
   if (!hasAccess) return;
 

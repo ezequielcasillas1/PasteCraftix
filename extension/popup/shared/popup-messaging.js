@@ -9,8 +9,6 @@ export async function handlePopupMessage(message) {
     popup.pendingText = message.text;
     popup.showCategoryModal(false);
   } else if (message.action === 'clipSaved') {
-    console.log('?? Received clipSaved message - reloading data...');
-
     const incoming = message.clip && typeof message.clip === 'object' ? message.clip : null;
     if (incoming && incoming.id != null) {
       const idKey = popup._clipIdKey(incoming.id);
@@ -46,7 +44,5 @@ export async function handlePopupMessage(message) {
         })
         .catch(() => {});
     }, 120);
-
-    console.log('? UI refreshed with new clip data');
   }
 }
