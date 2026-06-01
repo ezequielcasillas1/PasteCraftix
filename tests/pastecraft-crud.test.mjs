@@ -159,7 +159,7 @@ test('deleteOperation records tombstones before non-blocking background sync', a
       },
       idbStoreName: 'categories',
       tombstoneStorageKey: 'pc_deleted_categories',
-      verifier: async () => false,
+      verifier: async () => true,
       backgroundSync: async (entity, deletedAt) => {
         backgroundCalls.push({ entity, deletedAt, tombstones: storage.data.pc_deleted_categories });
       },
