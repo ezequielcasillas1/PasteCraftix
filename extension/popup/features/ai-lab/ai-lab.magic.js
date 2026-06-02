@@ -1100,6 +1100,12 @@ async function _saveMagicState(app, { uiUpdater = null, syncToCloud = true } = {
     }),
     storageWriter: async (data) => {
       await chrome.storage.local.set(data);
+      if (typeof window !== 'undefined' && window.pasteCraftIndexedDB?.syncEntityFromLocalStorage) {
+        const clips = Array.isArray(data.clips) ? data.clips : [];
+        const categories = Array.isArray(data.categories) ? data.categories : [];
+        await window.pasteCraftIndexedDB.syncEntityFromLocalStorage('clips', clips);
+        await window.pasteCraftIndexedDB.syncEntityFromLocalStorage('categories', categories);
+      }
     },
     verifier: async () => _verifyMagicState(app),
     uiUpdater: () => {

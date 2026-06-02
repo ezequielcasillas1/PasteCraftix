@@ -109,6 +109,64 @@ export function planCreditDrain(
   return { subUsedDelta: subRem, purchasedDelta: safeCost - subRem };
 }
 
+/** True when purchase row already has credits applied to user_subscriptions. */
+export function isCreditPackBalanceApplied(purchase: { balance_applied_at?: string | null } | null | undefined): boolean {
+  return !!purchase?.balance_applied_at;
+}
+
+async function applyCreditPackBalance(
+  supabase: any,
+  userId: string,
+  creditsAmount: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const safeCredits = Math.max(1, Math.round(creditsAmount));
+
+  const { data: sub, error: subErr } = await supabase
+    .from('user_subscriptions')
+    .select('ai_purchased_credits_balance')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (subErr || !sub) {
+    return { ok: false, error: subErr?.message || 'Subscription row not found' };
+  }
+
+  const current = Number.isFinite(Number(sub.ai_purchased_credits_balance))
+    ? Number(sub.ai_purchased_credits_balance)
+    : 0;
+
+  const { error: updErr } = await supabase
+    .from('user_subscriptions')
+    .update({
+      ai_purchased_credits_balance: current + safeCredits,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
+
+  if (updErr) {
+    return { ok: false, error: updErr.message || String(updErr) };
+  }
+
+  return { ok: true };
+}
+
+async function markCreditPackBalanceApplied(
+  supabase: any,
+  stripeSessionId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const appliedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from('credit_purchases')
+    .update({ balance_applied_at: appliedAt })
+    .eq('stripe_session_id', stripeSessionId)
+    .is('balance_applied_at', null);
+
+  if (error) {
+    return { ok: false, error: error.message || String(error) };
+  }
+  return { ok: true };
+}
+
 export async function fulfillCreditPackPurchase(opts: {
   supabase: any;
   userId: string;
@@ -130,57 +188,62 @@ export async function fulfillCreditPackPurchase(opts: {
     currency,
   } = opts;
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('credit_purchases')
-    .select('id')
+    .select('id, credits_amount, balance_applied_at')
     .eq('stripe_session_id', stripeSessionId)
     .maybeSingle();
 
-  if (existing?.id) {
+  if (existingErr) {
+    return { ok: false, error: existingErr.message || String(existingErr) };
+  }
+
+  if (existing?.id && isCreditPackBalanceApplied(existing)) {
     return { ok: true, alreadyFulfilled: true };
   }
 
-  const { error: purchaseErr } = await supabase.from('credit_purchases').insert({
-    user_id: userId,
-    stripe_session_id: stripeSessionId,
-    stripe_payment_intent_id: stripePaymentIntentId || null,
-    price_id: priceId,
-    credits_amount: creditsAmount,
-    amount_cents: amountCents ?? null,
-    currency: currency || 'usd',
-  });
+  if (!existing?.id) {
+    const { error: purchaseErr } = await supabase.from('credit_purchases').insert({
+      user_id: userId,
+      stripe_session_id: stripeSessionId,
+      stripe_payment_intent_id: stripePaymentIntentId || null,
+      price_id: priceId,
+      credits_amount: creditsAmount,
+      amount_cents: amountCents ?? null,
+      currency: currency || 'usd',
+    });
 
-  if (purchaseErr) {
-    if (String(purchaseErr.code) === '23505') {
-      return { ok: true, alreadyFulfilled: true };
+    if (purchaseErr && String(purchaseErr.code) !== '23505') {
+      return { ok: false, error: purchaseErr.message || String(purchaseErr) };
     }
-    return { ok: false, error: purchaseErr.message || String(purchaseErr) };
   }
 
-  const { data: sub, error: subErr } = await supabase
-    .from('user_subscriptions')
-    .select('ai_purchased_credits_balance')
-    .eq('user_id', userId)
+  const { data: purchase, error: purchaseLoadErr } = await supabase
+    .from('credit_purchases')
+    .select('credits_amount, balance_applied_at')
+    .eq('stripe_session_id', stripeSessionId)
     .maybeSingle();
 
-  if (subErr || !sub) {
-    return { ok: false, error: subErr?.message || 'Subscription row not found' };
+  if (purchaseLoadErr || !purchase) {
+    return { ok: false, error: purchaseLoadErr?.message || 'Purchase row not found after insert' };
   }
 
-  const current = Number.isFinite(Number(sub.ai_purchased_credits_balance))
-    ? Number(sub.ai_purchased_credits_balance)
-    : 0;
+  if (isCreditPackBalanceApplied(purchase)) {
+    return { ok: true, alreadyFulfilled: true };
+  }
 
-  const { error: updErr } = await supabase
-    .from('user_subscriptions')
-    .update({
-      ai_purchased_credits_balance: current + creditsAmount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
+  const amountToApply = Number.isFinite(Number(purchase.credits_amount))
+    ? Number(purchase.credits_amount)
+    : creditsAmount;
 
-  if (updErr) {
-    return { ok: false, error: updErr.message || String(updErr) };
+  const applyResult = await applyCreditPackBalance(supabase, userId, amountToApply);
+  if (!applyResult.ok) {
+    return applyResult;
+  }
+
+  const markResult = await markCreditPackBalanceApplied(supabase, stripeSessionId);
+  if (!markResult.ok) {
+    return markResult;
   }
 
   return { ok: true };
