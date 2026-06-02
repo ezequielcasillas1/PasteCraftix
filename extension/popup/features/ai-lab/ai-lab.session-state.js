@@ -67,7 +67,8 @@ export async function saveSummaryState(app) {
   } catch (_) {}
 }
 
-export function resetSummaryToEmpty(app) {
+/** Drop prior summary Q&A threads and UI; optional input text is set separately. */
+export function clearSummaryAiContext(app) {
   app.currentSummaryText = null;
   app.generatedQuestions = [];
   app.currentSummaryQuestion = null;
@@ -76,17 +77,36 @@ export function resetSummaryToEmpty(app) {
   app.currentSummaryThreadIndex = 0;
   app._currentRawSummary = null;
   app._currentSummarySection = 'input';
+
+  const questionsList = document.getElementById('questionsList');
+  const summaryContent = document.getElementById('summaryResultContent');
+  const questionsLoading = document.getElementById('questionsLoading');
+  const summaryLoading = document.getElementById('summaryLoading');
+  const followupContainer = document.getElementById('summaryFollowupContainer');
+  const paginationContainer = document.getElementById('summaryThreadPagination');
+  const customQuestionInput = document.getElementById('customQuestionInput');
+  const customQuestionBtn = document.getElementById('customQuestionBtn');
+
+  if (questionsList) questionsList.innerHTML = '';
+  if (summaryContent) summaryContent.innerHTML = '';
+  if (questionsLoading) questionsLoading.style.display = 'none';
+  if (summaryLoading) summaryLoading.style.display = 'none';
+  if (followupContainer) followupContainer.style.display = 'none';
+  if (paginationContainer) paginationContainer.style.display = 'none';
+  if (customQuestionInput) customQuestionInput.value = '';
+  if (customQuestionBtn) customQuestionBtn.disabled = true;
+
+  app.showSummarySection('input');
+}
+
+export function resetSummaryToEmpty(app) {
+  clearSummaryAiContext(app);
   const summaryInput = document.getElementById('summaryInput');
   const summaryCharCounter = document.getElementById('summaryCharCounter');
   const generateQuestionsBtn = document.getElementById('generateQuestionsBtn');
-  const followupContainer = document.getElementById('summaryFollowupContainer');
-  const paginationContainer = document.getElementById('summaryThreadPagination');
   if (summaryInput) summaryInput.value = '';
   if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
   if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
-  if (followupContainer) followupContainer.style.display = 'none';
-  if (paginationContainer) paginationContainer.style.display = 'none';
-  app.showSummarySection('input');
   renderOpenRecentConversation(app);
 }
 

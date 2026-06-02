@@ -1,5 +1,7 @@
 /** Navigate to AI Lab summary tab with clip text prefilled. */
 
+import { clearSummaryAiContext } from './ai-lab.session-state.js';
+
 export function showSummaryModal(app, text) {
   const aiTab = document.querySelector('[data-tab="ai"]');
   const summarySubTab = document.querySelector('[data-ai-tab="summary"]');
@@ -17,6 +19,8 @@ export function showSummaryModal(app, text) {
   summarySubTab.classList.add('active');
   document.getElementById('aiSummarySection').classList.add('active');
 
+  clearSummaryAiContext(app);
+
   summaryInput.value = text;
   summaryInput.dispatchEvent(new Event('input'));
   summaryInput.scrollTop = 0;
@@ -29,7 +33,6 @@ export function showSummaryModal(app, text) {
 
   app.saveToAnalysisHistory(text, 'summary-initiated');
 
-  app._currentSummarySection = 'input';
   app._saveSummaryState();
   app._currentAiLabSubTab = 'summary';
   app._saveActiveTabState();

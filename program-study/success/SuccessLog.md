@@ -1,3 +1,9 @@
+### Jun 2, 2026 - AI Summary stale context on new clip
+**Status:** SUCCESS
+**Commit:** TBD on main
+**Files:** extension/popup/features/ai-lab/ai-lab.session-state.js, ai-lab.summary-modal.js
+**Result:** clearSummaryAiContext resets old Q&A/threads when sending new clips to AI Summary. User verified.
+
 ### May 22, 2026 - Widget lazy popup warm + offline banner contention fix
 **Status:** SUCCESS
 **Commit:** TBD on main
