@@ -90,7 +90,7 @@ serve(async (req) => {
     }
   } catch (err) {
     console.error('[admin-api]', err)
-    return respond({ ok: false, error: String(err?.message ?? err) }, origin, 500)
+    return respond({ ok: false, error: String(err instanceof Error ? err.message : err) }, origin, 500)
   }
 })
 
