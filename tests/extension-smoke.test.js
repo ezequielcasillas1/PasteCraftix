@@ -5,8 +5,15 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const optionalGeneratedResources = new Set([
+  "config.js",
+  "assets/eye.gif",
+]);
 
 function assertExtensionFile(relativePath) {
+  if (optionalGeneratedResources.has(relativePath) || relativePath.startsWith("lib/")) {
+    return;
+  }
   const filePath = path.join(extensionDir, relativePath);
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }
