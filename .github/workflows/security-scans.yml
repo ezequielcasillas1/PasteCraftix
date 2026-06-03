@@ -82,6 +82,7 @@ jobs:
       - name: Run Gitleaks
         run: gitleaks git . --config .gitleaks.toml --redact --verbose
 
+  # Requires SNYK_TOKEN repository secret (Settings → Secrets → Actions).
   snyk:
     name: Snyk
     runs-on: ubuntu-latest
@@ -104,4 +105,3 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high --all-projects
-        continue-on-error: true
