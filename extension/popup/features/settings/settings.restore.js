@@ -232,6 +232,22 @@ async function _persistRestoredPopupData(payload) {
   if (!result.success) throw new Error(result.error || 'Failed to restore data');
 }
 
+async function _mirrorRestoredDataToIndexedDb(app, payload) {
+  try {
+    await app._ensureIndexedDbReadyAndMigrate?.();
+  } catch (_) {}
+  if (!app._idbReady || !app.idb) return;
+  try {
+    await Promise.all([
+      app.idb.syncEntityFromLocalStorage('clips', Array.isArray(payload.clips) ? payload.clips : []),
+      app.idb.syncEntityFromLocalStorage('categories', Array.isArray(payload.categories) ? payload.categories : []),
+      app.idb.syncEntityFromLocalStorage('notes', Array.isArray(payload.notes) ? payload.notes : []),
+    ]);
+  } catch (err) {
+    console.warn('IDB mirror after restore failed:', err?.message || err);
+  }
+}
+
 export async function applyRestoreFromPreview(app) {
   const preview = app._lastPreviewRestore;
   const point = preview?.point ? preview.point : null;
@@ -265,7 +281,11 @@ export async function applyRestoreFromPreview(app) {
     [RESTORE_STORAGE_KEYS.LAST_POINT_ID]: point.id || ''
   });
 
+  await _mirrorRestoredDataToIndexedDb(app, { clips, searchOnlyClips, categories, notes });
   await app.loadData();
+  if (typeof app.loadNotes === 'function') {
+    await app.loadNotes();
+  }
   app.renderChips();
   app.renderCategories();
   app.updateCategoryFilter();

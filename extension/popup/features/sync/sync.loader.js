@@ -11,6 +11,19 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+/**
+ * Prefer chrome.storage when it already has rows. IDB is only a bootstrap
+ * fallback when chrome.storage is empty — otherwise stale IDB rows resurrect
+ * deletes and undo restore snapshots on the next loadData().
+ */
+export function pickChromeOrIdbEntities(chromeItems, idbItems) {
+  const chrome = Array.isArray(chromeItems) ? chromeItems : [];
+  const idb = Array.isArray(idbItems) ? idbItems : [];
+  if (chrome.length > 0) return chrome;
+  if (idb.length > 0) return idb;
+  return chrome;
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
@@ -23,8 +36,8 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+    clips = pickChromeOrIdbEntities(clips, idbClips);
+    categories = pickChromeOrIdbEntities(categories, idbCategories);
   }
   return { clips, categories, searchOnlyClips };
 }

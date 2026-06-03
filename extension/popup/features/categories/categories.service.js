@@ -154,7 +154,7 @@ function buildDeleteCategoryOpts(app, category) {
       if (inChrome) return false;
       try {
         if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-          const idbCats = await window.pasteCraftIndexedDB.getAll('categories');
+          const idbCats = await window.pasteCraftIndexedDB.getAllPayloads('categories');
           if (Array.isArray(idbCats) && idbCats.some(c => String(c?.id) === String(entityId))) return false;
         }
       } catch (_) {}
