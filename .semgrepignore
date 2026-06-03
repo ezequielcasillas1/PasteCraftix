@@ -1,3 +1,4 @@
 node_modules/
 website/public/lib/
 program-study/
+tests/chromium-browser-test.js
