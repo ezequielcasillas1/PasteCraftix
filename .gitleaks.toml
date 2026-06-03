@@ -1,0 +1,21 @@
+title = "PasteCraft Gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders, tests, vendored libs, local storage keys, publishable Supabase anon in client pages"
+paths = [
+  '''(?i)\.env\.example$''',
+  '''(?i)(?:^|/)tests/''',
+  '''(?i)website/public/lib/''',
+  '''(?i)(?:^|/)extension/supabase\.js$''',
+  '''(?i)(?:^|/)supabase\.js$''',
+  '''(?i)extension/popup/features/ai-lab/ai-lab\.announcements\.js$''',
+  '''(?i)extension/indexeddb-store\.js$''',
+  '''(?i)website/analytics\.js$''',
+  '''(?i)website/account\.html$''',
+  '''(?i)website/pricing\.html$''',
+  '''(?i)website/src/pages/account\.astro$''',
+  '''(?i)website/src/pages/reset-password\.astro$''',
+]
