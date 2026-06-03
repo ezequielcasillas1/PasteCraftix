@@ -25,10 +25,12 @@ export function registerTabNavEvents(app) {
         if (app.currentTab === 'clips') {
           await app.loadData();
           app.renderChips();
+          app.updateManualInputCategories();
         } else if (app.currentTab === 'categories') {
           await app.loadData();
           app.renderCategories();
           app.updateCategoryBulkActions();
+          app.updateManualInputCategories();
         } else if (app.currentTab === 'search') {
           await app.loadData();
           app.renderSearchResults();

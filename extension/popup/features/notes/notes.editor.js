@@ -1,4 +1,9 @@
 import { createNote, mutateNote, updateNote } from './notes.service.js';
+import {
+  collectAlbumInterlayings,
+  flatAttachmentsToAlbumBuckets,
+  syncAlbumRefMetadata
+} from './notes.album-interlayings.crud.js';
 
 // ── openNoteEditor ─────────────────────────────────────────────────────────
 
@@ -22,7 +27,7 @@ function _toggleBackToAlbumPicker(app, showBack) {
 }
 
 function _collectExistingAttachments(note) {
-  if (note.type === 'album') return [];
+  if (note.type === 'album') return collectAlbumInterlayings(note);
   return [...(note.clips || []), ...(note.images || []), ...(note.urls || [])];
 }
 
@@ -59,7 +64,7 @@ function _populateNoteEditorFields(app, els, type, noteId) {
 function _applyEditorMode(app, els) {
   if (els.aiToggle) els.aiToggle.checked = app.notesAiEnabled;
   if (els.attachmentsSection) {
-    els.attachmentsSection.style.display = app.currentNoteType === 'album' ? 'none' : 'block';
+    els.attachmentsSection.style.display = 'block';
   }
   if (els.saveBtn) {
     els.saveBtn.textContent = app.currentNoteType === 'album' ? 'Save Album' : 'Save Note';
@@ -67,11 +72,7 @@ function _applyEditorMode(app, els) {
 }
 
 function _renderEditorAttachmentList(app, els) {
-  if (app.currentNoteType !== 'album') {
-    app.renderNoteAttachments();
-    return;
-  }
-  if (els.attachmentsList) els.attachmentsList.innerHTML = '';
+  app.renderNoteAttachments();
 }
 
 export function openNoteEditor(app, type = 'note', noteId = null, showBack = false) {
@@ -96,6 +97,9 @@ export function closeNoteEditor(app) {
   app.currentNoteType = 'note';
   app.currentNoteAttachments = [];
   app.hideBackToAlbumPicker();
+  if (typeof app.returnToAlbumViewerAfterEditor === 'function') {
+    app.returnToAlbumViewerAfterEditor();
+  }
 }
 
 // ── saveNote ───────────────────────────────────────────────────────────────
@@ -114,7 +118,23 @@ function _filterAttachmentsByType(attachments, type) {
 
 function _buildNoteContentByType(app, existing) {
   if (app.currentNoteType === 'album') {
-    return { noteRefs: Array.isArray(existing?.noteRefs) ? existing.noteRefs : [] };
+    const buckets = flatAttachmentsToAlbumBuckets(app.currentNoteAttachments);
+    const albumDraft = {
+      type: 'album',
+      clips: buckets.clips,
+      images: buckets.images,
+      urls: buckets.urls,
+      noteRefs: Array.isArray(existing?.noteRefs) ? existing.noteRefs : [],
+      sourceNoteIds: Array.isArray(existing?.sourceNoteIds) ? existing.sourceNoteIds : []
+    };
+    syncAlbumRefMetadata(albumDraft);
+    return {
+      clips: albumDraft.clips,
+      images: albumDraft.images,
+      urls: albumDraft.urls,
+      noteRefs: albumDraft.noteRefs,
+      sourceNoteIds: albumDraft.sourceNoteIds
+    };
   }
   return {
     clips: _filterAttachmentsByType(app.currentNoteAttachments, 'clip'),

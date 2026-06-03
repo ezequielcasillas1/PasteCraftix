@@ -9,6 +9,40 @@ function getUniqueClipCategories(app) {
   return [...new Set(getAllClips(app).map(c => c.category))];
 }
 
+/** Names from CRUD `app.categories` (newest first), always includes Uncategorized. */
+function getActiveCategoryNames(app) {
+  const names = [];
+  const seen = new Set();
+
+  const addName = (name) => {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    names.push(trimmed);
+  };
+
+  addName(CATEGORIES_DEFAULTS.UNCATEGORIZED);
+
+  const categories = Array.isArray(app.categories) ? app.categories : [];
+  const sorted = [...categories]
+    .filter((cat) => cat && !Number.isFinite(cat?.deletedAt))
+    .sort((a, b) => {
+      const aTs = Number(a?.updatedAt ?? a?.createdAt ?? a?.created ?? a?.id ?? 0);
+      const bTs = Number(b?.updatedAt ?? b?.createdAt ?? b?.created ?? b?.id ?? 0);
+      return bTs - aTs;
+    });
+
+  sorted.forEach((cat) => {
+    if (cat.name && cat.name !== CATEGORIES_DEFAULTS.UNCATEGORIZED) {
+      addName(cat.name);
+    }
+  });
+
+  return names;
+}
+
 function buildSelectOptions(select, categories, defaultFirst = null) {
   if (defaultFirst !== null) select.innerHTML = '';
   categories.forEach(cat => {
@@ -159,16 +193,12 @@ export function updateManualInputCategories(app) {
   if (!select) return;
 
   const currentValue = select.value;
-  const uniqueCategories = getUniqueClipCategories(app);
-
-  if (!uniqueCategories.includes(CATEGORIES_DEFAULTS.UNCATEGORIZED)) {
-    uniqueCategories.unshift(CATEGORIES_DEFAULTS.UNCATEGORIZED);
-  }
+  const activeCategories = getActiveCategoryNames(app);
 
   select.innerHTML = '';
-  buildSelectOptions(select, uniqueCategories);
+  buildSelectOptions(select, activeCategories);
 
-  if (uniqueCategories.includes(currentValue)) {
+  if (activeCategories.includes(currentValue)) {
     select.value = currentValue;
   } else {
     select.value = CATEGORIES_DEFAULTS.UNCATEGORIZED;
@@ -179,8 +209,7 @@ export function populatePdfCategoryDropdown(app) {
   const { pdfExtractCategory: select } = getCategoryDropdownElements();
   if (!select) return;
 
-  const cats = getUniqueClipCategories(app);
-  if (!cats.includes(CATEGORIES_DEFAULTS.UNCATEGORIZED)) cats.unshift(CATEGORIES_DEFAULTS.UNCATEGORIZED);
+  const cats = getActiveCategoryNames(app);
 
   select.innerHTML = '';
   buildSelectOptions(select, cats);

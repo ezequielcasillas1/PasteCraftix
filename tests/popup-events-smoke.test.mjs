@@ -213,6 +213,17 @@ function createMockApp() {
     clearAllAiHistory: noop,
     hideClipViewerModal: noop,
     copyClipViewerText: noop,
+    runClipViewerAiSummary: noop,
+    runClipViewerAiBreakdown: noop,
+    runClipViewerAiRefactorization: noop,
+    runClipViewerAiCraftClips: noop,
+    runClipViewerSendToCategories: noop,
+    runClipViewerSendToNotes: noop,
+    activateRefactorizationSection: noop,
+    renderRefactorizationPanel: noop,
+    magicFormat: asyncNoop,
+    showCategoryModal: noop,
+    showAlbumPicker: noop,
     updateLevelInfo: noop,
     generateBreakdown: noop,
     updatePreview: noop,
@@ -300,6 +311,31 @@ describe('popup events — static', () => {
       const full = path.join(popupDir, rel);
       execSync(`node --check "${full.replace(/"/g, '\\"')}"`, { stdio: 'pipe' });
     }
+  });
+
+  test('clip viewer footer action buttons exist in popup.html', () => {
+    const html = fs.readFileSync(path.join(extensionDir, 'popup.html'), 'utf8');
+    const ids = [
+      'clipViewerAiSummaryBtn',
+      'clipViewerAiBreakdownBtn',
+      'clipViewerAiRefactorBtn',
+      'clipViewerAiCraftBtn',
+      'clipViewerSendCategoriesBtn',
+      'clipViewerSendNotesBtn',
+    ];
+    for (const id of ids) {
+      assert.match(html, new RegExp(`id="${id}"`));
+    }
+  });
+
+  test('modals-shared.events wires clip viewer footer actions', () => {
+    const src = fs.readFileSync(path.join(popupDir, 'events/modals-shared.events.js'), 'utf8');
+    assert.match(src, /runClipViewerAiSummary/);
+    assert.match(src, /runClipViewerAiBreakdown/);
+    assert.match(src, /runClipViewerAiRefactorization/);
+    assert.match(src, /runClipViewerAiCraftClips/);
+    assert.match(src, /runClipViewerSendToCategories/);
+    assert.match(src, /runClipViewerSendToNotes/);
   });
 });
 

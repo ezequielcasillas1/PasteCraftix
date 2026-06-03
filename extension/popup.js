@@ -848,8 +848,8 @@ class PasteCraftPopup {
     return this.clipsFeature.service.copyClipToClipboard(this, text);
   }
 
-  openClipViewer(clip) {
-    return this.clipsFeature?.viewer?.open?.(this, clip);
+  openClipViewer(clip, sourceContext) {
+    return this.clipsFeature?.viewer?.open?.(this, clip, sourceContext);
   }
 
   hideClipViewerModal() {
@@ -858,6 +858,30 @@ class PasteCraftPopup {
 
   async copyClipViewerText() {
     return this.clipsFeature?.viewer?.copyText?.(this);
+  }
+
+  runClipViewerAiSummary() {
+    return this.clipsFeature?.viewer?.runAiSummary?.(this);
+  }
+
+  runClipViewerAiBreakdown() {
+    return this.clipsFeature?.viewer?.runAiBreakdown?.(this);
+  }
+
+  runClipViewerAiRefactorization() {
+    return this.clipsFeature?.viewer?.runAiRefactorization?.(this);
+  }
+
+  runClipViewerAiCraftClips() {
+    return this.clipsFeature?.viewer?.runAiCraftClips?.(this);
+  }
+
+  runClipViewerSendToCategories() {
+    return this.clipsFeature?.viewer?.runSendToCategories?.(this);
+  }
+
+  runClipViewerSendToNotes() {
+    return this.clipsFeature?.viewer?.runSendToNotes?.(this);
   }
 
   async showShareMenuForClip(clip) {
@@ -1159,6 +1183,14 @@ class PasteCraftPopup {
   setupProfileModalEvents() {
     return this.profileFeature?.events?.setupProfileModalEvents?.(this);
   }
+
+  applyAuthPrefsToUi() {
+    return this.profileFeature?.accountInfo?.applyAuthPrefsToUi?.(this);
+  }
+
+  openPasswordResetFromProfile() {
+    return this.profileFeature?.accountInfo?.openPasswordResetFromProfile?.(this);
+  }
   
   toggleSection(contentId, toggleBtnId) {
     return this.profileFeature?.render?.toggleSection?.(contentId, toggleBtnId);
@@ -1214,7 +1246,11 @@ class PasteCraftPopup {
   }
 
   setupImageViewer() {
-    return this.profileFeature.viewer.setupImageViewer();
+    return this.profileFeature.viewer.setupImageViewer(this);
+  }
+
+  showProfileTestimonialShare(avatarUrl) {
+    return this.profileFeature?.socialShare?.showProfileTestimonialShare?.(this, avatarUrl);
   }
 
   updatePasswordStrength(password) {
@@ -1560,6 +1596,22 @@ class PasteCraftPopup {
   openAlbumSourceNoteOverlay(sourceNoteId, albumId) { return this.notesFeature.album.openAlbumSourceNoteOverlay(this, sourceNoteId, albumId); }
   closeAlbumSourceNoteOverlay() { return this.notesFeature.album.closeAlbumSourceNoteOverlay(this); }
   copyAllNoteAttachments() { return this.notesFeature.album.copyAllNoteAttachments(this); }
+
+  deleteAlbumInterlaying(albumId, flatIndex, options) {
+    return this.notesFeature.albumInterlayings.deleteAlbumInterlaying(this, albumId, flatIndex, options);
+  }
+  deleteAlbumInterlayingFromViewer(albumId, flatIndex) {
+    return this.notesFeature.album.deleteAlbumInterlayingFromViewer(this, albumId, flatIndex);
+  }
+  editAlbumInterlayingFromViewer(albumId, flatIndex) {
+    return this.notesFeature.album.editAlbumInterlayingFromViewer(this, albumId, flatIndex);
+  }
+  editAlbumSourceNoteFromOverlay() {
+    return this.notesFeature.album.editAlbumSourceNoteFromOverlay(this);
+  }
+  returnToAlbumViewerAfterEditor() {
+    return this.notesFeature.album.returnToAlbumViewerAfterEditor(this);
+  }
 
   deleteNote(noteId) { return this.notesFeature.service.deleteNote(this, noteId); }
 

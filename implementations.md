@@ -1,3 +1,13 @@
+### Jun 3, 2026 - Album interlayings CRUD
+**Status:** PENDING USER VERIFY
+**Files:** notes.album-interlayings.crud.js, notes.album.js, notes.editor.js, notes.events.js, notes.render.js, popup.html, popup.js, tests/album-interlayings-crud.test.mjs
+**Result:** Album Notes list items use PasteCraft CRUD via mutateNote; viewer Edit/Delete, Edit Album footer, source overlay Edit Note; album editor saves clips/urls/images.
+
+### Jun 2, 2026 - Quick Save category dropdown CRUD sync
+**Status:** PENDING USER VERIFY
+**Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
+**Result:** Quick Save/PDF dropdowns use `app.categories` (newest first) instead of clip-derived names. Category CRUD + sync listeners refresh `updateManualInputCategories()`.
+
 ### May 31, 2026 - AI Lab input validation + refactorization opt-in
 **Status:** PENDING USER VERIFY
 **Files:** ai-lab.input-validation.js, ai-lab-page.events.js, ai-lab.constants.js, ai-lab.refactorization.js, ai-lab.summary.js, ai-lab.breakdown.js, ai-functions.js, popup.html

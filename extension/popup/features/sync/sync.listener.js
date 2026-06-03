@@ -92,6 +92,7 @@ export async function runSyncAutoRefreshTick(app) {
     app.updatePreview();
     app.renderCategories();
     app.updateCategoryFilter();
+    app.updateManualInputCategories();
     app.renderSearchResults();
     app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
   } finally {
@@ -117,6 +118,7 @@ export function setupRealtimeListeners(app) {
       await app.loadData();
       app.renderCategories();
       app.updateCategoryFilter();
+      app.updateManualInputCategories();
     } else if (type === 'settings') {
       await app.loadSettings();
     } else if (type === 'profile') {

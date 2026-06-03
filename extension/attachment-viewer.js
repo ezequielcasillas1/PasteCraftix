@@ -1,3 +1,5 @@
+import { resolveSafeExternalUrl } from './safe-url.js';
+
 function qs(id) {
   return document.getElementById(id);
 }
@@ -77,19 +79,33 @@ async function main() {
   }
 
   const url = att.url || '';
+  const safeHref = resolveSafeExternalUrl(url);
+  const displayUrl = escapeHtml(url);
+  const linkHtml = safeHref
+    ? `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noreferrer">${displayUrl}</a>`
+    : `<span>${displayUrl}</span>`;
+  const schemeNote = safeHref
+    ? ''
+    : '<div style="color:#b45309; font-size:13px;">This link uses an unsupported URL scheme.</div>';
+
   if (bodyEl) {
     bodyEl.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:10px;">
         <div style="font-weight:700;">Link</div>
-        <a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(url)}</a>
+        ${linkHtml}
+        ${schemeNote}
       </div>
     `;
   }
   if (openBtn) {
-    openBtn.style.display = 'inline-flex';
-    openBtn.addEventListener('click', () => {
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    });
+    if (safeHref) {
+      openBtn.style.display = 'inline-flex';
+      openBtn.addEventListener('click', () => {
+        window.open(safeHref, '_blank', 'noopener,noreferrer');
+      });
+    } else {
+      openBtn.style.display = 'none';
+    }
   }
 }
 
@@ -100,5 +116,3 @@ main().catch((e) => {
   if (metaEl) metaEl.textContent = 'Failed to load attachment.';
   if (bodyEl) bodyEl.innerHTML = '<pre>Could not load attachment.</pre>';
 });
-
-

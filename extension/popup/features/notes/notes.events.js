@@ -82,7 +82,6 @@ export function registerNotesEvents(app) {
   document.getElementById('saveNote').addEventListener('click', () => app.saveNote());
 
   document.getElementById('addClipToNote').addEventListener('click', () => {
-    if (app.currentNoteType === 'album') { app.showToast('Albums do not use attachments'); return; }
     app.showClipPickerForNote();
   });
 
@@ -95,12 +94,10 @@ export function registerNotesEvents(app) {
   document.getElementById('clipPickerAddBtn').addEventListener('click', () => app.addSelectedClipsToNote());
 
   document.getElementById('addImageToNote').addEventListener('click', () => {
-    if (app.currentNoteType === 'album') { app.showToast('Albums do not use attachments'); return; }
     app.showImagePickerForNote();
   });
 
   document.getElementById('addURLToNote').addEventListener('click', () => {
-    if (app.currentNoteType === 'album') { app.showToast('Albums do not use attachments'); return; }
     app.addURLToNote();
   });
 
@@ -216,7 +213,18 @@ export function registerNotesEvents(app) {
 
   // Album source note overlay
   const albumSourceNoteBackBtn = document.getElementById('albumSourceNoteBackBtn');
-  if (albumSourceNoteBackBtn) albumSourceNoteBackBtn.addEventListener('click', () => app.closeAlbumSourceNoteOverlay());
+  if (albumSourceNoteBackBtn) {
+    albumSourceNoteBackBtn.addEventListener('click', () => app.closeAlbumSourceNoteOverlay());
+  }
+  const albumSourceNoteBackFooterBtn = document.getElementById('albumSourceNoteBackFooterBtn');
+  if (albumSourceNoteBackFooterBtn) {
+    albumSourceNoteBackFooterBtn.addEventListener('click', () => app.closeAlbumSourceNoteOverlay());
+  }
+
+  const albumSourceNoteEditBtn = document.getElementById('albumSourceNoteEditBtn');
+  if (albumSourceNoteEditBtn) {
+    albumSourceNoteEditBtn.addEventListener('click', () => app.editAlbumSourceNoteFromOverlay());
+  }
 
   const closeAlbumSourceNoteModalBtn = document.getElementById('closeAlbumSourceNoteModal');
   if (closeAlbumSourceNoteModalBtn) closeAlbumSourceNoteModalBtn.addEventListener('click', () => app.closeAlbumSourceNoteOverlay());

@@ -1,7 +1,50 @@
-import { getClipTitle } from './clips.state.js';
+import {
+  getClipTitle,
+  getSelectedOrCurrentText,
+  getSelectedOrCurrentClipIdKeys,
+  getSelectedOrCurrentClipObjects,
+} from './clips.state.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
+
+const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
+
+function normalizeClipViewerSourceContext(sourceContext) {
+  return CLIP_VIEWER_SOURCE_CONTEXTS.has(sourceContext) ? sourceContext : 'clips';
+}
+
+function getClipViewerAiText(app) {
+  const clip = app.currentClipViewerClip;
+  const clipText = clip && clip.text != null ? String(clip.text) : '';
+  const context = app.clipViewerSourceContext || 'clips';
+  if (typeof app.getSelectedOrCurrentText === 'function') {
+    return app.getSelectedOrCurrentText(clipText, context);
+  }
+  return getSelectedOrCurrentText(app, clipText, context);
+}
+
+function captureClipViewerContext(app) {
+  const clip = app.currentClipViewerClip;
+  const context = app.clipViewerSourceContext || 'clips';
+  const text = getClipViewerAiText(app);
+  const idKeys = getSelectedOrCurrentClipIdKeys(app, clip, context);
+  const clipObjects = getSelectedOrCurrentClipObjects(app, clip, context);
+  return { clip, context, text, idKeys, clipObjects };
+}
+
+function closeClipViewerThen(app, fn) {
+  const ctx = captureClipViewerContext(app);
+  hide(app);
+  return fn(ctx);
+}
+
+function switchToAiTab() {
+  document.querySelectorAll('.tab-btn').forEach((t) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach((t) => t.classList.remove('active'));
+  document.querySelector('[data-tab="ai"]')?.classList.add('active');
+  document.getElementById('aiTab')?.classList.add('active');
+}
 
 function getClipViewerElements() {
   return {
@@ -232,13 +275,14 @@ function renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
   htmlDetails.style.display = 'none';
 }
 
-export function open(app, clip) {
+export function open(app, clip, sourceContext = 'clips') {
   const { modal, titleEl, metaEl, bodyEl, renderedEl, rawEl, htmlDetails, htmlPre, toggleBtn } =
     getClipViewerElements();
 
   if (!modal || !titleEl || !bodyEl) return;
 
   app.currentClipViewerClip = clip || null;
+  app.clipViewerSourceContext = normalizeClipViewerSourceContext(sourceContext);
   app._clipViewerShowingRaw = false;
 
   const { text, meta, clipTitle, markupType } = buildClipViewerContext(clip);
@@ -269,6 +313,92 @@ export function hide(app) {
   const modal = document.getElementById('clipViewerModal');
   if (modal) modal.style.display = 'none';
   app.currentClipViewerClip = null;
+  app.clipViewerSourceContext = null;
+}
+
+export function runAiSummary(app) {
+  closeClipViewerThen(app, ({ text }) => {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) {
+      app.showToast?.('No clip text to summarize', 'error');
+      return;
+    }
+    app.showSummaryModal?.(trimmed);
+  });
+}
+
+export function runAiBreakdown(app) {
+  closeClipViewerThen(app, ({ text }) => {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) {
+      app.showToast?.('No clip text to break down', 'error');
+      return;
+    }
+    app.showBreakdownModal?.(trimmed);
+  });
+}
+
+export function runAiRefactorization(app) {
+  closeClipViewerThen(app, ({ idKeys }) => {
+    if (!idKeys.length) {
+      app.showToast?.('No clip to refactor', 'error');
+      return;
+    }
+    switchToAiTab();
+    app.activateRefactorizationSection?.();
+    app._refactorizationSelected = new Set(idKeys.map(String));
+    app.renderRefactorizationPanel?.();
+  });
+}
+
+export async function runAiCraftClips(app) {
+  const { idKeys } = captureClipViewerContext(app);
+  hide(app);
+  if (!idKeys.length) {
+    app.showToast?.('No clip to craft', 'error');
+    return;
+  }
+  await app.magicFormat?.();
+  app._magicSelected = new Set(idKeys.map(String));
+  app._renderMagicPage?.(0);
+  app._updateMagicSelectedCount?.();
+}
+
+export function runSendToCategories(app) {
+  closeClipViewerThen(app, ({ clip, idKeys }) => {
+    if (!idKeys.length) {
+      app.showToast?.('No clip to categorize', 'error');
+      return;
+    }
+    if (idKeys.length > 1) {
+      app.pendingBulkClipIds = idKeys;
+      app.pendingText = null;
+      app.pendingClipId = null;
+    } else {
+      app.pendingBulkClipIds = null;
+      app.pendingText = clip?.text ?? '';
+      app.pendingClipId = idKeys[0];
+    }
+    app.showCategoryModal?.(true);
+  });
+}
+
+export async function runSendToNotes(app) {
+  closeClipViewerThen(app, async ({ clipObjects }) => {
+    if (!clipObjects.length) {
+      app.showToast?.('No clip to send to notes', 'error');
+      return;
+    }
+    await app.loadNotes?.();
+    if (clipObjects.length > 1) {
+      app.pendingBulkClipsForNotes = clipObjects;
+      app.pendingClipForNotes = null;
+    } else {
+      app.pendingBulkClipsForNotes = null;
+      app.pendingClipForNotes = clipObjects[0];
+    }
+    app.showAlbumPicker?.();
+  });
 }
 
 export async function copyText(app) {

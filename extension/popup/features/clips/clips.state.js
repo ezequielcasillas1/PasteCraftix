@@ -192,6 +192,36 @@ export function getSelectedCategoryClipsText(app) {
   return getSelectedCategoryClipObjects(app).map(c => c.text).join('\n\n');
 }
 
+/** Combined selected-clip ids for bulk actions, or single-clip fallback. */
+export function getSelectedOrCurrentClipIdKeys(app, clip, context) {
+  const currentId = clip ? getClipIdKey(clip.id) : '';
+
+  if (context === 'clips') {
+    const keys = getSelectedClipIdKeys(app);
+    return keys.length ? keys : (currentId ? [currentId] : []);
+  }
+
+  if (context === 'categories') {
+    const keys = getSelectedCategoryClipIdKeys(app);
+    return keys.length ? keys : (currentId ? [currentId] : []);
+  }
+
+  if (context === 'search') {
+    const keys = getSelectedSearchClipIdsInUiOrder(app)
+      .map((id) => getClipIdKey(id))
+      .filter(Boolean);
+    return keys.length ? keys : (currentId ? [currentId] : []);
+  }
+
+  return currentId ? [currentId] : [];
+}
+
+export function getSelectedOrCurrentClipObjects(app, clip, context) {
+  const ids = getSelectedOrCurrentClipIdKeys(app, clip, context);
+  if (!ids.length) return [];
+  return getSelectedClipObjectsByIds(ids, getClipPool(app, true));
+}
+
 /** Combined selected-clip text for AI actions, or single-clip fallback. */
 export function getSelectedOrCurrentText(app, clipText, context) {
   const fallback = String(clipText || '');

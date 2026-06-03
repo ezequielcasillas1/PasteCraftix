@@ -1,14 +1,13 @@
-import { mutateNote } from './notes.service.js';
-
-// ── shared helpers ─────────────────────────────────────────────────────────
-
-function _collectNoteAttachments(note) {
-  return [
-    ...(note.clips || []).map(c => ({ ...c, type: 'clip' })),
-    ...(note.images || []).map(i => ({ ...i, type: 'image' })),
-    ...(note.urls || []).map(u => ({ ...u, type: 'url' }))
-  ];
-}
+import {
+  collectAlbumInterlayings,
+  countAlbumInterlayings,
+  createAlbumInterlayingsFromSourceNote,
+  deleteAlbumInterlaying,
+  readAlbumInterlayingSourceNoteId,
+  resolveInterlayingAtFlatIndex,
+  syncAlbumRefMetadata
+} from './notes.album-interlayings.crud.js';
+import { resolveSafeExternalUrl } from '../../../safe-url.js';
 
 function _arrayHasItemWithId(arr, id) {
   if (!Array.isArray(arr)) return false;
@@ -135,6 +134,8 @@ function _buildAlbumAttachmentRow(app, att, idx) {
         <div style="min-width:0;">${attachmentHtml}${metaLine}</div>
       </div>
       <div class="viewer-attachment-actions">
+        <button class="btn-edit-album-interlaying" data-index="${idx}" type="button">Edit</button>
+        <button class="btn-delete-album-interlaying" data-index="${idx}" type="button">Delete</button>
         <button class="btn-copy-album-attachment" data-index="${idx}" type="button">Copy</button>
         <button class="btn-open-album-attachment" data-index="${idx}" type="button" title="Open attachment" style="border:none; background:transparent; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:0 2px;">›</button>
       </div>
@@ -185,6 +186,23 @@ function _wireCopyButtons(app, ctx) {
   });
 }
 
+function _attachAlbumInterlayingCrudHandlers(app, attachList, albumId) {
+  attachList.querySelectorAll('.btn-edit-album-interlaying').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (!Number.isNaN(idx)) editAlbumInterlayingFromViewer(app, albumId, idx);
+    });
+  });
+  attachList.querySelectorAll('.btn-delete-album-interlaying').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (!Number.isNaN(idx)) deleteAlbumInterlayingFromViewer(app, albumId, idx);
+    });
+  });
+}
+
 function _attachAlbumOpenHandlers(app, attachList, albumId) {
   attachList.querySelectorAll('.btn-open-album-attachment').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -230,6 +248,7 @@ function _wireAlbumViewerEvents(app, ctx) {
     resolveText: _resolveAlbumCopyText,
     stopPropagation: true
   });
+  _attachAlbumInterlayingCrudHandlers(app, ctx.attachList, ctx.albumId);
   _attachAlbumOpenHandlers(app, ctx.attachList, ctx.albumId);
   _attachAlbumOpenableHandlers(app, ctx.attachList, ctx.allAttachments, ctx.albumId);
 }
@@ -274,8 +293,11 @@ export function openNoteViewer(app, noteId) {
 
   app.currentViewerNoteId = noteId;
   const isAlbum = note.type === 'album';
-  const allAttachments = _collectNoteAttachments(note);
+  const allAttachments = collectAlbumInterlayings(note);
   const els = _getViewerElements();
+
+  const editFromViewerBtn = document.getElementById('editNoteFromViewer');
+  if (editFromViewerBtn) editFromViewerBtn.textContent = isAlbum ? 'Edit Album' : 'Edit Note';
 
   _setViewerHeader(app, els, note, isAlbum);
   _setViewerDescription(els, note);
@@ -308,7 +330,7 @@ export function openAlbumAttachment(app, noteId, attachmentIndex) {
   const note = app.notes.find(n => n.id == noteId);
   if (!note || note.type !== 'album') return;
 
-  const allAttachments = _collectNoteAttachments(note);
+  const allAttachments = collectAlbumInterlayings(note);
   const att = allAttachments[attachmentIndex];
   if (!att) return;
 
@@ -355,12 +377,17 @@ export function openAlbumAttachmentInEdgePopup(app, noteId, attachmentIndex) {
   const note = app.notes.find(n => n.id == noteId);
   if (!note || note.type !== 'album') return;
 
-  const allAttachments = _collectNoteAttachments(note);
+  const allAttachments = collectAlbumInterlayings(note);
   const att = allAttachments[attachmentIndex];
   if (!att) return;
 
   if (att.type === 'url' && att.url) {
-    _openInPopupWindow(app, att.url, 'Failed to open URL in popup:', 'Could not open link');
+    const safeUrl = resolveSafeExternalUrl(att.url);
+    if (!safeUrl) {
+      app.showToast('Unsupported link scheme');
+      return;
+    }
+    _openInPopupWindow(app, safeUrl, 'Failed to open URL in popup:', 'Could not open link');
     return;
   }
 
@@ -404,11 +431,19 @@ function _renderAttachmentImageBody(app, att, body) {
 
 function _renderAttachmentLinkBody(app, att, body) {
   const url = att.url || '';
-  const safeUrl = app.escapeHtml(url);
+  const safeHref = resolveSafeExternalUrl(url);
+  const displayUrl = app.escapeHtml(url);
+  const linkHtml = safeHref
+    ? `<a href="${app.escapeHtml(safeHref)}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${displayUrl}</a>`
+    : `<span style="word-break:break-all; color:#374151;">${displayUrl}</span>`;
+  const schemeNote = safeHref
+    ? ''
+    : '<div style="color:#b45309; font-size:13px;">This link uses an unsupported URL scheme.</div>';
   body.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:10px;">
       <div style="font-weight:600; color:#111827;">Link</div>
-      <a href="${safeUrl}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${safeUrl}</a>
+      ${linkHtml}
+      ${schemeNote}
       <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
     </div>
   `;
@@ -590,10 +625,14 @@ export function openAlbumSourceNoteOverlay(app, sourceNoteId, albumId) {
 
 // ── closeAlbumSourceNoteOverlay ────────────────────────────────────────────
 
-export function closeAlbumSourceNoteOverlay(app) {
+export function closeAlbumSourceNoteOverlay(app, options = {}) {
+  const ctx = app.currentAlbumSourceNoteContext;
   const modal = document.getElementById('albumSourceNoteModal');
   if (modal) modal.style.display = 'none';
   app.currentAlbumSourceNoteContext = null;
+  if (options.reopenAlbumViewer !== false && ctx?.albumId != null) {
+    openNoteViewer(app, ctx.albumId);
+  }
 }
 
 // ── copyAllNoteAttachments ─────────────────────────────────────────────────
@@ -656,7 +695,7 @@ function _safeArrayLen(arr) {
 }
 
 function _albumPickerItemCount(note) {
-  if (note.type === 'album') return _safeArrayLen(note.noteRefs);
+  if (note.type === 'album') return countAlbumInterlayings(note);
   return _safeArrayLen(note.clips) + _safeArrayLen(note.images) + _safeArrayLen(note.urls);
 }
 
@@ -704,44 +743,59 @@ export function filterAlbumPicker(app, searchTerm) {
   app.renderAlbumPicker(searchTerm);
 }
 
-// ── addNoteToAlbum ─────────────────────────────────────────────────────────
+// ── Album interlaying viewer actions (CRUD) ────────────────────────────────
 
-function _ensureAlbumCollections(album) {
-  if (!album.clips) album.clips = [];
-  if (!album.urls) album.urls = [];
-  if (!album.images) album.images = [];
-  if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
+function _refreshAlbumViewerIfOpen(app, albumId) {
+  if (app.currentViewerNoteId == albumId) openNoteViewer(app, albumId);
+  app.renderNotes();
 }
 
-function _addSourceNoteIdToAlbum(album, sourceNoteId) {
-  if (!album.sourceNoteIds.includes(sourceNoteId)) {
-    album.sourceNoteIds.push(sourceNoteId);
+export async function deleteAlbumInterlayingFromViewer(app, albumId, flatIndex) {
+  try {
+    await deleteAlbumInterlaying(app, albumId, flatIndex, {
+      afterUpdate: () => _refreshAlbumViewerIfOpen(app, albumId)
+    });
+    app.showToast('Removed from album');
+  } catch (e) {
+    console.error('deleteAlbumInterlaying failed:', e);
+    app.showToast('Could not remove item');
   }
 }
 
-function _appendSourceBodyAsClip(album, sourceNote) {
-  if (!sourceNote.body || !sourceNote.body.trim()) return;
-  album.clips.push({
-    type: 'clip',
-    id: Date.now() + Math.random(),
-    title: sourceNote.title || 'Note content',
-    text: `[From: ${sourceNote.title || 'Untitled Note'}]\n\n${sourceNote.body}`,
-    addedDate: Date.now(),
-    sourceNoteId: sourceNote.id
-  });
+export function editAlbumInterlayingFromViewer(app, albumId, flatIndex) {
+  const album = app.notes.find(n => n.id == albumId && n.type === 'album');
+  if (!album) return;
+  const sourceNoteId = readAlbumInterlayingSourceNoteId(album, flatIndex);
+  const loc = resolveInterlayingAtFlatIndex(album, flatIndex);
+  if (!loc) {
+    app.showToast('Item not found');
+    return;
+  }
+  app._albumEditorReturnId = albumId;
+  if (sourceNoteId != null) {
+    app.closeAlbumSourceNoteOverlay(app, { reopenAlbumViewer: false });
+    document.getElementById('noteViewerModal').style.display = 'none';
+    app.openNoteEditor('note', sourceNoteId, false);
+    return;
+  }
+  app.closeNoteViewer();
+  app.openNoteEditor('album', albumId);
 }
 
-function _mergeSourceArrayIntoAlbum(targetArray, sourceArray, sourceNoteId) {
-  if (!Array.isArray(sourceArray) || sourceArray.length === 0) return;
-  const now = Date.now();
-  targetArray.push(...sourceArray.map(item => ({ ...item, addedDate: now, sourceNoteId })));
+export function editAlbumSourceNoteFromOverlay(app) {
+  const ctx = app.currentAlbumSourceNoteContext;
+  if (!ctx?.sourceNoteId) return;
+  app._albumEditorReturnId = ctx.albumId ?? null;
+  app.closeAlbumSourceNoteOverlay(app, { reopenAlbumViewer: false });
+  document.getElementById('noteViewerModal').style.display = 'none';
+  app.openNoteEditor('note', ctx.sourceNoteId, false);
 }
 
-function _mergeSourceContentIntoAlbum(album, sourceNote) {
-  _appendSourceBodyAsClip(album, sourceNote);
-  _mergeSourceArrayIntoAlbum(album.clips, sourceNote.clips, sourceNote.id);
-  _mergeSourceArrayIntoAlbum(album.urls, sourceNote.urls, sourceNote.id);
-  _mergeSourceArrayIntoAlbum(album.images, sourceNote.images, sourceNote.id);
+export function returnToAlbumViewerAfterEditor(app) {
+  const albumId = app._albumEditorReturnId;
+  app._albumEditorReturnId = null;
+  if (albumId == null) return;
+  openNoteViewer(app, albumId);
 }
 
 // ── refreshAlbumsForNote ──────────────────────────────────────────────────
@@ -835,10 +889,9 @@ export function refreshAlbumsForNote(app, sourceNote) {
 
     const now = Date.now();
     _reCopySourceContent(album, sourceNote, sourceNoteId, bodyPrefix, now);
+    syncAlbumRefMetadata(album);
 
     album.updatedAt = now;
-    if (!Array.isArray(album.sourceNoteIds)) album.sourceNoteIds = [];
-    if (!album.sourceNoteIds.includes(sourceNoteId)) album.sourceNoteIds.push(sourceNoteId);
 
     updatedAlbumIds.add(album.id);
   }
@@ -853,13 +906,7 @@ export async function addNoteToAlbum(app, albumId) {
   const sourceNote = app.pendingNoteForAlbum;
   if (!album || !sourceNote) return;
 
-  await mutateNote(app, album.id, (draft) => {
-    _ensureAlbumCollections(draft);
-    _addSourceNoteIdToAlbum(draft, sourceNote.id);
-    _mergeSourceContentIntoAlbum(draft, sourceNote);
-    draft.updatedAt = Date.now();
-    return draft;
-  });
+  await createAlbumInterlayingsFromSourceNote(app, album.id, sourceNote);
 
   app.closeAlbumPicker();
   app.pendingNoteForAlbum = null;

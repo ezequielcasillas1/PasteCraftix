@@ -1,3 +1,8 @@
+### Jun 2, 2026 - Quick Save category dropdown CRUD sync
+**Status:** PENDING USER VERIFY
+**Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
+**Result:** Quick Save/PDF dropdowns now use `app.categories` (newest first) instead of clip-derived names. Category create/edit/delete and realtime/sync refresh call `updateManualInputCategories()`.
+
 ### Apr 19, 2026 - Batch Category Sync Reliability
 **Status:** SUCCESS
 **Files:** extension/popup.js, extension/supabase-client.js

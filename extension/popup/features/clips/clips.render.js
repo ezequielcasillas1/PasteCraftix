@@ -193,7 +193,7 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
     ['.chip-remove', () => app.removeChip(clipIdKey)],
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
     ['.chip-breakdown-btn', () => app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
-    ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip)],
+    ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip, 'clips')],
     ['.chip-share-btn', () => typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
     ['.chip-summary-btn', () => app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
     ['.chip-notes-btn', async () => {
@@ -630,7 +630,7 @@ export function createSearchResultItem(app, clip) {
   });
   item.querySelector('.chip-open-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (typeof app.openClipViewer === 'function') app.openClipViewer(clip);
+    if (typeof app.openClipViewer === 'function') app.openClipViewer(clip, 'search');
   });
   item.querySelector('.chip-share-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();

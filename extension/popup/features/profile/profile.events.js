@@ -101,6 +101,23 @@ function _bindModalCloseHandlers(app) {
   }
 }
 
+function _bindAccountInfoHandlers(app) {
+  const resetBtn = _cloneReplace('profileResetPasswordBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      app.openPasswordResetFromProfile();
+    });
+  }
+
+  const signInBtn = _cloneReplace('profileSignInBtn');
+  if (signInBtn) {
+    signInBtn.addEventListener('click', () => {
+      app.hideProfileModal();
+      app.showAuthModal();
+    });
+  }
+}
+
 function _bindUnsubscribeHandler(app) {
   const newUnsubscribeBtn = _cloneReplace('unsubscribeBtn');
   if (newUnsubscribeBtn) {
@@ -143,6 +160,7 @@ export function setupProfileModalEvents(app) {
   _bindNameHandlers(app);
   _bindCollapseHandlers(app);
   _bindModalCloseHandlers(app);
+  _bindAccountInfoHandlers(app);
   _bindUnsubscribeHandler(app);
   _bindLoadingExitHandler();
 }

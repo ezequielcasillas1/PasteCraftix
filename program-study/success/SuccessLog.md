@@ -1,6 +1,6 @@
 ### Jun 2, 2026 - AI Summary stale context on new clip
 **Status:** SUCCESS
-**Commit:** TBD on main
+**Commit:** ce02d27 on main
 **Files:** extension/popup/features/ai-lab/ai-lab.session-state.js, ai-lab.summary-modal.js
 **Result:** clearSummaryAiContext resets old Q&A/threads when sending new clips to AI Summary. User verified.
 

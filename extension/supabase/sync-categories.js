@@ -171,20 +171,56 @@ async syncDeletedCategoriesToSupabase(deletedCategories) {
     const userId = await this.getSyncUserId();
     await this.setUserContext(userId);
     const deviceId = await this.getDeviceId();
+    const normalizeName = (name) => String(name || '').trim().toLowerCase();
 
-    const dedupedById = new Map();
-    items.forEach((cat) => {
-      const idStr = cat?.id != null ? String(cat.id) : '';
-      if (!idStr) return;
-      const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
-      const prev = dedupedById.get(idStr);
-      const prevDeletedAt = Number.isFinite(prev?.deletedAt) ? prev.deletedAt : 0;
-      if (!prev || deletedAtMs >= prevDeletedAt) {
-        dedupedById.set(idStr, { ...cat, deletedAt: deletedAtMs });
+    const { data: remoteCategoryRows, error: remoteCategoriesError } = await this.client
+      .from('categories')
+      .select('category_id,name,updated_at,deleted_at')
+      .eq('user_id', userId);
+    if (remoteCategoriesError) throw remoteCategoriesError;
+
+    const remoteByName = new Map();
+    (Array.isArray(remoteCategoryRows) ? remoteCategoryRows : []).forEach((row) => {
+      const key = normalizeName(row?.name);
+      if (!key) return;
+      const prev = remoteByName.get(key);
+      const rowUpdatedAt = row?.updated_at ? Date.parse(row.updated_at) : 0;
+      const prevUpdatedAt = prev?.updatedAt || 0;
+      if (!prev || rowUpdatedAt >= prevUpdatedAt) {
+        remoteByName.set(key, {
+          id: row.category_id,
+          updatedAt: rowUpdatedAt
+        });
       }
     });
 
-    const dbCategories = Array.from(dedupedById.values()).map(cat => {
+    const dedupedById = new Map();
+    items.forEach((cat) => {
+      const nameKey = normalizeName(cat?.name);
+      const remote = nameKey ? remoteByName.get(nameKey) : null;
+      const resolvedId = remote?.id != null ? String(remote.id) : (cat?.id != null ? String(cat.id) : '');
+      if (!resolvedId) return;
+      const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
+      const prev = dedupedById.get(resolvedId);
+      const prevDeletedAt = Number.isFinite(prev?.deletedAt) ? prev.deletedAt : 0;
+      if (!prev || deletedAtMs >= prevDeletedAt) {
+        dedupedById.set(resolvedId, { ...cat, id: resolvedId, deletedAt: deletedAtMs });
+      }
+    });
+
+    const dedupedByName = new Map();
+    Array.from(dedupedById.values()).forEach((cat) => {
+      const key = normalizeName(cat?.name);
+      if (!key) return;
+      const prev = dedupedByName.get(key);
+      const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : 0;
+      const prevDeletedAt = Number.isFinite(prev?.deletedAt) ? prev.deletedAt : 0;
+      if (!prev || deletedAtMs >= prevDeletedAt) {
+        dedupedByName.set(key, cat);
+      }
+    });
+
+    const dbCategories = Array.from(dedupedByName.values()).map(cat => {
       const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
       const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : Date.now();
       return {

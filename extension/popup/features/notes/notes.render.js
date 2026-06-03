@@ -1,4 +1,5 @@
 import { NOTES_DEFAULTS, NOTES_PAGE_SIZES } from './notes.constants.js';
+import { countAlbumInterlayings } from './notes.album-interlayings.crud.js';
 import { getNoteContainerElements } from './notes.selectors.js';
 
 // ── renderNotes ────────────────────────────────────────────────────────────
@@ -108,7 +109,7 @@ function _safeArrayLen(arr) {
 
 function _resolveNoteCounts(note) {
   if (note.type === 'album') {
-    return { totalItems: _safeArrayLen(note.noteRefs) };
+    return { totalItems: countAlbumInterlayings(note) };
   }
   const clipCount = _safeArrayLen(note.clips);
   const imageCount = _safeArrayLen(note.images);

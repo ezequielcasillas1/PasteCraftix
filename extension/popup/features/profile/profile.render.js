@@ -1,5 +1,6 @@
 import { PROFILE_ELEMENT_IDS, ANIMAL_TYPES_REGEX } from './profile.constants.js';
 import * as sel from './profile.selectors.js';
+import { updateAccountInfoSection } from './profile.account-info.js';
 
 // ── updateTopBarIdentity ────────────────────────────────────────────────────
 // Updates top bar with user name/email, handles marquee overflow, profile image with fallback
@@ -99,6 +100,8 @@ export function updateTopBarIdentity(app, imageUrlOverride = undefined) {
 export function showProfileModal(app) {
   const profileModal = sel.getProfileModal();
   if (profileModal) profileModal.style.display = 'flex';
+
+  updateAccountInfoSection(app);
 
   try {
     const profileToggle = document.getElementById('profileDarkModeToggle');

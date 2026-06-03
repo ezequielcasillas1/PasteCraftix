@@ -6,7 +6,9 @@ import * as profileGenerators from './profile.generators.js';
 import * as profileGallery from './profile.gallery.js';
 import * as profileAiImage from './profile.ai-image.js';
 import * as profileViewer from './profile.viewer.js';
+import * as profileSocialShare from './profile.social-share.js';
 import * as generationTimer from './profile.generation-timer.js';
+import * as profileAccountInfo from './profile.account-info.js';
 
 export function initProfileFeature(app) {
   if (app.currentGalleryPage === undefined) {
@@ -21,6 +23,8 @@ export function initProfileFeature(app) {
     gallery: profileGallery,
     aiImage: profileAiImage,
     viewer: profileViewer,
+    socialShare: profileSocialShare,
     generationTimer,
+    accountInfo: profileAccountInfo,
   };
 }

@@ -1,3 +1,8 @@
+### Jun 2, 2026 - Quick Save stale category list
+**Status:** PENDING USER VERIFY
+**Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
+**Result:** Quick Save showed stale/deleted categories from clips; new categories missing after CRUD. Dropdown now follows `app.categories` with refresh on CRUD/sync.
+
 ### May 21, 2026 - Floating widget missing after content-script split
 **Status:** Fixed (pending reload test)
 **Files:** content-script.js, background.js, content/content.js, content/widget/widget.js, manifest.json

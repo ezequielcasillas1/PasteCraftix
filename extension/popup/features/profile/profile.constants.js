@@ -20,6 +20,7 @@ export const PROFILE_ELEMENT_IDS = Object.freeze({
   imageViewerModal: 'imageViewerModal',
   imageViewerImg: 'imageViewerImg',
   imageViewerClose: 'imageViewerClose',
+  imageViewerShare: 'imageViewerShare',
   aiGalleryGrid: 'aiGalleryGrid',
   aiGalleryCount: 'aiGalleryCount',
   aiGalleryPagination: 'aiGalleryPagination',

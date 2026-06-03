@@ -1,9 +1,10 @@
 /** Full-screen profile image viewer modal. */
 
-export function setupImageViewer() {
+export function setupImageViewer(app) {
   const modal = document.getElementById('imageViewerModal');
   const modalImg = document.getElementById('imageViewerImg');
   const closeBtn = document.getElementById('imageViewerClose');
+  const shareBtn = document.getElementById('imageViewerShare');
   const profileImage = document.getElementById('profileImage');
   const topLeftImg = document.getElementById('topLeftProfileImg');
 
@@ -36,6 +37,14 @@ export function setupImageViewer() {
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
       modal.style.display = 'none';
+    });
+  }
+
+  if (shareBtn && app) {
+    shareBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const imgSrc = modalImg?.src || '';
+      app.profileFeature?.socialShare?.showProfileTestimonialShare?.(app, imgSrc);
     });
   }
 

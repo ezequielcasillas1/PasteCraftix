@@ -197,9 +197,10 @@ async addToSyncQueue(operation) {
 },
 
 async processSyncQueue() {
-  if (this._pauseSync) return;
-  if (this._isFullSyncRunning) return;
-  if (this._isProcessingSyncQueue) return;
+  if (this._pauseSync || this._isFullSyncRunning || this._isProcessingSyncQueue) {
+    const reason = this._pauseSync ? 'paused' : (this._isFullSyncRunning ? 'full-sync-running' : 'queue-already-processing');
+    return;
+  }
   if (!this.isOnline || this.syncQueue.length === 0) {
     return;
   }

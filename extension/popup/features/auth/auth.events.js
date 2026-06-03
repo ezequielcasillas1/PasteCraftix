@@ -257,11 +257,16 @@ function _bindFreemiumSkip(app) {
   });
 }
 
-function _openForgotPasswordModal() {
+function _openForgotPasswordModal(returnTo = 'auth') {
   const authModal = getAuthModal();
   const resetModal = getPasswordResetModal();
   if (authModal) authModal.style.display = 'none';
   if (resetModal) resetModal.style.display = 'flex';
+
+  const cancelBtn = document.getElementById(AUTH_ELEMENT_IDS.CANCEL_RESET_BTN);
+  if (cancelBtn) {
+    cancelBtn.textContent = returnTo === 'profile' ? '← Back to Profile' : '← Back to Sign In';
+  }
 
   const signinEmail = getSigninEmailValue();
   if (signinEmail) {
@@ -270,16 +275,42 @@ function _openForgotPasswordModal() {
   }
 }
 
+export function openPasswordResetModal(app, { email, returnTo = 'auth' } = {}) {
+  app._passwordResetReturnTo = returnTo;
+  _openForgotPasswordModal(returnTo);
+
+  const trimmed = typeof email === 'string' ? email.trim() : '';
+  if (trimmed) {
+    const resetEmail = document.getElementById(AUTH_ELEMENT_IDS.RESET_EMAIL);
+    if (resetEmail) resetEmail.value = trimmed;
+  }
+}
+
+function _closePasswordResetModal(app) {
+  const resetModal = getPasswordResetModal();
+  const authModal = getAuthModal();
+  if (resetModal) resetModal.style.display = 'none';
+
+  const returnTo = app._passwordResetReturnTo || 'auth';
+  app._passwordResetReturnTo = 'auth';
+
+  const cancelBtn = document.getElementById(AUTH_ELEMENT_IDS.CANCEL_RESET_BTN);
+  if (cancelBtn) cancelBtn.textContent = '← Back to Sign In';
+
+  if (returnTo === 'profile') {
+    app.showProfileModal();
+    return;
+  }
+  if (authModal) authModal.style.display = 'flex';
+}
+
 async function _performPasswordReset(app, email) {
   app.showToast('📧 Sending reset link...', 'info');
   const result = await pasteCraftSupabase.resetPassword(email);
   if (result.success) {
     alert(`✅ Password Reset Email Sent!\n\nCheck your inbox at: ${email}\n\n1️⃣ Click the link in the email\n2️⃣ Set your new password on the PasteCraft website\n3️⃣ Return here and sign in with your new password\n\n⚠️ Check spam if you don't see it within 5 minutes.`);
     app.showToast('✅ Reset email sent! Check your inbox.', 'success');
-    const resetModal = getPasswordResetModal();
-    const authModal = getAuthModal();
-    if (resetModal) resetModal.style.display = 'none';
-    if (authModal) authModal.style.display = 'flex';
+    _closePasswordResetModal(app);
   } else {
     app.showToast(`❌ Failed: ${result.error}`, 'error');
   }
@@ -299,17 +330,15 @@ function _bindForgotPasswordFlow(app) {
   if (link) {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      _openForgotPasswordModal();
+      app._passwordResetReturnTo = 'auth';
+      _openForgotPasswordModal('auth');
     });
   }
 
   const cancelBtn = document.getElementById(AUTH_ELEMENT_IDS.CANCEL_RESET_BTN);
   if (cancelBtn) {
     cancelBtn.addEventListener('click', () => {
-      const resetModal = getPasswordResetModal();
-      const authModal = getAuthModal();
-      if (resetModal) resetModal.style.display = 'none';
-      if (authModal) authModal.style.display = 'flex';
+      _closePasswordResetModal(app);
     });
   }
 

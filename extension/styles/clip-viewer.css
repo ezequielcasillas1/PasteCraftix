@@ -143,6 +143,43 @@
 }
 
 .clip-viewer-content .modal-actions {
+  border-top: none;
+  background: transparent;
+}
+
+.clip-viewer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
   border-top: 1px solid #e5eefb;
   background: #ffffff;
+}
+
+.clip-viewer-ai-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.clip-viewer-ai-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.clip-viewer-ai-icon:hover {
+  background: rgba(248, 250, 252, 0.95);
+}
+
+.clip-viewer-ai-actions > button > svg,
+.clip-viewer-ai-actions > button > svg * {
+  pointer-events: none;
+}
+
+.clip-viewer-main-actions {
+  margin-left: auto;
 }

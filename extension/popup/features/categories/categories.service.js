@@ -42,6 +42,7 @@ export async function createCategory(app, name, icon, options = {}) {
     uiUpdater: () => {
       app.renderCategories();
       app.updateCategoryFilter();
+      app.updateManualInputCategories();
       const modal = document.getElementById('categoryModal');
       if (modal && modal.style.display === 'flex') app.populateCategoryOptions();
       app.setActionButtonLoading(originButtonId, false);
@@ -99,6 +100,7 @@ export async function editCategory(app, category) {
     uiUpdater: () => {
       app.renderCategories();
       app.updateCategoryFilter();
+      app.updateManualInputCategories();
       app.renderChips();
     },
     backgroundSync: async () => {
@@ -163,6 +165,7 @@ function buildDeleteCategoryOpts(app, category) {
     uiUpdater: () => {
       app.renderCategories();
       app.updateCategoryFilter();
+      app.updateManualInputCategories();
       app.renderChips();
     },
     backgroundSync: async (entity, deletedAt) => {

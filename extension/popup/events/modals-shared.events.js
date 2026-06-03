@@ -182,6 +182,30 @@ export function registerSharedModalEvents(app) {
     if (copyClipViewerBtn) {
       copyClipViewerBtn.addEventListener('click', () => app.copyClipViewerText());
     }
+    const clipViewerAiSummaryBtn = document.getElementById('clipViewerAiSummaryBtn');
+    if (clipViewerAiSummaryBtn) {
+      clipViewerAiSummaryBtn.addEventListener('click', () => app.runClipViewerAiSummary());
+    }
+    const clipViewerAiBreakdownBtn = document.getElementById('clipViewerAiBreakdownBtn');
+    if (clipViewerAiBreakdownBtn) {
+      clipViewerAiBreakdownBtn.addEventListener('click', () => app.runClipViewerAiBreakdown());
+    }
+    const clipViewerAiRefactorBtn = document.getElementById('clipViewerAiRefactorBtn');
+    if (clipViewerAiRefactorBtn) {
+      clipViewerAiRefactorBtn.addEventListener('click', () => app.runClipViewerAiRefactorization());
+    }
+    const clipViewerAiCraftBtn = document.getElementById('clipViewerAiCraftBtn');
+    if (clipViewerAiCraftBtn) {
+      clipViewerAiCraftBtn.addEventListener('click', () => app.runClipViewerAiCraftClips());
+    }
+    const clipViewerSendCategoriesBtn = document.getElementById('clipViewerSendCategoriesBtn');
+    if (clipViewerSendCategoriesBtn) {
+      clipViewerSendCategoriesBtn.addEventListener('click', () => app.runClipViewerSendToCategories());
+    }
+    const clipViewerSendNotesBtn = document.getElementById('clipViewerSendNotesBtn');
+    if (clipViewerSendNotesBtn) {
+      clipViewerSendNotesBtn.addEventListener('click', () => app.runClipViewerSendToNotes());
+    }
     const clipViewerModal = document.getElementById('clipViewerModal');
     if (clipViewerModal) {
       clipViewerModal.addEventListener('click', (e) => {
