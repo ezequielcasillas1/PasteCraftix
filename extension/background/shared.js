@@ -1,5 +1,7 @@
 // PasteCraft Background Script
 
+import { shouldPreferIndexedDbOverChromeStorage } from '../shared/prefer-idb-payloads.js';
+
 export function isRepoLoaderBuild() {
   try {
     const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
@@ -127,12 +129,15 @@ export async function readIndexedDbPayloads(storeName) {
 
 export async function getQuickViewClips() {
   const [storage, idbClips] = await Promise.all([
-    chrome.storage.local.get(['clips', 'searchOnlyClips']),
+    chrome.storage.local.get(['clips', 'searchOnlyClips', 'pc_local_updatedAt']),
     readIndexedDbPayloads('clips')
   ]);
 
   const localActive = Array.isArray(storage?.clips) ? storage.clips : [];
-  const active = Array.isArray(idbClips) && idbClips.length > 0 ? idbClips : localActive;
+  const localUpdatedAt = Number.isFinite(storage?.pc_local_updatedAt) ? storage.pc_local_updatedAt : 0;
+  const active = shouldPreferIndexedDbOverChromeStorage(localUpdatedAt, localActive, idbClips)
+    ? idbClips
+    : localActive;
   const archived = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
 
   const merged = [

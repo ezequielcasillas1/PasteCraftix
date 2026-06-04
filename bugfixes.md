@@ -1,3 +1,8 @@
+### Jun 4, 2026 - Stale IndexedDB overwrote chrome.storage clips
+**Status:** FIXED (automated test)
+**Files:** sync.loader.js, background/shared.js, shared/prefer-idb-payloads.js
+**Result:** Popup/quick view preferred IDB whenever non-empty; content-script saves only touched chrome.storage, so reopening popup resurrected deleted clips or dropped new ones. Load now compares `pc_local_updatedAt` vs IDB payload timestamps.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

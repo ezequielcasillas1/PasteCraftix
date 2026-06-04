@@ -1,3 +1,8 @@
+### Jun 4, 2026 - chrome.storage vs IndexedDB load precedence
+**Status:** PENDING USER VERIFY
+**Files:** prefer-idb-payloads.js, sync.loader.js, background/shared.js, tests/prefer-idb-payloads.test.mjs
+**Result:** `fetchRawData` and quick view honor `pc_local_updatedAt` so content-script clip writes are not rolled back on popup open.
+
 ### Jun 3, 2026 - Album interlayings CRUD
 **Status:** PENDING USER VERIFY
 **Files:** notes.album-interlayings.crud.js, notes.album.js, notes.editor.js, notes.events.js, notes.render.js, popup.html, popup.js, tests/album-interlayings-crud.test.mjs
