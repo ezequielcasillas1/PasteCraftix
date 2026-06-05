@@ -6,8 +6,31 @@ const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
-function assertExtensionFile(relativePath) {
+const generatedResourceFallbacks = {
+  "config.js": "config.example.js",
+};
+
+const generatedResourcePrefixes = [
+  "lib/",
+];
+
+function isGeneratedResource(relativePath) {
+  return Boolean(generatedResourceFallbacks[relativePath]) ||
+    generatedResourcePrefixes.some((prefix) => relativePath.startsWith(prefix));
+}
+
+function assertExtensionFile(relativePath, { allowGenerated = false } = {}) {
   const filePath = path.join(extensionDir, relativePath);
+  if (allowGenerated && !fs.existsSync(filePath) && isGeneratedResource(relativePath)) {
+    const fallback = generatedResourceFallbacks[relativePath];
+    if (fallback) {
+      assert.ok(
+        fs.existsSync(path.join(extensionDir, fallback)),
+        `Missing generated extension file fallback: ${fallback}`
+      );
+    }
+    return;
+  }
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }
 
@@ -28,7 +51,7 @@ for (const script of manifest.content_scripts) {
 for (const group of manifest.web_accessible_resources || []) {
   for (const resource of group.resources || []) {
     if (resource.includes("*")) continue;
-    assertExtensionFile(resource);
+    assertExtensionFile(resource, { allowGenerated: true });
   }
 }
 
