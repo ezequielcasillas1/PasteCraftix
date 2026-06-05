@@ -1,0 +1,15 @@
+---
+description: Snyk CI uses temporary OAuth (SNYK_OAUTH_TOKEN). Apply when user asks about Snyk scans, auth, secrets, fixes, or MCP user-Snyk.
+alwaysApply: false
+---
+
+# Snyk temporary OAuth
+
+`.github/workflows/security-scans.yml` runs Snyk with **SNYK_OAUTH_TOKEN** (from `snyk auth`, ~1h expiry). Long-lived fallback: **SNYK_TOKEN** API token in repo secrets.
+
+## On any Snyk request
+
+1. Remind OAuth expires ~1h; refresh: `snyk auth` then `scripts/refresh-snyk-oauth-secret.ps1`.
+2. Offer to run the refresh script when CI/auth fails or before scan work.
+3. MCP `user-Snyk` may error without valid local auth; CLI + CI workflow is primary.
+4. Keep Snyk in security-scans.yml alongside other scanners (Trivy, Semgrep, Gitleaks, npm audit, etc.).

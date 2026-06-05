@@ -83,4 +83,6 @@ PRODUCTION_*.md
 admin/
 
 # Cursor AI editor config — local dev tool, not repo material
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**

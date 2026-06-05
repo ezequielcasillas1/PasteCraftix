@@ -103,5 +103,6 @@ jobs:
         uses: snyk/actions/node@master
         env:
           SNYK_OAUTH_TOKEN: ${{ secrets.SNYK_OAUTH_TOKEN }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high --all-projects
