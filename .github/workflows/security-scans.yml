@@ -82,7 +82,7 @@ jobs:
       - name: Run Gitleaks
         run: gitleaks git . --config .gitleaks.toml --redact --verbose
 
-  # Requires SNYK_TOKEN repository secret (Settings → Secrets → Actions).
+  # Requires SNYK_OAUTH_TOKEN (from `snyk auth`) or SNYK_TOKEN (API token) repository secret.
   snyk:
     name: Snyk
     runs-on: ubuntu-latest
@@ -102,6 +102,6 @@ jobs:
       - name: Run Snyk vulnerability scan
         uses: snyk/actions/node@master
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_OAUTH_TOKEN: ${{ secrets.SNYK_OAUTH_TOKEN }}
         with:
           args: --severity-threshold=high --all-projects
