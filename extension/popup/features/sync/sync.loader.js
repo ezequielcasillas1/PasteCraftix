@@ -6,6 +6,38 @@ function isExtensionContextValid() {
   }
 }
 
+export function maxIdbRecordUpdatedAtMs(records) {
+  if (!Array.isArray(records) || records.length === 0) return 0;
+  let max = 0;
+  for (const record of records) {
+    const parsed = Date.parse(record?.updated_at || '');
+    if (Number.isFinite(parsed) && parsed > max) max = parsed;
+  }
+  return max;
+}
+
+export function pickPayloadsFromIdbRecords(records) {
+  if (!Array.isArray(records)) return [];
+  return records.map((record) => record?.payload).filter(Boolean);
+}
+
+/**
+ * Prefer chrome.storage when it was written at/after the newest IndexedDB row
+ * (restore, backup import, CRUD). When chrome is older, only fall back to IDB
+ * if it clearly has more rows (recovery), never when chrome is fresher.
+ */
+export function shouldPreferChromeStorageOverIdb(chromeUpdatedAtMs, idbRecords, chromeItemCount = 0) {
+  const chromeTs = Number.isFinite(chromeUpdatedAtMs) ? chromeUpdatedAtMs : 0;
+  const idbCount = Array.isArray(idbRecords) ? idbRecords.length : 0;
+  if (idbCount === 0) return true;
+
+  const idbMax = maxIdbRecordUpdatedAtMs(idbRecords);
+  if (chromeTs >= idbMax) return true;
+
+  const chromeCount = Number.isFinite(chromeItemCount) ? chromeItemCount : 0;
+  return chromeCount >= idbCount;
+}
+
 export async function ensureStorageReady(app) {
   if (!isExtensionContextValid()) return;
   await app._ensureIndexedDbReadyAndMigrate();
@@ -15,16 +47,27 @@ export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
   }
-  const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+  const result = await chrome.storage.local.get([
+    'clips',
+    'categories',
+    'searchOnlyClips',
+    'pc_local_updatedAt',
+  ]);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  const chromeUpdatedAt = Number.isFinite(result.pc_local_updatedAt) ? result.pc_local_updatedAt : 0;
 
   if (app._idbReady && app.idb) {
-    const [idbClips, idbCategories] = await Promise.all([
-      app.idb.getAllPayloads('clips'),
-      app.idb.getAllPayloads('categories')
+    const [idbClipRecords, idbCategoryRecords] = await Promise.all([
+      app.idb.getAllRecords('clips'),
+      app.idb.getAllRecords('categories'),
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+
+    if (!shouldPreferChromeStorageOverIdb(chromeUpdatedAt, idbClipRecords, clips.length)) {
+      clips = pickPayloadsFromIdbRecords(idbClipRecords);
+    }
+    if (!shouldPreferChromeStorageOverIdb(chromeUpdatedAt, idbCategoryRecords, categories.length)) {
+      categories = pickPayloadsFromIdbRecords(idbCategoryRecords);
+    }
   }
   return { clips, categories, searchOnlyClips };
 }
