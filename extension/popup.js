@@ -868,6 +868,18 @@ class PasteCraftPopup {
     return this.clipsFeature?.viewer?.runAiBreakdown?.(this);
   }
 
+  openClipViewerGoogleSearchMenu() {
+    return this.clipsFeature?.viewer?.openGoogleSearchActions?.(this);
+  }
+
+  showCustomSearchModal(clip, context = 'clips') {
+    return this.clipsFeature?.customSearch?.showModal?.(this, { clip, context });
+  }
+
+  hideCustomSearchModal() {
+    return this.clipsFeature?.customSearch?.hideModal?.(this);
+  }
+
   runClipViewerAiRefactorization() {
     return this.clipsFeature?.viewer?.runAiRefactorization?.(this);
   }

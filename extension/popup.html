@@ -1152,6 +1152,15 @@
         .chip-craft-btn,
         .chip-notes-btn,
         .chip-category-btn,
+        .chip-org-bundle-btn,
+        .chip-google-search-btn,
+        .chip-ai-bundle-btn,
+        .search-org-bundle-btn,
+        .search-google-search-btn,
+        .search-ai-bundle-btn,
+        .category-clip-org-bundle-btn,
+        .category-clip-google-search-btn,
+        .category-clip-ai-bundle-btn,
         .chip-open-btn,
         .chip-share-btn,
         .chip-title-btn {
@@ -1177,21 +1186,322 @@
         .chip-craft-btn:hover,
         .chip-notes-btn:hover,
         .chip-category-btn:hover,
+        .chip-org-bundle-btn:hover,
+        .chip-google-search-btn:hover,
+        .chip-ai-bundle-btn:hover,
+        .search-org-bundle-btn:hover,
+        .search-google-search-btn:hover,
+        .search-ai-bundle-btn:hover,
+        .category-clip-org-bundle-btn:hover,
+        .category-clip-google-search-btn:hover,
+        .category-clip-ai-bundle-btn:hover,
         .chip-open-btn:hover,
         .chip-share-btn:hover,
         .chip-title-btn:hover {
             opacity: 1;
             transform: scale(1.15);
         }
-        
-        .chip-notes-btn img {
+
+        .pc-google-action-icon {
             display: block;
+            width: 16px;
+            height: 16px;
         }
 
         /* Let chip action buttons, not their SVG children, receive clicks. */
         .chip-actions > button > svg,
-        .chip-actions > button > svg * {
+        .chip-actions > button > svg *,
+        .search-result-actions > button > svg,
+        .search-result-actions > button > svg *,
+        .category-clip-actions > button > svg,
+        .category-clip-actions > button > svg * {
             pointer-events: none;
+        }
+
+        .pc-clip-action-menu-portal {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483646;
+            pointer-events: none;
+        }
+
+        .pc-clip-action-menu {
+            position: fixed;
+            min-width: 168px;
+            padding: 4px;
+            background: #111827;
+            color: #e5e7eb;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+            pointer-events: auto;
+        }
+
+        .pc-clip-action-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 7px 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: inherit;
+            font-size: 12px;
+            line-height: 1.2;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .pc-clip-action-menu-item:hover,
+        .pc-clip-action-menu-item:focus-visible {
+            background: rgba(255, 255, 255, 0.08);
+            outline: none;
+        }
+
+        .pc-clip-action-menu-item:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .pc-clip-action-menu-icon {
+            display: inline-flex;
+            width: 16px;
+            height: 16px;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .pc-clip-action-menu-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .pc-clip-action-menu-icon .pc-google-action-icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        .pc-clip-action-menu-separator {
+            height: 1px;
+            margin: 4px 6px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .custom-search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .custom-search-field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .custom-search-field input,
+        .custom-search-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .custom-search-hint,
+        .custom-search-preview {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .custom-search-preview {
+            display: block;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 10px;
+            min-height: 36px;
+            word-break: break-word;
+            user-select: text;
+            cursor: text;
+        }
+
+        .custom-search-query-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            margin: 8px 0 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .custom-search-query-preview {
+            display: block;
+            font-size: 12px;
+            color: #374151;
+            background: #f3f4f6;
+            border: 1px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 6px 10px;
+            min-height: 28px;
+            word-break: break-word;
+        }
+
+        .url-input-wrapper {
+            display: flex;
+            align-items: center;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .url-input-wrapper:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+        }
+
+        .url-prefix {
+            padding: 8px 10px;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: monospace;
+            border-right: 1px solid #d1d5db;
+            user-select: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .url-input-wrapper input {
+            flex: 1;
+            border: none !important;
+            border-radius: 0 !important;
+            outline: none;
+            padding: 8px 10px;
+            font-size: 13px;
+            min-width: 0;
+            background: transparent;
+        }
+
+        .custom-search-domain-hint {
+            font-size: 11px;
+            color: #059669;
+            margin: 4px 0 0;
+            padding: 4px 8px;
+            background: #ecfdf5;
+            border-radius: 6px;
+            border: 1px solid #a7f3d0;
+            line-height: 1.4;
+        }
+
+        .custom-search-preview-disclaimer {
+            font-size: 11px;
+            color: #6b7280;
+            margin: 0 0 6px;
+            padding: 5px 8px;
+            background: #f0f9ff;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+            line-height: 1.4;
+        }
+
+        .custom-search-sel-hint {
+            font-size: 11px;
+            color: #1d4ed8;
+            margin: 4px 0 0;
+            padding: 4px 8px;
+            background: #eff6ff;
+            border-radius: 6px;
+            border: 1px solid #bfdbfe;
+            line-height: 1.4;
+        }
+
+        .custom-search-saved-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .custom-search-saved-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+
+        .custom-search-saved-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .custom-search-saved-meta strong {
+            font-size: 13px;
+        }
+
+        .custom-search-saved-meta span {
+            font-size: 11px;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .custom-search-saved-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .custom-search-empty {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 0;
+        }
+
+        .custom-search-editing-label {
+            font-size: 12px;
+            color: #4b5563;
+            margin: 0;
+        }
+
+        .custom-search-steps {
+            margin: 0 0 16px 0;
+            padding-left: 20px;
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .custom-search-steps li {
+            margin-bottom: 6px;
+        }
+
+        .custom-search-steps li:last-child {
+            margin-bottom: 0;
+        }
+
+        .custom-search-google-note {
+            margin: 0 0 12px 0;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #374151;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
         }
 
         .pc-icon {
@@ -10743,6 +11053,56 @@ Multiple clips are separated by:
             </div>
         </div>
 
+        <!-- Custom Search Modal -->
+        <div class="modal-overlay" id="customSearchModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="customSearchModalTitle">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="customSearchModalTitle"><i data-lucide="search"></i> Custom Google Search</h3>
+                    <button class="modal-close" id="closeCustomSearchModal" type="button" aria-label="Close custom search dialog">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p class="custom-search-google-note">Searches run through <strong>Google</strong>. PasteCraft hard-wires each search to one website by adding <code>site:</code> before the domain you enter (e.g. <code>site:stackoverflow.com</code>).</p>
+                    <ol class="modal-text custom-search-steps">
+                        <li><strong>Name</strong> your search (required to save for reuse).</li>
+                        <li><strong>Choose what website to search</strong> — type the domain after <code>site:</code> (e.g. <code>stackoverflow.com</code>). Google will search only that site.</li>
+                        <li><strong>Optional:</strong> Highlight desired text in <strong>Select from clip</strong>, then click anywhere to add it to your search.</li>
+                        <li><strong>Optional:</strong> Save search to reuse it from the Google menu.</li>
+                        <li>Review <strong>Search query</strong>, then click <strong>Search now</strong> (runs on the current tab).</li>
+                    </ol>
+                    <p id="customSearchEditingLabel" class="custom-search-editing-label" aria-live="polite"></p>
+                    <form class="custom-search-form" id="customSearchForm" onsubmit="return false;">
+                        <div class="custom-search-field">
+                            <label for="customSearchNameInput">Name</label>
+                            <input id="customSearchNameInput" type="text" maxlength="60" autocomplete="off" aria-required="true" placeholder="e.g. Stack Overflow lookup">
+                        </div>
+                        <div class="custom-search-field">
+                            <label for="customSearchTemplateInput">What Website to Search</label>
+                            <div class="url-input-wrapper">
+                                <span class="url-prefix" aria-hidden="true">site:</span>
+                                <input id="customSearchTemplateInput" type="text" maxlength="500" autocomplete="off" aria-required="true" placeholder="stackoverflow.com">
+                            </div>
+                            <p id="customSearchDomainHint" class="custom-search-domain-hint" aria-live="polite" style="display:none"></p>
+                            <p class="custom-search-hint">Google searches this site only. Type the domain after <code>site:</code>, then optional search terms after it.</p>
+                        </div>
+                        <div class="custom-search-field">
+                            <label for="customSearchPreview">Select from clip</label>
+                            <p class="custom-search-preview-disclaimer">Highlight desired preview text, then click anywhere to add it to your search.</p>
+                            <div id="customSearchPreview" class="custom-search-preview" aria-live="polite"></div>
+                            <span class="custom-search-query-label" id="customSearchQueryLabel">Search query</span>
+                            <div id="customSearchQueryPreview" class="custom-search-query-preview" aria-live="polite"></div>
+                            <p id="customSearchSelHint" class="custom-search-sel-hint" aria-live="polite" style="display:none"></p>
+                        </div>
+                    </form>
+                    <div class="custom-search-saved-list" id="customSearchSavedList" aria-label="Saved custom searches"></div>
+                    <div class="modal-actions">
+                        <button class="btn-secondary" id="cancelCustomSearchModal" type="button">Cancel</button>
+                        <button class="btn-primary" id="customSearchNowBtn" type="button">Search now</button>
+                        <button class="btn-primary" id="customSearchSaveBtn" type="button">Save search</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Category Selection Modal -->
         <div class="modal-overlay" id="categoryModal" style="display: none;">
             <div class="modal-content">
@@ -10985,6 +11345,9 @@ Multiple clips are separated by:
                         </button>
                         <button class="chip-breakdown-btn clip-viewer-ai-icon" id="clipViewerAiBreakdownBtn" title="AI Breakdown of this clip (or selected clips)">
                             <i data-lucide="brain"></i>
+                        </button>
+                        <button class="chip-google-search-btn clip-viewer-ai-icon" id="clipViewerGoogleSearchBtn" type="button" title="Google search using this clip (or selected clips)" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
+                            <img src="assets/google-logo.svg" alt="" class="pc-google-action-icon" />
                         </button>
                         <button class="chip-refactor-btn clip-viewer-ai-icon" id="clipViewerAiRefactorBtn" title="AI Refactorization of this clip (or selected clips)">
                             <i data-lucide="sparkles"></i>

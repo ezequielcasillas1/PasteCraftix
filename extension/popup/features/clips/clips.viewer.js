@@ -4,6 +4,7 @@ import {
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
+import { openGoogleSearchMenu } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
@@ -335,6 +336,17 @@ export function runAiBreakdown(app) {
       return;
     }
     app.showBreakdownModal?.(trimmed);
+  });
+}
+
+export function openGoogleSearchActions(app) {
+  const anchor = document.getElementById('clipViewerGoogleSearchBtn');
+  const clip = app.currentClipViewerClip;
+  if (!anchor || !clip) return;
+  openGoogleSearchMenu(app, {
+    anchor,
+    clip,
+    context: app.clipViewerSourceContext || 'clips',
   });
 }
 
