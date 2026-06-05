@@ -1,3 +1,11 @@
+import {
+  CLIP_AI_BUNDLE_SELECTOR,
+  CLIP_GOOGLE_SEARCH_SELECTOR,
+  CLIP_ORG_BUNDLE_SELECTOR,
+  openAiBundleMenu,
+  openGoogleSearchMenu,
+  openOrgBundleMenu,
+} from './clips.action-menu.js';
 import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
 
 function getAllClipCandidates(app) {
@@ -24,16 +32,11 @@ function toggleCategoryRow(app, clipIdKey, row, event) {
 function getCategoryClipActionHandlers(app, clip, clipIdKey) {
   return [
     ['.category-clip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
-    ['.category-clip-breakdown-btn', () => clip && app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
+    [CLIP_ORG_BUNDLE_SELECTOR, (anchor) => clip && openOrgBundleMenu(app, { anchor, clip, clipIdKey, context: 'categories' })],
+    [CLIP_GOOGLE_SEARCH_SELECTOR, (anchor) => clip && openGoogleSearchMenu(app, { anchor, clip, context: 'categories' })],
     ['.category-clip-open-btn', () => clip && typeof app.openClipViewer === 'function' && app.openClipViewer(clip, 'categories')],
     ['.category-clip-share-btn', () => clip && typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
-    ['.category-clip-summary-btn', () => clip && app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'categories'))],
-    ['.category-clip-notes-btn', async () => {
-      if (!clip) return;
-      await app.loadNotes();
-      app.showAlbumPicker();
-      app.pendingClipForNotes = clip;
-    }],
+    [CLIP_AI_BUNDLE_SELECTOR, (anchor) => clip && openAiBundleMenu(app, { anchor, clip, context: 'categories' })],
     ['.category-clip-copy-btn', () => clip && app.copyClipToClipboard(clip.text)],
   ];
 }
@@ -51,7 +54,8 @@ async function handleCategoryClipClick(app, container, event) {
 
   if (action) {
     event.stopPropagation();
-    await action[1]();
+    const anchor = event.target.closest(action[0]);
+    await action[1](anchor);
     return;
   }
 

@@ -1,6 +1,9 @@
 /** Extracted from popup.js setupEventListeners — behavior unchanged. */
 
+import { registerCustomSearchModalEvents } from '../features/clips/clips.custom-search.modal.js';
+
 export function registerSharedModalEvents(app) {
+    registerCustomSearchModalEvents(app);
     // Breakdown modal events
     document.getElementById('closeBreakdownModal').addEventListener('click', () => {
       app.hideBreakdownModal();
@@ -189,6 +192,10 @@ export function registerSharedModalEvents(app) {
     const clipViewerAiBreakdownBtn = document.getElementById('clipViewerAiBreakdownBtn');
     if (clipViewerAiBreakdownBtn) {
       clipViewerAiBreakdownBtn.addEventListener('click', () => app.runClipViewerAiBreakdown());
+    }
+    const clipViewerGoogleSearchBtn = document.getElementById('clipViewerGoogleSearchBtn');
+    if (clipViewerGoogleSearchBtn) {
+      clipViewerGoogleSearchBtn.addEventListener('click', () => app.openClipViewerGoogleSearchMenu());
     }
     const clipViewerAiRefactorBtn = document.getElementById('clipViewerAiRefactorBtn');
     if (clipViewerAiRefactorBtn) {

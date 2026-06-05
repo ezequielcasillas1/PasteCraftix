@@ -1,4 +1,12 @@
 import { CLIPS_DEFAULTS } from './clips.constants.js';
+import {
+  CLIP_AI_BUNDLE_SELECTOR,
+  CLIP_GOOGLE_SEARCH_SELECTOR,
+  CLIP_ORG_BUNDLE_SELECTOR,
+  openAiBundleMenu,
+  openGoogleSearchMenu,
+  openOrgBundleMenu,
+} from './clips.action-menu.js';
 import { getClipElements } from './clips.selectors.js';
 import {
   getClipFallbackTitle,
@@ -37,6 +45,21 @@ function isNetworkLoadError(error) {
 
 function getClipPreviewText(clip) {
   return String(clip?.text || '');
+}
+
+function getGoogleSearchButtonHtml(className, extraAttributes = '') {
+  return `
+    <button
+      class="${className}"
+      type="button"
+      title="Google search"
+      aria-label="Google search actions"
+      aria-haspopup="menu"
+      aria-expanded="false"${extraAttributes}
+    >
+      <img src="assets/google-logo.svg" alt="" class="pc-google-action-icon">
+    </button>
+  `;
 }
 
 function isRefactoredSiblingClip(clip) {
@@ -192,26 +215,18 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
   const actionHandlers = [
     ['.chip-remove', () => app.removeChip(clipIdKey)],
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
-    ['.chip-breakdown-btn', () => app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
+    [CLIP_ORG_BUNDLE_SELECTOR, (anchor) => openOrgBundleMenu(app, { anchor, clip, clipIdKey, context: 'clips' })],
+    [CLIP_GOOGLE_SEARCH_SELECTOR, (anchor) => openGoogleSearchMenu(app, { anchor, clip, context: 'clips' })],
+    [CLIP_AI_BUNDLE_SELECTOR, (anchor) => openAiBundleMenu(app, { anchor, clip, context: 'clips' })],
     ['.chip-open-btn', () => typeof app.openClipViewer === 'function' && app.openClipViewer(clip, 'clips')],
     ['.chip-share-btn', () => typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
-    ['.chip-summary-btn', () => app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'clips'))],
-    ['.chip-notes-btn', async () => {
-      await app.loadNotes();
-      app.showAlbumPicker();
-      app.pendingClipForNotes = clip;
-    }],
-    ['.chip-category-btn', () => {
-      app.pendingText = clip.text;
-      app.pendingClipId = clipIdKey;
-      app.showCategoryModal(true);
-    }],
   ];
 
   const action = actionHandlers.find(([selector]) => event.target.closest(selector));
   if (action) {
     event.stopPropagation();
-    await action[1]();
+    const anchor = event.target.closest(action[0]);
+    await action[1](anchor);
     return;
   }
 
@@ -400,14 +415,13 @@ export function createChip(app, clip, index) {
     </span>
     <span class="chip-time">${timeAgo}</span>
     <div class="chip-actions">
-      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
-      <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-      <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-      <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-      <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-      <button class="chip-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-      <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-      <button class="chip-remove" title="Remove clip">×</button>
+      <button class="chip-title-btn" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+      <button class="chip-org-bundle-btn" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
+      ${getGoogleSearchButtonHtml('chip-google-search-btn')}
+      <button class="chip-open-btn" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
+      <button class="chip-share-btn" title="Share" aria-label="Share clip"><i data-lucide="link"></i></button>
+      <button class="chip-ai-bundle-btn" type="button" title="AI actions" aria-label="AI actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="brain"></i></button>
+      <button class="chip-remove" title="Remove clip" aria-label="Remove clip">×</button>
     </div>
   `;
 
@@ -596,14 +610,13 @@ export function createSearchResultItem(app, clip) {
       </div>
     </div>
     <div class="search-result-actions">
-      <button class="chip-title-btn" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
-      <button class="chip-breakdown-btn" title="AI Breakdown"><i data-lucide="brain"></i></button>
-      <button class="chip-open-btn" title="Open"><i data-lucide="search"></i></button>
-      <button class="chip-share-btn" title="Share"><i data-lucide="link"></i></button>
-      <button class="chip-summary-btn" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-      <button class="search-notes-btn" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-      <button class="chip-category-btn" title="Add to category"><i data-lucide="folder"></i></button>
-      <button class="btn-copy" title="Copy to clipboard"><i data-lucide="clipboard"></i></button>
+      <button class="chip-title-btn" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+      <button class="search-org-bundle-btn" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
+      ${getGoogleSearchButtonHtml('search-google-search-btn')}
+      <button class="chip-open-btn" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
+      <button class="chip-share-btn" title="Share" aria-label="Share clip"><i data-lucide="link"></i></button>
+      <button class="search-ai-bundle-btn" type="button" title="AI actions" aria-label="AI actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="brain"></i></button>
+      <button class="btn-copy" title="Copy to clipboard" aria-label="Copy to clipboard"><i data-lucide="clipboard"></i></button>
     </div>
   `;
 
@@ -624,9 +637,18 @@ export function createSearchResultItem(app, clip) {
     e.stopPropagation();
     app.promptEditClipTitle(getClipIdKey(clip.id));
   });
-  item.querySelector('.chip-breakdown-btn').addEventListener('click', (e) => {
+  item.querySelector('.search-org-bundle-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    app.showBreakdownModal(app.getSelectedOrCurrentText(clip.text, 'search'));
+    openOrgBundleMenu(app, {
+      anchor: e.currentTarget,
+      clip,
+      clipIdKey: getClipIdKey(clip.id),
+      context: 'search',
+    });
+  });
+  item.querySelector('.search-google-search-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openGoogleSearchMenu(app, { anchor: e.currentTarget, clip, context: 'search' });
   });
   item.querySelector('.chip-open-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -636,21 +658,9 @@ export function createSearchResultItem(app, clip) {
     e.stopPropagation();
     if (typeof app.showShareMenuForClip === 'function') app.showShareMenuForClip(clip);
   });
-  item.querySelector('.chip-summary-btn').addEventListener('click', (e) => {
+  item.querySelector('.search-ai-bundle-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    app.showSummaryModal(app.getSelectedOrCurrentText(clip.text, 'search'));
-  });
-  item.querySelector('.search-notes-btn').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await app.loadNotes();
-    app.showAlbumPicker();
-    app.pendingClipForNotes = clip;
-  });
-  item.querySelector('.chip-category-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    app.pendingText = clip.text;
-    app.pendingClipId = getClipIdKey(clip.id);
-    app.showCategoryModal(true);
+    openAiBundleMenu(app, { anchor: e.currentTarget, clip, context: 'search' });
   });
 
   return item;
@@ -681,13 +691,13 @@ export function createCategoryClipsHTML(app, clips) {
           <div class="category-clip-time">${timeAgo}</div>
         </div>
         <div class="category-clip-actions">
-          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title"><i data-lucide="pencil-line"></i></button>
-          <button class="category-clip-breakdown-btn" data-clip-id="${clip.id}" title="AI Breakdown"><i data-lucide="brain"></i></button>
-          <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open"><i data-lucide="search"></i></button>
-          <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share"><i data-lucide="link"></i></button>
-          <button class="category-clip-summary-btn" data-clip-id="${clip.id}" title="AI Summary"><i data-lucide="notebook-pen"></i></button>
-          <button class="category-clip-notes-btn" data-clip-id="${clip.id}" title="Send to Notes"><i data-lucide="folder-plus"></i></button>
-          <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy"><i data-lucide="clipboard"></i></button>
+          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+          <button class="category-clip-org-bundle-btn" data-clip-id="${clip.id}" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
+          ${getGoogleSearchButtonHtml('category-clip-google-search-btn', ` data-clip-id="${clip.id}"`)}
+          <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
+          <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share" aria-label="Share clip"><i data-lucide="link"></i></button>
+          <button class="category-clip-ai-bundle-btn" data-clip-id="${clip.id}" type="button" title="AI actions" aria-label="AI actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="brain"></i></button>
+          <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy" aria-label="Copy clip"><i data-lucide="clipboard"></i></button>
         </div>
       </div>
     `;

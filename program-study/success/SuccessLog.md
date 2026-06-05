@@ -1,3 +1,8 @@
+### Jun 4, 2026 - Google search action on clip icons
+**Status:** SUCCESS
+**Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.viewer.js, modals-shared.events.js, popup.js, popup.html, google-logo.svg
+**Result:** Google logo on clip action surfaces opens menu with vague/meaning search options; URLs open in Google. User verified ("it works! good job").
+
 ### Jun 2, 2026 - AI Summary stale context on new clip
 **Status:** SUCCESS
 **Commit:** ce02d27 on main

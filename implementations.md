@@ -1,3 +1,28 @@
+### Jun 4, 2026 - Snyk OAuth CI + refresh script
+**Status:** SUCCESS
+**Files:** security-scans.yml, scripts/refresh-snyk-oauth-secret.ps1, .cursor/rules/snyk-oauth.mdc
+**Result:** Snyk CI kept with SNYK_OAUTH_TOKEN (+ SNYK_TOKEN fallback). Refresh script syncs local `snyk auth` token to gh secret. Cursor rule reminds on Snyk ops.
+
+### Jun 4, 2026 - Custom Search in Google search menu
+**Status:** PENDING USER VERIFY
+**Files:** clips.action-menu.js
+**Result:** Added third Google search menu option "Custom Search"; opens native prompt pre-filled with clip text so user can edit query before Google opens. Shared menu covers clips list, search results, categories, and clip viewer.
+
+### Jun 4, 2026 - Custom Search CRUD on clip Google menu
+**Status:** PENDING USER VERIFY
+**Files:** clips.custom-search.constants.js, clips.custom-search.service.js, clips.custom-search.modal.js, clips.action-menu.js, clips.controller.js, modals-shared.events.js, popup.js, popup.html, tests/custom-search-crud.test.mjs
+**Result:** Shared PasteCraftCRUD service persists saved search templates in chrome.storage.local (`pc_custom_searches`). Menu lists saved templates; Custom Search modal supports create/update/delete, preview, Search now; usage logged to `pc_custom_search_usage`. Sanitized Google URL building; modal has ARIA/focus trap.
+
+### Jun 4, 2026 - Google search action on clip icons
+**Status:** SUCCESS
+**Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.viewer.js, modals-shared.events.js, popup.js, popup.html, google-logo.svg
+**Result:** Google logo button on clip surfaces opens mini-portal menu with "Do a vague search" and "Search for meaning"; each option opens the correct Google search URL. User verified.
+
+### Jun 4, 2026 - Clip action icon bundles
+**Status:** PENDING USER VERIFY
+**Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.controller.js, popup.html
+**Result:** Clips/Search/Categories rows use two bundle buttons (org + AI). Mini-portal menu opens on click with sub-actions; AI Craft opens Craft Clips modal with clip pre-selected.
+
 ### Jun 3, 2026 - Album interlayings CRUD
 **Status:** PENDING USER VERIFY
 **Files:** notes.album-interlayings.crud.js, notes.album.js, notes.editor.js, notes.events.js, notes.render.js, popup.html, popup.js, tests/album-interlayings-crud.test.mjs
@@ -294,6 +319,26 @@
 **Status:** SUCCESS
 **Files:** db/supabase-schema.sql, extension/supabase-client.js, extension/popup.js
 **Result:** AI history syncs to Supabase. Added `ai_history` table + RLS. View always allowed regardless of subscription. `syncAiHistoryToSupabase()`, `fetchAiHistoryFromSupabase()`, `mergeAiHistory()` added. No custom RLS plumbing — queries by user_id, lets RLS handle auth.
+
+### Jun 4, 2026 - Bug fix: Custom Search preview always visible on URL input
+**Status:** FIXED
+**Files:** clips.custom-search.modal.js, popup.html
+**Result:** `updatePreview` now explicitly sets `previewEl.style.display = 'block'` on every call, preventing any external display toggle from hiding it. Added try-catch around `getClipTextFromContext` so an exception in `app.getSelectedOrCurrentText` no longer aborts the render — fallback text always shows. CSS also made explicit with `display: block` on `.custom-search-preview`. 10/10 tests pass.
+
+### Jun 4, 2026 - Custom Search modal UX v2 (site: prefix + drag-to-insert)
+**Status:** PENDING USER VERIFY
+**Files:** popup.html, clips.custom-search.modal.js, clips.custom-search.constants.js, tests/custom-search-crud.test.mjs
+**Result:** Added visual `site:` prefix to URL input (strip from stored template on load, prepend on save/search). TLD detection hint appears when domain is typed. Disclaimer added below Preview label. `mouseup` on preview captures selected text → `click` anywhere in modal (non-button, non-preview) appends it to URL input. `{clip}` backward compatible. 10/10 tests pass.
+
+### Jun 4, 2026 - Custom Search modal UX
+**Status:** PENDING USER VERIFY
+**Files:** extension/popup.html, clips.custom-search.modal.js, clips.custom-search.service.js, clips.custom-search.constants.js, clips.action-menu.js, tests/custom-search-crud.test.mjs
+**Result:** Renamed "Search template" to "Website URL". `{clip}` is optional — URL/query searched as-is without it. Placeholder and hint document behavior. Saved searches without `{clip}` no longer require clip text.
+
+### Jun 4, 2026 - Google Search navigates active tab
+**Status:** PENDING USER VERIFY
+**Files:** clips.action-menu.js, clips.custom-search.modal.js
+**Result:** Replaced `chrome.tabs.create` (new tab) with `chrome.tabs.query+update` (navigate current tab) for all three search actions: vague search, search for meaning, and custom search (Search Now + saved templates). Manifest already had `tabs` permission — no change needed.
 
 ### May 21, 2026 - popup.js safe slice batch (non-risky)
 **Status:** PENDING USER VERIFY

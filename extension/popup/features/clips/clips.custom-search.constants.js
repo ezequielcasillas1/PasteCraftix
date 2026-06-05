@@ -1,0 +1,11 @@
+export const CUSTOM_SEARCH_STORAGE_KEY = 'pc_custom_searches';
+export const CUSTOM_SEARCH_USAGE_KEY = 'pc_custom_search_usage';
+export const CUSTOM_SEARCH_CLIP_PLACEHOLDER = '{clip}';
+export const CUSTOM_SEARCH_SITE_PREFIX = 'site:';
+export const CUSTOM_SEARCH_URL_INPUT_PLACEHOLDER = 'stackoverflow.com';
+export const CUSTOM_SEARCH_MAX_ITEMS = 20;
+export const CUSTOM_SEARCH_MAX_NAME_LENGTH = 60;
+export const CUSTOM_SEARCH_MAX_TEMPLATE_LENGTH = 500;
+export const CUSTOM_SEARCH_MAX_QUERY_LENGTH = 1800;
+export const CUSTOM_SEARCH_MAX_USAGE_LOG = 100;
+export const CUSTOM_SEARCH_SAVED_ACTION_PREFIX = 'saved:';
