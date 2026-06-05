@@ -1,0 +1,22 @@
+---
+description: CodeScene MCP safeguards for AI-generated code
+alwaysApply: true
+---
+
+# CodeScene AI Safeguards
+
+AI-generated code must not introduce Code Health regressions.
+
+When the `codescene` MCP server is available:
+- After each meaningful AI modification, run `codescene.code_health_review` on the changed file.
+- Use that review as the primary feedback loop for structure, maintainability, and technical debt.
+- Use `codescene.pre_commit_code_health_safeguard` as the broader pre-commit gate.
+- Use `codescene.analyze_change_set` for branch or PR-level validation.
+
+If CodeScene reports reduced Code Health or technical-debt goal violations:
+- Refactor using the CodeScene feedback.
+- Continue until Code Health is stable or improved, unless the user explicitly accepts the risk.
+
+For hotspots, use `codescene.list_technical_debt_hotspots_for_project` or `codescene.list_technical_debt_hotspots_for_project_file` when project context is available.
+
+Source: https://github.com/codescene-oss/codescene-mcp-server/tree/ce49139c4528287a0191d50a18e8af38cf7a4f10/.amazonq/rules

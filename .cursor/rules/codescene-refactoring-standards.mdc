@@ -1,0 +1,24 @@
+---
+description: CodeScene MCP standards for measurable refactoring work
+alwaysApply: true
+---
+
+# CodeScene Refactoring Standards
+
+For refactoring work, use CodeScene MCP as the objective quality guide when the `codescene` MCP server is available.
+
+Before refactoring:
+- Run `codescene.code_health_review` on the target file or files.
+- Capture `codescene.code_health_score` so the work has a measurable baseline.
+
+During refactoring:
+- Prefer small, reviewable steps that reduce responsibility, nesting, coupling, and hard-to-follow control flow.
+- Do not treat formatting, renaming, or cosmetic cleanup alone as a meaningful Code Health improvement.
+
+After each meaningful step:
+- Re-run `codescene.code_health_review` to confirm the issue improved and no regression was introduced.
+- Use `codescene.code_health_score` as the compact trend check.
+
+Success means Code Health improves or at minimum does not decline, structure is clearer, and no new technical debt is introduced.
+
+Source: https://github.com/codescene-oss/codescene-mcp-server/tree/ce49139c4528287a0191d50a18e8af38cf7a4f10/.amazonq/rules

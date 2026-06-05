@@ -1,0 +1,166 @@
+---
+description: User voice commands for git — git commit, git commit all, git workflow. Auto-split by scoped implementation.
+alwaysApply: true
+---
+
+# Git Workflow Commands (Voice Triggers)
+
+When the user says one of these phrases, follow the matching playbook. Do **not** ask which files to stage unless the command is ambiguous or secrets are present.
+
+| User says | Action |
+|---|---|
+| **`git commit all`** | Full playbook below: discover scopes → branch per scope → commit each → **push all** new/updated task branches → return to `main` → brief report |
+| **`git commit`** | Same as `git commit all`, but **push only if** the user also said push in the same message; otherwise commit locally and list branches/SHAs |
+| **`git workflow`** | Read-only audit + optional commit (see Workflow Audit) |
+
+---
+
+## Scoped implementation = one branch
+
+Split work when the diff spans **different purposes** (not every file):
+
+| Signal | Branch prefix | Example |
+|---|---|---|
+| Bug / regression / auth loop | `fix/` | `fix/auth-session-bridge` |
+| New capability | `feat/` | `feat/local-test-account` |
+| Refactor only | `refactor/` | `refactor/popup-events-extraction` |
+| Rules / docs only | `docs/` | `docs/git-workflow-commands` |
+
+**Reuse** the latest related task branch when the diff is a direct follow-up on the same topic (e.g. more credit-pack UI on `feat/credit-packs-billing`).
+
+**Never** commit unrelated scopes on one branch. **Never** push to `main` unless the user explicitly approves.
+
+---
+
+## `git commit all` — agent playbook
+
+### 1. Discover
+
+Run in parallel:
+
+- `git branch --show-current`
+- `git status --short`
+- `git diff --stat` (and spot-check hunks if grouping is unclear)
+- `git stash list`
+- `git branch -a` (recent `fix/*`, `feat/*` on origin)
+
+### 2. Group files by scope
+
+Use path + diff intent. PasteCraft common scopes:
+
+| Scope | Typical paths |
+|---|---|
+| Credit packs / AI Lab billing | `extension/popup/features/ai-lab/ai-lab.credit-packs.js`, `ai-lab.credits.js`, `tests/credit-pack-banner.test.mjs` |
+| Local test account | `extension/popup/features/auth/local-test-account.js`, `auth.constants.js`, `auth.events.js`, `popup.init.js`, `popup.html` (test banner/button), `styles.css`, `sync.listener.js`, `full-sync.js` |
+| Auth session / bridge | `extension/popup/features/auth/auth.service.js`, `extension/supabase/auth.js`, `identity.js` |
+| Website / Netlify | `website/**`, `netlify.toml` |
+| Supabase migrations / Edge | `supabase/migrations/**`, `supabase/functions/**` |
+
+If one file mixes scopes (rare), split hunks across branches or commit with the dominant scope and note the rest in the report.
+
+### 3. Stash if multiple scopes on one checkout
+
+```powershell
+git stash push -u -m "multi-scope-wip-<yyyy-mm-dd>"
+```
+
+### 4. Commit each scope (order: fix → feat → docs)
+
+For **each** scope:
+
+1. `git checkout main` && `git pull origin main`
+2. Reuse `git checkout <existing-branch>` **or** `git checkout -b <prefix>/<topic>`
+3. Restore only that scope’s files:
+   - Tracked: `git checkout "stash@{0}" -- <paths>`
+   - Stash untracked: `git checkout "stash@{0}^3" -- <paths>`
+4. Commit with a short title + optional body (minimal text per user preference)
+5. `git push -u origin HEAD`
+
+After all scopes: `git checkout main`, `git stash drop` if fully applied.
+
+### 5. Report (required)
+
+```
+git commit all — done
+- fix/auth-session-bridge @ <sha> — auth bridge token freshness
+- feat/local-test-account @ <sha> — offline demo account
+- feat/credit-packs-billing @ <sha> — credit pack banner + tests
+Branch: main (clean)
+```
+
+Say out loud before the first commit:
+
+> Phase: commit all. Scopes: N. Branches: [list]. Action: stash → split → push.
+
+---
+
+## `git workflow` — audit + reconcile
+
+Use when the user wants a **repo-wide** picture, including work from **other finished chats** that may not be in the current thread.
+
+### 1. Local repo
+
+- `git status --short`, `git diff --stat`, `git stash list`
+- Branches ahead of `origin/main`: `git branch -vv`, `git log origin/main..HEAD --oneline` per local branch
+
+### 2. Cross-chat context (read-only)
+
+Scan **recent** parent transcripts under the project’s `agent-transcripts/` folder (not subagents):
+
+- Search for: `SUCCESS`, `feat/`, `fix/`, uncommitted paths, “stash”, “branch”
+- Correlate with local `git status` / stashes / unpushed branches
+
+Do not invent work that is not in git or transcripts.
+
+### 3. Program logs (if present)
+
+- `program-study/success/SuccessLog.md`, `partial/PartialLog.md`, `failure/FailureLog.md`
+- `implementations.md` / `bugfixes.md` for pending items
+
+### 4. Output format
+
+```markdown
+## Git workflow — <date>
+
+### Uncommitted (this checkout)
+- [scope]: files…
+
+### Stashes
+- stash@{n}: …
+
+### Unpushed / open task branches
+- branch @ ahead N — topic — action (push / PR / merge / abandon)
+
+### From other chats (if found)
+- [title](uuid) — topic — likely branch or files
+
+### Recommended next command
+- `git commit all` — if scopes are ready and verified
+- or: verify with user before commit
+```
+
+If the user says **`git workflow` then commit**, run the audit first, then `git commit all` unless they only wanted the report.
+
+---
+
+## Conflicts with older rules
+
+- **`git-commit-push-mastery`**: “ask which group” is **waived** when the user says `git commit all` or `git commit` (this file wins).
+- **`git-commit-branch-alignment`**: implement-on-main-first still applies **until** commit time; at `git commit all`, create/reuse task branches and return to `main` after push.
+- **User `git commit all` rule**: always **push** after `git commit all` (all new/updated task branches, not `main`).
+
+---
+
+## Secrets and junk
+
+Never stage: `.env`, credentials, `node_modules`, duplicate path variants (`extension\` vs `extension/`), local-only SQL unless the user included it in scope.
+
+---
+
+## Quick reference (agent)
+
+```
+git commit all  → split scopes → N branches → push each → main → report SHAs
+git commit      → same, push only if user said push
+git workflow    → audit (git + stashes + branches + transcripts + logs) → recommend next step
+```
