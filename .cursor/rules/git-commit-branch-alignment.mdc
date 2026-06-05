@@ -1,0 +1,121 @@
+---
+description: Implement on main first; create a task branch only after verified success. One branch per implementation; reuse the latest related branch for follow-ups.
+alwaysApply: true
+---
+
+# Git Commit & Push — Branch Alignment (Mandatory)
+
+## Default: implement on `main`, branch after success
+
+Git always has a branch checked out — there is no “branchless” state. **Default working branch is `main`.** Do not open or stay on a task branch while implementing.
+
+| Phase | Branch | Action |
+|---|---|---|
+| Research + implement + verify | `main` | Code and test here until user confirms SUCCESS |
+| Commit + push | New task branch | Create branch from `main`, commit, push |
+| Follow-up on same slice | Latest related task branch | Reuse if still the same implementation topic |
+
+### When to create a branch
+
+Create a branch **only after** the implementation is verified (user says SUCCESS or equivalent):
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b fix/clips-delete-resurrection   # name matches the work
+git add <files for this implementation only>
+git commit -m "fix: ..."
+git push -u origin HEAD
+git checkout main
+```
+
+### When to reuse a branch (not create a new one)
+
+Stay on the **most recent related** task branch when the new work is a direct continuation of the same implementation (same fix, same feature slice, same refactor slice).
+
+Examples:
+- `fix/clips-delete-resurrection` → follow-up tombstone edge case → **same branch**
+- `feat/clip-expire-icons` → add expiry preset UI → **same branch**
+- `fix/clips-delete-resurrection` → unrelated auth bug → **new** `fix/auth-…` from `main`
+
+### When to leave a branch
+
+After commit/push, return to `main` for the next implementation. Do not leave the checkout on stale `feature/*` branches from prior work.
+
+---
+
+Every `git commit` and `git push` must land on a **task branch whose name matches what is in the commit**. Never commit on an unrelated branch that happened to be checked out.
+
+## Wrong vs right
+
+| Wrong | Why |
+|---|---|
+| Implement on `feature/extension-safety-expiry-icons` while fixing clip delete | Unrelated branch; work belongs on `main` until SUCCESS, then `fix/clips-delete-resurrection` |
+| Commit note-delete fix on `fix/activity-history-html-escape` | Branch topic ≠ diff topic |
+| New branch for every tiny follow-up on the same feature | Fragmented history; reuse latest related branch instead |
+| Push to `main` without explicit user approval | Breaks stable default branch policy |
+
+| Right | Example |
+|---|---|
+| Implement on `main`, branch after SUCCESS | Clip delete fix → `fix/clips-delete-resurrection` |
+| Follow-up on same slice | More clip-delete hardening → stay on `fix/clips-delete-resurrection` |
+| New unrelated implementation | Auth loop fix → new `fix/auth-session-loop` from `main` |
+
+## Before staging (agent checklist)
+
+1. Run `git branch --show-current` and `git status --short`.
+2. If still implementing and not yet SUCCESS → should be on **`main`** (not a stale task branch).
+3. **Name the work** in 1–2 short phrases from the actual diff.
+4. If committing now:
+   - **New implementation** → create matching `fix/`, `feat/`, or `refactor/` branch from `main`.
+   - **Same implementation follow-up** → use the latest related task branch.
+   - **Wrong branch** → stop; do not commit.
+5. Stage only files for this implementation.
+
+## Recovery (fix landed on wrong branch)
+
+```bash
+git stash push -m "wip"
+git checkout main && git pull
+git checkout -b fix/correct-topic
+git cherry-pick <fix-commit-sha>
+git push -u origin fix/correct-topic
+git checkout feature/wrong-branch
+git reset --hard <commit-before-fix>
+git push --force-with-lease origin feature/wrong-branch
+git checkout main
+```
+
+## Branch naming map (PasteCraft)
+
+| Work in diff | Branch prefix | Example |
+|---|---|---|
+| Bug / regression | `fix/` | `fix/clips-delete-resurrection` |
+| New capability | `feat/` | `feat/clip-expire-icons` |
+| Structure move, no behavior change | `refactor/` | `refactor/popup-events-extraction` |
+| Docs / rules only | `docs/` | `docs/git-branch-alignment` |
+
+Use **kebab-case**; 2–5 words; no dates in the name.
+
+## Agent must say out loud
+
+Before commit:
+
+> Phase: `<implementing on main | ready to commit>`. Branch: `<current>`. Work: `<summary>`. Action: `<stay on main | create fix/foo | reuse fix/foo>`.
+
+## `git commit all` — multi-scope exception
+
+When the user says **`git commit all`** (see `git-workflow-commands.mdc`):
+
+1. Stash if multiple scopes share one checkout.
+2. For **each** scope: `main` → reuse or create matching task branch → stage **only** that scope’s files → commit → push.
+3. Return to `main`; drop stash when fully applied.
+4. Do **not** mix unrelated scopes in one commit.
+
+Example split (same session):
+
+| Scope | Branch |
+|---|---|
+| Auth bridge / session restore | `fix/auth-session-bridge` |
+| Local test account UI | `feat/local-test-account` |
+| Credit pack banner follow-up | `feat/credit-packs-billing` (reuse) |

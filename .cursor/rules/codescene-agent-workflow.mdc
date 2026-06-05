@@ -1,0 +1,23 @@
+---
+description: CodeScene MCP agent workflow from AGENTS.md guidance
+alwaysApply: true
+---
+
+# CodeScene Agent Workflow
+
+When CodeScene MCP is available, treat Code Health as the authority for maintainability.
+
+Workflow:
+- Select the correct project early with `codescene.select_codescene_project`.
+- Before refactoring, inspect target files with `codescene.code_health_review`.
+- Use `codescene.code_health_score` to capture a measurable baseline.
+- Refactor in 3-5 small, reviewable steps guided by CodeScene findings.
+- After each significant step, re-run `codescene.code_health_review` and/or `codescene.code_health_score`.
+- Before each commit, run `codescene.pre_commit_code_health_safeguard`.
+- Before PR handoff, run `codescene.analyze_change_set`.
+
+Prioritization:
+- Use `codescene.list_technical_debt_hotspots` and `codescene.list_technical_debt_goals` when asked what to improve.
+- Use `codescene.code_health_refactoring_business_case` when business value or ROI matters.
+
+If Code Health regresses or goals are violated, refactor before declaring the work ready unless the user explicitly accepts the risk.

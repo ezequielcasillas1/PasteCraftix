@@ -1,0 +1,35 @@
+---
+description: Zscaler MCP security posture for PasteCraft and cross-project Cursor work
+globs:
+alwaysApply: true
+---
+
+# Zscaler MCP Security
+
+When Zscaler MCP is available, prefer it for security audits, policy review, and incident investigation.
+
+## Defaults
+
+- MCP runs **read-only** (`ZSCALER_MCP_WRITE_ENABLED=false`)
+- Scoped services: `zia,zdx,easm,zid,zinsights`
+- Credentials only in `%USERPROFILE%\.zscaler-mcp.env` — never in repo or extension bundle
+
+## When to use
+
+- Audit ZIA rules affecting Supabase, Stripe, Google OAuth, Netlify, Resend, AI providers
+- EASM review for pastecraft.com attack surface
+- ZDX health for website login, checkout, extension auth flows
+- Z-Insights incident investigation
+
+## Write operations
+
+Never enable write tools autonomously. Require explicit user approval and `--write-tools` allowlist per change ticket.
+
+## PasteCraft AI surfaces
+
+Apply AI Guard / DLP thinking to: `ai-refactor`, `ai-image`, `ai-lab`, Cursor agent prompts. Block secrets and clip PII in outbound AI traffic.
+
+## Docs
+
+- Setup: `docs/security/zscaler-mcp-setup.md`
+- Architecture: `ArchiGuide/zscaler-security-architecture.md`

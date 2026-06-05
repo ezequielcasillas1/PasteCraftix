@@ -1,0 +1,22 @@
+---
+description: CodeScene MCP safety gates before merge or PR handoff
+alwaysApply: true
+---
+
+# CodeScene Merge Readiness
+
+Before declaring a code change ready, use CodeScene MCP safety gates when the `codescene` MCP server is available.
+
+Required checks:
+- Run `codescene.code_health_review` during editing for each AI-modified file.
+- Run `codescene.pre_commit_code_health_safeguard` before commit when CodeScene is available.
+- Run `codescene.analyze_change_set` before merge or PR handoff when branch-level validation is needed.
+
+If a safeguard fails:
+- Inspect the failed `quality_gates` and affected files.
+- Re-run `codescene.code_health_review` for the problem files.
+- Refactor before continuing unless the user explicitly accepts the risk.
+
+Merge-ready means Code Health is stable or improved, new files are healthy, no technical-debt goals are violated, and the code remains easy to modify.
+
+Source: https://github.com/codescene-oss/codescene-mcp-server/tree/ce49139c4528287a0191d50a18e8af38cf7a4f10/.amazonq/rules

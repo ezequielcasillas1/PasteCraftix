@@ -1,0 +1,79 @@
+---
+description: Cost-aware model switching workflow for refactor slices
+alwaysApply: true
+---
+
+# Refactor Model Switching Workflow
+
+Before starting any refactor slice or sub-slice, the agent must first research the target code, then optimize for the cheapest capable model and ask for approval before coding.
+
+## Required Sequence
+
+1. Inspect the roadmap/codebase first.
+2. Identify the exact slice and sub-slices.
+3. Conduct read-only research of the target slice/sub-slice code before choosing a model.
+4. Report the evidence: functions, line ranges, responsibilities, CC/CodeScene risk if available, and dependencies.
+5. Present possible AI models for each sub-slice.
+6. Recommend the cheapest capable model and explain why in 1 short sentence.
+7. Ask Ezequiel before switching models or launching coding work.
+8. Complete only the approved sub-slice.
+9. Ask before moving to the next sub-slice.
+
+## Required Research First
+
+Do not pick a model from the roadmap alone. First inspect the actual code that will be edited.
+
+The research report must include:
+
+- target files and functions
+- approximate line ranges
+- what each function is responsible for
+- complexity/risk evidence from CodeScene if available
+- dependencies touched (`chrome.storage`, Supabase, DOM, shared feature state)
+- whether the work is safe to parallelize or should be sequential
+
+Only after this research may the agent propose models.
+
+## Required Model Plan Format
+
+After research and before coding, show a compact table:
+
+| Sub-slice | Possible models | Recommended | Why |
+|---|---|---|---|
+| Example scaffolding | Sonnet 4.6, GPT 5.5 | Sonnet 4.6 | Cheapest capable for low-risk extraction |
+
+The recommendation must favor the cheapest model that can safely do the work. Expensive models need a clear risk reason.
+
+## Approval Prompts
+
+Use direct checkpoint questions like:
+
+- `Ezequiel, should I start this sub-slice with Sonnet 4.6?`
+- `Ezequiel, should I switch this sub-slice to Opus 4.5?`
+- `Ezequiel, should I switch this specific hard method to Opus 4.7?`
+- `Ezequiel, should GPT 5.5 review this slice before commit?`
+- `Ezequiel, should we move to the next sub-slice?`
+
+Do not assume approval from prior context. Ask at each model boundary and each sub-slice boundary.
+
+## Cost-Aware Model Ladder
+
+- DeepSeek v4-Flash: cheapest for summaries, drafting, and high-volume simple tasks.
+- Sonnet 4.6: default for scaffolding, selectors, constants, simple storage, simple UI extraction.
+- GPT 5.5: planning, architecture review, final diff review, test/checklist generation.
+- Opus 4.5: medium-complex methods, event-heavy decompositions, CC 40-70.
+- DeepSeek v4-Pro: backend/Supabase sync modules and multi-table merge logic.
+- Opus 4.7: most expensive; only for hardest methods, CC > 70, fragile AI/avatar/auth/sync logic.
+
+## Model Choice Rules
+
+- If Sonnet 4.6 can safely do it, recommend Sonnet 4.6.
+- If the task is planning/review only, recommend GPT 5.5 unless a cheaper summary is enough.
+- If the task is backend Supabase sync or multi-table merge logic, recommend DeepSeek v4-Pro.
+- If the task is CC 40-70 or event-heavy decomposition, recommend Opus 4.5.
+- If the task is CC > 70 or fragile AI/auth/avatar/sync logic, recommend Opus 4.7.
+- Never choose Opus 4.7 just because it is strongest. Use it only when risk justifies the credit cost.
+
+## Hard Rule
+
+Do not start implementation just because the next slice is known. First research the real code, then present the model plan, then wait for Ezequiel to approve the first model/sub-slice.

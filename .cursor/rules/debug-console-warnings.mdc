@@ -1,0 +1,56 @@
+---
+description: Debug instrumentation must appear in DevTools Warnings via console.warn
+alwaysApply: true
+---
+
+# Debug Console Warnings Rule
+
+When Cursor **Debug mode** is active, or when adding temporary agent instrumentation to PasteCraft:
+
+## Required sink
+
+1. **Always emit `console.warn`** — never `console.log` alone for debug probes.
+2. Use `console.warn` with prefix `[PasteCraft:debug:<sessionId>]` — recreate `extension/shared/agent-debug-log.js` per debug session if relay is needed.
+3. Prefix format: `[PasteCraft:debug:<sessionId>]` so DevTools → **Warnings** filter shows entries.
+
+## Payload shape
+
+Each warn must include:
+
+- `hypothesisId` — maps log to a hypothesis (e.g. `H1`, `H2`)
+- `location` — `file.js:function` or `file.js:LINE`
+- `message` — short description
+- `data` — object with values only (no secrets, tokens, passwords, PII)
+- `runId` — `pre-fix` or `post-fix`
+
+Example:
+
+```javascript
+// #region agent log
+console.warn('[PasteCraft:debug:db2882]', {
+  runId: 'pre-fix',
+  hypothesisId: 'H1',
+  location: 'auth.js:getCurrentUser',
+  message: 'bridge fast-path user',
+  data: { userId, expiresAt, path: 'bridge' },
+});
+// #endregion
+```
+
+## Instrumentation hygiene
+
+- Wrap each probe in `// #region agent log` / `// #endregion` (foldable in editor).
+- Keep probes ≤ 10 per debug iteration.
+- Do **not** remove probes until post-fix verification or explicit user approval.
+- Secondary relay: `pcAgentDebugLog` background handler may POST to the debug ingest server; **Warnings panel is the primary evidence source** for extension/popup debugging.
+
+## DevTools usage
+
+1. Open extension popup → right-click → Inspect.
+2. Console → filter **Warnings** (or search `PasteCraft:debug`).
+3. Service worker logs also use `[PasteCraft:debug:service-worker]` when relaying.
+
+## Forbidden
+
+- Silent-only `fetch` to ingest with no `console.warn`
+- Logging auth tokens, refresh tokens, API keys, or full user emails in `data`

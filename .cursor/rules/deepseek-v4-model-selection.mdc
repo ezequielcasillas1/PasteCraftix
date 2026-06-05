@@ -1,0 +1,125 @@
+---
+alwaysApply: true
+---
+
+# DeepSeek V4 Model Selection
+
+When to use DeepSeek V4 models via API — for PasteCraft and all future applications built with Cursor AI.
+
+Current generation (as of April 24, 2026): `deepseek-v4-pro` and `deepseek-v4-flash`.
+Legacy IDs `deepseek-chat` and `deepseek-reasoner` retire **July 24, 2026**.
+
+---
+
+## Model Reference
+
+| Model ID | Params | Context | Best For | Output Price |
+|---|---|---|---|---|
+| `deepseek-v4-pro` | 1.6T / 49B active | 1M tokens | Hard coding, agents, multi-file refactors | $3.48/1M |
+| `deepseek-v4-flash` | 284B / 13B active | 1M tokens | High-volume, fast tasks, drafting | $0.28/1M |
+
+Both models support **Thinking** and **Non-Thinking** modes and are OpenAI-compatible.
+
+---
+
+## When to Use DeepSeek V4-Pro
+
+Use `deepseek-v4-pro` when the task is:
+
+- **Agentic coding** — multi-step autonomous workflows touching many files
+- **Multi-file refactors** — changes spanning services, schemas, handlers, and tests simultaneously
+- **Backend logic** — database queries, RLS policies, Edge Functions, API services
+- **Long-context analysis** — loading entire modules or large codebases into a single context window
+- **Competitive reasoning** — algorithm design, performance optimization, architectural decisions
+- **Cost-sensitive at scale** — same SWE-Bench score as Claude Opus at ~7x lower cost
+
+---
+
+## When to Use DeepSeek V4-Flash
+
+Use `deepseek-v4-flash` when the task is:
+
+- **High-volume or repetitive** — classification, drafting, retrieval, summarization
+- **Fast turnaround** — chat-style responses where speed matters more than depth
+- **Cost is critical** — automated pipelines processing millions of tokens daily
+- **Default workload** — most chat and code assistance tasks where Pro is overkill
+
+Flash reaches within ~2 points of Pro on SWE-Bench Verified (79.0% vs 80.6%). Use Flash as the default and only step up to Pro for hard agentic or multi-file tasks.
+
+---
+
+## When NOT to Use DeepSeek V4
+
+Prefer Claude (Sonnet / Opus) over DeepSeek V4 when:
+
+- **UI/UX design taste is required** — component polish, layout decisions, design system consistency
+- **Minimal diff quality matters** — Claude produces cleaner, more surgical patches with fewer regressions
+- **Inline code documentation** — Claude writes higher-quality comments and commit messages
+- **Cursor IDE native integration** — Claude Code, Cursor agent, and Cursor chat are natively tuned for Claude
+- **Nuanced reasoning or world knowledge** — HLE and SimpleQA scores favor Claude and Gemini
+
+---
+
+## API Integration
+
+DeepSeek V4 is OpenAI-compatible. No SDK changes required — only swap the `base_url` and `model`:
+
+```js
+import OpenAI from 'openai'
+
+const client = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com',
+})
+
+const response = await client.chat.completions.create({
+  model: 'deepseek-v4-pro', // or 'deepseek-v4-flash'
+  messages: [{ role: 'user', content: prompt }],
+})
+```
+
+**Thinking mode** is enabled by default on V4. To disable for speed/cost:
+
+```js
+// Disable thinking (faster, cheaper)
+extra_body: { thinking: { type: 'disabled' } }
+
+// Set reasoning effort (thinking must be enabled)
+reasoning_effort: 'high'   // default
+reasoning_effort: 'max'    // maximum depth, slower
+```
+
+---
+
+## Decision Table
+
+| Task | Model to Use |
+|---|---|
+| Multi-file backend refactor | `deepseek-v4-pro` |
+| Supabase logic, RLS, Edge Functions | `deepseek-v4-pro` |
+| Agentic coding pipeline | `deepseek-v4-pro` |
+| Large codebase analysis (>50K tokens) | `deepseek-v4-pro` |
+| Fast chat, drafting, summarization | `deepseek-v4-flash` |
+| High-volume automated pipeline | `deepseek-v4-flash` |
+| UI component design and polish | Claude (Cursor native) |
+| Bug fix with minimal diff | Claude (Cursor native) |
+| Code documentation and comments | Claude (Cursor native) |
+| Inline IDE coding (Cursor chat/agent) | Claude (Cursor native) |
+
+---
+
+## Applied to PasteCraft
+
+- **Background service worker logic, sync handlers, storage adapters** → `deepseek-v4-pro`
+- **Supabase migrations, RLS policies, Edge Function rewrites** → `deepseek-v4-pro`
+- **Popup UI, widget layout, design consistency** → Claude in Cursor
+- **High-volume clip processing or batch operations** → `deepseek-v4-flash`
+- **Daily Cursor chat and agent tasks** → Claude (default, keep as-is)
+
+---
+
+## Notes
+
+- Never store `DEEPSEEK_API_KEY` in the extension bundle. Use Supabase Edge Functions or server-side environments only.
+- DeepSeek weights are open-source on HuggingFace — self-hosting is an option for sensitive workloads.
+- Benchmark source: DeepSeek V4 tech report, April 24, 2026. Re-evaluate on each major version release.

@@ -1,0 +1,107 @@
+---
+alwaysApply: true
+---
+
+# Cursor AI Advanced Features
+
+When to use Cursor's multi-task, worktree, and multi-root workspace features — for PasteCraft and any future project.
+
+---
+
+## Git Worktrees
+
+A worktree lets multiple branches live in separate folders simultaneously. You can have `main` open in one folder and `refactor/settings-layer` open in another, both active at the same time, without stashing or branch-switching.
+
+**When to use worktrees:**
+- You need to hotfix `main` while a long refactor branch is still in progress
+- Two features are being built in parallel and they touch different parts of the codebase
+- You want to compare how the app behaves on two different branches side-by-side
+- A CI failure on `main` needs an immediate fix and you are mid-feature
+
+**When NOT to use worktrees:**
+- The task is a single linear slice (one branch, one focus) — worktrees add overhead for no gain
+- The two branches touch the same files heavily — merge conflicts become harder to manage
+- You are solo and only working one task at a time
+
+**How to create one:**
+```bash
+git worktree add ../PasteCraft-hotfix hotfix/login-redirect
+```
+This creates a sibling folder `PasteCraft-hotfix` checked out on `hotfix/login-redirect`. Both folders share the same `.git`.
+
+**Clean up after merging:**
+```bash
+git worktree remove ../PasteCraft-hotfix
+```
+
+---
+
+## Cursor Multitask Mode (Background Agents)
+
+Multitask mode lets you run multiple Cursor agents in parallel — each working on a separate task in its own context window simultaneously.
+
+**When to use Multitask mode:**
+- Two tasks are fully independent (different files, different features)
+- One task is long-running (e.g. writing tests) and you want to keep coding in the foreground
+- You are exploring two different implementation approaches and want to compare results
+- Running a slow analysis (CodeScene, dependency audit) while continuing to build
+
+**When NOT to use Multitask mode:**
+- Tasks share the same files — parallel agents will produce conflicting edits
+- The second task depends on the output of the first — run them sequentially instead
+- The task is small and fast — the overhead of spawning a second agent is not worth it
+
+**Best pattern:**
+1. Assign each agent a clearly scoped, non-overlapping slice of work
+2. Use worktrees so each agent has its own branch and folder
+3. Review and merge each agent's output before starting the next dependent task
+
+---
+
+## Multi-Root Workspaces
+
+A multi-root workspace opens multiple separate project folders in one Cursor window. Useful when a full-stack project has a frontend repo and a backend repo that are separate Git repositories.
+
+**When to use multi-root workspaces:**
+- Frontend and backend are in different repos but you work on them together (e.g. Next.js app + Supabase Edge Functions repo)
+- A shared component library lives in its own repo and you need to edit it alongside the main app
+- You are building a monorepo and want Cursor to index all packages together
+
+**When NOT to use multi-root workspaces:**
+- Everything is already in one repo — a single root is simpler
+- The repos are unrelated — opening them together only adds noise to search and indexing
+
+**How to set up:**
+Create a `.code-workspace` file:
+```json
+{
+  "folders": [
+    { "path": "./frontend" },
+    { "path": "./backend" },
+    { "path": "./shared-lib" }
+  ]
+}
+```
+Open it with `File → Open Workspace from File`.
+
+---
+
+## Decision Table
+
+| Situation | Tool to use |
+|---|---|
+| Hotfix needed while refactor is in progress | Git Worktree |
+| Two independent features building in parallel | Worktree + Multitask |
+| Frontend + backend in separate repos | Multi-Root Workspace |
+| Long analysis running, want to keep coding | Multitask Mode |
+| Single linear task, one branch | None — keep it simple |
+| Same files being changed by two tasks | Sequential only, no parallel agents |
+
+---
+
+## Applied to PasteCraft
+
+- **Refactor slices** (Settings, PDF, Auth) are sequential — no worktrees needed unless a hotfix interrupts
+- **If a production bug appears mid-refactor:** create a worktree for the hotfix, fix it, merge to `main`, then return to the refactor branch
+- **If the website and extension ever split into separate repos:** use a multi-root workspace to keep both open together
+- **Future SaaS projects with Next.js frontend + Supabase backend in separate repos:** multi-root workspace from day one
