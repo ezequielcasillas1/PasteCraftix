@@ -12,6 +12,11 @@
  * 5. Verification - Verify operations succeeded before proceeding
  */
 class PasteCraftCRUD {
+  /** Compare entity ids from DOM strings, numeric timestamps, and server uuids. */
+  static idsMatch(left, right) {
+    return String(left ?? '') === String(right ?? '');
+  }
+
   /**
    * Retry operation with exponential backoff
    */
@@ -177,10 +182,7 @@ class PasteCraftCRUD {
       // PRACTICE #4: IDEMPOTENCY CHECK - Verify entity was removed
       const stillExists = stateKeys.some(key => {
         if (Array.isArray(currentState[key])) {
-          return currentState[key].some((item) => {
-            if (entityType === 'note') return item.id == entityId;
-            return item.id === entityId;
-          });
+          return currentState[key].some((item) => PasteCraftCRUD.idsMatch(item?.id, entityId));
         }
         return false;
       });
@@ -777,7 +779,9 @@ class PasteCraftCRUD {
 
     const currentState = stateGetter();
     const entity = stateKeys
-      .map(key => Array.isArray(currentState[key]) ? currentState[key].find(item => item.id === entityId) : null)
+      .map(key => Array.isArray(currentState[key])
+        ? currentState[key].find(item => PasteCraftCRUD.idsMatch(item?.id, entityId))
+        : null)
       .find(item => item !== null);
 
     if (!entity) {
