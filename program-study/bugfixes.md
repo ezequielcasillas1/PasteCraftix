@@ -1,3 +1,8 @@
+### Jun 7, 2026 - Deleted clips resurrect on popup reopen
+**Status:** SUCCESS
+**Files:** sync.loader.js, sync-loader-tombstones.test.mjs
+**Result:** fetchRawData preferred stale IndexedDB clips/categories over chrome.storage without applying pc_deleted_* tombstones. Loader now filters tombstones and only prefers IDB when it has more surviving rows.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
