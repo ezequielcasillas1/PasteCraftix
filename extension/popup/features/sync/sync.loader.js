@@ -1,9 +1,32 @@
+import { CLIPS_STORAGE_KEYS } from '../clips/clips.constants.js';
+
+const DELETED_CATEGORIES_KEY = 'pc_deleted_categories';
+
 function isExtensionContextValid() {
   try {
     return Boolean(chrome?.runtime?.id);
   } catch {
     return false;
   }
+}
+
+export function tombstoneIdsFromList(list) {
+  if (!Array.isArray(list)) return new Set();
+  return new Set(list.map((entry) => String(entry?.id ?? '')).filter(Boolean));
+}
+
+export function filterTombstonedEntities(items, deletedIds) {
+  if (!deletedIds?.size) return Array.isArray(items) ? items : [];
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => item?.id != null && !deletedIds.has(String(item.id))
+  );
+}
+
+export function preferIdbWhenLarger(idbItems, chromeItems) {
+  const idb = Array.isArray(idbItems) ? idbItems : [];
+  const chrome = Array.isArray(chromeItems) ? chromeItems : [];
+  if (idb.length === 0) return chrome;
+  return idb.length >= chrome.length ? idb : chrome;
 }
 
 export async function ensureStorageReady(app) {
@@ -15,16 +38,33 @@ export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
   }
-  const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+  const result = await chrome.storage.local.get([
+    'clips',
+    'categories',
+    'searchOnlyClips',
+    CLIPS_STORAGE_KEYS.DELETED_ACTIVE,
+    CLIPS_STORAGE_KEYS.DELETED_ARCHIVED,
+    DELETED_CATEGORIES_KEY,
+  ]);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+
+  const deletedClipIds = tombstoneIdsFromList(result[CLIPS_STORAGE_KEYS.DELETED_ACTIVE]);
+  const deletedArchivedClipIds = tombstoneIdsFromList(result[CLIPS_STORAGE_KEYS.DELETED_ARCHIVED]);
+  const deletedCategoryIds = tombstoneIdsFromList(result[DELETED_CATEGORIES_KEY]);
+
+  clips = filterTombstonedEntities(clips, deletedClipIds);
+  categories = filterTombstonedEntities(categories, deletedCategoryIds);
+  searchOnlyClips = filterTombstonedEntities(searchOnlyClips, deletedArchivedClipIds);
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
       app.idb.getAllPayloads('clips'),
-      app.idb.getAllPayloads('categories')
+      app.idb.getAllPayloads('categories'),
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+    const idbClipsFiltered = filterTombstonedEntities(idbClips, deletedClipIds);
+    const idbCategoriesFiltered = filterTombstonedEntities(idbCategories, deletedCategoryIds);
+    clips = preferIdbWhenLarger(idbClipsFiltered, clips);
+    categories = preferIdbWhenLarger(idbCategoriesFiltered, categories);
   }
   return { clips, categories, searchOnlyClips };
 }
