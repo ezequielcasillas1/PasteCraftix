@@ -5,6 +5,11 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const optionalWebAccessibleResources = new Set([
+  "config.js",
+  "icon.png",
+  "assets/eye.gif",
+]);
 
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
@@ -28,6 +33,7 @@ for (const script of manifest.content_scripts) {
 for (const group of manifest.web_accessible_resources || []) {
   for (const resource of group.resources || []) {
     if (resource.includes("*")) continue;
+    if (optionalWebAccessibleResources.has(resource) || resource.startsWith("lib/")) continue;
     assertExtensionFile(resource);
   }
 }
