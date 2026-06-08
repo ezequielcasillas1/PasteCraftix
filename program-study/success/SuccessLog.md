@@ -1,7 +1,7 @@
 ### Jun 8, 2026 - Text-only AI credits + upload gallery
 **Status:** SUCCESS
 **Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, popup.html, profile/*, billing.constants.js, site.js, pricing.astro, upgrade.astro
-**Result:** Removed AI image generation; kept manual upload/gallery/profile/widget flows. Enhanced text credits: 4k weekly rollover to 20k, 35k monthly, 500k yearly. User verified.
+**Result:** Removed AI image generation; kept manual upload/gallery/profile/widget flows. Enhanced text credits: 4k weekly rollover to 20k, 35k monthly, 500k yearly. Commit 60b0921.
 
 ### Jun 5, 2026 - Clip action icons — Google search + bundle menus
 **Status:** SUCCESS
