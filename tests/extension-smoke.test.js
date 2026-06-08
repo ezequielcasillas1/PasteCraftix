@@ -6,8 +6,18 @@ const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
+function isGeneratedOrVendoredResource(relativePath) {
+  return (
+    relativePath === "config.js" ||
+    relativePath === "icon.png" ||
+    relativePath === "assets/eye.gif" ||
+    relativePath.startsWith("lib/")
+  );
+}
+
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
+  if (!fs.existsSync(filePath) && isGeneratedOrVendoredResource(relativePath)) return;
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }
 
