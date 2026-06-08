@@ -26,10 +26,11 @@ function getTierFromPriceId(priceId: string): 'free' | 'basic' | 'premium' {
     'price_1SsbBDLOdeLTrjapHTq7yxng', // Basic Yearly
   ]
   
-  // Premium/Enhanced tier price IDs ($1.99/week, $4.99/month, $49.99/year)
+  // Premium/Enhanced tier price IDs ($3.99/week, $4.99/month grandfathered, $49.99/year)
   const PREMIUM_PRICE_IDS = [
-    'price_1SaMM0LOdeLTrjapKLTHBByC', // Premium Weekly
-    'price_1SUYs3LOdeLTrjapCFFDe7td', // Premium Monthly
+    'price_1Tf3UoLOdeLTrjap4O8BGFvS', // Premium Weekly ($3.99/wk) — new checkouts
+    'price_1SaMM0LOdeLTrjapKLTHBByC', // Premium Weekly ($1.99/wk) — legacy
+    'price_1SUYs3LOdeLTrjapCFFDe7td', // Premium Monthly ($4.99/mo) — grandfathered
     'price_1SaMNJLOdeLTrjapjJ8iCoP7', // Premium Yearly
   ]
   
@@ -66,36 +67,108 @@ function getPeriodEndIso(subscription: any): string | null {
   }
 }
 
-function getImageCreditsLimitFromPriceId(priceId: string | null): number | null {
+function getTextCreditPolicyFromPriceId(priceId: string | null): { grant: number; cap: number } | null {
   if (!priceId) return null
 
-  // Enhanced tier credits (DALL·E 3 @ 1024 standard, ~50% cost coverage)
   switch (priceId) {
+    case 'price_1Tf3UoLOdeLTrjap4O8BGFvS': // Premium Weekly ($3.99/wk)
     case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
-      return 24
+      return { grant: 4_000, cap: 20_000 }
     case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
-      return 62
+      return { grant: 35_000, cap: 35_000 }
     case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
-      return 624
+      return { grant: 500_000, cap: 500_000 }
     default:
       return null
   }
 }
 
-function getTextCreditsLimitFromPriceId(priceId: string | null): number | null {
-  if (!priceId) return null
+function getImageCreditsLimitFromPriceId(priceId: string | null): number | null {
+  return null
+}
 
-  // Weighted text AI credits (model costs range 25–500 per call)
-  switch (priceId) {
-    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
-      return 4_000
-    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
-      return 10_000
-    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
-      return 100_000
-    default:
-      return null
+function getTextCreditsLimitFromPriceId(priceId: string | null): number | null {
+  return getTextCreditPolicyFromPriceId(priceId)?.grant ?? null
+}
+
+function computeRolledTextCredits(opts: {
+  existingLimit?: number | null,
+  existingUsed?: number | null,
+  previousPriceId?: string | null,
+  nextPriceId?: string | null,
+  previousPeriodEndIso?: string | null,
+  nextPeriodEndIso?: string | null,
+}): { limit: number | null, used: number | null } {
+  const {
+    existingLimit,
+    existingUsed,
+    previousPriceId,
+    nextPriceId,
+    previousPeriodEndIso,
+    nextPeriodEndIso,
+  } = opts
+
+  const policy = getTextCreditPolicyFromPriceId(nextPriceId || null)
+  if (!policy) return { limit: null, used: null }
+
+  const prevEndMs = previousPeriodEndIso ? Date.parse(previousPeriodEndIso) : NaN
+  const nextEndMs = nextPeriodEndIso ? Date.parse(nextPeriodEndIso) : NaN
+  const priceChanged = !!previousPriceId && previousPriceId !== nextPriceId
+  const periodAdvanced = priceChanged
+    || !Number.isFinite(prevEndMs)
+    || !Number.isFinite(nextEndMs)
+    || nextEndMs > prevEndMs + 10 * 60 * 1000
+
+  if (!periodAdvanced && Number.isFinite(Number(existingLimit)) && Number(existingLimit) > 0) {
+    return {
+      limit: Number(existingLimit),
+      used: Number.isFinite(Number(existingUsed)) ? Number(existingUsed) : 0,
+    }
   }
+
+  if (policy.cap > policy.grant) {
+    const remaining = Math.max(0, Number(existingLimit || 0) - Math.max(0, Number(existingUsed || 0)))
+    return { limit: Math.min(policy.cap, remaining + policy.grant), used: 0 }
+  }
+
+  return { limit: policy.grant, used: 0 }
+}
+
+async function findSubscriptionByEmailOrStripeId(opts: {
+  supabase: any,
+  email: string,
+  stripeSubscriptionId?: string | null,
+}) {
+  const { supabase, email, stripeSubscriptionId } = opts
+  const cleanEmail = String(email || '').trim()
+
+  if (stripeSubscriptionId) {
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select('id, user_id, email, stripe_price_id, stripe_current_period_end, ai_text_credits_limit, ai_text_credits_used')
+      .eq('stripe_subscription_id', stripeSubscriptionId)
+      .limit(1)
+      .maybeSingle()
+
+    if (!error && data) {
+      return { ok: true, row: data }
+    }
+  }
+
+  if (!cleanEmail) return { ok: false, error: 'Missing email' }
+
+  const { data: row, error: findErr } = await supabase
+    .from('user_subscriptions')
+    .select('id, user_id, email, stripe_price_id, stripe_current_period_end, ai_text_credits_limit, ai_text_credits_used')
+    .ilike('email', cleanEmail)
+    .limit(1)
+    .maybeSingle()
+
+  if (findErr || !row) {
+    return { ok: false, error: findErr || 'No user_subscriptions row found for email' }
+  }
+
+  return { ok: true, row }
 }
 
 async function updateSubscriptionByEmailOrStripeId(opts: {
@@ -105,43 +178,21 @@ async function updateSubscriptionByEmailOrStripeId(opts: {
   update: Record<string, any>,
 }) {
   const { supabase, email, stripeSubscriptionId, update } = opts
-  const cleanEmail = String(email || '').trim()
-  if (!cleanEmail) return { ok: false, error: 'Missing email' }
 
-  // Prefer matching by stripe_subscription_id when available.
-  if (stripeSubscriptionId) {
-    const { data, error } = await supabase
-      .from('user_subscriptions')
-      .update(update)
-      .eq('stripe_subscription_id', stripeSubscriptionId)
-      .select('id')
-
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return { ok: true }
-    }
-  }
-
-  // Fallback: match by email (pricing page checkout flow doesn't attach user_id).
-  const { data: row, error: findErr } = await supabase
-    .from('user_subscriptions')
-    .select('user_id, email')
-    .ilike('email', cleanEmail)
-    .limit(1)
-    .maybeSingle()
-
-  if (findErr || !row) {
-    return { ok: false, error: findErr || 'No user_subscriptions row found for email' }
+  const existing = await findSubscriptionByEmailOrStripeId({ supabase, email, stripeSubscriptionId })
+  if (!existing.ok || !existing.row) {
+    return existing
   }
 
   const { error: updErr } = await supabase
     .from('user_subscriptions')
     .update(update)
-    .eq('user_id', row.user_id)
+    .eq('user_id', existing.row.user_id)
 
   if (updErr) {
     return { ok: false, error: updErr }
   }
-  return { ok: true }
+  return { ok: true, row: existing.row }
 }
 
 /**
@@ -263,10 +314,24 @@ serve(async (req) => {
             const tier = await getTierFromSubscription(subscription)
             const priceId = getPriceIdFromSubscription(subscription)
             const periodEndIso = getPeriodEndIso(subscription)
+            const existing = await findSubscriptionByEmailOrStripeId({
+              supabase,
+              email: customerEmail,
+              stripeSubscriptionId: subscriptionId,
+            })
 
             const isPremium = tier === 'premium'
             const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
-            const textCreditsLimit = isPremium ? (getTextCreditsLimitFromPriceId(priceId) ?? null) : null
+            const textCreditState = isPremium
+              ? computeRolledTextCredits({
+                  existingLimit: existing.row?.ai_text_credits_limit,
+                  existingUsed: existing.row?.ai_text_credits_used,
+                  previousPriceId: existing.row?.stripe_price_id,
+                  nextPriceId: priceId,
+                  previousPeriodEndIso: existing.row?.stripe_current_period_end,
+                  nextPeriodEndIso: periodEndIso,
+                })
+              : { limit: null, used: null }
             const resetAt = isPremium ? (periodEndIso || null) : null
             
             const update = {
@@ -278,10 +343,10 @@ serve(async (req) => {
               stripe_price_id: priceId,
               stripe_current_period_end: periodEndIso,
               ai_image_credits_limit: imageCreditsLimit,
-              ai_image_credits_used: isPremium ? 0 : null,
-              ai_image_credits_reset_at: resetAt,
-              ai_text_credits_limit: textCreditsLimit,
-              ai_text_credits_used: isPremium ? 0 : null,
+              ai_image_credits_used: null,
+              ai_image_credits_reset_at: null,
+              ai_text_credits_limit: textCreditState.limit,
+              ai_text_credits_used: textCreditState.used,
               ai_text_credits_reset_at: resetAt,
               updated_at: new Date().toISOString(),
             }
@@ -322,9 +387,23 @@ serve(async (req) => {
 
             const priceId = getPriceIdFromSubscription(subscription)
             const periodEndIso = getPeriodEndIso(subscription)
+            const existing = await findSubscriptionByEmailOrStripeId({
+              supabase,
+              email,
+              stripeSubscriptionId: subscription.id,
+            })
             const isPremium = finalTier === 'premium'
             const imageCreditsLimit = isPremium ? (getImageCreditsLimitFromPriceId(priceId) ?? null) : null
-            const textCreditsLimit = isPremium ? (getTextCreditsLimitFromPriceId(priceId) ?? null) : null
+            const textCreditState = isPremium
+              ? computeRolledTextCredits({
+                  existingLimit: existing.row?.ai_text_credits_limit,
+                  existingUsed: existing.row?.ai_text_credits_used,
+                  previousPriceId: existing.row?.stripe_price_id,
+                  nextPriceId: priceId,
+                  previousPeriodEndIso: existing.row?.stripe_current_period_end,
+                  nextPeriodEndIso: periodEndIso,
+                })
+              : { limit: null, used: null }
             const resetAt = isPremium ? (periodEndIso || null) : null
             
             const update: any = {
@@ -333,16 +412,15 @@ serve(async (req) => {
               stripe_price_id: priceId,
               stripe_current_period_end: periodEndIso,
               ai_image_credits_limit: imageCreditsLimit,
-              ai_image_credits_reset_at: resetAt,
-              ai_text_credits_limit: textCreditsLimit,
+              ai_image_credits_reset_at: null,
+              ai_text_credits_limit: textCreditState.limit,
               ai_text_credits_reset_at: resetAt,
               updated_at: new Date().toISOString(),
             }
 
-            // If (re)activated into premium, reset credits at the start of a new period.
-            if (isPremium && periodEndIso) {
-              update.ai_image_credits_used = 0
-              update.ai_text_credits_used = 0
+            if (isPremium) {
+              update.ai_image_credits_used = null
+              update.ai_text_credits_used = textCreditState.used
             }
             // If canceled/downgraded, clear credits.
             if (!isPremium) {

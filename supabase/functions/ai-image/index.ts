@@ -68,6 +68,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  return new Response(
+    JSON.stringify({ error: 'AI image generation has been removed. Upload your own image instead.' }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 410 }
+  )
+
   try {
     // =====================================================
     // AUTH + SUBSCRIPTION LOOKUP (credits are enforced server-side)

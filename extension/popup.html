@@ -638,6 +638,32 @@
             font-size: 11.5px;
             color: #a0aec0;
         }
+        .plan-interval-toggle {
+            display: flex;
+            gap: 3px;
+            margin: 8px 0 4px;
+            background: #edf2f7;
+            border-radius: 8px;
+            padding: 3px;
+        }
+        .interval-btn {
+            flex: 1;
+            padding: 5px 0;
+            font-size: 11px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #718096;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .interval-btn.active {
+            background: #fff;
+            color: #667eea;
+            box-shadow: 0 1px 4px rgba(0,0,0,.12);
+        }
+        .interval-btn:hover:not(.active) { background: rgba(255,255,255,.5); color: #4a5568; }
 
         /* ── Upgrade button in Profile Account section ── */
         .btn-upgrade-sub {
@@ -10426,21 +10452,6 @@
                 <!-- AI Lab Header -->
                 <div class="ai-lab-header">
                     <div class="ai-lab-title">
-                        <div
-                            class="ai-lab-credits"
-                            id="aiCreditsPill"
-                            role="status"
-                            aria-live="polite"
-                        >
-                            Image credits: —
-                            <span class="credits-tooltip">
-                                <strong>Image Credits</strong>
-                                <span class="tip-divider"></span>
-                                Generate cartoon avatars, animal characters, and custom AI art with DALL-E.
-                                <span class="tip-divider"></span>
-                                Great for profile pics &amp; visual study aids.
-                            </span>
-                        </div>
                         <div class="ai-lab-title-main" aria-label="AI Lab">
                             <span class="ai-lab-icon"><i data-lucide="bot"></i></span>
                             <h2>AI Lab</h2>
@@ -10478,11 +10489,11 @@
                         </span>
                     </div>
                     <div class="ai-lab-credit-pack-banner" id="aiLabCreditPackBanner" hidden>
-                        <strong>Want to buy more credits?</strong>
+                        <strong>Want to buy more text credits?</strong>
                         <div class="ai-lab-credit-pack-buttons" id="aiLabCreditPackButtons"></div>
                         <div class="ai-lab-credit-custom">
-                            <label for="aiLabCreditCustomAmount">Custom credits</label>
-                            <input type="number" class="ai-lab-credit-custom-input" id="aiLabCreditCustomAmount" data-field="credit-custom-amount" min="25" step="1" placeholder="25" />
+                            <label for="aiLabCreditCustomAmount">Custom text credits</label>
+                            <input type="number" class="ai-lab-credit-custom-input" id="aiLabCreditCustomAmount" data-field="credit-custom-amount" min="100" step="1" placeholder="100" />
                             <span class="ai-lab-credit-custom-preview" id="aiLabCreditCustomPreview"></span>
                             <button type="button" class="ai-lab-credit-custom-buy" id="aiLabCreditCustomBuy" data-action="buy-custom-credit-pack" disabled>Buy</button>
                         </div>
@@ -10491,7 +10502,7 @@
 
                 <!-- AI Lab Internal Tabs -->
                 <nav class="ai-lab-tabs">
-                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji"><i data-lucide="palette"></i></span><span class="tab-text"> Generator</span></button>
+                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji"><i data-lucide="upload"></i></span><span class="tab-text"> Uploads</span></button>
                     <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji"><i data-lucide="image"></i></span><span class="tab-text"> Gallery</span></button>
                     <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
                 </nav>
@@ -10519,17 +10530,21 @@
                 <!-- Generator Section -->
                 <div class="ai-lab-section active" id="aiGeneratorSection">
                     <div class="ai-generation-section">
-                        <h3 class="ai-section-title"><i data-lucide="palette"></i> Generate New Image</h3>
+                        <h3 class="ai-section-title"><i data-lucide="upload"></i> Add Your Own Images</h3>
                         <div class="ai-gen-controls">
-                            <button class="ai-gen-btn" id="aiGenerateFromProfileBtn">
-                                <span class="ai-gen-icon"><i data-lucide="sparkles"></i></span>
-                                <span>Generate from Profile</span>
+                            <button class="ai-gen-btn" id="openProfileUploadBtn">
+                                <span class="ai-gen-icon"><i data-lucide="image-plus"></i></span>
+                                <span>Upload in Profile</span>
                             </button>
-                            <button class="ai-gen-btn" id="aiGenerateRandomBtn">
-                                <span class="ai-gen-icon"><i data-lucide="dices"></i></span>
-                                <span>Random Avatar</span>
+                            <button class="ai-gen-btn" id="openImageGalleryBtn">
+                                <span class="ai-gen-icon"><i data-lucide="images"></i></span>
+                                <span>Open Gallery</span>
                             </button>
                         </div>
+                        <p class="workflow-note" style="margin-top: 12px;">
+                            <span class="note-icon">💡</span>
+                            Upload your own images, save them to the gallery, and reuse them for your profile image or widget icon.
+                        </p>
                         
                         <!-- Generation Timer (shown after generation) -->
                         <div id="aiGenerationTimer" class="ai-generation-timer" style="display: none;">
@@ -10548,7 +10563,7 @@
                 <div class="ai-lab-section" id="aiGallerySection">
                     <div class="ai-gallery-section">
                         <div class="ai-gallery-header">
-                            <h3 class="ai-section-title"><i data-lucide="image"></i> Your Gallery</h3>
+                            <h3 class="ai-section-title"><i data-lucide="image"></i> Your Image Gallery</h3>
                             <span class="ai-gallery-count" id="aiGalleryCount">0 images</span>
                         </div>
                         
@@ -10556,7 +10571,7 @@
                             <div class="ai-gallery-empty">
                                 <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
                                 <h4>No images yet</h4>
-                                <p>Generate your first AI image to start your gallery</p>
+                                <p>Upload your first image in Profile to start your gallery</p>
                             </div>
                         </div>
                         
@@ -11815,22 +11830,22 @@ Multiple clips are separated by:
                     <div class="help-section">
                         <h4>📸 Profile Image Creation</h4>
                         <div class="help-item">
-                            <strong>Purpose:</strong> Create a personalized profile with a custom avatar generated by AI or upload your own photo.
+                            <strong>Purpose:</strong> Create a personalized profile with your own uploaded photo and keep favorite images ready in the gallery.
                         </div>
                         <div class="help-item">
                             <strong>How it works:</strong>
                             <ul>
                                 <li><strong>Step 1 - Upload Photo:</strong> Upload your own photo to use as your profile picture</li>
-                                <li><strong>Step 2 - AI Remix:</strong> Click "Generate AI Avatar" to transform your photo into a creative cartoon-style animal avatar using AI</li>
-                                <li><strong>AI Vision Analysis:</strong> The AI analyzes your uploaded photo's colors, mood, and features to create a matching avatar</li>
-                                <li><strong>Gallery Storage:</strong> All generated avatars are saved in the AI Lab Gallery for later use</li>
+                                <li><strong>Step 2 - Save to Gallery:</strong> Uploaded photos are saved so you can reuse them later</li>
+                                <li><strong>Profile Uploads:</strong> Upload your own profile photo and keep it saved for later use</li>
+                                <li><strong>Gallery Storage:</strong> Uploaded profile images are saved in the AI Lab Gallery for later use</li>
                             </ul>
                         </div>
                         <div class="help-item">
                             <strong>Where to find it:</strong> Click your profile icon in the top navigation, then access the "📸 Profile Picture" section.
                         </div>
                         <div class="help-item">
-                            <strong>Pro Tip:</strong> You can generate multiple AI avatars with different styles and save your favorites in the gallery!
+                            <strong>Pro Tip:</strong> Save a few uploaded images in the gallery so you can switch between profile and widget icons anytime.
                         </div>
                     </div>
                     
@@ -11842,8 +11857,8 @@ Multiple clips are separated by:
                         <div class="help-item">
                             <strong>Features:</strong>
                             <ul>
-                                <li><strong>🎨 Generator:</strong> Create AI-generated images from text descriptions. Describe what you want to see, and the AI creates it instantly</li>
-                                <li><strong>🖼️ Gallery:</strong> View and manage all your AI-generated images and avatars. Download, delete, or reuse them anytime</li>
+                                <li><strong>📤 Uploads:</strong> Open Profile to upload your own images and keep them ready for profile and widget use</li>
+                                <li><strong>🖼️ Gallery:</strong> View and manage all uploaded profile images. Delete or reuse them anytime</li>
                                 <li><strong>📝 Summary:</strong> Paste long text and generate concise summaries. Ask questions about the content and get AI-powered answers</li>
                                 <li><strong>📊 Breakdown:</strong> Analyze and break down complex content into simpler parts. Choose breakdown levels (Simple, Moderate, Deep) to understand difficult concepts</li>
                             </ul>
@@ -11854,10 +11869,9 @@ Multiple clips are separated by:
                         <div class="help-item">
                             <strong>Use cases:</strong>
                             <ul>
-                                <li>Generate custom images for presentations or projects</li>
                                 <li>Summarize long articles or documents quickly</li>
                                 <li>Break down technical content into easy-to-understand explanations</li>
-                                <li>Create unique avatars and visual content</li>
+                                <li>Keep favorite uploaded images ready for your profile and widget icon</li>
                             </ul>
                         </div>
                     </div>
@@ -12030,7 +12044,7 @@ Multiple clips are separated by:
                             <div class="workflow-instruction">
                                 <span class="workflow-step">Step 1: Upload Photo</span>
                                 <span class="workflow-arrow">→</span>
-                                <span class="workflow-step">Step 2: AI Remix</span>
+                                <span class="workflow-step">Step 2: Save to Gallery</span>
                             </div>
                             <div class="profile-image-container">
                                 <img id="profileImage" src="" alt="Profile" class="profile-image" style="display: none;">
@@ -12055,20 +12069,9 @@ Multiple clips are separated by:
                                 <input type="file" id="profileImageUpload" accept="image/*" style="display: none;">
                                 <button class="btn-secondary" id="uploadImageBtn">📸 Upload Photo</button>
                             </div>
-                            <div class="profile-image-generation">
-                                <p class="generation-label">Choose your avatar style:</p>
-                                <div class="avatar-buttons-container">
-                                    <button class="btn-primary btn-disabled avatar-gen-btn" id="generateAnimalBtn" disabled title="Generate AI name first">
-                                        🐾 Animal Avatar
-                                    </button>
-                                    <button class="btn-primary btn-disabled avatar-gen-btn" id="generateCartoonBtn" disabled title="Upload a photo first">
-                                        🎨 My Cartoon
-                                    </button>
-                                </div>
-                            </div>
                             <p class="workflow-note">
                                 <span class="note-icon">💡</span>
-                                Upload your photo first, then AI will remix it into a funky cartoon avatar!
+                                Uploaded images are saved to your gallery so you can reuse them for your profile image and widget icon.
                             </p>
                         </div>
                     </div>
@@ -12130,7 +12133,12 @@ Multiple clips are separated by:
                 <div class="upgrade-plan-card popular-plan">
                     <span class="plan-badge">Most Popular</span>
                     <h4>Basic</h4>
-                    <div class="plan-price-tag">$1.99<span>/month</span></div>
+                    <div class="plan-interval-toggle">
+                        <button class="interval-btn" data-plan="basic" data-price-id="price_1SsbbHLOdeLTrjapgaZzEbBt" data-price="$0.99" data-period="/week">Weekly</button>
+                        <button class="interval-btn active" data-plan="basic" data-price-id="price_1SsbTZLOdeLTrjap9UnXhu0M" data-price="$1.99" data-period="/month">Monthly</button>
+                        <button class="interval-btn" data-plan="basic" data-price-id="price_1SsbBDLOdeLTrjapHTq7yxng" data-price="$9.99" data-period="/year">Yearly</button>
+                    </div>
+                    <div class="plan-price-tag" id="basicPriceDisplay">$1.99<span>/month</span></div>
                     <ul>
                         <li><span class="uc">✓</span> Everything in Freemium</li>
                         <li><span class="uc">✓</span> Cloud sync across devices</li>
@@ -12144,11 +12152,18 @@ Multiple clips are separated by:
                 <!-- Enhanced Plan -->
                 <div class="upgrade-plan-card">
                     <h4>Enhanced</h4>
-                    <div class="plan-price-tag">$4.99<span>/month</span></div>
+                    <div class="plan-interval-toggle">
+                        <button class="interval-btn active" data-plan="enhanced" data-price-id="price_1Tf3UoLOdeLTrjap4O8BGFvS" data-price="$3.99" data-period="/week">Weekly</button>
+                        <button class="interval-btn" data-plan="enhanced" data-price-id="price_1SUYs3LOdeLTrjapCFFDe7td" data-price="$4.99" data-period="/month">Monthly</button>
+                        <button class="interval-btn" data-plan="enhanced" data-price-id="price_1SaMNJLOdeLTrjapjJ8iCoP7" data-price="$49.99" data-period="/year">Yearly</button>
+                    </div>
+                    <div class="plan-price-tag" id="enhancedPriceDisplay">$3.99<span>/week</span></div>
                     <ul>
                         <li><span class="uc">✓</span> Everything in Basic</li>
                         <li><span class="uc">✓</span> AI Breakdown & Summaries</li>
-                        <li><span class="uc">✓</span> AI Image Generation</li>
+                        <li><span class="uc">✓</span> 4,000 weekly text credits (rolls up to 20,000)</li>
+                        <li><span class="uc">✓</span> 35,000 monthly / 500,000 yearly text credits</li>
+                        <li><span class="uc">✓</span> Upload and save your own profile images</li>
                         <li><span class="uc">✓</span> Enhanced AI accessibility</li>
                     </ul>
                     <button class="upgrade-plan-btn btn-enhanced-up" id="upgradeBtnEnhanced">

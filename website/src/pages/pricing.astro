@@ -9,14 +9,14 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 
 <BaseLayout
   title="PasteCraft Pricing"
-  description="Compare Freemium, Basic, and Enhanced PasteCraft plans with clearer visuals and flexible billing intervals."
+  description="Compare Freemium, Basic, and Enhanced PasteCraft plans with text-only AI credits and flexible billing intervals."
   currentPath="/pricing"
 >
   <div class="page-shell">
     <SectionShell
       eyebrow="Pricing"
       title="Simple plans, clearer tradeoffs"
-      copy="Choose local-only simplicity, synced storage, or the full enhanced AI workflow. Subscription starts from inside the extension after install."
+      copy="Choose local-only simplicity, synced storage, or the full enhanced text AI workflow. Subscription starts from inside the extension after install."
     >
       <div class="card-grid three">
         <PricingCard
@@ -99,11 +99,11 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
         </article>
         <article class="surface-card panel stack">
           <h3>What does Basic unlock?</h3>
-          <p class="section-copy">Basic adds cloud sync and storage-backed continuity without enabling premium AI tools.</p>
+          <p class="section-copy">Basic adds cloud sync and storage-backed continuity without enabling premium text AI tools.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>What does Enhanced unlock?</h3>
-          <p class="section-copy">Enhanced includes the AI tools on top of the full synced experience.</p>
+          <p class="section-copy">Enhanced includes text-based AI tools and higher text-credit allowances on top of the full synced experience.</p>
         </article>
       </div>
     </SectionShell>
@@ -117,7 +117,7 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
         yearly: { amount: 9.99, suffix: '/year' },
       },
       enhanced: {
-        weekly: { amount: 1.99, suffix: '/week' },
+        weekly: { amount: 3.99, suffix: '/week' },
         monthly: { amount: 4.99, suffix: '/month' },
         yearly: { amount: 49.99, suffix: '/year' },
       },
@@ -125,7 +125,7 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 
     const selectedIntervalByPlan = {
       basic: 'monthly',
-      enhanced: 'monthly',
+      enhanced: 'weekly',
     };
 
     function formatUsd(amount) {

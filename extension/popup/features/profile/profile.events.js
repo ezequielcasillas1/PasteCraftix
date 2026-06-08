@@ -29,25 +29,6 @@ function _bindUploadHandlers(app) {
   }
 }
 
-function _bindGeneratorButtons(app) {
-  const newGenerateAnimalBtn = _cloneReplace('generateAnimalBtn');
-  const newGenerateCartoonBtn = _cloneReplace('generateCartoonBtn');
-
-  if (newGenerateAnimalBtn) {
-    newGenerateAnimalBtn.addEventListener('click', async () => {
-      console.log('🦁 Generate Animal Avatar button CLICKED!');
-      await app.generateAnimalAvatar();
-    });
-  }
-
-  if (newGenerateCartoonBtn) {
-    newGenerateCartoonBtn.addEventListener('click', async () => {
-      console.log('🎨 Generate My Cartoon button CLICKED!');
-      await app.generateMyCartoon();
-    });
-  }
-}
-
 function _bindNameHandlers(app) {
   const newSaveUserNameBtn = _cloneReplace('saveUserNameBtn');
   const newGenerateNameBtn = _cloneReplace('generateNameBtn');
@@ -156,7 +137,6 @@ export function setupProfileModalEvents(app) {
   app._profileModalEventsBound = true;
 
   _bindUploadHandlers(app);
-  _bindGeneratorButtons(app);
   _bindNameHandlers(app);
   _bindCollapseHandlers(app);
   _bindModalCloseHandlers(app);
@@ -212,7 +192,7 @@ async function _processUploadedImage(app, imageUrl) {
   await _saveImageToGallery(app, finalUrl);
   app.updateAIGenerateButtonState();
 
-  app.showToast('✅ Profile image uploaded! Now you can generate AI avatar!', 'success');
+  app.showToast('✅ Profile image uploaded and saved to your gallery!', 'success');
 }
 
 // ── Public: handleProfileImageUpload ────────────────────────────────────────

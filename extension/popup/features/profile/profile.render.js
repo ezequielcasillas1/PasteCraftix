@@ -176,6 +176,7 @@ export function hideProfileModal() {
 export function updateAIGenerateButtonState(app) {
   const generateAnimalBtn = sel.getGenerateAnimalBtn();
   const generateCartoonBtn = sel.getGenerateCartoonBtn();
+  if (!generateAnimalBtn && !generateCartoonBtn) return;
 
   console.log('🔄 Updating button states...');
   console.log('AI Generated Name:', app.userProfile?.aiGeneratedName);

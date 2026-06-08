@@ -1,3 +1,18 @@
+### Jun 8, 2026 - Text-only AI credits + upload gallery
+**Status:** SUCCESS
+**Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, extension/popup.html, profile/*, billing.constants.js, website/src/data/site.js
+**Result:** Disabled AI image generation end-to-end; preserved upload/gallery/profile/widget icon flows. New Enhanced text credits: 4k/week (20k cap), 35k/month, 500k/year.
+
+### Jun 5, 2026 - Upgrade modal billing interval toggles
+**Status:** PENDING USER VERIFY
+**Files:** billing.constants.js, billing-upgrade.events.js, popup.html
+**Result:** Upgrade modal now shows Weekly/Monthly/Yearly toggle for Basic ($0.99/$1.99/$9.99) and Weekly-only for Enhanced ($3.99). Active interval drives price ID sent to _createCheckout.
+
+### Jun 5, 2026 - Enhanced $3.99 weekly Stripe price
+**Status:** PENDING USER VERIFY
+**Files:** billing.constants.js, billing-upgrade.events.js, stripe-webhook/index.ts, popup.html, site.js, pricing.html, upgrade.html, pricing.astro, upgrade.astro
+**Result:** New checkouts use price_1Tf3UoLOdeLTrjap4O8BGFvS ($3.99/wk, 24 img / 4000 text credits). Grandfathered monthly price_1SUYs3LOdeLTrjapCFFDe7td kept in webhook. Display updated $4.99/mo → $3.99/wk.
+
 ### Jun 4, 2026 - Snyk OAuth CI + refresh script
 **Status:** SUCCESS
 **Files:** security-scans.yml, scripts/refresh-snyk-oauth-secret.ps1, .cursor/rules/snyk-oauth.mdc
@@ -18,8 +33,13 @@
 **Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.viewer.js, modals-shared.events.js, popup.js, popup.html, google-logo.svg
 **Result:** Google logo button on clip surfaces opens mini-portal menu with "Do a vague search" and "Search for meaning"; each option opens the correct Google search URL. User verified.
 
+### Jun 5, 2026 - Clip action icons verification (Google + bundles)
+**Status:** SUCCESS
+**Files:** clips.render.js, clips.action-menu.js, clips.events.js, popup.html, google-logo.svg
+**Result:** User reloaded extension; Google search button and org/AI bundle menus visible on clip rows. Stale unpacked build was the cause, not missing code.
+
 ### Jun 4, 2026 - Clip action icon bundles
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.controller.js, popup.html
 **Result:** Clips/Search/Categories rows use two bundle buttons (org + AI). Mini-portal menu opens on click with sub-actions; AI Craft opens Craft Clips modal with clip pre-selected.
 

@@ -60,7 +60,7 @@ export function readPurchasedBalance(sub: { ai_purchased_credits_balance?: numbe
     : 0;
 }
 
-/** Active Basic/Premium subscription or time-boxed / unlimited coupon AI access. */
+/** Active Premium subscription or time-boxed / unlimited coupon AI access. */
 export function hasSubscriptionAiAllowance(sub: {
   subscription_tier?: string;
   subscription_status?: string;
@@ -74,7 +74,7 @@ export function hasSubscriptionAiAllowance(sub: {
     sub.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   );
-  const isPaidTier = (tier === 'premium' || tier === 'basic')
+  const isPaidTier = tier === 'premium'
     && (status === 'active' || status === 'past_due');
   return isPaidTier || hasCouponAiAccess;
 }

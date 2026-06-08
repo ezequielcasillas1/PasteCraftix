@@ -1,5 +1,4 @@
 /** Vertical slice: ai-functions.js */
-import { extractAnimalSuffix } from '../shared/animal-names.js';
 const AI_TEXT_INPUT_MAX_CHARS = 12000;
 export const aiFunctionsMixin = {
 _buildCategorizeClipPayload(clips, textLimit = 200) {
@@ -451,108 +450,10 @@ async generateSummary(text, question) {
 },
 
 async generateProfileImage(description, userImageBase64 = null, aiGeneratedName = null) {
-  try {
-    let requestBody = {};
-
-    
-    const animalType = aiGeneratedName ? extractAnimalSuffix(aiGeneratedName) : null;
-
-    // Check if this is an animal avatar request (explicit 'animal' flag OR just aiGeneratedName with animal)
-    if ((userImageBase64 === 'animal' && aiGeneratedName) || (!userImageBase64 && animalType)) {
-      console.log(`🐾 Creating ${animalType} avatar from AI name...`);
-      requestBody = { type: 'animal', animalType };
-    }
-    // If user uploaded a photo, create cartoon from it
-    else if (userImageBase64 && userImageBase64 !== 'animal') {
-      console.log('📸 Creating cartoon from uploaded photo...');
-      requestBody = { type: 'cartoon', imageBase64: userImageBase64 };
-    }
-    // Fallback to generic prompt
-    else if (description) {
-      console.log('🎨 Creating image from description...');
-      requestBody = { prompt: `Create a single premium 3D stylized cartoon avatar portrait. Art style: polished animated movie still with soft studio lighting, smooth textures, vibrant synthwave neons. NOT flat vector art, NOT thick black outlines. Show only ONE person, centered, bust portrait. Theme: ${description}` };
-    } else {
-      throw new Error('No valid input provided for image generation. Please provide a description, photo, or AI name with animal.');
-    }
-
-    requestBody = await this._withAiWorkflow(requestBody);
-
-    const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
-    const candidates = [`${baseUrl}/ai-image`, `${baseUrl}/avatar-generator`];
-
-    try {
-      const sessionResult = await this.client?.auth?.getSession?.();
-      const userId = sessionResult?.data?.session?.user?.id
-        ? String(sessionResult.data.session.user.id)
-        : '';
-      if (userId) {
-        const sub = await this.getUserSubscription(userId);
-        if (!sub) {
-          const email = sessionResult?.data?.session?.user?.email
-            ? String(sessionResult.data.session.user.email)
-            : '';
-          await this.createUserSubscription(userId, email, 'free');
-        }
-      }
-    } catch (_) {}
-
-    let response = null;
-    for (const url of candidates) {
-      // Use the authenticated user's JWT if available (server-side credit enforcement depends on it).
-      let accessToken = '';
-      try {
-        const s = await this.client?.auth?.getSession?.();
-        accessToken = s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
-      } catch (_) {}
-
-      response = await this._fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': `${PASTECRAFT_CONFIG.supabase.anonKey}`,
-          'Authorization': accessToken
-            ? `Bearer ${accessToken}`
-            : `Bearer ${PASTECRAFT_CONFIG.supabase.anonKey}`
-        },
-        body: JSON.stringify(requestBody)
-      }, 90000, 'Image generation timed out');
-
-      // Back-compat: some deployments use a different function name
-      if (response.status !== 404) break;
-    }
-
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'Image generation failed');
-    }
-
-    const data = await response.json();
-    const temporaryImageUrl = data.imageUrl;
-    console.log('✅ Image generated! Converting to permanent URL...');
-
-    // Convert temporary URL to permanent Supabase Storage URL
-    const userId = await this.getSyncUserId();
-    const permanentImageUrl = await this.downloadAndUploadImage(temporaryImageUrl, userId);
-    
-    return {
-      imageUrl: permanentImageUrl,
-      creditsRemaining: typeof data.creditsRemaining === 'number' ? data.creditsRemaining : null,
-      creditsResetAt: data.creditsResetAt || null,
-      creditsLimit: typeof data.creditsLimit === 'number' ? data.creditsLimit : null,
-    };
-
-  } catch (error) {
-    const msg = String(error?.message || error || '');
-    if (msg.includes('does not exist') || msg.includes('no such model') || msg.includes('model')) {
-      const wrapped = new Error('Image generation model unavailable. Please try again later.');
-      wrapped.cause = error;
-      console.error('Failed to generate profile image:', wrapped);
-      throw wrapped;
-    }
-    console.error('Failed to generate profile image:', error);
-    throw error;
-  }
+  void description;
+  void userImageBase64;
+  void aiGeneratedName;
+  throw new Error('AI image generation has been removed. Upload your own image instead.');
 }
 
 // =====================================================

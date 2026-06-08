@@ -9,14 +9,14 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
 
 <BaseLayout
   title="Upgrade to Premium | PasteCraft"
-  description="Unlock synced storage and AI-powered PasteCraft features with a cleaner, more readable upgrade page."
+  description="Unlock synced storage and text-powered PasteCraft features with a cleaner, more readable upgrade page."
   currentPath="/upgrade"
 >
   <div class="page-shell">
     <SectionShell
       eyebrow="Premium access"
       title="You found a feature worth upgrading for."
-      copy="PasteCraft keeps the core workflow light, then layers premium capabilities on top when you want more sync, more power, or more AI assistance."
+      copy="PasteCraft keeps the core workflow light, then layers premium capabilities on top when you want more sync, more power, or more text AI assistance."
     >
       <div class="stack">
         <div class="feature-attempted surface-card panel" id="featureAttempted" style="display:none;">
@@ -37,8 +37,8 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
             <p class="section-copy">Condense clipboard content quickly when you need the key points, not the full wall of text.</p>
           </article>
           <article class="surface-card panel stack">
-            <h3>Image generation</h3>
-            <p class="section-copy">Unlock image-based premium tools without changing the core clipboard workflow.</p>
+            <h3>Profile image uploads</h3>
+            <p class="section-copy">Keep your own uploaded images in the gallery for profile and widget use without adding AI image generation cost.</p>
           </article>
         </div>
       </div>
@@ -84,7 +84,7 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
             <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
             <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
           </div>
-          <span class="muted">Unlock AI and sync together.</span>
+          <span class="muted">Unlock text AI and sync together.</span>
         </PricingCard>
       </div>
 
@@ -99,11 +99,11 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
     const featureData = {
       breakdown: { icon: '🧠', name: 'AI Breakdown' },
       summary: { icon: '✨', name: 'AI Summary' },
-      image: { icon: '🎨', name: 'AI Image Generation' },
-      avatar: { icon: '🐾', name: 'AI Animal Avatar' },
-      cartoon: { icon: '🎭', name: 'AI Cartoon Generator' },
+      image: { icon: '🖼️', name: 'Profile Image Gallery' },
+      avatar: { icon: '🖼️', name: 'Profile Image Gallery' },
+      cartoon: { icon: '🖼️', name: 'Profile Image Uploads' },
       name: { icon: '📝', name: 'AI Name Generator' },
-      gallery: { icon: '🖼️', name: 'AI Gallery' },
+      gallery: { icon: '🖼️', name: 'Image Gallery' },
     };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -128,7 +128,7 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
         yearly: { amount: 9.99, suffix: '/year' },
       },
       enhanced: {
-        weekly: { amount: 1.99, suffix: '/week' },
+        weekly: { amount: 3.99, suffix: '/week' },
         monthly: { amount: 4.99, suffix: '/month' },
         yearly: { amount: 49.99, suffix: '/year' },
       },
@@ -136,7 +136,7 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
 
     const selectedIntervalByPlan = {
       basic: 'monthly',
-      enhanced: 'monthly',
+      enhanced: 'weekly',
     };
 
     function formatUsd(amount) {

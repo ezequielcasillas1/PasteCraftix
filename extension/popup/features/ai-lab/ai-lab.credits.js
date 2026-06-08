@@ -75,41 +75,12 @@ export async function saveAiWorkflowFromUi(silent = true) {
 }
 
 export function _computeAiImageCreditsView(subscription) {
-  if (!subscription) {
-    return { state: 'unknown', text: 'Image credits: —', css: 'is-muted', title: 'Sign in to view image credits' };
-  }
-  if (!_hasAiCreditsEntitlement(subscription)) {
-    return { state: 'no_access', text: 'Image credits: 0', css: 'is-empty', title: 'Upgrade to access AI image generation' };
-  }
-  if (_hasUnlimitedAi(subscription)) {
-    return { state: 'unlimited', text: 'Image credits: ∞', css: '', title: 'Unlimited AI image credits' };
-  }
-
-  const resetAt = _getResetAt(subscription, 'ai_image_credits_reset_at');
-  const limit = _finiteNumberOrNaN(subscription.ai_image_credits_limit);
-  const used = _finiteNumberOr(subscription.ai_image_credits_used, 0);
-  const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
-  if (!Number.isFinite(limit) || limit <= 0) {
-    if (purchasedBalance > 0) {
-      return {
-        state: 'ok',
-        text: `Image credits: ${purchasedBalance} purchased`,
-        css: '',
-        title: `${purchasedBalance} purchased credits available for images`,
-      };
-    }
-    const suffix = _resetSuffix(this, resetAt);
-    return { state: 'pending', text: `Image credits: —${suffix}`, css: 'is-muted', title: 'Credits pending billing sync' };
-  }
-
-  return _buildCreditsView(this, {
-    label: 'Image credits',
-    limit,
-    used,
-    resetAt,
-    titlePrefix: 'AI image credits remaining',
-    purchasedBalance,
-  });
+  return {
+    state: 'hidden',
+    text: '',
+    css: 'is-muted',
+    title: 'AI image generation has been removed',
+  };
 }
 
 export function _computeAiTextCreditsView(subscription) {
@@ -133,7 +104,7 @@ export function _computeAiTextCreditsView(subscription) {
         state: 'ok',
         text: `AI text credits: ${purchasedBalance} purchased`,
         css: '',
-        title: `${purchasedBalance} purchased credits available for AI text`,
+        title: `${purchasedBalance} purchased text credits available for AI text`,
       };
     }
     const suffix = _resetSuffix(this, resetAt);
@@ -177,7 +148,7 @@ export function _buildCreditCostHtml() {
 
 export function updateAiCreditsPills(source = '') {
   const { imagePill, textPill, textCosts } = getCreditsElements();
-  _updatePill(imagePill, this._computeAiImageCreditsView(this.userSubscription));
+  if (imagePill) imagePill.hidden = true;
   _updatePill(textPill, this._computeAiTextCreditsView(this.userSubscription));
 
   if (textCosts) {
@@ -257,7 +228,7 @@ function _hasAiCreditsEntitlement(subscription) {
     subscription.has_unlimited_ai === true ||
     (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now())
   );
-  const isPaidTier = (tier === 'premium' || tier === 'basic')
+  const isPaidTier = tier === 'premium'
     && (status === 'active' || status === 'past_due');
   const purchasedBalance = Number.isFinite(Number(subscription.ai_purchased_credits_balance))
     ? Math.max(0, Number(subscription.ai_purchased_credits_balance))

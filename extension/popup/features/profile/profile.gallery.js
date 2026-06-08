@@ -26,7 +26,7 @@ export function renderAIGallery(app, gallery) {
       <div class="ai-gallery-empty">
         <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
         <h4>No images yet</h4>
-        <p>Generate your first AI image to start your gallery</p>
+        <p>Upload your first image to start your gallery</p>
       </div>
     `;
     if (paginationContainer) paginationContainer.style.display = 'none';
@@ -46,7 +46,7 @@ export function renderAIGallery(app, gallery) {
       : '';
     return `
     <div class="ai-gallery-item ${isCurrentProfile ? 'is-profile' : ''}" data-index="${actualIndex}">
-      <img src="${safeImageUrl}" alt="AI Generated ${actualIndex + 1}" />
+      <img src="${safeImageUrl}" alt="Saved image ${actualIndex + 1}" />
       ${isCurrentProfile ? '<div class="ai-profile-badge">✨ Profile</div>' : ''}
       <div class="ai-gallery-item-actions">
         <button class="ai-gallery-action-btn set-profile" data-action="set-profile" data-index="${actualIndex}" title="Set as Profile Image">

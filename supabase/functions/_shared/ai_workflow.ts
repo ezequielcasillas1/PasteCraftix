@@ -383,22 +383,42 @@ function parseBearerToken(authHeader: string | null): string {
   return raw.slice(7).trim();
 }
 
-function computeTextCreditsLimitFallback(resetAtIso: string | null): number {
+type TextAllowancePolicy = {
+  grant: number;
+  cap: number;
+};
+
+function resolveTextAllowancePolicy(resetAtIso: string | null): TextAllowancePolicy {
   try {
-    if (!resetAtIso) return 10_000;
+    if (!resetAtIso) return { grant: 35_000, cap: 35_000 };
     const resetMs = Date.parse(resetAtIso);
-    if (!Number.isFinite(resetMs)) return 10_000;
+    if (!Number.isFinite(resetMs)) return { grant: 35_000, cap: 35_000 };
     const diffDays = (resetMs - Date.now()) / 86400000;
-    if (diffDays <= 10) return 4_000;
-    if (diffDays <= 40) return 10_000;
-    return 100_000;
+    if (diffDays <= 10) return { grant: 4_000, cap: 20_000 };
+    if (diffDays <= 40) return { grant: 35_000, cap: 35_000 };
+    return { grant: 500_000, cap: 500_000 };
   } catch (_) {
-    return 10_000;
+    return { grant: 35_000, cap: 35_000 };
   }
 }
 
+function computeTextCreditsLimitFallback(resetAtIso: string | null): number {
+  return resolveTextAllowancePolicy(resetAtIso).grant;
+}
+
+function accrueWeeklyRolloverLimit(limit: number, used: number, grant: number, cap: number): number {
+  const remaining = Math.max(0, Number(limit) - Math.max(0, Number(used)));
+  return Math.min(cap, remaining + grant);
+}
+
 // Legacy flat-credit limits → weighted-credit limits (one-time migration)
-const LEGACY_LIMIT_MAP = new Map<number, number>([[100, 4_000], [250, 10_000], [2500, 100_000]]);
+const LEGACY_LIMIT_MAP = new Map<number, number>([
+  [100, 4_000],
+  [250, 35_000],
+  [2500, 500_000],
+  [10_000, 35_000],
+  [100_000, 500_000],
+]);
 
 export type TextCreditGate = {
   user: any;
@@ -483,7 +503,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   }
 
   const unlimited = sub.has_unlimited_ai === true;
-  const isPaidTier = (tier === 'premium' || tier === 'basic')
+  const isPaidTier = tier === 'premium'
     && (status === 'active' || status === 'past_due');
 
   const stripePeriodEndIso = sub.stripe_current_period_end
@@ -499,6 +519,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
 
   let creditsUsed = Number.isFinite(Number(sub.ai_text_credits_used)) ? Number(sub.ai_text_credits_used) : 0;
   let creditsLimit = Number.isFinite(Number(sub.ai_text_credits_limit)) ? Number(sub.ai_text_credits_limit) : NaN;
+  const allowancePolicy = unlimited ? null : resolveTextAllowancePolicy(resetAtIso);
   if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
     creditsLimit = unlimited
       ? Number.POSITIVE_INFINITY
@@ -514,6 +535,9 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     const shouldResetForStripeShift = Number.isFinite(stripeMs) && Number.isFinite(resetMs) && (stripeMs > resetMs + 10 * 60 * 1000);
 
     if (shouldResetForTime || shouldResetForStripeShift) {
+      creditsLimit = allowancePolicy && allowancePolicy.cap > allowancePolicy.grant
+        ? accrueWeeklyRolloverLimit(creditsLimit, creditsUsed, allowancePolicy.grant, allowancePolicy.cap)
+        : (allowancePolicy?.grant ?? creditsLimit);
       creditsUsed = 0;
       resetAtIso = (Number.isFinite(stripeMs) && stripeMs > nowMs)
         ? new Date(stripeMs).toISOString()

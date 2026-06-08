@@ -1,6 +1,15 @@
 export const BILLING_PRICE_IDS = Object.freeze({
-  BASIC: 'price_1SsbTZLOdeLTrjap9UnXhu0M',
-  ENHANCED: 'price_1SUYs3LOdeLTrjapCFFDe7td',
+  // Basic plan intervals
+  BASIC_WEEKLY:   'price_1SsbbHLOdeLTrjapgaZzEbBt',  // $0.99/wk
+  BASIC_MONTHLY:  'price_1SsbTZLOdeLTrjap9UnXhu0M',  // $1.99/mo
+  BASIC_YEARLY:   'price_1SsbBDLOdeLTrjapHTq7yxng',  // $9.99/yr
+  // Enhanced plan intervals
+  ENHANCED_WEEKLY: 'price_1Tf3UoLOdeLTrjap4O8BGFvS', // $3.99/wk
+  ENHANCED_MONTHLY: 'price_1SUYs3LOdeLTrjapCFFDe7td', // $4.99/mo
+  ENHANCED_YEARLY: 'price_1SaMNJLOdeLTrjapjJ8iCoP7', // $49.99/yr
+  // Aliases kept for backward compatibility
+  BASIC:    'price_1SsbTZLOdeLTrjap9UnXhu0M',
+  ENHANCED: 'price_1Tf3UoLOdeLTrjap4O8BGFvS',
 });
 
 /** Stripe one-time credit pack price IDs (test mode — May 2026). */
@@ -10,8 +19,8 @@ export const CREDIT_PACK_PRICE_IDS = Object.freeze({
 });
 
 export const CREDIT_PACKS = Object.freeze([
-  { id: 'pack_1000', label: '1,000 credits', priceLabel: '$5', priceId: CREDIT_PACK_PRICE_IDS.PACK_1000, credits: 1000 },
-  { id: 'pack_5000', label: '5,000 credits', priceLabel: '$15', priceId: CREDIT_PACK_PRICE_IDS.PACK_5000, credits: 5000 },
+  { id: 'pack_1000', label: '1,000 text credits', priceLabel: '$5', priceId: CREDIT_PACK_PRICE_IDS.PACK_1000, credits: 1000 },
+  { id: 'pack_5000', label: '5,000 text credits', priceLabel: '$15', priceId: CREDIT_PACK_PRICE_IDS.PACK_5000, credits: 5000 },
 ]);
 
 export const SUPPORT_FORM_TYPES = Object.freeze({

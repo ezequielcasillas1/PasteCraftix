@@ -101,7 +101,7 @@ export async function createCheckout(app, priceId) {
 
 export async function createCreditPackCheckout(app, priceId) {
   if (!app.currentUser) {
-    _notify(app, 'Please sign in to buy credits', 'info');
+    _notify(app, 'Please sign in to buy text credits', 'info');
     return;
   }
 
@@ -123,13 +123,13 @@ export async function createCreditPackCheckout(app, priceId) {
 
 export async function createCustomCreditCheckout(app, creditAmount) {
   if (!app.currentUser) {
-    _notify(app, 'Please sign in to buy credits', 'info');
+    _notify(app, 'Please sign in to buy text credits', 'info');
     return;
   }
 
   const credits = Math.floor(Number(creditAmount));
-  if (!Number.isFinite(credits) || credits < 25 || credits > CUSTOM_CREDIT_MAX) {
-    _notify(app, `Enter ${25}–${CUSTOM_CREDIT_MAX.toLocaleString()} credits`, 'info');
+  if (!Number.isFinite(credits) || credits < CHECKOUT_MIN_CREDITS || credits > CUSTOM_CREDIT_MAX) {
+    _notify(app, `Enter ${CHECKOUT_MIN_CREDITS}–${CUSTOM_CREDIT_MAX.toLocaleString()} text credits`, 'info');
     return;
   }
 

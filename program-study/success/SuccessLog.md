@@ -1,3 +1,13 @@
+### Jun 8, 2026 - Text-only AI credits + upload gallery
+**Status:** SUCCESS
+**Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, popup.html, profile/*, billing.constants.js, site.js, pricing.astro, upgrade.astro
+**Result:** Removed AI image generation; kept manual upload/gallery/profile/widget flows. Enhanced text credits: 4k weekly rollover to 20k, 35k monthly, 500k yearly. User verified.
+
+### Jun 5, 2026 - Clip action icons — Google search + bundle menus
+**Status:** SUCCESS
+**Files:** clips.render.js, clips.action-menu.js, clips.events.js, popup.html, google-logo.svg
+**Result:** User reloaded extension; Google logo button and org/AI bundle menus appear on clip rows. Issue was stale unpacked build, not missing code.
+
 ### Jun 4, 2026 - Google search action on clip icons
 **Status:** SUCCESS
 **Files:** clips.action-menu.js, clips.render.js, clips.events.js, clips.viewer.js, modals-shared.events.js, popup.js, popup.html, google-logo.svg

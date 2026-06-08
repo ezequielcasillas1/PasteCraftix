@@ -74,7 +74,7 @@ export async function loadAIGallery(app) {
     const gallery = result[PROFILE_STORAGE_KEYS.AI_GALLERY] || [];
     app.renderAIGallery(gallery);
   } catch (error) {
-    console.error('Failed to load AI gallery:', error);
+    console.error('Failed to load image gallery:', error);
   }
 }
 

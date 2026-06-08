@@ -13,75 +13,13 @@ async function _refreshCreditsAfterGen(app) {
 }
 
 export async function generateAIImageFromProfile(app) {
-  try {
-    if (!app.userProfile?.aiGeneratedName) {
-      app.showToast('Generate your funky name first in Profile!', 'error');
-      return;
-    }
-
-    app.showToast('Generating AI image…', 'info');
-    const btn = document.getElementById('aiGenerateFromProfileBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Generating…';
-    }
-
-    const gen = await pasteCraftSupabase.generateProfileImage(null, null, app.userProfile.aiGeneratedName);
-    const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-
-    if (imageUrl) {
-      await app.addToGallery(imageUrl, 'profile');
-      app.showToast('AI image generated!', 'success');
-      app.showAIGenerationTimer();
-      app.loadAIGallery();
-      await _refreshCreditsAfterGen(app);
-    } else {
-      app.showToast('Failed to generate AI image', 'error');
-    }
-  } catch (error) {
-    console.error('Failed to generate AI image:', error);
-    app.showToast('Failed to generate AI image', 'error');
-  } finally {
-    const btn = document.getElementById('aiGenerateFromProfileBtn');
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = PROFILE_GEN_BTN_HTML;
-    }
-  }
+  void _refreshCreditsAfterGen;
+  void PROFILE_GEN_BTN_HTML;
+  app.showToast('AI image generation has been removed. Upload your own image in Profile instead.', 'info');
 }
 
 export async function generateRandomAIImage(app) {
-  try {
-    app.showToast('Generating random avatar…', 'info');
-    const btn = document.getElementById('aiGenerateRandomBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Generating…';
-    }
-
-    const randomAnimal = RANDOM_ANIMALS[Math.floor(Math.random() * RANDOM_ANIMALS.length)];
-    const randomName = `Random${randomAnimal}`;
-
-    const gen = await pasteCraftSupabase.generateProfileImage(null, null, randomName);
-    const imageUrl = gen && typeof gen.imageUrl === 'string' ? gen.imageUrl : '';
-
-    if (imageUrl) {
-      await app.addToGallery(imageUrl, 'random');
-      app.showToast('Random avatar generated!', 'success');
-      app.showAIGenerationTimer();
-      app.loadAIGallery();
-      await _refreshCreditsAfterGen(app);
-    } else {
-      app.showToast('Failed to generate random avatar', 'error');
-    }
-  } catch (error) {
-    console.error('Failed to generate random avatar:', error);
-    app.showToast('Failed to generate random avatar', 'error');
-  } finally {
-    const btn = document.getElementById('aiGenerateRandomBtn');
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = RANDOM_GEN_BTN_HTML;
-    }
-  }
+  void RANDOM_GEN_BTN_HTML;
+  void RANDOM_ANIMALS;
+  app.showToast('AI image generation has been removed. Upload your own image in Profile instead.', 'info');
 }

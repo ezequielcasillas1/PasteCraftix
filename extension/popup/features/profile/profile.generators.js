@@ -112,13 +112,11 @@ function _validateAnimalInputs(app, userName, aiGeneratedName) {
 }
 
 async function _runAnimalGeneration(app, userName, animalType, aiGeneratedName) {
-  _showGenerationLoading(`Creating your ${animalType}...`);
-  app.showToast(`🦁 Creating your funky ${animalType}...`, 'info');
-  _setButton(PROFILE_ELEMENT_IDS.generateAnimalBtn, { disabled: true, text: '⏳ Creating...' });
-
-  const description = `${userName} - ${animalType} avatar`;
-  const gen = await pasteCraftSupabase.generateProfileImage(description, 'animal', aiGeneratedName);
-  return typeof gen?.imageUrl === 'string' ? gen.imageUrl : '';
+  void app;
+  void userName;
+  void animalType;
+  void aiGeneratedName;
+  return '';
 }
 
 async function _onAnimalGenSuccess(app, imageUrl, animalType) {
@@ -130,32 +128,13 @@ async function _onAnimalGenSuccess(app, imageUrl, animalType) {
 }
 
 export async function generateAnimalAvatar(app) {
-  const hasAccess = await _checkPremiumAccess(app, 'avatar');
-  if (!hasAccess) return;
-
-  try {
-    const userName = _readUserNameField();
-    const aiGeneratedName = app.userProfile?.aiGeneratedName;
-
-    if (!_validateAnimalInputs(app, userName, aiGeneratedName)) return;
-
-    const animalType = _extractAnimalType(aiGeneratedName);
-    if (!animalType) {
-      app.showToast('🐾 No animal found in your funky animal name', 'error');
-      return;
-    }
-
-    const imageUrl = await _runAnimalGeneration(app, userName, animalType, aiGeneratedName);
-    if (imageUrl) {
-      await _onAnimalGenSuccess(app, imageUrl, animalType);
-    }
-  } catch (error) {
-    console.error('Failed to generate animal avatar:', error);
-    _hideGenerationLoading({ showPlaceholder: true });
-    app.showToast('❌ Failed to generate animal avatar', 'error');
-  } finally {
-    _setButton(PROFILE_ELEMENT_IDS.generateAnimalBtn, { disabled: false, text: '🐾 Animal Avatar' });
-  }
+  void _checkPremiumAccess;
+  void _validateAnimalInputs;
+  void _extractAnimalType;
+  void _runAnimalGeneration;
+  void _onAnimalGenSuccess;
+  void _hideGenerationLoading;
+  app.showToast('Image generation has been removed. Upload your own image instead.', 'info');
 }
 
 // ── generateMyCartoon ───────────────────────────────────────────────────────
@@ -173,13 +152,10 @@ function _validateCartoonInputs(app, userName, userImageBase64) {
 }
 
 async function _runCartoonGeneration(app, userName, userImageBase64) {
-  _showGenerationLoading('Creating your cartoon...');
-  app.showToast('🎨 Creating your cartoon avatar...', 'info');
-  _setButton(PROFILE_ELEMENT_IDS.generateCartoonBtn, { disabled: true, text: '⏳ Creating...' });
-
-  const description = `${userName} - cartoon avatar`;
-  const gen = await pasteCraftSupabase.generateProfileImage(description, userImageBase64, null);
-  return typeof gen?.imageUrl === 'string' ? gen.imageUrl : '';
+  void app;
+  void userName;
+  void userImageBase64;
+  return '';
 }
 
 async function _onCartoonGenSuccess(app, imageUrl, userImageBase64) {
@@ -197,29 +173,13 @@ async function _onCartoonGenSuccess(app, imageUrl, userImageBase64) {
 }
 
 export async function generateMyCartoon(app) {
-  const hasAccess = await _checkPremiumAccess(app, 'cartoon');
-  if (!hasAccess) return;
-
-  try {
-    const userName = _readUserNameField();
-    const userImageBase64 = app.userProfile?.profileImageBase64;
-
-    if (!_validateCartoonInputs(app, userName, userImageBase64)) return;
-
-    const imageUrl = await _runCartoonGeneration(app, userName, userImageBase64);
-    if (imageUrl) {
-      await _onCartoonGenSuccess(app, imageUrl, userImageBase64);
-    } else {
-      _hideGenerationLoading({ showPlaceholder: true });
-      app.showToast('❌ Failed to generate AI image', 'error');
-    }
-  } catch (error) {
-    console.error('Failed to generate AI profile image:', error);
-    _hideGenerationLoading({ showPlaceholder: true });
-    _showCartoonError(app, error);
-  } finally {
-    _setButton(PROFILE_ELEMENT_IDS.generateCartoonBtn, { disabled: false, text: '🎨 My Cartoon' });
-  }
+  void _checkPremiumAccess;
+  void _validateCartoonInputs;
+  void _runCartoonGeneration;
+  void _onCartoonGenSuccess;
+  void _showCartoonError;
+  void _hideGenerationLoading;
+  app.showToast('Image generation has been removed. Upload your own image instead.', 'info');
 }
 
 // ── generateAIName ──────────────────────────────────────────────────────────

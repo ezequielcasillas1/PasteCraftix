@@ -1,15 +1,9 @@
 import { CREDIT_PACKS } from '../billing/billing.constants.js';
 
 import {
-
-  CUSTOM_CREDIT_MIN,
-
   CHECKOUT_MIN_CREDITS,
-
   meetsStripeMinimum,
-
   formatCreditPricePreview,
-
 } from '../billing/credit-pricing.js';
 
 import { getCreditPackBannerElements } from './ai-lab.selectors.js';
@@ -35,7 +29,7 @@ function _updateCustomPreview(elements) {
 
   if (!raw) {
 
-    customPreview.textContent = `Enter credits (min ${CUSTOM_CREDIT_MIN}, checkout min ${CHECKOUT_MIN_CREDITS})`;
+    customPreview.textContent = `Enter credits (min ${CHECKOUT_MIN_CREDITS} to checkout)`;
 
     if (customBuyBtn) customBuyBtn.disabled = true;
 
@@ -51,7 +45,7 @@ function _updateCustomPreview(elements) {
 
   if (customBuyBtn) {
 
-    customBuyBtn.disabled = !Number.isFinite(credits) || credits < CUSTOM_CREDIT_MIN || !meetsStripeMinimum(credits);
+    customBuyBtn.disabled = !Number.isFinite(credits) || credits < CHECKOUT_MIN_CREDITS || !meetsStripeMinimum(credits);
 
   }
 

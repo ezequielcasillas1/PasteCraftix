@@ -514,20 +514,28 @@ export function registerAiLabPageEvents(app) {
       });
     });
     
-    // AI generation buttons
-    const aiGenerateFromProfileBtn = document.getElementById('aiGenerateFromProfileBtn');
-    const aiGenerateRandomBtn = document.getElementById('aiGenerateRandomBtn');
+    // Upload / gallery shortcuts
+    const openProfileUploadBtn = document.getElementById('openProfileUploadBtn');
+    const openImageGalleryBtn = document.getElementById('openImageGalleryBtn');
     const aiTimerDismiss = document.getElementById('aiTimerDismiss');
     
-    if (aiGenerateFromProfileBtn) {
-      aiGenerateFromProfileBtn.addEventListener('click', () => {
-        app.generateAIImageFromProfile();
+    if (openProfileUploadBtn) {
+      openProfileUploadBtn.addEventListener('click', () => {
+        app.showProfileModal();
       });
     }
     
-    if (aiGenerateRandomBtn) {
-      aiGenerateRandomBtn.addEventListener('click', () => {
-        app.generateRandomAIImage();
+    if (openImageGalleryBtn) {
+      openImageGalleryBtn.addEventListener('click', () => {
+        document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
+        const galleryTab = document.querySelector('.ai-lab-tab[data-ai-tab="gallery"]');
+        if (galleryTab) galleryTab.classList.add('active');
+        document.getElementById('aiGallerySection').classList.add('active');
+        app._currentAiLabSubTab = 'gallery';
+        app._saveActiveTabState();
+        app.loadAIGallery();
+        app.migrateProfileImageToGallery();
       });
     }
     

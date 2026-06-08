@@ -473,7 +473,7 @@
                 <li><span class="cross">✗</span> Cloud sync</li>
                 <li><span class="cross">✗</span> Database storage</li>
                 <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
-                <li><span class="cross">✗</span> AI Image Generation</li>
+                <li><span class="cross">✗</span> Premium text AI tools</li>
                 <li><span class="cross">✗</span> Lowest support</li>
             </ul>
             
@@ -514,7 +514,7 @@
                 <li><span class="check">✓</span> Cloud sync</li>
                 <li><span class="check">✓</span> <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></li>
                 <li><span class="cross">✗</span> AI Breakdown & Summaries</li>
-                <li><span class="cross">✗</span> AI Image Generation</li>
+                <li><span class="cross">✗</span> Premium text AI tools</li>
                 <li><span class="check">✓</span> Standard support</li>
             </ul>
 
@@ -537,12 +537,12 @@
         <!-- Enhanced Plan -->
         <div class="pricing-card" id="card-enhanced" data-plan="enhanced">
             <div class="plan-name">Enhanced</div>
-            <div class="plan-price" id="price-enhanced">$4.99<span>/month</span></div>
-            <div class="plan-description">Everything Basic + Enhanced AI access + <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></div>
+            <div class="plan-price" id="price-enhanced">$3.99<span>/week</span></div>
+            <div class="plan-description">Everything Basic + Enhanced text AI access + <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></div>
 
             <div class="billing-toggle" role="tablist" aria-label="Enhanced billing interval">
-                <button type="button" class="active" data-plan="enhanced" data-interval="monthly">Monthly</button>
-                <button type="button" data-plan="enhanced" data-interval="weekly">Weekly</button>
+                <button type="button" data-plan="enhanced" data-interval="monthly">Monthly</button>
+                <button type="button" class="active" data-plan="enhanced" data-interval="weekly">Weekly</button>
                 <button type="button" data-plan="enhanced" data-interval="yearly">Yearly</button>
             </div>
 
@@ -554,7 +554,9 @@
                 <li><span class="check">✓</span> Cloud sync</li>
                 <li><span class="check">✓</span> <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></li>
                 <li><span class="check">✓</span> AI Breakdown & Summaries</li>
-                <li><span class="check">✓</span> AI Image Generation</li>
+                <li><span class="check">✓</span> 4,000 weekly text credits (rolls up to 20,000)</li>
+                <li><span class="check">✓</span> 35,000 monthly / 500,000 yearly text credits</li>
+                <li><span class="check">✓</span> Upload and save your own profile images</li>
                 <li><span class="check">✓</span> Enhanced AI accessibility</li>
                 <li><span class="check">✓</span> Standard support</li>
             </ul>
@@ -630,14 +632,14 @@
             },
             enhanced: {
                 prices: {
-                    weekly: { amount: 1.99, suffix: '/week' },
+                    weekly: { amount: 3.99, suffix: '/week' },
                     monthly: { amount: 4.99, suffix: '/month' },
                     yearly: { amount: 49.99, suffix: '/year' },
                 }
             }
         };
 
-        const selectedIntervalByPlan = { basic: 'monthly', enhanced: 'monthly' };
+        const selectedIntervalByPlan = { basic: 'monthly', enhanced: 'weekly' };
 
         function formatUsd(amount) {
             return `$${amount.toFixed(2)}`;

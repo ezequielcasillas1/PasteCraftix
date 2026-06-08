@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upgrade to Premium - PasteCraft</title>
-    <meta name="description" content="Unlock all PasteCraft premium features with AI-powered tools.">
+    <meta name="description" content="Unlock all PasteCraft premium features with text-powered tools.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -579,9 +579,9 @@
                 <p>Get intelligent summaries and conversational follow-ups on your clipboard content.</p>
             </div>
             <div class="feature-card">
-                <div class="icon">🎨</div>
-                <h3>AI Image Generation</h3>
-                <p>Transform text into stunning AI-generated avatars and cartoon images.</p>
+                <div class="icon">🖼️</div>
+                <h3>Profile Image Gallery</h3>
+                <p>Upload your own images, keep them saved in the gallery, and reuse them for your profile or widget icon.</p>
             </div>
             <div class="feature-card">
                 <div class="icon">♾️</div>
@@ -648,12 +648,12 @@
                 <div class="pricing-card popular" id="card-enhanced" data-plan="enhanced">
                     <div class="popular-badge">Unlock AI</div>
                     <div class="plan-name">Enhanced</div>
-                    <div class="plan-price" id="price-enhanced">$4.99<span>/month</span></div>
-                    <div class="plan-savings">Everything Basic + Enhanced AI access + <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></div>
+                    <div class="plan-price" id="price-enhanced">$3.99<span>/week</span></div>
+                    <div class="plan-savings">Everything Basic + Enhanced text AI access + <span class="tooltip-wrap">Database storage<span class="tooltip-text">Powered by our secure cloud platform</span></span></div>
 
                     <div class="billing-toggle" role="tablist" aria-label="Enhanced billing interval">
-                        <button type="button" class="active" data-plan="enhanced" data-interval="monthly">Monthly</button>
-                        <button type="button" data-plan="enhanced" data-interval="weekly">Weekly</button>
+                        <button type="button" data-plan="enhanced" data-interval="monthly">Monthly</button>
+                        <button type="button" class="active" data-plan="enhanced" data-interval="weekly">Weekly</button>
                         <button type="button" data-plan="enhanced" data-interval="yearly">Yearly</button>
                     </div>
 
@@ -712,11 +712,11 @@
             const featureData = {
                 'breakdown': { icon: '🧠', name: 'AI Breakdown' },
                 'summary': { icon: '✨', name: 'AI Summary' },
-                'image': { icon: '🎨', name: 'AI Image Generation' },
-                'avatar': { icon: '🐾', name: 'AI Animal Avatar' },
-                'cartoon': { icon: '🎭', name: 'AI Cartoon Generator' },
+                'image': { icon: '🖼️', name: 'Profile Image Gallery' },
+                'avatar': { icon: '🖼️', name: 'Profile Image Gallery' },
+                'cartoon': { icon: '🖼️', name: 'Profile Image Uploads' },
                 'name': { icon: '📝', name: 'AI Name Generator' },
-                'gallery': { icon: '🖼️', name: 'AI Gallery' }
+                'gallery': { icon: '🖼️', name: 'Image Gallery' }
             };
             
             const data = featureData[feature] || { icon: '✨', name: 'Premium Feature' };
@@ -736,14 +736,14 @@
             },
             enhanced: {
                 prices: {
-                    weekly: { amount: 1.99, suffix: '/week' },
+                    weekly: { amount: 3.99, suffix: '/week' },
                     monthly: { amount: 4.99, suffix: '/month' },
                     yearly: { amount: 49.99, suffix: '/year' },
                 }
             }
         };
 
-        const selectedIntervalByPlan = { basic: 'monthly', enhanced: 'monthly' };
+        const selectedIntervalByPlan = { basic: 'monthly', enhanced: 'weekly' };
 
         function formatUsd(amount) {
             return `$${amount.toFixed(2)}`;

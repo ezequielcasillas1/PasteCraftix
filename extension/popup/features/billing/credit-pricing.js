@@ -36,8 +36,8 @@ export function meetsStripeMinimum(credits) {
 
 export function formatCreditPricePreview(credits) {
   const c = Math.floor(Number(credits));
-  if (!Number.isFinite(c) || c < CUSTOM_CREDIT_MIN) {
-    return `Enter credits (min ${CUSTOM_CREDIT_MIN})`;
+  if (!Number.isFinite(c) || c < CHECKOUT_MIN_CREDITS) {
+    return `Enter credits (min ${CHECKOUT_MIN_CREDITS} to checkout)`;
   }
   if (c > CUSTOM_CREDIT_MAX) {
     return `Maximum ${CUSTOM_CREDIT_MAX.toLocaleString()} credits`;
@@ -45,8 +45,5 @@ export function formatCreditPricePreview(credits) {
   const cents = calculatePriceCents(c);
   if (cents == null) return 'Invalid amount';
   const price = (cents / 100).toFixed(2);
-  if (cents < STRIPE_MIN_AMOUNT_CENTS) {
-    return `${c.toLocaleString()} credits = $${price} (min checkout ${CHECKOUT_MIN_CREDITS} credits / $0.50)`;
-  }
   return `${c.toLocaleString()} credits = $${price}`;
 }
