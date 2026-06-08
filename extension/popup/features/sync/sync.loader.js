@@ -11,6 +11,38 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+async function loadDeletedIdSet(tombstoneStorageKey) {
+  try {
+    const stored = await chrome.storage.local.get([tombstoneStorageKey]);
+    const list = Array.isArray(stored?.[tombstoneStorageKey]) ? stored[tombstoneStorageKey] : [];
+    return new Set(list.map((t) => String(t?.id)).filter(Boolean));
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function filterTombstonedItems(items, deletedIds) {
+  if (!deletedIds?.size) return Array.isArray(items) ? items : [];
+  return (Array.isArray(items) ? items : []).filter(
+    (item) => item?.id != null && !deletedIds.has(String(item.id))
+  );
+}
+
+function idbHasMoreItems(idbItems, chromeItems) {
+  if (!Array.isArray(idbItems)) return false;
+  return idbItems.length >= (chromeItems?.length || 0);
+}
+
+async function resolveEntityFromStores(app, storeName, chromeItems, tombstoneStorageKey) {
+  const deletedIds = await loadDeletedIdSet(tombstoneStorageKey);
+  const filteredChrome = filterTombstonedItems(chromeItems, deletedIds);
+  if (!app._idbReady || !app.idb) return filteredChrome;
+
+  const idbItems = await app.idb.getAllPayloads(storeName);
+  const filteredIdb = filterTombstonedItems(idbItems, deletedIds);
+  return idbHasMoreItems(filteredIdb, filteredChrome) ? filteredIdb : filteredChrome;
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
@@ -18,14 +50,9 @@ export async function fetchRawData(app) {
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
 
-  if (app._idbReady && app.idb) {
-    const [idbClips, idbCategories] = await Promise.all([
-      app.idb.getAllPayloads('clips'),
-      app.idb.getAllPayloads('categories')
-    ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
-  }
+  clips = await resolveEntityFromStores(app, 'clips', clips, 'pc_deleted_clips');
+  categories = await resolveEntityFromStores(app, 'categories', categories, 'pc_deleted_categories');
+
   return { clips, categories, searchOnlyClips };
 }
 
