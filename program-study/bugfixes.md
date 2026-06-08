@@ -1,3 +1,8 @@
+### Jun 8, 2026 - Deleted clips resurrect from stale IndexedDB
+**Status:** FIXED (automated investigation)
+**Files:** sync.loader.js, sync-loader-tombstone.test.mjs
+**Result:** fetchRawData blindly preferred IDB over chrome.storage; tombstones ignored. Now filters pc_deleted_* and picks source with more live rows (notes pattern).
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
