@@ -619,15 +619,23 @@ export async function decrementTextCredits(
   let creditsResetAt: string | null = resetAtIso;
   let purchasedOut = Math.max(0, purchasedBalance);
 
-  const subRemaining = Math.max(0, Number(creditsLimitOut ?? creditsLimit) - Math.max(0, creditsUsed));
-  const drainPlan = planCreditDrain(subRemaining, purchasedOut, safeCost);
-  if (!drainPlan) {
-    return { creditsRemaining: 0, creditsLimit: creditsLimitOut, creditsResetAt, purchasedBalance: purchasedOut };
-  }
-
   let updatedUsed: number | null = null;
   let updatedPurchased: number | null = null;
+  let lastDrainPlan = null as ReturnType<typeof planCreditDrain>;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const activeLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit);
+    const subRemaining = Math.max(0, activeLimit - Math.max(0, creditsUsed));
+    const drainPlan = planCreditDrain(subRemaining, purchasedOut, safeCost);
+    if (!drainPlan) {
+      return {
+        creditsRemaining: computeTotalRemaining(subRemaining, purchasedOut),
+        creditsLimit: creditsLimitOut,
+        creditsResetAt,
+        purchasedBalance: purchasedOut,
+      };
+    }
+    lastDrainPlan = drainPlan;
+
     const expectedUsed = creditsUsed;
     const expectedPurchased = purchasedOut;
     const nextUsed = expectedUsed + drainPlan.subUsedDelta;
@@ -670,8 +678,8 @@ export async function decrementTextCredits(
     resetAtIso = refetched?.ai_text_credits_reset_at ? new Date(refetched.ai_text_credits_reset_at).toISOString() : resetAtIso;
   }
 
-  const finalUsed = updatedUsed ?? (creditsUsed + drainPlan.subUsedDelta);
-  const finalPurchased = updatedPurchased ?? Math.max(0, purchasedOut - drainPlan.purchasedDelta);
+  const finalUsed = updatedUsed ?? (creditsUsed + (lastDrainPlan?.subUsedDelta ?? 0));
+  const finalPurchased = updatedPurchased ?? Math.max(0, purchasedOut - (lastDrainPlan?.purchasedDelta ?? 0));
   const finalLimit = Number.isFinite(Number(creditsLimitOut)) ? Number(creditsLimitOut) : Number(creditsLimit);
   const subRem = Math.max(0, finalLimit - Math.max(0, finalUsed));
   const creditsRemaining = computeTotalRemaining(subRem, finalPurchased);
