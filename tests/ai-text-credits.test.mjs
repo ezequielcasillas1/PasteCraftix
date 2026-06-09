@@ -267,7 +267,7 @@ describe('server text-credit drain', () => {
     assert.deepEqual(supabase.updates[1].payload, {
       ai_text_credits_used: 100,
       ai_text_credits_limit: 100,
-      ai_text_credits_reset_at: '2026-06-30T00:00:00Z',
+      ai_text_credits_reset_at: '2026-06-30T00:00:00.000Z',
       ai_purchased_credits_balance: 20,
       updated_at: supabase.updates[1].payload.updated_at,
     });
