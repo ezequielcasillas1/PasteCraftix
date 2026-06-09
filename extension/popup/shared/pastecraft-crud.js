@@ -214,15 +214,19 @@ class PasteCraftCRUD {
       // Without this, IndexedDB can still contain the row and overwrite
       // chrome.storage on the next loadData() (see popup.js loadData IDB merge).
       if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+        const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+        const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
         try {
-          const ids = [String(entityId), ...(Array.isArray(idbExtraIds) ? idbExtraIds.map(String) : [])];
           await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
-          const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+        } catch (idbErr) {
+          console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
+        }
+        try {
           if (idbStateKey && Array.isArray(currentState[idbStateKey]) && typeof window.pasteCraftIndexedDB.syncEntityFromLocalStorage === 'function') {
             await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(idbStoreName, currentState[idbStateKey]);
           }
-        } catch (idbErr) {
-          console.warn(`?? IDB hard-delete failed for ${entityType} (chrome.storage delete succeeded):`, idbErr?.message || idbErr);
+        } catch (idbSyncErr) {
+          console.warn(`?? IDB mirror sync failed for ${entityType} after delete:`, idbSyncErr?.message || idbSyncErr);
         }
       }
 
@@ -418,22 +422,26 @@ class PasteCraftCRUD {
       }
 
       if (idbStoreName && typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
+        const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+        const resolvedIds = typeof idbIdsResolver === 'function'
+          ? idbIdsResolver(entities, normalizedIds)
+          : normalizedIds;
+        const ids = Array.isArray(resolvedIds)
+          ? Array.from(new Set(resolvedIds.map(String).filter(Boolean)))
+          : [];
         try {
-          const resolvedIds = typeof idbIdsResolver === 'function'
-            ? idbIdsResolver(entities, normalizedIds)
-            : normalizedIds;
-          const ids = Array.isArray(resolvedIds)
-            ? Array.from(new Set(resolvedIds.map(String).filter(Boolean)))
-            : [];
           if (ids.length > 0) {
             await window.pasteCraftIndexedDB.deleteByIds(idbStoreName, ids);
           }
-          const idbStateKey = { notes: 'notes', categories: 'categories', clips: 'clips' }[idbStoreName];
+        } catch (idbErr) {
+          console.warn(`?? IDB hard-delete failed for ${entityType} batch delete:`, idbErr?.message || idbErr);
+        }
+        try {
           if (idbStateKey && Array.isArray(currentState[idbStateKey]) && typeof window.pasteCraftIndexedDB.syncEntityFromLocalStorage === 'function') {
             await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(idbStoreName, currentState[idbStateKey]);
           }
-        } catch (idbErr) {
-          console.warn(`?? IDB hard-delete failed for ${entityType} batch delete:`, idbErr?.message || idbErr);
+        } catch (idbSyncErr) {
+          console.warn(`?? IDB mirror sync failed for ${entityType} batch delete:`, idbSyncErr?.message || idbSyncErr);
         }
       }
 

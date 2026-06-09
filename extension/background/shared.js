@@ -1,5 +1,7 @@
 // PasteCraft Background Script
 
+import { resolveEntityLoadFromStores } from '../shared/storage-load-authority.js';
+
 export function isRepoLoaderBuild() {
   try {
     const mf = chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
@@ -127,12 +129,18 @@ export async function readIndexedDbPayloads(storeName) {
 
 export async function getQuickViewClips() {
   const [storage, idbClips] = await Promise.all([
-    chrome.storage.local.get(['clips', 'searchOnlyClips']),
+    chrome.storage.local.get(['clips', 'searchOnlyClips', 'pc_local_updatedAt']),
     readIndexedDbPayloads('clips')
   ]);
 
   const localActive = Array.isArray(storage?.clips) ? storage.clips : [];
-  const active = Array.isArray(idbClips) && idbClips.length > 0 ? idbClips : localActive;
+  const { clips: active } = resolveEntityLoadFromStores({
+    clips: localActive,
+    categories: [],
+    idbClips,
+    idbCategories: [],
+    pcLocalUpdatedAt: storage?.pc_local_updatedAt,
+  });
   const archived = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
 
   const merged = [
