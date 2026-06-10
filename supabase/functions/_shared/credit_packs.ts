@@ -90,6 +90,71 @@ export function hasAiUsageEntitlement(sub: {
   return hasSubscriptionAiAllowance(sub) || readPurchasedBalance(sub) > 0;
 }
 
+export type TextAllowancePolicy = {
+  grant: number;
+  cap: number;
+};
+
+const MONTHLY_TEXT_ALLOWANCE: TextAllowancePolicy = { grant: 35_000, cap: 35_000 };
+
+/** Premium plan text-credit grants keyed by Stripe price ID. */
+export function getTextCreditPolicyFromPriceId(priceId: string | null | undefined): TextAllowancePolicy | null {
+  switch (String(priceId || '').trim()) {
+    case 'price_1Tf3UoLOdeLTrjap4O8BGFvS': // Premium Weekly ($3.99/wk)
+    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk) legacy
+      return { grant: 4_000, cap: 20_000 };
+    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
+      return MONTHLY_TEXT_ALLOWANCE;
+    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
+      return { grant: 500_000, cap: 500_000 };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Infer allowance from a future billing-period end when no Stripe price ID exists
+ * (coupon access). Expired period ends default to monthly — never weekly.
+ */
+export function resolveTextAllowancePolicyFromPeriodEnd(
+  periodEndIso: string | null | undefined,
+  nowMs: number = Date.now(),
+): TextAllowancePolicy {
+  try {
+    if (!periodEndIso) return MONTHLY_TEXT_ALLOWANCE;
+    const resetMs = Date.parse(periodEndIso);
+    if (!Number.isFinite(resetMs)) return MONTHLY_TEXT_ALLOWANCE;
+    const diffDays = (resetMs - nowMs) / 86_400_000;
+    if (diffDays < 0) return MONTHLY_TEXT_ALLOWANCE;
+    if (diffDays <= 10) return { grant: 4_000, cap: 20_000 };
+    if (diffDays <= 40) return MONTHLY_TEXT_ALLOWANCE;
+    return { grant: 500_000, cap: 500_000 };
+  } catch (_) {
+    return MONTHLY_TEXT_ALLOWANCE;
+  }
+}
+
+/** Resolve text allowance from Stripe price ID, else infer from the next period end. */
+export function resolveTextAllowancePolicy(opts: {
+  stripePriceId?: string | null;
+  periodEndIso?: string | null;
+  nowMs?: number;
+}): TextAllowancePolicy {
+  const fromPrice = getTextCreditPolicyFromPriceId(opts.stripePriceId);
+  if (fromPrice) return fromPrice;
+  return resolveTextAllowancePolicyFromPeriodEnd(opts.periodEndIso, opts.nowMs);
+}
+
+export function accrueWeeklyRolloverLimit(
+  limit: number,
+  used: number,
+  grant: number,
+  cap: number,
+): number {
+  const remaining = Math.max(0, Number(limit) - Math.max(0, Number(used)));
+  return Math.min(cap, remaining + grant);
+}
+
 export type CreditDrainPlan = {
   subUsedDelta: number;
   purchasedDelta: number;

@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from 'https://esm.sh/stripe@14.21.0'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  accrueWeeklyRolloverLimit,
   customPriceIdForCredits,
   fulfillCreditPackPurchase,
   getCreditAmountForPriceId,
+  getTextCreditPolicyFromPriceId,
 } from '../_shared/credit_packs.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
@@ -67,22 +69,6 @@ function getPeriodEndIso(subscription: any): string | null {
   }
 }
 
-function getTextCreditPolicyFromPriceId(priceId: string | null): { grant: number; cap: number } | null {
-  if (!priceId) return null
-
-  switch (priceId) {
-    case 'price_1Tf3UoLOdeLTrjap4O8BGFvS': // Premium Weekly ($3.99/wk)
-    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
-      return { grant: 4_000, cap: 20_000 }
-    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
-      return { grant: 35_000, cap: 35_000 }
-    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
-      return { grant: 500_000, cap: 500_000 }
-    default:
-      return null
-  }
-}
-
 function getImageCreditsLimitFromPriceId(priceId: string | null): number | null {
   return null
 }
@@ -127,8 +113,10 @@ function computeRolledTextCredits(opts: {
   }
 
   if (policy.cap > policy.grant) {
-    const remaining = Math.max(0, Number(existingLimit || 0) - Math.max(0, Number(existingUsed || 0)))
-    return { limit: Math.min(policy.cap, remaining + policy.grant), used: 0 }
+    return {
+      limit: accrueWeeklyRolloverLimit(Number(existingLimit || 0), Number(existingUsed || 0), policy.grant, policy.cap),
+      used: 0,
+    }
   }
 
   return { limit: policy.grant, used: 0 }
