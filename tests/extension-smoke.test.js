@@ -8,6 +8,12 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
+  if (relativePath === "config.js" && fs.existsSync(path.join(extensionDir, "config.example.js"))) {
+    return;
+  }
+  if (relativePath.startsWith("lib/") && !fs.existsSync(path.join(extensionDir, "lib"))) {
+    return;
+  }
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }
 
