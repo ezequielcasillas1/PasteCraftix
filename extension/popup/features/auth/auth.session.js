@@ -15,8 +15,7 @@ const TAB_LOADERS = Object.freeze({
     app.updateSearchBulkActions();
   },
   ai: (app) => {
-    app.loadAIGallery();
-    app.migrateProfileImageToGallery();
+    app.updateAiCreditsPills('ai-tab');
   },
   notes: async (app) => {
     await app._withTimeout(app.loadNotes(), 3000, undefined, 'loadNotes');
@@ -33,8 +32,6 @@ const TAB_LOADERS = Object.freeze({
 });
 
 const AI_SUBTAB_SECTIONS = Object.freeze({
-  generator: 'aiGeneratorSection',
-  gallery: 'aiGallerySection',
   summary: 'aiSummarySection',
   refactorization: 'aiRefactorizationSection',
   breakdown: 'aiBreakdownSection',
@@ -75,7 +72,7 @@ function _activateAiSubTabSection(savedAiSubTab) {
 
 function _restoreAiSubTab(app, stored) {
   const savedAiSubTab = stored.pc_aiLabSubTab_v1;
-  if (!savedAiSubTab || savedAiSubTab === 'generator') return savedAiSubTab;
+  if (!savedAiSubTab || savedAiSubTab === 'summary') return savedAiSubTab;
 
   app._currentAiLabSubTab = savedAiSubTab;
   const subTabBtn = document.querySelector(`.ai-lab-tab[data-ai-tab="${savedAiSubTab}"]`);
@@ -368,7 +365,7 @@ function _refreshAiView(app) {
   if (app._isUpdating.ai) return;
   app._isUpdating.ai = true;
   try {
-    app.loadAIGallery();
+    app.updateAiCreditsPills('ai-tab');
   } finally {
     app._isUpdating.ai = false;
   }

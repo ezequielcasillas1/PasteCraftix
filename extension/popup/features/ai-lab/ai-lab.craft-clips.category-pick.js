@@ -77,9 +77,7 @@ export function openCraftCategoryPickModal(suggestions) {
   if (applyBtn) applyBtn.disabled = true;
   modal.style.display = 'flex';
 
-  if (typeof lucide !== 'undefined' && lucide.createIcons) {
-    try { lucide.createIcons(); } catch (_) { /* ignore */ }
-  }
+  window.renderLucideIcons?.(modal);
 
   return new Promise((resolve) => {
     pickResolve = resolve;

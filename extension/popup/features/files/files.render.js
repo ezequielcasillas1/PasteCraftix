@@ -79,9 +79,7 @@ export function renderFiles(app, searchQuery = '') {
     track.appendChild(box);
   });
 
-  if (window.lucide) {
-    window.lucide.createIcons({ root: track });
-  }
+  window.renderLucideIcons?.(track);
   
   updateCarouselArrows();
 }

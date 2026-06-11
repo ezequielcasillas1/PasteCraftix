@@ -128,7 +128,9 @@ export async function generateBreakdown(level) {
 
   if (this.breakdownCache[level]) {
     const resultEl = document.getElementById('breakdownResult');
-    resultEl.innerHTML = await this._renderAiResponse(this.breakdownCache[level]);
+    const cachedOutput = this.breakdownCache[level];
+    resultEl.innerHTML = await this._renderAiResponse(cachedOutput);
+    _emitBreakdownArtifact(this, level, cachedOutput, { cached: true });
     return;
   }
 
@@ -145,6 +147,7 @@ export async function generateBreakdown(level) {
 
     resultEl.innerHTML = await this._renderAiResponse(formatted);
     loadingEl.style.display = 'none';
+    _emitBreakdownArtifact(this, level, formatted);
 
     this.breakdownThreads.push({
       question: `Breakdown at ${level} level`,
@@ -174,6 +177,20 @@ export async function generateBreakdown(level) {
       this.showToast(message || 'Failed to generate explanation');
     }
   }
+}
+
+function _emitBreakdownArtifact(app, level, outputText, metadata = {}) {
+  if (typeof app?.emitAiTaskOutput !== 'function') return;
+  app.emitAiTaskOutput({
+    source: 'ai-lab.breakdown',
+    taskType: 'breakdown',
+    title: 'AI Breakdown',
+    sourceText: app.currentBreakdownText || '',
+    question: `Breakdown at ${level} level`,
+    level,
+    outputText,
+    metadata,
+  });
 }
 
 export function copyBreakdownText(app) {
@@ -285,6 +302,19 @@ export async function navigateToThread(type, index) {
 
   if (contentEl) {
     contentEl.innerHTML = await this._renderAiResponse(thread.answer);
+  }
+
+  if (typeof this.emitAiTaskOutput === 'function') {
+    this.emitAiTaskOutput({
+      source: `ai-lab.${type}-thread`,
+      taskType: type === 'breakdown' ? 'breakdown' : 'summary',
+      title: type === 'breakdown' ? 'AI Breakdown Thread' : 'AI Summary Thread',
+      sourceText: type === 'breakdown' ? this.currentBreakdownText || '' : this.currentSummaryText || '',
+      question: thread.question || '',
+      level: thread.level || '',
+      outputText: thread.answer || '',
+      metadata: { threadIndex: index, threadNavigation: true },
+    });
   }
 
   if (type === 'summary') {

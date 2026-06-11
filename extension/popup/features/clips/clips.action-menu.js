@@ -107,9 +107,7 @@ export function openClipActionMenu({ anchor, title, items, onSelect }) {
   portal.appendChild(menu);
   document.body.appendChild(portal);
 
-  if (typeof lucide !== 'undefined') {
-    try { lucide.createIcons({ nodes: [menu] }); } catch (_) {}
-  }
+  window.renderLucideIcons?.(menu);
 
   anchor.setAttribute('aria-expanded', 'true');
   portal._pcTrigger = anchor;

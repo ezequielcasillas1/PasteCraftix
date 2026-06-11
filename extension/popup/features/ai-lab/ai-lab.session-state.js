@@ -2,7 +2,7 @@ export async function saveActiveTabState(app) {
   try {
     await chrome.storage.local.set({
       pc_activeTab_v1: app.currentTab || 'clips',
-      pc_aiLabSubTab_v1: app._currentAiLabSubTab || 'generator'
+      pc_aiLabSubTab_v1: app._currentAiLabSubTab || 'summary'
     });
   } catch (_) {}
 }

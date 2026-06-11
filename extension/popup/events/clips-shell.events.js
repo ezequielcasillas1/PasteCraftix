@@ -167,6 +167,21 @@ export function registerClipsShellEvents(app) {
       app.hideProfileModal();
     });
 
+    const oneClickCopyToggle = document.getElementById('activityOneClickCopyToggle');
+    if (oneClickCopyToggle) {
+      oneClickCopyToggle.checked = !!app.quickPasteSettings?.oneClickCopy;
+      oneClickCopyToggle.addEventListener('change', async (e) => {
+        const enabled = !!e.target.checked;
+        const saved = await app.saveQuickPasteSettingsPatch({ oneClickCopy: enabled }, true, true);
+        if (!saved) {
+          oneClickCopyToggle.checked = !enabled;
+          app.showToast('❌ Failed to update one-click copy', 'error');
+          return;
+        }
+        app.showToast(enabled ? '✅ One-click copy enabled' : '✅ One-click copy disabled', 'success');
+      });
+    }
+
     // Settings events � delegated to settingsFeature
     if (app.settingsFeature?.events?.initSettingsEvents) {
       try {
