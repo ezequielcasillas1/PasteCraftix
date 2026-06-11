@@ -1258,6 +1258,7 @@ export function _showMagicResults(stats) {
     return;
   }
   _populateMagicResultsModal(app, stats);
+  _emitCraftArtifact(app, stats);
   modal.style.display = 'flex';
 }
 
@@ -1335,6 +1336,40 @@ function _populateMagicResultsModal(app, stats) {
   if (breakdownEl) {
     breakdownEl.innerHTML = typeBreakdown || '<span class="magic-type-tag">No clips to analyze</span>';
   }
+}
+
+function _emitCraftArtifact(app, stats) {
+  if (typeof app?.emitAiTaskOutput !== 'function') return;
+  const mode = stats.craftAiMode || CRAFT_CLIPS_AI_MODES.FORMATTED;
+  const title = mode === CRAFT_CLIPS_AI_MODES.REFACTORING ? 'Craft Clips Refactorization Results' : 'Craft Clips Results';
+  const summaryLines = [
+    `Mode: ${mode === CRAFT_CLIPS_AI_MODES.REFACTORING ? 'AI Refactorization' : 'AI Formatted'}`,
+    `Categorized: ${stats.categorized || 0}`,
+    `Cleanup: ${stats.enhanced || 0}`,
+    `Duplicates Found: ${stats.duplicatesFound || 0}`,
+    `Duplicates Archived: ${stats.duplicatesArchived || 0}`,
+    `AI Formatted: ${stats.aiFormatted || 0}`,
+    `AI Refactored: ${stats.aiRefactored || 0}`,
+    stats.refactorLevel ? `Refactor Level: ${stats.refactorLevel}` : '',
+    stats.chosenCategory ? `Chosen Category: ${stats.chosenCategory}` : '',
+  ].filter(Boolean);
+
+  app.emitAiTaskOutput({
+    source: 'ai-lab.craft',
+    taskType: mode === CRAFT_CLIPS_AI_MODES.REFACTORING ? 'refactorization' : 'craft',
+    title,
+    outputText: summaryLines.join('\n'),
+    metadata: {
+      mode,
+      categorized: stats.categorized || 0,
+      enhanced: stats.enhanced || 0,
+      duplicatesFound: stats.duplicatesFound || 0,
+      duplicatesArchived: stats.duplicatesArchived || 0,
+      aiFormatted: stats.aiFormatted || 0,
+      aiRefactored: stats.aiRefactored || 0,
+      refactorLevel: stats.refactorLevel || '',
+    },
+  });
 }
 
 /** Clips eligible for standalone AI Refactorization (AI Lab panel). */

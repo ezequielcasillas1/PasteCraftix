@@ -39,14 +39,6 @@ export function registerAiLabPageEvents(app) {
 
         // Refresh credits view when entering AI Lab.
         app.updateAiCreditsPills('ai-tab');
-
-        // Defer heavy work one frame so the tab-switch paints first. Avoids
-        // a stutter where layout + gallery network reads happen in the same
-        // frame as the CSS class change.
-        requestAnimationFrame(() => {
-          app.loadAIGallery();
-          app.migrateProfileImageToGallery();
-        });
       });
     }
 
@@ -68,13 +60,7 @@ export function registerAiLabPageEvents(app) {
           app._currentAiLabSubTab = tabName;
           app._saveActiveTabState();
 
-          if (tabName === 'generator') {
-            document.getElementById('aiGeneratorSection').classList.add('active');
-          } else if (tabName === 'gallery') {
-            document.getElementById('aiGallerySection').classList.add('active');
-            app.loadAIGallery();
-            app.migrateProfileImageToGallery();
-          } else if (tabName === 'summary') {
+          if (tabName === 'summary') {
             document.getElementById('aiSummarySection').classList.add('active');
             if (app._currentSummarySection === 'input' || !app._currentSummarySection) {
               app._renderOpenRecentConversation();
@@ -296,6 +282,7 @@ export function registerAiLabPageEvents(app) {
     const newQuestionBtn = document.getElementById('newQuestionBtn');
     const newSummaryBtn = document.getElementById('newSummaryBtn');
     const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const summarySaveToNotesBtn = document.getElementById('summarySaveToNotesBtn');
 
     // Summary input character counter
     // Debounce timer for persisting summary input
@@ -420,6 +407,12 @@ export function registerAiLabPageEvents(app) {
       });
     }
 
+    if (summarySaveToNotesBtn) {
+      summarySaveToNotesBtn.addEventListener('click', async () => {
+        await app.saveCurrentAiOutputToNotes();
+      });
+    }
+
     // Summary follow-up handlers
     const summaryFollowupInput = document.getElementById('summaryFollowupInput');
     const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
@@ -513,37 +506,6 @@ export function registerAiLabPageEvents(app) {
         }
       });
     });
-    
-    // Upload / gallery shortcuts
-    const openProfileUploadBtn = document.getElementById('openProfileUploadBtn');
-    const openImageGalleryBtn = document.getElementById('openImageGalleryBtn');
-    const aiTimerDismiss = document.getElementById('aiTimerDismiss');
-    
-    if (openProfileUploadBtn) {
-      openProfileUploadBtn.addEventListener('click', () => {
-        app.showProfileModal();
-      });
-    }
-    
-    if (openImageGalleryBtn) {
-      openImageGalleryBtn.addEventListener('click', () => {
-        document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
-        const galleryTab = document.querySelector('.ai-lab-tab[data-ai-tab="gallery"]');
-        if (galleryTab) galleryTab.classList.add('active');
-        document.getElementById('aiGallerySection').classList.add('active');
-        app._currentAiLabSubTab = 'gallery';
-        app._saveActiveTabState();
-        app.loadAIGallery();
-        app.migrateProfileImageToGallery();
-      });
-    }
-    
-    if (aiTimerDismiss) {
-      aiTimerDismiss.addEventListener('click', () => {
-        app.hideAIGenerationTimer();
-      });
-    }
     
     // Quick Copy Button
     document.getElementById('quickCopyBtn').addEventListener('click', () => {

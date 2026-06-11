@@ -58,6 +58,10 @@ export async function saveRefactorHistory(records) {
 
       this.aiHistoryEntries.unshift(entry);
       this._generateAiHistoryTitle(entry.id, before);
+      _emitHistoryThreadArtifact(this, entry, entry.threads[0], {
+        source: 'ai-lab.refactorization',
+        persisted: true,
+      });
     }
 
     await this._persistAiHistory();
@@ -121,6 +125,7 @@ export async function saveAiHistory(type, originalText, threads) {
       existing.entry.updatedAt = Date.now();
       await this._persistAiHistory();
       console.log('📜 AI History updated:', existing.entry.id, 'threads:', threads.length);
+      _emitHistoryFromLatestThread(this, existing.entry, { persisted: true, updated: true });
       return existing.entry;
     }
 
@@ -130,6 +135,7 @@ export async function saveAiHistory(type, originalText, threads) {
     await this._persistAiHistory();
     console.log('📜 AI History saved new entry:', entry.id, type, 'threads:', threads.length);
     this._generateAiHistoryTitle(entry.id, originalText);
+    _emitHistoryFromLatestThread(this, entry, { persisted: true });
     return entry;
   } catch (err) {
     console.error('saveAiHistory failed:', err);
@@ -196,7 +202,7 @@ export function renderAiHistoryList() {
   _attachHistoryListHandlers(this, container);
   _renderAiHistoryListPagination(this, paginationEl, total, totalPages);
   if (typeof this.renderLucideIcons === 'function') {
-    this.renderLucideIcons();
+    this.renderLucideIcons(container);
   }
 }
 
@@ -278,6 +284,7 @@ export async function openAiHistoryModal(entry) {
   _renderHistoryModalHeader(entry, titleEl, subtitleEl);
   modal.style.display = 'flex';
   await _renderCurrentHistoryThread(this, entry, resultEl);
+  _emitHistoryFromLatestThread(this, entry, { fromModalOpen: true, threadIndex: 0 });
   this._renderHistoryPagination();
 }
 
@@ -309,6 +316,7 @@ export async function navigateHistoryThread(index) {
   if (resultEl) {
     resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
   }
+  _emitHistoryThreadArtifact(this, entry, entry.threads[index], { fromModalNavigation: true, threadIndex: index });
   this._renderHistoryPagination();
 }
 
@@ -646,6 +654,54 @@ function _historyThreadBoxStyle(app, index) {
     color: ${active ? 'white' : '#64748b'};
     transition: all 0.25s ease;
   `;
+}
+
+function _emitHistoryFromLatestThread(app, entry, metadata = {}) {
+  if (!entry?.threads?.length) return;
+  const latestThread = entry.threads[entry.threads.length - 1];
+  _emitHistoryThreadArtifact(app, entry, latestThread, {
+    ...metadata,
+    threadIndex: entry.threads.length - 1,
+  });
+}
+
+function _emitHistoryThreadArtifact(app, entry, thread, metadata = {}) {
+  if (!entry || !thread || typeof app?.emitAiTaskOutput !== 'function') return;
+
+  if (entry.type === 'refactorization') {
+    app.emitAiTaskOutput({
+      source: metadata.source || 'ai-history.refactorization',
+      taskType: 'refactorization',
+      title: entry.title || 'AI Refactorization',
+      sourceText: thread.before || entry.originalText || '',
+      question: 'Refactorization output',
+      level: thread.refactorLevel || thread.level || '',
+      outputText: thread.after || thread.answer || '',
+      metadata: {
+        historyId: entry.id,
+        threadTimestamp: thread.timestamp || Date.now(),
+        sourceClipId: thread.sourceClipId || '',
+        newClipId: thread.newClipId || '',
+        ...metadata,
+      },
+    });
+    return;
+  }
+
+  app.emitAiTaskOutput({
+    source: metadata.source || `ai-history.${entry.type || 'general'}`,
+    taskType: entry.type === 'breakdown' ? 'breakdown' : 'summary',
+    title: entry.title || 'AI History',
+    sourceText: entry.originalText || '',
+    question: thread.question || '',
+    level: thread.level || '',
+    outputText: thread.answer || '',
+    metadata: {
+      historyId: entry.id,
+      threadTimestamp: thread.timestamp || Date.now(),
+      ...metadata,
+    },
+  });
 }
 
 // ────────────────────────────────────────────────────────────

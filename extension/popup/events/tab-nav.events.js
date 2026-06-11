@@ -36,8 +36,7 @@ export function registerTabNavEvents(app) {
           app.renderSearchResults();
           app.updateSearchBulkActions();
         } else if (app.currentTab === 'ai') {
-          app.loadAIGallery();
-          app.migrateProfileImageToGallery();
+          app.updateAiCreditsPills('ai-tab');
         } else if (app.currentTab === 'notes') {
           await app.loadNotes();
           app.renderNotes();

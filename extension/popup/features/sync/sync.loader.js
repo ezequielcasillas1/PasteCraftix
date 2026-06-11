@@ -173,13 +173,9 @@ export async function loadStorageData(app) {
 export async function loadData(app) {
   if (!isExtensionContextValid()) return;
   await loadStorageData(app);
-  
-  if (typeof app.loadSettings === 'function') {
-    await app.loadSettings();
-  }
-  if (typeof app.loadUserProfile === 'function') {
-    await app.loadUserProfile();
-  }
+
+  // Settings/profile are orchestrated by popup.init.js startup batches.
+  // Avoid duplicate calls here so loadData remains focused on clip/category state.
   if (typeof app._initializeTieredStorage === 'function') {
     app._initializeTieredStorage().catch(e => {
       console.warn('Tiered storage initialization failed (will use local only):', e);

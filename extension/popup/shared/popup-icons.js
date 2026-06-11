@@ -4,6 +4,8 @@
 const LUCIDE_ATTRS = { 'stroke-width': 2, 'aria-hidden': 'true', focusable: 'false' };
 const ICON_BATCH_SIZE = 4;
 const ICON_FRAME_BUDGET_MS = 8;
+const ICON_MAX_SCAN_PER_FRAME = 80;
+const ICON_FULL_SCAN_COOLDOWN_MS = 250;
 
 function isUnrenderedPlaceholder(el) {
   return el?.nodeType === 1 && el.hasAttribute?.('data-lucide') && el.tagName !== 'SVG';
@@ -22,7 +24,6 @@ function runLucideCreateIcons(nodes) {
   const lucide = window.lucide;
   if (!lucide?.createIcons || !nodes.length) return;
   lucide.createIcons({
-    icons: lucide.icons || lucide,
     attrs: LUCIDE_ATTRS,
     nodes,
   });
@@ -32,6 +33,8 @@ function runLucideCreateIcons(nodes) {
   const pendingNodes = new Set();
   let flushScheduled = false;
   let observerPaused = false;
+  let fullScanQueued = false;
+  let lastFullScanAt = 0;
 
   const scheduleFlush = () => {
     if (flushScheduled || pendingNodes.size === 0) return;
@@ -43,25 +46,48 @@ function runLucideCreateIcons(nodes) {
   };
 
   const enqueueFromNode = (node) => {
+    if (!node) return;
     for (const el of collectUnrenderedPlaceholders(node)) {
       pendingNodes.add(el);
     }
     scheduleFlush();
   };
 
+  const queueFullDocumentScan = () => {
+    if (!document.body || fullScanQueued) return;
+    const now = performance.now();
+    if (pendingNodes.size > 0 && now - lastFullScanAt < ICON_FULL_SCAN_COOLDOWN_MS) {
+      scheduleFlush();
+      return;
+    }
+    fullScanQueued = true;
+    queueMicrotask(() => {
+      fullScanQueued = false;
+      if (!document.body) return;
+      lastFullScanAt = performance.now();
+      enqueueFromNode(document.body);
+    });
+  };
+
   const processBatch = () => {
     if (pendingNodes.size === 0) return;
 
     const batch = [];
-    const batchT0 = performance.now();
+    const frameDeadline = performance.now() + ICON_FRAME_BUDGET_MS;
+    let scanned = 0;
     for (const node of pendingNodes) {
+      scanned += 1;
       if (!node.isConnected || !isUnrenderedPlaceholder(node)) {
         pendingNodes.delete(node);
-        continue;
+      } else {
+        batch.push(node);
+        pendingNodes.delete(node);
       }
-      batch.push(node);
-      pendingNodes.delete(node);
-      if (batch.length >= ICON_BATCH_SIZE || performance.now() - batchT0 >= ICON_FRAME_BUDGET_MS) break;
+      if (
+        batch.length >= ICON_BATCH_SIZE ||
+        scanned >= ICON_MAX_SCAN_PER_FRAME ||
+        performance.now() >= frameDeadline
+      ) break;
     }
 
     if (!batch.length) {
@@ -93,7 +119,7 @@ function runLucideCreateIcons(nodes) {
       scheduleFlush();
       return;
     }
-    enqueueFromNode(document.body);
+    queueFullDocumentScan();
   };
 
   if (window.__lucideObserverInstalled) return;

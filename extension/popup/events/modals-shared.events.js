@@ -16,6 +16,12 @@ export function registerSharedModalEvents(app) {
     document.getElementById('copyBreakdownBtn').addEventListener('click', () => {
       app.copyBreakdownText();
     });
+    const saveBreakdownToNotesBtn = document.getElementById('saveBreakdownToNotesBtn');
+    if (saveBreakdownToNotesBtn) {
+      saveBreakdownToNotesBtn.addEventListener('click', async () => {
+        await app.saveCurrentAiOutputToNotes();
+      });
+    }
 
     // Italics toggle button
     document.getElementById('breakdownItalicsBtn').addEventListener('click', () => {
@@ -46,6 +52,12 @@ export function registerSharedModalEvents(app) {
     if (copyAiHistoryBtn) {
       copyAiHistoryBtn.addEventListener('click', () => {
         app.copyHistoryContent();
+      });
+    }
+    const saveAiHistoryToNotesBtn = document.getElementById('saveAiHistoryToNotesBtn');
+    if (saveAiHistoryToNotesBtn) {
+      saveAiHistoryToNotesBtn.addEventListener('click', async () => {
+        await app.saveCurrentAiOutputToNotes();
       });
     }
     // Edit title button

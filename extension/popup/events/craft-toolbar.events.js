@@ -154,6 +154,12 @@ export function registerCraftToolbarEvents(app) {
     if (magicDoneBtn) magicDoneBtn.addEventListener('click', () => {
       document.getElementById('magicResultsModal').style.display = 'none';
     });
+    const magicSaveToNotesBtn = document.getElementById('magicResultsSaveToNotes');
+    if (magicSaveToNotesBtn) {
+      magicSaveToNotesBtn.addEventListener('click', async () => {
+        await app.saveCurrentAiOutputToNotes();
+      });
+    }
     const magicResultsOverlay = document.getElementById('magicResultsModal');
     if (magicResultsOverlay) magicResultsOverlay.addEventListener('click', (e) => {
       if (e.target.id === 'magicResultsModal') magicResultsOverlay.style.display = 'none';

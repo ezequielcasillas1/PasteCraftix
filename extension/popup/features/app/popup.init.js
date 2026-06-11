@@ -93,14 +93,17 @@ export async function runPopupInit(app) {
   app.setupLocalStorageListener();
   await app._ensureIndexedDbReadyAndMigrate();
 
-  await Promise.all([
+  const coreBatch = Promise.all([
     app.loadData(),
     app.loadSettings(),
     app.loadAiWorkflow(),
+  ]);
+  const profileBatch = Promise.all([
     app.loadUserProfile(),
     app.loadAnalysisHistory(),
     app.loadAiHistory(),
   ]);
+  await Promise.all([coreBatch, profileBatch]);
 
   if (!app.userProfile?.userName && !app.userProfile?.aiGeneratedName && !app.userProfile?.profileImageUrl) {
     try {

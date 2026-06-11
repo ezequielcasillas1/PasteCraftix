@@ -11,6 +11,16 @@ export async function generateBreakdownInline(level) {
   const cached = this.inlineBreakdownCache && this.inlineBreakdownCache[level];
   if (cached) {
     if (resultEl) resultEl.innerHTML = await this._renderAiResponse(cached);
+    _emitAiArtifact(this, {
+      source: 'ai-lab.inline-breakdown',
+      taskType: 'breakdown',
+      title: 'AI Breakdown',
+      sourceText: this.currentBreakdownText || '',
+      question: `Breakdown at ${level} level`,
+      level,
+      outputText: cached,
+      metadata: { inline: true, cached: true },
+    });
     return;
   }
 
@@ -24,6 +34,16 @@ export async function generateBreakdownInline(level) {
     if (loadingEl) loadingEl.style.display = 'none';
 
     _appendInlineBreakdownThread(this, level, formatted);
+    _emitAiArtifact(this, {
+      source: 'ai-lab.inline-breakdown',
+      taskType: 'breakdown',
+      title: 'AI Breakdown',
+      sourceText: this.currentBreakdownText || '',
+      question: `Breakdown at ${level} level`,
+      level,
+      outputText: formatted,
+      metadata: { inline: true },
+    });
     _showInlineFollowup();
     if (this.inlineBreakdownThreads.length >= 2) this.renderInlineBreakdownPagination();
     _mirrorInlineBreakdownState(this);
@@ -59,6 +79,16 @@ export async function sendInlineBreakdownFollowup(question) {
     if (loadingEl) loadingEl.style.display = 'none';
 
     this.inlineBreakdownThreads.push({ question, answer: formatted, level, timestamp: Date.now() });
+    _emitAiArtifact(this, {
+      source: 'ai-lab.inline-breakdown-followup',
+      taskType: 'breakdown',
+      title: 'AI Breakdown Follow-up',
+      sourceText: this.currentBreakdownText || '',
+      question,
+      level,
+      outputText: formatted,
+      metadata: { followup: true, inline: true },
+    });
     this.currentInlineBreakdownThreadIndex = this.inlineBreakdownThreads.length - 1;
     this.renderInlineBreakdownPagination();
     _mirrorInlineBreakdownState(this);
@@ -158,6 +188,15 @@ export async function generateSummary(text, question) {
     if (summaryContent) summaryContent.innerHTML = await this._renderAiResponse(formatted);
 
     _appendSummaryThread(this, question, formatted);
+    _emitAiArtifact(this, {
+      source: 'ai-lab.summary',
+      taskType: 'summary',
+      title: 'AI Summary',
+      sourceText: text || this.currentSummaryText || '',
+      question,
+      outputText: formatted,
+      metadata: { threadCount: this.summaryThreads.length + 1 },
+    });
     _showSummaryFollowup();
     if (this.summaryThreads.length >= 2) this.renderThreadPagination('summary');
     this._currentSummarySection = 'result';
@@ -451,6 +490,17 @@ async function _runBreakdownFollowup(app, followupQuestion) {
     if (loadingEl) loadingEl.style.display = 'none';
     if (resultEl) resultEl.innerHTML = await app._renderAiResponse(formatted);
 
+    _emitAiArtifact(app, {
+      source: 'ai-lab.breakdown-followup',
+      taskType: 'breakdown',
+      title: 'AI Breakdown Follow-up',
+      sourceText: app.currentBreakdownText || '',
+      question: followupQuestion,
+      level: app.selectedFollowupLevel || 'standard',
+      outputText: formatted,
+      metadata: { followup: true },
+    });
+
     app.breakdownThreads.push({
       question: followupQuestion,
       answer: formatted,
@@ -469,6 +519,11 @@ async function _runBreakdownFollowup(app, followupQuestion) {
     if (loadingEl) loadingEl.style.display = 'none';
     app.showToast('Failed to generate follow-up');
   }
+}
+
+function _emitAiArtifact(app, payload) {
+  if (typeof app?.emitAiTaskOutput !== 'function') return;
+  app.emitAiTaskOutput(payload);
 }
 
 function _generateBreakdownFollowupAnswer(app, followupQuestion) {
@@ -541,9 +596,9 @@ export async function renderOpenRecentConversation(app) {
   });
 
   if (typeof app.renderLucideIcons === 'function') {
-    app.renderLucideIcons();
+    app.renderLucideIcons(container);
   } else   if (typeof window.renderLucideIcons === 'function') {
-    window.renderLucideIcons();
+    window.renderLucideIcons(container);
   }
 }
 

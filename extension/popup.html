@@ -2319,6 +2319,43 @@
         .tab-content.active {
             display: block;
         }
+
+        .clips-one-click-copy-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            margin: 0 0 12px 0;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        .clips-one-click-copy-bar .clips-one-click-copy-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .clips-one-click-copy-bar .clips-one-click-copy-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .clips-one-click-copy-bar .clips-one-click-copy-hint {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.35;
+        }
+
+        .clips-one-click-copy-bar .toggle {
+            flex-shrink: 0;
+            margin: 0;
+        }
         
         /* Search Tab Styles */
         .search-header {
@@ -10183,6 +10220,16 @@
         <!-- Clips Tab -->
         <section class="tab-content active" id="clipsTab">
             <div class="chip-area">
+                <label class="clips-one-click-copy-bar" for="activityOneClickCopyToggle">
+                    <span class="clips-one-click-copy-text">
+                        <span class="clips-one-click-copy-title">One-click copy</span>
+                        <span class="clips-one-click-copy-hint">Click a clip below to copy it instantly.</span>
+                    </span>
+                    <span class="toggle" title="Enable one-click copy for clips">
+                        <input type="checkbox" id="activityOneClickCopyToggle" aria-label="Enable one-click copy for clips">
+                        <div class="toggle-switch"></div>
+                    </span>
+                </label>
                 <div class="chip-container" id="chipContainer">
                     <div class="empty-state">
                         <div class="empty-state-icon"><i data-lucide="sparkles"></i></div>
@@ -10502,9 +10549,7 @@
 
                 <!-- AI Lab Internal Tabs -->
                 <nav class="ai-lab-tabs">
-                    <button class="ai-lab-tab active" data-ai-tab="generator"><span class="tab-emoji"><i data-lucide="upload"></i></span><span class="tab-text"> Uploads</span></button>
-                    <button class="ai-lab-tab" data-ai-tab="gallery"><span class="tab-emoji"><i data-lucide="image"></i></span><span class="tab-text"> Gallery</span></button>
-                    <button class="ai-lab-tab" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
+                    <button class="ai-lab-tab active" data-ai-tab="summary"><span class="tab-emoji"><i data-lucide="notebook-pen"></i></span><span class="tab-text"> Summary</span></button>
                 </nav>
 
                 <!-- AI Refactorization Standalone Feature -->
@@ -10527,60 +10572,8 @@
                     <span class="breakdown-arrow">→</span>
                 </button>
 
-                <!-- Generator Section -->
-                <div class="ai-lab-section active" id="aiGeneratorSection">
-                    <div class="ai-generation-section">
-                        <h3 class="ai-section-title"><i data-lucide="upload"></i> Add Your Own Images</h3>
-                        <div class="ai-gen-controls">
-                            <button class="ai-gen-btn" id="openProfileUploadBtn">
-                                <span class="ai-gen-icon"><i data-lucide="image-plus"></i></span>
-                                <span>Upload in Profile</span>
-                            </button>
-                            <button class="ai-gen-btn" id="openImageGalleryBtn">
-                                <span class="ai-gen-icon"><i data-lucide="images"></i></span>
-                                <span>Open Gallery</span>
-                            </button>
-                        </div>
-                        <p class="workflow-note" style="margin-top: 12px;">
-                            <span class="note-icon">💡</span>
-                            Upload your own images, save them to the gallery, and reuse them for your profile image or widget icon.
-                        </p>
-                        
-                        <!-- Generation Timer (shown after generation) -->
-                        <div id="aiGenerationTimer" class="ai-generation-timer" style="display: none;">
-                            <div class="timer-icon"><i data-lucide="timer"></i></div>
-                            <div class="timer-text">
-                                <span>Image saved! Gallery updating in </span>
-                                <span id="aiTimerCountdown" class="timer-countdown">10</span>
-                                <span>s</span>
-                            </div>
-                            <button id="aiTimerDismiss" class="timer-dismiss">✕</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Gallery Section -->
-                <div class="ai-lab-section" id="aiGallerySection">
-                    <div class="ai-gallery-section">
-                        <div class="ai-gallery-header">
-                            <h3 class="ai-section-title"><i data-lucide="image"></i> Your Image Gallery</h3>
-                            <span class="ai-gallery-count" id="aiGalleryCount">0 images</span>
-                        </div>
-                        
-                        <div class="ai-gallery-grid" id="aiGalleryGrid">
-                            <div class="ai-gallery-empty">
-                                <div class="ai-empty-icon"><i data-lucide="palette"></i></div>
-                                <h4>No images yet</h4>
-                                <p>Upload your first image in Profile to start your gallery</p>
-                            </div>
-                        </div>
-                        
-                        <div class="ai-gallery-pagination" id="aiGalleryPagination" style="display: none;"></div>
-                    </div>
-                </div>
-
                 <!-- AI Summary Section -->
-                <div class="ai-lab-section" id="aiSummarySection">
+                <div class="ai-lab-section active" id="aiSummarySection">
                     <div class="ai-summary-container">
                         <div class="ai-summary-hero">
                             <h3 class="ai-section-title"><i data-lucide="notebook-pen"></i> AI Summary</h3>
@@ -10697,6 +10690,10 @@ Multiple clips are separated by:
                             </div>
                             
                             <div class="summary-result-actions">
+                                <button id="summarySaveToNotesBtn" class="btn-secondary" aria-label="Save summary to notes">
+                                    <span><i data-lucide="folder-plus"></i></span>
+                                    <span>Save to Notes</span>
+                                </button>
                                 <button id="newQuestionBtn" class="btn-secondary">
                                     <span><i data-lucide="arrow-left"></i></span>
                                     <span>Ask Different Question</span>
@@ -11269,6 +11266,10 @@ Multiple clips are separated by:
                         </div>
                     </div>
                     <div class="modal-actions">
+                        <button class="btn-secondary" id="saveBreakdownToNotesBtn" aria-label="Save breakdown to notes">
+                            <span><i data-lucide="folder-plus"></i></span>
+                            <span>Save to Notes</span>
+                        </button>
                         <button class="btn-secondary" id="copyBreakdownBtn">
                             <span><i data-lucide="clipboard"></i></span>
                             <span>Copy Explanation</span>
@@ -11321,6 +11322,10 @@ Multiple clips are separated by:
                     </div>
 
                     <div class="modal-actions">
+                        <button class="btn-secondary" id="saveAiHistoryToNotesBtn" aria-label="Save AI history output to notes">
+                            <span><i data-lucide="folder-plus"></i></span>
+                            <span>Save to Notes</span>
+                        </button>
                         <button class="btn-secondary" id="copyAiHistoryBtn">
                             <span><i data-lucide="clipboard"></i></span>
                             <span>Copy</span>
@@ -11578,6 +11583,10 @@ Multiple clips are separated by:
                     </div>
                 </div>
                 <div class="modal-footer magic-results-footer">
+                    <button class="btn-secondary" id="magicResultsSaveToNotes" aria-label="Save craft results to notes">
+                        <span><i data-lucide="folder-plus"></i></span>
+                        <span>Save to Notes</span>
+                    </button>
                     <button class="btn-primary" id="magicResultsDone">Done</button>
                 </div>
             </div>
@@ -12349,6 +12358,36 @@ Multiple clips are separated by:
         </div>
     </div>
 
+    <!-- Album Interlaying Editor Modal -->
+    <div class="modal-overlay" id="albumInterlayingEditorModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="albumInterlayingEditorTitle">
+        <div class="modal-content note-editor-content">
+            <div class="modal-header">
+                <h3 id="albumInterlayingEditorTitle">Edit Attachment</h3>
+                <button class="modal-close" id="closeAlbumInterlayingEditor" type="button" aria-label="Close attachment editor">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-editor-form">
+                    <div class="form-group" id="albumInterlayingTitleGroup">
+                        <label for="albumInterlayingTitleInput">Title</label>
+                        <input type="text" id="albumInterlayingTitleInput" placeholder="Title (optional)..." class="note-input-field">
+                    </div>
+                    <div class="form-group" id="albumInterlayingContentGroup">
+                        <label for="albumInterlayingContentInput">Content</label>
+                        <textarea id="albumInterlayingContentInput" placeholder="Clip text..." class="note-textarea-field" rows="8"></textarea>
+                    </div>
+                    <div class="form-group" id="albumInterlayingUrlGroup" style="display: none;">
+                        <label for="albumInterlayingUrlInput" id="albumInterlayingUrlLabel">URL</label>
+                        <input type="url" id="albumInterlayingUrlInput" placeholder="https://..." class="note-input-field">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancelAlbumInterlayingEditor" type="button">Cancel</button>
+                <button class="btn-primary" id="saveAlbumInterlayingEditor" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Album Attachment Viewer (Overlay Mode) -->
     <div class="modal-overlay" id="albumAttachmentViewerModal" style="display: none;">
         <div class="modal-content note-viewer-content">
@@ -12373,6 +12412,31 @@ Multiple clips are separated by:
                         <h4 class="note-viewer-section-title">Details</h4>
                         <div id="albumAttachmentViewerBody" class="note-viewer-text"></div>
                     </div>
+                </div>
+            </div>
+            <div class="clip-viewer-footer" id="albumAttachmentViewerFooter">
+                <div class="clip-viewer-ai-actions" id="albumAttachmentViewerAiActions">
+                    <button class="chip-summary-btn clip-viewer-ai-icon" id="albumAttachmentAiSummaryBtn" type="button" title="AI Summary of this clip (or selected clips)" aria-label="AI Summary of this clip (or selected clips)">
+                        <i data-lucide="notebook-pen"></i>
+                    </button>
+                    <button class="chip-breakdown-btn clip-viewer-ai-icon" id="albumAttachmentAiBreakdownBtn" type="button" title="AI Breakdown of this clip (or selected clips)" aria-label="AI Breakdown of this clip (or selected clips)">
+                        <i data-lucide="brain"></i>
+                    </button>
+                    <button class="chip-google-search-btn clip-viewer-ai-icon" id="albumAttachmentGoogleSearchBtn" type="button" title="Google search using this clip (or selected clips)" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
+                        <img src="assets/google-logo.svg" alt="" class="pc-google-action-icon" />
+                    </button>
+                    <button class="chip-refactor-btn clip-viewer-ai-icon" id="albumAttachmentAiRefactorBtn" type="button" title="AI Refactorization of this clip (or selected clips)" aria-label="AI Refactorization of this clip (or selected clips)">
+                        <i data-lucide="sparkles"></i>
+                    </button>
+                    <button class="chip-craft-btn clip-viewer-ai-icon" id="albumAttachmentAiCraftBtn" type="button" title="Craft Clips: categorize, format, refactor, dedupe" aria-label="Craft Clips: categorize, format, refactor, dedupe">
+                        <i data-lucide="wand-sparkles"></i>
+                    </button>
+                    <button class="chip-category-btn clip-viewer-ai-icon" id="albumAttachmentSendCategoriesBtn" type="button" title="Send this clip (or selected clips) to a category" aria-label="Send this clip (or selected clips) to a category">
+                        <i data-lucide="folder"></i>
+                    </button>
+                    <button class="chip-notes-btn clip-viewer-ai-icon" id="albumAttachmentSendNotesBtn" type="button" title="Send this clip (or selected clips) to a note" aria-label="Send this clip (or selected clips) to a note">
+                        <i data-lucide="folder-plus"></i>
+                    </button>
                 </div>
             </div>
         </div>
