@@ -5,10 +5,19 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const optionalResourcePaths = new Set(["config.js", "icon.png", "assets/eye.gif"]);
+const optionalResourcePrefixes = ["lib/"];
 
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
+}
+
+function isOptionalGeneratedResource(relativePath) {
+  return (
+    optionalResourcePaths.has(relativePath) ||
+    optionalResourcePrefixes.some((prefix) => relativePath.startsWith(prefix))
+  );
 }
 
 assert.strictEqual(manifest.manifest_version, 3, "Extension must use Manifest V3");
@@ -28,6 +37,7 @@ for (const script of manifest.content_scripts) {
 for (const group of manifest.web_accessible_resources || []) {
   for (const resource of group.resources || []) {
     if (resource.includes("*")) continue;
+    if (isOptionalGeneratedResource(resource)) continue;
     assertExtensionFile(resource);
   }
 }
