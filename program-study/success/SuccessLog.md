@@ -1,3 +1,13 @@
+### Jun 11, 2026 - Album interlaying edit modal
+**Status:** SUCCESS
+**Files:** notes.album-interlaying.editor.js, notes.album.js, popup.html, notes.controller.js, notes.events.js, popup.js
+**Result:** Album attachment Edit opens inline modal instead of full note editor. Edits persist album-local via updateAlbumInterlaying. User confirmed successful.
+
+### Jun 11, 2026 - One-click copy + local profile image
+**Status:** SUCCESS
+**Files:** popup.html, clips.render.js, clips-shell.events.js, settings.storage.js, profile.events.js, profile-sync.js, ai-lab-page.events.js
+**Result:** One-click copy toggle on Clips tab (under tab bar); persisted in quickPasteSettings. Clip click copies when enabled. Removed AI Lab gallery/upload UI; single profile image stored locally only (no Supabase Storage). User verified.
+
 ### Jun 8, 2026 - Text-only AI credits + upload gallery
 **Status:** SUCCESS
 **Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, popup.html, profile/*, billing.constants.js, site.js, pricing.astro, upgrade.astro

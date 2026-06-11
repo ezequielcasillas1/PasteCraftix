@@ -1,3 +1,18 @@
+### Jun 11, 2026 - Album attachment viewer modal + AI toolbar
+**Status:** Pending verification
+**Files:** notes.album-attachment.viewer.js, notes.album.js, notes.events.js, notes.controller.js, notes.constants.js, popup.html, popup.js
+**Result:** Album row click opens attachment modal with details; bottom-left AI icons match clip viewer; Edit/Delete/Copy/› unchanged.
+
+### Jun 11, 2026 - Album interlaying edit modal
+**Status:** SUCCESS
+**Files:** notes.album-interlaying.editor.js, notes.album.js, popup.html, notes.controller.js, notes.events.js, popup.js
+**Result:** Album attachment Edit opens inline modal; saves via updateAlbumInterlaying without opening full note editor. User verified.
+
+### Jun 11, 2026 - One-click copy + local profile image
+**Status:** SUCCESS
+**Files:** popup.html, clips.render.js, settings.storage.js, profile.events.js, profile-sync.js
+**Result:** Clips-tab one-click copy toggle with saved preference; gallery removed from AI Lab; profile upload is local-only single image.
+
 ### Jun 8, 2026 - Text-only AI credits + upload gallery
 **Status:** SUCCESS
 **Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, extension/popup.html, profile/*, billing.constants.js, website/src/data/site.js
