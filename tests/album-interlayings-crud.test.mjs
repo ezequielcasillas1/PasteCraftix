@@ -16,6 +16,7 @@ const crudUrl = pathToFileURL(
 const {
   collectAlbumInterlayings,
   countAlbumInterlayings,
+  patchInterlayingAtFlatIndex,
   resolveInterlayingAtFlatIndex,
   removeInterlayingAtFlatIndex,
   syncAlbumRefMetadata,
@@ -73,5 +74,32 @@ describe('album interlayings CRUD', () => {
     assert.ok(album.noteRefs.includes(42));
     assert.ok(album.sourceNoteIds.includes(42));
     assert.ok(album.clips.length >= 2);
+  });
+
+  test('patch interlaying updates correct flat-index bucket and refs', () => {
+    const album = {
+      type: 'album',
+      clips: [{ id: 'clip-1', text: 'clip', sourceNoteId: 11 }],
+      images: [{ id: 'image-1', alt: 'old', sourceNoteId: 22 }],
+      urls: [{ id: 'url-1', url: 'https://old.example', sourceNoteId: 33 }],
+      sourceNoteIds: [11, 22, 33],
+      noteRefs: [11, 22, 33]
+    };
+
+    patchInterlayingAtFlatIndex(album, 1, {
+      alt: 'new',
+      sourceNoteId: 33
+    });
+
+    assert.equal(album.clips[0].text, 'clip');
+    assert.equal(album.images[0].alt, 'new');
+    assert.equal(album.images[0].sourceNoteId, 33);
+    assert.equal(album.urls[0].url, 'https://old.example');
+    assert.deepEqual(album.sourceNoteIds, [11, 33]);
+    assert.deepEqual(album.noteRefs, [11, 33]);
+
+    patchInterlayingAtFlatIndex(album, 10, { text: 'no-op' });
+    patchInterlayingAtFlatIndex(album, 0, null);
+    assert.equal(album.clips[0].text, 'clip');
   });
 });
