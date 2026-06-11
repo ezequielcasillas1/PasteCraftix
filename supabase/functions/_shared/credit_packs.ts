@@ -1,6 +1,15 @@
 /** Stripe one-time credit pack helpers (shared by create-checkout + stripe-webhook). */
 
 export {
+  TEXT_CREDIT_POLICIES,
+  getTextCreditPolicyFromPriceId,
+  accrueTextCreditsOnPeriodReset,
+  computeRolledTextCredits,
+} from '../../../shared/text-credit-policy.mjs';
+
+export type TextCreditPolicy = { grant: number; cap: number };
+
+export {
   CUSTOM_CREDIT_MIN,
   CUSTOM_CREDIT_MAX,
   CHECKOUT_MIN_CREDITS,

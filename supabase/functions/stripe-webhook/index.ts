@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import Stripe from 'https://esm.sh/stripe@14.21.0'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
+  computeRolledTextCredits,
   customPriceIdForCredits,
   fulfillCreditPackPurchase,
   getCreditAmountForPriceId,
@@ -67,71 +68,8 @@ function getPeriodEndIso(subscription: any): string | null {
   }
 }
 
-function getTextCreditPolicyFromPriceId(priceId: string | null): { grant: number; cap: number } | null {
-  if (!priceId) return null
-
-  switch (priceId) {
-    case 'price_1Tf3UoLOdeLTrjap4O8BGFvS': // Premium Weekly ($3.99/wk)
-    case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
-      return { grant: 4_000, cap: 20_000 }
-    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
-      return { grant: 35_000, cap: 35_000 }
-    case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
-      return { grant: 500_000, cap: 500_000 }
-    default:
-      return null
-  }
-}
-
-function getImageCreditsLimitFromPriceId(priceId: string | null): number | null {
+function getImageCreditsLimitFromPriceId(_priceId: string | null): number | null {
   return null
-}
-
-function getTextCreditsLimitFromPriceId(priceId: string | null): number | null {
-  return getTextCreditPolicyFromPriceId(priceId)?.grant ?? null
-}
-
-function computeRolledTextCredits(opts: {
-  existingLimit?: number | null,
-  existingUsed?: number | null,
-  previousPriceId?: string | null,
-  nextPriceId?: string | null,
-  previousPeriodEndIso?: string | null,
-  nextPeriodEndIso?: string | null,
-}): { limit: number | null, used: number | null } {
-  const {
-    existingLimit,
-    existingUsed,
-    previousPriceId,
-    nextPriceId,
-    previousPeriodEndIso,
-    nextPeriodEndIso,
-  } = opts
-
-  const policy = getTextCreditPolicyFromPriceId(nextPriceId || null)
-  if (!policy) return { limit: null, used: null }
-
-  const prevEndMs = previousPeriodEndIso ? Date.parse(previousPeriodEndIso) : NaN
-  const nextEndMs = nextPeriodEndIso ? Date.parse(nextPeriodEndIso) : NaN
-  const priceChanged = !!previousPriceId && previousPriceId !== nextPriceId
-  const periodAdvanced = priceChanged
-    || !Number.isFinite(prevEndMs)
-    || !Number.isFinite(nextEndMs)
-    || nextEndMs > prevEndMs + 10 * 60 * 1000
-
-  if (!periodAdvanced && Number.isFinite(Number(existingLimit)) && Number(existingLimit) > 0) {
-    return {
-      limit: Number(existingLimit),
-      used: Number.isFinite(Number(existingUsed)) ? Number(existingUsed) : 0,
-    }
-  }
-
-  if (policy.cap > policy.grant) {
-    const remaining = Math.max(0, Number(existingLimit || 0) - Math.max(0, Number(existingUsed || 0)))
-    return { limit: Math.min(policy.cap, remaining + policy.grant), used: 0 }
-  }
-
-  return { limit: policy.grant, used: 0 }
 }
 
 async function findSubscriptionByEmailOrStripeId(opts: {

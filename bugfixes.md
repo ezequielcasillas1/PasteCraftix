@@ -1,3 +1,8 @@
+### Jun 11, 2026 - Monthly/yearly AI text credit reset downgrade
+**Status:** Fixed
+**Files:** shared/text-credit-policy.mjs, ai_workflow.ts, credit_packs.ts, stripe-webhook/index.ts
+**Result:** `requireTextCredits` inferred weekly policy when ≤10 days remained until reset, granting 4k instead of 35k/500k on monthly/yearly renewal. Policy now uses `stripe_price_id` first.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

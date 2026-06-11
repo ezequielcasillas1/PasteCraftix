@@ -1,6 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireNotBanned } from './security-gate.ts'
-import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance } from './credit_packs.ts'
+import {
+  accrueTextCreditsOnPeriodReset,
+  computeTotalRemaining,
+  getTextCreditPolicyFromPriceId,
+  hasAiUsageEntitlement,
+  planCreditDrain,
+  readPurchasedBalance,
+  type TextCreditPolicy,
+} from './credit_packs.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
 export type AiWorkflowProvider = 'openai' | 'google';
@@ -383,12 +391,7 @@ function parseBearerToken(authHeader: string | null): string {
   return raw.slice(7).trim();
 }
 
-type TextAllowancePolicy = {
-  grant: number;
-  cap: number;
-};
-
-function resolveTextAllowancePolicy(resetAtIso: string | null): TextAllowancePolicy {
+function resolveTextAllowancePolicyHeuristic(resetAtIso: string | null): TextCreditPolicy {
   try {
     if (!resetAtIso) return { grant: 35_000, cap: 35_000 };
     const resetMs = Date.parse(resetAtIso);
@@ -402,13 +405,19 @@ function resolveTextAllowancePolicy(resetAtIso: string | null): TextAllowancePol
   }
 }
 
-function computeTextCreditsLimitFallback(resetAtIso: string | null): number {
-  return resolveTextAllowancePolicy(resetAtIso).grant;
+function resolveTextAllowancePolicy(
+  stripePriceId: string | null | undefined,
+  resetAtIso: string | null,
+): TextCreditPolicy {
+  return getTextCreditPolicyFromPriceId(stripePriceId ?? null)
+    ?? resolveTextAllowancePolicyHeuristic(resetAtIso);
 }
 
-function accrueWeeklyRolloverLimit(limit: number, used: number, grant: number, cap: number): number {
-  const remaining = Math.max(0, Number(limit) - Math.max(0, Number(used)));
-  return Math.min(cap, remaining + grant);
+function computeTextCreditsLimitFallback(
+  stripePriceId: string | null | undefined,
+  resetAtIso: string | null,
+): number {
+  return resolveTextAllowancePolicy(stripePriceId, resetAtIso).grant;
 }
 
 // Legacy flat-credit limits → weighted-credit limits (one-time migration)
@@ -471,7 +480,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     .select([
       'user_id', 'subscription_tier', 'subscription_status',
       'has_unlimited_ai', 'ai_access_expires_at',
-      'stripe_current_period_end',
+      'stripe_current_period_end', 'stripe_price_id',
       'ai_text_credits_limit', 'ai_text_credits_used', 'ai_text_credits_reset_at',
       'ai_purchased_credits_balance',
     ].join(','))
@@ -519,11 +528,12 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
 
   let creditsUsed = Number.isFinite(Number(sub.ai_text_credits_used)) ? Number(sub.ai_text_credits_used) : 0;
   let creditsLimit = Number.isFinite(Number(sub.ai_text_credits_limit)) ? Number(sub.ai_text_credits_limit) : NaN;
-  const allowancePolicy = unlimited ? null : resolveTextAllowancePolicy(resetAtIso);
+  const stripePriceId = sub.stripe_price_id ? String(sub.stripe_price_id) : null;
+  const allowancePolicy = unlimited ? null : resolveTextAllowancePolicy(stripePriceId, resetAtIso);
   if (!Number.isFinite(creditsLimit) || creditsLimit <= 0) {
     creditsLimit = unlimited
       ? Number.POSITIVE_INFINITY
-      : ((isPaidTier || hasCouponAiAccess) ? computeTextCreditsLimitFallback(resetAtIso) : 0);
+      : ((isPaidTier || hasCouponAiAccess) ? computeTextCreditsLimitFallback(stripePriceId, resetAtIso) : 0);
   }
 
   // Auto-reset if period passed
@@ -535,9 +545,9 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     const shouldResetForStripeShift = Number.isFinite(stripeMs) && Number.isFinite(resetMs) && (stripeMs > resetMs + 10 * 60 * 1000);
 
     if (shouldResetForTime || shouldResetForStripeShift) {
-      creditsLimit = allowancePolicy && allowancePolicy.cap > allowancePolicy.grant
-        ? accrueWeeklyRolloverLimit(creditsLimit, creditsUsed, allowancePolicy.grant, allowancePolicy.cap)
-        : (allowancePolicy?.grant ?? creditsLimit);
+      creditsLimit = allowancePolicy
+        ? accrueTextCreditsOnPeriodReset(creditsLimit, creditsUsed, allowancePolicy)
+        : creditsLimit;
       creditsUsed = 0;
       resetAtIso = (Number.isFinite(stripeMs) && stripeMs > nowMs)
         ? new Date(stripeMs).toISOString()
