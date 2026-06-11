@@ -230,7 +230,16 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
     return;
   }
 
-  if (!event.target.classList.contains('chip-checkbox')) app.toggleChip(clipIdKey, chip);
+  if (!event.target.classList.contains('chip-checkbox')) {
+    const shouldOneClickCopy = !!app.quickPasteSettings?.oneClickCopy;
+    if (shouldOneClickCopy) {
+      event.stopPropagation();
+      await app.copyClipToClipboard(clip?.text || '');
+      return;
+    }
+
+    app.toggleChip(clipIdKey, chip);
+  }
 }
 
 export function renderChips(app) {

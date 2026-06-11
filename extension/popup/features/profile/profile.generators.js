@@ -65,13 +65,11 @@ function _setButton(btnId, { disabled, text } = {}) {
 async function _persistGeneratedAvatar(app, imageUrl, extraProfileFields = {}) {
   if (!app.userProfile) app.userProfile = {};
   app.userProfile.profileImageUrl = imageUrl;
+  app.userProfile.profileImageBase64 = imageUrl;
   Object.assign(app.userProfile, extraProfileFields);
 
   await app.saveUserProfile();
-  console.log('✅ Generated avatar saved to storage');
-
-  await app.addToGallery(imageUrl, 'profile');
-  console.log('✅ Generated avatar added to AI Gallery');
+  console.log('✅ Generated avatar saved locally');
 
   app.displayImageTopLeft(imageUrl);
 }
@@ -197,6 +195,18 @@ function _displayAiName(aiName) {
   _setDisplay('aiNameDisplay', 'flex');
 }
 
+function _emitProfileNameArtifact(app, userName, aiName) {
+  if (typeof app?.emitAiTaskOutput !== 'function') return;
+  app.emitAiTaskOutput({
+    source: 'profile.generators',
+    taskType: 'profile-name',
+    title: 'AI Profile Name',
+    sourceText: userName,
+    question: 'Generate funky animal name',
+    outputText: aiName,
+  });
+}
+
 export async function generateAIName(app) {
   const hasAccess = await _checkPremiumAccess(app, 'name');
   if (!hasAccess) return;
@@ -217,6 +227,7 @@ export async function generateAIName(app) {
     if (aiName) {
       _displayAiName(aiName);
       await _persistAiName(app, userName, aiName);
+      _emitProfileNameArtifact(app, userName, aiName);
       app.updateAIGenerateButtonState();
       app.startNameSectionCollapse();
       if (result?.cycleComplete) {

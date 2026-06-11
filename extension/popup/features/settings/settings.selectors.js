@@ -36,6 +36,10 @@ export function getQuickPasteMaxClipsEl() {
   return document.getElementById(SETTINGS_ELEMENT_IDS.QUICK_PASTE_MAX_CLIPS);
 }
 
+export function getActivityOneClickCopyToggleEl() {
+  return document.getElementById(SETTINGS_ELEMENT_IDS.ACTIVITY_ONE_CLICK_COPY);
+}
+
 export function getAlbumAttachmentModeEl() {
   return document.getElementById(SETTINGS_ELEMENT_IDS.ALBUM_MODE);
 }

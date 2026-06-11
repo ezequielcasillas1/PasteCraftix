@@ -23,6 +23,7 @@ export const SETTINGS_DEFAULTS = {
     autoHide: true,
     showTimestamps: true,
     maxClipsDisplay: 20,
+    oneClickCopy: false,
   },
 };
 
@@ -37,6 +38,7 @@ export const SETTINGS_ELEMENT_IDS = {
   QUICK_PASTE_AUTO_HIDE: 'quickPasteAutoHidePopup',
   QUICK_PASTE_TIMESTAMPS: 'quickPasteShowTimestampsPopup',
   QUICK_PASTE_MAX_CLIPS: 'quickPasteMaxClipsPopup',
+  ACTIVITY_ONE_CLICK_COPY: 'activityOneClickCopyToggle',
   ALBUM_MODE: 'albumAttachmentOpenMode',
   HELP_MODAL: 'helpModal',
   CLOSE_HELP: 'closeHelpModal',

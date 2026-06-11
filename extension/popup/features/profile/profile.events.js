@@ -160,22 +160,73 @@ function _displayUploadedImage(imageUrl) {
   }
 }
 
-async function _convertToPermanentUrl(app, imageUrl) {
-  try {
-    const userIdForUpload = app.currentUser?.id
-      || await window.pasteCraftSupabase.getChromeUserId();
-    const converted = await window.pasteCraftSupabase.convertToPermanentProfileImageUrl(imageUrl, userIdForUpload);
-    return typeof converted === 'string' && converted ? converted : imageUrl;
-  } catch (_) {
-    return imageUrl;
-  }
+const PROFILE_IMAGE_MAX_DIMENSION = 512;
+const PROFILE_IMAGE_MAX_DATA_URL_LENGTH = 220000;
+
+function _readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const imageUrl = typeof e?.target?.result === 'string' ? e.target.result : '';
+      if (!imageUrl) {
+        reject(new Error('Failed to read image file'));
+        return;
+      }
+      resolve(imageUrl);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+  });
 }
 
-async function _saveImageToGallery(app, imageUrl) {
-  try {
-    await app.addToGallery(imageUrl, 'upload');
-    app.loadAIGallery();
-  } catch (_) {}
+function _loadImageElement(imageUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image preview'));
+    img.src = imageUrl;
+  });
+}
+
+async function _optimizeImageForLocalStorage(file) {
+  const originalDataUrl = await _readFileAsDataUrl(file);
+  if (originalDataUrl.length <= PROFILE_IMAGE_MAX_DATA_URL_LENGTH) {
+    return originalDataUrl;
+  }
+
+  const image = await _loadImageElement(originalDataUrl);
+  const width = image.naturalWidth || image.width || PROFILE_IMAGE_MAX_DIMENSION;
+  const height = image.naturalHeight || image.height || PROFILE_IMAGE_MAX_DIMENSION;
+  const scale = Math.min(1, PROFILE_IMAGE_MAX_DIMENSION / Math.max(width, height));
+  const targetWidth = Math.max(1, Math.round(width * scale));
+  const targetHeight = Math.max(1, Math.round(height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return originalDataUrl;
+
+  context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+  const attempts = [
+    ['image/webp', 0.82],
+    ['image/webp', 0.68],
+    ['image/jpeg', 0.8],
+    ['image/jpeg', 0.62],
+  ];
+
+  let bestCandidate = originalDataUrl;
+  for (const [type, quality] of attempts) {
+    const candidate = canvas.toDataURL(type, quality);
+    if (candidate.length < bestCandidate.length) bestCandidate = candidate;
+    if (candidate.length <= PROFILE_IMAGE_MAX_DATA_URL_LENGTH) {
+      return candidate;
+    }
+  }
+
+  return bestCandidate;
 }
 
 async function _processUploadedImage(app, imageUrl) {
@@ -183,16 +234,15 @@ async function _processUploadedImage(app, imageUrl) {
 
   if (!app.userProfile) app.userProfile = {};
   app.userProfile.profileImageBase64 = imageUrl;
-
-  const finalUrl = await _convertToPermanentUrl(app, imageUrl);
-  app.userProfile.profileImageUrl = finalUrl;
+  app.userProfile.profileImageUrl = imageUrl;
+  app.userProfile.generatedImageUrl = null;
+  app.userProfile.aiGeneratedImage = false;
 
   await app.saveUserProfile();
-  app.displayImageTopLeft(finalUrl);
-  await _saveImageToGallery(app, finalUrl);
+  app.displayImageTopLeft(imageUrl);
   app.updateAIGenerateButtonState();
 
-  app.showToast('✅ Profile image uploaded and saved to your gallery!', 'success');
+  app.showToast('✅ Profile image uploaded and saved locally!', 'success');
 }
 
 // ── Public: handleProfileImageUpload ────────────────────────────────────────
@@ -200,20 +250,10 @@ async function _processUploadedImage(app, imageUrl) {
 export async function handleProfileImageUpload(app, file) {
   try {
     app.showToast('📷 Uploading image...', 'info');
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const imageUrl = typeof e?.target?.result === 'string' ? e.target.result : '';
-      if (!imageUrl) {
-        app.showToast('❌ Failed to read image file', 'error');
-        return;
-      }
-      await _processUploadedImage(app, imageUrl);
-    };
-    reader.readAsDataURL(file);
-
+    const imageUrl = await _optimizeImageForLocalStorage(file);
+    await _processUploadedImage(app, imageUrl);
   } catch (error) {
     console.error('Failed to upload profile image:', error);
-    app.showToast('❌ Failed to upload image', 'error');
+    app.showToast(error?.message === 'Failed to read image file' ? '❌ Failed to read image file' : '❌ Failed to upload image', 'error');
   }
 }

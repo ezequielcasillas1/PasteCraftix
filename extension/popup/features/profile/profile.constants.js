@@ -1,6 +1,5 @@
 export const PROFILE_STORAGE_KEYS = Object.freeze({
   USER_PROFILE: 'userProfile',
-  AI_GALLERY: 'aiGallery',
   WIDGET_SETTINGS: 'widgetSettings',
 });
 
@@ -21,14 +20,6 @@ export const PROFILE_ELEMENT_IDS = Object.freeze({
   imageViewerImg: 'imageViewerImg',
   imageViewerClose: 'imageViewerClose',
   imageViewerShare: 'imageViewerShare',
-  aiGalleryGrid: 'aiGalleryGrid',
-  aiGalleryCount: 'aiGalleryCount',
-  aiGalleryPagination: 'aiGalleryPagination',
-});
-
-export const PROFILE_DEFAULTS = Object.freeze({
-  GALLERY_PAGE_SIZE: 4,
-  GALLERY_DEFAULT_PAGE: 1,
 });
 
 export { ANIMAL_TYPES_REGEX, FUNKY_ANIMALS, extractAnimalSuffix } from '../../../shared/animal-names.js';
