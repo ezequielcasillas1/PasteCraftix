@@ -211,6 +211,35 @@ export function registerNotesEvents(app) {
     });
   }
 
+  const albumAttachmentAiSummaryBtn = document.getElementById('albumAttachmentAiSummaryBtn');
+  if (albumAttachmentAiSummaryBtn) {
+    albumAttachmentAiSummaryBtn.addEventListener('click', () => app.runAlbumAttachmentAiSummary());
+  }
+  const albumAttachmentAiBreakdownBtn = document.getElementById('albumAttachmentAiBreakdownBtn');
+  if (albumAttachmentAiBreakdownBtn) {
+    albumAttachmentAiBreakdownBtn.addEventListener('click', () => app.runAlbumAttachmentAiBreakdown());
+  }
+  const albumAttachmentGoogleSearchBtn = document.getElementById('albumAttachmentGoogleSearchBtn');
+  if (albumAttachmentGoogleSearchBtn) {
+    albumAttachmentGoogleSearchBtn.addEventListener('click', () => app.openAlbumAttachmentGoogleSearchMenu());
+  }
+  const albumAttachmentAiRefactorBtn = document.getElementById('albumAttachmentAiRefactorBtn');
+  if (albumAttachmentAiRefactorBtn) {
+    albumAttachmentAiRefactorBtn.addEventListener('click', () => app.runAlbumAttachmentAiRefactorization());
+  }
+  const albumAttachmentAiCraftBtn = document.getElementById('albumAttachmentAiCraftBtn');
+  if (albumAttachmentAiCraftBtn) {
+    albumAttachmentAiCraftBtn.addEventListener('click', () => app.runAlbumAttachmentAiCraftClips());
+  }
+  const albumAttachmentSendCategoriesBtn = document.getElementById('albumAttachmentSendCategoriesBtn');
+  if (albumAttachmentSendCategoriesBtn) {
+    albumAttachmentSendCategoriesBtn.addEventListener('click', () => app.runAlbumAttachmentSendToCategories());
+  }
+  const albumAttachmentSendNotesBtn = document.getElementById('albumAttachmentSendNotesBtn');
+  if (albumAttachmentSendNotesBtn) {
+    albumAttachmentSendNotesBtn.addEventListener('click', () => app.runAlbumAttachmentSendToNotes());
+  }
+
   // Album source note overlay
   const albumSourceNoteBackBtn = document.getElementById('albumSourceNoteBackBtn');
   if (albumSourceNoteBackBtn) {
@@ -241,6 +270,26 @@ export function registerNotesEvents(app) {
   if (albumSourceNoteModal) {
     albumSourceNoteModal.addEventListener('click', (e) => {
       if (e.target.id === 'albumSourceNoteModal') app.closeAlbumSourceNoteOverlay();
+    });
+  }
+
+  // Album interlaying editor
+  const closeAlbumInterlayingEditorBtn = document.getElementById('closeAlbumInterlayingEditor');
+  if (closeAlbumInterlayingEditorBtn) {
+    closeAlbumInterlayingEditorBtn.addEventListener('click', () => app.closeAlbumInterlayingEditor());
+  }
+  const cancelAlbumInterlayingEditorBtn = document.getElementById('cancelAlbumInterlayingEditor');
+  if (cancelAlbumInterlayingEditorBtn) {
+    cancelAlbumInterlayingEditorBtn.addEventListener('click', () => app.closeAlbumInterlayingEditor());
+  }
+  const saveAlbumInterlayingEditorBtn = document.getElementById('saveAlbumInterlayingEditor');
+  if (saveAlbumInterlayingEditorBtn) {
+    saveAlbumInterlayingEditorBtn.addEventListener('click', () => app.saveAlbumInterlayingEditor());
+  }
+  const albumInterlayingEditorModal = document.getElementById('albumInterlayingEditorModal');
+  if (albumInterlayingEditorModal) {
+    albumInterlayingEditorModal.addEventListener('click', (e) => {
+      if (e.target.id === 'albumInterlayingEditorModal') app.closeAlbumInterlayingEditor();
     });
   }
 }

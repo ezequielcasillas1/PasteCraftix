@@ -3,10 +3,9 @@ import {
   countAlbumInterlayings,
   createAlbumInterlayingsFromSourceNote,
   deleteAlbumInterlaying,
-  readAlbumInterlayingSourceNoteId,
-  resolveInterlayingAtFlatIndex,
   syncAlbumRefMetadata
 } from './notes.album-interlayings.crud.js';
+import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
 import { resolveSafeExternalUrl } from '../../../safe-url.js';
 
 function _arrayHasItemWithId(arr, id) {
@@ -32,13 +31,6 @@ function _resolveSourceNote(notes, att) {
   if (!att) return null;
   const direct = att.sourceNoteId ? (notes || []).find(n => n && n.id == att.sourceNoteId) : null;
   return direct || _findSourceNoteForAttachment(notes, att);
-}
-
-function _resolveSourceNoteIdForAttachment(app, att) {
-  if (att.sourceNoteId != null) return att.sourceNoteId;
-  if (att.id == null) return null;
-  const inferred = _findSourceNoteForAttachment(app.notes, att);
-  return inferred ? inferred.id : null;
 }
 
 // ── openNoteViewer ─────────────────────────────────────────────────────────
@@ -213,29 +205,22 @@ function _attachAlbumOpenHandlers(app, attachList, albumId) {
   });
 }
 
-function _openAlbumSourceFromIndex(app, allAttachments, idx, albumId) {
-  const att = allAttachments[idx];
-  if (!att) return;
-  const sourceNoteId = _resolveSourceNoteIdForAttachment(app, att);
-  if (sourceNoteId == null) { app.showToast('No source note for this item'); return; }
-  app.openAlbumSourceNoteOverlay(sourceNoteId, albumId);
-}
-
 function _isActivationKey(key) {
   return key === 'Enter' || key === ' ';
 }
 
 function _attachAlbumOpenableHandlers(app, attachList, allAttachments, albumId) {
   attachList.querySelectorAll('.viewer-attachment-openable').forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.viewer-attachment-actions')) return;
       const idx = parseInt(item.dataset.index, 10);
-      if (!Number.isNaN(idx)) _openAlbumSourceFromIndex(app, allAttachments, idx, albumId);
+      if (!Number.isNaN(idx)) app.openAlbumAttachmentViewerModal(albumId, idx);
     });
     item.addEventListener('keydown', (e) => {
       if (!_isActivationKey(e.key)) return;
       e.preventDefault();
       const idx = parseInt(item.dataset.index, 10);
-      if (!Number.isNaN(idx)) _openAlbumSourceFromIndex(app, allAttachments, idx, albumId);
+      if (!Number.isNaN(idx)) app.openAlbumAttachmentViewerModal(albumId, idx);
     });
   });
 }
@@ -337,7 +322,10 @@ export function openAlbumAttachment(app, noteId, attachmentIndex) {
   app.currentAlbumAttachmentContext = { noteId, attachmentIndex };
 
   const mode = app.getAlbumAttachmentOpenMode();
-  if (mode === 'overlay') { app.openAlbumAttachmentOverlay(note, att); return; }
+  if (mode === 'overlay') {
+    app.openAlbumAttachmentViewerModal(noteId, attachmentIndex);
+    return;
+  }
   app.openAlbumAttachmentInEdgePopup(noteId, attachmentIndex);
 }
 
@@ -395,95 +383,22 @@ export function openAlbumAttachmentInEdgePopup(app, noteId, attachmentIndex) {
   _openInPopupWindow(app, viewerUrl, 'Failed to open attachment viewer popup:', 'Could not open attachment');
 }
 
-// ── openAlbumAttachmentOverlay ─────────────────────────────────────────────
+// ── Album attachment viewer modal ───────────────────────────────────────────
 
-function _getAlbumAttachmentViewerElements() {
-  return {
-    modal: document.getElementById('albumAttachmentViewerModal'),
-    titleEl: document.getElementById('albumAttachmentViewerTitle'),
-    metaSection: document.getElementById('albumAttachmentViewerNoteMeta'),
-    albumTitle: document.getElementById('albumAttachmentViewerAlbumTitle'),
-    albumDesc: document.getElementById('albumAttachmentViewerAlbumDesc'),
-    body: document.getElementById('albumAttachmentViewerBody'),
-    openBtn: document.getElementById('albumAttachmentOpenInPopupBtn')
-  };
+export function openAlbumAttachmentViewerModal(app, noteId, attachmentIndex) {
+  return albumAttachmentViewer.open(app, noteId, attachmentIndex);
 }
 
-function _albumAttachmentViewerElsValid(els) {
-  const required = [els.modal, els.titleEl, els.metaSection, els.albumTitle, els.albumDesc, els.body];
-  return required.every(Boolean);
-}
-
-function _resolveAttachmentOverlayTitle(app, att) {
-  if (att.type === 'image') return 'Image';
-  if (att.type !== 'clip') return 'Link';
-  const liveClip = app._findClipLocationById(att.id)?.clip;
-  const clipTitle = app._clipTitle(liveClip || att);
-  return clipTitle || 'Clip';
-}
-
-function _renderAttachmentImageBody(app, att, body) {
-  const src = att.dataUrl || att.url || att.src || '';
-  body.innerHTML = src
-    ? `<img src="${app.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`
-    : 'Image attachment is missing a source.';
-}
-
-function _renderAttachmentLinkBody(app, att, body) {
-  const url = att.url || '';
-  const safeHref = resolveSafeExternalUrl(url);
-  const displayUrl = app.escapeHtml(url);
-  const linkHtml = safeHref
-    ? `<a href="${app.escapeHtml(safeHref)}" target="_blank" rel="noreferrer" style="word-break:break-all; color:#2563eb; text-decoration:underline;">${displayUrl}</a>`
-    : `<span style="word-break:break-all; color:#374151;">${displayUrl}</span>`;
-  const schemeNote = safeHref
-    ? ''
-    : '<div style="color:#b45309; font-size:13px;">This link uses an unsupported URL scheme.</div>';
-  body.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      <div style="font-weight:600; color:#111827;">Link</div>
-      ${linkHtml}
-      ${schemeNote}
-      <div style="color:#6b7280; font-size:13px;">Use Open to launch this link in a popup window.</div>
-    </div>
-  `;
-}
-
-function _renderAttachmentBody(app, att, body) {
-  if (att.type === 'clip') {
-    body.textContent = att.text || '';
-    return;
-  }
-  if (att.type === 'image') {
-    _renderAttachmentImageBody(app, att, body);
-    return;
-  }
-  _renderAttachmentLinkBody(app, att, body);
+export function closeAlbumAttachmentViewer(app) {
+  return albumAttachmentViewer.close(app);
 }
 
 export function openAlbumAttachmentOverlay(app, note, att) {
-  const els = _getAlbumAttachmentViewerElements();
-  if (!_albumAttachmentViewerElsValid(els)) return;
-
-  const safeTitle = (note.title || '').trim() || 'Untitled Album';
-  const safeDesc = (note.description || '').trim();
-  els.metaSection.style.display = 'block';
-  els.albumTitle.textContent = safeTitle;
-  els.albumDesc.textContent = safeDesc || '';
-
-  els.titleEl.textContent = _resolveAttachmentOverlayTitle(app, att);
-  if (els.openBtn) els.openBtn.style.display = 'inline-flex';
-
-  _renderAttachmentBody(app, att, els.body);
-  els.modal.style.display = 'flex';
-}
-
-// ── closeAlbumAttachmentViewer ─────────────────────────────────────────────
-
-export function closeAlbumAttachmentViewer(app) {
-  const modal = document.getElementById('albumAttachmentViewerModal');
-  if (modal) modal.style.display = 'none';
-  app.currentAlbumAttachmentContext = null;
+  const noteId = note?.id;
+  if (noteId == null || !att) return;
+  const allAttachments = collectAlbumInterlayings(note);
+  const idx = allAttachments.findIndex((entry) => entry.id == att.id && entry.type === att.type);
+  if (idx >= 0) openAlbumAttachmentViewerModal(app, noteId, idx);
 }
 
 // ── openAlbumSourceNoteOverlay ─────────────────────────────────────────────
@@ -763,23 +678,7 @@ export async function deleteAlbumInterlayingFromViewer(app, albumId, flatIndex) 
 }
 
 export function editAlbumInterlayingFromViewer(app, albumId, flatIndex) {
-  const album = app.notes.find(n => n.id == albumId && n.type === 'album');
-  if (!album) return;
-  const sourceNoteId = readAlbumInterlayingSourceNoteId(album, flatIndex);
-  const loc = resolveInterlayingAtFlatIndex(album, flatIndex);
-  if (!loc) {
-    app.showToast('Item not found');
-    return;
-  }
-  app._albumEditorReturnId = albumId;
-  if (sourceNoteId != null) {
-    app.closeAlbumSourceNoteOverlay(app, { reopenAlbumViewer: false });
-    document.getElementById('noteViewerModal').style.display = 'none';
-    app.openNoteEditor('note', sourceNoteId, false);
-    return;
-  }
-  app.closeNoteViewer();
-  app.openNoteEditor('album', albumId);
+  app.openAlbumInterlayingEditor(albumId, flatIndex);
 }
 
 export function editAlbumSourceNoteFromOverlay(app) {

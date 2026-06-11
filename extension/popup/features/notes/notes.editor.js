@@ -4,6 +4,7 @@ import {
   flatAttachmentsToAlbumBuckets,
   syncAlbumRefMetadata
 } from './notes.album-interlayings.crud.js';
+import { artifactToNotesClip } from '../../shared/ai-output-bridge.js';
 
 // ── openNoteEditor ─────────────────────────────────────────────────────────
 
@@ -262,6 +263,11 @@ async function _generateAiSummary(content, prompt) {
   return pasteCraftSupabase.generateSummary(content.substring(0, 3000), prompt);
 }
 
+function _emitNoteAiArtifact(app, payload) {
+  if (typeof app?.emitAiTaskOutput !== 'function') return;
+  app.emitAiTaskOutput(payload);
+}
+
 export async function generateNoteTitleFromContent(app) {
   const els = _getAiTitleElements();
   if (!_allElementsPresent(els)) return;
@@ -275,7 +281,17 @@ export async function generateNoteTitleFromContent(app) {
     els.aiTitleBtn.disabled = true;
     const result = await _generateAiSummary(content, 'Generate a short note title (max 6 words). Return ONLY the title, no quotes.');
     const cleaned = _stripQuotes(result);
-    if (cleaned) els.titleInput.value = cleaned;
+    if (cleaned) {
+      els.titleInput.value = cleaned;
+      _emitNoteAiArtifact(app, {
+        source: 'notes.editor',
+        taskType: 'note-title',
+        title: 'AI Note Title',
+        sourceText: content,
+        question: 'Generate note title',
+        outputText: cleaned,
+      });
+    }
     app.showToast('Title generated');
   } catch (e) {
     console.error('Failed to generate title:', e);
@@ -301,7 +317,17 @@ export async function generateNoteDescriptionFromContent(app) {
     els.aiDescBtn.disabled = true;
     const result = await _generateAiSummary(content, 'Generate a one-sentence description for this note (max 140 characters). Return ONLY the description.');
     const cleaned = _stripQuotes(result);
-    if (cleaned) els.descInput.value = cleaned;
+    if (cleaned) {
+      els.descInput.value = cleaned;
+      _emitNoteAiArtifact(app, {
+        source: 'notes.editor',
+        taskType: 'note-description',
+        title: 'AI Note Description',
+        sourceText: content,
+        question: 'Generate note description',
+        outputText: cleaned,
+      });
+    }
     app.showToast('Description generated');
   } catch (e) {
     console.error('Failed to generate description:', e);
@@ -680,7 +706,10 @@ async function _addBulkClipsToNote(app, note) {
   const pendingClips = app.pendingBulkClipsForNotes.slice();
   await mutateNote(app, note.id, (draft) => {
     if (!Array.isArray(draft.clips)) draft.clips = [];
-    pendingClips.forEach((clip) => draft.clips.push(app._clipAttachment(clip, now)));
+    pendingClips.forEach((clip) => {
+      if (_isDuplicateAiArtifactAttachment(draft, clip)) return;
+      draft.clips.push(app._clipAttachment(clip, now));
+    });
     draft.updatedAt = now;
     app.refreshAlbumsForNote(draft);
     return draft;
@@ -704,6 +733,12 @@ function _resolveSingleClipToAdd(app) {
   return app.clips[0];
 }
 
+function _isDuplicateAiArtifactAttachment(draft, clip) {
+  if (!clip || !clip.__aiArtifactHash) return false;
+  const clipId = String(clip.id || '');
+  return Array.isArray(draft.clips) && draft.clips.some((entry) => String(entry?.id || '') === clipId);
+}
+
 export async function addCurrentClipToNote(app, noteId) {
   const note = app.notes.find(n => n.id == noteId);
   if (!note) return;
@@ -715,10 +750,16 @@ export async function addCurrentClipToNote(app, noteId) {
 
   const clipToAdd = _resolveSingleClipToAdd(app);
   if (!clipToAdd) { app.showToast('No clips to add'); return; }
+  const isAiArtifact = !!clipToAdd.__aiArtifactHash;
+  const alreadyExists = isAiArtifact && Array.isArray(note.clips)
+    && note.clips.some((entry) => String(entry?.id || '') === String(clipToAdd.id || ''));
 
   const now = Date.now();
   await mutateNote(app, note.id, (draft) => {
     if (!Array.isArray(draft.clips)) draft.clips = [];
+    if (_isDuplicateAiArtifactAttachment(draft, clipToAdd)) {
+      return draft;
+    }
     draft.clips.push(app._clipAttachment(clipToAdd, now));
     draft.updatedAt = now;
     app.refreshAlbumsForNote(draft);
@@ -727,5 +768,34 @@ export async function addCurrentClipToNote(app, noteId) {
 
   app.closeAlbumPicker();
   app.pendingClipForNotes = null;
+  if (isAiArtifact) {
+    if (alreadyExists) {
+      app.showToast(`"${note.title}" already contains this AI output`);
+      return;
+    }
+    app.clearAiTaskOutputArtifact?.();
+    app.showToast(`AI output saved to "${note.title}"`);
+    return;
+  }
   app.showToast(`Clip added to "${note.title}"`);
+}
+
+export async function saveCurrentAiOutputToNotes(app) {
+  const artifact = app.getAiTaskOutputArtifact?.();
+  if (!artifact) {
+    app.showToast('No AI output ready to save', 'error');
+    return;
+  }
+
+  const clip = artifactToNotesClip(artifact);
+  if (!clip) {
+    app.showToast('AI output is empty', 'error');
+    return;
+  }
+
+  await app.loadNotes?.();
+  app.pendingBulkClipsForNotes = null;
+  app.pendingClipForNotes = clip;
+  app.showAlbumPicker?.();
+  app.showToast('Select a note or album for this AI output');
 }

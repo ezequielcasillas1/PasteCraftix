@@ -5,6 +5,8 @@ import * as noteService from './notes.service.js';
 import * as noteEditor from './notes.editor.js';
 import * as noteAlbum from './notes.album.js';
 import * as albumInterlayingsCrud from './notes.album-interlayings.crud.js';
+import * as albumInterlayingEditor from './notes.album-interlaying.editor.js';
+import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
 
 export function initNotesFeature(_app) {
   return {
@@ -15,5 +17,7 @@ export function initNotesFeature(_app) {
     editor: noteEditor,
     album: noteAlbum,
     albumInterlayings: albumInterlayingsCrud,
+    albumInterlayingEditor,
+    albumAttachmentViewer,
   };
 }
