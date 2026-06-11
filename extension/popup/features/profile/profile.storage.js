@@ -27,7 +27,14 @@ export async function loadUserProfile(app) {
 
 async function _syncProfileToSupabase(profile) {
   try {
-    await pasteCraftSupabase.syncUserProfileToSupabase(profile);
+    const syncableProfile = {
+      ...profile,
+      profileImageUrl: null,
+      profileImageBase64: null,
+      generatedImageUrl: null,
+      aiGeneratedImage: false,
+    };
+    await pasteCraftSupabase.syncUserProfileToSupabase(syncableProfile);
     console.log('✅ User profile synced to database');
   } catch (syncError) {
     console.error('🔄 Failed to sync profile to database:', syncError);
@@ -52,65 +59,6 @@ export async function saveUserProfile(app) {
   } catch (error) {
     console.error('❌ CRITICAL: Failed to save user profile:', error);
     app.showToast('❌ Failed to save profile image', 'error');
-  }
-}
-
-// ── Gallery helpers ──────────────────────────────────────────────────────────
-
-export async function addToGallery(app, imageUrl, type) {
-  try {
-    const result = await chrome.storage.local.get(PROFILE_STORAGE_KEYS.AI_GALLERY);
-    const gallery = result[PROFILE_STORAGE_KEYS.AI_GALLERY] || [];
-    gallery.push({ url: imageUrl, type, timestamp: Date.now() });
-    await chrome.storage.local.set({ [PROFILE_STORAGE_KEYS.AI_GALLERY]: gallery });
-  } catch (error) {
-    console.error('Failed to add to gallery:', error);
-  }
-}
-
-export async function loadAIGallery(app) {
-  try {
-    const result = await chrome.storage.local.get(PROFILE_STORAGE_KEYS.AI_GALLERY);
-    const gallery = result[PROFILE_STORAGE_KEYS.AI_GALLERY] || [];
-    app.renderAIGallery(gallery);
-  } catch (error) {
-    console.error('Failed to load image gallery:', error);
-  }
-}
-
-export async function migrateProfileImageToGallery(app) {
-  try {
-    if (!app.userProfile?.profileImageUrl) return;
-
-    const result = await chrome.storage.local.get(PROFILE_STORAGE_KEYS.AI_GALLERY);
-    const gallery = result[PROFILE_STORAGE_KEYS.AI_GALLERY] || [];
-    const imageExists = gallery.some(item => item.url === app.userProfile.profileImageUrl);
-
-    if (!imageExists) {
-      console.log('🔄 Migrating existing profile image to gallery...');
-      await addToGallery(app, app.userProfile.profileImageUrl, 'profile');
-      loadAIGallery(app);
-      console.log('✅ Profile image migrated to gallery');
-    }
-  } catch (error) {
-    console.error('Failed to migrate profile image:', error);
-  }
-}
-
-export async function deleteFromGallery(app, index) {
-  try {
-    const result = await chrome.storage.local.get(PROFILE_STORAGE_KEYS.AI_GALLERY);
-    const gallery = result[PROFILE_STORAGE_KEYS.AI_GALLERY] || [];
-
-    if (index >= 0 && index < gallery.length) {
-      gallery.splice(index, 1);
-      await chrome.storage.local.set({ [PROFILE_STORAGE_KEYS.AI_GALLERY]: gallery });
-      app.renderAIGallery(gallery);
-      app.showToast('🗑️ Image removed from gallery', 'success');
-    }
-  } catch (error) {
-    console.error('Failed to delete from gallery:', error);
-    app.showToast('❌ Failed to delete image', 'error');
   }
 }
 

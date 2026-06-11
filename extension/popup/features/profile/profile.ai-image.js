@@ -1,4 +1,4 @@
-/** Profile AI gallery image generation (from name / random). */
+/** Profile AI image stubs retained after image generation removal. */
 
 const PROFILE_GEN_BTN_HTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Generate from Profile</span>';
 const RANDOM_GEN_BTN_HTML = '<span class="ai-gen-icon" aria-hidden="true"></span><span>Random Avatar</span>';

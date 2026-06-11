@@ -18,26 +18,14 @@ async syncUserProfileToSupabase(localProfile) {
 
     console.log('📤 Syncing user profile to Supabase...');
 
-    // Normalize profile image URL to a stable Supabase Storage URL when possible
-    let stableProfileImageUrl = localProfile.profileImageUrl || null;
-    if (stableProfileImageUrl) {
-      stableProfileImageUrl = await this.convertToPermanentProfileImageUrl(stableProfileImageUrl, userId);
-    }
-
-    // Avoid syncing huge base64 blobs (can cause statement timeout / unreliable profile fetch)
-    const rawBase64 = localProfile.profileImageBase64 || null;
-    const safeBase64 = (typeof rawBase64 === 'string' && rawBase64.startsWith('data:image/') && rawBase64.length <= 250000)
-      ? rawBase64
-      : null;
-
     const dbProfile = {
       user_id: userId,
       user_name: localProfile.userName || null,
       ai_generated_name: localProfile.aiGeneratedName || null,
-      profile_image_url: stableProfileImageUrl || null,
-      profile_image_base64: safeBase64,
-      generated_image_url: localProfile.generatedImageUrl || null,
-      ai_generated_image: localProfile.aiGeneratedImage || false
+      profile_image_url: null,
+      profile_image_base64: null,
+      generated_image_url: null,
+      ai_generated_image: false
     };
 
     const { data, error } = await this.client
@@ -125,10 +113,10 @@ async syncUserProfileFromSupabase() {
     const localProfile = {
       userName: data.user_name,
       aiGeneratedName: data.ai_generated_name,
-      profileImageUrl: data.profile_image_url,
-      profileImageBase64: data.profile_image_base64,
-      generatedImageUrl: data.generated_image_url,
-      aiGeneratedImage: data.ai_generated_image
+      profileImageUrl: null,
+      profileImageBase64: null,
+      generatedImageUrl: null,
+      aiGeneratedImage: false
     };
 
     this.pcBeacon('profile_view');

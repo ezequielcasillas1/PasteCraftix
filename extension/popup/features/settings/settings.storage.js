@@ -7,6 +7,7 @@ import {
 } from './settings.constants.js';
 import {
   getAutoDeletePeriodEl,
+  getActivityOneClickCopyToggleEl,
   getDarkModeToggleEl,
   getQuickPasteAutoHideEl,
   getQuickPasteShowTimestampsEl,
@@ -32,6 +33,11 @@ function _buildQuickPasteDefaults(override = {}) {
   return { ...SETTINGS_DEFAULTS.quickPasteSettings, ...override };
 }
 
+function _syncOneClickCopyToggle(app) {
+  const oneClickCopyEl = getActivityOneClickCopyToggleEl();
+  if (oneClickCopyEl) oneClickCopyEl.checked = !!app.quickPasteSettings?.oneClickCopy;
+}
+
 // ── Merge: pick freshest source between sync, local, cloud ───────────────────
 
 function _applySource(app, source, fallbackLocal) {
@@ -55,6 +61,7 @@ export async function loadSettings(app) {
 
   await _persistMergedSettingsLocal(app);
   syncThemeToggles(app);
+  _syncOneClickCopyToggle(app);
 }
 
 function _hasPayload(data) {
@@ -229,6 +236,7 @@ export async function saveSettings(app, silent = false, _skipAuthPrefs = false) 
     },
     verifier: async (_meta, state) => _verifySettingsState(state),
     uiUpdater: () => {
+      _syncOneClickCopyToggle(app);
       app.renderChips();
       app.updateCategoryFilter();
     },
@@ -248,6 +256,55 @@ export async function saveSettings(app, silent = false, _skipAuthPrefs = false) 
   }
 
   if (!silent) app.hideSettingsModal();
+  return true;
+}
+
+export async function saveQuickPasteSettingsPatch(app, patch = {}, silent = true, skipAuthPrefs = true) {
+  const sanitizedPatch = patch && typeof patch === 'object' ? patch : {};
+  const result = await window.PasteCraftCRUD.saveOperation({
+    stateGetter: () => _buildSettingsState(app),
+    stateSetter: async (newState) => {
+      _applySettingsStateToApp(app, newState);
+      syncThemeToggles(app);
+      _syncOneClickCopyToggle(app);
+    },
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    validator: () => ({ valid: true }),
+    mutateState: async (state) => {
+      state.quickPasteSettings = _buildQuickPasteDefaults({
+        ...state.quickPasteSettings,
+        ...sanitizedPatch,
+      });
+      _stripThemeKey(state.quickPasteSettings);
+      state.settingsUpdatedAt = Date.now();
+      return { settingsUpdatedAt: state.settingsUpdatedAt };
+    },
+    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    buildStorageData: async (state) => _buildSettingsStoragePayload(state),
+    storageWriter: async (data) => {
+      await chrome.storage.local.set(data);
+    },
+    verifier: async (_meta, state) => _verifySettingsState(state),
+    uiUpdater: () => {
+      _syncOneClickCopyToggle(app);
+      app.renderChips();
+      app.updateCategoryFilter();
+    },
+    backgroundSync: async (_meta, state) => {
+      await _runSettingsBackgroundSync(app, state, silent, skipAuthPrefs);
+    },
+    successMessage: () => '',
+    errorMessage: (error) => `Failed to save quick paste settings: ${error.message || 'Unknown error'}`,
+    showToast: (msg, type) => {
+      if (msg && !silent) app.showToast(msg, type);
+    },
+  });
+
+  if (!result.success) {
+    if (!silent) app.showToast(`❌ Failed to save quick paste settings: ${result.error || 'Unknown error'}`, 'error');
+    return false;
+  }
+
   return true;
 }
 

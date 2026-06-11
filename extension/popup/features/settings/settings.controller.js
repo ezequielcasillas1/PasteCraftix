@@ -1,6 +1,7 @@
 import {
   loadSettings,
   saveSettings,
+  saveQuickPasteSettingsPatch,
   saveThemeOnly,
   saveWidgetIconUseProfileImage,
   syncThemeToggles,
@@ -35,6 +36,7 @@ export function initSettingsFeature(app) {
     storage: {
       loadSettings: () => loadSettings(app),
       saveSettings: (silent, skipAuthPrefs) => saveSettings(app, silent, skipAuthPrefs),
+      saveQuickPasteSettingsPatch: (patch, silent, skipAuthPrefs) => saveQuickPasteSettingsPatch(app, patch, silent, skipAuthPrefs),
       saveThemeOnly: (theme, silent) => saveThemeOnly(app, theme, silent),
       saveWidgetIconUseProfileImage: (enabled, silent) => saveWidgetIconUseProfileImage(app, enabled, silent),
       syncThemeToggles: () => syncThemeToggles(app),

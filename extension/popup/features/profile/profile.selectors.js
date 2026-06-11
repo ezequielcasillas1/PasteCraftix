@@ -15,6 +15,3 @@ export const getGenerateCartoonBtn = () => document.getElementById(PROFILE_ELEME
 export const getImageViewerModal = () => document.getElementById(PROFILE_ELEMENT_IDS.imageViewerModal);
 export const getImageViewerImg = () => document.getElementById(PROFILE_ELEMENT_IDS.imageViewerImg);
 export const getImageViewerClose = () => document.getElementById(PROFILE_ELEMENT_IDS.imageViewerClose);
-export const getAiGalleryGrid = () => document.getElementById(PROFILE_ELEMENT_IDS.aiGalleryGrid);
-export const getAiGalleryCount = () => document.getElementById(PROFILE_ELEMENT_IDS.aiGalleryCount);
-export const getAiGalleryPagination = () => document.getElementById(PROFILE_ELEMENT_IDS.aiGalleryPagination);
