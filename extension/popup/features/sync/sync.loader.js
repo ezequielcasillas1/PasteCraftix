@@ -11,6 +11,19 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+/**
+ * Prefer IndexedDB only when it has at least as many records as chrome.storage.
+ * Background/content saves update chrome.storage while the popup is closed; stale
+ * IDB must not replace a fresher chrome.storage snapshot (notes loader uses the
+ * same length guard in notes.service.js).
+ */
+export function resolveIdbOrChromeStorage(idbItems, chromeItems) {
+  const chrome = Array.isArray(chromeItems) ? chromeItems : [];
+  const idb = Array.isArray(idbItems) ? idbItems : [];
+  if (idb.length >= chrome.length && idb.length > 0) return idb;
+  return chrome;
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
@@ -23,8 +36,8 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+    clips = resolveIdbOrChromeStorage(idbClips, clips);
+    categories = resolveIdbOrChromeStorage(idbCategories, categories);
   }
   return { clips, categories, searchOnlyClips };
 }
