@@ -121,7 +121,7 @@ export async function saveAiHistory(type, originalText, threads) {
     await this.loadAiHistory();
     const existing = _findActiveHistoryEntry(this, type);
     if (existing) {
-      existing.entry.threads = _serializeThreads(threads);
+      existing.entry.threads = _serializeThreads(threads, originalText);
       existing.entry.updatedAt = Date.now();
       await this._persistAiHistory();
       console.log('📜 AI History updated:', existing.entry.id, 'threads:', threads.length);
@@ -430,13 +430,21 @@ function _findActiveHistoryEntry(app, type) {
   return idx === -1 ? null : { idx, entry: app.aiHistoryEntries[idx] };
 }
 
-function _serializeThreads(threads) {
-  return threads.map(t => ({
-    question: t.question || '',
-    answer: t.answer || '',
-    level: t.level || null,
-    timestamp: t.timestamp || Date.now(),
-  }));
+function _serializeThreads(threads, sourceText = '') {
+  const normalizedSource = String(sourceText || '').trim().substring(0, 2000);
+  return threads.map((t, index) => {
+    const next = {
+      question: t.question || '',
+      answer: t.answer || '',
+      level: t.level || null,
+      timestamp: t.timestamp || Date.now(),
+    };
+    const hasThreadSource = Boolean(String(t?.sourceText || t?.source_text || '').trim());
+    if (index === 0 && normalizedSource && !hasThreadSource) {
+      next.sourceText = normalizedSource;
+    }
+    return next;
+  });
 }
 
 function _createHistoryEntry(type, originalText, threads) {
@@ -446,7 +454,7 @@ function _createHistoryEntry(type, originalText, threads) {
     type,
     title: placeholderTitle + '...',
     originalText: (originalText || '').substring(0, 2000),
-    threads: _serializeThreads(threads),
+    threads: _serializeThreads(threads, originalText),
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -570,11 +578,16 @@ function _renderHistoryModalHeader(entry, titleEl, subtitleEl) {
 function _toggleRefactorModalUi(entry) {
   const isRefactor = entry?.type === 'refactorization';
   const continueBtn = document.getElementById('continueConversationBtn');
-  const reportWrap = document.getElementById('aiRefactorReportWrap');
-  const reportForm = document.getElementById('aiRefactorReportForm');
+  const reportBtn   = document.getElementById('aiRefactorReportBtn');
+  const reportWrap  = document.getElementById('aiRefactorReportWrap');
+  const reportForm  = document.getElementById('aiRefactorReportForm');
   const reportInput = document.getElementById('aiRefactorReportInput');
+  // continue btn: visible only for summary/breakdown
   if (continueBtn) continueBtn.style.display = isRefactor ? 'none' : '';
-  if (reportWrap) reportWrap.style.display = isRefactor ? 'block' : 'none';
+  // report icon btn: visible only for refactorization
+  if (reportBtn) reportBtn.style.display = isRefactor ? '' : 'none';
+  // collapse the report form wrap on open
+  if (reportWrap) reportWrap.style.display = 'none';
   if (reportForm) reportForm.style.display = 'none';
   if (reportInput) reportInput.value = '';
 }
@@ -797,8 +810,19 @@ async function _continueBreakdownConversation(app, entry) {
   _persistBreakdownRestore(app);
 }
 
+function _deriveEntryOriginalText(entry) {
+  const firstThread = entry?.threads?.[0] || {};
+  return String(
+    entry?.originalText
+    || entry?.original_text
+    || firstThread?.sourceText
+    || firstThread?.source_text
+    || ''
+  );
+}
+
 function _restoreBreakdownState(app, entry) {
-  app.currentBreakdownText = entry.originalText || '';
+  app.currentBreakdownText = _deriveEntryOriginalText(entry);
   app.breakdownThreads = _serializeBreakdownThreads(entry.threads);
   app.currentBreakdownThreadIndex = app.breakdownThreads.length - 1;
   app._activeBreakdownHistoryId = entry.id;
@@ -820,6 +844,11 @@ function _openBreakdownModal() {
 }
 
 function _populateBreakdownOriginalText(app) {
+  if (typeof app.setBreakdownOriginalText === 'function') {
+    app.setBreakdownOriginalText(app.currentBreakdownText, { sourceMode: 'continue', collapsed: true });
+    return;
+  }
+
   const originalEl = document.getElementById('breakdownOriginalText');
   if (originalEl) originalEl.textContent = app.currentBreakdownText;
 

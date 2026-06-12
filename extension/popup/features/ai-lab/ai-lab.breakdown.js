@@ -9,11 +9,94 @@ const LEVEL_DESCRIPTIONS = {
   phd: '<strong>PhD/Expert Level:</strong> Technical analysis with advanced concepts and scholarly depth',
   wiseman: '<strong>Wise Man:</strong> Philosophical wisdom with metaphors, life lessons, and profound insights',
 };
+const BREAKDOWN_SOURCE_EMPTY_MESSAGE = 'Source text is unavailable for this restored conversation. You can still ask follow-up questions.';
+
+function _getBreakdownSourceElements() {
+  return {
+    panel: document.getElementById('breakdownOriginalPanel'),
+    toggle: document.getElementById('breakdownOriginalToggle'),
+    textEl: document.getElementById('breakdownOriginalText'),
+    lengthEl: document.getElementById('breakdownTextLength'),
+  };
+}
+
+function _countWords(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return 0;
+  return normalized.split(/\s+/).length;
+}
+
+function _resetBreakdownSourcePanel() {
+  const { panel, toggle, textEl, lengthEl } = _getBreakdownSourceElements();
+  if (panel) {
+    panel.classList.remove('is-collapsed', 'is-empty', 'is-continue');
+    panel.dataset.sourceMode = 'fresh';
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+  if (textEl) {
+    textEl.textContent = '';
+    textEl.scrollTop = 0;
+  }
+  if (lengthEl) {
+    lengthEl.textContent = '';
+  }
+}
+
+export function setBreakdownSourcePanel(options = {}) {
+  const { panel, toggle } = _getBreakdownSourceElements();
+  if (!panel) return;
+
+  const { collapsed, sourceMode } = options;
+  if (sourceMode) {
+    panel.dataset.sourceMode = sourceMode;
+    panel.classList.toggle('is-continue', sourceMode === 'continue');
+  }
+
+  if (typeof collapsed === 'boolean') {
+    panel.classList.toggle('is-collapsed', collapsed);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+    }
+  }
+}
+
+export function toggleBreakdownSourcePanel(forceCollapsed = null) {
+  const { panel } = _getBreakdownSourceElements();
+  if (!panel) return;
+  const nextCollapsed = typeof forceCollapsed === 'boolean'
+    ? forceCollapsed
+    : !panel.classList.contains('is-collapsed');
+  setBreakdownSourcePanel({ collapsed: nextCollapsed });
+}
+
+export function setBreakdownOriginalText(text, options = {}) {
+  const { textEl, lengthEl, panel } = _getBreakdownSourceElements();
+  if (!textEl) return;
+
+  const normalized = String(text || '');
+  const hasSource = Boolean(normalized.trim());
+  textEl.textContent = hasSource ? normalized : BREAKDOWN_SOURCE_EMPTY_MESSAGE;
+  textEl.scrollTop = 0;
+
+  if (panel) {
+    panel.classList.toggle('is-empty', !hasSource);
+  }
+  if (lengthEl) {
+    lengthEl.textContent = hasSource ? `${_countWords(normalized)} words` : 'No source';
+  }
+
+  const sourceMode = options.sourceMode || 'fresh';
+  const collapsed = typeof options.collapsed === 'boolean'
+    ? options.collapsed
+    : sourceMode === 'continue';
+  setBreakdownSourcePanel({ sourceMode, collapsed });
+}
 
 export function showBreakdownModal(app, text) {
   const breakdownModal = document.getElementById('breakdownModal');
   const breakdownOriginalText = document.getElementById('breakdownOriginalText');
-  const breakdownTextLength = document.getElementById('breakdownTextLength');
 
   if (!breakdownModal || !breakdownOriginalText) return;
 
@@ -25,17 +108,7 @@ export function showBreakdownModal(app, text) {
   app._activeBreakdownHistoryId = null;
   app.selectedFollowupLevel = null;
 
-  breakdownOriginalText.textContent = text;
-
-  if (breakdownTextLength) {
-    const wordCount = text.trim().split(/\s+/).length;
-    breakdownTextLength.textContent = `${wordCount} words`;
-  }
-
-  breakdownOriginalText.style.display = 'none';
-  breakdownOriginalText.offsetHeight;
-  breakdownOriginalText.style.display = 'block';
-  breakdownOriginalText.scrollTop = 0;
+  setBreakdownOriginalText(text, { sourceMode: 'fresh', collapsed: false });
 
   breakdownModal.style.display = 'flex';
 
@@ -100,6 +173,7 @@ export function hideBreakdownModal(app) {
     breakdownResult.classList.remove('italics');
     italicsBtn.classList.remove('active');
   }
+  _resetBreakdownSourcePanel();
 }
 
 export function toggleBreakdownItalics() {

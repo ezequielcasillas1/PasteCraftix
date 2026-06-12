@@ -3533,26 +3533,7 @@ body {
   background: rgba(239, 68, 68, 0.4);
 }
 
-/* ── AI History Modal: Continue Conversation Button ── */
-.ai-history-continue-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-  color: white !important;
-  border: none !important;
-  border-radius: 10px;
-  padding: 9px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-}
-.ai-history-continue-btn:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-}
+/* AI Lucide icon styles moved to AiLucideStyles.css */
 
 .refactor-history-compare {
   display: flex;
@@ -3685,18 +3666,41 @@ body {
   margin-bottom: 16px;
 }
 
-.breakdown-original-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+.breakdown-original-text.is-continue {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
 }
 
-.breakdown-original-text h4 {
+.breakdown-original-toggle {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.breakdown-original-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #475569;
-  margin: 0;
+}
+
+.breakdown-original-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.breakdown-original-chevron {
+  color: #64748b;
+  font-size: 13px;
+  transition: transform 0.2s ease;
 }
 
 .text-length {
@@ -3705,7 +3709,26 @@ body {
   font-weight: 500;
 }
 
-.breakdown-original-text p {
+.breakdown-original-body {
+  margin-top: 10px;
+  max-height: 280px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+
+.breakdown-original-text.is-collapsed .breakdown-original-body {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  pointer-events: none;
+}
+
+.breakdown-original-text.is-collapsed .breakdown-original-chevron {
+  transform: rotate(-90deg);
+}
+
+.breakdown-original-text-content {
   font-size: 14px;
   color: #1f2937;
   margin: 0;
@@ -3719,6 +3742,11 @@ body {
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   transition: font-style 0.3s ease;
+}
+
+.breakdown-original-text.is-empty .breakdown-original-text-content {
+  color: #64748b;
+  font-style: italic;
 }
 
 .breakdown-original-text p.italics {

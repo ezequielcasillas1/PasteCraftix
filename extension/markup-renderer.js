@@ -390,9 +390,38 @@
   async function renderMermaid(text) {
     const ready = await ensureMermaid();
     if (!ready) return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;
+    const source = String(text || '').trim();
+    if (!source) return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;
+
+    // Guard against forced Mermaid hints on plain text.
+    const likelyMermaid = /^(graph\s+(TD|TB|BT|RL|LR)|flowchart\s+(TD|TB|BT|RL|LR)|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph|journey|mindmap|timeline|sankey|xychart|block-beta)\b/m.test(source);
+    if (!likelyMermaid) return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;
+
+    let parsedOk = true;
+    if (typeof mermaid.parse === 'function') {
+      try {
+        // Mermaid 11 may return an error SVG instead of throwing. Parse first so
+        // invalid diagram text cleanly falls back to a code block.
+        const parseResult = await mermaid.parse(source, { suppressErrors: true });
+        parsedOk = parseResult !== false;
+      } catch (_) {
+        // Fallback for Mermaid builds that don't accept parser options.
+        try {
+          const parseResult = await mermaid.parse(source);
+          parsedOk = parseResult !== false;
+        } catch (_) {
+          parsedOk = false;
+        }
+      }
+    }
+    if (!parsedOk) return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;
+
     try {
       const id = 'pc-mermaid-' + Date.now() + Math.random().toString(36).slice(2, 6);
-      const { svg } = await mermaid.render(id, text.trim());
+      const { svg } = await mermaid.render(id, source);
+      if (/syntax\s+error\s+in\s+text/i.test(svg) || /class="error-icon"/i.test(svg)) {
+        return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;
+      }
       return `<div class="pc-mermaid-rendered">${sanitize(svg)}</div>`;
     } catch (_) {
       return `<pre class="pc-code-block"><code>${escapeHtml(text)}</code></pre>`;

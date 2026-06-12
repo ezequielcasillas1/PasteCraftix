@@ -27,6 +27,12 @@ export function registerSharedModalEvents(app) {
     document.getElementById('breakdownItalicsBtn').addEventListener('click', () => {
       app.toggleBreakdownItalics();
     });
+    const breakdownOriginalToggle = document.getElementById('breakdownOriginalToggle');
+    if (breakdownOriginalToggle) {
+      breakdownOriginalToggle.addEventListener('click', () => {
+        app.toggleBreakdownSourcePanel();
+      });
+    }
 
     // Breakdown modal overlay click to close
     document.getElementById('breakdownModal').addEventListener('click', (e) => {
@@ -86,11 +92,13 @@ export function registerSharedModalEvents(app) {
       continueConversationBtn.addEventListener('click', () => app.continueHistoryConversation());
     }
     const aiRefactorReportBtn = document.getElementById('aiRefactorReportBtn');
+    const aiRefactorReportWrap = document.getElementById('aiRefactorReportWrap');
     const aiRefactorReportForm = document.getElementById('aiRefactorReportForm');
     const aiRefactorReportCancelBtn = document.getElementById('aiRefactorReportCancelBtn');
     if (aiRefactorReportBtn && aiRefactorReportForm) {
       aiRefactorReportBtn.addEventListener('click', () => {
         aiRefactorReportForm.style.display = 'block';
+        if (aiRefactorReportWrap) aiRefactorReportWrap.style.display = 'block';
         aiRefactorReportBtn.style.display = 'none';
         document.getElementById('aiRefactorReportInput')?.focus();
       });
@@ -98,6 +106,7 @@ export function registerSharedModalEvents(app) {
     if (aiRefactorReportCancelBtn && aiRefactorReportForm && aiRefactorReportBtn) {
       aiRefactorReportCancelBtn.addEventListener('click', () => {
         aiRefactorReportForm.style.display = 'none';
+        if (aiRefactorReportWrap) aiRefactorReportWrap.style.display = 'none';
         aiRefactorReportBtn.style.display = '';
       });
     }
@@ -108,6 +117,7 @@ export function registerSharedModalEvents(app) {
         const ok = await app.submitRefactorTicket(input?.value || '');
         if (ok) {
           aiRefactorReportForm.style.display = 'none';
+          if (aiRefactorReportWrap) aiRefactorReportWrap.style.display = 'none';
           if (aiRefactorReportBtn) aiRefactorReportBtn.style.display = 'none';
           if (input) input.value = '';
         }

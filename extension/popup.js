@@ -965,6 +965,18 @@ class PasteCraftPopup {
     return this.aiLabFeature.breakdown.hideBreakdownModal(this);
   }
 
+  setBreakdownSourcePanel(options = {}) {
+    return this.aiLabFeature.breakdown.setBreakdownSourcePanel(options);
+  }
+
+  setBreakdownOriginalText(text, options = {}) {
+    return this.aiLabFeature.breakdown.setBreakdownOriginalText(text, options);
+  }
+
+  toggleBreakdownSourcePanel(forceCollapsed = null) {
+    return this.aiLabFeature.breakdown.toggleBreakdownSourcePanel(forceCollapsed);
+  }
+
   toggleBreakdownItalics() {
     return this.aiLabFeature.breakdown.toggleBreakdownItalics();
   }

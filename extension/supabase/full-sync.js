@@ -85,6 +85,8 @@ async performFullSync() {
     const pendingQueueCount = Array.isArray(this.syncQueue) ? this.syncQueue.length : 0;
     console.log(`📥 Startup sync running in read-mostly mode (${pendingQueueCount} queued local operation${pendingQueueCount === 1 ? '' : 's'})`);
 
+    let localWritesApplied = false;
+
     // Read-mostly startup sync:
     // Local changes should travel through the queue/delta path. Re-uploading
     // whole local tables on every popup open is what has been timing out.
@@ -94,8 +96,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ clips: mergedClips });
-        console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        const clipsChanged = await this._safeStorageSet({ clips: mergedClips });
+        localWritesApplied = localWritesApplied || clipsChanged;
+        if (clipsChanged) {
+          console.log(`✅ Clips merged: ${mergedClips.length} total`);
+        }
       }
     }
 
@@ -105,8 +110,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping categories merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ categories: mergedCategories });
-        console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+        const categoriesChanged = await this._safeStorageSet({ categories: mergedCategories });
+        localWritesApplied = localWritesApplied || categoriesChanged;
+        if (categoriesChanged) {
+          console.log(`✅ Categories merged: ${mergedCategories.length} total`);
+        }
       }
     }
 
@@ -116,8 +124,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping archived clips merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
-        console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
+        const archivedClipsChanged = await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
+        localWritesApplied = localWritesApplied || archivedClipsChanged;
+        if (archivedClipsChanged) {
+          console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
+        }
       }
     }
 
@@ -127,8 +138,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping notes merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ notes: mergedNotes });
-        console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+        const notesChanged = await this._safeStorageSet({ notes: mergedNotes });
+        localWritesApplied = localWritesApplied || notesChanged;
+        if (notesChanged) {
+          console.log(`✅ Notes merged: ${mergedNotes.length} total`);
+        }
       }
     }
 
@@ -138,8 +152,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping AI history merge write - newer local changes detected during full sync');
       } else {
-        await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
-        console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
+        const aiHistoryChanged = await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
+        localWritesApplied = localWritesApplied || aiHistoryChanged;
+        if (aiHistoryChanged) {
+          console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
+        }
       }
     }
 
@@ -148,10 +165,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping settings merge write - newer local changes detected during full sync');
       } else {
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ settings: remoteSettings }, resolve);
-        });
-        console.log('✅ Settings updated');
+        const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
+        localWritesApplied = localWritesApplied || settingsChanged;
+        if (settingsChanged) {
+          console.log('✅ Settings updated');
+        }
       }
     }
 
@@ -188,10 +206,11 @@ async performFullSync() {
       if (await hasNewerLocalWrites()) {
         console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
       } else {
-        await new Promise((resolve) => {
-          chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
-        });
-        console.log('✅ User profile updated');
+        const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
+        localWritesApplied = localWritesApplied || profileChanged;
+        if (profileChanged) {
+          console.log('✅ User profile updated');
+        }
       }
     }
 
@@ -199,6 +218,7 @@ async performFullSync() {
       return {
         success: true,
         message: 'All data synced successfully',
+        localWritesApplied,
         stats: {
           clips: remoteClips?.length || 0,
           categories: remoteCategories?.length || 0,

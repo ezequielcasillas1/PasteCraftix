@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="AiLucideStyles.css">
     <style>
         /* Inline Critical CSS to fix blue box issue */
         * {
@@ -7660,45 +7661,11 @@
 
         .summary-result-actions {
             display: flex;
-            gap: 12px;
-            margin-top: 16px;
-        }
-
-        .summary-result-actions button {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             gap: 8px;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
+            margin-top: 16px;
+            align-items: center;
         }
 
-        .summary-result-actions .btn-secondary {
-            background: #f1f5f9;
-            color: #64748b;
-            border: 2px solid #e5e7eb;
-        }
-
-        .summary-result-actions .btn-secondary:hover {
-            background: #e2e8f0;
-            border-color: #cbd5e1;
-        }
-
-        .summary-result-actions .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-        }
-
-        .summary-result-actions .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        }
         
         /* AI Generation Section */
         .ai-generation-section {
@@ -10655,8 +10622,9 @@ Multiple clips are separated by:
                         <div class="summary-result-section" id="summaryResultSection" style="display: none;">
                             <div class="summary-result-header">
                                 <h4 class="result-title"><i data-lucide="clipboard"></i> Your Summary</h4>
-                                <button id="copySummaryBtn" class="btn-icon-action" title="Copy summary">
+                                <button id="copySummaryBtn" class="pc-ai-icon-btn pc-delay-tip" type="button" aria-label="Copy summary">
                                     <i data-lucide="clipboard"></i>
+                                    <span class="pc-tip" role="tooltip">Copy Summary</span>
                                 </button>
                                 <div class="thread-pagination" id="summaryThreadPagination" style="display: none;"></div>
                             </div>
@@ -10689,18 +10657,18 @@ Multiple clips are separated by:
                                 </div>
                             </div>
                             
-                            <div class="summary-result-actions">
-                                <button id="summarySaveToNotesBtn" class="btn-secondary" aria-label="Save summary to notes">
-                                    <span><i data-lucide="folder-plus"></i></span>
-                                    <span>Save to Notes</span>
+                            <div class="summary-result-actions ai-snippet-actions">
+                                <button id="summarySaveToNotesBtn" class="pc-ai-icon-btn pc-delay-tip" type="button" aria-label="Save to Notes">
+                                    <i data-lucide="folder-plus"></i>
+                                    <span class="pc-tip" role="tooltip">Save to Notes</span>
                                 </button>
-                                <button id="newQuestionBtn" class="btn-secondary">
-                                    <span><i data-lucide="arrow-left"></i></span>
-                                    <span>Ask Different Question</span>
+                                <button id="newQuestionBtn" class="pc-ai-icon-btn pc-delay-tip" type="button" aria-label="Ask Different Question">
+                                    <i data-lucide="arrow-left"></i>
+                                    <span class="pc-tip" role="tooltip">Ask Different Question</span>
                                 </button>
-                                <button id="newSummaryBtn" class="btn-primary">
-                                    <span><i data-lucide="sparkles"></i></span>
-                                    <span>New Summary</span>
+                                <button id="newSummaryBtn" class="pc-ai-icon-btn pc-ai-icon-btn--done pc-delay-tip" type="button" aria-label="New Summary">
+                                    <i data-lucide="sparkles"></i>
+                                    <span class="pc-tip" role="tooltip">New Summary</span>
                                 </button>
                             </div>
                         </div>
@@ -11152,12 +11120,23 @@ Multiple clips are separated by:
                     </div>
                 </div>
                 <div class="modal-body">
-                    <div class="breakdown-original-text">
-                        <div class="breakdown-original-header">
-                            <h4><i data-lucide="file-text"></i> Original Text</h4>
-                            <span class="text-length" id="breakdownTextLength"></span>
+                    <div class="breakdown-original-text" id="breakdownOriginalPanel" data-source-mode="fresh">
+                        <button
+                            class="breakdown-original-toggle"
+                            id="breakdownOriginalToggle"
+                            type="button"
+                            aria-expanded="true"
+                            aria-controls="breakdownOriginalBody"
+                        >
+                            <span class="breakdown-original-title"><i data-lucide="file-text"></i> Source Text</span>
+                            <span class="breakdown-original-meta">
+                                <span class="text-length" id="breakdownTextLength"></span>
+                                <span class="breakdown-original-chevron" aria-hidden="true">▾</span>
+                            </span>
+                        </button>
+                        <div class="breakdown-original-body" id="breakdownOriginalBody">
+                            <p id="breakdownOriginalText" class="breakdown-original-text-content"></p>
                         </div>
-                        <p id="breakdownOriginalText" class="breakdown-original-text-content"></p>
                     </div>
                     
                     <div class="breakdown-level-info">
@@ -11265,16 +11244,19 @@ Multiple clips are separated by:
                             </div>
                         </div>
                     </div>
-                    <div class="modal-actions">
-                        <button class="btn-secondary" id="saveBreakdownToNotesBtn" aria-label="Save breakdown to notes">
-                            <span><i data-lucide="folder-plus"></i></span>
-                            <span>Save to Notes</span>
+                    <div class="modal-actions ai-snippet-actions">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="saveBreakdownToNotesBtn" type="button" aria-label="Save to Notes">
+                            <i data-lucide="folder-plus"></i>
+                            <span class="pc-tip" role="tooltip">Save to Notes</span>
                         </button>
-                        <button class="btn-secondary" id="copyBreakdownBtn">
-                            <span><i data-lucide="clipboard"></i></span>
-                            <span>Copy Explanation</span>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="copyBreakdownBtn" type="button" aria-label="Copy Explanation">
+                            <i data-lucide="clipboard"></i>
+                            <span class="pc-tip" role="tooltip">Copy Explanation</span>
                         </button>
-                        <button class="btn-primary" id="closeBreakdownBtn">Done</button>
+                        <button class="pc-ai-icon-btn pc-ai-icon-btn--done pc-delay-tip" id="closeBreakdownBtn" type="button" aria-label="Done">
+                            <i data-lucide="check"></i>
+                            <span class="pc-tip" role="tooltip">Done</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -11306,11 +11288,34 @@ Multiple clips are separated by:
                         <div class="breakdown-result" id="aiHistoryResultContent"></div>
                     </div>
 
-                    <div id="aiRefactorReportWrap" style="display:none;margin-top:12px;">
-                        <button class="btn-secondary" id="aiRefactorReportBtn" type="button">
-                            <span><i data-lucide="flag"></i></span>
-                            <span>Report Ticket</span>
+                    <div class="modal-actions ai-snippet-actions">
+                        <!-- Refactor-only: report ticket icon btn (shown by JS when type=refactorization) -->
+                        <button class="pc-ai-icon-btn pc-ai-icon-btn--report pc-delay-tip" id="aiRefactorReportBtn" type="button" style="display:none;" aria-label="Report Ticket">
+                            <i data-lucide="flag"></i>
+                            <span class="pc-tip" role="tooltip">Report Ticket</span>
                         </button>
+
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="saveAiHistoryToNotesBtn" type="button" aria-label="Save to Notes">
+                            <i data-lucide="folder-plus"></i>
+                            <span class="pc-tip" role="tooltip">Save to Notes</span>
+                        </button>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="copyAiHistoryBtn" type="button" aria-label="Copy">
+                            <i data-lucide="clipboard"></i>
+                            <span class="pc-tip" role="tooltip">Copy</span>
+                        </button>
+                        <!-- Summary/Breakdown only: hidden for refactorization by JS -->
+                        <button class="pc-ai-icon-btn pc-ai-icon-btn--continue pc-delay-tip" id="continueConversationBtn" type="button" aria-label="Continue Conversation">
+                            <i data-lucide="message-circle-more"></i>
+                            <span class="pc-tip" role="tooltip">Continue Conversation</span>
+                        </button>
+                        <button class="pc-ai-icon-btn pc-ai-icon-btn--done pc-delay-tip" id="closeAiHistoryModalBtn" type="button" aria-label="Done">
+                            <i data-lucide="check"></i>
+                            <span class="pc-tip" role="tooltip">Done</span>
+                        </button>
+                    </div>
+
+                    <!-- Report form (shown inline below action bar when flagged) -->
+                    <div id="aiRefactorReportWrap" style="display:none;margin-top:12px;">
                         <form id="aiRefactorReportForm" class="refactor-report-form" style="display:none;margin-top:10px;">
                             <label for="aiRefactorReportInput" style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;">What was wrong with this refactor?</label>
                             <textarea id="aiRefactorReportInput" class="refactor-report-input" rows="3" maxlength="2000" placeholder="Tell us what you expected vs what you got…"></textarea>
@@ -11319,22 +11324,6 @@ Multiple clips are separated by:
                                 <button class="btn-secondary" id="aiRefactorReportCancelBtn" type="button">Cancel</button>
                             </div>
                         </form>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button class="btn-secondary" id="saveAiHistoryToNotesBtn" aria-label="Save AI history output to notes">
-                            <span><i data-lucide="folder-plus"></i></span>
-                            <span>Save to Notes</span>
-                        </button>
-                        <button class="btn-secondary" id="copyAiHistoryBtn">
-                            <span><i data-lucide="clipboard"></i></span>
-                            <span>Copy</span>
-                        </button>
-                        <button class="btn-secondary ai-history-continue-btn" id="continueConversationBtn">
-                            <span><i data-lucide="message-circle"></i></span>
-                            <span>Continue Conversation</span>
-                        </button>
-                        <button class="btn-primary" id="closeAiHistoryModalBtn">Done</button>
                     </div>
                 </div>
             </div>

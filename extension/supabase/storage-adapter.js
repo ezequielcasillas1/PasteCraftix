@@ -6,7 +6,23 @@
  */
 export const storageAdapterMixin = {
   async _safeStorageSet(data) {
+    const keys = Object.keys(data || {});
+    if (keys.length === 0) return false;
+
     try {
+      const current = await new Promise((resolve, reject) => {
+        chrome.storage.local.get(keys, (items) => {
+          if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+          } else {
+            resolve(items || {});
+          }
+        });
+      });
+
+      const hasChanges = keys.some((key) => !areStorageValuesEqual(current[key], data[key]));
+      if (!hasChanges) return false;
+
       await new Promise((resolve, reject) => {
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
@@ -58,3 +74,34 @@ export const storageAdapterMixin = {
     });
   },
 };
+
+function areStorageValuesEqual(left, right) {
+  if (Object.is(left, right)) return true;
+
+  const leftIsArray = Array.isArray(left);
+  const rightIsArray = Array.isArray(right);
+  if (leftIsArray || rightIsArray) {
+    if (!leftIsArray || !rightIsArray || left.length !== right.length) return false;
+    for (let index = 0; index < left.length; index += 1) {
+      if (!areStorageValuesEqual(left[index], right[index])) return false;
+    }
+    return true;
+  }
+
+  if (!isObjectLike(left) || !isObjectLike(right)) return false;
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(right, key)) return false;
+    if (!areStorageValuesEqual(left[key], right[key])) return false;
+  }
+
+  return true;
+}
+
+function isObjectLike(value) {
+  return value !== null && typeof value === 'object';
+}

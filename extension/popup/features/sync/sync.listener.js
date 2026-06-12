@@ -21,14 +21,6 @@ export async function performBackgroundSync(app, { force = false, reason = 'back
     
     if (syncResult.success) {
       console.log('✅ Background sync complete:', syncResult.stats);
-      await app.loadData();
-      app.renderChips();
-      app.renderCategories();
-      app.updateCategoryFilter();
-      app.updateManualInputCategories();
-      
-      await app.loadUserProfile();
-      app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
     } else {
       const msg = String(syncResult?.message || '');
       if (msg.includes('Cloud sync requires Basic or Enhanced subscription')) {

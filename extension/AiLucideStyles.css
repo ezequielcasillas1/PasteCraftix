@@ -1,0 +1,162 @@
+/* ─────────────────────────────────────────────────────────────
+   AI Snippet Modal — icon-only action bar
+   Used in: Summary, Breakdown, AI History viewer
+───────────────────────────────────────────────────────────── */
+.ai-snippet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 12px;
+}
+
+/* Base icon button */
+.pc-ai-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease,
+              color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.pc-ai-icon-btn svg,
+.pc-ai-icon-btn .lucide {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.pc-ai-icon-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18);
+}
+
+.pc-ai-icon-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Done / primary variant */
+.pc-ai-icon-btn--done {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: transparent;
+  color: #fff;
+  margin-left: auto;
+}
+.pc-ai-icon-btn--done:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+/* Continue Conversation — teal accent */
+.pc-ai-icon-btn--continue {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  border-color: transparent;
+  color: #fff;
+}
+.pc-ai-icon-btn--continue:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+/* Report Ticket — amber accent */
+.pc-ai-icon-btn--report {
+  border-color: #fcd34d;
+  color: #d97706;
+}
+.pc-ai-icon-btn--report:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #b45309;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+/* ── 1-second delayed tooltip ── */
+.pc-delay-tip {
+  overflow: visible;
+}
+
+.pc-tip {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 7px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 2000;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition-delay: 0s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.22);
+}
+
+.pc-tip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1e293b;
+}
+
+.pc-delay-tip:hover .pc-tip,
+.pc-delay-tip:focus-visible .pc-tip {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 1s;
+}
+
+.pc-ai-icon-btn:hover .pc-tip,
+.pc-ai-icon-btn:focus-visible .pc-tip {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 1s;
+}
+
+/* Legacy alias kept for backward compat */
+.ai-history-continue-btn {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.ai-history-continue-btn:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}

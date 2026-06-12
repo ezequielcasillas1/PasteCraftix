@@ -294,9 +294,20 @@ function _classifyStorageChanges(changes) {
   const categoriesChanged = !!changes.categories;
   const notesChanged = !!changes.notes;
   const settingsChanged = SETTINGS_CHANGE_KEYS.some(key => !!changes[key]);
-  const aiDataChanged = !!(changes.analysisHistory || changes.userProfile);
+  const analysisHistoryChanged = !!changes.analysisHistory;
+  const profileChanged = !!changes.userProfile;
+  const aiDataChanged = analysisHistoryChanged || profileChanged;
   const relevant = clipsChanged || categoriesChanged || notesChanged || settingsChanged || aiDataChanged;
-  return { clipsChanged, categoriesChanged, notesChanged, settingsChanged, aiDataChanged, relevant };
+  return {
+    clipsChanged,
+    categoriesChanged,
+    notesChanged,
+    settingsChanged,
+    analysisHistoryChanged,
+    profileChanged,
+    aiDataChanged,
+    relevant,
+  };
 }
 
 function _shouldProcessChange(app, now) {
@@ -306,13 +317,17 @@ function _shouldProcessChange(app, now) {
 }
 
 async function _refreshDataStores(app, classification) {
-  const { clipsChanged, categoriesChanged, notesChanged, aiDataChanged } = classification;
+  const {
+    clipsChanged,
+    categoriesChanged,
+    notesChanged,
+    analysisHistoryChanged,
+    profileChanged,
+  } = classification;
   if (clipsChanged || categoriesChanged) await app.loadData();
   if (notesChanged) await app.loadNotes();
-  if (aiDataChanged) {
-    await app.loadAnalysisHistory();
-    await app.loadUserProfile();
-  }
+  if (analysisHistoryChanged) await app.loadAnalysisHistory();
+  if (profileChanged) await app.loadUserProfile();
 }
 
 function _refreshClipsView(app) {
@@ -392,6 +407,11 @@ function _refreshSettingsModalIfOpen(app, classification) {
   }
 }
 
+function _refreshProfileIdentity(app, classification) {
+  if (!classification.profileChanged) return;
+  app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+}
+
 async function _handleStorageChange(app, changes, classification) {
   if (app._handlingLocalChange) return;
   app._handlingLocalChange = true;
@@ -400,6 +420,7 @@ async function _handleStorageChange(app, changes, classification) {
     await _refreshDataStores(app, classification);
     _refreshCurrentTabView(app, classification);
     _refreshSettingsModalIfOpen(app, classification);
+    _refreshProfileIdentity(app, classification);
   } finally {
     app._handlingLocalChange = false;
   }

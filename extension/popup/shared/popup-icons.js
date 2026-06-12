@@ -2,10 +2,11 @@
 // Replaces <i data-lucide="name"></i> placeholders with inline SVGs.
 // Observes DOM mutations so dynamically-rendered templates also get icons.
 const LUCIDE_ATTRS = { 'stroke-width': 2, 'aria-hidden': 'true', focusable: 'false' };
-const ICON_BATCH_SIZE = 4;
-const ICON_FRAME_BUDGET_MS = 8;
-const ICON_MAX_SCAN_PER_FRAME = 80;
-const ICON_FULL_SCAN_COOLDOWN_MS = 250;
+const ICON_BATCH_SIZE = 12;
+const ICON_FRAME_BUDGET_MS = 10;
+const ICON_MAX_SCAN_PER_FRAME = 72;
+const ICON_FULL_SCAN_COOLDOWN_MS = 120;
+const ICON_IDLE_TIMEOUT_MS = 48;
 
 function isUnrenderedPlaceholder(el) {
   return el?.nodeType === 1 && el.hasAttribute?.('data-lucide') && el.tagName !== 'SVG';
@@ -23,10 +24,36 @@ function collectUnrenderedPlaceholders(node) {
 function runLucideCreateIcons(nodes) {
   const lucide = window.lucide;
   if (!lucide?.createIcons || !nodes.length) return;
-  lucide.createIcons({
-    attrs: LUCIDE_ATTRS,
-    nodes,
-  });
+
+  // Lucide's createIcons accepts a `root` container (not a `nodes` list).
+  // Render only each pending icon's parent subtree to avoid full-document rescans.
+  const roots = new Set();
+  for (const node of nodes) {
+    const root = node?.parentElement || node;
+    if (root?.nodeType === 1) roots.add(root);
+  }
+  if (!roots.size) return;
+
+  for (const root of roots) {
+    lucide.createIcons({
+      attrs: LUCIDE_ATTRS,
+      root,
+    });
+  }
+}
+
+function scheduleIconWork(task) {
+  // Prefer next-frame work so controls render with the same paint cycle.
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => task());
+    return;
+  }
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => task(), { timeout: ICON_IDLE_TIMEOUT_MS });
+    return;
+  }
+  setTimeout(task, 0);
 }
 
 (function initLucideRenderer() {
@@ -39,7 +66,7 @@ function runLucideCreateIcons(nodes) {
   const scheduleFlush = () => {
     if (flushScheduled || pendingNodes.size === 0) return;
     flushScheduled = true;
-    requestAnimationFrame(() => {
+    scheduleIconWork(() => {
       flushScheduled = false;
       processBatch();
     });

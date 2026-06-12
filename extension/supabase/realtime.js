@@ -136,9 +136,9 @@ async handleClipsChange(payload) {
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get(['clips'], resolve);
     });
-    const localBeforeLen = Array.isArray(localData?.clips) ? localData.clips.length : 0;
     const mergedClips = await this.mergeClips(localData.clips || [], remoteClips);
-    await this._safeStorageSet({ clips: mergedClips });
+    const clipsChanged = await this._safeStorageSet({ clips: mergedClips });
+    if (!clipsChanged) return;
 
     // Notify UI to refresh
     window.dispatchEvent(new CustomEvent('dataChanged', { 
@@ -157,7 +157,8 @@ async handleCategoriesChange(payload) {
       chrome.storage.local.get(['categories'], resolve);
     });
     const mergedCategories = await this.mergeCategories(localData.categories || [], remoteCategories);
-    await this._safeStorageSet({ categories: mergedCategories });
+    const categoriesChanged = await this._safeStorageSet({ categories: mergedCategories });
+    if (!categoriesChanged) return;
     
     window.dispatchEvent(new CustomEvent('dataChanged', { 
       detail: { type: 'categories' } 
@@ -175,7 +176,8 @@ async handleArchivedClipsChange(payload) {
       chrome.storage.local.get(['searchOnlyClips'], resolve);
     });
     const mergedArchivedClips = await this.mergeArchivedClips(localData.searchOnlyClips || [], remoteArchivedClips);
-    await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
+    const archivedChanged = await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
+    if (!archivedChanged) return;
     
     window.dispatchEvent(new CustomEvent('dataChanged', { 
       detail: { type: 'archivedClips' } 
@@ -193,7 +195,8 @@ async handleNotesChange(payload) {
       chrome.storage.local.get(['notes'], resolve);
     });
     const mergedNotes = await this.mergeNotes(localData.notes || [], remoteNotes);
-    await this._safeStorageSet({ notes: mergedNotes });
+    const notesChanged = await this._safeStorageSet({ notes: mergedNotes });
+    if (!notesChanged) return;
 
     window.dispatchEvent(new CustomEvent('dataChanged', {
       detail: { type: 'notes' }
@@ -207,9 +210,8 @@ async handleSettingsChange(payload) {
   
   const remoteSettings = await this.syncSettingsFromSupabase();
   if (remoteSettings) {
-    await new Promise((resolve) => {
-      chrome.storage.local.set({ settings: remoteSettings }, resolve);
-    });
+    const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
+    if (!settingsChanged) return;
     
     window.dispatchEvent(new CustomEvent('dataChanged', { 
       detail: { type: 'settings' } 
@@ -259,9 +261,8 @@ async handleProfileChange(payload) {
       profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (currentLocal?.profileImageBase64 || null))
     };
 
-    await new Promise((resolve) => {
-      chrome.storage.local.set({ userProfile: mergedProfile }, resolve);
-    });
+    const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
+    if (!profileChanged) return;
     
     window.dispatchEvent(new CustomEvent('dataChanged', { 
       detail: { type: 'profile' } 
