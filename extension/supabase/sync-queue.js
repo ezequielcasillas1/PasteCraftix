@@ -100,6 +100,42 @@ _getQueueEntityVersion(item) {
   return 0;
 },
 
+_purgeDeletedIdsFromAliveQueue(queue, deletedType, deletedItems, aliveType) {
+  const deletedIds = new Set(
+    (Array.isArray(deletedItems) ? deletedItems : [])
+      .map((item) => this._getQueueEntityKey(deletedType, item))
+      .filter(Boolean),
+  );
+  if (deletedIds.size === 0) return queue;
+
+  return (Array.isArray(queue) ? queue : []).map((operation) => {
+    if (operation?.type !== aliveType || !Array.isArray(operation?.data)) return operation;
+    const nextData = operation.data.filter((item) => {
+      const key = this._getQueueEntityKey(aliveType, item);
+      return !key || !deletedIds.has(key);
+    });
+    if (nextData.length === operation.data.length) return operation;
+    return { ...operation, data: nextData };
+  });
+},
+
+_purgeDeletedIdsFromQueue(queue, operation) {
+  const type = String(operation?.type || '');
+  const data = operation?.data;
+  switch (type) {
+    case 'syncDeletedClips':
+      return this._purgeDeletedIdsFromAliveQueue(queue, type, data, 'syncClips');
+    case 'syncDeletedArchivedClips':
+      return this._purgeDeletedIdsFromAliveQueue(queue, type, data, 'syncArchivedClips');
+    case 'syncDeletedCategories':
+      return this._purgeDeletedIdsFromAliveQueue(queue, type, data, 'syncCategories');
+    case 'syncDeletedNotes':
+      return this._purgeDeletedIdsFromAliveQueue(queue, type, data, 'syncNotes');
+    default:
+      return queue;
+  }
+},
+
 _mergeQueueOperationData(type, existingData, incomingData) {
   const existing = Array.isArray(existingData) ? existingData : [];
   const incoming = Array.isArray(incomingData) ? incomingData : [];
@@ -191,7 +227,8 @@ async addToSyncQueue(operation) {
     timestamp: Date.now(),
     id: Date.now() + Math.random()
   };
-  this.syncQueue = this._compactSyncQueue([...this.syncQueue, nextOperation]);
+  const purgedQueue = this._purgeDeletedIdsFromQueue(this.syncQueue, nextOperation);
+  this.syncQueue = this._compactSyncQueue([...purgedQueue, nextOperation]);
   await this.saveSyncQueue();
   console.log(`➕ Added to sync queue: ${operation.type} (${this.syncQueue.length} pending)`);
 },

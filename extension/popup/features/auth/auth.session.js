@@ -295,8 +295,9 @@ function _classifyStorageChanges(changes) {
   const notesChanged = !!changes.notes;
   const settingsChanged = SETTINGS_CHANGE_KEYS.some(key => !!changes[key]);
   const analysisHistoryChanged = !!changes.analysisHistory;
+  const aiLabHistoryChanged = !!changes.pc_aiHistory_v1;
   const profileChanged = !!changes.userProfile;
-  const aiDataChanged = analysisHistoryChanged || profileChanged;
+  const aiDataChanged = analysisHistoryChanged || aiLabHistoryChanged || profileChanged;
   const relevant = clipsChanged || categoriesChanged || notesChanged || settingsChanged || aiDataChanged;
   return {
     clipsChanged,
@@ -304,6 +305,7 @@ function _classifyStorageChanges(changes) {
     notesChanged,
     settingsChanged,
     analysisHistoryChanged,
+    aiLabHistoryChanged,
     profileChanged,
     aiDataChanged,
     relevant,
@@ -322,11 +324,13 @@ async function _refreshDataStores(app, classification) {
     categoriesChanged,
     notesChanged,
     analysisHistoryChanged,
+    aiLabHistoryChanged,
     profileChanged,
   } = classification;
   if (clipsChanged || categoriesChanged) await app.loadData();
   if (notesChanged) await app.loadNotes();
   if (analysisHistoryChanged) await app.loadAnalysisHistory();
+  if (aiLabHistoryChanged) await app.loadAiHistory();
   if (profileChanged) await app.loadUserProfile();
 }
 
@@ -386,12 +390,17 @@ function _refreshAiView(app) {
   }
 }
 
+async function _refreshAiHistoryView(app) {
+  app.renderAiHistoryList?.();
+}
+
 const VIEW_REFRESHERS = Object.freeze({
   clips: { needs: (c) => c.clipsChanged, fn: _refreshClipsView },
   search: { needs: (c) => c.clipsChanged, fn: _refreshSearchView },
   categories: { needs: (c) => c.clipsChanged || c.categoriesChanged, fn: _refreshCategoriesView },
   notes: { needs: (c) => c.notesChanged, fn: _refreshNotesView },
   ai: { needs: (c) => c.aiDataChanged, fn: _refreshAiView },
+  aiHistory: { needs: (c) => c.aiLabHistoryChanged, fn: _refreshAiHistoryView },
 });
 
 function _refreshCurrentTabView(app, classification) {

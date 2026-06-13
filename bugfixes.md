@@ -1,3 +1,8 @@
+### Jun 13, 2026 - Deleted clip resurrection via IDB + sync queue
+**Status:** FIXED (tests)
+**Files:** sync.loader.js, sync-queue.js, auth.session.js, tests/sync-loader-tombstones.test.mjs, tests/sync-queue-delete-purge.test.mjs
+**Result:** loadData preferred stale IndexedDB over chrome.storage and ignored tombstones; queued syncClips kept deleted ids after delete. Tombstone-aware IDB resolve, purge on delete queue, pc_aiHistory_v1 storage listener.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

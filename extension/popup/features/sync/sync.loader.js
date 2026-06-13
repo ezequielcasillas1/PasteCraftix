@@ -11,6 +11,40 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+async function _loadDeletedIdSet(storageKey) {
+  try {
+    const result = await chrome.storage.local.get([storageKey]);
+    const list = Array.isArray(result?.[storageKey]) ? result[storageKey] : [];
+    return new Set(list.map((item) => String(item?.id || '')).filter(Boolean));
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function _filterTombstonedItems(items, deletedIds, idGetter = (item) => String(item?.id ?? '')) {
+  if (!deletedIds?.size) return Array.isArray(items) ? items : [];
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const id = idGetter(item);
+    return id && !deletedIds.has(id);
+  });
+}
+
+function _idbHasMorePayloads(idbItems, chromeItems) {
+  if (!Array.isArray(idbItems)) return false;
+  return idbItems.length >= (chromeItems?.length || 0);
+}
+
+async function _resolveEntityFromIdb(app, chromeItems, idbStoreName, deletedIds) {
+  const filteredChromeItems = _filterTombstonedItems(chromeItems, deletedIds);
+  if (!app._idbReady || !app.idb) return filteredChromeItems;
+
+  const idbItems = await app.idb.getAllPayloads(idbStoreName);
+  const filteredIdbItems = _filterTombstonedItems(idbItems, deletedIds);
+  return _idbHasMorePayloads(filteredIdbItems, filteredChromeItems)
+    ? filteredIdbItems
+    : filteredChromeItems;
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
@@ -18,14 +52,22 @@ export async function fetchRawData(app) {
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
 
-  if (app._idbReady && app.idb) {
-    const [idbClips, idbCategories] = await Promise.all([
-      app.idb.getAllPayloads('clips'),
-      app.idb.getAllPayloads('categories')
-    ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
-  }
+  const [
+    deletedClipIds,
+    deletedCategoryIds,
+    deletedArchivedClipIds,
+  ] = await Promise.all([
+    _loadDeletedIdSet('pc_deleted_clips'),
+    _loadDeletedIdSet('pc_deleted_categories'),
+    _loadDeletedIdSet('pc_deleted_archived_clips'),
+  ]);
+
+  [clips, categories] = await Promise.all([
+    _resolveEntityFromIdb(app, clips, 'clips', deletedClipIds),
+    _resolveEntityFromIdb(app, categories, 'categories', deletedCategoryIds),
+  ]);
+  searchOnlyClips = _filterTombstonedItems(searchOnlyClips, deletedArchivedClipIds);
+
   return { clips, categories, searchOnlyClips };
 }
 
