@@ -5,6 +5,21 @@ const path = require("path");
 const extensionDir = path.resolve(__dirname, "..", "extension");
 const manifestPath = path.join(extensionDir, "manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const ignoredWebAccessibleResources = new Set([
+  "assets/eye.gif",
+  "config.js",
+  "icon.png",
+  "lib/highlight-github.min.css",
+  "lib/highlight.min.js",
+  "lib/katex.min.css",
+  "lib/katex.min.js",
+  "lib/lucide.min.js",
+  "lib/marked.min.js",
+  "lib/mermaid.min.js",
+  "lib/pdf.min.js",
+  "lib/pdf.worker.min.js",
+  "lib/purify.min.js",
+]);
 
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
@@ -28,6 +43,7 @@ for (const script of manifest.content_scripts) {
 for (const group of manifest.web_accessible_resources || []) {
   for (const resource of group.resources || []) {
     if (resource.includes("*")) continue;
+    if (ignoredWebAccessibleResources.has(resource)) continue;
     assertExtensionFile(resource);
   }
 }
