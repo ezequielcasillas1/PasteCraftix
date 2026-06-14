@@ -122,6 +122,101 @@ _mergeQueueOperationData(type, existingData, incomingData) {
   return Array.from(merged.values());
 },
 
+_collectQueuedDeleteIds(queue) {
+  const deletedClipIds = new Set();
+  const deletedArchivedClipIds = new Set();
+  const deletedCategoryIds = new Set();
+  const deletedNoteIds = new Set();
+
+  (Array.isArray(queue) ? queue : []).forEach((operation) => {
+    const type = String(operation?.type || '');
+    const data = Array.isArray(operation?.data) ? operation.data : [];
+    data.forEach((item) => {
+      const id = this._getQueueEntityKey(type, item);
+      if (!id) return;
+      if (type === 'syncDeletedClips') deletedClipIds.add(id);
+      if (type === 'syncDeletedArchivedClips') deletedArchivedClipIds.add(id);
+      if (type === 'syncDeletedCategories') deletedCategoryIds.add(id);
+      if (type === 'syncDeletedNotes') deletedNoteIds.add(id);
+    });
+  });
+
+  return {
+    deletedClipIds,
+    deletedArchivedClipIds,
+    deletedCategoryIds,
+    deletedNoteIds,
+  };
+},
+
+_sanitizeQueueAgainstDeletes(queue) {
+  const {
+    deletedClipIds,
+    deletedArchivedClipIds,
+    deletedCategoryIds,
+    deletedNoteIds,
+  } = this._collectQueuedDeleteIds(queue);
+
+  if (
+    deletedClipIds.size === 0
+    && deletedArchivedClipIds.size === 0
+    && deletedCategoryIds.size === 0
+    && deletedNoteIds.size === 0
+  ) {
+    return queue;
+  }
+
+  return (Array.isArray(queue) ? queue : []).map((operation) => {
+    const type = String(operation?.type || '');
+    const data = Array.isArray(operation?.data) ? operation.data : [];
+    if (type === 'syncClips' && deletedClipIds.size > 0) {
+      return {
+        ...operation,
+        data: data.filter((item) => !deletedClipIds.has(this._getQueueEntityKey(type, item))),
+      };
+    }
+    if (type === 'syncArchivedClips' && deletedArchivedClipIds.size > 0) {
+      return {
+        ...operation,
+        data: data.filter((item) => !deletedArchivedClipIds.has(this._getQueueEntityKey(type, item))),
+      };
+    }
+    if (type === 'syncCategories' && deletedCategoryIds.size > 0) {
+      return {
+        ...operation,
+        data: data.filter((item) => !deletedCategoryIds.has(this._getQueueEntityKey(type, item))),
+      };
+    }
+    if (type === 'syncNotes' && deletedNoteIds.size > 0) {
+      return {
+        ...operation,
+        data: data.filter((item) => !deletedNoteIds.has(this._getQueueEntityKey(type, item))),
+      };
+    }
+    return operation;
+  });
+},
+
+_orderQueueDeleteOpsFirst(queue) {
+  const deleteTypes = new Set([
+    'syncDeletedClips',
+    'syncDeletedArchivedClips',
+    'syncDeletedCategories',
+    'syncDeletedNotes',
+  ]);
+  const items = Array.isArray(queue) ? queue : [];
+  const deleteOps = [];
+  const otherOps = [];
+  items.forEach((operation) => {
+    if (deleteTypes.has(String(operation?.type || ''))) {
+      deleteOps.push(operation);
+    } else {
+      otherOps.push(operation);
+    }
+  });
+  return [...deleteOps, ...otherOps];
+},
+
 _compactSyncQueue(queue) {
   const items = Array.isArray(queue) ? queue : [];
   const compacted = [];
@@ -149,7 +244,7 @@ _compactSyncQueue(queue) {
     };
   });
 
-  return compacted;
+  return this._sanitizeQueueAgainstDeletes(compacted);
 },
 
 async loadSyncQueue() {
@@ -216,7 +311,7 @@ async processSyncQueue() {
     console.log(`🔄 Processing ${this.syncQueue.length} queued operations...`);
     this.updateSyncStatus('syncing');
     
-    const queue = [...this.syncQueue];
+    const queue = this._orderQueueDeleteOpsFirst([...this.syncQueue]);
     this.syncQueue = [];
     
     for (const operation of queue) {

@@ -11,6 +11,24 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+async function _loadDeletedIdSet(storageKey) {
+  try {
+    const stored = await chrome.storage.local.get([storageKey]);
+    const list = Array.isArray(stored?.[storageKey]) ? stored[storageKey] : [];
+    return new Set(list.map((item) => String(item?.id ?? '')).filter(Boolean));
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function _filterTombstonedItems(items, deletedIds, getId = (item) => String(item?.id ?? '')) {
+  if (!deletedIds?.size) return Array.isArray(items) ? items : [];
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const id = getId(item);
+    return id && !deletedIds.has(id);
+  });
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
@@ -18,13 +36,27 @@ export async function fetchRawData(app) {
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
 
+  const [deletedClipIds, deletedCategoryIds, deletedArchivedClipIds] = await Promise.all([
+    _loadDeletedIdSet('pc_deleted_clips'),
+    _loadDeletedIdSet('pc_deleted_categories'),
+    _loadDeletedIdSet('pc_deleted_archived_clips'),
+  ]);
+
+  clips = _filterTombstonedItems(clips, deletedClipIds);
+  categories = _filterTombstonedItems(categories, deletedCategoryIds);
+  searchOnlyClips = _filterTombstonedItems(searchOnlyClips, deletedArchivedClipIds);
+
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+    if (Array.isArray(idbClips) && idbClips.length > 0) {
+      clips = _filterTombstonedItems(idbClips, deletedClipIds);
+    }
+    if (Array.isArray(idbCategories) && idbCategories.length > 0) {
+      categories = _filterTombstonedItems(idbCategories, deletedCategoryIds);
+    }
   }
   return { clips, categories, searchOnlyClips };
 }

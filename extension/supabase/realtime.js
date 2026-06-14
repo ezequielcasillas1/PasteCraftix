@@ -129,10 +129,14 @@ _shouldThrottleRealtime(eventType) {
 async handleClipsChange(payload) {
   if (this._shouldThrottleRealtime('clips')) return;
   console.log('🔔 Clips changed:', payload.eventType);
-  
-  // Refresh clips from Supabase
+
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteClips = await this.syncClipsFromSupabase();
   if (remoteClips) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime clips merge - newer local changes detected');
+      return;
+    }
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get(['clips'], resolve);
     });
@@ -150,9 +154,14 @@ async handleClipsChange(payload) {
 async handleCategoriesChange(payload) {
   if (this._shouldThrottleRealtime('categories')) return;
   console.log('🔔 Categories changed:', payload.eventType);
-  
+
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteCategories = await this.syncCategoriesFromSupabase();
   if (remoteCategories) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime categories merge - newer local changes detected');
+      return;
+    }
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get(['categories'], resolve);
     });
@@ -169,9 +178,14 @@ async handleCategoriesChange(payload) {
 async handleArchivedClipsChange(payload) {
   if (this._shouldThrottleRealtime('archivedClips')) return;
   console.log('🔔 Archived clips changed:', payload.eventType);
-  
+
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
   if (remoteArchivedClips) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime archived clips merge - newer local changes detected');
+      return;
+    }
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get(['searchOnlyClips'], resolve);
     });
@@ -189,8 +203,13 @@ async handleNotesChange(payload) {
   if (this._shouldThrottleRealtime('notes')) return;
   console.log('🔔 Notes changed:', payload.eventType);
 
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteNotes = await this.syncNotesFromSupabase();
   if (remoteNotes) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime notes merge - newer local changes detected');
+      return;
+    }
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get(['notes'], resolve);
     });
@@ -207,9 +226,14 @@ async handleNotesChange(payload) {
 async handleSettingsChange(payload) {
   if (this._shouldThrottleRealtime('settings')) return;
   console.log('🔔 Settings changed:', payload.eventType);
-  
+
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteSettings = await this.syncSettingsFromSupabase();
   if (remoteSettings) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime settings merge - newer local changes detected');
+      return;
+    }
     const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
     if (!settingsChanged) return;
     
@@ -222,9 +246,14 @@ async handleSettingsChange(payload) {
 async handleProfileChange(payload) {
   if (this._shouldThrottleRealtime('profile')) return;
   console.log('🔔 Profile changed:', payload.eventType);
-  
+
+  const snapshotLocalUpdatedAt = await this._readLocalUpdatedAt();
   const remoteProfile = await this.syncUserProfileFromSupabase();
   if (remoteProfile) {
+    if (await this._hasNewerLocalWritesSince(snapshotLocalUpdatedAt)) {
+      console.warn('⏭️ Skipping realtime profile merge - newer local changes detected');
+      return;
+    }
     // Merge with local profile to avoid overwriting stable images with temporary/expired ones.
     let currentLocal = {};
     try {

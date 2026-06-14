@@ -5,6 +5,20 @@
  * which lost these helpers during the vertical-slice refactor.
  */
 export const storageAdapterMixin = {
+  async _readLocalUpdatedAt() {
+    try {
+      const latest = await chrome.storage.local.get(['pc_local_updatedAt']);
+      return Number.isFinite(latest?.pc_local_updatedAt) ? latest.pc_local_updatedAt : 0;
+    } catch (_) {
+      return 0;
+    }
+  },
+
+  async _hasNewerLocalWritesSince(snapshotLocalUpdatedAt) {
+    const latestUpdatedAt = await this._readLocalUpdatedAt();
+    return latestUpdatedAt > snapshotLocalUpdatedAt;
+  },
+
   async _safeStorageSet(data) {
     const keys = Object.keys(data || {});
     if (keys.length === 0) return false;
