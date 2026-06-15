@@ -11,6 +11,10 @@ const OPTIONAL_LOCAL_RESOURCES = new Set([
   "icon.png",
 ]);
 
+const OPTIONAL_LOCAL_PREFIXES = [
+  "lib/",
+];
+
 function assertExtensionFile(relativePath) {
   const filePath = path.join(extensionDir, relativePath);
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
@@ -22,6 +26,7 @@ function assertManifestResource(relativePath) {
     return;
   }
   if (OPTIONAL_LOCAL_RESOURCES.has(relativePath)) return;
+  if (OPTIONAL_LOCAL_PREFIXES.some((prefix) => relativePath.startsWith(prefix))) return;
   assertExtensionFile(relativePath);
 }
 
