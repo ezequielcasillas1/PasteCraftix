@@ -1,3 +1,8 @@
+### Jun 15, 2026 - Stale popup after noop full sync
+**Status:** FIXED (automation)
+**Files:** sync.listener.js, tests/sync-listener-refresh.test.mjs
+**Result:** Noop chrome.storage writes skip onChanged; removed post-sync UI reload left clips/categories stale when storage already matched merge. Restored refresh after successful background sync.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

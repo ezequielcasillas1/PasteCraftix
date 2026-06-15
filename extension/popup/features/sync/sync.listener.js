@@ -3,6 +3,18 @@
  * Handles background sync orchestration and UI listener logic
  */
 
+/** Reload popup stores/views after cloud merge (noop writes skip storage events). */
+export async function refreshPopupAfterBackgroundSync(app) {
+  await app.loadData();
+  app.renderChips();
+  app.renderCategories();
+  app.updateCategoryFilter();
+  app.updateManualInputCategories();
+
+  await app.loadUserProfile();
+  app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+}
+
 export async function performBackgroundSync(app, { force = false, reason = 'background-sync' } = {}) {
   try {
     if (!force) {
@@ -21,6 +33,7 @@ export async function performBackgroundSync(app, { force = false, reason = 'back
     
     if (syncResult.success) {
       console.log('✅ Background sync complete:', syncResult.stats);
+      await refreshPopupAfterBackgroundSync(app);
     } else {
       const msg = String(syncResult?.message || '');
       if (msg.includes('Cloud sync requires Basic or Enhanced subscription')) {
