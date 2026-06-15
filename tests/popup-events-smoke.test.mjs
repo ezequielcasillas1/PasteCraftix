@@ -215,6 +215,7 @@ function createMockApp() {
     copyClipViewerText: noop,
     runClipViewerAiSummary: noop,
     runClipViewerAiBreakdown: noop,
+    openClipViewerGoogleSearchMenu: noop,
     runClipViewerAiRefactorization: noop,
     runClipViewerAiCraftClips: noop,
     runClipViewerSendToCategories: noop,
@@ -318,6 +319,7 @@ describe('popup events — static', () => {
     const ids = [
       'clipViewerAiSummaryBtn',
       'clipViewerAiBreakdownBtn',
+      'clipViewerGoogleSearchBtn',
       'clipViewerAiRefactorBtn',
       'clipViewerAiCraftBtn',
       'clipViewerSendCategoriesBtn',
@@ -332,6 +334,7 @@ describe('popup events — static', () => {
     const src = fs.readFileSync(path.join(popupDir, 'events/modals-shared.events.js'), 'utf8');
     assert.match(src, /runClipViewerAiSummary/);
     assert.match(src, /runClipViewerAiBreakdown/);
+    assert.match(src, /openClipViewerGoogleSearchMenu/);
     assert.match(src, /runClipViewerAiRefactorization/);
     assert.match(src, /runClipViewerAiCraftClips/);
     assert.match(src, /runClipViewerSendToCategories/);
@@ -410,6 +413,57 @@ describe('popup events — runtime harness', () => {
       registerPopupEventListeners(app);
       document.getElementById('upgradeBanner').click();
       assert.equal(upgradeOpened, true);
+    } finally {
+      globalThis.document = priorDocument;
+      globalThis.chrome = priorChrome;
+      globalThis.pasteCraftSupabase = priorPasteCraftSupabase;
+    }
+  });
+
+  test('clip viewer toolbar buttons invoke their mapped app actions', async () => {
+    const priorDocument = globalThis.document;
+    const priorChrome = globalThis.chrome;
+    const priorPasteCraftSupabase = globalThis.pasteCraftSupabase;
+
+    globalThis.document = buildDocumentHarness();
+    globalThis.chrome = {
+      storage: { local: { set: async () => {}, get: async () => ({}) } },
+      tabs: { query: (_q, cb) => cb([]), sendMessage: () => ({ catch: () => {} }) },
+    };
+    globalThis.pasteCraftSupabase = {
+      syncWithQueue: async () => {},
+      setAiWorkflowConfigDirect: () => {},
+    };
+
+    try {
+      const { registerPopupEventListeners } = await import(
+        pathToFileURL(path.join(popupDir, 'popup.events.js')).href
+      );
+      const app = createMockApp();
+      const calls = [];
+      const mappings = [
+        ['clipViewerAiSummaryBtn', 'runClipViewerAiSummary'],
+        ['clipViewerAiBreakdownBtn', 'runClipViewerAiBreakdown'],
+        ['clipViewerGoogleSearchBtn', 'openClipViewerGoogleSearchMenu'],
+        ['clipViewerAiRefactorBtn', 'runClipViewerAiRefactorization'],
+        ['clipViewerAiCraftBtn', 'runClipViewerAiCraftClips'],
+        ['clipViewerSendCategoriesBtn', 'runClipViewerSendToCategories'],
+        ['clipViewerSendNotesBtn', 'runClipViewerSendToNotes'],
+      ];
+
+      for (const [, methodName] of mappings) {
+        app[methodName] = () => calls.push(methodName);
+      }
+
+      registerPopupEventListeners(app);
+      for (const [id] of mappings) {
+        document.getElementById(id).click();
+      }
+
+      assert.deepEqual(
+        calls,
+        mappings.map(([, methodName]) => methodName),
+      );
     } finally {
       globalThis.document = priorDocument;
       globalThis.chrome = priorChrome;
