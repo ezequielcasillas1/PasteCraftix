@@ -11333,8 +11333,8 @@ Multiple clips are separated by:
         <div class="modal-overlay" id="clipViewerModal" style="display: none;">
             <div class="modal-content clip-viewer-content">
                 <div class="modal-header">
-                    <h3 id="clipViewerTitle"><i data-lucide="search"></i> Clip Viewer</h3>
-                    <button class="modal-close" id="closeClipViewerModal">✕</button>
+                    <h3 id="clipViewerTitle"><i data-lucide="scan-text"></i> <span id="clipViewerTitleText">Clip Viewer</span></h3>
+                    <button class="modal-close" id="closeClipViewerModal" type="button" aria-label="Close"><i data-lucide="x"></i></button>
                 </div>
                 <div class="modal-body">
                     <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
@@ -11348,39 +11348,50 @@ Multiple clips are separated by:
                     </details>
                 </div>
                 <div class="clip-viewer-footer">
-                    <div class="clip-viewer-ai-actions" id="clipViewerAiActions">
-                        <button class="chip-summary-btn clip-viewer-ai-icon" id="clipViewerAiSummaryBtn" title="AI Summary of this clip (or selected clips)">
+                    <div class="clip-viewer-toolbar ai-snippet-actions" id="clipViewerAiActions">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerAiSummaryBtn" type="button" aria-label="AI Summary">
                             <i data-lucide="notebook-pen"></i>
+                            <span class="pc-tip" role="tooltip">AI Summary</span>
                         </button>
-                        <button class="chip-breakdown-btn clip-viewer-ai-icon" id="clipViewerAiBreakdownBtn" title="AI Breakdown of this clip (or selected clips)">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerAiBreakdownBtn" type="button" aria-label="AI Breakdown">
                             <i data-lucide="brain"></i>
+                            <span class="pc-tip" role="tooltip">AI Breakdown</span>
                         </button>
-                        <button class="chip-google-search-btn clip-viewer-ai-icon" id="clipViewerGoogleSearchBtn" type="button" title="Google search using this clip (or selected clips)" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
+                        <button class="pc-ai-icon-btn pc-delay-tip pc-ai-icon-btn--google" id="clipViewerGoogleSearchBtn" type="button" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
                             <img src="assets/google-logo.svg" alt="" class="pc-google-action-icon" />
+                            <span class="pc-tip" role="tooltip">Google Search</span>
                         </button>
-                        <button class="chip-refactor-btn clip-viewer-ai-icon" id="clipViewerAiRefactorBtn" title="AI Refactorization of this clip (or selected clips)">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerAiRefactorBtn" type="button" aria-label="AI Refactorization">
                             <i data-lucide="sparkles"></i>
+                            <span class="pc-tip" role="tooltip">AI Refactorization</span>
                         </button>
-                        <button class="chip-craft-btn clip-viewer-ai-icon" id="clipViewerAiCraftBtn" title="Craft Clips: categorize, format, refactor, dedupe">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerAiCraftBtn" type="button" aria-label="Craft Clips">
                             <i data-lucide="wand-sparkles"></i>
+                            <span class="pc-tip" role="tooltip">Craft Clips</span>
                         </button>
-                        <button class="chip-category-btn clip-viewer-ai-icon" id="clipViewerSendCategoriesBtn" title="Send this clip (or selected clips) to a category">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerSendCategoriesBtn" type="button" aria-label="Send to category">
                             <i data-lucide="folder"></i>
+                            <span class="pc-tip" role="tooltip">Send to Category</span>
                         </button>
-                        <button class="chip-notes-btn clip-viewer-ai-icon" id="clipViewerSendNotesBtn" title="Send this clip (or selected clips) to a note">
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerSendNotesBtn" type="button" aria-label="Send to note">
                             <i data-lucide="folder-plus"></i>
+                            <span class="pc-tip" role="tooltip">Send to Note</span>
                         </button>
-                    </div>
-                    <div class="modal-actions clip-viewer-main-actions">
-                        <button class="btn-secondary" id="clipViewerToggleRaw" title="Toggle between rendered and raw view" style="display:none;">
-                            <span><i data-lucide="file-text"></i></span>
-                            <span>View Raw</span>
-                        </button>
-                        <button class="btn-secondary" id="copyClipViewerBtn">
-                            <span><i data-lucide="clipboard"></i></span>
-                            <span>Copy</span>
-                        </button>
-                        <button class="btn-primary" id="closeClipViewerBtn">Done</button>
+                        <span class="clip-viewer-toolbar-spacer" aria-hidden="true"></span>
+                        <div class="clip-viewer-trailing-actions">
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerToggleRaw" type="button" aria-label="View raw" style="display:none;">
+                                <i data-lucide="file-text"></i>
+                                <span class="pc-tip" role="tooltip">View Raw</span>
+                            </button>
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="copyClipViewerBtn" type="button" aria-label="Copy">
+                                <i data-lucide="clipboard"></i>
+                                <span class="pc-tip" role="tooltip">Copy</span>
+                            </button>
+                            <button class="pc-ai-icon-btn pc-ai-icon-btn--done pc-delay-tip" id="closeClipViewerBtn" type="button" aria-label="Done">
+                                <i data-lucide="check"></i>
+                                <span class="pc-tip" role="tooltip">Done</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -12404,27 +12415,34 @@ Multiple clips are separated by:
                 </div>
             </div>
             <div class="clip-viewer-footer" id="albumAttachmentViewerFooter">
-                <div class="clip-viewer-ai-actions" id="albumAttachmentViewerAiActions">
-                    <button class="chip-summary-btn clip-viewer-ai-icon" id="albumAttachmentAiSummaryBtn" type="button" title="AI Summary of this clip (or selected clips)" aria-label="AI Summary of this clip (or selected clips)">
+                <div class="clip-viewer-toolbar ai-snippet-actions" id="albumAttachmentViewerAiActions">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentAiSummaryBtn" type="button" aria-label="AI Summary">
                         <i data-lucide="notebook-pen"></i>
+                        <span class="pc-tip" role="tooltip">AI Summary</span>
                     </button>
-                    <button class="chip-breakdown-btn clip-viewer-ai-icon" id="albumAttachmentAiBreakdownBtn" type="button" title="AI Breakdown of this clip (or selected clips)" aria-label="AI Breakdown of this clip (or selected clips)">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentAiBreakdownBtn" type="button" aria-label="AI Breakdown">
                         <i data-lucide="brain"></i>
+                        <span class="pc-tip" role="tooltip">AI Breakdown</span>
                     </button>
-                    <button class="chip-google-search-btn clip-viewer-ai-icon" id="albumAttachmentGoogleSearchBtn" type="button" title="Google search using this clip (or selected clips)" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
+                    <button class="pc-ai-icon-btn pc-delay-tip pc-ai-icon-btn--google" id="albumAttachmentGoogleSearchBtn" type="button" aria-label="Google search actions" aria-haspopup="menu" aria-expanded="false">
                         <img src="assets/google-logo.svg" alt="" class="pc-google-action-icon" />
+                        <span class="pc-tip" role="tooltip">Google Search</span>
                     </button>
-                    <button class="chip-refactor-btn clip-viewer-ai-icon" id="albumAttachmentAiRefactorBtn" type="button" title="AI Refactorization of this clip (or selected clips)" aria-label="AI Refactorization of this clip (or selected clips)">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentAiRefactorBtn" type="button" aria-label="AI Refactorization">
                         <i data-lucide="sparkles"></i>
+                        <span class="pc-tip" role="tooltip">AI Refactorization</span>
                     </button>
-                    <button class="chip-craft-btn clip-viewer-ai-icon" id="albumAttachmentAiCraftBtn" type="button" title="Craft Clips: categorize, format, refactor, dedupe" aria-label="Craft Clips: categorize, format, refactor, dedupe">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentAiCraftBtn" type="button" aria-label="Craft Clips">
                         <i data-lucide="wand-sparkles"></i>
+                        <span class="pc-tip" role="tooltip">Craft Clips</span>
                     </button>
-                    <button class="chip-category-btn clip-viewer-ai-icon" id="albumAttachmentSendCategoriesBtn" type="button" title="Send this clip (or selected clips) to a category" aria-label="Send this clip (or selected clips) to a category">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentSendCategoriesBtn" type="button" aria-label="Send to category">
                         <i data-lucide="folder"></i>
+                        <span class="pc-tip" role="tooltip">Send to Category</span>
                     </button>
-                    <button class="chip-notes-btn clip-viewer-ai-icon" id="albumAttachmentSendNotesBtn" type="button" title="Send this clip (or selected clips) to a note" aria-label="Send this clip (or selected clips) to a note">
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentSendNotesBtn" type="button" aria-label="Send to note">
                         <i data-lucide="folder-plus"></i>
+                        <span class="pc-tip" role="tooltip">Send to Note</span>
                     </button>
                 </div>
             </div>

@@ -50,7 +50,7 @@ function switchToAiTab() {
 function getClipViewerElements() {
   return {
     modal: document.getElementById('clipViewerModal'),
-    titleEl: document.getElementById('clipViewerTitle'),
+    titleEl: document.getElementById('clipViewerTitleText'),
     metaEl: document.getElementById('clipViewerMeta'),
     bodyEl: document.getElementById('clipViewerBody'),
     renderedEl: document.getElementById('clipViewerRendered'),
@@ -211,6 +211,26 @@ function renderClipViewerRawContent(rawEl, text) {
   rawEl.style.display = 'none';
 }
 
+function setLucideIconOnButton(btn, iconName) {
+  if (!btn || !iconName) return;
+  btn.querySelector('svg.lucide')?.remove();
+  let iconEl = btn.querySelector('i[data-lucide]');
+  if (!iconEl) {
+    iconEl = document.createElement('i');
+    btn.insertBefore(iconEl, btn.firstChild);
+  }
+  iconEl.setAttribute('data-lucide', iconName);
+  window.renderLucideIcons?.(btn);
+}
+
+function updateToggleRawPresentation(toggleBtn, showingRaw) {
+  if (!toggleBtn) return;
+  const tipEl = toggleBtn.querySelector('.pc-tip');
+  if (tipEl) tipEl.textContent = showingRaw ? 'View Rendered' : 'View Raw';
+  toggleBtn.setAttribute('aria-label', showingRaw ? 'View rendered' : 'View raw');
+  setLucideIconOnButton(toggleBtn, showingRaw ? 'eye' : 'file-text');
+}
+
 function bindClipViewerToggle(app, toggleBtn, hasMarkup) {
   if (!toggleBtn) return;
   if (!hasMarkup) {
@@ -219,28 +239,24 @@ function bindClipViewerToggle(app, toggleBtn, hasMarkup) {
   }
 
   toggleBtn.style.display = '';
-  const toggleLabel = toggleBtn.querySelector('span:last-child');
-  if (toggleLabel) toggleLabel.textContent = 'View Raw';
-  const newBtn = toggleBtn.cloneNode(true);
-  if (!toggleBtn.parentNode) return;
-  toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-  newBtn.addEventListener('click', () => {
+  updateToggleRawPresentation(toggleBtn, false);
+
+  if (toggleBtn.dataset.pcToggleBound === '1') return;
+  toggleBtn.dataset.pcToggleBound = '1';
+  toggleBtn.addEventListener('click', () => {
     app._clipViewerShowingRaw = !app._clipViewerShowingRaw;
     const renderedEl = document.getElementById('clipViewerRendered');
     const rawEl = document.getElementById('clipViewerRaw');
     const activeToggleBtn = document.getElementById('clipViewerToggleRaw');
-    const activeLabel = activeToggleBtn
-      ? activeToggleBtn.querySelector('span:last-child')
-      : null;
+
     if (app._clipViewerShowingRaw) {
       if (renderedEl) renderedEl.style.display = 'none';
       if (rawEl) rawEl.style.display = 'block';
-      if (activeLabel) activeLabel.textContent = 'View Rendered';
     } else {
       if (renderedEl) renderedEl.style.display = 'block';
       if (rawEl) rawEl.style.display = 'none';
-      if (activeLabel) activeLabel.textContent = 'View Raw';
     }
+    updateToggleRawPresentation(activeToggleBtn, app._clipViewerShowingRaw);
   });
 }
 
@@ -308,6 +324,7 @@ export function open(app, clip, sourceContext = 'clips') {
   renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
 
   modal.style.display = 'flex';
+  window.renderLucideIcons?.(modal);
 }
 
 export function hide(app) {
