@@ -75,7 +75,7 @@ export const storageAdapterMixin = {
   },
 };
 
-function areStorageValuesEqual(left, right) {
+export function areStorageValuesEqual(left, right) {
   if (Object.is(left, right)) return true;
 
   const leftIsArray = Array.isArray(left);
@@ -104,4 +104,17 @@ function areStorageValuesEqual(left, right) {
 
 function isObjectLike(value) {
   return value !== null && typeof value === 'object';
+}
+
+export async function hasLocalStorageKeyConflict(key, snapshotValue) {
+  const latest = await new Promise((resolve, reject) => {
+    chrome.storage.local.get([key], (items) => {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError);
+      } else {
+        resolve(items || {});
+      }
+    });
+  });
+  return !areStorageValuesEqual(latest[key], snapshotValue);
 }

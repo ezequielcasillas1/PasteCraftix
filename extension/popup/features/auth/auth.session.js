@@ -295,8 +295,9 @@ function _classifyStorageChanges(changes) {
   const notesChanged = !!changes.notes;
   const settingsChanged = SETTINGS_CHANGE_KEYS.some(key => !!changes[key]);
   const analysisHistoryChanged = !!changes.analysisHistory;
+  const aiHistoryChanged = !!changes.pc_aiHistory_v1;
   const profileChanged = !!changes.userProfile;
-  const aiDataChanged = analysisHistoryChanged || profileChanged;
+  const aiDataChanged = analysisHistoryChanged || aiHistoryChanged || profileChanged;
   const relevant = clipsChanged || categoriesChanged || notesChanged || settingsChanged || aiDataChanged;
   return {
     clipsChanged,
@@ -304,6 +305,7 @@ function _classifyStorageChanges(changes) {
     notesChanged,
     settingsChanged,
     analysisHistoryChanged,
+    aiHistoryChanged,
     profileChanged,
     aiDataChanged,
     relevant,
@@ -322,11 +324,13 @@ async function _refreshDataStores(app, classification) {
     categoriesChanged,
     notesChanged,
     analysisHistoryChanged,
+    aiHistoryChanged,
     profileChanged,
   } = classification;
   if (clipsChanged || categoriesChanged) await app.loadData();
   if (notesChanged) await app.loadNotes();
   if (analysisHistoryChanged) await app.loadAnalysisHistory();
+  if (aiHistoryChanged) await app.loadAiHistory();
   if (profileChanged) await app.loadUserProfile();
 }
 
@@ -392,6 +396,10 @@ const VIEW_REFRESHERS = Object.freeze({
   categories: { needs: (c) => c.clipsChanged || c.categoriesChanged, fn: _refreshCategoriesView },
   notes: { needs: (c) => c.notesChanged, fn: _refreshNotesView },
   ai: { needs: (c) => c.aiDataChanged, fn: _refreshAiView },
+  aiHistory: { needs: (c) => c.aiHistoryChanged, fn: async (app) => {
+    await app.loadAiHistory();
+    app.renderAiHistoryList();
+  }},
 });
 
 function _refreshCurrentTabView(app, classification) {

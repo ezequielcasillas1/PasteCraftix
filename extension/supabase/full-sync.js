@@ -1,4 +1,6 @@
 /** Vertical slice: full-sync.js */
+import { hasLocalStorageKeyConflict } from './storage-adapter.js';
+
 export const fullSyncMixin = {
 // FULL SYNC METHOD (Call on startup)
 // =====================================================
@@ -72,12 +74,9 @@ async performFullSync() {
     const deletedArchivedClips = localData.pc_deleted_archived_clips || [];
     const deletedCategories = localData.pc_deleted_categories || [];
     const deletedNotes = localData.pc_deleted_notes || [];
-    const snapshotLocalUpdatedAt = Number.isFinite(localData.pc_local_updatedAt) ? localData.pc_local_updatedAt : Date.now();
-    const hasNewerLocalWrites = async () => {
+    const hasLocalKeyConflict = async (key, snapshotValue) => {
       try {
-        const latest = await chrome.storage.local.get(['pc_local_updatedAt']);
-        const latestUpdatedAt = Number.isFinite(latest?.pc_local_updatedAt) ? latest.pc_local_updatedAt : 0;
-        return latestUpdatedAt > snapshotLocalUpdatedAt;
+        return await hasLocalStorageKeyConflict(key, snapshotValue);
       } catch (_) {
         return false;
       }
@@ -93,8 +92,8 @@ async performFullSync() {
     const remoteClips = await this.syncClipsFromSupabase();
     if (remoteClips) {
       const mergedClips = await this.mergeClips(localClips, remoteClips);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('clips', localClips)) {
+        console.warn('⏭️ Skipping clips merge write - local clips changed during full sync');
       } else {
         const clipsChanged = await this._safeStorageSet({ clips: mergedClips });
         localWritesApplied = localWritesApplied || clipsChanged;
@@ -107,8 +106,8 @@ async performFullSync() {
     const remoteCategories = await this.syncCategoriesFromSupabase();
     if (remoteCategories) {
       const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping categories merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('categories', localCategories)) {
+        console.warn('⏭️ Skipping categories merge write - local categories changed during full sync');
       } else {
         const categoriesChanged = await this._safeStorageSet({ categories: mergedCategories });
         localWritesApplied = localWritesApplied || categoriesChanged;
@@ -121,8 +120,8 @@ async performFullSync() {
     const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
     if (remoteArchivedClips) {
       const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping archived clips merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('searchOnlyClips', localArchivedClips)) {
+        console.warn('⏭️ Skipping archived clips merge write - local archived clips changed during full sync');
       } else {
         const archivedClipsChanged = await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
         localWritesApplied = localWritesApplied || archivedClipsChanged;
@@ -135,8 +134,8 @@ async performFullSync() {
     const remoteNotes = await this.syncNotesFromSupabase();
     if (remoteNotes) {
       const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping notes merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('notes', localNotes)) {
+        console.warn('⏭️ Skipping notes merge write - local notes changed during full sync');
       } else {
         const notesChanged = await this._safeStorageSet({ notes: mergedNotes });
         localWritesApplied = localWritesApplied || notesChanged;
@@ -149,8 +148,8 @@ async performFullSync() {
     const remoteAiHistory = await this.fetchAiHistoryFromSupabase();
     if (remoteAiHistory && remoteAiHistory.length > 0) {
       const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping AI history merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('pc_aiHistory_v1', localAiHistory)) {
+        console.warn('⏭️ Skipping AI history merge write - local AI history changed during full sync');
       } else {
         const aiHistoryChanged = await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
         localWritesApplied = localWritesApplied || aiHistoryChanged;
@@ -162,8 +161,8 @@ async performFullSync() {
 
     const remoteSettings = await this.syncSettingsFromSupabase();
     if (remoteSettings) {
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping settings merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('settings', localSettings)) {
+        console.warn('⏭️ Skipping settings merge write - local settings changed during full sync');
       } else {
         const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
         localWritesApplied = localWritesApplied || settingsChanged;
@@ -203,8 +202,8 @@ async performFullSync() {
         profileImageUrl: pickUrl(localProfile?.profileImageUrl, remoteProfile?.profileImageUrl),
         profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (localProfile?.profileImageBase64 || null))
       };
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
+      if (await hasLocalKeyConflict('userProfile', localProfile)) {
+        console.warn('⏭️ Skipping profile merge write - local profile changed during full sync');
       } else {
         const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
         localWritesApplied = localWritesApplied || profileChanged;

@@ -21,6 +21,19 @@ export async function performBackgroundSync(app, { force = false, reason = 'back
     
     if (syncResult.success) {
       console.log('✅ Background sync complete:', syncResult.stats);
+      if (syncResult.localWritesApplied) {
+        await app.loadData();
+        app.renderChips();
+        app.renderCategories();
+        app.updateCategoryFilter();
+        app.updateManualInputCategories();
+        await app.loadUserProfile();
+        app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+        if (app.currentTab === 'aiHistory') {
+          await app.loadAiHistory();
+          app.renderAiHistoryList();
+        }
+      }
     } else {
       const msg = String(syncResult?.message || '');
       if (msg.includes('Cloud sync requires Basic or Enhanced subscription')) {
