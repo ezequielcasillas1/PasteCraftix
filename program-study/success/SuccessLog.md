@@ -1,4 +1,27 @@
-﻿### Jun 11, 2026 - Album interlaying edit modal
+﻿### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
+**Status:** SUCCESS
+**Files:** popup-icons.js, popup.init.js, popup.boot.js, tab-nav.events.js, auth.session.js, pastecraft-crud.js, files.render.js, popup.html
+**Result:** Icons flashed on popup open, tab switch, and CRUD DOM updates. Fixed with single boot pass (`finishBootLucideIcons`), scoped tab-panel flush, CRUD icon hooks, boot/tab rendering guards, placeholder CSS. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Drag-and-drop widget CRUD (delete/update gaps closed)
+**Status:** SUCCESS
+**Files:** extension/background/shared.js, extension/background/handlers/messages-internal.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.title.js, bugfixes.md, implementations.md
+**Result:** Quick View delete now purges IDB + enqueues Supabase tombstones + clipsUpdated popup refresh; title edits mirror IDB. Create/read already on unified save pipeline. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Drag-and-drop widget save → Clips page sync architecture
+**Status:** SUCCESS
+**Files:** extension/shared/clips-local-merge.js, extension/background/shared.js, extension/popup/features/sync/sync.loader.js, extension/popup/shared/popup-messaging.js, bugfixes.md
+**Result:** Widget drag-drop only wrote chrome.storage; Clips page preferred stale IndexedDB. Fixed with merge-by-id/timestamp, IDB mirror + sync queue on widget save, clipSaved refresh path. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Quick View Menu loading in Stable Architect
+**Status:** SUCCESS
+**Files:** widget.js, shared.js, messages-internal.js, bugfixes.md
+**Result:** Quick View srcdoc iframe postMessage used invalid targetOrigin `"null"` → loadClips failed. Fixed with `'*'` + e.source validation; added `pcDeleteQuickViewClip` CRUD delete with tombstones; fixed iframe selector for storage refresh. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Lucide icon lag / flicker on popup open
+**Status:** SUCCESS
+**Files:** popup-icons.js, popup.boot.js, popup.html, manifest.json
+**Result:** Icons disappeared then popped in across tabs. Root cause: double boot + batched rAF rendering (12 icons/frame). Fixed with single boot guard, sync flush for ≤120 icons, larger batches, CSS hide on placeholders until SVG. User confirmed SUCCESS.
 **Status:** SUCCESS
 **Files:** notes.album-interlaying.editor.js, notes.album.js, popup.html, notes.controller.js, notes.events.js, popup.js
 **Result:** Album attachment Edit opens inline modal instead of full note editor. Edits persist album-local via updateAlbumInterlaying. User confirmed successful.

@@ -79,8 +79,10 @@ export function renderFiles(app, searchQuery = '') {
     track.appendChild(box);
   });
 
-  window.renderLucideIcons?.(track);
-  
+  if (!window.__pcPopupLucideBooting) {
+    window.renderLucideIconsSync?.(track);
+  }
+
   updateCarouselArrows();
 }
 

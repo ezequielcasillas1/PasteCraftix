@@ -7,9 +7,13 @@ async function ensureSupabaseGlobals() {
   globalThis.PasteCraftSupabase = mod.PasteCraftSupabase;
 }
 
+let popupBootStarted = false;
+
 async function startPopup(PasteCraftPopupClass) {
+  if (popupBootStarted) return;
+  popupBootStarted = true;
+
   await ensureSupabaseGlobals();
-  window.renderLucideIcons?.();
   try {
     window.pasteCraftPopup = new PasteCraftPopupClass();
   } catch (error) {
@@ -22,16 +26,14 @@ async function startPopup(PasteCraftPopupClass) {
       </div>
     `;
     loadSimpleClips();
+    window.renderLucideIconsSync?.() || window.renderLucideIcons?.();
   }
-  window.renderLucideIcons?.();
 }
 
 export function bootPopupPage(PasteCraftPopupClass) {
-  document.addEventListener('DOMContentLoaded', () => {
-    startPopup(PasteCraftPopupClass);
-  });
-
-  if (document.readyState !== 'loading' && !window.pasteCraftPopup) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => startPopup(PasteCraftPopupClass), { once: true });
+  } else {
     startPopup(PasteCraftPopupClass);
   }
 

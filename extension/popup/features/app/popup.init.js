@@ -3,7 +3,28 @@
 import { initializeAllPopupFeatures } from './popup.features.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
+let popupRevealScheduled = false;
+
+function revealPopupWithIcons(context = 'unknown') {
+  if (typeof window.finishBootLucideIcons === 'function') {
+    window.finishBootLucideIcons(context);
+    return;
+  }
+  window.__pcPopupLucideBooting = false;
+  window.renderLucideIconsSync?.() || window.renderLucideIcons?.();
+}
+
+async function finishPopupReveal(app, context = 'popup-ready') {
+  if (popupRevealScheduled) return;
+  popupRevealScheduled = true;
+  revealPopupWithIcons(context);
+  app.hideLoadingOverlay();
+}
+
 export async function runPopupInit(app) {
+  window.__pcPopupLucideBooting = true;
+  popupRevealScheduled = false;
+
   await initializeAllPopupFeatures(app);
 
   app.setupAuthModalEvents();
@@ -30,7 +51,7 @@ export async function runPopupInit(app) {
     app.updatePreview();
     app.renderCategories();
     app.updateCategoryFilter();
-    app.hideLoadingOverlay();
+    await finishPopupReveal(app, 'guest-init');
     app.setupVisibilityListener();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
     return;
@@ -38,6 +59,8 @@ export async function runPopupInit(app) {
 
   const resetCallback = await app.checkPasswordResetCallback();
   if (resetCallback) {
+    window.__pcPopupLucideBooting = false;
+    revealPopupWithIcons('password-reset-callback');
     app.hideLoadingOverlay();
     document.getElementById('newPasswordModal').style.display = 'flex';
     return;
@@ -52,6 +75,8 @@ export async function runPopupInit(app) {
     if (accessToken) {
       await app.setPasswordResetSession(accessToken, refreshToken);
     }
+    window.__pcPopupLucideBooting = false;
+    revealPopupWithIcons('password-reset-hash');
     app.hideLoadingOverlay();
     document.getElementById('newPasswordModal').style.display = 'flex';
     return;
@@ -67,6 +92,7 @@ export async function runPopupInit(app) {
   const currentUser = await pasteCraftSupabase.getCurrentUser();
 
   if (!currentUser) {
+    window.__pcPopupLucideBooting = false;
     app.showAuthModal();
     return;
   }
@@ -131,11 +157,13 @@ export async function runPopupInit(app) {
   app.renderCategories();
   app.updateCategoryFilter();
 
-  app.hideLoadingOverlay();
-
-  app._restoreSessionState().catch((e) => {
+  try {
+    await app._restoreSessionState();
+  } catch (e) {
     console.warn('Session restore failed:', e);
-  });
+  }
+
+  await finishPopupReveal(app, 'popup-ready');
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))

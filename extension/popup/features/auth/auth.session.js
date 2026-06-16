@@ -59,7 +59,14 @@ async function _restoreActiveTab(app, stored) {
   if (!tabBtn) return savedTab;
 
   _activateMainTab(app, savedTab, tabBtn);
-  await _dispatchTabLoad(app, savedTab);
+  window.__pcTabIconRendering = true;
+  try {
+    await _dispatchTabLoad(app, savedTab);
+  } finally {
+    if (!window.__pcPopupLucideBooting) {
+      window.renderLucideIconsForActiveTab?.(savedTab, 'session-restore-tab', { immediate: true });
+    }
+  }
   return savedTab;
 }
 

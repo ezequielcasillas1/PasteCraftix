@@ -1,3 +1,33 @@
+### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
+**Status:** SUCCESS (user verified)
+**Files:** popup-icons.js, popup.init.js, tab-nav.events.js, auth.session.js, pastecraft-crud.js, files.render.js
+**Result:** Boot triple-pass and tab innerHTML wiped SVGs before icon sync. Single boot pass, scoped tab flush, CRUD hooks, rendering guards. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Full sync spurious settings/profile skip warnings
+**Status:** PENDING USER VERIFY
+**Files:** extension/supabase/full-sync.js, extension/supabase/sync-settings.js, extension/supabase/realtime.js
+**Result:** Settings/profile used global `pc_local_updatedAt` guard (false positive when clips/cleanup bump timestamp during long sync). Settings also wrote to unused `settings` key instead of flat storage keys. Fixed with `settingsUpdatedAt` LWW merge, flat payload via `toSettingsStoragePayload`, profile merge always applies; warn downgraded to debug for legitimate local-newer settings.
+
+### Jun 16, 2026 - Quick View delete resurrected drag-drop clips from IDB
+**Status:** SUCCESS (user verified)
+**Files:** extension/background/shared.js, extension/background/handlers/messages-internal.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.title.js
+**Result:** deleteQuickViewClip removed storage only; merged IDB clips reappeared in Quick View/Clips. Fixed with syncClipsToIndexedDb, syncDeletedClips queue, merged index lookup, popup clipsUpdated refresh, title-edit IDB mirror. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Clips page stale after widget drag-drop save
+**Status:** SUCCESS (user verified)
+**Files:** extension/shared/clips-local-merge.js, extension/background/shared.js, extension/popup/features/sync/sync.loader.js, extension/popup/shared/popup-messaging.js
+**Result:** Drag-drop used saveTextDirectly (chrome.storage only); popup loadData preferred stale IndexedDB over fresh storage. Fixed with merge-by-id, background IDB mirror + sync queue, popup IDB mirror on clipSaved. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Quick View Menu not loading (srcdoc postMessage)
+**Status:** SUCCESS (user verified)
+**Files:** extension/content/widget/widget.js, extension/background/shared.js, extension/background/handlers/messages-internal.js
+**Result:** srcdoc postMessage targetOrigin was `"null"` → loadClips failed. Fixed with `'*'` + source validation; `pcDeleteQuickViewClip` tombstones; iframe selector for storage refresh. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Lucide icon lag / flicker (popup + all tabs)
+**Status:** SUCCESS (user verified)
+**Files:** extension/popup/shared/popup-icons.js, popup/features/app/popup.boot.js, popup.html
+**Result:** Icons blank then pop in on open/tab switch. Double `startPopup` + 12-icon rAF batches caused multi-frame delay. Sync flush, boot guard, placeholder visibility CSS. User confirmed SUCCESS.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

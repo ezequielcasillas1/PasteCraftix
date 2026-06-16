@@ -1,3 +1,8 @@
+### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
+**Status:** SUCCESS
+**Files:** popup-icons.js, popup.init.js, tab-nav.events.js, auth.session.js, pastecraft-crud.js, files.render.js
+**Result:** Triple createIcons on boot + deferred tab flush caused icon flash. Single `finishBootLucideIcons`, scoped `#tabTab` flush after async renders, CRUD sync hooks, observer suppress during tab render. User confirmed SUCCESS.
+
 ### Jun 2, 2026 - Quick Save stale category list
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js

@@ -43,6 +43,33 @@ class PasteCraftCRUD {
     });
   }
 
+  /** Paint Lucide placeholders immediately after CRUD-driven DOM updates. */
+  static renderLucideIconsAfterUi(meta, iconRoot, crudOp) {
+    if (typeof window === 'undefined') return;
+    if (window.__pcTabIconRendering || window.__pcPopupLucideBooting) return;
+    const root = iconRoot instanceof Element
+      ? iconRoot
+      : meta?.iconRoot instanceof Element
+        ? meta.iconRoot
+        : meta?.uiRoot instanceof Element
+          ? meta.uiRoot
+          : document.body;
+    if (typeof window.renderLucideIconsSync === 'function') {
+      window.renderLucideIconsSync(root);
+    } else if (typeof window.renderLucideIcons === 'function') {
+      window.renderLucideIcons(root instanceof Element ? root : undefined);
+    }
+  }
+
+  static runUiUpdater(uiUpdater, meta, iconRoot, crudOp) {
+    try {
+      uiUpdater?.(meta);
+    } catch (uiErr) {
+      console.error('?? uiUpdater threw:', uiErr);
+    }
+    PasteCraftCRUD.renderLucideIconsAfterUi(meta, iconRoot, crudOp);
+  }
+
   /**
    * Generic CRUD DELETE operation with all 5 best practices
    */
@@ -85,6 +112,7 @@ class PasteCraftCRUD {
     
     // UI updates
     uiUpdater, // () => void - update UI after successful deletion
+    iconRoot, // optional Element scope for Lucide render after uiUpdater
     
     // Background sync (optional, non-blocking)
     backgroundSync, // (entity, deletedAt) => Promise<void>
@@ -150,7 +178,7 @@ class PasteCraftCRUD {
             await storageWriter(storageData);
           });
         }
-        uiUpdater?.();
+        PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, entityType);
       } catch (rollbackError) {
         console.error(`? Rollback failed for ${entityType}:`, rollbackError);
       }
@@ -194,7 +222,7 @@ class PasteCraftCRUD {
       // Step 3b: OPTIMISTIC UI - render the removal immediately so the
       // user sees the item disappear without waiting on storage/IDB/verifier.
       // If any downstream write fails, `rollback()` restores state and re-renders.
-      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} delete, optimistic):`, uiErr); }
+      PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, entityType);
 
       // Step 4: Persist to storage with retry
       if (storageWriter) {
@@ -305,12 +333,7 @@ class PasteCraftCRUD {
     writeTombstones,
     verifier,
     uiUpdater,
-    backgroundSync,
-    successMessage,
-    errorMessage,
-    showToast
-  }) {
-    const normalizedIds = Array.isArray(entityIds)
+    iconRoot,
       ? Array.from(new Set(entityIds.map(id => String(id)).filter(Boolean)))
       : [];
 
@@ -363,7 +386,7 @@ class PasteCraftCRUD {
             await storageWriter(storageData);
           });
         }
-        uiUpdater?.();
+        PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, entityType);
       } catch (rollbackError) {
         console.error(`? Rollback failed for ${entityType} batch delete:`, rollbackError);
       }
@@ -402,7 +425,7 @@ class PasteCraftCRUD {
 
       await stateSetter(currentState);
 
-      try { uiUpdater?.(); } catch (uiErr) { console.error(`?? uiUpdater threw (${entityType} batch delete, optimistic):`, uiErr); }
+      PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, entityType);
 
       if (storageWriter) {
         await PasteCraftCRUD.retryOperation(async () => {
@@ -511,6 +534,7 @@ class PasteCraftCRUD {
     buildStorageData,
     verifier,
     uiUpdater,
+    iconRoot,
     backgroundSync,
     successMessage,
     errorMessage,
@@ -561,7 +585,7 @@ class PasteCraftCRUD {
             await storageWriter(storageData, currentState, { rollback: true });
           });
         }
-        uiUpdater?.({ rollback: true });
+        PasteCraftCRUD.runUiUpdater(uiUpdater, { rollback: true }, iconRoot, 'save-rollback');
       } catch (rollbackError) {
         console.error('? Rollback failed:', rollbackError);
       }
@@ -571,7 +595,7 @@ class PasteCraftCRUD {
       const meta = await (mutateState?.(currentState) || {});
       await stateSetter(currentState, meta);
 
-      try { uiUpdater?.(meta); } catch (uiErr) { console.error('?? uiUpdater threw (save, optimistic):', uiErr); }
+      PasteCraftCRUD.runUiUpdater(uiUpdater, meta, iconRoot, 'save');
 
       if (storageWriter) {
         await PasteCraftCRUD.retryOperation(async () => {
@@ -624,6 +648,7 @@ class PasteCraftCRUD {
     addToArray, // (items, entity) => items - add function
     verifier, // (entity, storedData) => boolean
     uiUpdater,
+    iconRoot,
     backgroundSync,
     successMessage,
     errorMessage,
@@ -679,7 +704,7 @@ class PasteCraftCRUD {
           });
           await storageWriter(storageData);
         }
-        uiUpdater?.();
+        PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, 'create');
       } catch (rollbackError) {
         console.error('? Rollback failed:', rollbackError);
       }
@@ -700,7 +725,7 @@ class PasteCraftCRUD {
 
       // Step 3: OPTIMISTIC UI - paint the change immediately so the user
       // sees the new entity without waiting on chrome.storage or verifier I/O.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (create, optimistic):', uiErr); }
+      PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, 'create');
 
       // Step 4: Persist with retry (still awaited so rollback fires on real failure)
       if (storageWriter) {
@@ -763,6 +788,7 @@ class PasteCraftCRUD {
     updateInArray, // (items, entityId, updates) => items
     verifier,
     uiUpdater,
+    iconRoot,
     backgroundSync,
     successMessage,
     errorMessage,
@@ -815,7 +841,7 @@ class PasteCraftCRUD {
           });
           await storageWriter(storageData);
         }
-        uiUpdater?.();
+        PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, 'update');
       } catch (rollbackError) {
         console.error('? Rollback failed:', rollbackError);
       }
@@ -835,7 +861,7 @@ class PasteCraftCRUD {
       await stateSetter(currentState);
 
       // Step 3: OPTIMISTIC UI - render the updated entity immediately.
-      try { uiUpdater?.(); } catch (uiErr) { console.error('?? uiUpdater threw (update, optimistic):', uiErr); }
+      PasteCraftCRUD.runUiUpdater(uiUpdater, null, iconRoot, 'update');
 
       // Step 4: Persist with retry
       if (storageWriter) {
