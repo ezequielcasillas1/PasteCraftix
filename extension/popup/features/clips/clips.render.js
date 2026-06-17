@@ -15,6 +15,11 @@ import {
   getSelectedSearchClipIdsInUiOrder,
 } from './clips.state.js';
 
+function _paintClipLucideIcons(container) {
+  if (!container) return;
+  window.renderLucideIconsSync?.(container);
+}
+
 function getPaginationItems(currentPage, totalPages) {
   const items = [];
   const startPage = Math.max(0, currentPage - 2);
@@ -283,6 +288,7 @@ export function renderChips(app) {
 
   app.renderPagination();
   app.updateQuickCopyButton();
+  _paintClipLucideIcons(container);
 }
 
 export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
@@ -355,6 +361,7 @@ export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
     `;
   } finally {
     app._isLazyLoading = false;
+    _paintClipLucideIcons(container);
   }
 }
 
