@@ -4,6 +4,7 @@ import {
   getExtensionPageUrl,
   saveTextDirectly,
   getQuickViewClips,
+  deleteQuickViewClip,
 } from '../shared.js';
 
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
@@ -141,6 +142,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch((error) => {
         console.error('❌ Failed to get Quick View clips:', error);
+        sendResponse({ success: false, error: error?.message || String(error), clips: [] });
+      });
+    return true;
+  }
+
+  if (message.action === 'pcDeleteQuickViewClip') {
+    deleteQuickViewClip({
+      clipId: message.clipId,
+      archived: message.archived === true,
+      index: message.index,
+    })
+      .then((clips) => {
+        chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
+        sendResponse({ success: true, clips });
+      })
+      .catch((error) => {
+        console.error('❌ Failed to delete Quick View clip:', error);
         sendResponse({ success: false, error: error?.message || String(error), clips: [] });
       });
     return true;

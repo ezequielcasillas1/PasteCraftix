@@ -1,4 +1,6 @@
 /** Vertical slice: full-sync.js */
+import { mergeUserProfileLocalRemote } from '../shared/profile-merge.js';
+
 export const fullSyncMixin = {
 // FULL SYNC METHOD (Call on startup)
 // =====================================================
@@ -50,7 +52,11 @@ async performFullSync() {
         'categories',
         'searchOnlyClips',
         'notes',
-        'settings',
+        'autoDeletePeriod',
+        'quickPasteSettings',
+        'albumAttachmentOpenMode',
+        'theme',
+        'settingsUpdatedAt',
         'userProfile',
         'pc_aiHistory_v1',
         'pc_deleted_clips',
@@ -65,8 +71,8 @@ async performFullSync() {
     const localCategories = localData.categories || [];
     const localArchivedClips = localData.searchOnlyClips || [];
     const localNotes = localData.notes || [];
-    const localSettings = localData.settings || {};
     const localProfile = localData.userProfile || {};
+    const localSettingsUpdatedAt = typeof localData.settingsUpdatedAt === 'number' ? localData.settingsUpdatedAt : 0;
     const localAiHistory = localData.pc_aiHistory_v1 || [];
     const deletedClips = localData.pc_deleted_clips || [];
     const deletedArchivedClips = localData.pc_deleted_archived_clips || [];
@@ -162,10 +168,22 @@ async performFullSync() {
 
     const remoteSettings = await this.syncSettingsFromSupabase();
     if (remoteSettings) {
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping settings merge write - newer local changes detected during full sync');
+      let latestLocalSettingsUpdatedAt = localSettingsUpdatedAt;
+      try {
+        const latest = await chrome.storage.local.get(['settingsUpdatedAt']);
+        latestLocalSettingsUpdatedAt = typeof latest?.settingsUpdatedAt === 'number' ? latest.settingsUpdatedAt : 0;
+      } catch (_) {}
+
+      const remoteSettingsUpdatedAt = typeof remoteSettings.settingsUpdatedAt === 'number'
+        ? remoteSettings.settingsUpdatedAt
+        : 0;
+      if (latestLocalSettingsUpdatedAt > remoteSettingsUpdatedAt) {
+        console.debug('⏭️ Keeping local settings (newer than cloud during full sync)');
       } else {
-        const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
+        const settingsPayload = this.toSettingsStoragePayload(remoteSettings);
+        const settingsChanged = settingsPayload
+          ? await this._safeStorageSet(settingsPayload)
+          : false;
         localWritesApplied = localWritesApplied || settingsChanged;
         if (settingsChanged) {
           console.log('✅ Settings updated');
@@ -175,6 +193,9 @@ async performFullSync() {
 
     const remoteProfile = await this.syncUserProfileFromSupabase();
     if (remoteProfile) {
+      if (await hasNewerLocalWrites()) {
+        console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
+      } else {
       const pickUrl = (localUrl, remoteUrl) => {
         const l = typeof localUrl === 'string' ? localUrl : '';
         const r = typeof remoteUrl === 'string' ? remoteUrl : '';
@@ -197,20 +218,12 @@ async performFullSync() {
         return r || l;
       };
 
-      const mergedProfile = {
-        ...localProfile,
-        ...remoteProfile,
-        profileImageUrl: pickUrl(localProfile?.profileImageUrl, remoteProfile?.profileImageUrl),
-        profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (localProfile?.profileImageBase64 || null))
-      };
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
-      } else {
-        const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
-        localWritesApplied = localWritesApplied || profileChanged;
-        if (profileChanged) {
-          console.log('✅ User profile updated');
-        }
+      const mergedProfile = mergeUserProfileLocalRemote(localProfile, remoteProfile, pickUrl);
+      const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
+      localWritesApplied = localWritesApplied || profileChanged;
+      if (profileChanged) {
+        console.log('✅ User profile updated');
+      }
       }
     }
 
