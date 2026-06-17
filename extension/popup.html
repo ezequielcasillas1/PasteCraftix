@@ -4758,6 +4758,82 @@
             display: none;
         }
         
+        /* Profile name blocks — display name vs AI funky name */
+        .profile-name-block {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            background: #fff;
+        }
+
+        .profile-name-block:last-child {
+            margin-bottom: 0;
+        }
+
+        .profile-name-block--ai {
+            border-color: #a7f3d0;
+            background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+        }
+
+        .profile-name-block-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .profile-name-block-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .profile-name-block-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #475569;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+
+        .profile-name-block-badge--ai {
+            color: #047857;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .profile-name-block-hint {
+            margin: 0 0 12px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: #64748b;
+        }
+
+        .profile-name-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .profile-name-row .profile-input {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .profile-name-ai-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
         .ai-name-container {
             display: flex;
             gap: 12px;
@@ -4765,7 +4841,8 @@
             flex-wrap: wrap;
         }
         
-        .ai-name-container .btn-primary {
+        .ai-name-container .btn-primary,
+        .profile-name-ai-actions .btn-primary {
             white-space: nowrap;
             min-width: fit-content;
             flex-shrink: 0;
@@ -4797,7 +4874,8 @@
             min-width: 0;
         }
 
-        .ai-name-container .btn-primary::after {
+        .ai-name-container .btn-primary::after,
+        .profile-name-ai-actions .btn-primary::after {
             content: '';
             position: absolute;
             top: -50%;
@@ -4824,11 +4902,13 @@
             }
         }
 
-        .ai-name-container .btn-primary:hover::after {
+        .ai-name-container .btn-primary:hover::after,
+        .profile-name-ai-actions .btn-primary:hover::after {
             animation: nameGleam 1.5s infinite;
         }
 
-        .ai-name-container .btn-primary:hover {
+        .ai-name-container .btn-primary:hover,
+        .profile-name-ai-actions .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
         }
@@ -5990,6 +6070,82 @@
 
         .profile-share-back:hover {
             color: #00e5ff;
+        }
+
+        /* Send to phone QR panel (clip share + profile share) */
+        .pc-phone-qr-panel {
+            margin-top: 14px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .pc-phone-qr-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .pc-phone-qr-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #e5e7eb;
+        }
+
+        .pc-phone-qr-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e5e7eb;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .pc-phone-qr-close:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .pc-phone-qr-hint {
+            margin: 8px 0 10px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #9ca3af;
+        }
+
+        .pc-phone-qr-canvas-wrap {
+            display: flex;
+            justify-content: center;
+            padding: 8px;
+            background: #ffffff;
+            border-radius: 8px;
+        }
+
+        .pc-phone-qr-canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .pc-phone-qr-copy {
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: #e5e7eb;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .pc-phone-qr-copy:hover {
+            background: rgba(255, 255, 255, 0.14);
         }
         
         .profile-image, .top-bar-profile img {
@@ -11981,6 +12137,10 @@ Multiple clips are separated by:
                                 <span class="account-info-label">Display name</span>
                                 <span class="account-info-value" id="accountInfoDisplayName">—</span>
                             </div>
+                            <div class="account-info-row" id="accountInfoFunkyNameRow" style="display: none;">
+                                <span class="account-info-label">Funky AI name</span>
+                                <span class="account-info-value" id="accountInfoFunkyName">—</span>
+                            </div>
                             <div class="account-info-row">
                                 <span class="account-info-label">Login email</span>
                                 <span class="account-info-value account-info-email" id="accountInfoEmail">—</span>
@@ -12020,23 +12180,40 @@ Multiple clips are separated by:
                         </div>
                     </div>
 
-                    <!-- AI Name Section (Collapsible) -->
+                    <!-- Names: display name + optional AI funky name (separate purposes) -->
                     <div class="profile-section">
                         <div class="profile-section-header" id="nameRegHeader">
-                            <h4>🎭 Your Funky Animal Name</h4>
-                            <button class="section-toggle" id="nameToggleBtn">▼</button>
+                            <h4>👤 Profile Names</h4>
+                            <button class="section-toggle" id="nameToggleBtn" type="button" aria-label="Toggle profile names section">▼</button>
                         </div>
                         <div class="profile-section-content" id="nameRegContent">
-                            <div class="ai-name-container">
-                                <input type="text" id="userName" class="profile-input" placeholder="Enter your name">
-                                <button class="btn-secondary btn-save-name" id="saveUserNameBtn">Save</button>
-                                <button class="btn-primary" id="generateNameBtn">Generate Funky Animal Name</button>
+                            <div class="profile-name-block profile-name-block--display">
+                                <div class="profile-name-block-head">
+                                    <span class="profile-name-block-title">Display name</span>
+                                    <span class="profile-name-block-badge">Shown in top bar</span>
+                                </div>
+                                <p class="profile-name-block-hint">Your own name — what PasteCraft shows at the top of the popup. This is not the AI funky animal name.</p>
+                                <div class="profile-name-row">
+                                    <input type="text" id="userName" class="profile-input" placeholder="e.g. Zekey" aria-label="Display name" autocomplete="name">
+                                    <button class="btn-secondary btn-save-name" id="saveUserNameBtn" type="button">Save display name</button>
+                                </div>
                             </div>
-                            <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
-                                <span class="ai-name-label">Your Funky Animal Name:</span>
-                                <div class="ai-name-value-row">
-                                    <span class="ai-name-value" id="aiNameValue">-</span>
-                                    <button class="btn-secondary btn-save-name" id="saveAiNameBtn">Save</button>
+
+                            <div class="profile-name-block profile-name-block--ai">
+                                <div class="profile-name-block-head">
+                                    <span class="profile-name-block-title">AI funky animal name</span>
+                                    <span class="profile-name-block-badge profile-name-block-badge--ai">Optional · AI</span>
+                                </div>
+                                <p class="profile-name-block-hint">A separate fun nickname (like EzeZestyFox) for avatars and flair. Saves here and under Account as “Funky AI name” — does not replace your display name in the top bar.</p>
+                                <div class="profile-name-ai-actions">
+                                    <button class="btn-primary" id="generateNameBtn" type="button">Generate funky animal name</button>
+                                    <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
+                                        <span class="ai-name-label">Generated AI name</span>
+                                        <div class="ai-name-value-row">
+                                            <span class="ai-name-value" id="aiNameValue">-</span>
+                                            <button class="btn-secondary btn-save-name" id="saveAiNameBtn" type="button">Save funky name</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <!-- Countdown Timer for Name Section -->
@@ -12059,7 +12236,7 @@ Multiple clips are separated by:
                             <div class="workflow-instruction">
                                 <span class="workflow-step">Step 1: Upload Photo</span>
                                 <span class="workflow-arrow">→</span>
-                                <span class="workflow-step">Step 2: Save to Gallery</span>
+                                <span class="workflow-step">Step 2: Saved automatically</span>
                             </div>
                             <div class="profile-image-container">
                                 <img id="profileImage" src="" alt="Profile" class="profile-image" style="display: none;">
@@ -12082,11 +12259,11 @@ Multiple clips are separated by:
                             </div>
                             <div class="profile-image-actions">
                                 <input type="file" id="profileImageUpload" accept="image/*" style="display: none;">
-                                <button class="btn-secondary" id="uploadImageBtn">📸 Upload Photo</button>
+                                <button type="button" class="btn-secondary" id="uploadImageBtn">📸 Upload Photo</button>
                             </div>
                             <p class="workflow-note">
                                 <span class="note-icon">💡</span>
-                                Uploaded images are saved to your gallery so you can reuse them for your profile image and widget icon.
+                                Your photo saves locally when you pick it — it updates your profile preview, top bar, and widget icon toggle.
                             </p>
                         </div>
                     </div>

@@ -2,6 +2,8 @@ import {
   PROFILE_STORAGE_KEYS,
   PROFILE_ELEMENT_IDS,
 } from './profile.constants.js';
+import { updateAccountInfoSection } from './profile.account-info.js';
+import { refreshProfileNameFields } from './profile.render.js';
 
 // ── loadUserProfile ──────────────────────────────────────────────────────────
 
@@ -43,22 +45,26 @@ async function _syncProfileToSupabase(profile) {
 
 export async function saveUserProfile(app) {
   try {
+    const savedAt = Date.now();
+    if (!app.userProfile || typeof app.userProfile !== 'object') app.userProfile = {};
+    app.userProfile.profileUpdatedAt = savedAt;
+
     console.log('🔄 Attempting to save user profile:', app.userProfile);
-    await chrome.storage.local.set({ [PROFILE_STORAGE_KEYS.USER_PROFILE]: app.userProfile });
+    await chrome.storage.local.set({
+      [PROFILE_STORAGE_KEYS.USER_PROFILE]: app.userProfile,
+      pc_local_updatedAt: savedAt,
+    });
     console.log('✅ User profile saved successfully to chrome.storage.local');
 
     const verification = await chrome.storage.local.get([PROFILE_STORAGE_KEYS.USER_PROFILE]);
-    console.log('🔍 Verification - Profile in storage:', verification[PROFILE_STORAGE_KEYS.USER_PROFILE]);
-
-    if (!verification[PROFILE_STORAGE_KEYS.USER_PROFILE]?.profileImageUrl) {
-      console.error('⚠️ WARNING: Profile saved but verification failed!');
-    }
+    app.userProfile = verification[PROFILE_STORAGE_KEYS.USER_PROFILE] || app.userProfile;
+    console.log('🔍 Verification - Profile in storage:', app.userProfile);
 
     await _syncProfileToSupabase(app.userProfile);
-    app.updateTopBarIdentity();
+    refreshProfileNameFields(app);
   } catch (error) {
     console.error('❌ CRITICAL: Failed to save user profile:', error);
-    app.showToast('❌ Failed to save profile image', 'error');
+    app.showToast('❌ Failed to save profile', 'error');
   }
 }
 
@@ -68,13 +74,13 @@ export async function saveUserName(app) {
   try {
     const userName = document.getElementById(PROFILE_ELEMENT_IDS.userName)?.value?.trim() || '';
     if (!userName) {
-      app.showToast('🎨 Please enter a name first', 'error');
+      app.showToast('📝 Enter your display name first', 'error');
       return;
     }
     if (!app.userProfile) app.userProfile = {};
     app.userProfile.userName = userName;
     await saveUserProfile(app);
-    app.showToast('✅ Name saved', 'success');
+    app.showToast('✅ Display name saved', 'success');
   } catch (error) {
     console.error('Failed to save name:', error);
     app.showToast('❌ Failed to save name', 'error');
