@@ -1,4 +1,29 @@
-﻿### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
+﻿### Jun 17, 2026 - Profile photo upload
+**Status:** SUCCESS
+**Files:** profile.events.js, clips-shell.events.js, popup.html
+**Result:** Upload Photo button did not open file picker after modal re-open; fixed by cloning button + input, initProfileImageUpload at popup init, type=button on upload btn. User confirmed SUCCESS.
+
+### Jun 17, 2026 - Profile names (display + funky save + UX)
+**Status:** SUCCESS
+**Files:** profile.storage.js, profile.render.js, profile.account-info.js, profile-sync.js, realtime.js, full-sync.js, extension/shared/profile-merge.js, popup.html, ai-functions.js
+**Result:** Split display vs AI name UI; fixed save wipe from cloud merge and name-only upsert; top bar shows display name, funky name in Account card. User confirmed SUCCESS.
+
+### Jun 17, 2026 - Clips pagination Lucide icons disappear
+**Status:** SUCCESS
+**Files:** extension/popup/features/clips/clips.render.js
+**Result:** Pagination re-render left `<i data-lucide>` placeholders unpainted; Google icon unaffected. Added explicit `renderLucideIconsSync(container)` after renderChips and lazyLoadClipsPage. User confirmed SUCCESS.
+
+### Jun 17, 2026 - Category not appending to list after create (H1 IDB overwrite)
+**Status:** SUCCESS
+**Files:** extension/shared/categories-local-merge.js, extension/popup/features/sync/sync.loader.js, categories.service.js, categories.render.js, categories.events.js
+**Result:** New categories saved to chrome.storage but popup loadData preferred stale IndexedDB, overwriting fresh writes. Fixed with mergeActiveCategoriesSources (LWW by id/timestamp) in fetchRawData. User confirmed SUCCESS.
+
+### Jun 17, 2026 - Category creation cancel stuck "Creating..." button
+**Status:** SUCCESS
+**Files:** extension/popup/features/categories/categories.service.js, categories.render.js, categories/events.js
+**Result:** "Creating..." button stayed disabled after canceling new category prompt. Fixed with try/finally loading reset, prompt cancel aborts create, modal close clears createNewCategory loading. User confirmed SUCCESS.
+
+### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
 **Status:** SUCCESS
 **Files:** popup-icons.js, popup.init.js, popup.boot.js, tab-nav.events.js, auth.session.js, pastecraft-crud.js, files.render.js, popup.html
 **Result:** Icons flashed on popup open, tab switch, and CRUD DOM updates. Fixed with single boot pass (`finishBootLucideIcons`), scoped tab-panel flush, CRUD icon hooks, boot/tab rendering guards, placeholder CSS. User confirmed SUCCESS.

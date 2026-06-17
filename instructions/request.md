@@ -716,6 +716,17 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 ---
 
+#### 55. Send to Phone QR — iPhone Notes-Friendly Flow
+**Priority:** Low  
+**Status:** Deferred (plain-text encoding improved Jun 2026; Safari redirect may still occur)  
+
+**Requirements:**
+- iPhone Camera may still open Safari for URL-like clip text when scanning "Send to phone" QR
+- Future: improve plain-text QR / Apple copy-to-Notes UX (no browser redirect)
+- Consider payload format, QR mode, or companion handoff that avoids URL detection heuristics
+
+---
+
 ## 🎯 **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):
