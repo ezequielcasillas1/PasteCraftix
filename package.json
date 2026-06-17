@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "test": "node tests/extension-smoke.test.js && node --test tests/popup-events-smoke.test.mjs",
+    "test:merge": "node --test tests/profile-merge.test.mjs tests/local-merge.test.mjs tests/protocol-share.test.mjs",
     "test:popup-events": "node --test tests/popup-events-smoke.test.mjs",
     "test:rate-limit": "node tests/extension-smoke.test.js",
     "test:browsers": "node tests/chromium-browser-test.js list",
