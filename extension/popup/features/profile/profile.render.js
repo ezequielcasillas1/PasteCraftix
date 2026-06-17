@@ -2,6 +2,24 @@ import { PROFILE_ELEMENT_IDS, ANIMAL_TYPES_REGEX } from './profile.constants.js'
 import * as sel from './profile.selectors.js';
 import { updateAccountInfoSection } from './profile.account-info.js';
 
+// ── refreshProfileNameFields ────────────────────────────────────────────────
+// Keep display-name input, saved funky name panel, top bar, and account card in sync.
+
+export function refreshProfileNameFields(app) {
+  const profile = app.userProfile || {};
+  const userNameEl = sel.getUserName();
+  if (userNameEl) userNameEl.value = profile.userName || '';
+
+  const funkyName = typeof profile.aiGeneratedName === 'string' ? profile.aiGeneratedName.trim() : '';
+  const aiNameEl = sel.getAiNameValue();
+  const aiNameDisplay = document.getElementById('aiNameDisplay');
+  if (aiNameEl) aiNameEl.textContent = funkyName || '-';
+  if (aiNameDisplay) aiNameDisplay.style.display = funkyName ? 'flex' : 'none';
+
+  app.updateTopBarIdentity();
+  updateAccountInfoSection(app);
+}
+
 // ── updateTopBarIdentity ────────────────────────────────────────────────────
 // Updates top bar with user name/email, handles marquee overflow, profile image with fallback
 
@@ -52,7 +70,7 @@ export function updateTopBarIdentity(app, imageUrlOverride = undefined) {
   const userName = typeof app.userProfile?.userName === 'string' ? app.userProfile.userName.trim() : '';
   const funkyName = typeof app.userProfile?.aiGeneratedName === 'string' ? app.userProfile.aiGeneratedName.trim() : '';
   const emailPrefix = typeof app.currentUser?.email === 'string' ? app.currentUser.email.split('@')[0] : '';
-  const displayName = funkyName || userName || emailPrefix || (app._isFreemiumGuest ? 'Guest' : '');
+  const displayName = userName || funkyName || emailPrefix || (app._isFreemiumGuest ? 'Guest' : '');
 
   if (nameEl) {
     nameEl.textContent = displayName;
@@ -119,16 +137,7 @@ export function showProfileModal(app) {
   } catch (_) {}
 
   if (app.userProfile) {
-    const userNameEl = sel.getUserName();
-    if (userNameEl && app.userProfile.userName) {
-      userNameEl.value = app.userProfile.userName;
-    }
-    if (app.userProfile.aiGeneratedName) {
-      const aiNameEl = sel.getAiNameValue();
-      if (aiNameEl) aiNameEl.textContent = app.userProfile.aiGeneratedName;
-      const aiNameDisplay = document.getElementById('aiNameDisplay');
-      if (aiNameDisplay) aiNameDisplay.style.display = 'flex';
-    }
+    refreshProfileNameFields(app);
     if (app.userProfile.profileImageUrl) {
       const profileImg = sel.getProfileImage();
       const placeholder = sel.getProfileImagePlaceholder();

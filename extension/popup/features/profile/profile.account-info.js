@@ -19,12 +19,15 @@ function _getExtensionVersion() {
 
 function _resolveDisplayName(app) {
   const userName = typeof app.userProfile?.userName === 'string' ? app.userProfile.userName.trim() : '';
-  const funkyName = typeof app.userProfile?.aiGeneratedName === 'string' ? app.userProfile.aiGeneratedName.trim() : '';
-  if (funkyName) return funkyName;
-  if (userName) return userName;
   const email = typeof app.currentUser?.email === 'string' ? app.currentUser.email : '';
+  if (userName) return userName;
   if (email) return email.split('@')[0];
   return app._isFreemiumGuest ? 'Guest (local mode)' : '—';
+}
+
+function _resolveFunkyName(app) {
+  const funkyName = typeof app.userProfile?.aiGeneratedName === 'string' ? app.userProfile.aiGeneratedName.trim() : '';
+  return funkyName || '';
 }
 
 function _resolveSignInMethod(user) {
@@ -121,6 +124,10 @@ export function updateAccountInfoSection(app) {
   const email = typeof user?.email === 'string' ? user.email.trim() : '';
 
   _setText('accountInfoDisplayName', _resolveDisplayName(app));
+  const funkyName = _resolveFunkyName(app);
+  const funkyRow = document.getElementById('accountInfoFunkyNameRow');
+  if (funkyRow) funkyRow.style.display = funkyName ? 'flex' : 'none';
+  _setText('accountInfoFunkyName', funkyName || '—');
   _setText('accountInfoEmail', email || 'Not available');
   _setText('accountInfoSignInMethod', _resolveSignInMethod(user));
   _setText('accountInfoPlan', _resolvePlanLabel(app));

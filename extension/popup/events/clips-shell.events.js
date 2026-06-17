@@ -167,6 +167,8 @@ export function registerClipsShellEvents(app) {
       app.hideProfileModal();
     });
 
+    app.setupProfileModalEvents();
+
     const oneClickCopyToggle = document.getElementById('activityOneClickCopyToggle');
     if (oneClickCopyToggle) {
       oneClickCopyToggle.checked = !!app.quickPasteSettings?.oneClickCopy;

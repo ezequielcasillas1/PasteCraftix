@@ -46,9 +46,11 @@ async generateAIName(userName) {
     const baseUrl = `${PASTECRAFT_CONFIG.supabase.url}/functions/v1`;
     const candidates = [`${baseUrl}/ai-name`, `${baseUrl}/generate-ai-name`];
     const body = await this._withAiWorkflow({ userName });
+    const tryNextEndpointStatuses = new Set([404, 502, 503]);
 
     let response = null;
-    for (const url of candidates) {
+    for (let i = 0; i < candidates.length; i++) {
+      const url = candidates[i];
       response = await this._fetchWithTimeout(url, {
         method: 'POST',
         headers: {
@@ -58,13 +60,15 @@ async generateAIName(userName) {
         body: JSON.stringify(body)
       }, 30000, 'AI name generation timed out');
 
-      // Back-compat: some deployments use a different function name
-      if (response.status !== 404) break;
+      const isLast = i === candidates.length - 1;
+      if (tryNextEndpointStatuses.has(response.status) && !isLast) continue;
+      break;
     }
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'AI name generation failed');
+      const errorBody = await response.json().catch(() => ({}));
+      const detail = errorBody.error || errorBody.message || errorBody.msg;
+      throw new Error(detail || `AI name generation failed (${response.status})`);
     }
     
     const data = await response.json();
@@ -73,7 +77,7 @@ async generateAIName(userName) {
     
   } catch (error) {
     console.error('Failed to generate AI name:', error);
-    return null;
+    return { error: error?.message || 'AI name generation failed' };
   }
 },
 

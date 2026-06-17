@@ -214,11 +214,11 @@ export async function generateAIName(app) {
   try {
     const userName = _readUserNameField();
     if (!userName) {
-      app.showToast('📝 Please enter your name first', 'error');
+      app.showToast('📝 Enter your display name above first', 'error');
       return;
     }
 
-    app.showToast('🎲 Generating funky animal name...', 'info');
+    app.showToast('🎲 Generating AI funky animal name...', 'info');
     _setButton('generateNameBtn', { disabled: true, text: '⏳ Generating...' });
 
     const result = await pasteCraftSupabase.generateAIName(userName);
@@ -236,12 +236,13 @@ export async function generateAIName(app) {
         app.showToast('✅ Funky animal name generated!', 'success');
       }
     } else {
-      app.showToast('❌ Failed to generate funky animal name', 'error');
+      const errMsg = result?.error || 'Failed to generate funky animal name';
+      app.showToast(`❌ ${errMsg}`, 'error');
     }
   } catch (error) {
     console.error('Failed to generate AI name:', error);
     app.showToast('❌ Failed to generate funky animal name', 'error');
   } finally {
-    _setButton('generateNameBtn', { disabled: false, text: 'Generate Funky Animal Name' });
+    _setButton('generateNameBtn', { disabled: false, text: 'Generate funky animal name' });
   }
 }

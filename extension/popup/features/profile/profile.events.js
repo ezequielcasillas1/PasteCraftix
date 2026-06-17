@@ -12,21 +12,38 @@ function _cloneReplace(elementId) {
 }
 
 function _bindUploadHandlers(app) {
+  const uploadBtn = document.getElementById('uploadImageBtn');
+  const fileInput = document.getElementById('profileImageUpload');
+  if (!uploadBtn || !fileInput) return false;
+
   const newUploadBtn = _cloneReplace('uploadImageBtn');
-  const profileImageUpload = document.getElementById('profileImageUpload');
+  const newFileInput = _cloneReplace('profileImageUpload');
+  if (!newUploadBtn || !newFileInput) return false;
 
-  if (newUploadBtn && profileImageUpload) {
-    newUploadBtn.addEventListener('click', () => {
-      profileImageUpload.click();
-    });
+  newUploadBtn.type = 'button';
+  newUploadBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    newFileInput.value = '';
+    newFileInput.click();
+  });
 
-    profileImageUpload.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        await handleProfileImageUpload(app, file);
-      }
-    });
-  }
+  newFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await handleProfileImageUpload(app, file);
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  return true;
+}
+
+export function initProfileImageUpload(app) {
+  if (app._profileImageUploadBound) return;
+  if (!_bindUploadHandlers(app)) return;
+  app._profileImageUploadBound = true;
 }
 
 function _bindNameHandlers(app) {
@@ -136,7 +153,7 @@ export function setupProfileModalEvents(app) {
   if (app._profileModalEventsBound) return;
   app._profileModalEventsBound = true;
 
-  _bindUploadHandlers(app);
+  initProfileImageUpload(app);
   _bindNameHandlers(app);
   _bindCollapseHandlers(app);
   _bindModalCloseHandlers(app);
@@ -249,8 +266,21 @@ async function _processUploadedImage(app, imageUrl) {
 
 export async function handleProfileImageUpload(app, file) {
   try {
+    if (!file?.type?.startsWith('image/')) {
+      app.showToast('❌ Please choose an image file', 'error');
+      return;
+    }
+
     app.showToast('📷 Uploading image...', 'info');
-    const imageUrl = await _optimizeImageForLocalStorage(file);
+
+    let imageUrl;
+    try {
+      imageUrl = await _optimizeImageForLocalStorage(file);
+    } catch (optimizeError) {
+      console.warn('Profile image optimization failed, using original file:', optimizeError);
+      imageUrl = await _readFileAsDataUrl(file);
+    }
+
     await _processUploadedImage(app, imageUrl);
   } catch (error) {
     console.error('Failed to upload profile image:', error);

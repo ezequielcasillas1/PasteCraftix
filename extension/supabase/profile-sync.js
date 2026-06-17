@@ -20,12 +20,9 @@ async syncUserProfileToSupabase(localProfile) {
 
     const dbProfile = {
       user_id: userId,
-      user_name: localProfile.userName || null,
-      ai_generated_name: localProfile.aiGeneratedName || null,
-      profile_image_url: null,
-      profile_image_base64: null,
-      generated_image_url: null,
-      ai_generated_image: false
+      user_name: localProfile.userName?.trim() || null,
+      ai_generated_name: localProfile.aiGeneratedName?.trim() || null,
+      updated_at: new Date().toISOString(),
     };
 
     const { data, error } = await this.client
