@@ -1,4 +1,6 @@
 /** Vertical slice: realtime.js */
+import { mergeUserProfileLocalRemote } from '../shared/profile-merge.js';
+
 export const realtimeMixin = {
 // REALTIME SUBSCRIPTIONS
 // =====================================================
@@ -210,7 +212,21 @@ async handleSettingsChange(payload) {
   
   const remoteSettings = await this.syncSettingsFromSupabase();
   if (remoteSettings) {
-    const settingsChanged = await this._safeStorageSet({ settings: remoteSettings });
+    let localSettingsUpdatedAt = 0;
+    try {
+      const existing = await new Promise((resolve) => chrome.storage.local.get(['settingsUpdatedAt'], resolve));
+      localSettingsUpdatedAt = typeof existing?.settingsUpdatedAt === 'number' ? existing.settingsUpdatedAt : 0;
+    } catch (_) {}
+
+    const remoteSettingsUpdatedAt = typeof remoteSettings.settingsUpdatedAt === 'number'
+      ? remoteSettings.settingsUpdatedAt
+      : 0;
+    if (localSettingsUpdatedAt > remoteSettingsUpdatedAt) return;
+
+    const settingsPayload = this.toSettingsStoragePayload(remoteSettings);
+    const settingsChanged = settingsPayload
+      ? await this._safeStorageSet(settingsPayload)
+      : false;
     if (!settingsChanged) return;
     
     window.dispatchEvent(new CustomEvent('dataChanged', { 
@@ -254,12 +270,7 @@ async handleProfileChange(payload) {
       return r || l;
     };
 
-    const mergedProfile = {
-      ...currentLocal,
-      ...remoteProfile,
-      profileImageUrl: pickUrl(currentLocal?.profileImageUrl, remoteProfile?.profileImageUrl),
-      profileImageBase64: (remoteProfile?.profileImageBase64 ? remoteProfile.profileImageBase64 : (currentLocal?.profileImageBase64 || null))
-    };
+    const mergedProfile = mergeUserProfileLocalRemote(currentLocal, remoteProfile, pickUrl);
 
     const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
     if (!profileChanged) return;

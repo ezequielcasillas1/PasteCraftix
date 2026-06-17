@@ -206,21 +206,19 @@ export class PasteCraftFloatingWidget {
 
       // Refresh quick view widget if clips changed and quick view is open
       if ((changes.clips || changes.searchOnlyClips) && this.openStates.quickView) {
-        const quickViewIframe = this.widget?.querySelector('#pastecraft-quickview-iframe');
-        if (quickViewIframe && quickViewIframe.contentWindow) {
-          // Trigger refresh in quick view
-          chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
-            const allClips = [...(result.clips || []), ...(result.searchOnlyClips || [])];
-            const recentClips = allClips
-              .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-              .slice(0, 200);
-            if (quickViewIframe.contentWindow) {
-              quickViewIframe.contentWindow.postMessage(
-                { type: 'quickview-clips-data', clips: recentClips },
-                window.location.origin
-              );
-            }
-          });
+        const quickViewIframe = document.querySelector('.pastecraft-quickview-iframe');
+        if (quickViewIframe?.contentWindow) {
+          safeRuntimeSendMessage({ action: 'pcGetQuickViewClips' })
+            .then((response) => {
+              const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+              if (quickViewIframe.contentWindow) {
+                quickViewIframe.contentWindow.postMessage(
+                  { type: 'quickview-clips-data', clips },
+                  '*'
+                );
+              }
+            })
+            .catch(() => {});
         }
       }
 
@@ -2466,7 +2464,9 @@ export class PasteCraftFloatingWidget {
   }
   
   loadQuickViewContent(iframe) {
-    const quickViewTargetOrigin = window.location.origin;
+    // srcdoc iframe has opaque ("null") origin — postMessage targetOrigin must be '*'.
+    // Sender/receiver validate via e.source identity checks instead of origin.
+    const quickViewTargetOrigin = '*';
     // Create a custom HTML content for the Quick View
     const content = `
       <!DOCTYPE html>
@@ -2647,25 +2647,33 @@ export class PasteCraftFloatingWidget {
           </div>
         </div>
         <script>
-          function loadClips() {
-            // This will communicate with parent to get clips
-            window.parent.postMessage({ type: 'quickview-get-clips' }, window.location.origin);
+          // srcdoc iframe origin is the opaque string "null"; window.location.origin is invalid as targetOrigin.
+          function postToParent(msg) {
+            try {
+              window.parent.postMessage(msg, '*');
+            } catch (err) {
+              console.warn('[PasteCraft quick view] postMessage failed:', err);
+            }
           }
-          
+
+          function loadClips() {
+            postToParent({ type: 'quickview-get-clips' });
+          }
+
           function refreshClips() {
             loadClips();
           }
-          
+
           function openSettings() {
-            window.parent.postMessage({ type: 'quickview-open-settings' }, window.location.origin);
+            postToParent({ type: 'quickview-open-settings' });
           }
 
           function openMiniWindow() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'window' }, window.location.origin);
+            postToParent({ type: 'quickview-open-mini', mode: 'window' });
           }
 
           function dockMiniBottomRight() {
-            window.parent.postMessage({ type: 'quickview-open-mini', mode: 'corner' }, window.location.origin);
+            postToParent({ type: 'quickview-open-mini', mode: 'corner' });
           }
 
           function isFromExtension(e) {
@@ -2688,7 +2696,7 @@ export class PasteCraftFloatingWidget {
           
           function deleteClip(clipId, index, archived) {
             if (confirm('Delete this clip?')) {
-              window.parent.postMessage({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived }, window.location.origin);
+              postToParent({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived });
             }
           }
           
@@ -2770,7 +2778,7 @@ export class PasteCraftFloatingWidget {
           }
           
           // Load clips on startup
-          loadClips();
+          try { loadClips(); } catch (err) { console.warn('[PasteCraft quick view] initial loadClips failed:', err); }
         </script>
       </body>
       </html>
@@ -2867,56 +2875,22 @@ export class PasteCraftFloatingWidget {
           }
         }).catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
-        // Handle clip deletion (active + archived)
-        const clipIdKey = String(e.data.clipId || '');
-        const isArchived = e.data.archived === true;
-
-        chrome.storage.local.get(['clips', 'searchOnlyClips'], (result) => {
-          const clips = Array.isArray(result?.clips) ? result.clips : [];
-          const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
-
-          const filterOutById = (arr) => arr.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== clipIdKey);
-
-          let nextClips = clips;
-          let nextArchived = archived;
-
-          if (clipIdKey) {
-            if (isArchived) {
-              nextArchived = filterOutById(archived);
-            } else {
-              nextClips = filterOutById(clips);
+        safeRuntimeSendMessage({
+          action: 'pcDeleteQuickViewClip',
+          clipId: String(e.data.clipId || ''),
+          archived: e.data.archived === true,
+          index: e.data.index,
+        })
+          .then((response) => {
+            const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+            if (iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
             }
-          }
-
-          // If we couldn't delete by id (legacy/missing), fall back to index within the merged view:
-          // recompute merged list, find target at index, then delete from correct source.
-          const idDeleteWorked = (isArchived ? nextArchived.length !== archived.length : nextClips.length !== clips.length);
-          if (!idDeleteWorked && Number.isFinite(e.data.index)) {
-            const idx = parseInt(e.data.index, 10);
-            if (!Number.isNaN(idx) && idx >= 0) {
-              const merged = [
-                ...clips.map((c, i) => normalizeClip(c, i, 'active')).filter(Boolean),
-                ...archived.map((c, i) => normalizeClip(c, i, 'archived')).filter(Boolean).map(c => ({ ...c, archived: true }))
-              ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
-
-              const target = merged[idx];
-              if (target && target.source === 'archived') {
-                nextArchived = archived.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
-              } else if (target && target.source === 'active') {
-                nextClips = clips.filter(c => String(c?.id ?? c?.clip_id ?? c?.clipId ?? '') !== String(target.id));
-              }
-            }
-          }
-
-          chrome.storage.local.set({ clips: nextClips, searchOnlyClips: nextArchived, pc_local_updatedAt: Date.now() }, () => {
-            getQuickViewClips().then((merged) => {
-              if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips: merged }, quickViewTargetOrigin);
-              }
+            if (response?.success) {
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
-            }).catch(() => {});
-          });
-        });
+            }
+          })
+          .catch(() => {});
       } else if (e.data.type === 'quickview-open-settings') {
         // Open settings from quick view
         this.closeQuickView();

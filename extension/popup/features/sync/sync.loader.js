@@ -1,3 +1,6 @@
+import { mergeActiveClipsSources } from '../../../shared/clips-local-merge.js';
+import { mergeActiveCategoriesSources } from '../../../shared/categories-local-merge.js';
+
 function isExtensionContextValid() {
   try {
     return Boolean(chrome?.runtime?.id);
@@ -23,8 +26,12 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('clips'),
       app.idb.getAllPayloads('categories')
     ]);
-    if (Array.isArray(idbClips) && idbClips.length > 0) clips = idbClips;
-    if (Array.isArray(idbCategories) && idbCategories.length > 0) categories = idbCategories;
+    if (Array.isArray(idbClips) && idbClips.length > 0) {
+      clips = mergeActiveClipsSources(clips, idbClips);
+    }
+    if (Array.isArray(idbCategories) && idbCategories.length > 0) {
+      categories = mergeActiveCategoriesSources(categories, idbCategories);
+    }
   }
   return { clips, categories, searchOnlyClips };
 }

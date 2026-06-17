@@ -57,6 +57,17 @@ async syncSettingsToSupabase(localSettings) {
 /**
  * Sync settings from Supabase
  */
+toSettingsStoragePayload(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  return {
+    autoDeletePeriod: settings.autoDeletePeriod || 'never',
+    theme: settings.theme || 'light',
+    quickPasteSettings: settings.quickPasteSettings || {},
+    albumAttachmentOpenMode: settings.albumAttachmentOpenMode || 'edgePopup',
+    settingsUpdatedAt: typeof settings.settingsUpdatedAt === 'number' ? settings.settingsUpdatedAt : Date.now(),
+  };
+},
+
 async syncSettingsFromSupabase() {
   if (!this.client) {
     console.warn('⚠️ Supabase not initialized - skipping settings sync');
@@ -85,6 +96,7 @@ async syncSettingsFromSupabase() {
 
     // Return settings in nested structure matching popup.js expectations
     // Handle missing fields gracefully (for older database schemas)
+    const settingsUpdatedAt = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
     const localSettings = {
       autoDeletePeriod: data.auto_delete_period || 'never',
       theme: data.theme || 'light',
@@ -98,7 +110,8 @@ async syncSettingsFromSupabase() {
         sort: data.sort || false,
         uppercase: data.uppercase || false
       },
-      albumAttachmentOpenMode: data.album_attachment_open_mode || 'edgePopup' // Falls back if field doesn't exist
+      albumAttachmentOpenMode: data.album_attachment_open_mode || 'edgePopup', // Falls back if field doesn't exist
+      settingsUpdatedAt,
     };
 
     console.log('✅ Fetched settings from Supabase');
@@ -107,7 +120,7 @@ async syncSettingsFromSupabase() {
     console.error('❌ Failed to fetch settings from Supabase:', error);
     return null;
   }
-}
+},
 
 // =====================================================
 };

@@ -334,6 +334,12 @@ class PasteCraftCRUD {
     verifier,
     uiUpdater,
     iconRoot,
+    backgroundSync,
+    successMessage,
+    errorMessage,
+    showToast
+  }) {
+    const normalizedIds = Array.isArray(entityIds)
       ? Array.from(new Set(entityIds.map(id => String(id)).filter(Boolean)))
       : [];
 

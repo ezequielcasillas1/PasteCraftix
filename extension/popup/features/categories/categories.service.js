@@ -16,7 +16,8 @@ export async function createCategory(app, name, icon, options = {}) {
     updatedAt: now,
   };
 
-  return await window.PasteCraftCRUD.createOperation({
+  try {
+    return await window.PasteCraftCRUD.createOperation({
     entity: category,
     stateGetter: () => ({ categories: app.categories }),
     stateSetter: async (newState) => { app.categories = newState.categories; },
@@ -45,7 +46,6 @@ export async function createCategory(app, name, icon, options = {}) {
       app.updateManualInputCategories();
       const modal = document.getElementById('categoryModal');
       if (modal && modal.style.display === 'flex') app.populateCategoryOptions();
-      app.setActionButtonLoading(originButtonId, false);
     },
     backgroundSync: async () => {
       await window.pasteCraftSupabase.syncCategoriesToSupabase(app.categories);
@@ -55,9 +55,11 @@ export async function createCategory(app, name, icon, options = {}) {
     showToast: (msg, type) => {
       if (options?.silent || !msg) return;
       app.showToast(msg, type);
-      app.setActionButtonLoading(originButtonId, false);
     },
   });
+  } finally {
+    app.setActionButtonLoading(originButtonId, false);
+  }
 }
 
 // ── editCategory ───────────────────────────────────────────────────────────
@@ -421,14 +423,16 @@ export async function saveTextWithCategory(app) {
 
 // ── showCreateCategoryFromModal ────────────────────────────────────────────
 
-export function showCreateCategoryFromModal(app) {
+export async function showCreateCategoryFromModal(app) {
   const name = prompt('Enter category name:');
-  if (name && name.trim()) {
-    const icon = prompt('Enter category icon (emoji):') || CATEGORIES_DEFAULTS.ICON;
-    app.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' }).then(() => {
-      app.populateCategoryOptions();
-    });
-  }
+  if (!name || !name.trim()) return;
+
+  const iconInput = prompt('Enter category icon (emoji):');
+  if (iconInput === null) return;
+
+  const icon = iconInput.trim() || CATEGORIES_DEFAULTS.ICON;
+  await app.createCategory(name.trim(), icon, { originButtonId: 'createNewCategory' });
+  app.populateCategoryOptions();
 }
 
 export async function handleClipDelete(app) {

@@ -248,10 +248,13 @@ export function populateCategoryOptions(app) {
   });
 }
 
-export function showCreateCategoryDialog(app) {
+export async function showCreateCategoryDialog(app) {
   const name = prompt('Enter category name:');
-  if (name && name.trim()) {
-    const icon = prompt('Enter category icon (emoji):') || CATEGORIES_DEFAULTS.ICON;
-    app.createCategory(name.trim(), icon, { originButtonId: 'createCategoryBtn' });
-  }
+  if (!name || !name.trim()) return;
+
+  const iconInput = prompt('Enter category icon (emoji):');
+  if (iconInput === null) return;
+
+  const icon = iconInput.trim() || CATEGORIES_DEFAULTS.ICON;
+  await app.createCategory(name.trim(), icon, { originButtonId: 'createCategoryBtn' });
 }

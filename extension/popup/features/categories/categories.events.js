@@ -20,6 +20,7 @@ export function hideCategoryModal(app) {
 
   document.getElementById('addToCategory').disabled = true;
   document.querySelectorAll('.category-option').forEach(opt => opt.classList.remove('selected'));
+  app.setActionButtonLoading?.('createNewCategory', false);
 }
 
 export function registerCategoryModalEvents(app) {
