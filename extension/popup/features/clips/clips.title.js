@@ -84,6 +84,9 @@ export async function updateClipTitleById(app, clipId, title) {
           notes: data.notes,
           pc_local_updatedAt: Date.now(),
         });
+        if (typeof window !== 'undefined' && window.pasteCraftIndexedDB?.syncEntityFromLocalStorage) {
+          await window.pasteCraftIndexedDB.syncEntityFromLocalStorage('clips', Array.isArray(data?.clips) ? data.clips : []);
+        }
       },
       verifier: async () => {
         const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);

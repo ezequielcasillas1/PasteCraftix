@@ -1,4 +1,11 @@
-/** Share overlay for a single clip (copy, WhatsApp, Reddit, X, email, SMS, Facebook). */
+/** Share overlay for a single clip (copy, WhatsApp, Reddit, X, email, phone QR, Facebook). */
+
+import { openEmailShare } from '../../shared/protocol-share.js';
+import {
+  createPhoneQrSection,
+  togglePhoneQrPanel,
+  wirePhoneQrSection,
+} from '../../shared/qr-phone-share.js';
 
 function sanitizeShareText(raw, maxLen = 1800) {
   const cleaned = String(raw ?? '')
@@ -79,17 +86,23 @@ export async function showShareMenuForClip(app, clip) {
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;">
         <button id="pcShareCopyBtn" class="btn-primary" type="button">Copy</button>
+        <button id="pcSharePhoneBtn" class="btn-secondary" type="button">📱 Send to phone</button>
         <button id="pcShareWhatsAppBtn" class="btn-secondary" type="button">WhatsApp</button>
         <button id="pcShareRedditBtn" class="btn-secondary" type="button">Reddit</button>
         <button id="pcShareXBtn" class="btn-secondary" type="button">X</button>
         <button id="pcShareEmailBtn" class="btn-secondary" type="button">Email</button>
-        <button id="pcShareSmsBtn" class="btn-secondary" type="button">SMS</button>
         <button id="pcShareFacebookBtn" class="btn-secondary" type="button">Facebook</button>
       </div>
       <div style="margin-top:10px; font-size:11px; color:#9ca3af;">
         Facebook sharing is URL-based; your clip text is best shared via Copy.
       </div>
     `;
+
+  const phoneQrSection = createPhoneQrSection();
+  card.appendChild(phoneQrSection);
+  wirePhoneQrSection(phoneQrSection, app, text, {
+    copyText: (value) => app.copyClipToClipboard(value),
+  });
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
@@ -110,6 +123,12 @@ export async function showShareMenuForClip(app, clip) {
     }
   });
 
+  card.querySelector('#pcSharePhoneBtn')?.addEventListener('click', async () => {
+    await togglePhoneQrPanel(phoneQrSection, app, text, {
+      copyText: (value) => app.copyClipToClipboard(value),
+    });
+  });
+
   card.querySelector('#pcShareWhatsAppBtn')?.addEventListener('click', () => {
     openUrlInNewTab(`https://wa.me/?text=${encodeURIComponent(text)}`);
     close();
@@ -128,12 +147,7 @@ export async function showShareMenuForClip(app, clip) {
   });
 
   card.querySelector('#pcShareEmailBtn')?.addEventListener('click', () => {
-    openUrlInNewTab(`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`);
-    close();
-  });
-
-  card.querySelector('#pcShareSmsBtn')?.addEventListener('click', () => {
-    openUrlInNewTab(`sms:?&body=${encodeURIComponent(text)}`);
+    openEmailShare({ subject: title, body: text });
     close();
   });
 

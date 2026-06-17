@@ -1,5 +1,12 @@
 /** Two-step testimonial share flow for profile image viewer. */
 
+import { openEmailShare } from '../../shared/protocol-share.js';
+import {
+  createPhoneQrSection,
+  togglePhoneQrPanel,
+  wirePhoneQrSection,
+} from '../../shared/qr-phone-share.js';
+
 const PASTECRAFT_URL = 'https://pastecraft.com';
 const OVERLAY_ID = 'pcProfileShareOverlay';
 
@@ -101,15 +108,22 @@ function showSharePlatformMenu(app, testimonial, avatarUrl) {
     <div class="profile-share-preview">${app.escapeHtml(preview)}</div>
     <div class="profile-share-platforms">
       <button type="button" class="profile-share-platform-btn profile-share-platform-btn--primary" id="pcProfileShareCopy">Copy</button>
+      <button type="button" class="profile-share-platform-btn" id="pcProfileSharePhone">📱 Send to phone</button>
       <button type="button" class="profile-share-platform-btn" id="pcProfileShareWhatsApp">WhatsApp</button>
       <button type="button" class="profile-share-platform-btn" id="pcProfileShareX">X</button>
       <button type="button" class="profile-share-platform-btn" id="pcProfileShareFacebook">Facebook</button>
       <button type="button" class="profile-share-platform-btn" id="pcProfileShareLinkedIn">LinkedIn</button>
       <button type="button" class="profile-share-platform-btn" id="pcProfileShareEmail">Email</button>
-      <button type="button" class="profile-share-platform-btn" id="pcProfileShareSms">SMS</button>
     </div>
     <button type="button" class="profile-share-back" id="pcProfileShareBack">← Change message</button>
   `;
+
+  const phoneQrSection = createPhoneQrSection();
+  card.appendChild(phoneQrSection);
+  wirePhoneQrSection(phoneQrSection, app, text, {
+    copyText: (value) => app.copyClipToClipboard(value),
+  });
+
   overlay.appendChild(card);
 
   const close = () => closeProfileShareOverlay();
@@ -128,6 +142,12 @@ function showSharePlatformMenu(app, testimonial, avatarUrl) {
     }
   });
 
+  card.querySelector('#pcProfileSharePhone')?.addEventListener('click', async () => {
+    await togglePhoneQrPanel(phoneQrSection, app, text, {
+      copyText: (value) => app.copyClipToClipboard(value),
+    });
+  });
+
   card.querySelector('#pcProfileShareWhatsApp')?.addEventListener('click', () => {
     openUrlInNewTab(`https://wa.me/?text=${encodeURIComponent(text)}`);
     close();
@@ -139,12 +159,7 @@ function showSharePlatformMenu(app, testimonial, avatarUrl) {
   });
 
   card.querySelector('#pcProfileShareEmail')?.addEventListener('click', () => {
-    openUrlInNewTab(`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`);
-    close();
-  });
-
-  card.querySelector('#pcProfileShareSms')?.addEventListener('click', () => {
-    openUrlInNewTab(`sms:?&body=${encodeURIComponent(text)}`);
+    openEmailShare({ subject: title, body: text });
     close();
   });
 
