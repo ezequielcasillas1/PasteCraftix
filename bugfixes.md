@@ -1,3 +1,43 @@
+### Jun 17, 2026 - Profile photo upload not working
+**Status:** SUCCESS (code path verified; user UI verify pending)
+**Files:** profile.events.js, clips-shell.events.js, popup.html
+**Result:** Upload handlers only bound on first profile open; file input not cloned with button. Fixed early bind at popup init, clone both controls, reset input value, optimization fallback, updated Step 2 copy.
+
+### Jun 17, 2026 - Profile name saves wiped / not visible
+**Status:** SUCCESS (user verified)
+**Files:** profile.storage.js, profile.render.js, profile.account-info.js, profile-sync.js, realtime.js, full-sync.js, extension/shared/profile-merge.js, popup.html
+**Result:** Cloud merge wiped local names; name upsert nulled image cols. Fixed local-first merge, name-only upsert, UI refresh, Account funky name row. User confirmed SUCCESS.
+
+### Jun 17, 2026 - Profile names UX (display vs AI funky name)
+**Status:** SUCCESS (user verified)
+**Files:** extension/popup.html, profile.storage.js, profile.generators.js, profile.render.js, profile.account-info.js
+**Result:** Split profile name section into two labeled blocks (display name vs optional AI funky name), clearer button labels, display name priority in top bar. Removed debug instrumentation.
+
+### Jun 17, 2026 - Save real name does not update display name
+**Status:** SUCCESS (user verified)
+**Files:** extension/popup/features/profile/profile.render.js, profile.account-info.js, profile.storage.js
+**Result:** Top bar preferred aiGeneratedName over userName. Fixed userName-first priority; refresh account info after save.
+
+### Jun 17, 2026 - AI name generation failed (503 on ai-name)
+**Status:** SUCCESS (user verified)
+**Files:** extension/supabase/ai-functions.js, extension/popup/features/profile/profile.generators.js, supabase/functions/ai-name
+**Result:** Supabase logs: POST ai-name 503 (platform boot failure). Client only fell back on 404. Fixed 502/503 fallback to generate-ai-name, surfaced error in toast, redeployed ai-name v6 with shared deps.
+
+### Jun 17, 2026 - Clips pagination Lucide icons disappear
+**Status:** SUCCESS (user verified)
+**Files:** extension/popup/features/clips/clips.render.js
+**Result:** Clicking pagination page numbers re-rendered chips but never painted Lucide placeholders (Google `<img>` unaffected). Mutation observer partial flush missed chips. Fixed with `renderLucideIconsSync(container)` after sync render and lazy load.
+
+### Jun 17, 2026 - Category not appending to list after create (H1 IDB overwrite)
+**Status:** SUCCESS (user verified)
+**Files:** extension/shared/categories-local-merge.js, extension/popup/features/sync/sync.loader.js, categories.service.js, categories.render.js, categories.events.js
+**Result:** Create wrote chrome.storage; loadData IDB branch replaced categories with stale IDB snapshot. Fixed with mergeActiveCategoriesSources union-by-id LWW merge (same pattern as clips-local-merge). User confirmed SUCCESS.
+
+### Jun 17, 2026 - Category creation cancel stuck "Creating..." button
+**Status:** SUCCESS (user verified)
+**Files:** extension/popup/features/categories/categories.service.js, categories.render.js, categories/events.js
+**Result:** Canceling category creation left "Creating..." disabled. try/finally resets loading; prompt cancel aborts create; modal close clears createNewCategory loading. User confirmed SUCCESS.
+
 ### Jun 16, 2026 - Lucide icon flicker (boot, tab switch, CRUD)
 **Status:** SUCCESS (user verified)
 **Files:** popup-icons.js, popup.init.js, tab-nav.events.js, auth.session.js, pastecraft-crud.js, files.render.js

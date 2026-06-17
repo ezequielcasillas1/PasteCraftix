@@ -1,3 +1,28 @@
+### Jun 17, 2026 - Share: Send to phone QR + email protocol
+**Status:** PARTIAL (iPhone QR deferred)
+**Files:** clips.share.js, protocol-share.js, qr-phone-share.js, qrcode-generator.js, profile.social-share.js, popup.html
+**Result:** SMS share removed; QR "Send to phone" added; email protocol fix shipped. Plain-text QR encoding improved but iPhone Camera may still open browser for URL-like clip text — user accepted; future adjust in request.md #55.
+
+### Jun 17, 2026 - Category IDB merge on popup load
+**Status:** SUCCESS
+**Files:** categories-local-merge.js, sync.loader.js
+**Result:** Shared mergeActiveCategoriesSources prevents stale IndexedDB from overwriting fresh chrome.storage category writes on loadData. User verified.
+
+### Jun 16, 2026 - Drag-drop clip full CRUD pipeline
+**Status:** SUCCESS
+**Files:** extension/background/shared.js, extension/background/handlers/messages-internal.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.title.js
+**Result:** Quick View delete now purges IDB + enqueues Supabase tombstones + clipsUpdated popup refresh; title edits mirror IDB. Create/read already on unified save pipeline. User verified.
+
+### Jun 16, 2026 - Widget drag-drop → Clips page sync
+**Status:** SUCCESS
+**Files:** clips-local-merge.js, background/shared.js, sync.loader.js, popup-messaging.js
+**Result:** Shared merge-by-id/timestamp; widget save mirrors IDB + sync queue; popup refreshes on clipSaved. User verified.
+
+### Jun 16, 2026 - Quick View Menu (Stable Architect)
+**Status:** SUCCESS
+**Files:** widget.js, shared.js, messages-internal.js
+**Result:** Fixed srcdoc postMessage targetOrigin, Quick View clip delete with tombstones, storage refresh iframe selector. User verified in Stable Architect.
+
 ### Jun 11, 2026 - Album attachment viewer modal + AI toolbar
 **Status:** Pending verification
 **Files:** notes.album-attachment.viewer.js, notes.album.js, notes.events.js, notes.controller.js, notes.constants.js, popup.html, popup.js

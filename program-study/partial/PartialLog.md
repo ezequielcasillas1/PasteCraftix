@@ -18,6 +18,13 @@
 
 ## Entries:
 
+### 2026-06-17 - Send to Phone QR (iPhone Safari redirect)
+**Commit:** (uncommitted)
+**Files:** qr-phone-share.js, qrcode-generator.js, clips.share.js, protocol-share.js
+**What Works:** SMS removed; QR "Send to phone" modal; plain-text QR encoding improved; email share protocol fixed.
+**What's Missing:** iPhone Camera may still open Safari for URL-like clip text instead of copy-to-Notes flow.
+**Next Steps:** Future enhancement — Apple Notes-friendly plain-text QR (no browser redirect); see request.md #55.
+
 ### 2026-04-14 - Password Reset Return Flow
 **Commit:** 62edbc7
 **Files:** auth-site/index.html, extension/index.html, extension/callback-hosted.html, extension/popup.js, extension/background.js
