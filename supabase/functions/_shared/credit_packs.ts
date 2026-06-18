@@ -60,13 +60,22 @@ export function readPurchasedBalance(sub: { ai_purchased_credits_balance?: numbe
     : 0;
 }
 
-/** Active Premium subscription or time-boxed / unlimited coupon AI access. */
-export function hasSubscriptionAiAllowance(sub: {
-  subscription_tier?: string;
-  subscription_status?: string;
-  has_unlimited_ai?: boolean;
+/** Row shape for user_subscriptions credit/entitlement queries (no generated DB types). */
+export type UserSubscriptionCreditRow = {
+  user_id?: string;
+  subscription_tier?: string | null;
+  subscription_status?: string | null;
+  has_unlimited_ai?: boolean | null;
   ai_access_expires_at?: string | null;
-}): boolean {
+  stripe_current_period_end?: string | null;
+  ai_text_credits_limit?: number | null;
+  ai_text_credits_used?: number | null;
+  ai_text_credits_reset_at?: string | null;
+  ai_purchased_credits_balance?: number | null;
+};
+
+/** Active Premium subscription or time-boxed / unlimited coupon AI access. */
+export function hasSubscriptionAiAllowance(sub: UserSubscriptionCreditRow): boolean {
   const tier = String(sub.subscription_tier || '').toLowerCase();
   const status = String(sub.subscription_status || '').toLowerCase();
   const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
@@ -80,13 +89,7 @@ export function hasSubscriptionAiAllowance(sub: {
 }
 
 /** May consume AI credits: paid tier, coupon access, or a purchased balance. */
-export function hasAiUsageEntitlement(sub: {
-  subscription_tier?: string;
-  subscription_status?: string;
-  has_unlimited_ai?: boolean;
-  ai_access_expires_at?: string | null;
-  ai_purchased_credits_balance?: number | null;
-}): boolean {
+export function hasAiUsageEntitlement(sub: UserSubscriptionCreditRow): boolean {
   return hasSubscriptionAiAllowance(sub) || readPurchasedBalance(sub) > 0;
 }
 
