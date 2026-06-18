@@ -1,3 +1,8 @@
+### Jun 18, 2026 - Snyk PAT streamline (CI + Cursor automation)
+**Status:** PENDING USER VERIFY
+**Files:** security-scans.yml, scripts/set-snyk-pat-secret.ps1, scripts/refresh-snyk-oauth-secret.ps1, .cursor/rules/snyk-oauth.mdc
+**Result:** CI prefers SNYK_TOKEN (PAT) over hourly OAuth; severity aligned to medium for Cursor automation parity. PAT script syncs to gh secret; OAuth refresh marked legacy.
+
 ### Jun 17, 2026 - Share: Send to phone QR + email protocol
 **Status:** PARTIAL (iPhone QR deferred)
 **Files:** clips.share.js, protocol-share.js, qr-phone-share.js, qrcode-generator.js, profile.social-share.js, popup.html

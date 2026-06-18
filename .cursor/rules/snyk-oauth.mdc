@@ -1,15 +1,27 @@
 ---
-description: Snyk CI uses temporary OAuth (SNYK_OAUTH_TOKEN). Apply when user asks about Snyk scans, auth, secrets, fixes, or MCP user-Snyk.
+description: Snyk CI prefers SNYK_TOKEN (PAT). OAuth is legacy fallback. Apply for Snyk scans, auth, secrets, fixes, or MCP user-Snyk.
 alwaysApply: false
 ---
 
-# Snyk temporary OAuth
+# Snyk auth (PAT preferred)
 
-`.github/workflows/security-scans.yml` runs Snyk with **SNYK_OAUTH_TOKEN** (from `snyk auth`, ~1h expiry). Long-lived fallback: **SNYK_TOKEN** API token in repo secrets.
+`.github/workflows/security-scans.yml` uses **SNYK_TOKEN** (Snyk Personal Access Token) when set. Legacy fallback: **SNYK_OAUTH_TOKEN** from `snyk auth` (~1h expiry).
+
+## Preferred setup (PAT)
+
+1. Create PAT in Snyk → Account settings → Personal access tokens.
+2. GitHub repo secret: `gh secret set SNYK_TOKEN` (or `scripts/set-snyk-pat-secret.ps1`).
+3. Cursor Cloud Agent secrets: same `SNYK_TOKEN` for "Weekly Snyk vulnerability scan & fix" automation.
+4. Optional: delete `SNYK_OAUTH_TOKEN` from GitHub after PAT works.
+
+## Legacy OAuth (fallback only)
+
+1. `snyk auth` then `scripts/refresh-snyk-oauth-secret.ps1` — expires ~1h; re-run after each auth.
+2. Offer refresh script only when PAT is unavailable and CI/auth fails.
 
 ## On any Snyk request
 
-1. Remind OAuth expires ~1h; refresh: `snyk auth` then `scripts/refresh-snyk-oauth-secret.ps1`.
-2. Offer to run the refresh script when CI/auth fails or before scan work.
-3. MCP `user-Snyk` may error without valid local auth; CLI + CI workflow is primary.
-4. Keep Snyk in security-scans.yml alongside other scanners (Trivy, Semgrep, Gitleaks, npm audit, etc.).
+1. Prefer PAT flow; do not suggest hourly OAuth refresh if PAT is an option.
+2. MCP `user-Snyk` may error without valid local auth; CLI + CI workflow is primary.
+3. Keep Snyk in security-scans.yml alongside Trivy, Semgrep, Gitleaks, etc.
+4. CI severity threshold is **medium** (parity with Cursor automation).

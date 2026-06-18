@@ -1,3 +1,7 @@
+# LEGACY: OAuth token (~1h). Prefer SNYK_TOKEN PAT instead:
+#   $env:SNYK_TOKEN = '<pat>'; .\scripts\set-snyk-pat-secret.ps1
+#   or: gh secret set SNYK_TOKEN
+
 $ErrorActionPreference = 'Stop'
 
 $configPath = Join-Path $env:USERPROFILE '.config\configstore\snyk.json'
