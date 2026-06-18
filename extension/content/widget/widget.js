@@ -391,7 +391,7 @@ export class PasteCraftFloatingWidget {
         </div>
         
         <!-- Component 3: Auto Copy Toggle -->
-        <div class="widget-component auto-copy-section" data-tooltip="Auto Copy">
+        <div class="widget-component auto-copy-section" data-tooltip="Auto Copy" role="button" tabindex="0" aria-label="Toggle auto copy">
           <div class="auto-copy-toggle" data-state="off">
             <span class="toggle-label">OFF</span>
           </div>
@@ -438,6 +438,18 @@ export class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
+      /* PasteCraft brand tokens (shadow-local; mirrors extension/styles.css palette) */
+      .pastecraft-widget {
+        --pc-navy: #1e40af;
+        --pc-navy-dark: #1e3a8a;
+        --pc-blue: #3b82f6;
+        --pc-orange: #f97316;
+        --pc-text-on-navy: #e0f2fe;
+        --pc-text: #1f2937;
+        --pc-text-muted: #64748b;
+        --pc-surface: #ffffff;
+      }
+
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
         position: fixed;
@@ -459,6 +471,12 @@ export class PasteCraftFloatingWidget {
       /* Widget slides left when any panel is open */
       .pastecraft-widget.panel-open {
         right: 476px;
+      }
+
+      @media (max-width: 480px) {
+        .pastecraft-widget.panel-open {
+          right: 0;
+        }
       }
       
       .pastecraft-widget-inner {
@@ -566,10 +584,11 @@ export class PasteCraftFloatingWidget {
       
       .auto-copy-counter {
         font-size: 10px;
-        color: #e0f2fe;
+        color: var(--pc-text-on-navy, #e0f2fe);
         text-align: center;
         white-space: nowrap;
         transition: transform 0.2s ease;
+        pointer-events: none;
       }
       
       /* Component 4: Quick View Button */
@@ -790,14 +809,19 @@ export class PasteCraftFloatingWidget {
       console.log('✅ Settings button listener attached');
     }
     
-    // Component 3: Auto Copy Toggle
-    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
-    if (autoToggle) {
-      autoToggle.addEventListener('click', () => {
-        console.log('🔄 Toggle clicked!');
+    // Component 3: Auto Copy Toggle (whole section — counter label is non-interactive)
+    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    if (autoCopySection) {
+      autoCopySection.addEventListener('click', () => {
+        console.log('🔄 Auto-copy section clicked!');
         this.toggleAutoCopy();
       });
-      console.log('✅ Auto toggle listener attached');
+      autoCopySection.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        this.toggleAutoCopy();
+      });
+      console.log('✅ Auto-copy section listener attached');
     }
     
     // Component 4: Quick View Button - Toggle quick view
@@ -1038,7 +1062,7 @@ export class PasteCraftFloatingWidget {
         if (!currentContainer) return;
         const target = e.target;
         if (currentContainer.contains(target)) return;
-        if (this.widget && this.widget.contains(target)) return;
+        if (this._isPointerInsideWidget(e)) return;
         this.closePopupOverlay();
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -1270,9 +1294,12 @@ export class PasteCraftFloatingWidget {
 
     const mount = this._ensureSettingsShadowMount();
 
-    // Check if panel already exists
-    if (mount.root.querySelector('#pastecraft-settings-panel')) {
-      return;
+    // Clear stale panel nodes left over from in-flight close animations
+    const stalePanel = mount.root.querySelector('#pastecraft-settings-panel');
+    if (stalePanel) {
+      if (this.openStates.settings) return;
+      mount.root.querySelector('#pastecraft-settings-backdrop')?.remove();
+      stalePanel.remove();
     }
     
     // Set open state
@@ -1612,7 +1639,7 @@ export class PasteCraftFloatingWidget {
       .settings-section h4 {
         font-size: 14px;
         font-weight: 600;
-        color: #64748b;
+        color: var(--pc-text-muted, #64748b);
         text-transform: uppercase;
         letter-spacing: 0.5px;
         margin: 0 0 16px 0;
@@ -1647,7 +1674,7 @@ export class PasteCraftFloatingWidget {
 
       .setting-desc {
         font-size: 13px;
-        color: #64748b;
+        color: var(--pc-text-muted, #64748b);
         margin: 0;
         line-height: 1.4;
         display: block;
@@ -2363,10 +2390,15 @@ export class PasteCraftFloatingWidget {
       console.log('👁️ Opening Quick View (slide-in panel from right)');
       console.log('👁️ Current open states:', this.openStates);
       
-      // Check if panel already exists
-      if (document.getElementById('pastecraft-quickview-panel')) {
-        console.log('⚠️ Quick View panel already exists');
-        return;
+      // Clear stale panel nodes left over from in-flight close animations
+      const stalePanel = document.getElementById('pastecraft-quickview-panel');
+      if (stalePanel) {
+        if (this.openStates.quickView) {
+          console.log('⚠️ Quick View panel already open');
+          return;
+        }
+        document.getElementById('pastecraft-quickview-backdrop')?.remove();
+        stalePanel.remove();
       }
       
       console.log('👁️ Creating Quick View panel elements...');
@@ -2398,7 +2430,7 @@ export class PasteCraftFloatingWidget {
       
       // Create close button
       const closeButton = document.createElement('button');
-      closeButton.className = 'pastecraft-overlay-close';
+      closeButton.className = 'pastecraft-quickview-close';
       closeButton.innerHTML = '×';
       closeButton.setAttribute('aria-label', 'Close');
       
@@ -2432,7 +2464,7 @@ export class PasteCraftFloatingWidget {
           if (!currentPanel) return;
           const target = e.target;
           if (currentPanel.contains(target)) return;
-          if (this.widget && this.widget.contains(target)) return;
+          if (this._isPointerInsideWidget(e)) return;
           this.closeQuickView();
         };
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
@@ -2953,6 +2985,31 @@ export class PasteCraftFloatingWidget {
       
       .pastecraft-quickview-panel.visible {
         transform: translateX(0);
+      }
+
+      .pastecraft-quickview-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
+        width: 32px;
+        height: 32px;
+        background: rgba(30, 64, 175, 0.85);
+        border: none;
+        border-radius: 50%;
+        font-size: 22px;
+        line-height: 1;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .pastecraft-quickview-close:hover {
+        background: rgba(30, 58, 138, 0.95);
+        transform: scale(1.05);
       }
       
       /* Quick View Iframe */

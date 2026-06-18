@@ -2205,8 +2205,8 @@ export class QuickPasteInterface {
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    // Apply theme — preserve root class used by layout/position styles
+    this.container.className = `pastecraft-quick-paste pastecraft-interface ${this.settings.theme}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
