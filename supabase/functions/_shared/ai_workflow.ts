@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireNotBanned } from './security-gate.ts'
-import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance } from './credit_packs.ts'
+import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance, type UserSubscriptionCreditRow } from './credit_packs.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
 export type AiWorkflowProvider = 'openai' | 'google';
@@ -466,7 +466,7 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
   const banResponse = await requireNotBanned(user.id, supabase);
   if (banResponse) return banResponse;
 
-  const { data: sub, error: subErr } = await supabase
+  const { data: subRaw, error: subErr } = await supabase
     .from('user_subscriptions')
     .select([
       'user_id', 'subscription_tier', 'subscription_status',
@@ -478,13 +478,14 @@ export async function requireTextCredits(req: Request): Promise<TextCreditGate |
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (subErr || !sub) {
+  if (subErr || !subRaw) {
     return new Response(
       JSON.stringify({ error: 'Subscription not found' }),
       { headers: { ...TEXT_CREDITS_CORS, 'Content-Type': 'application/json' }, status: 403 }
     );
   }
 
+  const sub = subRaw as UserSubscriptionCreditRow;
   const tier = String(sub.subscription_tier || '').toLowerCase();
   const status = String(sub.subscription_status || '').toLowerCase();
   const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
@@ -682,7 +683,7 @@ export async function decrementTextCredits(
 export type AuthenticatedUserGate = {
   user: { id: string; email?: string | null };
   userId: string;
-  supabase: ReturnType<typeof createClient>;
+  supabase: any;
 };
 
 /** JWT required + ban gate. No premium required (e.g. ai-name). */
