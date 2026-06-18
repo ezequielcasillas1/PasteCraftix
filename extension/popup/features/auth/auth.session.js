@@ -4,6 +4,8 @@ import {
   LOCAL_CHANGE_DEBOUNCE_MS,
   LOCAL_CHANGE_FLUSH_MS,
 } from './auth.constants.js';
+import { applyPopupTheme } from '../../shared/theme-surface.js';
+import { syncThemeToggles } from '../settings/settings.storage.js';
 
 const TAB_LOADERS = Object.freeze({
   categories: (app) => {
@@ -421,6 +423,27 @@ function _refreshProfileIdentity(app, classification) {
 
 async function _handleStorageChange(app, changes, classification) {
   if (app._handlingLocalChange) return;
+
+  const behaviorSettingsChanged = SETTINGS_CHANGE_KEYS.some(
+    (key) => key !== 'theme' && !!changes[key],
+  );
+  const themeOnlyChange = !!changes.theme
+    && !behaviorSettingsChanged
+    && !classification.clipsChanged
+    && !classification.categoriesChanged
+    && !classification.notesChanged
+    && !classification.aiDataChanged;
+
+  if (themeOnlyChange) {
+    const nextTheme = changes.theme.newValue;
+    if (nextTheme === 'dark' || nextTheme === 'light') {
+      app.theme = nextTheme;
+      applyPopupTheme(nextTheme);
+      syncThemeToggles(app);
+    }
+    return;
+  }
+
   app._handlingLocalChange = true;
   try {
     await app._mirrorChangedLocalStateToIndexedDb(changes);

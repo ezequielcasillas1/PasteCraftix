@@ -1232,13 +1232,28 @@ export class QuickPasteInterface {
         await this.loadClips();
         this.updateInterface();
         this.showInterface(message.x, message.y);
+      } else if (message.action === 'themeUpdated') {
+        handled = true;
+        const nextTheme = message.theme;
+        if (nextTheme === 'dark' || nextTheme === 'light') {
+          this.settings.theme = nextTheme;
+          this.applySettings();
+        }
       } else if (message.action === 'settingsUpdated') {
         handled = true;
-        // Update settings from popup
-        this.settings = { ...this.settings, ...message.settings };
+        const incoming = message.settings && typeof message.settings === 'object' ? message.settings : {};
+        const { theme: incomingTheme, ...behaviorSettings } = incoming;
+        const hasBehaviorUpdate = Object.keys(behaviorSettings).length > 0;
+        if (incomingTheme === 'dark' || incomingTheme === 'light') {
+          this.settings.theme = incomingTheme;
+        }
+        if (hasBehaviorUpdate) {
+          this.settings = { ...this.settings, ...behaviorSettings };
+        }
         this.applySettings();
-        this.updateInterface();
-        console.log('⚙️ Settings updated from popup:', this.settings);
+        if (hasBehaviorUpdate) {
+          this.updateInterface();
+        }
       } else if (message.action === 'clipsUpdated') {
         handled = true;
         // Another tab updated clips (delete/move/etc) - refresh our interface
@@ -1275,14 +1290,15 @@ export class QuickPasteInterface {
     this._storageSyncListener = (changes, area) => {
       if (area !== 'local') return;
 
-      let settingsChanged = false;
+      let behaviorSettingsChanged = false;
+      let themeChanged = false;
 
       // Quick paste specific settings
       if (changes.quickPasteSettings) {
         const next = changes.quickPasteSettings.newValue;
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
-          settingsChanged = true;
+          behaviorSettingsChanged = true;
         }
       }
 
@@ -1291,14 +1307,14 @@ export class QuickPasteInterface {
         const nextTheme = changes.theme.newValue;
         if (nextTheme === 'dark' || nextTheme === 'light') {
           this.settings.theme = nextTheme;
-          settingsChanged = true;
+          themeChanged = true;
         }
       }
 
       // General PasteCraft settings (autoDeletePeriod, albumAttachmentOpenMode)
       // These affect the quick paste interface behavior
       if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
-        settingsChanged = true;
+        behaviorSettingsChanged = true;
         // Reload settings to get latest values
         this.loadSettings().catch(() => {});
       }
@@ -1331,9 +1347,12 @@ export class QuickPasteInterface {
         }
       }
 
-      if (settingsChanged) {
+      if (themeChanged) {
         this.applySettings();
-        // Avoid heavy rerenders unless UI is open/visible
+      }
+
+      if (behaviorSettingsChanged) {
+        this.applySettings();
         if (this.isVisible) {
           this.updateInterface();
         }
@@ -2233,9 +2252,9 @@ export class QuickPasteInterface {
   
   applySettings() {
     if (!this.container) return;
-    
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+
+    // Apply theme (keep layout class — dark rules use .pastecraft-interface.dark)
+    this.container.className = `pastecraft-quick-paste pastecraft-interface ${this.settings.theme}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';

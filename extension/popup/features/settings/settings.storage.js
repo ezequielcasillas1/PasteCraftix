@@ -5,6 +5,7 @@ import {
   AUTO_DELETE_PERIODS,
   BROADCAST_CHANNEL_NAME,
 } from './settings.constants.js';
+import { applyPopupTheme, normalizeTheme as normalizePopupTheme } from '../../shared/theme-surface.js';
 import {
   getAutoDeletePeriodEl,
   getActivityOneClickCopyToggleEl,
@@ -22,7 +23,7 @@ function _stripThemeKey(obj) {
 }
 
 function _normalizeTheme(raw) {
-  return raw === 'dark' ? 'dark' : 'light';
+  return normalizePopupTheme(raw);
 }
 
 function _normalizeAlbumMode(raw) {
@@ -60,6 +61,7 @@ export async function loadSettings(app) {
   if (app.darkModeComingSoon) app.theme = 'light';
 
   await _persistMergedSettingsLocal(app);
+  applyPopupTheme(app.theme);
   syncThemeToggles(app);
   _syncOneClickCopyToggle(app);
 }
@@ -417,6 +419,19 @@ function _notifyContentScripts(app) {
   } catch (_) {}
 }
 
+function _notifyThemeOnly(app) {
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach((tab) => {
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'themeUpdated',
+          theme: app.theme,
+        }).catch(() => {});
+      });
+    });
+  } catch (_) {}
+}
+
 // ── syncThemeToggles ──────────────────────────────────────────────────────────
 
 export function syncThemeToggles(app) {
@@ -436,10 +451,22 @@ export function syncThemeToggles(app) {
 
 export async function saveThemeOnly(app, nextTheme, silent = false) {
   const normalized = _normalizeTheme(nextTheme);
+  if (_normalizeTheme(app.theme) === normalized) {
+    applyPopupTheme(normalized);
+    syncThemeToggles(app);
+    return true;
+  }
+
+  // Paint immediately — don't wait for storage / tab fan-out
+  app.theme = normalized;
+  applyPopupTheme(normalized);
+  syncThemeToggles(app);
+
   const result = await PasteCraftCRUD.saveOperation({
     stateGetter: () => _buildSettingsState(app),
     stateSetter: async (newState) => {
       _applySettingsStateToApp(app, newState);
+      applyPopupTheme(app.theme);
       syncThemeToggles(app);
     },
     stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
@@ -464,10 +491,12 @@ export async function saveThemeOnly(app, nextTheme, silent = false) {
       );
     },
     backgroundSync: async (_meta, state) => {
-      await _persistSettingsSyncState(state);
-      try { await pasteCraftSupabase.syncSettingsToSupabase(_buildSettingsSyncPayload(state)); } catch (_) {}
-      _trySendBroadcast(app, _buildSettingsSyncPayload(state));
-      _notifyContentScripts(app);
+      _notifyThemeOnly(app);
+      Promise.resolve().then(async () => {
+        await _persistSettingsSyncState(state);
+        try { await pasteCraftSupabase.syncSettingsToSupabase(_buildSettingsSyncPayload(state)); } catch (_) {}
+        _trySendBroadcast(app, _buildSettingsSyncPayload(state));
+      }).catch(() => {});
     },
     successMessage: () => '',
     errorMessage: (error) => `Theme update failed: ${error.message || 'Unknown error'}`,
@@ -477,6 +506,10 @@ export async function saveThemeOnly(app, nextTheme, silent = false) {
   });
 
   if (!result.success) {
+    const rollback = await chrome.storage.local.get([SETTINGS_STORAGE_KEYS.THEME]);
+    app.theme = _normalizeTheme(rollback[SETTINGS_STORAGE_KEYS.THEME]);
+    applyPopupTheme(app.theme);
+    syncThemeToggles(app);
     if (!silent) app.showToast(`❌ Theme update failed: ${result.error || 'Unknown error'}`, 'error');
     return false;
   }

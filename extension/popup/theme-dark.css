@@ -1,0 +1,186 @@
+/* PasteCraft popup dark theme — toggled via html.pastecraft-theme-dark */
+
+html.pastecraft-theme-dark {
+  color-scheme: dark;
+  --pc-bg: #0f172a;
+  --pc-surface: #1e293b;
+  --pc-surface-elevated: #334155;
+  --pc-border: #334155;
+  --pc-text: #f1f5f9;
+  --pc-text-muted: #94a3b8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-hover: #334155;
+  --border-color: #334155;
+  --border: #334155;
+  --surface: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --primary-color: #60a5fa;
+}
+
+html.pastecraft-theme-dark body {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .popup-container {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .top-bar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-bottom-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .top-bar-funky-name,
+html.pastecraft-theme-dark .top-bar-profile-placeholder {
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .header {
+  background: var(--pc-surface);
+  border-bottom-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .header h1,
+html.pastecraft-theme-dark .tab-btn {
+  color: var(--pc-text-muted);
+}
+
+html.pastecraft-theme-dark .tab-btn.active {
+  color: #93c5fd;
+  border-bottom-color: #3b82f6;
+}
+
+html.pastecraft-theme-dark .tab-btn:hover:not(.active) {
+  color: var(--pc-text);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+html.pastecraft-theme-dark .chip {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+  box-shadow: none;
+}
+
+/* Perf: skip heavy blur/shimmer hover in dark mode */
+html.pastecraft-theme-dark .chip::before,
+html.pastecraft-theme-dark .chip::after {
+  display: none;
+}
+
+html.pastecraft-theme-dark .chip:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  transform: none;
+}
+
+html.pastecraft-theme-dark .chip.selected {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+}
+
+html.pastecraft-theme-dark .empty-state,
+html.pastecraft-theme-dark .empty-state h3,
+html.pastecraft-theme-dark .empty-state p {
+  color: var(--pc-text-muted);
+}
+
+html.pastecraft-theme-dark .settings-section,
+html.pastecraft-theme-dark .profile-section {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .settings-section h4,
+html.pastecraft-theme-dark .profile-section h4,
+html.pastecraft-theme-dark .settings-description,
+html.pastecraft-theme-dark .profile-setting-label {
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .settings-note,
+html.pastecraft-theme-dark .profile-note {
+  color: var(--pc-text-muted);
+}
+
+html.pastecraft-theme-dark .modal-content {
+  background: var(--pc-surface);
+  color: var(--pc-text);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .modal-header {
+  background: var(--pc-surface-elevated);
+  border-bottom-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .modal-header h3 {
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .modal-body {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .btn-secondary {
+  background: var(--pc-surface-elevated);
+  color: var(--pc-text);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .btn-secondary:hover {
+  background: #475569;
+}
+
+html.pastecraft-theme-dark input[type="text"],
+html.pastecraft-theme-dark input[type="number"],
+html.pastecraft-theme-dark input[type="email"],
+html.pastecraft-theme-dark input[type="password"],
+html.pastecraft-theme-dark select,
+html.pastecraft-theme-dark textarea {
+  background: var(--pc-surface-elevated);
+  color: var(--pc-text);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .category-item,
+html.pastecraft-theme-dark .search-result-item,
+html.pastecraft-theme-dark .note-card {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+html.pastecraft-theme-dark .category-bulk-actions,
+html.pastecraft-theme-dark .search-bulk-actions {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .preview-section,
+html.pastecraft-theme-dark .craft-toolbar,
+html.pastecraft-theme-dark .delimiter-section {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .pagination-btn {
+  background: var(--pc-surface-elevated);
+  color: var(--pc-text);
+  border-color: var(--pc-border);
+}
+
+html.pastecraft-theme-dark .pagination-btn:hover:not(:disabled) {
+  background: #475569;
+}
+
+html.pastecraft-theme-dark .profile-setting-item {
+  opacity: 1;
+}

@@ -41,8 +41,8 @@ class PasteCraftPopup {
     this.autoDeletePeriod = 'never';
     // Global theme (single source of truth). Quick Paste follows this.
     this.theme = 'light'; // 'light' | 'dark'
-    // Dark mode is enabled (single source of truth: `theme`).
-    this.darkModeComingSoon = true;
+    // Global theme toggle (Settings + Profile stay in sync via saveThemeOnly).
+    this.darkModeComingSoon = false;
     this._themeSyncing = false;
     this.searchOnlyClips = [];
     // These store stable clip id keys (String(clip.id)), not numbers.

@@ -42,7 +42,6 @@ function _wireHelpModal() {
 function _wireStandardInputs(app, triggerAutoSave) {
   [
     'autoDeletePeriod',
-    'darkModeToggle',
     'quickPasteAutoHidePopup',
     'quickPasteShowTimestampsPopup',
     'albumAttachmentOpenMode',
@@ -63,9 +62,14 @@ function _wireStandardInputs(app, triggerAutoSave) {
 
 // ── Theme toggles ─────────────────────────────────────────────────────────────
 
-function _wireThemeToggles(app, triggerAutoSave) {
+function _wireThemeToggles(app) {
   const darkModeEl = document.getElementById('darkModeToggle');
-  if (darkModeEl) darkModeEl.addEventListener('change', () => triggerAutoSave(true));
+  if (darkModeEl) {
+    darkModeEl.addEventListener('change', async () => {
+      if (app._themeSyncing) return;
+      await saveThemeOnly(app, darkModeEl.checked ? 'dark' : 'light', true);
+    });
+  }
 
   const profileDarkModeEl = document.getElementById('profileDarkModeToggle');
   if (profileDarkModeEl) {
@@ -214,7 +218,7 @@ export function initSettingsEvents(app) {
 
   wire('modalToggle', () => _wireModalToggle(app));
   wire('helpModal', () => _wireHelpModal());
-  wire('themeToggles', () => _wireThemeToggles(app, triggerAutoSave));
+  wire('themeToggles', () => _wireThemeToggles(app));
   wire('standardInputs', () => _wireStandardInputs(app, triggerAutoSave));
   wire('widgetIconToggle', () => _wireWidgetIconToggle(app));
   wire('restoreClips', () => _wireRestoreClips(app));
