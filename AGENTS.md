@@ -7,34 +7,33 @@ No Snyk settings page or Cursor secrets required.
 When running the scheduled dependency security scan:
 
 1. Ensure dependencies are installed: `npm ci && npm ci --prefix website`
-2. Run the unified scan script:
+2. Run the full pipeline:
 
    ```bash
    ./scripts/run-dependency-scan.sh
    ```
 
-3. If moderate+ vulnerabilities with fixes are found, apply dependency updates only (no app logic unless required for compatibility).
-4. Open a PR on branch `fix/deps-YYYY-MM-DD` listing each fix: package, advisory ID, old/new version, scan source.
+   This will:
+   - Run **npm audit** (root + website)
+   - Fetch **Snyk JSON from GitHub CI** if a recent successful Security Scans run exists
+   - Build a unified **fix plan** at `/tmp/snyk-reports/fix-plan.json`
+   - **Apply fixes** automatically (direct bumps, overrides, `npm audit fix`, lockfile regen)
 
-### How Snyk is covered (no manual API token)
+3. If fixes were applied, verify website build: `npm run build --prefix website`
+4. Open a PR on branch `fix/deps-YYYY-MM-DD`. PR body must list each fix from `/tmp/snyk-reports/fix-applied.json`: package, advisory ID, old/new version, scan source (snyk vs npm-audit).
+5. Snyk GitHub App scans the PR automatically.
 
-| Layer | How | Auth needed? |
-|-------|-----|--------------|
-| **Automation scan** | `npm audit` via `run-dependency-scan.sh` | No |
-| **Snyk on fix PR** | Snyk GitHub App (already installed) | No — automatic |
-| **Optional CI Snyk** | GitHub Actions Security Scans workflow | CLI only: `snyk auth` + refresh script |
+To preview fixes without applying: `APPLY_FIXES=0 ./scripts/run-dependency-scan.sh`
 
-The automation does **not** need `SNYK_TOKEN` in Cursor secrets. When it opens a PR, the Snyk GitHub App scans it automatically.
+### Optional: CI Snyk artifact source
 
-### Optional: fix CI Snyk job (no settings page)
-
-If the GitHub Actions Snyk job fails with `401`, refresh OAuth from the CLI on your machine:
+If GitHub Actions Snyk has findings, refresh OAuth on your PC (no settings page):
 
 ```powershell
 snyk auth
 .\scripts\refresh-snyk-oauth-secret.ps1
 ```
 
-This uses browser login via the Snyk CLI — you never visit Snyk account settings to copy a token.
+Then re-run Security Scans workflow on `main`. The next automation run will fetch that report via `fetch-snyk-from-ci.sh`.
 
 Do not commit secrets. Never echo token values in logs or PR bodies.

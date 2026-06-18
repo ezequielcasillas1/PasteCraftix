@@ -39,10 +39,12 @@ Run this when CI fails, or schedule it on your PC before the weekly Monday scan 
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/run-dependency-scan.sh` | **Automation entry point** — npm audit + optional Snyk |
+| `scripts/run-dependency-scan.sh` | **Full pipeline** — scan, fetch CI Snyk, build plan, apply fixes |
+| `scripts/build-fix-plan.mjs` | Merge npm audit + Snyk JSON → `fix-plan.json` |
+| `scripts/apply-dependency-fixes.mjs` | Apply direct bumps, overrides, lockfile regen |
 | `scripts/run-npm-audit.sh` | npm audit for root + website |
 | `scripts/fetch-snyk-from-ci.sh` | Pull Snyk JSON from latest green CI run |
-| `scripts/run-snyk-scan.sh` | Local Snyk if `SNYK_TOKEN`/`SNYK_OAUTH_TOKEN` env is set |
+| `scripts/run-snyk-scan.sh` | Local Snyk if token env is set |
 | `scripts/refresh-snyk-oauth-secret.ps1` | Sync CLI OAuth → GitHub (no settings page) |
 
 ## When you would need the settings page
