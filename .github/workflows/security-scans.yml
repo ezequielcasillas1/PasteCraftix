@@ -82,7 +82,7 @@ jobs:
       - name: Run Gitleaks
         run: gitleaks git . --config .gitleaks.toml --redact --verbose
 
-  # Requires SNYK_OAUTH_TOKEN (from `snyk auth`) or SNYK_TOKEN (API token) repository secret.
+  # Requires SNYK_TOKEN (long-lived API token). SNYK_OAUTH_TOKEN (~1h) is optional fallback only.
   snyk:
     name: Snyk
     runs-on: ubuntu-latest
@@ -96,13 +96,34 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: Install root dependencies
-        run: npm ci
+      - name: Install dependencies (all projects)
+        run: npm ci && npm ci --prefix website
+
+      - name: Verify Snyk credentials
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_OAUTH_TOKEN: ${{ secrets.SNYK_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$SNYK_TOKEN" ] && [ -z "$SNYK_OAUTH_TOKEN" ]; then
+            echo "::error::No Snyk credentials. Set SNYK_TOKEN (recommended) — see docs/security/snyk-automation-setup.md"
+            exit 1
+          fi
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::warning::SNYK_TOKEN unset; using SNYK_OAUTH_TOKEN (expires ~1h). Prefer a long-lived API token."
+          fi
 
       - name: Run Snyk vulnerability scan
         uses: snyk/actions/node@master
         env:
-          SNYK_OAUTH_TOKEN: ${{ secrets.SNYK_OAUTH_TOKEN }}
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_OAUTH_TOKEN: ${{ secrets.SNYK_OAUTH_TOKEN }}
         with:
-          args: --severity-threshold=high --all-projects
+          args: --severity-threshold=high --all-projects --json-file-output=snyk-results.json
+
+      - name: Upload Snyk JSON report
+        if: always() && hashFiles('snyk-results.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-results
+          path: snyk-results.json
+          retention-days: 30

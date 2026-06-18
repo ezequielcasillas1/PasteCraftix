@@ -1,15 +1,32 @@
 ---
-description: Snyk CI uses temporary OAuth (SNYK_OAUTH_TOKEN). Apply when user asks about Snyk scans, auth, secrets, fixes, or MCP user-Snyk.
+description: Snyk for CI and Cursor automations. SNYK_TOKEN (API) required for cron; OAuth optional for local refresh.
 alwaysApply: false
 ---
 
-# Snyk temporary OAuth
+# Snyk authentication
 
-`.github/workflows/security-scans.yml` runs Snyk with **SNYK_OAUTH_TOKEN** (from `snyk auth`, ~1h expiry). Long-lived fallback: **SNYK_TOKEN** API token in repo secrets.
+## Cursor automations (weekly dependency scan)
+
+Cloud agents **do not** receive GitHub Actions secrets. Configure **`SNYK_TOKEN`** (long-lived API token) as a **Runtime Secret** in [Cursor Cloud Agents → Secrets](https://cursor.com/dashboard/cloud-agents).
+
+Run scans via `./scripts/run-snyk-scan.sh` (see `AGENTS.md`). Setup: `docs/security/snyk-automation-setup.md`.
+
+## GitHub Actions CI
+
+`.github/workflows/security-scans.yml` uses **`SNYK_TOKEN`** (preferred) with optional `SNYK_OAUTH_TOKEN` fallback.
+
+Set GitHub secret:
+
+```bash
+./scripts/set-snyk-github-secret.sh YOUR_API_TOKEN
+```
+
+## OAuth (short-lived, ~1h)
+
+`scripts/refresh-snyk-oauth-secret.ps1` syncs `snyk auth` → `SNYK_OAUTH_TOKEN` for ad-hoc CI only. **Not suitable for cron automations** — use API token instead.
 
 ## On any Snyk request
 
-1. Remind OAuth expires ~1h; refresh: `snyk auth` then `scripts/refresh-snyk-oauth-secret.ps1`.
-2. Offer to run the refresh script when CI/auth fails or before scan work.
-3. MCP `user-Snyk` may error without valid local auth; CLI + CI workflow is primary.
-4. Keep Snyk in security-scans.yml alongside other scanners (Trivy, Semgrep, Gitleaks, npm audit, etc.).
+1. Prefer long-lived `SNYK_TOKEN` over OAuth for automation and CI.
+2. Offer setup guide when auth fails: `docs/security/snyk-automation-setup.md`.
+3. Keep Snyk in security-scans.yml alongside Trivy, Semgrep, Gitleaks, npm audit.
