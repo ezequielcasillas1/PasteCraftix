@@ -32,8 +32,9 @@ jobs:
         run: |
           cp extension/config.example.js extension/config.js
           mkdir -p extension/lib/katex-fonts
+          test -s extension/lib/lucide.min.js || { echo "lucide.min.js missing or empty"; exit 1; }
           for f in marked.min.js purify.min.js highlight.min.js mermaid.min.js \
-            pdf.min.js pdf.worker.min.js lucide.min.js katex.min.js; do
+            pdf.min.js pdf.worker.min.js katex.min.js; do
             touch "extension/lib/$f"
           done
           for f in highlight-github.min.css katex.min.css; do

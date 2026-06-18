@@ -1,3 +1,8 @@
+### Jun 18, 2026 - Popup Lucide icons broken (empty vendor file)
+**Status:** SUCCESS (tests pass; user UI verify pending)
+**Files:** extension/lib/lucide.min.js, .gitignore, .github/workflows/ci.yml, tests/popup-icons-regression.test.mjs, tests/extension-smoke.test.js, package.json
+**Result:** extension/lib/ was gitignored and CI stubbed 0-byte lucide.min.js. Vendored lucide@0.469.0 UMD (358 KB), committed file, CI verifies non-empty, added icon regression tests.
+
 ### Jun 17, 2026 - Profile photo upload not working
 **Status:** SUCCESS (code path verified; user UI verify pending)
 **Files:** profile.events.js, clips-shell.events.js, popup.html
