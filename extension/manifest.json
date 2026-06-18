@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "3.0.13",
+  "version": "3.0.14",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Break down text, summarize notes, and organize research clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -29,7 +29,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"
   },
   "content_scripts": [
     {

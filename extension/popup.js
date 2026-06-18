@@ -493,7 +493,7 @@ class PasteCraftPopup {
       registerPopupEventListeners(this);
     } catch (err) {
       // #region agent log
-      console.warn('[PasteCraft:debug:tabnav]', {
+      console.error('[PasteCraft:debug:tabnav]', {
         hypothesisId: 'TAB-BOOT-FAIL',
         location: 'popup.js:setupEventListeners',
         message: 'popup.events module failed to load',

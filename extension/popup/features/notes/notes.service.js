@@ -497,9 +497,7 @@ function _renderLazyOfflineState(container) {
       <div class="empty-state-icon">📡</div>
       <h3>You're offline</h3>
       <p>Connect to the internet to view older notes</p>
-      <button class="btn-secondary" onclick="window.pasteCraftPopup.notesPageIndex = 0; window.pasteCraftPopup.renderNotes();">
-        Go to first page
-      </button>
+      <button class="btn-secondary" data-action="notes-first-page" type="button">Go to first page</button>
     </div>
   `;
 }
@@ -565,9 +563,7 @@ function _renderLazyLoadError(container, error) {
       <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
       <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
       <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
-      <button class="btn-secondary" onclick="window.pasteCraftPopup.renderNotes();">
-        Retry
-      </button>
+      <button class="btn-secondary" data-action="notes-retry" type="button">Retry</button>
     </div>
   `;
 }

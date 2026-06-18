@@ -329,6 +329,9 @@ export function registerCustomSearchModalEvents(app) {
 
   document.getElementById('closeCustomSearchModal')?.addEventListener('click', () => hideModal(app));
   document.getElementById('cancelCustomSearchModal')?.addEventListener('click', () => hideModal(app));
+  document.getElementById('customSearchForm')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+  });
 
   modal.addEventListener('click', (event) => {
     // Backdrop → close modal

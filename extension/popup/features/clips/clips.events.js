@@ -113,6 +113,21 @@ export function registerClipBulkActionEvents(app) {
 export function registerClipEvents(app) {
   registerClipSearchEvents(app);
   registerClipBulkActionEvents(app);
+  registerClipEmptyStateDelegation(app);
+}
+
+export function registerClipEmptyStateDelegation(app) {
+  if (app._clipEmptyStateDelegationAttached) return;
+  const container = document.getElementById('chipContainer');
+  if (!container) return;
+  app._clipEmptyStateDelegationAttached = true;
+
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="clips-retry"], [data-action="clips-first-page"]');
+    if (!btn) return;
+    if (btn.dataset.action === 'clips-first-page') app.currentPage = 0;
+    app.renderChips();
+  });
 }
 
 export function setupCategoryClipDelegation(app) {

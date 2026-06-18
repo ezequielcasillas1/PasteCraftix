@@ -298,9 +298,7 @@ export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
         <div class="empty-state-icon">📡</div>
         <h3>You're offline</h3>
         <p>Connect to the internet to view older clips</p>
-        <button class="btn-secondary" onclick="window.pasteCraftPopup.currentPage = 0; window.pasteCraftPopup.renderChips();">
-          Go to first page
-        </button>
+        <button class="btn-secondary" data-action="clips-first-page" type="button">Go to first page</button>
       </div>
     `;
     app.renderPagination();
@@ -354,9 +352,7 @@ export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
         <div class="empty-state-icon">${isNetworkError ? '📡' : '⚠️'}</div>
         <h3>${isNetworkError ? 'Connection issue' : 'Failed to load'}</h3>
         <p>${isNetworkError ? 'Check your internet connection' : 'Please try again'}</p>
-        <button class="btn-secondary" onclick="window.pasteCraftPopup.renderChips();">
-          Retry
-        </button>
+        <button class="btn-secondary" data-action="clips-retry" type="button">Retry</button>
       </div>
     `;
   } finally {

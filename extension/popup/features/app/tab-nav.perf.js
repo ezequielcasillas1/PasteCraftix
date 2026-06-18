@@ -26,7 +26,7 @@ export function pcTabPerfPush(message, extra = {}) {
   }
 
   // #region agent log
-  console.warn(`[PasteCraft:debug:${SESSION_ID}]`, {
+  console.error(`[PasteCraft:debug:${SESSION_ID}]`, {
     hypothesisId: extra.hypothesisId || 'TAB-PROBE',
     location: extra.location || 'tab-nav.perf:push',
     message: entry.message,

@@ -8,6 +8,17 @@ export function registerNotesEvents(app) {
   if (app._notesEventsRegistered) return;
   app._notesEventsRegistered = true;
 
+  const notesContainer = document.getElementById('notesContainer');
+  if (notesContainer && !app._notesEmptyStateDelegationAttached) {
+    app._notesEmptyStateDelegationAttached = true;
+    notesContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action="notes-retry"], [data-action="notes-first-page"]');
+      if (!btn) return;
+      if (btn.dataset.action === 'notes-first-page') app.notesPageIndex = 0;
+      app.renderNotes();
+    });
+  }
+
   // Create note / album
   document.getElementById('createNoteBtn').addEventListener('click', () => app.openNoteEditor('note'));
   document.getElementById('createAlbumBtn').addEventListener('click', () => app.openNoteEditor('album'));
