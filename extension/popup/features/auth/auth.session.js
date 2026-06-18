@@ -4,52 +4,18 @@ import {
   LOCAL_CHANGE_DEBOUNCE_MS,
   LOCAL_CHANGE_FLUSH_MS,
 } from './auth.constants.js';
-
-const TAB_LOADERS = Object.freeze({
-  categories: (app) => {
-    app.renderCategories();
-    app.updateCategoryBulkActions();
-  },
-  search: (app) => {
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
-  },
-  ai: (app) => {
-    app.updateAiCreditsPills('ai-tab');
-  },
-  notes: async (app) => {
-    await app._withTimeout(app.loadNotes(), 3000, undefined, 'loadNotes');
-    app.renderNotes();
-  },
-  activity: async (app) => {
-    await app._withTimeout(app.activityFeature.service.loadActivityLog(app), 3000, undefined, 'loadActivityLog');
-    app.activityFeature.render.renderActivityList(app);
-  },
-  aiHistory: async (app) => {
-    await app._withTimeout(app.loadAiHistory(), 3000, undefined, 'loadAiHistory');
-    app.renderAiHistoryList();
-  },
-});
+import {
+  activateMainTabUI,
+  loadTabDataForRestore,
+  paintTabIcons,
+  renderTabFromCache,
+} from '../app/tab-nav.helpers.js';
 
 const AI_SUBTAB_SECTIONS = Object.freeze({
   summary: 'aiSummarySection',
   refactorization: 'aiRefactorizationSection',
   breakdown: 'aiBreakdownSection',
 });
-
-async function _dispatchTabLoad(app, savedTab) {
-  const loader = TAB_LOADERS[savedTab];
-  if (loader) await loader(app);
-}
-
-function _activateMainTab(app, savedTab, tabBtn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  tabBtn.classList.add('active');
-  app.currentTab = savedTab;
-  const tabEl = document.getElementById(savedTab + 'Tab');
-  if (tabEl) tabEl.classList.add('active');
-}
 
 async function _restoreActiveTab(app, stored) {
   const savedTab = stored.pc_activeTab_v1;
@@ -58,13 +24,14 @@ async function _restoreActiveTab(app, stored) {
   const tabBtn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
   if (!tabBtn) return savedTab;
 
-  _activateMainTab(app, savedTab, tabBtn);
+  activateMainTabUI(app, savedTab, tabBtn);
+  renderTabFromCache(app, savedTab);
   window.__pcTabIconRendering = true;
   try {
-    await _dispatchTabLoad(app, savedTab);
+    await loadTabDataForRestore(app, savedTab);
   } finally {
     if (!window.__pcPopupLucideBooting) {
-      window.renderLucideIconsForActiveTab?.(savedTab, 'session-restore-tab', { immediate: true });
+      paintTabIcons(savedTab);
     }
   }
   return savedTab;
