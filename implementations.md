@@ -1,5 +1,5 @@
 ### Jun 18, 2026 - Snyk PAT streamline (CI + Cursor automation)
-**Status:** PENDING USER VERIFY
+**Status:** COMMITTED (branch infra/snyk-pat-streamline @ 679ec77)
 **Files:** security-scans.yml, scripts/set-snyk-pat-secret.ps1, scripts/refresh-snyk-oauth-secret.ps1, .cursor/rules/snyk-oauth.mdc
 **Result:** CI prefers SNYK_TOKEN (PAT) over hourly OAuth; severity aligned to medium for Cursor automation parity. PAT script syncs to gh secret; OAuth refresh marked legacy.
 
