@@ -20,4 +20,13 @@ export function registerPopupEventListeners(app) {
   registerAiLabPageEvents(app);
 
   app.activityFeature.events.initActivityEventListeners(app);
+
+  try {
+    window.__pcTabNavProbe?.push?.({
+      ts: Date.now(),
+      message: 'registerPopupEventListeners complete',
+      hypothesisId: 'TAB-BOOT',
+      location: 'popup.events:register',
+    });
+  } catch (_) {}
 }

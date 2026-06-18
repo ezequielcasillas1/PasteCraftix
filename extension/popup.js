@@ -488,8 +488,21 @@ class PasteCraftPopup {
   }
   
   async setupEventListeners() {
-    const { registerPopupEventListeners } = await import('./popup/popup.events.js');
-    registerPopupEventListeners(this);
+    try {
+      const { registerPopupEventListeners } = await import('./popup/popup.events.js');
+      registerPopupEventListeners(this);
+    } catch (err) {
+      // #region agent log
+      console.warn('[PasteCraft:debug:tabnav]', {
+        hypothesisId: 'TAB-BOOT-FAIL',
+        location: 'popup.js:setupEventListeners',
+        message: 'popup.events module failed to load',
+        data: { error: err?.message || String(err) },
+        runId: 'boot',
+      });
+      // #endregion
+      throw err;
+    }
   }
   
   // =====================================================

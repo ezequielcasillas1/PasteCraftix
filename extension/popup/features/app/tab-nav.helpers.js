@@ -180,17 +180,27 @@ export function switchMainTab(app, nextTab, tabBtn) {
 
   app._tabSwitchRaf = requestAnimationFrame(() => {
     app._tabSwitchRaf = 0;
-    if (needsRender) {
-      renderTabFromCache(app, nextTab);
-      clearTabRenderDirty(app, nextTab);
-      pcTabPerfPhase(perf, 'render');
+    let renderError = null;
+    try {
+      if (needsRender) {
+        renderTabFromCache(app, nextTab);
+        clearTabRenderDirty(app, nextTab);
+        pcTabPerfPhase(perf, 'render');
+      }
+      paintTabIconsDeferred(nextTab);
+      pcTabPerfPhase(perf, 'scheduleIcons');
+      refreshTabDataInBackground(app, nextTab);
+    } catch (err) {
+      renderError = err?.message || String(err);
+      pcTabPerfPhase(perf, 'renderError');
+    } finally {
+      window.__pcTabIconRendering = false;
+      pcTabPerfEnd(perf, {
+        skippedRender: !needsRender,
+        renderError,
+      });
+      app._tabPerfCtx = null;
     }
-    paintTabIconsDeferred(nextTab);
-    pcTabPerfPhase(perf, 'scheduleIcons');
-    window.__pcTabIconRendering = false;
-    refreshTabDataInBackground(app, nextTab);
-    pcTabPerfEnd(perf, { skippedRender: !needsRender });
-    app._tabPerfCtx = null;
   });
 }
 
