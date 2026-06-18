@@ -419,22 +419,20 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
-    // Debug: Test if ANY clicks work on the widget
-    this.widget.addEventListener('click', (e) => {
-      console.log('🖱️ Widget clicked! Target:', e.target.className);
-    });
-    
+    if (typeof globalThis !== 'undefined' && globalThis.PASTECRAFT_DEBUG === true) {
+      this.widget.addEventListener('click', (e) => {
+        console.log('🖱️ Widget clicked! Target:', e.target.className);
+      });
+    }
+
     // Setup event listeners
     this.setupEventListeners();
   }
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
-    if (existingStyles) {
-      existingStyles.remove();
-    }
-    
+    if (root.querySelector('[data-field="pastecraft-floating-widget-styles"]')) return;
+
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
@@ -838,28 +836,43 @@ export class PasteCraftFloatingWidget {
     let startTopPct = 0;
     const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
     let moved = false;
+    let dragMinPct = 0;
+    let dragMaxPct = 100;
+    let dragRafId = 0;
+    let pendingClientY = null;
 
-    const onMove = (e) => {
-      if (!dragging) return;
-      const dy = e.clientY - pointerStartY;
+    const flushDrag = () => {
+      dragRafId = 0;
+      if (!dragging || pendingClientY === null) return;
+
+      const dy = pendingClientY - pointerStartY;
       if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       this.widget.classList.add('pc-dragging');
 
-      // Convert dy pixels to viewport-height percentage
       const vh = window.innerHeight || 1;
       let nextPct = startTopPct + (dy / vh) * 100;
-      // Clamp so the widget stays fully visible
-      const widgetH = this.widget.offsetHeight || 0;
-      const minPct = (widgetH / 2 / vh) * 100;
-      const maxPct = 100 - minPct;
-      nextPct = Math.max(minPct, Math.min(nextPct, maxPct));
+      nextPct = Math.max(dragMinPct, Math.min(nextPct, dragMaxPct));
 
       this.widget.style.top = nextPct + '%';
       this.position.top = nextPct;
     };
 
+    const onMove = (e) => {
+      if (!dragging) return;
+      pendingClientY = e.clientY;
+      if (!dragRafId) {
+        dragRafId = requestAnimationFrame(flushDrag);
+      }
+    };
+
     const onUp = () => {
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+      }
+      pendingClientY = null;
+
       if (!dragging) return;
       dragging = false;
       this.widget.classList.remove('pc-dragging');
@@ -878,6 +891,12 @@ export class PasteCraftFloatingWidget {
       moved = false;
       pointerStartY = e.clientY;
       startTopPct = this.position.top ?? 50;
+      pendingClientY = null;
+
+      const widgetH = this.widget.offsetHeight || 0;
+      const vh = window.innerHeight || 1;
+      dragMinPct = (widgetH / 2 / vh) * 100;
+      dragMaxPct = 100 - dragMinPct;
 
       try { this.widget.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault();
