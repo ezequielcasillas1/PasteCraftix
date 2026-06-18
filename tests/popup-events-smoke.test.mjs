@@ -202,6 +202,7 @@ function createMockApp() {
     _saveActiveTabState: noop,
     showProfileModal: noop,
     hideProfileModal: noop,
+    setupProfileModalEvents: noop,
     hideBreakdownModal: noop,
     copyBreakdownText: noop,
     toggleBreakdownItalics: noop,
