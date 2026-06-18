@@ -1,32 +1,34 @@
 ---
-description: Snyk for CI and Cursor automations. SNYK_TOKEN (API) required for cron; OAuth optional for local refresh.
+description: Snyk for CI and automations — no settings page required; GitHub App covers PR scans.
 alwaysApply: false
 ---
 
 # Snyk authentication
 
-## Cursor automations (weekly dependency scan)
+## Dependency automation (weekly cron)
 
-Cloud agents **do not** receive GitHub Actions secrets. Configure **`SNYK_TOKEN`** (long-lived API token) as a **Runtime Secret** in [Cursor Cloud Agents → Secrets](https://cursor.com/dashboard/cloud-agents).
+**No Snyk settings page. No Cursor secrets.**
 
-Run scans via `./scripts/run-snyk-scan.sh` (see `AGENTS.md`). Setup: `docs/security/snyk-automation-setup.md`.
+- Automation runs `./scripts/run-dependency-scan.sh` (npm audit).
+- Snyk scans the fix PR via the **Snyk GitHub App** integration automatically.
 
-## GitHub Actions CI
+## GitHub Actions CI (optional)
 
-`.github/workflows/security-scans.yml` uses **`SNYK_TOKEN`** (preferred) with optional `SNYK_OAUTH_TOKEN` fallback.
+Refresh OAuth from CLI when CI Snyk fails — no API token from settings:
 
-Set GitHub secret:
-
-```bash
-./scripts/set-snyk-github-secret.sh YOUR_API_TOKEN
+```powershell
+snyk auth
+.\scripts\refresh-snyk-oauth-secret.ps1
 ```
 
-## OAuth (short-lived, ~1h)
+OAuth expires ~1h; re-run when needed. For weekly cron, refreshing before the Monday CI run is enough.
 
-`scripts/refresh-snyk-oauth-secret.ps1` syncs `snyk auth` → `SNYK_OAUTH_TOKEN` for ad-hoc CI only. **Not suitable for cron automations** — use API token instead.
+## Long-lived API token (optional only)
+
+If you prefer `SNYK_TOKEN` from [app.snyk.io/account](https://app.snyk.io/account): `./scripts/set-snyk-github-secret.sh`. Not required for automation.
 
 ## On any Snyk request
 
-1. Prefer long-lived `SNYK_TOKEN` over OAuth for automation and CI.
-2. Offer setup guide when auth fails: `docs/security/snyk-automation-setup.md`.
-3. Keep Snyk in security-scans.yml alongside Trivy, Semgrep, Gitleaks, npm audit.
+1. Default path: npm audit in automation + Snyk GitHub App on PRs.
+2. CI auth: `snyk auth` + refresh script (not settings page).
+3. Setup guide: `docs/security/snyk-automation-setup.md`.

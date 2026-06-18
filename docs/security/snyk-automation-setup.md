@@ -1,62 +1,50 @@
-# Snyk in Cursor automations
+# Snyk without the settings page
 
-Cursor cloud agents **cannot** read GitHub Actions secrets. To run Snyk in the weekly dependency automation, configure a **long-lived API token** in two places.
+You do **not** need to visit [app.snyk.io/account](https://app.snyk.io/account) or copy an API token.
 
-## 1. Create a Snyk API token
+## How it works
 
-1. Open [app.snyk.io/account](https://app.snyk.io/account)
-2. **Auth token** → **Generate**
-3. Copy the token (shown once)
+```
+Weekly Cursor automation
+  └─ npm audit (local, no auth)
+  └─ opens fix/deps-YYYY-MM-DD PR
+       └─ Snyk GitHub App scans PR automatically ✓
 
-Prefer this over `snyk auth` OAuth — OAuth tokens expire in ~1 hour and break cron jobs.
-
-## 2. GitHub repo secret (CI)
-
-From your machine (with `gh` authenticated):
-
-```bash
-./scripts/set-snyk-github-secret.sh YOUR_SNYK_API_TOKEN
+Optional GitHub Actions (Security Scans workflow)
+  └─ snyk test in CI
+  └─ auth via CLI: snyk auth + refresh script (no settings page)
 ```
 
-Or manually: repo **Settings → Secrets → Actions → SNYK_TOKEN**.
+## For the dependency automation
 
-## 3. Cursor Cloud Agent secret (automation)
+Run `./scripts/run-dependency-scan.sh` — no setup required.
 
-1. Open [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
-2. Select the **PasteCraftix** environment (or create one linked to this repo)
-3. **Secrets** → add:
-   - **Name:** `SNYK_TOKEN`
-   - **Type:** Runtime Secret
-   - **Value:** same API token from step 1
-4. Ensure the weekly automation uses that environment
+Snyk coverage on the PR comes from the **Snyk GitHub App** integration already connected to this repo.
 
-The repo provides `.cursor/environment.json` (`npm ci` for root + website) and `AGENTS.md` scan instructions.
+## Optional: keep CI Snyk job green
 
-## 4. Verify
+When the Security Scans workflow Snyk job fails with `401 SNYK-0005`:
 
-Manual cloud agent run or local test:
-
-```bash
-export SNYK_TOKEN=your-token
-./scripts/run-snyk-scan.sh
+```powershell
+snyk auth
+.\scripts\refresh-snyk-oauth-secret.ps1
 ```
 
-Expected: `OK: Snyk found no vulnerabilities at medium+.` (or a findings report).
+1. `snyk auth` — opens browser, logs you in via CLI (OAuth ~1h)
+2. Refresh script — pushes token to GitHub secret `SNYK_OAUTH_TOKEN`
 
-## Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| `SNYK_SKIP: SNYK_TOKEN is not set` in automation | Add Runtime Secret in Cursor dashboard (step 3) |
-| CI Snyk job `401 SNYK-0005` | Re-run `set-snyk-github-secret.sh` with fresh API token |
-| OAuth refresh script used but cron still fails | OAuth expires ~1h; switch to API token (`SNYK_TOKEN`) |
-| Snyk network error in cloud agent | Allow `api.snyk.io` / `snyk.io` in Cursor network allowlist |
+Run this when CI fails, or schedule it on your PC before the weekly Monday scan if you want CI artifacts available to the automation.
 
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/run-snyk-scan.sh` | Snyk `--all-projects` with JSON output |
+| `scripts/run-dependency-scan.sh` | **Automation entry point** — npm audit + optional Snyk |
 | `scripts/run-npm-audit.sh` | npm audit for root + website |
-| `scripts/set-snyk-github-secret.sh` | Push token to GitHub Actions |
-| `scripts/refresh-snyk-oauth-secret.ps1` | Short-lived OAuth sync (CI only if refreshed hourly) |
+| `scripts/fetch-snyk-from-ci.sh` | Pull Snyk JSON from latest green CI run |
+| `scripts/run-snyk-scan.sh` | Local Snyk if `SNYK_TOKEN`/`SNYK_OAUTH_TOKEN` env is set |
+| `scripts/refresh-snyk-oauth-secret.ps1` | Sync CLI OAuth → GitHub (no settings page) |
+
+## When you would need the settings page
+
+Only if you explicitly want a **long-lived API token** (`SNYK_TOKEN`) instead of CLI OAuth. That is optional and not required for the automation.

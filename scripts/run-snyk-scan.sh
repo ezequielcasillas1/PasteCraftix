@@ -8,19 +8,21 @@ THRESHOLD="${SNYK_SEVERITY_THRESHOLD:-medium}"
 OUTPUT_DIR="${SNYK_OUTPUT_DIR:-/tmp/snyk-reports}"
 mkdir -p "$OUTPUT_DIR"
 
-if [[ -z "${SNYK_TOKEN:-}" ]]; then
-  echo "SNYK_SKIP: SNYK_TOKEN is not set."
+if [[ -z "${SNYK_TOKEN:-}" && -z "${SNYK_OAUTH_TOKEN:-}" ]]; then
+  echo "SNYK_SKIP: neither SNYK_TOKEN nor SNYK_OAUTH_TOKEN is set."
   echo ""
-  echo "Cursor automations cannot read GitHub Actions secrets."
-  echo "Add a long-lived Snyk API token as a Runtime Secret named SNYK_TOKEN:"
-  echo "  https://cursor.com/dashboard/cloud-agents → Secrets → this repo environment"
+  echo "For automation, use ./scripts/run-dependency-scan.sh instead (no token required)."
+  echo "Snyk GitHub App scans fix PRs automatically."
   echo ""
-  echo "Also set the same token in GitHub repo secrets for CI:"
-  echo "  ./scripts/set-snyk-github-secret.sh"
+  echo "For local/CI CLI auth without the settings page:"
+  echo "  snyk auth && ./scripts/refresh-snyk-oauth-secret.ps1"
   echo ""
   echo "Setup guide: docs/security/snyk-automation-setup.md"
   exit 2
 fi
+
+export SNYK_TOKEN="${SNYK_TOKEN:-}"
+export SNYK_OAUTH_TOKEN="${SNYK_OAUTH_TOKEN:-}"
 
 cd "$ROOT"
 
@@ -65,6 +67,6 @@ fi
 echo "ERROR: Snyk failed (exit ${SNYK_EXIT}). Check ${OUTPUT_DIR}/snyk-test.stderr"
 if grep -qi "authentication\|SNYK-0005\|401" "${OUTPUT_DIR}/snyk-test.stderr" 2>/dev/null; then
   echo ""
-  echo "Auth failed — regenerate SNYK_TOKEN at https://app.snyk.io/account and update Cursor + GitHub secrets."
+  echo "Auth failed — run: snyk auth && ./scripts/refresh-snyk-oauth-secret.ps1"
 fi
 exit "$SNYK_EXIT"
