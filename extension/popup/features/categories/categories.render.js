@@ -110,6 +110,9 @@ export function createCategoryItem(app, category) {
   const allClips = getAllClips(app);
   const clipsInCategory = allClips.filter(clip => clip.category === category.name);
   const clipCount = clipsInCategory.length;
+  const clipsHtml = isExpanded
+    ? app.createCategoryClipsHTML(clipsInCategory, category.id)
+    : '';
 
   item.innerHTML = `
     <div class="category-header">
@@ -127,7 +130,7 @@ export function createCategoryItem(app, category) {
       </div>
     </div>
     <div class="category-dropdown${isExpanded ? ' expanded' : ''}" id="dropdown-${category.id}">
-      ${app.createCategoryClipsHTML(clipsInCategory, category.id)}
+      ${clipsHtml}
     </div>
   `;
 
@@ -172,6 +175,11 @@ export function toggleCategoryDropdown(app, categoryItem, category) {
     categoryItem.classList.add('expanded');
     dropdown.classList.add('expanded');
     if (categoryIdKey) app.expandedCategoryIds.add(categoryIdKey);
+    if (!dropdown.children.length) {
+      const allClips = getAllClips(app);
+      const clipsInCategory = allClips.filter(clip => clip.category === category.name);
+      dropdown.innerHTML = app.createCategoryClipsHTML(clipsInCategory, category.id);
+    }
     app.attachClipHandlers(dropdown, category);
   }
 }

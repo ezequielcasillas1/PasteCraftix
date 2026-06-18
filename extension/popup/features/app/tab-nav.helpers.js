@@ -1,6 +1,64 @@
-/** Fast tab switch: paint from in-memory state, refresh storage in background when needed. */
+/** Fast tab switch: paint from cache, skip stale re-renders, defer heavy work. */
+
+import { pcTabPerfEnd, pcTabPerfPhase, pcTabPerfStart } from './tab-nav.perf.js';
 
 const TAB_DATA_REFRESH_MS = 8000;
+const TAB_STATE_SAVE_MS = 250;
+
+const RENDERABLE_TABS = new Set([
+  'clips', 'categories', 'search', 'ai', 'notes', 'aiHistory', 'activity',
+]);
+
+export function markAllTabsDirty(app) {
+  app._tabDirty = {
+    clips: true,
+    categories: true,
+    search: true,
+    ai: true,
+    notes: true,
+    aiHistory: true,
+    activity: true,
+  };
+}
+
+export function markTabDirty(app, tabName) {
+  if (!tabName) return;
+  app._tabDirty = app._tabDirty || {};
+  app._tabDirty[tabName] = true;
+}
+
+export function markTabsDirtyForStorageChange(app, classification) {
+  app._tabDirty = app._tabDirty || {};
+  if (classification.clipsChanged) {
+    app._tabDirty.clips = true;
+    app._tabDirty.categories = true;
+    app._tabDirty.search = true;
+  }
+  if (classification.categoriesChanged) {
+    app._tabDirty.categories = true;
+  }
+  if (classification.notesChanged) {
+    app._tabDirty.notes = true;
+  }
+  if (classification.aiDataChanged) {
+    app._tabDirty.ai = true;
+    app._tabDirty.aiHistory = true;
+  }
+}
+
+function isTabDirty(app, tabName) {
+  if (!RENDERABLE_TABS.has(tabName)) return false;
+  app._tabEverRendered = app._tabEverRendered || {};
+  if (!app._tabEverRendered[tabName]) return true;
+  return !!(app._tabDirty && app._tabDirty[tabName]);
+}
+
+export function clearTabRenderDirty(app, tabName) {
+  app._tabDirty = app._tabDirty || {};
+  app._tabDirty[tabName] = false;
+  app._tabEverRendered = app._tabEverRendered || {};
+  app._tabEverRendered[tabName] = true;
+}
 
 export function activateMainTabUI(app, tabName, tabBtn) {
   document.querySelectorAll('.tab-btn').forEach((btn) => btn.classList.remove('active'));
@@ -55,7 +113,6 @@ function _markTabDataFetched(app, tabName) {
   app._tabDataFetchedAt[tabName] = Date.now();
 }
 
-/** Background refresh for tabs that may need storage/IDB reload. Clips/categories/search use storage listener. */
 export function refreshTabDataInBackground(app, tabName) {
   const asyncTabs = new Set(['notes', 'aiHistory', 'activity']);
   if (!asyncTabs.has(tabName)) return;
@@ -64,8 +121,10 @@ export function refreshTabDataInBackground(app, tabName) {
   _markTabDataFetched(app, tabName);
   const repaint = () => {
     if (app.currentTab !== tabName) return;
+    markTabDirty(app, tabName);
     renderTabFromCache(app, tabName);
-    paintTabIcons(tabName);
+    clearTabRenderDirty(app, tabName);
+    paintTabIconsDeferred(tabName);
   };
 
   if (tabName === 'notes') {
@@ -77,8 +136,62 @@ export function refreshTabDataInBackground(app, tabName) {
   }
 }
 
-export function paintTabIcons(tabName) {
-  window.renderLucideIconsForActiveTab?.(tabName, 'tab-nav-click', { immediate: true });
+export function paintTabIconsDeferred(tabName) {
+  const run = () => {
+    window.renderLucideIconsForActiveTab?.(tabName, 'tab-nav-click', { immediate: false });
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(run, { timeout: 150 });
+  } else {
+    requestAnimationFrame(run);
+  }
+}
+
+export function scheduleActiveTabStateSave(app) {
+  if (app._tabStateSaveTimer) {
+    clearTimeout(app._tabStateSaveTimer);
+  }
+  app._tabStateSaveTimer = setTimeout(() => {
+    app._tabStateSaveTimer = null;
+    app._saveActiveTabState?.().catch(() => {});
+  }, TAB_STATE_SAVE_MS);
+}
+
+/** Main entry: instant tab chrome, deferred render + perf probes. */
+export function switchMainTab(app, nextTab, tabBtn) {
+  const fromTab = app.currentTab;
+  if (!nextTab || nextTab === fromTab) return;
+
+  const perf = pcTabPerfStart(nextTab, fromTab);
+  app._tabPerfCtx = perf;
+
+  window.__pcTabIconRendering = true;
+  activateMainTabUI(app, nextTab, tabBtn);
+  pcTabPerfPhase(perf, 'activateUi');
+
+  scheduleActiveTabStateSave(app);
+  pcTabPerfPhase(perf, 'scheduleStateSave');
+
+  const needsRender = isTabDirty(app, nextTab);
+
+  if (app._tabSwitchRaf) {
+    cancelAnimationFrame(app._tabSwitchRaf);
+  }
+
+  app._tabSwitchRaf = requestAnimationFrame(() => {
+    app._tabSwitchRaf = 0;
+    if (needsRender) {
+      renderTabFromCache(app, nextTab);
+      clearTabRenderDirty(app, nextTab);
+      pcTabPerfPhase(perf, 'render');
+    }
+    paintTabIconsDeferred(nextTab);
+    pcTabPerfPhase(perf, 'scheduleIcons');
+    window.__pcTabIconRendering = false;
+    refreshTabDataInBackground(app, nextTab);
+    pcTabPerfEnd(perf, { skippedRender: !needsRender });
+    app._tabPerfCtx = null;
+  });
 }
 
 export const TAB_ASYNC_LOADERS = Object.freeze({

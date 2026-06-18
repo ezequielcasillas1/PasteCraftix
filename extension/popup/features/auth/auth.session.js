@@ -6,8 +6,11 @@ import {
 } from './auth.constants.js';
 import {
   activateMainTabUI,
+  clearTabRenderDirty,
   loadTabDataForRestore,
-  paintTabIcons,
+  markAllTabsDirty,
+  markTabsDirtyForStorageChange,
+  paintTabIconsDeferred,
   renderTabFromCache,
 } from '../app/tab-nav.helpers.js';
 
@@ -26,12 +29,13 @@ async function _restoreActiveTab(app, stored) {
 
   activateMainTabUI(app, savedTab, tabBtn);
   renderTabFromCache(app, savedTab);
+  clearTabRenderDirty(app, savedTab);
   window.__pcTabIconRendering = true;
   try {
     await loadTabDataForRestore(app, savedTab);
   } finally {
     if (!window.__pcPopupLucideBooting) {
-      paintTabIcons(savedTab);
+      paintTabIconsDeferred(savedTab);
     }
   }
   return savedTab;
@@ -388,6 +392,7 @@ function _refreshProfileIdentity(app, classification) {
 
 async function _handleStorageChange(app, changes, classification) {
   if (app._handlingLocalChange) return;
+  markTabsDirtyForStorageChange(app, classification);
   app._handlingLocalChange = true;
   try {
     await app._mirrorChangedLocalStateToIndexedDb(changes);
