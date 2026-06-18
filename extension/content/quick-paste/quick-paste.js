@@ -1018,6 +1018,19 @@ export class QuickPasteInterface {
       .pastecraft-interface.dark .pastecraft-footer {
         background: rgba(31, 41, 55, 0.98) !important;
         border-top-color: #374151 !important;
+        color: #cbd5e1 !important;
+      }
+
+      .pastecraft-interface.dark .pastecraft-count {
+        color: #e2e8f0;
+      }
+
+      .pastecraft-interface.dark .pastecraft-empty {
+        color: #cbd5e1;
+      }
+
+      .pastecraft-interface.dark .pastecraft-empty small {
+        color: #94a3b8;
       }
       
       /* NUCLEAR STICKY FOOTER FIX */
@@ -1169,10 +1182,9 @@ export class QuickPasteInterface {
       }
     });
     
-    // Hide when clicking outside
+    // Hide when clicking outside (shadow-aware — closed shadow retargets to host)
     document.addEventListener('click', (e) => {
-      // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (this.isVisible && !this._isPointerInsideInterface(e) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -2205,12 +2217,23 @@ export class QuickPasteInterface {
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    // Preserve layout class; theme class drives dark-mode selectors
+    this.container.className = `pastecraft-quick-paste pastecraft-interface ${this.settings.theme}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
     this.container.style.zIndex = '1000000';
+  }
+
+  _isPointerInsideInterface(e) {
+    const host = this.shadowMount?.host;
+    if (!host || !this.container) return false;
+
+    const target = e?.target;
+    if (target === host || target === this.container) return true;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    return path.includes(this.container) || path.includes(host) || path.includes(this.shadowMount?.root);
   }
   
   showClearAllConfirmation() {

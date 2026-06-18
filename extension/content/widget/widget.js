@@ -438,6 +438,24 @@ export class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
+      /* Brand tokens — keep in sync with extension/styles/pc-theme.css */
+      .pastecraft-widget {
+        --pc-navy-700: #1e40af;
+        --pc-navy-800: #1e3a8a;
+        --pc-navy-600: #1d4ed8;
+        --pc-navy-700-30: rgba(30, 64, 175, 0.3);
+        --pc-navy-800-30: rgba(30, 58, 138, 0.3);
+        --pc-navy-600-30: rgba(29, 78, 216, 0.3);
+        --pc-blue-400: #60a5fa;
+        --pc-blue-400-20: rgba(96, 165, 250, 0.2);
+        --pc-blue-400-30: rgba(96, 165, 250, 0.3);
+        --pc-blue-400-50: rgba(96, 165, 250, 0.5);
+        --pc-blue-400-70: rgba(96, 165, 250, 0.7);
+        --pc-blue-400-80: rgba(96, 165, 250, 0.8);
+        --pc-text-on-navy: #e0f2fe;
+        --pc-surface-muted: #64748b;
+      }
+
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
         position: fixed;
@@ -446,7 +464,7 @@ export class PasteCraftFloatingWidget {
         transform: translateY(-50%);
         width: 60px;
         /* 70% transparent background (alpha 0.3) */
-        background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 50%, rgba(29, 78, 216, 0.3) 100%);
+        background: linear-gradient(135deg, var(--pc-navy-700-30) 0%, var(--pc-navy-800-30) 50%, var(--pc-navy-600-30) 100%);
         border-radius: 12px 0 0 12px;
         box-shadow: 
           -4px 0 16px rgba(0, 0, 0, 0.15),
@@ -482,15 +500,15 @@ export class PasteCraftFloatingWidget {
       }
       
       .widget-component:hover {
-        background: rgba(96, 165, 250, 0.2);
-        box-shadow: 0 0 16px rgba(96, 165, 250, 0.5);
+        background: var(--pc-blue-400-20);
+        box-shadow: 0 0 16px var(--pc-blue-400-50);
       }
       
       /* Active state - when panel is open */
       .widget-component.active {
-        background: rgba(96, 165, 250, 0.3);
-        box-shadow: 0 0 20px rgba(96, 165, 250, 0.7);
-        border: 2px solid rgba(96, 165, 250, 0.8);
+        background: var(--pc-blue-400-30);
+        box-shadow: 0 0 20px var(--pc-blue-400-70);
+        border: 2px solid var(--pc-blue-400-80);
       }
       
       /* Component 1: Logo Button */
@@ -566,7 +584,7 @@ export class PasteCraftFloatingWidget {
       
       .auto-copy-counter {
         font-size: 10px;
-        color: #e0f2fe;
+        color: var(--pc-text-on-navy);
         text-align: center;
         white-space: nowrap;
         transition: transform 0.2s ease;
@@ -790,14 +808,14 @@ export class PasteCraftFloatingWidget {
       console.log('✅ Settings button listener attached');
     }
     
-    // Component 3: Auto Copy Toggle
-    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
-    if (autoToggle) {
-      autoToggle.addEventListener('click', () => {
-        console.log('🔄 Toggle clicked!');
+    // Component 3: Auto Copy Toggle (whole section — counter area included)
+    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    if (autoCopySection) {
+      autoCopySection.addEventListener('click', () => {
+        console.log('🔄 Auto-copy section clicked!');
         this.toggleAutoCopy();
       });
-      console.log('✅ Auto toggle listener attached');
+      console.log('✅ Auto-copy section listener attached');
     }
     
     // Component 4: Quick View Button - Toggle quick view
@@ -1038,7 +1056,7 @@ export class PasteCraftFloatingWidget {
         if (!currentContainer) return;
         const target = e.target;
         if (currentContainer.contains(target)) return;
-        if (this.widget && this.widget.contains(target)) return;
+        if (this._isPointerInsideWidget(e)) return;
         this.closePopupOverlay();
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -1270,9 +1288,13 @@ export class PasteCraftFloatingWidget {
 
     const mount = this._ensureSettingsShadowMount();
 
-    // Check if panel already exists
-    if (mount.root.querySelector('#pastecraft-settings-panel')) {
-      return;
+    // Recover from orphaned panel DOM (e.g. interrupted close animation)
+    const existingSettingsPanel = mount.root.querySelector('#pastecraft-settings-panel');
+    if (existingSettingsPanel) {
+      if (this.openStates.settings) return;
+      existingSettingsPanel.remove();
+      mount.root.querySelector('#pastecraft-settings-backdrop')?.remove();
+      this._settingsPanelEl = null;
     }
     
     // Set open state
@@ -1950,7 +1972,7 @@ export class PasteCraftFloatingWidget {
       if (!this.settings || this.settings.clickAndDragEnabled !== true) return;
       // Ignore drags that originate from our own UI.
       const t = e && e.target ? e.target : null;
-      if (t && (t.closest?.('#pastecraft-click-drag-dropbox') || t.closest?.('#pastecraft-floating-widget'))) return;
+      if (t && (t.closest?.('#pastecraft-click-drag-dropbox') || this._isPointerInsideWidget({ target: t }))) return;
 
       this._pcDragActive = true;
       this.showClickAndDragDropBox();
@@ -2363,10 +2385,18 @@ export class PasteCraftFloatingWidget {
       console.log('👁️ Opening Quick View (slide-in panel from right)');
       console.log('👁️ Current open states:', this.openStates);
       
-      // Check if panel already exists
-      if (document.getElementById('pastecraft-quickview-panel')) {
-        console.log('⚠️ Quick View panel already exists');
-        return;
+      // Recover from orphaned panel DOM (e.g. interrupted close animation)
+      const existingQuickViewPanel = document.getElementById('pastecraft-quickview-panel');
+      if (existingQuickViewPanel) {
+        if (this.openStates.quickView) {
+          console.log('⚠️ Quick View panel already open');
+          return;
+        }
+        existingQuickViewPanel.remove();
+        document.getElementById('pastecraft-quickview-backdrop')?.remove();
+        this.openStates.quickView = false;
+        const staleQuickViewBtn = this.widget?.querySelector('.quick-view-button');
+        staleQuickViewBtn?.classList.remove('active');
       }
       
       console.log('👁️ Creating Quick View panel elements...');
@@ -2432,7 +2462,7 @@ export class PasteCraftFloatingWidget {
           if (!currentPanel) return;
           const target = e.target;
           if (currentPanel.contains(target)) return;
-          if (this.widget && this.widget.contains(target)) return;
+          if (this._isPointerInsideWidget(e)) return;
           this.closeQuickView();
         };
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);

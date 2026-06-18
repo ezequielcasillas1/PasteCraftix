@@ -1,0 +1,40 @@
+/**
+ * PasteCraft brand theme tokens (--pc-*).
+ * Widget shadow styles mirror these in widget.js; popup/styles.css may adopt over time.
+ */
+:root,
+[data-theme="light"] {
+  --pc-navy-900: #0f172a;
+  --pc-navy-800: #1e3a8a;
+  --pc-navy-700: #1e40af;
+  --pc-navy-600: #1d4ed8;
+  --pc-orange-500: #f7931e;
+  --pc-orange-600: #ea580c;
+  --pc-blue-400: #60a5fa;
+  --pc-blue-500: #3b82f6;
+
+  --pc-navy-700-30: rgba(30, 64, 175, 0.3);
+  --pc-navy-800-30: rgba(30, 58, 138, 0.3);
+  --pc-navy-600-30: rgba(29, 78, 216, 0.3);
+  --pc-blue-400-20: rgba(96, 165, 250, 0.2);
+  --pc-blue-400-30: rgba(96, 165, 250, 0.3);
+  --pc-blue-400-50: rgba(96, 165, 250, 0.5);
+  --pc-blue-400-70: rgba(96, 165, 250, 0.7);
+  --pc-blue-400-80: rgba(96, 165, 250, 0.8);
+
+  --pc-text: #1f2937;
+  --pc-text-muted: #64748b;
+  --pc-text-on-navy: #e0f2fe;
+  --pc-surface: #ffffff;
+  --pc-surface-muted: #f8fafc;
+  --pc-border: #e2e8f0;
+}
+
+[data-theme="dark"] {
+  --pc-text: #f9fafb;
+  --pc-text-muted: #cbd5e1;
+  --pc-text-on-navy: #e0f2fe;
+  --pc-surface: #1f2937;
+  --pc-surface-muted: #374151;
+  --pc-border: #4b5563;
+}
