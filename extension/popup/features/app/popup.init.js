@@ -122,12 +122,9 @@ export async function runPopupInit(app) {
   const coreBatch = Promise.all([
     app.loadData(),
     app.loadSettings(),
-    app.loadAiWorkflow(),
   ]);
   const profileBatch = Promise.all([
     app.loadUserProfile(),
-    app.loadAnalysisHistory(),
-    app.loadAiHistory(),
   ]);
   await Promise.all([coreBatch, profileBatch]);
 
@@ -164,6 +161,12 @@ export async function runPopupInit(app) {
   }
 
   await finishPopupReveal(app, 'popup-ready');
+
+  Promise.all([
+    app.loadAiWorkflow(),
+    app.loadAnalysisHistory(),
+    app.loadAiHistory(),
+  ]).catch(() => {});
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))

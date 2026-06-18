@@ -206,10 +206,7 @@ export class QuickPasteInterface {
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
     const styleField = 'pastecraft-quick-paste-styles';
-    const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
-    if (existingStyles) {
-      existingStyles.remove();
-    }
+    if (root.querySelector(`[data-field="${styleField}"]`)) return;
     
     const styles = document.createElement('style');
     styles.setAttribute('data-field', styleField);
@@ -1051,6 +1048,8 @@ export class QuickPasteInterface {
   
   setupEventListeners() {
     if (!this.container) return;
+    if (this._listenersBound) return;
+    this._listenersBound = true;
     
     // Close button
     this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
@@ -1090,39 +1089,52 @@ export class QuickPasteInterface {
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
       this.dragOffset.y = e.clientY - rect.top;
+      this._dragMaxX = window.innerWidth - this.container.offsetWidth;
+      this._dragMaxY = window.innerHeight - this.container.offsetHeight;
+      this._dragRafId = 0;
+      this._dragPendingX = e.clientX;
+      this._dragPendingY = e.clientY;
       
       // Prevent text selection while dragging
       e.preventDefault();
       document.body.style.userSelect = 'none';
     });
     
-    document.addEventListener('mousemove', (e) => {
+    const applyDragPosition = () => {
+      this._dragRafId = 0;
       if (!this.isDragging) return;
-      
-      const newX = e.clientX - this.dragOffset.x;
-      const newY = e.clientY - this.dragOffset.y;
-      
-      // Keep interface within screen bounds
-      const maxX = window.innerWidth - this.container.offsetWidth;
-      const maxY = window.innerHeight - this.container.offsetHeight;
-      
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
-      
+
+      const newX = this._dragPendingX - this.dragOffset.x;
+      const newY = this._dragPendingY - this.dragOffset.y;
+
+      const clampedX = Math.max(0, Math.min(newX, this._dragMaxX));
+      const clampedY = Math.max(0, Math.min(newY, this._dragMaxY));
+
       this.container.style.left = clampedX + 'px';
       this.container.style.top = clampedY + 'px';
       this.container.style.right = 'auto';
       this.container.style.bottom = 'auto';
       this.container.style.transform = 'translateY(0)';
-      
-      // Save position
+
       this.position.x = clampedX;
       this.position.y = clampedY;
+    };
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return;
+      this._dragPendingX = e.clientX;
+      this._dragPendingY = e.clientY;
+      if (this._dragRafId) return;
+      this._dragRafId = requestAnimationFrame(applyDragPosition);
     });
     
     document.addEventListener('mouseup', () => {
       if (this.isDragging) {
         this.isDragging = false;
+        if (this._dragRafId) {
+          cancelAnimationFrame(this._dragRafId);
+          this._dragRafId = 0;
+        }
         document.body.style.userSelect = '';
         
         // Save position to storage
@@ -1274,8 +1286,7 @@ export class QuickPasteInterface {
       // These affect the quick paste interface behavior
       if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
         settingsChanged = true;
-        // Reload settings to get latest values
-        this.loadSettings().catch(() => {});
+        this._scheduleSettingsReload();
       }
 
       if (changes.quickPastePosition) {
@@ -1316,6 +1327,16 @@ export class QuickPasteInterface {
     };
 
     chrome.storage.onChanged.addListener(this._storageSyncListener);
+  }
+
+  _scheduleSettingsReload() {
+    if (this._settingsReloadTimer) {
+      clearTimeout(this._settingsReloadTimer);
+    }
+    this._settingsReloadTimer = setTimeout(() => {
+      this._settingsReloadTimer = null;
+      this.loadSettings().catch(() => {});
+    }, 150);
   }
   
   showInterface(x, y) {
