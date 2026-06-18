@@ -1,0 +1,8 @@
+{
+  "name": "pastecraft-supabase-functions",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "stripe": "14.21.0"
+  }
+}

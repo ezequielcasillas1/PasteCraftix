@@ -82,6 +82,10 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Install edge function npm types
+        working-directory: supabase/functions
+        run: deno install
+
       - name: Type-check edge functions
         run: |
           set -euo pipefail
