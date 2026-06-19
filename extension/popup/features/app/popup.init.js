@@ -123,13 +123,9 @@ export async function runPopupInit(app) {
     app.loadData(),
     app.loadSettings(),
     app.loadAiWorkflow(),
-  ]);
-  const profileBatch = Promise.all([
     app.loadUserProfile(),
-    app.loadAnalysisHistory(),
-    app.loadAiHistory(),
   ]);
-  await Promise.all([coreBatch, profileBatch]);
+  await coreBatch;
 
   if (!app.userProfile?.userName && !app.userProfile?.aiGeneratedName && !app.userProfile?.profileImageUrl) {
     try {
@@ -164,6 +160,11 @@ export async function runPopupInit(app) {
   }
 
   await finishPopupReveal(app, 'popup-ready');
+
+  Promise.all([
+    app.loadAnalysisHistory(),
+    app.loadAiHistory(),
+  ]).catch(() => {});
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))
