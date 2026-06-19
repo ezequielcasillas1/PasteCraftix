@@ -419,24 +419,17 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
-    // Debug: Test if ANY clicks work on the widget
-    this.widget.addEventListener('click', (e) => {
-      console.log('🖱️ Widget clicked! Target:', e.target.className);
-    });
-    
     // Setup event listeners
     this.setupEventListeners();
   }
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
-    if (existingStyles) {
-      existingStyles.remove();
-    }
-    
+    const styleField = 'pastecraft-floating-widget-styles';
+    if (root.querySelector(`[data-field="${styleField}"]`)) return;
+
     const styles = document.createElement('style');
-    styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
+    styles.setAttribute('data-field', styleField);
     styles.textContent = `
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
@@ -639,11 +632,11 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
       }
 
       @keyframes pastecraft-eye-blink {
@@ -836,32 +829,46 @@ export class PasteCraftFloatingWidget {
     let dragging = false;
     let pointerStartY = 0;
     let startTopPct = 0;
+    let dragWidgetH = 0;
+    let dragViewportH = 1;
+    let dragMinPct = 0;
+    let dragMaxPct = 100;
+    let dragRafId = 0;
+    let pendingClientY = null;
     const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
     let moved = false;
 
-    const onMove = (e) => {
-      if (!dragging) return;
-      const dy = e.clientY - pointerStartY;
+    const applyDragPosition = () => {
+      dragRafId = 0;
+      if (!dragging || pendingClientY === null) return;
+
+      const dy = pendingClientY - pointerStartY;
       if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       this.widget.classList.add('pc-dragging');
 
-      // Convert dy pixels to viewport-height percentage
-      const vh = window.innerHeight || 1;
-      let nextPct = startTopPct + (dy / vh) * 100;
-      // Clamp so the widget stays fully visible
-      const widgetH = this.widget.offsetHeight || 0;
-      const minPct = (widgetH / 2 / vh) * 100;
-      const maxPct = 100 - minPct;
-      nextPct = Math.max(minPct, Math.min(nextPct, maxPct));
+      let nextPct = startTopPct + (dy / dragViewportH) * 100;
+      nextPct = Math.max(dragMinPct, Math.min(nextPct, dragMaxPct));
 
       this.widget.style.top = nextPct + '%';
       this.position.top = nextPct;
     };
 
+    const onMove = (e) => {
+      if (!dragging) return;
+      pendingClientY = e.clientY;
+      if (dragRafId) return;
+      dragRafId = requestAnimationFrame(applyDragPosition);
+    };
+
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
+      pendingClientY = null;
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+      }
       this.widget.classList.remove('pc-dragging');
       document.body.style.userSelect = '';
       if (moved) {
@@ -877,7 +884,12 @@ export class PasteCraftFloatingWidget {
       dragging = true;
       moved = false;
       pointerStartY = e.clientY;
+      pendingClientY = e.clientY;
       startTopPct = this.position.top ?? 50;
+      dragWidgetH = this.widget.offsetHeight || 0;
+      dragViewportH = window.innerHeight || 1;
+      dragMinPct = (dragWidgetH / 2 / dragViewportH) * 100;
+      dragMaxPct = 100 - dragMinPct;
 
       try { this.widget.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault();
@@ -3368,7 +3380,13 @@ export class PasteCraftFloatingWidget {
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._savePositionTimer) {
+      clearTimeout(this._savePositionTimer);
+    }
+    this._savePositionTimer = setTimeout(() => {
+      this._savePositionTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 300);
   }
 }
 
