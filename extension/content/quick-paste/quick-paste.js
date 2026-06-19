@@ -68,12 +68,7 @@ export class QuickPasteInterface {
   
   async loadClips() {
     try {
-      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
       const result = await chrome.storage.local.get(['clips']);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!result.clips);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', result.clips?.length || 0);
-      
       const raw = Array.isArray(result.clips) ? result.clips : [];
       let changed = false;
 
@@ -99,24 +94,12 @@ export class QuickPasteInterface {
       });
 
       this.clips = normalized;
-      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
 
       // Persist repaired ids so other UIs (popup/sync) stay consistent.
       if (changed) {
         try {
           await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
         } catch (_) {}
-      }
-      
-      if (this.clips.length > 0) {
-        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
-          text: (clip.text || clip).substring(0, 30) + '...',
-          category: clip.category || 'Uncategorized',
-          timestamp: clip.timestamp,
-          fullClip: clip
-        })));
-      } else {
-        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
       }
     } catch (error) {
       console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
@@ -163,6 +146,8 @@ export class QuickPasteInterface {
     this.container.style.display = 'none';
     root.appendChild(this.container);
     this.applySettings();
+    this._clipsContainerEl = this.container.querySelector('.pastecraft-clips-container');
+    this._countEl = this.container.querySelector('.pastecraft-count');
   }
   
   renderClips() {
@@ -206,11 +191,8 @@ export class QuickPasteInterface {
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
     const styleField = 'pastecraft-quick-paste-styles';
-    const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
-    if (existingStyles) {
-      existingStyles.remove();
-    }
-    
+    if (root.querySelector(`[data-field="${styleField}"]`)) return;
+
     const styles = document.createElement('style');
     styles.setAttribute('data-field', styleField);
     styles.textContent = `
@@ -1050,7 +1032,8 @@ export class QuickPasteInterface {
   }
   
   setupEventListeners() {
-    if (!this.container) return;
+    if (!this.container || this._eventListenersBound) return;
+    this._eventListenersBound = true;
     
     // Close button
     this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
@@ -1081,53 +1064,70 @@ export class QuickPasteInterface {
       console.error('❌ Settings button not found!');
     }
     
-    // Dragging functionality
+    // Dragging functionality — attach move/up listeners only while dragging
     const header = this.container.querySelector('.pastecraft-header');
     header.style.cursor = 'move';
+
+    let dragRafId = 0;
+    let pendingClientX = null;
+    let pendingClientY = null;
+    let dragMaxX = 0;
+    let dragMaxY = 0;
+
+    const applyDragPosition = () => {
+      dragRafId = 0;
+      if (!this.isDragging || pendingClientX === null || pendingClientY === null) return;
+
+      const clampedX = Math.max(0, Math.min(pendingClientX - this.dragOffset.x, dragMaxX));
+      const clampedY = Math.max(0, Math.min(pendingClientY - this.dragOffset.y, dragMaxY));
+
+      this.container.style.left = clampedX + 'px';
+      this.container.style.top = clampedY + 'px';
+      this.container.style.right = 'auto';
+      this.container.style.bottom = 'auto';
+      this.container.style.transform = 'translateY(0)';
+
+      this.position.x = clampedX;
+      this.position.y = clampedY;
+    };
+
+    const onMouseMove = (e) => {
+      if (!this.isDragging) return;
+      pendingClientX = e.clientX;
+      pendingClientY = e.clientY;
+      if (dragRafId) return;
+      dragRafId = requestAnimationFrame(applyDragPosition);
+    };
+
+    const endDrag = () => {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      pendingClientX = null;
+      pendingClientY = null;
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+      }
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', endDrag);
+      document.body.style.userSelect = '';
+      this.savePosition();
+    };
     
     header.addEventListener('mousedown', (e) => {
       this.isDragging = true;
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
       this.dragOffset.y = e.clientY - rect.top;
+      dragMaxX = window.innerWidth - this.container.offsetWidth;
+      dragMaxY = window.innerHeight - this.container.offsetHeight;
+      pendingClientX = e.clientX;
+      pendingClientY = e.clientY;
       
-      // Prevent text selection while dragging
       e.preventDefault();
       document.body.style.userSelect = 'none';
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (!this.isDragging) return;
-      
-      const newX = e.clientX - this.dragOffset.x;
-      const newY = e.clientY - this.dragOffset.y;
-      
-      // Keep interface within screen bounds
-      const maxX = window.innerWidth - this.container.offsetWidth;
-      const maxY = window.innerHeight - this.container.offsetHeight;
-      
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
-      
-      this.container.style.left = clampedX + 'px';
-      this.container.style.top = clampedY + 'px';
-      this.container.style.right = 'auto';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-      
-      // Save position
-      this.position.x = clampedX;
-      this.position.y = clampedY;
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-        document.body.style.userSelect = '';
-        
-        // Save position to storage
-        this.savePosition();
-      }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', endDrag);
     });
 
     // Clip click handlers
@@ -1274,8 +1274,13 @@ export class QuickPasteInterface {
       // These affect the quick paste interface behavior
       if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
         settingsChanged = true;
-        // Reload settings to get latest values
-        this.loadSettings().catch(() => {});
+        if (this._settingsReloadTimer) {
+          clearTimeout(this._settingsReloadTimer);
+        }
+        this._settingsReloadTimer = setTimeout(() => {
+          this._settingsReloadTimer = null;
+          this.loadSettings().catch(() => {});
+        }, 150);
       }
 
       if (changes.quickPastePosition) {
@@ -1368,8 +1373,9 @@ export class QuickPasteInterface {
   updateInterface() {
     if (!this.container) return;
     
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
-    const countElement = this.container.querySelector('.pastecraft-count');
+    const clipsContainer = this._clipsContainerEl || this.container.querySelector('.pastecraft-clips-container');
+    const countElement = this._countEl || this.container.querySelector('.pastecraft-count');
+    if (!clipsContainer || !countElement) return;
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
@@ -1612,8 +1618,13 @@ export class QuickPasteInterface {
   
   async savePosition() {
     try {
-      await chrome.storage.local.set({ quickPastePosition: this.position });
-      console.log('📍 Position saved:', this.position);
+      if (this._savePositionTimer) {
+        clearTimeout(this._savePositionTimer);
+      }
+      this._savePositionTimer = setTimeout(async () => {
+        this._savePositionTimer = null;
+        await chrome.storage.local.set({ quickPastePosition: this.position });
+      }, 300);
     } catch (error) {
       console.error('Failed to save position:', error);
     }
