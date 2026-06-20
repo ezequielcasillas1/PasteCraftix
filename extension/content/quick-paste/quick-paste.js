@@ -1049,6 +1049,15 @@ export class QuickPasteInterface {
     root.appendChild(styles);
   }
   
+  _isClickInsideInterface(e) {
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    if (this.container && path.includes(this.container)) return true;
+    if (this.shadowMount?.host && path.includes(this.shadowMount.host)) return true;
+    if (this.settingsModal && path.includes(this.settingsModal)) return true;
+    if (this.helpModal && path.includes(this.helpModal)) return true;
+    return false;
+  }
+
   setupEventListeners() {
     if (!this.container) return;
     
@@ -1172,7 +1181,7 @@ export class QuickPasteInterface {
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
       // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (this.isVisible && !this._isClickInsideInterface(e) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -2205,8 +2214,9 @@ export class QuickPasteInterface {
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    // Apply theme without dropping the root quick-paste class (required for layout/CSS hooks)
+    this.container.classList.remove('pastecraft-interface', 'light', 'dark');
+    this.container.classList.add('pastecraft-quick-paste', 'pastecraft-interface', this.settings.theme);
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';

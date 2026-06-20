@@ -1,0 +1,27 @@
+/* PasteCraft brand theme tokens — navy / orange palette */
+:root,
+[data-theme="light"] {
+  --pc-brand-navy: #1e3a8a;
+  --pc-brand-navy-mid: #1e40af;
+  --pc-brand-blue: #2563eb;
+  --pc-brand-blue-light: #60a5fa;
+  --pc-brand-orange: #f97316;
+  --pc-brand-orange-deep: #ea580c;
+  --pc-surface: #ffffff;
+  --pc-surface-muted: #f8fafc;
+  --pc-border: #e5e7eb;
+  --pc-text: #1f2937;
+  --pc-text-muted: #475569;
+  --pc-text-on-brand: #ffffff;
+  --pc-text-muted-on-dark: #cbd5e1;
+}
+
+[data-theme="dark"] {
+  --pc-surface: #1f2937;
+  --pc-surface-muted: #374151;
+  --pc-border: #4b5563;
+  --pc-text: #f9fafb;
+  --pc-text-muted: #cbd5e1;
+  --pc-text-on-brand: #ffffff;
+  --pc-text-muted-on-dark: #94a3b8;
+}
