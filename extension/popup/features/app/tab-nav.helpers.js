@@ -185,6 +185,8 @@ export function switchMainTab(app, nextTab, tabBtn) {
       if (needsRender) {
         renderTabFromCache(app, nextTab);
         clearTabRenderDirty(app, nextTab);
+      } else if (nextTab === 'ai') {
+        app.updateAiCreditsPills?.('ai-tab');
       }
       paintTabIconsDeferred(nextTab);
       refreshTabDataInBackground(app, nextTab);

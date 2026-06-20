@@ -1,3 +1,8 @@
+### Jun 20, 2026 - Popup UX perf review fixes (stale tabs + AI credits)
+**Status:** PARTIAL (awaiting manual DevTools verification)
+**Files:** auth.session.js, tab-nav.helpers.js, tests/tab-nav.helpers.test.mjs
+**Result:** Wired markTabsDirtyForStorageChange on storage changes so inactive tabs re-render on switch. AI tab always refreshes credits when skipping full render. Unit tests pass.
+
 ### Jun 20, 2026 - Popup UX perf review fix (aiBtn → switchMainTab)
 **Status:** PARTIAL (awaiting manual DevTools verification)
 **Files:** ai-lab-page.events.js, tests/ux-perf-capture.test.mjs
