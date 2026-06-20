@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1216,9 +1217,14 @@ export class QuickPasteInterface {
       }
     };
     document.addEventListener('keydown', this._onDocumentKeydown);
+
+    this._copyMultipleBtn = this.container.querySelector('.pastecraft-copy-multiple');
   }
   
   setupMessageListener() {
+    if (this._messageListenerBound) return;
+    this._messageListenerBound = true;
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1388,7 +1394,10 @@ export class QuickPasteInterface {
     this.isVisible = true;
 
     // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    if (!this._clipsContainer || !this._clipsContainer.isConnected) {
+      this._clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    }
+    const clipsContainer = this._clipsContainer;
     if (clipsContainer) {
       clipsContainer.style.flex = '1';
       clipsContainer.style.overflowY = 'auto';
@@ -1647,12 +1656,18 @@ export class QuickPasteInterface {
   }
   
   async savePosition() {
-    try {
-      await chrome.storage.local.set({ quickPastePosition: this.position });
-      console.log('📍 Position saved:', this.position);
-    } catch (error) {
-      console.error('Failed to save position:', error);
+    if (this._positionSaveTimer) {
+      clearTimeout(this._positionSaveTimer);
     }
+    this._positionSaveTimer = setTimeout(async () => {
+      this._positionSaveTimer = null;
+      try {
+        await chrome.storage.local.set({ quickPastePosition: this.position });
+        console.log('📍 Position saved:', this.position);
+      } catch (error) {
+        console.error('Failed to save position:', error);
+      }
+    }, 250);
   }
   
   async saveSettings() {
@@ -2380,8 +2395,11 @@ export class QuickPasteInterface {
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    const button = this._copyMultipleBtn?.isConnected
+      ? this._copyMultipleBtn
+      : this.container?.querySelector('.pastecraft-copy-multiple');
     if (!button) return;
+    this._copyMultipleBtn = button;
     
     const selectedCount = this.selectedClips.size;
     console.log(`🔘 Updating Copy Multiple Button - Selected: ${selectedCount}`);
