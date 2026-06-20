@@ -162,6 +162,9 @@ export class QuickPasteInterface {
     // Initially hidden
     this.container.style.display = 'none';
     root.appendChild(this.container);
+    this._clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    this._countElement = this.container.querySelector('.pastecraft-count');
+    this._copyMultipleBtn = this.container.querySelector('#pastecraft-copy-multiple');
     this.applySettings();
   }
   
@@ -205,12 +208,9 @@ export class QuickPasteInterface {
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
+    if (this._stylesEl?.isConnected) return;
+
     const styleField = 'pastecraft-quick-paste-styles';
-    const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
-    if (existingStyles) {
-      existingStyles.remove();
-    }
-    
     const styles = document.createElement('style');
     styles.setAttribute('data-field', styleField);
     styles.textContent = `
@@ -1047,11 +1047,14 @@ export class QuickPasteInterface {
     `;
     
     root.appendChild(styles);
+    this._stylesEl = styles;
   }
   
   setupEventListeners() {
     if (!this.container) return;
-    
+    if (this._eventListenersBound) return;
+    this._eventListenersBound = true;
+
     // Close button
     this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
       this.hideInterface();
@@ -1096,39 +1099,63 @@ export class QuickPasteInterface {
       document.body.style.userSelect = 'none';
     });
     
-    document.addEventListener('mousemove', (e) => {
+    this._onDragMove = (e) => {
       if (!this.isDragging) return;
-      
+
       const newX = e.clientX - this.dragOffset.x;
       const newY = e.clientY - this.dragOffset.y;
-      
-      // Keep interface within screen bounds
+
       const maxX = window.innerWidth - this.container.offsetWidth;
       const maxY = window.innerHeight - this.container.offsetHeight;
-      
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
-      
-      this.container.style.left = clampedX + 'px';
-      this.container.style.top = clampedY + 'px';
-      this.container.style.right = 'auto';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-      
-      // Save position
-      this.position.x = clampedX;
-      this.position.y = clampedY;
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-        document.body.style.userSelect = '';
-        
-        // Save position to storage
-        this.savePosition();
+
+      this._pendingDragPosition = {
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY)),
+      };
+
+      if (this._dragRafId) return;
+      this._dragRafId = requestAnimationFrame(() => {
+        this._dragRafId = 0;
+        if (!this.isDragging || !this._pendingDragPosition) return;
+
+        const { x, y } = this._pendingDragPosition;
+        this._pendingDragPosition = null;
+
+        this.container.style.left = x + 'px';
+        this.container.style.top = y + 'px';
+        this.container.style.right = 'auto';
+        this.container.style.bottom = 'auto';
+        this.container.style.transform = 'translateY(0)';
+
+        this.position.x = x;
+        this.position.y = y;
+      });
+    };
+
+    this._onDragEnd = () => {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      if (this._dragRafId) {
+        cancelAnimationFrame(this._dragRafId);
+        this._dragRafId = 0;
       }
-    });
+      if (this._pendingDragPosition) {
+        const { x, y } = this._pendingDragPosition;
+        this._pendingDragPosition = null;
+        this.container.style.left = x + 'px';
+        this.container.style.top = y + 'px';
+        this.container.style.right = 'auto';
+        this.container.style.bottom = 'auto';
+        this.container.style.transform = 'translateY(0)';
+        this.position.x = x;
+        this.position.y = y;
+      }
+      document.body.style.userSelect = '';
+      this.savePosition();
+    };
+
+    document.addEventListener('mousemove', this._onDragMove);
+    document.addEventListener('mouseup', this._onDragEnd);
 
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
@@ -1170,19 +1197,20 @@ export class QuickPasteInterface {
     });
     
     // Hide when clicking outside
-    document.addEventListener('click', (e) => {
-      // Only hide on outside click if persistOpen is disabled
+    this._onOutsideClick = (e) => {
       if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
         this.hideInterface();
       }
-    });
-    
+    };
+    document.addEventListener('click', this._onOutsideClick);
+
     // Hide on escape key
-    document.addEventListener('keydown', (e) => {
+    this._onEscapeKey = (e) => {
       if (e.key === 'Escape' && this.isVisible) {
         this.hideInterface();
       }
-    });
+    };
+    document.addEventListener('keydown', this._onEscapeKey);
   }
   
   setupMessageListener() {
@@ -1274,8 +1302,11 @@ export class QuickPasteInterface {
       // These affect the quick paste interface behavior
       if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
         settingsChanged = true;
-        // Reload settings to get latest values
-        this.loadSettings().catch(() => {});
+        if (this._settingsReloadTimer) clearTimeout(this._settingsReloadTimer);
+        this._settingsReloadTimer = setTimeout(() => {
+          this._settingsReloadTimer = null;
+          this.loadSettings().catch(() => {});
+        }, 200);
       }
 
       if (changes.quickPastePosition) {
@@ -1347,7 +1378,7 @@ export class QuickPasteInterface {
     this.isVisible = true;
 
     // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    const clipsContainer = this._clipsContainer || this.container.querySelector('.pastecraft-clips-container');
     if (clipsContainer) {
       clipsContainer.style.flex = '1';
       clipsContainer.style.overflowY = 'auto';
@@ -1367,9 +1398,9 @@ export class QuickPasteInterface {
   
   updateInterface() {
     if (!this.container) return;
-    
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
-    const countElement = this.container.querySelector('.pastecraft-count');
+
+    const clipsContainer = this._clipsContainer || this.container.querySelector('.pastecraft-clips-container');
+    const countElement = this._countElement || this.container.querySelector('.pastecraft-count');
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
@@ -2344,7 +2375,7 @@ export class QuickPasteInterface {
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    const button = this._copyMultipleBtn || this.container?.querySelector('.pastecraft-copy-multiple');
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
