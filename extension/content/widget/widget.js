@@ -48,7 +48,7 @@ export class PasteCraftFloatingWidget {
     this.createWidget();
     console.log('✅ Widget created successfully');
     this.addOverlayStyles();
-    this.loadSavedPosition();
+    this._bootStoragePromise = this.loadBootStorage();
     this.setupWidgetDrag();
     this.setupStorageSync();
     this.setupClickAndDragCapture();
@@ -62,46 +62,70 @@ export class PasteCraftFloatingWidget {
   }
   
   async initAsync() {
-    await this.loadSettingsAndAutoCopyState();
+    await this._bootStoragePromise;
     // Apply widget icon after settings load
     try { await this.applyWidgetIcon(); } catch (_) {}
     this.setupAutoCopyListener();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
   }
 
-  async loadSettingsAndAutoCopyState() {
-    try {
-      const result = await chrome.storage.local.get([
+  _applyBootStorage(result = {}) {
+    if (result.widgetPosition && this.widget && typeof result.widgetPosition.top === 'number') {
+      this.position = result.widgetPosition;
+      this.widget.style.top = this.position.top + '%';
+    }
+
+    if (result.widgetSettings) {
+      this.settings = { ...this.settings, ...this.sanitizeWidgetSettings(result.widgetSettings) };
+    }
+
+    const today = new Date().toDateString();
+    if (result.autoCopyDate !== today) {
+      this.autoCopyCount = 0;
+    } else {
+      this.autoCopyCount = result.autoCopyCount || 0;
+    }
+    this.autoCopyEnabled = !!result.autoCopyEnabled;
+    this.updateAutoCopyUI();
+  }
+
+  loadBootStorage() {
+    const revealWidget = () => {
+      if (this.widget) {
+        this.widget.style.visibility = 'visible';
+      }
+    };
+
+    return new Promise((resolve) => {
+      chrome.storage.local.get([
         'widgetSettings',
         'autoCopyEnabled',
         'autoCopyCount',
         'autoCopyDate',
-      ]);
-      if (result.widgetSettings) {
-        this.settings = { ...this.settings, ...this.sanitizeWidgetSettings(result.widgetSettings) };
-      }
-      const today = new Date().toDateString();
-      if (result.autoCopyDate !== today) {
-        this.autoCopyCount = 0;
-      } else {
-        this.autoCopyCount = result.autoCopyCount || 0;
-      }
-      this.autoCopyEnabled = !!result.autoCopyEnabled;
-      this.updateAutoCopyUI();
-    } catch (error) {
-      console.error('Error loading widget settings/auto-copy state:', error);
-    } finally {
-      this._settingsLoaded = true;
-    }
+        'widgetPosition',
+      ], (result) => {
+        try {
+          this._applyBootStorage(result || {});
+        } catch (error) {
+          console.error('Error loading widget boot storage:', error);
+        } finally {
+          this._settingsLoaded = true;
+          revealWidget();
+          resolve();
+        }
+      });
+
+      // Fallback: never leave widget hidden if storage callback is delayed
+      setTimeout(revealWidget, 800);
+    });
   }
 
   _installLazyPopupWarmer() {
     if (this._lazyWarmerInstalled) return;
     this._lazyWarmerInstalled = true;
     try {
-      const logo = this.widget?.querySelector('.logo-button');
       const trigger = () => this.warmPopupIframe();
-      const target = logo || this.widget;
+      const target = this._dom?.logoButton || this.widget;
       if (!target) return;
       target.addEventListener('pointerenter', trigger, { once: true });
       target.addEventListener('focusin', trigger, { once: true });
@@ -307,7 +331,7 @@ export class PasteCraftFloatingWidget {
 
   async applyWidgetIcon() {
     if (!this.widget) return;
-    const logoImg = this.widget.querySelector('.widget-logo');
+    const logoImg = this._dom?.widgetLogo || this.widget.querySelector('.widget-logo');
     if (!logoImg) return;
 
     const defaultSrc = pastecraftGetURL('logo.svg');
@@ -341,7 +365,7 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const toggle = this._dom?.autoCopyToggle || this.widget.querySelector('.auto-copy-toggle');
     const label = toggle?.querySelector('.toggle-label');
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
@@ -443,6 +467,16 @@ export class PasteCraftFloatingWidget {
     this.widget.style.visibility = 'hidden';
     
     root.appendChild(this.widget);
+
+    this._dom = {
+      logoButton: this.widget.querySelector('.logo-button'),
+      settingsButton: this.widget.querySelector('.settings-button'),
+      autoCopySection: this.widget.querySelector('.auto-copy-section'),
+      quickViewButton: this.widget.querySelector('.quick-view-button'),
+      autoCopyToggle: this.widget.querySelector('.auto-copy-toggle'),
+      autoCopyCounter: this.widget.querySelector('.auto-copy-counter'),
+      widgetLogo: this.widget.querySelector('.widget-logo'),
+    };
 
     // Setup event listeners
     this.setupEventListeners();
@@ -658,11 +692,21 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .quick-view-button:hover .eye-drawing,
+        .quick-view-button:focus-visible .eye-drawing,
+        .quick-view-button:hover .eye-pupil,
+        .quick-view-button:focus-visible .eye-pupil,
+        .pastecraft-widget {
+          animation: none !important;
+        }
       }
 
       @keyframes pastecraft-eye-blink {
@@ -764,12 +808,13 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._widgetListenersBound) return;
+    this._widgetListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
-    console.log('🔍 Widget element:', this.widget);
-    console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
     
     // Component 1: Logo Button - Toggle popup
-    const logoButton = this.widget.querySelector('.logo-button');
+    const logoButton = this._dom?.logoButton || this.widget.querySelector('.logo-button');
     if (logoButton) {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
@@ -796,7 +841,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 2: Settings Button - Toggle settings
-    const settingsButton = this.widget.querySelector('.settings-button');
+    const settingsButton = this._dom?.settingsButton || this.widget.querySelector('.settings-button');
     if (settingsButton) {
       settingsButton.addEventListener('click', () => {
         console.log('⚙️ Settings button clicked!');
@@ -810,7 +855,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 3: Auto Copy Toggle (whole section clickable)
-    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    const autoCopySection = this._dom?.autoCopySection || this.widget.querySelector('.auto-copy-section');
     if (autoCopySection) {
       autoCopySection.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
@@ -820,7 +865,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 4: Quick View Button - Toggle quick view
-    const quickViewButton = this.widget.querySelector('.quick-view-button');
+    const quickViewButton = this._dom?.quickViewButton || this.widget.querySelector('.quick-view-button');
     if (quickViewButton) {
       const toggleQuickView = () => {
         console.log('👁️ Quick View button clicked!');
@@ -1886,12 +1931,7 @@ export class PasteCraftFloatingWidget {
         // Update counter
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
-        
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        this._scheduleAutoCopyCounterPersist();
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1904,8 +1944,21 @@ export class PasteCraftFloatingWidget {
     document.addEventListener('copy', this._autoCopyHandler, true);
   }
 
+  _scheduleAutoCopyCounterPersist() {
+    if (this._autoCopyPersistTimer) {
+      clearTimeout(this._autoCopyPersistTimer);
+    }
+    this._autoCopyPersistTimer = setTimeout(() => {
+      this._autoCopyPersistTimer = null;
+      chrome.storage.local.set({
+        autoCopyCount: this.autoCopyCount,
+        autoCopyDate: new Date().toDateString(),
+      });
+    }, 400);
+  }
+
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    const counter = this._dom?.autoCopyCounter || this.widget.querySelector('.auto-copy-counter');
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
@@ -3387,28 +3440,14 @@ export class PasteCraftFloatingWidget {
     });
   }
 
-  loadSavedPosition() {
-    const revealWidget = () => {
-      if (this.widget) {
-        this.widget.style.visibility = 'visible';
-      }
-    };
-
-    chrome.storage.local.get(['widgetPosition'], (result) => {
-      if (result.widgetPosition && this.widget) {
-        this.position = result.widgetPosition;
-        this.widget.style.top = this.position.top + '%';
-        console.log('📍 Widget position loaded:', this.position.top + '%');
-      }
-      revealWidget();
-    });
-
-    // Fallback: never leave widget hidden if storage callback is delayed
-    setTimeout(revealWidget, 800);
-  }
-  
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._positionSaveTimer) {
+      clearTimeout(this._positionSaveTimer);
+    }
+    this._positionSaveTimer = setTimeout(() => {
+      this._positionSaveTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 200);
   }
 }
 

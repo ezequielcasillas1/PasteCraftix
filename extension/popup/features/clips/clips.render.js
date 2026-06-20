@@ -20,6 +20,23 @@ function _paintClipLucideIcons(container) {
   window.renderLucideIconsSync?.(container);
 }
 
+function _ensurePaginationDelegation(app, paginationContainer) {
+  if (!paginationContainer || paginationContainer.dataset.pcPaginationBound === '1') return;
+  paginationContainer.dataset.pcPaginationBound = '1';
+  paginationContainer.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-page]');
+    if (!btn || btn.disabled) return;
+    const page = parseInt(btn.dataset.page, 10);
+    if (!Number.isFinite(page)) return;
+    const totalClips = Math.max(app.totalClipsCount || 0, app.clips.length);
+    const totalPages = Math.min(Math.ceil(totalClips / app.clipsPerPage), app.maxPages);
+    if (isValidPage(page, totalPages)) {
+      app.currentPage = page;
+      app.renderChips();
+    }
+  });
+}
+
 function getPaginationItems(currentPage, totalPages) {
   const items = [];
   const startPage = Math.max(0, currentPage - 2);
@@ -396,15 +413,7 @@ export function renderPagination(app) {
   paginationHTML += '</div>';
 
   paginationContainer.innerHTML = paginationHTML;
-  paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const page = parseInt(e.target.dataset.page);
-      if (isValidPage(page, totalPages)) {
-        app.currentPage = page;
-        app.renderChips();
-      }
-    });
-  });
+  _ensurePaginationDelegation(app, paginationContainer);
 }
 
 export function createChip(app, clip, index) {

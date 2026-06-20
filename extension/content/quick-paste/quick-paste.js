@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1388,7 +1389,10 @@ export class QuickPasteInterface {
     this.isVisible = true;
 
     // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    if (!this._clipsContainer || !this._clipsContainer.isConnected) {
+      this._clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    }
+    const clipsContainer = this._clipsContainer;
     if (clipsContainer) {
       clipsContainer.style.flex = '1';
       clipsContainer.style.overflowY = 'auto';
@@ -1425,22 +1429,6 @@ export class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -2380,7 +2368,10 @@ export class QuickPasteInterface {
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
