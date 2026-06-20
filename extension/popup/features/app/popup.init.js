@@ -49,8 +49,11 @@ export async function runPopupInit(app) {
     app.renderChips();
     app.updateLastCapture();
     app.updatePreview();
-    app.renderCategories();
-    app.updateCategoryFilter();
+    // Defer non-visible tab renders until after first paint
+    requestAnimationFrame(() => {
+      app.renderCategories();
+      app.updateCategoryFilter();
+    });
     await finishPopupReveal(app, 'guest-init');
     app.setupVisibilityListener();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
@@ -154,8 +157,10 @@ export async function runPopupInit(app) {
   app.renderChips();
   app.updateLastCapture();
   app.updatePreview();
-  app.renderCategories();
-  app.updateCategoryFilter();
+  requestAnimationFrame(() => {
+    app.renderCategories();
+    app.updateCategoryFilter();
+  });
 
   try {
     await app._restoreSessionState();

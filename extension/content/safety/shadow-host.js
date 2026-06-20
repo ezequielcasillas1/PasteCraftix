@@ -20,8 +20,9 @@ export function createClosedShadowHost(fieldName = 'pc-shadow-host') {
 }
 
 export function injectShadowStyles(root, cssText, fieldName = 'pc-shadow-styles') {
+  if (!root) return;
   const existing = root.querySelector(`[data-field="${fieldName}"]`);
-  if (existing) existing.remove();
+  if (existing) return;
   const style = document.createElement('style');
   style.setAttribute('data-field', fieldName);
   style.textContent = cssText;

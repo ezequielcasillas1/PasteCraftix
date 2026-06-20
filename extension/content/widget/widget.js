@@ -62,12 +62,37 @@ export class PasteCraftFloatingWidget {
   }
   
   async initAsync() {
-    await this.loadSettings();
+    await this.loadSettingsAndAutoCopyState();
     // Apply widget icon after settings load
     try { await this.applyWidgetIcon(); } catch (_) {}
-    await this.loadAutoCopyState();
     this.setupAutoCopyListener();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
+  }
+
+  async loadSettingsAndAutoCopyState() {
+    try {
+      const result = await chrome.storage.local.get([
+        'widgetSettings',
+        'autoCopyEnabled',
+        'autoCopyCount',
+        'autoCopyDate',
+      ]);
+      if (result.widgetSettings) {
+        this.settings = { ...this.settings, ...this.sanitizeWidgetSettings(result.widgetSettings) };
+      }
+      const today = new Date().toDateString();
+      if (result.autoCopyDate !== today) {
+        this.autoCopyCount = 0;
+      } else {
+        this.autoCopyCount = result.autoCopyCount || 0;
+      }
+      this.autoCopyEnabled = !!result.autoCopyEnabled;
+      this.updateAutoCopyUI();
+    } catch (error) {
+      console.error('Error loading widget settings/auto-copy state:', error);
+    } finally {
+      this._settingsLoaded = true;
+    }
   }
 
   _installLazyPopupWarmer() {
@@ -419,22 +444,16 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
-    // Debug: Test if ANY clicks work on the widget
-    this.widget.addEventListener('click', (e) => {
-      console.log('🖱️ Widget clicked! Target:', e.target.className);
-    });
-    
     // Setup event listeners
     this.setupEventListeners();
   }
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
-    if (existingStyles) {
-      existingStyles.remove();
+    if (root.querySelector('[data-field="pastecraft-floating-widget-styles"]')) {
+      return;
     }
-    
+
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
@@ -838,33 +857,45 @@ export class PasteCraftFloatingWidget {
     let startTopPct = 0;
     const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
     let moved = false;
+    let dragRafId = 0;
+    let pendingClientY = 0;
+    let cachedMinPct = 0;
+    let cachedMaxPct = 100;
+    let cachedVh = 1;
 
-    const onMove = (e) => {
+    const applyDragPosition = () => {
+      dragRafId = 0;
       if (!dragging) return;
-      const dy = e.clientY - pointerStartY;
+      const dy = pendingClientY - pointerStartY;
       if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       this.widget.classList.add('pc-dragging');
 
-      // Convert dy pixels to viewport-height percentage
-      const vh = window.innerHeight || 1;
-      let nextPct = startTopPct + (dy / vh) * 100;
-      // Clamp so the widget stays fully visible
-      const widgetH = this.widget.offsetHeight || 0;
-      const minPct = (widgetH / 2 / vh) * 100;
-      const maxPct = 100 - minPct;
-      nextPct = Math.max(minPct, Math.min(nextPct, maxPct));
+      let nextPct = startTopPct + (dy / cachedVh) * 100;
+      nextPct = Math.max(cachedMinPct, Math.min(nextPct, cachedMaxPct));
 
       this.widget.style.top = nextPct + '%';
       this.position.top = nextPct;
     };
 
+    const onMove = (e) => {
+      if (!dragging) return;
+      pendingClientY = e.clientY;
+      if (dragRafId) return;
+      dragRafId = requestAnimationFrame(applyDragPosition);
+    };
+
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+      }
       this.widget.classList.remove('pc-dragging');
       document.body.style.userSelect = '';
       if (moved) {
+        applyDragPosition();
         this.savePosition();
       }
     };
@@ -877,7 +908,12 @@ export class PasteCraftFloatingWidget {
       dragging = true;
       moved = false;
       pointerStartY = e.clientY;
+      pendingClientY = e.clientY;
       startTopPct = this.position.top ?? 50;
+      cachedVh = window.innerHeight || 1;
+      const widgetH = this.widget.offsetHeight || 0;
+      cachedMinPct = (widgetH / 2 / cachedVh) * 100;
+      cachedMaxPct = 100 - cachedMinPct;
 
       try { this.widget.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault();
@@ -1744,6 +1780,9 @@ export class PasteCraftFloatingWidget {
   
   // Listen for copy events to auto-save copied text
   setupAutoCopyListener() {
+    if (this._autoCopyListenerBound) return;
+    this._autoCopyListenerBound = true;
+
     const handler = async (e) => {
       if (!this.autoCopyEnabled) return;
       
@@ -1861,7 +1900,8 @@ export class PasteCraftFloatingWidget {
     };
 
     // Use capture phase: some native copy actions don’t bubble.
-    document.addEventListener('copy', handler, true);
+    this._autoCopyHandler = handler;
+    document.addEventListener('copy', this._autoCopyHandler, true);
   }
 
   updateAutoCopyCounter() {
