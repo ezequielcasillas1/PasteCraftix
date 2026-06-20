@@ -37,6 +37,26 @@ export class QuickPasteInterface {
     return String(id);
   }
 
+  _scheduleClipsRefresh(options = {}) {
+    const { updateOnlyIfVisible = false, autoShow = false, x, y } = options;
+    if (this._clipsRefreshTimer) {
+      clearTimeout(this._clipsRefreshTimer);
+    }
+    this._clipsRefreshTimer = setTimeout(() => {
+      this._clipsRefreshTimer = null;
+      this.loadClips()
+        .then(() => {
+          if (!updateOnlyIfVisible || this.isVisible) {
+            this.updateInterface();
+          }
+          if (autoShow && !this.isVisible && this.clips.length > 0) {
+            this.showInterface(x, y);
+          }
+        })
+        .catch(() => {});
+    }, 120);
+  }
+
   _queueClipOp(fn) {
     const run = this._clipOpQueue.then(fn, fn);
     this._clipOpQueue = run.catch(() => {});
@@ -1219,6 +1239,9 @@ export class QuickPasteInterface {
   }
   
   setupMessageListener() {
+    if (this._messageListenerBound) return;
+    this._messageListenerBound = true;
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1226,13 +1249,8 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
-          console.log('🔄 Auto-refreshed clips after new clip saved');
-          this.updateInterface();
-          // Only auto-show if autoShow flag is true (default behavior)
-          if (message.autoShow !== false && !this.isVisible && this.clips.length > 0) {
-            this.showInterface();
-          }
+        this._scheduleClipsRefresh({
+          autoShow: message.autoShow !== false,
         });
         } else if (message.action === 'showQuickPaste') {
         handled = true;
@@ -1245,22 +1263,20 @@ export class QuickPasteInterface {
         // Update settings from popup
         this.settings = { ...this.settings, ...message.settings };
         this.applySettings();
-        this.updateInterface();
+        if (this.isVisible) {
+          this.updateInterface();
+        }
         console.log('⚙️ Settings updated from popup:', this.settings);
       } else if (message.action === 'clipsUpdated') {
         handled = true;
         // Another tab updated clips (delete/move/etc) - refresh our interface
         console.log('🔄 Received clipsUpdated - refreshing clips');
-        await this.loadClips();
-        if (this.isVisible) {
-          this.updateInterface();
-        }
+        this._scheduleClipsRefresh({ updateOnlyIfVisible: true });
       } else if (message.action === 'clipsCleared') {
         handled = true;
         // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
-        await this.loadClips();
-        this.updateInterface();
+        this._scheduleClipsRefresh();
       } else if (message.action === 'openPopupPanel') {
         handled = true;
         // Extension icon clicked - open the slide-in panel
@@ -1425,22 +1441,6 @@ export class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -2372,9 +2372,6 @@ export class QuickPasteInterface {
     
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
-    
-    // Force a style recalculation
-    clipElement.offsetHeight;
     
     this.updateCopyMultipleButton();
   }
