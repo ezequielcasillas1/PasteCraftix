@@ -1172,7 +1172,7 @@ export class QuickPasteInterface {
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
       // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (this.isVisible && !this._isPointerInsideContainer(e) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -2202,11 +2202,20 @@ export class QuickPasteInterface {
     }
   }
   
+  _isPointerInsideContainer(e) {
+    const host = this.shadowMount?.host;
+    if (!host) return false;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    return path.includes(host) || (this.container && path.includes(this.container));
+  }
+
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    // Preserve root class; layer theme for dark/light selectors
+    this.container.classList.remove('light', 'dark');
+    this.container.classList.add('pastecraft-quick-paste', 'pastecraft-interface', this.settings.theme);
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';

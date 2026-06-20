@@ -438,6 +438,14 @@ export class PasteCraftFloatingWidget {
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
+      :host {
+        --pc-brand-navy-deep: #1e40af;
+        --pc-text-on-navy: #e2e8f0;
+        --pc-text-on-navy-muted: #cbd5e1;
+        --pc-accent: #60a5fa;
+        --pc-success: #22c55e;
+      }
+
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
         position: fixed;
@@ -566,7 +574,7 @@ export class PasteCraftFloatingWidget {
       
       .auto-copy-counter {
         font-size: 10px;
-        color: #e0f2fe;
+        color: var(--pc-text-on-navy-muted);
         text-align: center;
         white-space: nowrap;
         transition: transform 0.2s ease;
@@ -1038,7 +1046,7 @@ export class PasteCraftFloatingWidget {
         if (!currentContainer) return;
         const target = e.target;
         if (currentContainer.contains(target)) return;
-        if (this.widget && this.widget.contains(target)) return;
+        if (this._isPointerInsideWidget(e)) return;
         this.closePopupOverlay();
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -1270,9 +1278,11 @@ export class PasteCraftFloatingWidget {
 
     const mount = this._ensureSettingsShadowMount();
 
-    // Check if panel already exists
-    if (mount.root.querySelector('#pastecraft-settings-panel')) {
-      return;
+    const existingSettingsPanel = mount.root.querySelector('#pastecraft-settings-panel');
+    if (existingSettingsPanel) {
+      if (this.openStates.settings) return;
+      existingSettingsPanel.remove();
+      mount.root.querySelector('#pastecraft-settings-backdrop')?.remove();
     }
     
     // Set open state
@@ -1476,6 +1486,10 @@ export class PasteCraftFloatingWidget {
     if (!shadowRoot) return;
 
     injectShadowStyles(shadowRoot, `
+      :host {
+        --pc-text-muted: #64748b;
+      }
+
       /* Settings Backdrop */
       .pastecraft-settings-backdrop {
         position: fixed;
@@ -1647,7 +1661,7 @@ export class PasteCraftFloatingWidget {
 
       .setting-desc {
         font-size: 13px;
-        color: #64748b;
+        color: var(--pc-text-muted, #64748b);
         margin: 0;
         line-height: 1.4;
         display: block;
@@ -2363,10 +2377,14 @@ export class PasteCraftFloatingWidget {
       console.log('👁️ Opening Quick View (slide-in panel from right)');
       console.log('👁️ Current open states:', this.openStates);
       
-      // Check if panel already exists
-      if (document.getElementById('pastecraft-quickview-panel')) {
-        console.log('⚠️ Quick View panel already exists');
-        return;
+      const existingQuickViewPanel = document.getElementById('pastecraft-quickview-panel');
+      if (existingQuickViewPanel) {
+        if (this.openStates.quickView) {
+          console.log('⚠️ Quick View panel already open');
+          return;
+        }
+        existingQuickViewPanel.remove();
+        document.getElementById('pastecraft-quickview-backdrop')?.remove();
       }
       
       console.log('👁️ Creating Quick View panel elements...');
@@ -2432,7 +2450,7 @@ export class PasteCraftFloatingWidget {
           if (!currentPanel) return;
           const target = e.target;
           if (currentPanel.contains(target)) return;
-          if (this.widget && this.widget.contains(target)) return;
+          if (this._isPointerInsideWidget(e)) return;
           this.closeQuickView();
         };
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);

@@ -1,0 +1,36 @@
+/**
+ * PasteCraft design tokens — navy / orange brand palette.
+ * Use in popup (document) and mirror :host vars inside Shadow DOM widgets.
+ */
+:root,
+:host {
+  --pc-brand-navy: #1e3a8a;
+  --pc-brand-navy-deep: #1e40af;
+  --pc-brand-blue: #1d4ed8;
+  --pc-brand-orange: #ff6b35;
+  --pc-brand-orange-light: #f7931e;
+
+  --pc-surface: #ffffff;
+  --pc-surface-muted: #f8fafc;
+  --pc-border: #e2e8f0;
+
+  --pc-text: #1f2937;
+  --pc-text-muted: #64748b;
+  --pc-text-on-navy: #e2e8f0;
+  --pc-text-on-navy-muted: #cbd5e1;
+
+  --pc-accent: #60a5fa;
+  --pc-accent-strong: #3b82f6;
+  --pc-success: #22c55e;
+  --pc-danger: #ef4444;
+}
+
+[data-theme="dark"] {
+  --pc-surface: #1f2937;
+  --pc-surface-muted: #374151;
+  --pc-border: #4b5563;
+  --pc-text: #f9fafb;
+  --pc-text-muted: #9ca3af;
+  --pc-text-on-navy: #f1f5f9;
+  --pc-text-on-navy-muted: #cbd5e1;
+}
