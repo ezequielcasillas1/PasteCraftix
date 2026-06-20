@@ -658,11 +658,11 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
       }
 
       @keyframes pastecraft-eye-blink {
@@ -764,6 +764,9 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._widgetListenersBound) return;
+    this._widgetListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
@@ -1080,13 +1083,15 @@ export class PasteCraftFloatingWidget {
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
     }
 
-    const escHandler = (e) => {
+    if (this._popupEscHandler) {
+      document.removeEventListener('keydown', this._popupEscHandler);
+    }
+    this._popupEscHandler = (e) => {
       if (e.key === 'Escape') {
         this.closePopupOverlay();
-        document.removeEventListener('keydown', escHandler);
       }
     };
-    document.addEventListener('keydown', escHandler);
+    document.addEventListener('keydown', this._popupEscHandler);
 
     if (iframeReady) {
       revealPopupPanel();
@@ -1112,6 +1117,10 @@ export class PasteCraftFloatingWidget {
     if (this._popupMessageHandler) {
       window.removeEventListener('message', this._popupMessageHandler);
       this._popupMessageHandler = null;
+    }
+    if (this._popupEscHandler) {
+      document.removeEventListener('keydown', this._popupEscHandler);
+      this._popupEscHandler = null;
     }
     
     if (backdrop) backdrop.classList.remove('visible');
@@ -2478,14 +2487,15 @@ export class PasteCraftFloatingWidget {
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
       }
       
-      // ESC key to close
-      const escHandler = (e) => {
+      if (this._quickViewEscHandler) {
+        document.removeEventListener('keydown', this._quickViewEscHandler);
+      }
+      this._quickViewEscHandler = (e) => {
         if (e.key === 'Escape') {
           this.closeQuickView();
-          document.removeEventListener('keydown', escHandler);
         }
       };
-      document.addEventListener('keydown', escHandler);
+      document.addEventListener('keydown', this._quickViewEscHandler);
     
       // Animate in
       setTimeout(() => {
@@ -3148,6 +3158,10 @@ export class PasteCraftFloatingWidget {
       document.removeEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
       this._quickViewOutsidePointerDown = null;
     }
+    if (this._quickViewEscHandler) {
+      document.removeEventListener('keydown', this._quickViewEscHandler);
+      this._quickViewEscHandler = null;
+    }
     
     if (backdrop) backdrop.classList.remove('visible');
     if (panel) panel.classList.remove('visible');
@@ -3408,7 +3422,13 @@ export class PasteCraftFloatingWidget {
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._savePositionTimer) {
+      clearTimeout(this._savePositionTimer);
+    }
+    this._savePositionTimer = setTimeout(() => {
+      this._savePositionTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 200);
   }
 }
 

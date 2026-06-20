@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleButton = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1160,6 +1161,7 @@ export class QuickPasteInterface {
     document.addEventListener('mouseup', this._onDocumentMouseUp);
 
     // Clip click handlers
+    this._copyMultipleButton = this.container.querySelector('.pastecraft-copy-multiple');
     this.container.addEventListener('click', (e) => {
       const clipElement = e.target.closest('.pastecraft-clip');
       const pasteBtn = e.target.closest('.pastecraft-paste');
@@ -1420,27 +1422,12 @@ export class QuickPasteInterface {
     const countElement = this._countElement;
     if (!clipsContainer || !countElement) return;
     
+    this._copyMultipleButton = null;
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -1647,12 +1634,18 @@ export class QuickPasteInterface {
   }
   
   async savePosition() {
-    try {
-      await chrome.storage.local.set({ quickPastePosition: this.position });
-      console.log('📍 Position saved:', this.position);
-    } catch (error) {
-      console.error('Failed to save position:', error);
+    if (this._savePositionTimer) {
+      clearTimeout(this._savePositionTimer);
     }
+    this._savePositionTimer = setTimeout(async () => {
+      this._savePositionTimer = null;
+      try {
+        await chrome.storage.local.set({ quickPastePosition: this.position });
+        console.log('📍 Position saved:', this.position);
+      } catch (error) {
+        console.error('Failed to save position:', error);
+      }
+    }, 200);
   }
   
   async saveSettings() {
@@ -2373,14 +2366,14 @@ export class QuickPasteInterface {
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
     
-    // Force a style recalculation
-    clipElement.offsetHeight;
-    
     this.updateCopyMultipleButton();
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleButton || !this._copyMultipleButton.isConnected) {
+      this._copyMultipleButton = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleButton;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
