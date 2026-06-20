@@ -1,3 +1,8 @@
+### Jun 20, 2026 - Popup UX perf review fix (aiBtn → switchMainTab)
+**Status:** PARTIAL (awaiting manual DevTools verification)
+**Files:** ai-lab-page.events.js, tests/ux-perf-capture.test.mjs
+**Result:** aiBtn now routes through switchMainTab (dirty-tab skip, deferred render). Added unit tests for PERF thresholds and afterPaint.
+
 ### Jun 20, 2026 - Popup UX perf capture + tab switch optimization
 **Status:** PARTIAL (awaiting manual DevTools verification)
 **Files:** ux-perf-capture.js, agent-debug-log.js, tab-nav.helpers.js, tab-nav.events.js, popup.events.js, ai-lab-page.events.js, settings.events.js, popup.init.js
