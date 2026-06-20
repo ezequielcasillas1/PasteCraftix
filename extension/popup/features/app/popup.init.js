@@ -189,6 +189,9 @@ export async function runPopupInit(app) {
     .catch((e) => console.warn('Tiered storage migration skipped:', e));
 
   app.setupVisibilityListener();
-  app.setupRealtimeListeners();
-  app.setupSyncStatusListeners();
+
+  requestAnimationFrame(() => {
+    app.setupRealtimeListeners();
+    app.setupSyncStatusListeners();
+  });
 }

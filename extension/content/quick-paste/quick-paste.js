@@ -1069,6 +1069,8 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = null;
+    this._dragHeader = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1103,23 +1105,26 @@ export class QuickPasteInterface {
     }
     
     // Dragging functionality
-    const header = this.container.querySelector('.pastecraft-header');
-    header.style.cursor = 'move';
-    
-    header.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.pastecraft-controls, .pastecraft-btn')) return;
-      this.isDragging = true;
-      const rect = this.container.getBoundingClientRect();
-      this.dragOffset.x = e.clientX - rect.left;
-      this.dragOffset.y = e.clientY - rect.top;
-      this._dragBounds.maxX = window.innerWidth - this.container.offsetWidth;
-      this._dragBounds.maxY = window.innerHeight - this.container.offsetHeight;
-      
-      // Prevent text selection while dragging
-      e.preventDefault();
-      document.body.style.userSelect = 'none';
-    });
-    
+    this._dragHeader = this.container.querySelector('.pastecraft-header');
+    const header = this._dragHeader;
+    if (header) {
+      header.style.cursor = 'move';
+
+      header.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.pastecraft-controls, .pastecraft-btn')) return;
+        this.isDragging = true;
+        const rect = this.container.getBoundingClientRect();
+        this.dragOffset.x = e.clientX - rect.left;
+        this.dragOffset.y = e.clientY - rect.top;
+        this._dragBounds.maxX = window.innerWidth - this.container.offsetWidth;
+        this._dragBounds.maxY = window.innerHeight - this.container.offsetHeight;
+
+        // Prevent text selection while dragging
+        e.preventDefault();
+        document.body.style.userSelect = 'none';
+      });
+    }
+
     this._onDocumentMouseMove = (e) => {
       if (!this.isDragging) return;
       this._dragPendingEvent = e;
@@ -1216,6 +1221,8 @@ export class QuickPasteInterface {
       }
     };
     document.addEventListener('keydown', this._onDocumentKeydown);
+
+    this._copyMultipleBtn = this.container.querySelector('.pastecraft-copy-multiple');
   }
   
   setupMessageListener() {
@@ -1425,22 +1432,6 @@ export class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -2373,14 +2364,14 @@ export class QuickPasteInterface {
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
     
-    // Force a style recalculation
-    clipElement.offsetHeight;
-    
     this.updateCopyMultipleButton();
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn?.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
