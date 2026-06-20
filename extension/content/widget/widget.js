@@ -419,24 +419,17 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
-    // Debug: Test if ANY clicks work on the widget
-    this.widget.addEventListener('click', (e) => {
-      console.log('🖱️ Widget clicked! Target:', e.target.className);
-    });
-    
     // Setup event listeners
     this.setupEventListeners();
   }
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
-    if (existingStyles) {
-      existingStyles.remove();
-    }
+    const styleField = 'pastecraft-floating-widget-styles';
+    if (root.querySelector(`[data-field="${styleField}"]`)) return;
     
     const styles = document.createElement('style');
-    styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
+    styles.setAttribute('data-field', styleField);
     styles.textContent = `
       /* Main Widget Container - starts at right edge, slides left when panel opens */
       .pastecraft-widget {
@@ -745,15 +738,11 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
-    console.log('🎯 Setting up widget event listeners...');
-    console.log('🔍 Widget element:', this.widget);
-    console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
-    
-    // Component 1: Logo Button - Toggle popup
-    const logoButton = this.widget.querySelector('.logo-button');
-    if (logoButton) {
-      logoButton.addEventListener('click', () => {
-        console.log('🎨 Logo button clicked!');
+    if (this._eventListenersBound || !this.widget) return;
+    this._eventListenersBound = true;
+
+    this.widget.addEventListener('click', (e) => {
+      if (e.target.closest('.logo-button')) {
         if (String(this.settings?.appOpenMode || 'inPage') === 'edgePopup') {
           try {
             chrome.runtime.sendMessage({
@@ -770,58 +759,44 @@ export class PasteCraftFloatingWidget {
         } else {
           this.openPopupOverlay();
         }
-      });
-      console.log('✅ Logo button listener attached');
-    } else {
-      console.error('❌ Logo button not found!');
-    }
-    
-    // Component 2: Settings Button - Toggle settings
-    const settingsButton = this.widget.querySelector('.settings-button');
-    if (settingsButton) {
-      settingsButton.addEventListener('click', () => {
-        console.log('⚙️ Settings button clicked!');
+        return;
+      }
+
+      if (e.target.closest('.settings-button')) {
         if (this.openStates.settings) {
           this.closeSettings();
         } else {
           this.openSettings();
         }
-      });
-      console.log('✅ Settings button listener attached');
-    }
-    
-    // Component 3: Auto Copy Toggle
-    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
-    if (autoToggle) {
-      autoToggle.addEventListener('click', () => {
-        console.log('🔄 Toggle clicked!');
+        return;
+      }
+
+      if (e.target.closest('.auto-copy-toggle')) {
         this.toggleAutoCopy();
-      });
-      console.log('✅ Auto toggle listener attached');
-    }
-    
-    // Component 4: Quick View Button - Toggle quick view
-    const quickViewButton = this.widget.querySelector('.quick-view-button');
-    if (quickViewButton) {
-      const toggleQuickView = () => {
-        console.log('👁️ Quick View button clicked!');
+        return;
+      }
+
+      if (e.target.closest('.quick-view-button')) {
         if (this.openStates.quickView) {
           this.closeQuickView();
         } else {
           this.openQuickView();
         }
-      };
+      }
+    });
 
-      quickViewButton.addEventListener('click', toggleQuickView);
+    const quickViewButton = this.widget.querySelector('.quick-view-button');
+    if (quickViewButton) {
       quickViewButton.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        toggleQuickView();
+        if (this.openStates.quickView) {
+          this.closeQuickView();
+        } else {
+          this.openQuickView();
+        }
       });
-      console.log('✅ Quick View button listener attached');
     }
-    
-    console.log('🎯 All event listeners setup complete!');
   }
 
   /**
@@ -1744,7 +1719,10 @@ export class PasteCraftFloatingWidget {
   
   // Listen for copy events to auto-save copied text
   setupAutoCopyListener() {
-    const handler = async (e) => {
+    if (this._autoCopyListenerBound) return;
+    this._autoCopyListenerBound = true;
+
+    this._onCopyCapture = async (e) => {
       if (!this.autoCopyEnabled) return;
       
       const MAX_TEXT = 30000;
@@ -1861,7 +1839,7 @@ export class PasteCraftFloatingWidget {
     };
 
     // Use capture phase: some native copy actions don’t bubble.
-    document.addEventListener('copy', handler, true);
+    document.addEventListener('copy', this._onCopyCapture, true);
   }
 
   updateAutoCopyCounter() {

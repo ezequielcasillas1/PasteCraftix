@@ -157,13 +157,11 @@ export async function runPopupInit(app) {
   app.renderCategories();
   app.updateCategoryFilter();
 
-  try {
-    await app._restoreSessionState();
-  } catch (e) {
-    console.warn('Session restore failed:', e);
-  }
-
   await finishPopupReveal(app, 'popup-ready');
+
+  Promise.resolve()
+    .then(() => app._restoreSessionState())
+    .catch((e) => console.warn('Session restore failed:', e));
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))
