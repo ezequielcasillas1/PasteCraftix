@@ -1,4 +1,8 @@
-### Jun 20, 2026 - Popup UX perf review fixes (stale tabs + AI credits)
+### Jun 20, 2026 - UX perf review: gate ok-level probes + skip duplicate click capture
+**Status:** PARTIAL (awaiting manual DevTools verification)
+**Files:** ux-perf-capture.js, tests/ux-perf-capture.test.mjs
+**Result:** console.warn/relay only for warn≥100ms or boot; global click capture skips nav-tab/modal/flow-entry targets to avoid double RAF+IPC overhead.
+
 **Status:** PARTIAL (awaiting manual DevTools verification)
 **Files:** auth.session.js, tab-nav.helpers.js, tests/tab-nav.helpers.test.mjs
 **Result:** Wired markTabsDirtyForStorageChange on storage changes so inactive tabs re-render on switch. AI tab always refreshes credits when skipping full render. Unit tests pass.
