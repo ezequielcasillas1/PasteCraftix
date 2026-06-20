@@ -38,7 +38,7 @@
   --pc-hero-gradient: linear-gradient(135deg, #1e3a5f 0%, #1e40af 40%, #3b82f6 100%);
   --pc-widget-gradient: linear-gradient(135deg, rgba(30, 64, 175, 0.88) 0%, rgba(30, 58, 138, 0.88) 50%, rgba(29, 78, 216, 0.88) 100%);
   --pc-shadow-navy: 0 8px 32px rgba(30, 64, 175, 0.35);
-  --pc-tab-active-bg: var(--pc-primary);
+  --pc-tab-active-bg: var(--pc-blue);
   --pc-tab-hover-bg: rgba(74, 144, 217, 0.12);
 }
 
