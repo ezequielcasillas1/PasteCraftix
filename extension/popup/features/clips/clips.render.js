@@ -111,10 +111,6 @@ function hasSearchFilters(app) {
   return Boolean(app.searchQuery || app.selectedCategory || app.selectedDateFilter);
 }
 
-function isValidPage(page, totalPages) {
-  return !Number.isNaN(page) && page >= 0 && page < totalPages;
-}
-
 function getObjectMeta(value) {
   return value && typeof value === 'object' ? value : null;
 }
@@ -396,15 +392,6 @@ export function renderPagination(app) {
   paginationHTML += '</div>';
 
   paginationContainer.innerHTML = paginationHTML;
-  paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const page = parseInt(e.target.dataset.page);
-      if (isValidPage(page, totalPages)) {
-        app.currentPage = page;
-        app.renderChips();
-      }
-    });
-  });
 }
 
 export function createChip(app, clip, index) {
@@ -592,6 +579,7 @@ export function renderSearchResults(app) {
   }
 
   app.updateSearchBulkActions();
+  _paintClipLucideIcons(container);
 }
 
 export function filterClips(app) {

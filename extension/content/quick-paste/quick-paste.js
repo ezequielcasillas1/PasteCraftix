@@ -1218,7 +1218,31 @@ export class QuickPasteInterface {
     document.addEventListener('keydown', this._onDocumentKeydown);
   }
   
+  _scheduleClipsRefresh({ updateUi = true, autoShow = false } = {}) {
+    this._clipsRefreshPending = this._clipsRefreshPending || { updateUi, autoShow };
+    if (this._clipsRefreshPending.autoShow !== true && autoShow) {
+      this._clipsRefreshPending.autoShow = true;
+    }
+    if (this._clipsRefreshTimer) return;
+    this._clipsRefreshTimer = setTimeout(async () => {
+      this._clipsRefreshTimer = null;
+      const pending = this._clipsRefreshPending;
+      this._clipsRefreshPending = null;
+      if (!pending) return;
+      await this.loadClips();
+      if (pending.updateUi) {
+        this.updateInterface();
+      }
+      if (pending.autoShow && !this.isVisible && this.clips.length > 0) {
+        this.showInterface();
+      }
+    }, 120);
+  }
+
   setupMessageListener() {
+    if (this._messageListenerBound) return;
+    this._messageListenerBound = true;
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1226,13 +1250,9 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
-          console.log('🔄 Auto-refreshed clips after new clip saved');
-          this.updateInterface();
-          // Only auto-show if autoShow flag is true (default behavior)
-          if (message.autoShow !== false && !this.isVisible && this.clips.length > 0) {
-            this.showInterface();
-          }
+        this._scheduleClipsRefresh({
+          updateUi: true,
+          autoShow: message.autoShow !== false,
         });
         } else if (message.action === 'showQuickPaste') {
         handled = true;
@@ -1249,18 +1269,12 @@ export class QuickPasteInterface {
         console.log('⚙️ Settings updated from popup:', this.settings);
       } else if (message.action === 'clipsUpdated') {
         handled = true;
-        // Another tab updated clips (delete/move/etc) - refresh our interface
         console.log('🔄 Received clipsUpdated - refreshing clips');
-        await this.loadClips();
-        if (this.isVisible) {
-          this.updateInterface();
-        }
+        this._scheduleClipsRefresh({ updateUi: this.isVisible });
       } else if (message.action === 'clipsCleared') {
         handled = true;
-        // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
-        await this.loadClips();
-        this.updateInterface();
+        this._scheduleClipsRefresh({ updateUi: true });
       } else if (message.action === 'openPopupPanel') {
         handled = true;
         // Extension icon clicked - open the slide-in panel
@@ -1425,22 +1439,6 @@ export class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -2373,14 +2371,14 @@ export class QuickPasteInterface {
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
     
-    // Force a style recalculation
-    clipElement.offsetHeight;
-    
     this.updateCopyMultipleButton();
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
