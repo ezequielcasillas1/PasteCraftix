@@ -764,6 +764,9 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._widgetListenersBound) return;
+    this._widgetListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
@@ -1886,12 +1889,7 @@ export class PasteCraftFloatingWidget {
         // Update counter
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
-        
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        this._scheduleAutoCopyCounterPersist();
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1902,6 +1900,17 @@ export class PasteCraftFloatingWidget {
     // Use capture phase: some native copy actions don’t bubble.
     this._autoCopyHandler = handler;
     document.addEventListener('copy', this._autoCopyHandler, true);
+  }
+
+  _scheduleAutoCopyCounterPersist() {
+    if (this._autoCopyPersistTimer) return;
+    this._autoCopyPersistTimer = setTimeout(() => {
+      this._autoCopyPersistTimer = null;
+      chrome.storage.local.set({
+        autoCopyCount: this.autoCopyCount,
+        autoCopyDate: new Date().toDateString(),
+      }).catch(() => {});
+    }, 250);
   }
 
   updateAutoCopyCounter() {

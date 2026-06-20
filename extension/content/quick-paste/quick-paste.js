@@ -37,6 +37,26 @@ export class QuickPasteInterface {
     return String(id);
   }
 
+  _prependClipIfNew(rawClip) {
+    if (!rawClip || typeof rawClip !== 'object') return false;
+
+    let clip = rawClip;
+    if (clip.id == null) {
+      const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
+      const ts = typeof clip.timestamp === 'number' ? clip.timestamp : Date.now();
+      const bucket = Math.floor(ts / 3000);
+      clip = {
+        ...clip,
+        id: `legacy_${this._fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`,
+      };
+    }
+
+    const key = this._clipIdKey(clip.id);
+    if (this.clips.some((c) => this._clipIdKey(c?.id) === key)) return false;
+    this.clips.unshift(clip);
+    return true;
+  }
+
   _queueClipOp(fn) {
     const run = this._clipOpQueue.then(fn, fn);
     this._clipOpQueue = run.catch(() => {});
@@ -1219,6 +1239,9 @@ export class QuickPasteInterface {
   }
   
   setupMessageListener() {
+    if (this._messageListenerBound) return;
+    this._messageListenerBound = true;
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1226,7 +1249,10 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
+        const refresh = message.clip
+          ? Promise.resolve(this._prependClipIfNew(message.clip))
+          : this.loadClips();
+        refresh.then(() => {
           console.log('🔄 Auto-refreshed clips after new clip saved');
           this.updateInterface();
           // Only auto-show if autoShow flag is true (default behavior)
@@ -1281,6 +1307,7 @@ export class QuickPasteInterface {
     if (this._storageSyncListener) return;
 
     this._settingsReloadTimer = null;
+    this._clipsReloadTimer = null;
     const scheduleSettingsReload = () => {
       if (this._settingsReloadTimer) return;
       this._settingsReloadTimer = setTimeout(() => {
@@ -1289,10 +1316,29 @@ export class QuickPasteInterface {
       }, 120);
     };
 
+    const scheduleClipsReload = (nextClips) => {
+      if (this._clipsReloadTimer) clearTimeout(this._clipsReloadTimer);
+      this._clipsReloadTimer = setTimeout(() => {
+        this._clipsReloadTimer = null;
+        this._applyLoadedClips(nextClips)
+          .then(() => {
+            if (this.isVisible) this.updateInterface();
+          })
+          .catch(() => {});
+      }, 120);
+    };
+
     this._storageSyncListener = (changes, area) => {
       if (area !== 'local') return;
 
       let settingsChanged = false;
+
+      if (changes.clips) {
+        const nextClips = changes.clips.newValue;
+        if (Array.isArray(nextClips)) {
+          scheduleClipsReload(nextClips);
+        }
+      }
 
       // Quick paste specific settings
       if (changes.quickPasteSettings) {
@@ -1425,22 +1471,6 @@ export class QuickPasteInterface {
     
     // Reset selections and update button state
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
