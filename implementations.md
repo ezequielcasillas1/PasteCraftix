@@ -404,3 +404,8 @@
 **Status:** PENDING USER VERIFY
 **Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
 **Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.
+
+### Jun 20, 2026 - Popup nav-tab perf regression fix (PR #113)
+**Status:** PENDING USER VERIFY
+**Files:** tab-nav.helpers.js, tab-nav.events.js, ai-lab-page.events.js, popup.init.js, auth.session.js, tab-nav.helpers.test.mjs
+**Result:** PR inlined tab switch with blocking await loadData on every nav-tab click. Restored paint-first switchMainTab (dirty cache, deferred icons, background refresh). Automated harness: nav-tab probes 0ms ok on clean revisit.
