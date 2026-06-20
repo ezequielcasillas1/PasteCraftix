@@ -1,5 +1,9 @@
 import { saveSettings, saveThemeOnly, saveWidgetIconUseProfileImage, getCurrentProfileImageForWidget } from './settings.storage.js';
 import { showSettingsModal, hideSettingsModal, showHelpModal, hideHelpModal, openRestorePreviewModal, hideRestorePreviewModal } from './settings.render.js';
+import {
+  finishUxInteractionAfterPaint,
+  startUxInteraction,
+} from '../../shared/ux-perf-capture.js';
 
 // ── Auto-save debounce ────────────────────────────────────────────────────────
 
@@ -18,7 +22,16 @@ function _wireModalToggle(app) {
   const closeBtn = document.getElementById('closeSettingsModal');
   const modalOverlay = document.getElementById('settingsModal');
 
-  settingsBtn?.addEventListener('click', () => showSettingsModal(app));
+  settingsBtn?.addEventListener('click', () => {
+    const perf = startUxInteraction('nav-modal', 'settings-open');
+    Promise.resolve(showSettingsModal(app))
+      .catch(() => {})
+      .finally(() => {
+        finishUxInteractionAfterPaint(perf, {
+          location: 'settings.events:open',
+        });
+      });
+  });
   closeBtn?.addEventListener('click', () => hideSettingsModal());
   modalOverlay?.addEventListener('click', (e) => {
     if (e.target.id === 'settingsModal') hideSettingsModal();

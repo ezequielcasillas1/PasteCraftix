@@ -7,6 +7,11 @@ import {
   hasMeaningfulInput,
   getRemainingMeaningfulWords,
 } from '../features/ai-lab/ai-lab.input-validation.js';
+import { switchMainTab } from '../features/app/tab-nav.helpers.js';
+import {
+  finishUxInteractionAfterPaint,
+  startUxInteraction,
+} from '../shared/ux-perf-capture.js';
 
 export function registerAiLabPageEvents(app) {
     app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
@@ -22,23 +27,10 @@ export function registerAiLabPageEvents(app) {
     const aiBtn = document.getElementById('aiBtn');
     if (aiBtn) {
       aiBtn.addEventListener('click', () => {
-        // Switch to AI tab
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
         const aiTabBtn = document.querySelector('.tab-btn[data-tab="ai"]');
         if (aiTabBtn) {
-          aiTabBtn.classList.add('active');
+          switchMainTab(app, 'ai', aiTabBtn);
         }
-        
-        app.currentTab = 'ai';
-        document.getElementById('aiTab').classList.add('active');
-
-        // Persist active tab
-        app._saveActiveTabState();
-
-        // Refresh credits view when entering AI Lab.
-        app.updateAiCreditsPills('ai-tab');
       });
     }
 
@@ -48,6 +40,9 @@ export function registerAiLabPageEvents(app) {
       aiLabTabsContainer.addEventListener('click', (e) => {
         const clickedTab = e.target.closest('.ai-lab-tab');
         if (clickedTab) {
+          const tabName = clickedTab.dataset.aiTab || 'unknown';
+          const perf = startUxInteraction('nav-ai-lab', tabName);
+
           // Remove active class from all AI Lab tabs
           document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
           document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
@@ -56,7 +51,6 @@ export function registerAiLabPageEvents(app) {
           clickedTab.classList.add('active');
           
           // Show corresponding section
-          const tabName = clickedTab.dataset.aiTab;
           app._currentAiLabSubTab = tabName;
           app._saveActiveTabState();
 
@@ -66,6 +60,10 @@ export function registerAiLabPageEvents(app) {
               app._renderOpenRecentConversation();
             }
           }
+
+          finishUxInteractionAfterPaint(perf, {
+            location: 'ai-lab-page.events:sub-tab',
+          });
         }
       });
     }
@@ -75,7 +73,11 @@ export function registerAiLabPageEvents(app) {
     const refactorButton = document.querySelector('.ai-refactorization-feature');
     if (refactorButton && refactorFeature?.activateRefactorizationSection) {
       refactorButton.addEventListener('click', () => {
+        const perf = startUxInteraction('flow-entry', 'ai-refactor');
         refactorFeature.activateRefactorizationSection(app);
+        finishUxInteractionAfterPaint(perf, {
+          location: 'ai-lab-page.events:flow-entry-refactor',
+        });
       });
     }
 
@@ -87,6 +89,8 @@ export function registerAiLabPageEvents(app) {
     const breakdownButton = document.querySelector('.ai-breakdown-feature');
     if (breakdownButton) {
       breakdownButton.addEventListener('click', () => {
+        const perf = startUxInteraction('flow-entry', 'ai-breakdown');
+
         // Remove active class from all tabs and sections
         document.querySelectorAll('.ai-lab-tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.ai-lab-section').forEach(section => section.classList.remove('active'));
@@ -95,6 +99,10 @@ export function registerAiLabPageEvents(app) {
         document.getElementById('aiBreakdownSection').classList.add('active');
         app._currentAiLabSubTab = 'breakdown';
         app._saveActiveTabState();
+
+        finishUxInteractionAfterPaint(perf, {
+          location: 'ai-lab-page.events:flow-entry-breakdown',
+        });
       });
     }
 
