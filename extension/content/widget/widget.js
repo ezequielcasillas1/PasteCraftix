@@ -1379,7 +1379,9 @@ export class PasteCraftFloatingWidget {
     this.syncPageDocking();
     
     // Add active class to settings button
-    const settingsButton = this.widget.querySelector('.settings-button');
+    const settingsButton = this._refs?.settingsButton?.isConnected
+      ? this._refs.settingsButton
+      : this.widget.querySelector('.settings-button');
     if (settingsButton) {
       settingsButton.classList.add('active');
     }
@@ -1556,7 +1558,9 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from settings button
-      const settingsButton = this.widget.querySelector('.settings-button');
+      const settingsButton = this._refs?.settingsButton?.isConnected
+        ? this._refs.settingsButton
+        : this.widget.querySelector('.settings-button');
       if (settingsButton) {
         settingsButton.classList.remove('active');
       }
