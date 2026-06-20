@@ -28,6 +28,8 @@ export function markTabDirty(app, tabName) {
   if (!tabName) return;
   app._tabDirty = app._tabDirty || {};
   app._tabDirty[tabName] = true;
+  const tabEl = document.getElementById?.(`${tabName}Tab`);
+  if (tabEl?.dataset) delete tabEl.dataset.pcIconsReady;
 }
 
 export function markTabsDirtyForStorageChange(app, classification) {
@@ -139,9 +141,9 @@ export function refreshTabDataInBackground(app, tabName) {
   }
 }
 
-export function paintTabIconsDeferred(tabName) {
+export function paintTabIconsDeferred(tabName, { force = false } = {}) {
   const run = () => {
-    window.renderLucideIconsForActiveTab?.(tabName, 'tab-nav-click', { immediate: false });
+    window.renderLucideIconsForActiveTab?.(tabName, 'tab-nav-click', { immediate: false, force });
   };
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(run, { timeout: 150 });
@@ -185,10 +187,10 @@ export function switchMainTab(app, nextTab, tabBtn) {
       if (needsRender) {
         renderTabFromCache(app, nextTab);
         clearTabRenderDirty(app, nextTab);
+        paintTabIconsDeferred(nextTab, { force: true });
       } else if (nextTab === 'ai') {
         app.updateAiCreditsPills?.('ai-tab');
       }
-      paintTabIconsDeferred(nextTab);
       refreshTabDataInBackground(app, nextTab);
     } catch (err) {
       renderError = err?.message || String(err);

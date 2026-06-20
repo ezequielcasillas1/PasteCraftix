@@ -147,6 +147,8 @@ export function installGlobalClickPerfCapture() {
     const target = e.target;
     if (!target || typeof target.closest !== 'function') return;
 
+    if (target.closest('.tab-btn, .tab-nav, .ai-lab-tab')) return;
+
     const actionEl = target.closest('[data-action]');
     if (actionEl) {
       const ctx = startUxInteraction('action', actionEl.dataset.action || 'unknown', {

@@ -38,6 +38,8 @@
   --pc-hero-gradient: linear-gradient(135deg, #1e3a5f 0%, #1e40af 40%, #3b82f6 100%);
   --pc-widget-gradient: linear-gradient(135deg, rgba(30, 64, 175, 0.88) 0%, rgba(30, 58, 138, 0.88) 50%, rgba(29, 78, 216, 0.88) 100%);
   --pc-shadow-navy: 0 8px 32px rgba(30, 64, 175, 0.35);
+  --pc-tab-active-bg: var(--pc-primary);
+  --pc-tab-hover-bg: rgba(74, 144, 217, 0.12);
 }
 
 [data-theme="dark"] {
@@ -88,19 +90,25 @@
   background: var(--pc-bg-alt);
 }
 
+/* Tab nav — solid fills + narrow transitions (avoid gradient/box-shadow repaint on switch) */
+[data-theme="light"] .tab-nav .tab-btn,
+[data-theme="dark"] .tab-nav .tab-btn {
+  transition: background-color 0.12s ease, color 0.12s ease;
+  box-shadow: none;
+}
+
 [data-theme="light"] .tab-btn {
   color: var(--pc-text-muted);
 }
 
 [data-theme="light"] .tab-btn:hover {
-  background: rgba(74, 144, 217, 0.12);
+  background: var(--pc-tab-hover-bg);
   color: var(--pc-navy-btn);
 }
 
 [data-theme="light"] .tab-btn.active {
-  background: linear-gradient(135deg, var(--pc-blue) 0%, var(--pc-blue-dark) 100%);
+  background: var(--pc-tab-active-bg);
   color: #fff;
-  box-shadow: 0 2px 4px rgba(74, 144, 217, 0.35);
 }
 
 [data-theme="light"] .manual-input-section {
@@ -213,6 +221,6 @@
 }
 
 [data-theme="dark"] .tab-btn.active {
-  background: linear-gradient(135deg, var(--pc-blue) 0%, var(--pc-blue-dark) 100%);
+  background: var(--pc-tab-active-bg);
   color: #fff;
 }

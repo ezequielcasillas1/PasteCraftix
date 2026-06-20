@@ -67,4 +67,39 @@ describe('tab-nav.helpers', () => {
     globalThis.document = origDoc;
     globalThis.window = origWin;
   });
+
+  test('switchMainTab skips icon flush on clean tab revisit', async () => {
+    const origRaf = globalThis.requestAnimationFrame;
+    const origIdle = globalThis.requestIdleCallback;
+    const origDoc = globalThis.document;
+    const origWin = globalThis.window;
+    globalThis.requestAnimationFrame = (fn) => { fn(); return 0; };
+    globalThis.requestIdleCallback = (fn) => { fn(); return 0; };
+    globalThis.document = {
+      querySelectorAll: () => [{ classList: { remove: () => {}, add: () => {} } }],
+      getElementById: (id) => (id === 'categoriesTab' ? { classList: { add: () => {} }, dataset: { pcIconsReady: '1' } } : null),
+    };
+    let iconFlushCalls = 0;
+    globalThis.window = {
+      __pcTabIconRendering: false,
+      renderLucideIconsForActiveTab: () => { iconFlushCalls += 1; },
+    };
+
+    const mod = await import(`${moduleUrl}?t=${Date.now()}-skip-icons`);
+    const app = createMockApp({
+      currentTab: 'clips',
+      _tabDirty: { clips: false, categories: false },
+      _tabEverRendered: { clips: true, categories: true },
+      renderCategories: () => {},
+    });
+
+    const tabBtn = { classList: { add: () => {}, remove: () => {} }, dataset: { tab: 'categories' } };
+    mod.switchMainTab(app, 'categories', tabBtn);
+    assert.equal(iconFlushCalls, 0);
+
+    globalThis.requestAnimationFrame = origRaf;
+    globalThis.requestIdleCallback = origIdle;
+    globalThis.document = origDoc;
+    globalThis.window = origWin;
+  });
 });
