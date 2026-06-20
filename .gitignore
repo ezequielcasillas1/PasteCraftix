@@ -86,3 +86,4 @@ admin/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+!.cursor/environment.json

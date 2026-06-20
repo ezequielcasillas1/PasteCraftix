@@ -1,0 +1,4 @@
+{
+  "install": "npm ci && npm ci --prefix website",
+  "terminals": []
+}
