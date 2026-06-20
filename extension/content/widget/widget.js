@@ -62,37 +62,12 @@ export class PasteCraftFloatingWidget {
   }
   
   async initAsync() {
-    await this.loadSettingsAndAutoCopyState();
+    await this.loadSettings();
     // Apply widget icon after settings load
     try { await this.applyWidgetIcon(); } catch (_) {}
+    await this.loadAutoCopyState();
     this.setupAutoCopyListener();
     console.log('🎨 PasteCraft Floating Widget initialized with settings:', this.settings);
-  }
-
-  async loadSettingsAndAutoCopyState() {
-    try {
-      const result = await chrome.storage.local.get([
-        'widgetSettings',
-        'autoCopyEnabled',
-        'autoCopyCount',
-        'autoCopyDate',
-      ]);
-      if (result.widgetSettings) {
-        this.settings = { ...this.settings, ...this.sanitizeWidgetSettings(result.widgetSettings) };
-      }
-      const today = new Date().toDateString();
-      if (result.autoCopyDate !== today) {
-        this.autoCopyCount = 0;
-      } else {
-        this.autoCopyCount = result.autoCopyCount || 0;
-      }
-      this.autoCopyEnabled = !!result.autoCopyEnabled;
-      this.updateAutoCopyUI();
-    } catch (error) {
-      console.error('Error loading widget settings/auto-copy state:', error);
-    } finally {
-      this._settingsLoaded = true;
-    }
   }
 
   _installLazyPopupWarmer() {
@@ -148,7 +123,7 @@ export class PasteCraftFloatingWidget {
 
   _applyPopupLoadingShellStyles(container) {
     if (!container) return;
-    container.style.background = 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%)';
+    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
     container.style.transform = 'translateX(0)';
   }
 
@@ -444,16 +419,22 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
+    // Debug: Test if ANY clicks work on the widget
+    this.widget.addEventListener('click', (e) => {
+      console.log('🖱️ Widget clicked! Target:', e.target.className);
+    });
+    
     // Setup event listeners
     this.setupEventListeners();
   }
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    if (root.querySelector('[data-field="pastecraft-floating-widget-styles"]')) {
-      return;
+    const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
+    if (existingStyles) {
+      existingStyles.remove();
     }
-
+    
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
     styles.textContent = `
@@ -465,7 +446,7 @@ export class PasteCraftFloatingWidget {
         transform: translateY(-50%);
         width: 60px;
         /* 70% transparent background (alpha 0.3) */
-        background: linear-gradient(135deg, rgba(30, 64, 175, 0.88) 0%, rgba(30, 58, 138, 0.88) 50%, rgba(29, 78, 216, 0.88) 100%);
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 50%, rgba(29, 78, 216, 0.3) 100%);
         border-radius: 12px 0 0 12px;
         box-shadow: 
           -4px 0 16px rgba(0, 0, 0, 0.15),
@@ -809,10 +790,10 @@ export class PasteCraftFloatingWidget {
       console.log('✅ Settings button listener attached');
     }
     
-    // Component 3: Auto Copy Toggle (whole section clickable)
-    const autoCopySection = this.widget.querySelector('.auto-copy-section');
-    if (autoCopySection) {
-      autoCopySection.addEventListener('click', () => {
+    // Component 3: Auto Copy Toggle
+    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
+    if (autoToggle) {
+      autoToggle.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
         this.toggleAutoCopy();
       });
@@ -857,45 +838,33 @@ export class PasteCraftFloatingWidget {
     let startTopPct = 0;
     const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
     let moved = false;
-    let dragRafId = 0;
-    let pendingClientY = 0;
-    let cachedMinPct = 0;
-    let cachedMaxPct = 100;
-    let cachedVh = 1;
 
-    const applyDragPosition = () => {
-      dragRafId = 0;
+    const onMove = (e) => {
       if (!dragging) return;
-      const dy = pendingClientY - pointerStartY;
+      const dy = e.clientY - pointerStartY;
       if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       this.widget.classList.add('pc-dragging');
 
-      let nextPct = startTopPct + (dy / cachedVh) * 100;
-      nextPct = Math.max(cachedMinPct, Math.min(nextPct, cachedMaxPct));
+      // Convert dy pixels to viewport-height percentage
+      const vh = window.innerHeight || 1;
+      let nextPct = startTopPct + (dy / vh) * 100;
+      // Clamp so the widget stays fully visible
+      const widgetH = this.widget.offsetHeight || 0;
+      const minPct = (widgetH / 2 / vh) * 100;
+      const maxPct = 100 - minPct;
+      nextPct = Math.max(minPct, Math.min(nextPct, maxPct));
 
       this.widget.style.top = nextPct + '%';
       this.position.top = nextPct;
     };
 
-    const onMove = (e) => {
-      if (!dragging) return;
-      pendingClientY = e.clientY;
-      if (dragRafId) return;
-      dragRafId = requestAnimationFrame(applyDragPosition);
-    };
-
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
-      if (dragRafId) {
-        cancelAnimationFrame(dragRafId);
-        dragRafId = 0;
-      }
       this.widget.classList.remove('pc-dragging');
       document.body.style.userSelect = '';
       if (moved) {
-        applyDragPosition();
         this.savePosition();
       }
     };
@@ -908,12 +877,7 @@ export class PasteCraftFloatingWidget {
       dragging = true;
       moved = false;
       pointerStartY = e.clientY;
-      pendingClientY = e.clientY;
       startTopPct = this.position.top ?? 50;
-      cachedVh = window.innerHeight || 1;
-      const widgetH = this.widget.offsetHeight || 0;
-      cachedMinPct = (widgetH / 2 / cachedVh) * 100;
-      cachedMaxPct = 100 - cachedMinPct;
 
       try { this.widget.setPointerCapture(e.pointerId); } catch (_) {}
       e.preventDefault();
@@ -1074,7 +1038,7 @@ export class PasteCraftFloatingWidget {
         if (!currentContainer) return;
         const target = e.target;
         if (currentContainer.contains(target)) return;
-        if (this._isPointerInsideWidget(e)) return;
+        if (this.widget && this.widget.contains(target)) return;
         this.closePopupOverlay();
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -1197,7 +1161,7 @@ export class PasteCraftFloatingWidget {
       }
 
       .pastecraft-overlay-panel-loading {
-        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       }
 
       .pastecraft-overlay-loader {
@@ -1780,9 +1744,6 @@ export class PasteCraftFloatingWidget {
   
   // Listen for copy events to auto-save copied text
   setupAutoCopyListener() {
-    if (this._autoCopyListenerBound) return;
-    this._autoCopyListenerBound = true;
-
     const handler = async (e) => {
       if (!this.autoCopyEnabled) return;
       
@@ -1900,8 +1861,7 @@ export class PasteCraftFloatingWidget {
     };
 
     // Use capture phase: some native copy actions don’t bubble.
-    this._autoCopyHandler = handler;
-    document.addEventListener('copy', this._autoCopyHandler, true);
+    document.addEventListener('copy', handler, true);
   }
 
   updateAutoCopyCounter() {
@@ -2472,7 +2432,7 @@ export class PasteCraftFloatingWidget {
           if (!currentPanel) return;
           const target = e.target;
           if (currentPanel.contains(target)) return;
-          if (this._isPointerInsideWidget(e)) return;
+          if (this.widget && this.widget.contains(target)) return;
           this.closeQuickView();
         };
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
@@ -2661,7 +2621,7 @@ export class PasteCraftFloatingWidget {
           }
           .empty-hint {
             font-size: 14px;
-            color: #64748b;
+            color: #94a3b8;
           }
         </style>
       </head>

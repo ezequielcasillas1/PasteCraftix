@@ -1,34 +1,15 @@
 ---
-description: Snyk for CI and automations — no settings page required; GitHub App covers PR scans.
+description: Snyk CI uses temporary OAuth (SNYK_OAUTH_TOKEN). Apply when user asks about Snyk scans, auth, secrets, fixes, or MCP user-Snyk.
 alwaysApply: false
 ---
 
-# Snyk authentication
+# Snyk temporary OAuth
 
-## Dependency automation (weekly cron)
-
-**No Snyk settings page. No Cursor secrets.**
-
-- Automation runs `./scripts/run-dependency-scan.sh` (npm audit).
-- Snyk scans the fix PR via the **Snyk GitHub App** integration automatically.
-
-## GitHub Actions CI (optional)
-
-Refresh OAuth from CLI when CI Snyk fails — no API token from settings:
-
-```powershell
-snyk auth
-.\scripts\refresh-snyk-oauth-secret.ps1
-```
-
-OAuth expires ~1h; re-run when needed. For weekly cron, refreshing before the Monday CI run is enough.
-
-## Long-lived API token (optional only)
-
-If you prefer `SNYK_TOKEN` from [app.snyk.io/account](https://app.snyk.io/account): `./scripts/set-snyk-github-secret.sh`. Not required for automation.
+`.github/workflows/security-scans.yml` runs Snyk with **SNYK_OAUTH_TOKEN** (from `snyk auth`, ~1h expiry). Long-lived fallback: **SNYK_TOKEN** API token in repo secrets.
 
 ## On any Snyk request
 
-1. Default path: npm audit in automation + Snyk GitHub App on PRs.
-2. CI auth: `snyk auth` + refresh script (not settings page).
-3. Setup guide: `docs/security/snyk-automation-setup.md`.
+1. Remind OAuth expires ~1h; refresh: `snyk auth` then `scripts/refresh-snyk-oauth-secret.ps1`.
+2. Offer to run the refresh script when CI/auth fails or before scan work.
+3. MCP `user-Snyk` may error without valid local auth; CLI + CI workflow is primary.
+4. Keep Snyk in security-scans.yml alongside other scanners (Trivy, Semgrep, Gitleaks, npm audit, etc.).

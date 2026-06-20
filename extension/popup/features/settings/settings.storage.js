@@ -427,10 +427,6 @@ export function syncThemeToggles(app) {
     const profileToggle = document.getElementById('profileDarkModeToggle');
     if (settingsToggle) settingsToggle.checked = isDark;
     if (profileToggle) profileToggle.checked = isDark;
-    const nextTheme = isDark ? 'dark' : 'light';
-    if (document.documentElement.getAttribute('data-theme') !== nextTheme) {
-      document.documentElement.setAttribute('data-theme', nextTheme);
-    }
   } finally {
     app._themeSyncing = false;
   }

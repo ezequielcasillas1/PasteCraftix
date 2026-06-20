@@ -1,18 +1,3 @@
-### Jun 20, 2026 - Popup UX perf review fixes (stale tabs + AI credits)
-**Status:** PARTIAL (awaiting manual DevTools verification)
-**Files:** auth.session.js, tab-nav.helpers.js, tests/tab-nav.helpers.test.mjs
-**Result:** Wired markTabsDirtyForStorageChange on storage changes so inactive tabs re-render on switch. AI tab always refreshes credits when skipping full render. Unit tests pass.
-
-### Jun 20, 2026 - Popup UX perf review fix (aiBtn → switchMainTab)
-**Status:** PARTIAL (awaiting manual DevTools verification)
-**Files:** ai-lab-page.events.js, tests/ux-perf-capture.test.mjs
-**Result:** aiBtn now routes through switchMainTab (dirty-tab skip, deferred render). Added unit tests for PERF thresholds and afterPaint.
-
-### Jun 20, 2026 - Popup UX perf capture + tab switch optimization
-**Status:** PARTIAL (awaiting manual DevTools verification)
-**Files:** ux-perf-capture.js, agent-debug-log.js, tab-nav.helpers.js, tab-nav.events.js, popup.events.js, ai-lab-page.events.js, settings.events.js, popup.init.js
-**Result:** Unified PERF probes (warn 100ms / slow 300ms) across nav-tab, nav-feature, nav-ai-lab, nav-modal, flow-entry, action, click. Tab switch defers render/icons and skips unchanged tabs. Smoke tests pass.
-
 ### Jun 17, 2026 - Share: Send to phone QR + email protocol
 **Status:** PARTIAL (iPhone QR deferred)
 **Files:** clips.share.js, protocol-share.js, qr-phone-share.js, qrcode-generator.js, profile.social-share.js, popup.html

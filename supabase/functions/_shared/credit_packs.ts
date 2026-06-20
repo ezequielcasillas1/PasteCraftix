@@ -112,55 +112,6 @@ export function planCreditDrain(
   return { subUsedDelta: subRem, purchasedDelta: safeCost - subRem };
 }
 
-async function deleteCreditPurchaseRecord(supabase: any, stripeSessionId: string) {
-  try {
-    await supabase.from('credit_purchases').delete().eq('stripe_session_id', stripeSessionId);
-  } catch (_) { /* best-effort rollback for webhook retry */ }
-}
-
-/** Ensure user_subscriptions row exists before crediting a one-time pack purchase. */
-async function ensureSubscriptionRowForCredits(
-  supabase: any,
-  userId: string,
-): Promise<{ ok: true; sub: { ai_purchased_credits_balance?: number | null } } | { ok: false; error: string }> {
-  const { data: sub, error: subErr } = await supabase
-    .from('user_subscriptions')
-    .select('ai_purchased_credits_balance')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (!subErr && sub) return { ok: true, sub };
-
-  const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(userId);
-  if (authErr || !authData?.user) {
-    return { ok: false, error: authErr?.message || 'User not found' };
-  }
-
-  const email = String(authData.user.email || '').trim() || `user+${userId}@pastecraft.invalid`;
-  const { data: created, error: createErr } = await supabase
-    .from('user_subscriptions')
-    .insert({
-      user_id: userId,
-      email,
-      subscription_tier: 'free',
-      subscription_status: 'active',
-      ai_purchased_credits_balance: 0,
-    })
-    .select('ai_purchased_credits_balance')
-    .single();
-
-  if (!createErr && created) return { ok: true, sub: created };
-
-  const { data: retrySub, error: retryErr } = await supabase
-    .from('user_subscriptions')
-    .select('ai_purchased_credits_balance')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (!retryErr && retrySub) return { ok: true, sub: retrySub };
-  return { ok: false, error: createErr?.message || retryErr?.message || 'Subscription row not found' };
-}
-
 export async function fulfillCreditPackPurchase(opts: {
   supabase: any;
   userId: string;
@@ -209,13 +160,19 @@ export async function fulfillCreditPackPurchase(opts: {
     return { ok: false, error: purchaseErr.message || String(purchaseErr) };
   }
 
-  const ensured = await ensureSubscriptionRowForCredits(supabase, userId);
-  if (!ensured.ok) {
-    await deleteCreditPurchaseRecord(supabase, stripeSessionId);
-    return { ok: false, error: ensured.error };
+  const { data: sub, error: subErr } = await supabase
+    .from('user_subscriptions')
+    .select('ai_purchased_credits_balance')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (subErr || !sub) {
+    return { ok: false, error: subErr?.message || 'Subscription row not found' };
   }
 
-  const current = readPurchasedBalance(ensured.sub);
+  const current = Number.isFinite(Number(sub.ai_purchased_credits_balance))
+    ? Number(sub.ai_purchased_credits_balance)
+    : 0;
 
   const { error: updErr } = await supabase
     .from('user_subscriptions')
@@ -226,7 +183,6 @@ export async function fulfillCreditPackPurchase(opts: {
     .eq('user_id', userId);
 
   if (updErr) {
-    await deleteCreditPurchaseRecord(supabase, stripeSessionId);
     return { ok: false, error: updErr.message || String(updErr) };
   }
 

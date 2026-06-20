@@ -48,8 +48,7 @@ tests/.browser-profiles/
 *.pem
 
 # Bundled libraries (too large for git — download locally)
-extension/lib/*
-!extension/lib/lucide.min.js
+extension/lib/
 
 # Sensitive data — never commit
 secrets/
@@ -87,4 +86,3 @@ admin/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
-!.cursor/environment.json

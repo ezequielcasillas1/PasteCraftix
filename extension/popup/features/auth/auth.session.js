@@ -4,7 +4,6 @@ import {
   LOCAL_CHANGE_DEBOUNCE_MS,
   LOCAL_CHANGE_FLUSH_MS,
 } from './auth.constants.js';
-import { markTabsDirtyForStorageChange } from '../app/tab-nav.helpers.js';
 
 const TAB_LOADERS = Object.freeze({
   categories: (app) => {
@@ -426,7 +425,6 @@ async function _handleStorageChange(app, changes, classification) {
   try {
     await app._mirrorChangedLocalStateToIndexedDb(changes);
     await _refreshDataStores(app, classification);
-    markTabsDirtyForStorageChange(app, classification);
     _refreshCurrentTabView(app, classification);
     _refreshSettingsModalIfOpen(app, classification);
     _refreshProfileIdentity(app, classification);

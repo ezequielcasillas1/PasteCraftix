@@ -54,7 +54,8 @@ export class QuickPasteInterface {
   }
   
   async init() {
-    await this.loadInitialData();
+    await this.loadClips();
+    await this.loadSettings();
     this.createInterface();
     this.setupEventListeners();
     this.setupMessageListener();
@@ -64,75 +65,59 @@ export class QuickPasteInterface {
     
     console.log('🚀 PasteCraft Quick Paste initialized');
   }
-
-  async loadInitialData() {
-    try {
-      const result = await chrome.storage.local.get([
-        'clips',
-        'quickPasteSettings',
-        'quickPastePosition',
-        'theme',
-      ]);
-
-      await this._applyLoadedClips(result.clips);
-      this._applyLoadedSettings(result);
-    } catch (error) {
-      console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load initial data:', error);
-      this.clips = [];
-    }
-  }
-
-  async _applyLoadedClips(rawClips) {
-    const raw = Array.isArray(rawClips) ? rawClips : [];
-    let changed = false;
-
-    const normalized = raw.map((clip, i) => {
-      if (!clip || typeof clip !== 'object') {
-        const text = String(clip || '');
-        const id = `legacy_${this._fnv1a36(`${text}|${i}`)}`;
-        changed = true;
-        return { id, text, category: 'Uncategorized', timestamp: Date.now() };
-      }
-
-      if (clip.id == null) {
-        const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
-        const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-        const bucket = Math.floor(ts / 3000);
-        const id = `legacy_${this._fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
-        changed = true;
-        return { ...clip, id };
-      }
-
-      return clip;
-    });
-
-    this.clips = normalized;
-
-    if (changed) {
-      try {
-        await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
-      } catch (_) {}
-    }
-  }
-
-  _applyLoadedSettings(result = {}) {
-    if (result.quickPasteSettings) {
-      this.settings = { ...this.settings, ...result.quickPasteSettings };
-    }
-    if (result.theme === 'dark' || result.theme === 'light') {
-      this.settings.theme = result.theme;
-    } else if (this.settings.theme !== 'dark') {
-      this.settings.theme = 'light';
-    }
-    if (result.quickPastePosition) {
-      this.position = { ...this.position, ...result.quickPastePosition };
-    }
-  }
   
   async loadClips() {
     try {
+      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
       const result = await chrome.storage.local.get(['clips']);
-      await this._applyLoadedClips(result.clips);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!result.clips);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', result.clips?.length || 0);
+      
+      const raw = Array.isArray(result.clips) ? result.clips : [];
+      let changed = false;
+
+      // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
+      const normalized = raw.map((clip, i) => {
+        if (!clip || typeof clip !== 'object') {
+          const text = String(clip || '');
+          const id = `legacy_${this._fnv1a36(`${text}|${i}`)}`;
+          changed = true;
+          return { id, text, category: 'Uncategorized', timestamp: Date.now() };
+        }
+
+        if (clip.id == null) {
+          const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
+          const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
+          const bucket = Math.floor(ts / 3000);
+          const id = `legacy_${this._fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
+          changed = true;
+          return { ...clip, id };
+        }
+
+        return clip;
+      });
+
+      this.clips = normalized;
+      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
+
+      // Persist repaired ids so other UIs (popup/sync) stay consistent.
+      if (changed) {
+        try {
+          await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+        } catch (_) {}
+      }
+      
+      if (this.clips.length > 0) {
+        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
+          text: (clip.text || clip).substring(0, 30) + '...',
+          category: clip.category || 'Uncategorized',
+          timestamp: clip.timestamp,
+          fullClip: clip
+        })));
+      } else {
+        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
+      }
     } catch (error) {
       console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
       this.clips = [];
@@ -220,12 +205,14 @@ export class QuickPasteInterface {
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    if (root.querySelector('[data-field="pastecraft-quick-paste-styles"]')) {
-      return;
+    const styleField = 'pastecraft-quick-paste-styles';
+    const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
+    if (existingStyles) {
+      existingStyles.remove();
     }
-
+    
     const styles = document.createElement('style');
-    styles.setAttribute('data-field', 'pastecraft-quick-paste-styles');
+    styles.setAttribute('data-field', styleField);
     styles.textContent = `
       .pastecraft-quick-paste {
         position: fixed;
@@ -811,7 +798,7 @@ export class QuickPasteInterface {
       }
       
       #quickPasteCustomDelimiter::placeholder {
-        color: #64748b !important;
+        color: #9ca3af !important;
         font-style: italic !important;
       }
       
@@ -874,7 +861,7 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-interface.dark .pastecraft-clip-meta {
-        color: #cbd5e1;
+        color: #9ca3af;
       }
       
       .pastecraft-footer {
@@ -1020,8 +1007,8 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-copy-multiple:disabled {
-        background: #e5e7eb !important;
-        color: #6b7280 !important;
+        background: #d1d5db !important;
+        color: #9ca3af !important;
         cursor: not-allowed !important;
         transform: none !important;
         box-shadow: none !important;
@@ -1064,14 +1051,6 @@ export class QuickPasteInterface {
   
   setupEventListeners() {
     if (!this.container) return;
-    if (this._eventListenersBound) return;
-    this._eventListenersBound = true;
-
-    this._clipsContainer = null;
-    this._countElement = null;
-    this._dragBounds = { maxX: 0, maxY: 0 };
-    this._dragRafId = 0;
-    this._dragPendingEvent = null;
     
     // Close button
     this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
@@ -1107,57 +1086,49 @@ export class QuickPasteInterface {
     header.style.cursor = 'move';
     
     header.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.pastecraft-controls, .pastecraft-btn')) return;
       this.isDragging = true;
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
       this.dragOffset.y = e.clientY - rect.top;
-      this._dragBounds.maxX = window.innerWidth - this.container.offsetWidth;
-      this._dragBounds.maxY = window.innerHeight - this.container.offsetHeight;
       
       // Prevent text selection while dragging
       e.preventDefault();
       document.body.style.userSelect = 'none';
     });
     
-    this._onDocumentMouseMove = (e) => {
+    document.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
-      this._dragPendingEvent = e;
-      if (this._dragRafId) return;
-      this._dragRafId = requestAnimationFrame(() => {
-        this._dragRafId = 0;
-        const evt = this._dragPendingEvent;
-        if (!evt || !this.isDragging) return;
-
-        const newX = evt.clientX - this.dragOffset.x;
-        const newY = evt.clientY - this.dragOffset.y;
-        const clampedX = Math.max(0, Math.min(newX, this._dragBounds.maxX));
-        const clampedY = Math.max(0, Math.min(newY, this._dragBounds.maxY));
-
-        this.container.style.left = clampedX + 'px';
-        this.container.style.top = clampedY + 'px';
-        this.container.style.right = 'auto';
-        this.container.style.bottom = 'auto';
-        this.container.style.transform = 'translateY(0)';
-
-        this.position.x = clampedX;
-        this.position.y = clampedY;
-      });
-    };
-
-    this._onDocumentMouseUp = () => {
-      if (!this.isDragging) return;
-      this.isDragging = false;
-      if (this._dragRafId) {
-        cancelAnimationFrame(this._dragRafId);
-        this._dragRafId = 0;
+      
+      const newX = e.clientX - this.dragOffset.x;
+      const newY = e.clientY - this.dragOffset.y;
+      
+      // Keep interface within screen bounds
+      const maxX = window.innerWidth - this.container.offsetWidth;
+      const maxY = window.innerHeight - this.container.offsetHeight;
+      
+      const clampedX = Math.max(0, Math.min(newX, maxX));
+      const clampedY = Math.max(0, Math.min(newY, maxY));
+      
+      this.container.style.left = clampedX + 'px';
+      this.container.style.top = clampedY + 'px';
+      this.container.style.right = 'auto';
+      this.container.style.bottom = 'auto';
+      this.container.style.transform = 'translateY(0)';
+      
+      // Save position
+      this.position.x = clampedX;
+      this.position.y = clampedY;
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (this.isDragging) {
+        this.isDragging = false;
+        document.body.style.userSelect = '';
+        
+        // Save position to storage
+        this.savePosition();
       }
-      document.body.style.userSelect = '';
-      this.savePosition();
-    };
-
-    document.addEventListener('mousemove', this._onDocumentMouseMove);
-    document.addEventListener('mouseup', this._onDocumentMouseUp);
+    });
 
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
@@ -1199,23 +1170,19 @@ export class QuickPasteInterface {
     });
     
     // Hide when clicking outside
-    this._onDocumentClick = (e) => {
-      if (!this.isVisible || this.settings.persistOpen) return;
-      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
-      const inside = path.includes(this.container) || path.includes(this.shadowMount?.host);
-      if (!inside) {
+    document.addEventListener('click', (e) => {
+      // Only hide on outside click if persistOpen is disabled
+      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
         this.hideInterface();
       }
-    };
-    document.addEventListener('click', this._onDocumentClick);
+    });
     
     // Hide on escape key
-    this._onDocumentKeydown = (e) => {
+    document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isVisible) {
         this.hideInterface();
       }
-    };
-    document.addEventListener('keydown', this._onDocumentKeydown);
+    });
   }
   
   setupMessageListener() {
@@ -1280,15 +1247,6 @@ export class QuickPasteInterface {
     // Keep settings/position in sync across all open tabs
     if (this._storageSyncListener) return;
 
-    this._settingsReloadTimer = null;
-    const scheduleSettingsReload = () => {
-      if (this._settingsReloadTimer) return;
-      this._settingsReloadTimer = setTimeout(() => {
-        this._settingsReloadTimer = null;
-        this.loadSettings().catch(() => {});
-      }, 120);
-    };
-
     this._storageSyncListener = (changes, area) => {
       if (area !== 'local') return;
 
@@ -1316,7 +1274,8 @@ export class QuickPasteInterface {
       // These affect the quick paste interface behavior
       if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
         settingsChanged = true;
-        scheduleSettingsReload();
+        // Reload settings to get latest values
+        this.loadSettings().catch(() => {});
       }
 
       if (changes.quickPastePosition) {
@@ -1409,16 +1368,8 @@ export class QuickPasteInterface {
   updateInterface() {
     if (!this.container) return;
     
-    if (!this._clipsContainer || !this._clipsContainer.isConnected) {
-      this._clipsContainer = this.container.querySelector('.pastecraft-clips-container');
-    }
-    if (!this._countElement || !this._countElement.isConnected) {
-      this._countElement = this.container.querySelector('.pastecraft-count');
-    }
-    
-    const clipsContainer = this._clipsContainer;
-    const countElement = this._countElement;
-    if (!clipsContainer || !countElement) return;
+    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    const countElement = this.container.querySelector('.pastecraft-count');
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
@@ -1640,7 +1591,20 @@ export class QuickPasteInterface {
   async loadSettings() {
     try {
       const result = await chrome.storage.local.get(['quickPasteSettings', 'quickPastePosition', 'theme']);
-      this._applyLoadedSettings(result);
+      if (result.quickPasteSettings) {
+        this.settings = { ...this.settings, ...result.quickPasteSettings };
+      }
+      // Single source of truth: global theme (Quick Paste follows this)
+      if (result.theme === 'dark' || result.theme === 'light') {
+        this.settings.theme = result.theme;
+      } else if (this.settings.theme !== 'dark') {
+        this.settings.theme = 'light';
+      }
+      if (result.quickPastePosition) {
+        this.position = { ...this.position, ...result.quickPastePosition };
+      }
+      console.log('⚙️ Loaded settings:', this.settings);
+      console.log('📍 Loaded position:', this.position);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }

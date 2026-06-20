@@ -340,7 +340,7 @@ class PasteCraftCRUD {
     showToast
   }) {
     const normalizedIds = Array.isArray(entityIds)
-      ? Array.from(new Set(entityIds.filter((id) => id != null && id !== '').map((id) => String(id))))
+      ? Array.from(new Set(entityIds.map(id => String(id)).filter(Boolean)))
       : [];
 
     if (normalizedIds.length === 0) {

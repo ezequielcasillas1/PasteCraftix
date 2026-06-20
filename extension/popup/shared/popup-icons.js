@@ -100,9 +100,6 @@ function scheduleIconWork(task, urgent = false) {
     try {
       if (activeRoot?.isConnected) {
         window.renderLucideIconsSync(activeRoot);
-        if (!collectUnrenderedPlaceholders(activeRoot).length && activeRoot.dataset) {
-          activeRoot.dataset.pcIconsReady = '1';
-        }
       }
     } finally {
       pendingNodes.clear();
@@ -137,12 +134,7 @@ function scheduleIconWork(task, urgent = false) {
   window.renderLucideIconsForActiveTab = function renderLucideIconsForActiveTab(tabName, _source, options = {}) {
     if (window.__pcPopupLucideBooting) return;
     const immediate = options.immediate === true;
-    const force = options.force === true;
     const tab = tabName || window.pasteCraftPopup?.currentTab || '';
-    const activeRoot = window.getActiveTabContentRoot(tab);
-    if (!force && activeRoot?.dataset?.pcIconsReady === '1' && !collectUnrenderedPlaceholders(activeRoot).length) {
-      return;
-    }
     tabIconFlushTab = tab;
 
     if (immediate) {
