@@ -1207,9 +1207,6 @@ export class QuickPasteInterface {
         this.hideInterface();
       }
     };
-        this.hideInterface();
-      }
-    };
     document.addEventListener('click', this._onDocumentClick);
     
     // Hide on escape key
