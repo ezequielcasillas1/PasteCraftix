@@ -116,21 +116,20 @@ export function registerClipEvents(app) {
   setupClipPaginationDelegation(app);
 }
 
-export function setupClipPaginationDelegation(app) {
+function setupClipPaginationDelegation(app) {
   if (app._clipPaginationDelegationAttached) return;
-  const { paginationControls: container } = getClipElements();
-  if (!container) return;
+  const { paginationControls } = getClipElements();
+  if (!paginationControls) return;
 
-  container.addEventListener('click', (e) => {
+  paginationControls.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-page]');
     if (!btn || btn.disabled) return;
 
-    const page = parseInt(btn.dataset.page, 10);
-    if (!Number.isFinite(page)) return;
-
     const totalClips = Math.max(app.totalClipsCount || 0, app.clips.length);
     const totalPages = Math.min(Math.ceil(totalClips / app.clipsPerPage), app.maxPages);
-    if (page < 0 || page >= totalPages) return;
+    const page = parseInt(btn.dataset.page, 10);
+    if (!Number.isFinite(page) || page < 0 || page >= totalPages) return;
+    if (page === app.currentPage) return;
 
     app.currentPage = page;
     app.renderChips();

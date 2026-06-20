@@ -37,6 +37,26 @@ export class QuickPasteInterface {
     return String(id);
   }
 
+  _prependClipIfNew(rawClip) {
+    if (!rawClip || typeof rawClip !== 'object') return false;
+
+    let clip = rawClip;
+    if (clip.id == null) {
+      const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
+      const ts = typeof clip.timestamp === 'number' ? clip.timestamp : Date.now();
+      const bucket = Math.floor(ts / 3000);
+      clip = {
+        ...clip,
+        id: `legacy_${this._fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`,
+      };
+    }
+
+    const key = this._clipIdKey(clip.id);
+    if (this.clips.some((c) => this._clipIdKey(c?.id) === key)) return false;
+    this.clips.unshift(clip);
+    return true;
+  }
+
   _queueClipOp(fn) {
     const run = this._clipOpQueue.then(fn, fn);
     this._clipOpQueue = run.catch(() => {});
@@ -1069,6 +1089,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = this.container.querySelector('.pastecraft-copy-multiple');
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1250,10 +1271,18 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this._scheduleClipsRefresh({
-          updateUi: true,
-          autoShow: message.autoShow !== false,
-        });
+        const autoShow = message.autoShow !== false;
+        if (message.clip && this._prependClipIfNew(message.clip)) {
+          this.updateInterface();
+          if (autoShow && !this.isVisible && this.clips.length > 0) {
+            this.showInterface();
+          }
+        } else {
+          this._scheduleClipsRefresh({
+            updateUi: true,
+            autoShow,
+          });
+        }
         } else if (message.action === 'showQuickPaste') {
         handled = true;
         // Load latest clips before showing
@@ -1295,6 +1324,7 @@ export class QuickPasteInterface {
     if (this._storageSyncListener) return;
 
     this._settingsReloadTimer = null;
+    this._clipsReloadTimer = null;
     const scheduleSettingsReload = () => {
       if (this._settingsReloadTimer) return;
       this._settingsReloadTimer = setTimeout(() => {
@@ -1303,10 +1333,29 @@ export class QuickPasteInterface {
       }, 120);
     };
 
+    const scheduleClipsReload = (nextClips) => {
+      if (this._clipsReloadTimer) clearTimeout(this._clipsReloadTimer);
+      this._clipsReloadTimer = setTimeout(() => {
+        this._clipsReloadTimer = null;
+        this._applyLoadedClips(nextClips)
+          .then(() => {
+            if (this.isVisible) this.updateInterface();
+          })
+          .catch(() => {});
+      }, 120);
+    };
+
     this._storageSyncListener = (changes, area) => {
       if (area !== 'local') return;
 
       let settingsChanged = false;
+
+      if (changes.clips) {
+        const nextClips = changes.clips.newValue;
+        if (Array.isArray(nextClips)) {
+          scheduleClipsReload(nextClips);
+        }
+      }
 
       // Quick paste specific settings
       if (changes.quickPasteSettings) {
@@ -1575,9 +1624,11 @@ export class QuickPasteInterface {
   }
   
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (!this._escapeHtmlDiv) {
+      this._escapeHtmlDiv = document.createElement('div');
+    }
+    this._escapeHtmlDiv.textContent = text;
+    return this._escapeHtmlDiv.innerHTML;
   }
 
   /** Lightweight markup type detector for Quick Paste badges (no heavy libs). */
