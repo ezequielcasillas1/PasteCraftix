@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1216,9 +1217,24 @@ export class QuickPasteInterface {
       }
     };
     document.addEventListener('keydown', this._onDocumentKeydown);
+
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container.querySelector('.pastecraft-copy-multiple');
+    }
   }
   
   setupMessageListener() {
+    this._clipRefreshTimer = null;
+    const scheduleClipRefresh = (afterRefresh) => {
+      if (this._clipRefreshTimer) return;
+      this._clipRefreshTimer = setTimeout(() => {
+        this._clipRefreshTimer = null;
+        this.loadClips().then(() => {
+          afterRefresh?.();
+        });
+      }, 100);
+    };
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1226,7 +1242,7 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
+        scheduleClipRefresh(() => {
           console.log('🔄 Auto-refreshed clips after new clip saved');
           this.updateInterface();
           // Only auto-show if autoShow flag is true (default behavior)
@@ -1251,16 +1267,18 @@ export class QuickPasteInterface {
         handled = true;
         // Another tab updated clips (delete/move/etc) - refresh our interface
         console.log('🔄 Received clipsUpdated - refreshing clips');
-        await this.loadClips();
-        if (this.isVisible) {
-          this.updateInterface();
-        }
+        scheduleClipRefresh(() => {
+          if (this.isVisible) {
+            this.updateInterface();
+          }
+        });
       } else if (message.action === 'clipsCleared') {
         handled = true;
         // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
-        await this.loadClips();
-        this.updateInterface();
+        scheduleClipRefresh(() => {
+          this.updateInterface();
+        });
       } else if (message.action === 'openPopupPanel') {
         handled = true;
         // Extension icon clicked - open the slide-in panel
@@ -1388,8 +1406,11 @@ export class QuickPasteInterface {
     this.isVisible = true;
 
     // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    const clipsContainer = this._clipsContainer?.isConnected
+      ? this._clipsContainer
+      : this.container.querySelector('.pastecraft-clips-container');
     if (clipsContainer) {
+      this._clipsContainer = clipsContainer;
       clipsContainer.style.flex = '1';
       clipsContainer.style.overflowY = 'auto';
       clipsContainer.style.minHeight = '0';
@@ -2380,7 +2401,10 @@ export class QuickPasteInterface {
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;

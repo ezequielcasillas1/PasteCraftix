@@ -592,6 +592,7 @@ export function renderSearchResults(app) {
   }
 
   app.updateSearchBulkActions();
+  _paintClipLucideIcons(container);
 }
 
 export function filterClips(app) {

@@ -1,6 +1,8 @@
 import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
 import { createClosedShadowHost, injectShadowStyles } from '../safety/shadow-host.js';
 
+let _cachedQuickViewSrcdoc = null;
+
 export class PasteCraftFloatingWidget {
   constructor() {
     console.log('🎨 PasteCraftFloatingWidget constructor called');
@@ -192,6 +194,55 @@ export class PasteCraftFloatingWidget {
     if (container) container.remove();
   }
 
+  _cacheWidgetRefs() {
+    if (!this.widget) return;
+    this._refs = {
+      logoButton: this.widget.querySelector('.logo-button'),
+      settingsButton: this.widget.querySelector('.settings-button'),
+      quickViewButton: this.widget.querySelector('.quick-view-button'),
+      autoCopySection: this.widget.querySelector('.auto-copy-section'),
+      autoCopyToggle: this.widget.querySelector('.auto-copy-toggle'),
+      autoCopyCounter: this.widget.querySelector('.auto-copy-counter'),
+      logoImg: this.widget.querySelector('.widget-logo'),
+    };
+  }
+
+  _scheduleApplyWidgetIcon() {
+    if (this._applyWidgetIconTimer) return;
+    this._applyWidgetIconTimer = setTimeout(() => {
+      this._applyWidgetIconTimer = null;
+      try { this.applyWidgetIcon(); } catch (_) {}
+    }, 80);
+  }
+
+  _bindPopupEscHandler() {
+    this._clearPopupEscHandler();
+    this._popupEscHandler = (e) => {
+      if (e.key === 'Escape') this.closePopupOverlay();
+    };
+    document.addEventListener('keydown', this._popupEscHandler);
+  }
+
+  _clearPopupEscHandler() {
+    if (!this._popupEscHandler) return;
+    document.removeEventListener('keydown', this._popupEscHandler);
+    this._popupEscHandler = null;
+  }
+
+  _bindQuickViewEscHandler() {
+    this._clearQuickViewEscHandler();
+    this._quickViewEscHandler = (e) => {
+      if (e.key === 'Escape') this.closeQuickView();
+    };
+    document.addEventListener('keydown', this._quickViewEscHandler);
+  }
+
+  _clearQuickViewEscHandler() {
+    if (!this._quickViewEscHandler) return;
+    document.removeEventListener('keydown', this._quickViewEscHandler);
+    this._quickViewEscHandler = null;
+  }
+
   setupStorageSync() {
     // Keep widget settings/state in sync across all open tabs
     if (this._storageSyncListener) return;
@@ -207,8 +258,8 @@ export class PasteCraftFloatingWidget {
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
         }
-        // Apply widget icon on any widgetSettings update
-        try { this.applyWidgetIcon(); } catch (_) {}
+        // Apply widget icon on any widgetSettings update (debounced)
+        this._scheduleApplyWidgetIcon();
         if (this.settings && this.settings.clickAndDragEnabled === false) {
           this.hideClickAndDragDropBox(true);
         }
@@ -226,7 +277,7 @@ export class PasteCraftFloatingWidget {
 
       // Profile changes (if using profile image as widget icon)
       if (changes.userProfile && this.settings && this.settings.widgetIconUseProfileImage) {
-        try { this.applyWidgetIcon(); } catch (_) {}
+        this._scheduleApplyWidgetIcon();
       }
 
       // Refresh quick view widget if clips changed and quick view is open
@@ -307,7 +358,9 @@ export class PasteCraftFloatingWidget {
 
   async applyWidgetIcon() {
     if (!this.widget) return;
-    const logoImg = this.widget.querySelector('.widget-logo');
+    const logoImg = this._refs?.logoImg?.isConnected
+      ? this._refs.logoImg
+      : this.widget.querySelector('.widget-logo');
     if (!logoImg) return;
 
     const defaultSrc = pastecraftGetURL('logo.svg');
@@ -341,7 +394,9 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const toggle = this._refs?.autoCopyToggle?.isConnected
+      ? this._refs.autoCopyToggle
+      : this.widget.querySelector('.auto-copy-toggle');
     const label = toggle?.querySelector('.toggle-label');
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
@@ -658,11 +713,11 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
       }
 
       @keyframes pastecraft-eye-blink {
@@ -764,12 +819,16 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._eventListenersBound) return;
+    this._eventListenersBound = true;
+
+    this._cacheWidgetRefs();
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
     
     // Component 1: Logo Button - Toggle popup
-    const logoButton = this.widget.querySelector('.logo-button');
+    const logoButton = this._refs?.logoButton;
     if (logoButton) {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
@@ -796,7 +855,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 2: Settings Button - Toggle settings
-    const settingsButton = this.widget.querySelector('.settings-button');
+    const settingsButton = this._refs?.settingsButton;
     if (settingsButton) {
       settingsButton.addEventListener('click', () => {
         console.log('⚙️ Settings button clicked!');
@@ -810,7 +869,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 3: Auto Copy Toggle (whole section clickable)
-    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    const autoCopySection = this._refs?.autoCopySection;
     if (autoCopySection) {
       autoCopySection.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
@@ -820,7 +879,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 4: Quick View Button - Toggle quick view
-    const quickViewButton = this.widget.querySelector('.quick-view-button');
+    const quickViewButton = this._refs?.quickViewButton;
     if (quickViewButton) {
       const toggleQuickView = () => {
         console.log('👁️ Quick View button clicked!');
@@ -1001,7 +1060,9 @@ export class PasteCraftFloatingWidget {
     this.widget.classList.add('panel-open');
     this.syncPageDocking();
 
-    const logoButton = this.widget.querySelector('.logo-button');
+    const logoButton = this._refs?.logoButton?.isConnected
+      ? this._refs.logoButton
+      : this.widget.querySelector('.logo-button');
     if (logoButton) {
       logoButton.classList.add('active');
     }
@@ -1080,13 +1141,7 @@ export class PasteCraftFloatingWidget {
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
     }
 
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        this.closePopupOverlay();
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('keydown', escHandler);
+    this._bindPopupEscHandler();
 
     if (iframeReady) {
       revealPopupPanel();
@@ -1100,6 +1155,7 @@ export class PasteCraftFloatingWidget {
   
   closePopupOverlay() {
     this._clearPopupRevealTimer();
+    this._clearPopupEscHandler();
 
     const backdrop = document.getElementById('pastecraft-popup-backdrop');
     const container = document.getElementById('pastecraft-popup-overlay');
@@ -1132,7 +1188,9 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from logo button
-      const logoButton = this.widget.querySelector('.logo-button');
+      const logoButton = this._refs?.logoButton?.isConnected
+        ? this._refs.logoButton
+        : this.widget.querySelector('.logo-button');
       if (logoButton) {
         logoButton.classList.remove('active');
       }
@@ -1756,8 +1814,11 @@ export class PasteCraftFloatingWidget {
   }
   
   toggleAutoCopy() {
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle.querySelector('.toggle-label');
+    const toggle = this._refs?.autoCopyToggle?.isConnected
+      ? this._refs.autoCopyToggle
+      : this.widget.querySelector('.auto-copy-toggle');
+    const label = toggle?.querySelector('.toggle-label');
+    if (!toggle || !label) return;
     const currentState = toggle.getAttribute('data-state');
     const newState = currentState === 'on' ? 'off' : 'on';
     
@@ -2420,11 +2481,13 @@ export class PasteCraftFloatingWidget {
       // Push the website content left (docked mode)
       this.syncPageDocking();
       
-      // Add active class to quick view button
-      const quickViewButton = this.widget.querySelector('.quick-view-button');
-      if (quickViewButton) {
-        quickViewButton.classList.add('active');
-      }
+    // Add active class to quick view button
+    const quickViewButton = this._refs?.quickViewButton?.isConnected
+      ? this._refs.quickViewButton
+      : this.widget.querySelector('.quick-view-button');
+    if (quickViewButton) {
+      quickViewButton.classList.add('active');
+    }
       
       // Create backdrop
       const backdrop = document.createElement('div');
@@ -2478,14 +2541,7 @@ export class PasteCraftFloatingWidget {
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
       }
       
-      // ESC key to close
-      const escHandler = (e) => {
-        if (e.key === 'Escape') {
-          this.closeQuickView();
-          document.removeEventListener('keydown', escHandler);
-        }
-      };
-      document.addEventListener('keydown', escHandler);
+      this._bindQuickViewEscHandler();
     
       // Animate in
       setTimeout(() => {
@@ -2507,8 +2563,9 @@ export class PasteCraftFloatingWidget {
     // srcdoc iframe has opaque ("null") origin — postMessage targetOrigin must be '*'.
     // Sender/receiver validate via e.source identity checks instead of origin.
     const quickViewTargetOrigin = '*';
-    // Create a custom HTML content for the Quick View
-    const content = `
+    if (!_cachedQuickViewSrcdoc) {
+      // Create a custom HTML content for the Quick View (cached — shell is static)
+      _cachedQuickViewSrcdoc = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -2823,8 +2880,9 @@ export class PasteCraftFloatingWidget {
       </body>
       </html>
     `;
-    
-    iframe.srcdoc = content;
+    }
+
+    iframe.srcdoc = _cachedQuickViewSrcdoc;
     
     const hashText = (s) => {
       const str = String(s || '');
@@ -2886,17 +2944,22 @@ export class PasteCraftFloatingWidget {
       return merged.slice(0, 200);
     };
 
-    // Listen for storage changes to auto-refresh clips
+    // Listen for storage changes to auto-refresh clips (debounced)
+    let quickViewStorageTimer = null;
     const storageListener = (changes, area) => {
       if (area !== 'local' || !iframe.contentWindow) return;
       if (!changes.clips && !changes.searchOnlyClips) return;
-      getQuickViewClips()
-        .then((clips) => {
-          if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
-          }
-        })
-        .catch(() => {});
+      if (quickViewStorageTimer) return;
+      quickViewStorageTimer = setTimeout(() => {
+        quickViewStorageTimer = null;
+        getQuickViewClips()
+          .then((clips) => {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
+            }
+          })
+          .catch(() => {});
+      }, 120);
     };
     chrome.storage.onChanged.addListener(storageListener);
     
@@ -3141,6 +3204,8 @@ export class PasteCraftFloatingWidget {
   }
   
   closeQuickView() {
+    this._clearQuickViewEscHandler();
+
     const backdrop = document.getElementById('pastecraft-quickview-backdrop');
     const panel = document.getElementById('pastecraft-quickview-panel');
     
@@ -3168,7 +3233,9 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from quick view button
-      const quickViewButton = this.widget.querySelector('.quick-view-button');
+      const quickViewButton = this._refs?.quickViewButton?.isConnected
+        ? this._refs.quickViewButton
+        : this.widget.querySelector('.quick-view-button');
       if (quickViewButton) {
         quickViewButton.classList.remove('active');
       }
@@ -3408,7 +3475,11 @@ export class PasteCraftFloatingWidget {
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._savePositionTimer) return;
+    this._savePositionTimer = setTimeout(() => {
+      this._savePositionTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 150);
   }
 }
 
