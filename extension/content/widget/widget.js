@@ -73,12 +73,19 @@ export class PasteCraftFloatingWidget {
     try {
       const result = await chrome.storage.local.get([
         'widgetSettings',
+        'widgetPosition',
         'autoCopyEnabled',
         'autoCopyCount',
         'autoCopyDate',
       ]);
       if (result.widgetSettings) {
         this.settings = { ...this.settings, ...this.sanitizeWidgetSettings(result.widgetSettings) };
+      }
+      if (result.widgetPosition && this.widget) {
+        this.position = result.widgetPosition;
+        if (typeof this.position.top === 'number') {
+          this.widget.style.top = this.position.top + '%';
+        }
       }
       const today = new Date().toDateString();
       if (result.autoCopyDate !== today) {
@@ -92,6 +99,7 @@ export class PasteCraftFloatingWidget {
       console.error('Error loading widget settings/auto-copy state:', error);
     } finally {
       this._settingsLoaded = true;
+      this._revealWidgetFromSavedPosition();
     }
   }
 
@@ -341,7 +349,7 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const toggle = this._uiRefs?.autoCopyToggle || this.widget.querySelector('.auto-copy-toggle');
     const label = toggle?.querySelector('.toggle-label');
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
@@ -764,12 +772,23 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._eventListenersBound) return;
+    this._eventListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
     
     // Component 1: Logo Button - Toggle popup
     const logoButton = this.widget.querySelector('.logo-button');
+    this._uiRefs = {
+      logoButton,
+      settingsButton: null,
+      autoCopySection: null,
+      quickViewButton: null,
+      autoCopyToggle: this.widget.querySelector('.auto-copy-toggle'),
+      autoCopyCounter: this.widget.querySelector('.auto-copy-counter'),
+    };
     if (logoButton) {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
@@ -797,6 +816,7 @@ export class PasteCraftFloatingWidget {
     
     // Component 2: Settings Button - Toggle settings
     const settingsButton = this.widget.querySelector('.settings-button');
+    this._uiRefs.settingsButton = settingsButton;
     if (settingsButton) {
       settingsButton.addEventListener('click', () => {
         console.log('⚙️ Settings button clicked!');
@@ -811,6 +831,7 @@ export class PasteCraftFloatingWidget {
     
     // Component 3: Auto Copy Toggle (whole section clickable)
     const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    this._uiRefs.autoCopySection = autoCopySection;
     if (autoCopySection) {
       autoCopySection.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
@@ -821,6 +842,7 @@ export class PasteCraftFloatingWidget {
     
     // Component 4: Quick View Button - Toggle quick view
     const quickViewButton = this.widget.querySelector('.quick-view-button');
+    this._uiRefs.quickViewButton = quickViewButton;
     if (quickViewButton) {
       const toggleQuickView = () => {
         console.log('👁️ Quick View button clicked!');
@@ -1887,11 +1909,7 @@ export class PasteCraftFloatingWidget {
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
         
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        this._scheduleAutoCopyCounterPersist();
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1905,7 +1923,7 @@ export class PasteCraftFloatingWidget {
   }
 
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    const counter = this._uiRefs?.autoCopyCounter || this.widget?.querySelector('.auto-copy-counter');
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
@@ -3388,27 +3406,34 @@ export class PasteCraftFloatingWidget {
   }
 
   loadSavedPosition() {
-    const revealWidget = () => {
-      if (this.widget) {
-        this.widget.style.visibility = 'visible';
-      }
-    };
+    // Position is loaded in loadSettingsAndAutoCopyState (batched storage read).
+    // Fallback: never leave widget hidden if async settings load is delayed.
+    setTimeout(() => this._revealWidgetFromSavedPosition(), 800);
+  }
 
-    chrome.storage.local.get(['widgetPosition'], (result) => {
-      if (result.widgetPosition && this.widget) {
-        this.position = result.widgetPosition;
-        this.widget.style.top = this.position.top + '%';
-        console.log('📍 Widget position loaded:', this.position.top + '%');
-      }
-      revealWidget();
-    });
+  _revealWidgetFromSavedPosition() {
+    if (!this.widget || this._widgetRevealed) return;
+    this._widgetRevealed = true;
+    this.widget.style.visibility = 'visible';
+  }
 
-    // Fallback: never leave widget hidden if storage callback is delayed
-    setTimeout(revealWidget, 800);
+  _scheduleAutoCopyCounterPersist() {
+    if (this._autoCopyPersistTimer) return;
+    this._autoCopyPersistTimer = setTimeout(() => {
+      this._autoCopyPersistTimer = null;
+      chrome.storage.local.set({
+        autoCopyCount: this.autoCopyCount,
+        autoCopyDate: new Date().toDateString(),
+      }).catch(() => {});
+    }, 250);
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._savePositionTimer) clearTimeout(this._savePositionTimer);
+    this._savePositionTimer = setTimeout(() => {
+      this._savePositionTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position }).catch(() => {});
+    }, 200);
   }
 }
 
