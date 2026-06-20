@@ -162,6 +162,8 @@ export class QuickPasteInterface {
     // Initially hidden
     this.container.style.display = 'none';
     root.appendChild(this.container);
+    this._clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    this._countElement = this.container.querySelector('.pastecraft-count');
     this.applySettings();
   }
   
@@ -207,9 +209,7 @@ export class QuickPasteInterface {
     if (!root) return;
     const styleField = 'pastecraft-quick-paste-styles';
     const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
-    if (existingStyles) {
-      existingStyles.remove();
-    }
+    if (existingStyles) return;
     
     const styles = document.createElement('style');
     styles.setAttribute('data-field', styleField);
@@ -1050,7 +1050,8 @@ export class QuickPasteInterface {
   }
   
   setupEventListeners() {
-    if (!this.container) return;
+    if (!this.container || this._eventListenersBound) return;
+    this._eventListenersBound = true;
     
     // Close button
     this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
@@ -1090,45 +1091,59 @@ export class QuickPasteInterface {
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
       this.dragOffset.y = e.clientY - rect.top;
+      this._dragBounds = {
+        maxX: window.innerWidth - this.container.offsetWidth,
+        maxY: window.innerHeight - this.container.offsetHeight,
+      };
       
       // Prevent text selection while dragging
       e.preventDefault();
       document.body.style.userSelect = 'none';
     });
     
-    document.addEventListener('mousemove', (e) => {
+    this._onDocumentMouseMove = (e) => {
       if (!this.isDragging) return;
-      
-      const newX = e.clientX - this.dragOffset.x;
-      const newY = e.clientY - this.dragOffset.y;
-      
-      // Keep interface within screen bounds
-      const maxX = window.innerWidth - this.container.offsetWidth;
-      const maxY = window.innerHeight - this.container.offsetHeight;
-      
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
-      
-      this.container.style.left = clampedX + 'px';
-      this.container.style.top = clampedY + 'px';
-      this.container.style.right = 'auto';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-      
-      // Save position
-      this.position.x = clampedX;
-      this.position.y = clampedY;
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-        document.body.style.userSelect = '';
-        
-        // Save position to storage
-        this.savePosition();
+      this._dragPendingEvent = e;
+      if (this._dragRafId) return;
+      this._dragRafId = requestAnimationFrame(() => {
+        this._dragRafId = 0;
+        const ev = this._dragPendingEvent;
+        if (!ev || !this.isDragging) return;
+
+        const newX = ev.clientX - this.dragOffset.x;
+        const newY = ev.clientY - this.dragOffset.y;
+        const bounds = this._dragBounds || {
+          maxX: window.innerWidth - this.container.offsetWidth,
+          maxY: window.innerHeight - this.container.offsetHeight,
+        };
+
+        const clampedX = Math.max(0, Math.min(newX, bounds.maxX));
+        const clampedY = Math.max(0, Math.min(newY, bounds.maxY));
+
+        this.container.style.left = clampedX + 'px';
+        this.container.style.top = clampedY + 'px';
+        this.container.style.right = 'auto';
+        this.container.style.bottom = 'auto';
+        this.container.style.transform = 'translateY(0)';
+
+        this.position.x = clampedX;
+        this.position.y = clampedY;
+      });
+    };
+
+    this._onDocumentMouseUp = () => {
+      if (!this.isDragging) return;
+      this.isDragging = false;
+      if (this._dragRafId) {
+        cancelAnimationFrame(this._dragRafId);
+        this._dragRafId = 0;
       }
-    });
+      document.body.style.userSelect = '';
+      this.savePosition();
+    };
+
+    document.addEventListener('mousemove', this._onDocumentMouseMove);
+    document.addEventListener('mouseup', this._onDocumentMouseUp);
 
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
@@ -1170,19 +1185,21 @@ export class QuickPasteInterface {
     });
     
     // Hide when clicking outside
-    document.addEventListener('click', (e) => {
+    this._onDocumentClick = (e) => {
       // Only hide on outside click if persistOpen is disabled
       if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
         this.hideInterface();
       }
-    });
+    };
+    document.addEventListener('click', this._onDocumentClick);
     
     // Hide on escape key
-    document.addEventListener('keydown', (e) => {
+    this._onDocumentKeydown = (e) => {
       if (e.key === 'Escape' && this.isVisible) {
         this.hideInterface();
       }
-    });
+    };
+    document.addEventListener('keydown', this._onDocumentKeydown);
   }
   
   setupMessageListener() {
@@ -1368,8 +1385,8 @@ export class QuickPasteInterface {
   updateInterface() {
     if (!this.container) return;
     
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
-    const countElement = this.container.querySelector('.pastecraft-count');
+    const clipsContainer = this._clipsContainer || this.container.querySelector('.pastecraft-clips-container');
+    const countElement = this._countElement || this.container.querySelector('.pastecraft-count');
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
@@ -1528,9 +1545,13 @@ export class QuickPasteInterface {
   }
   
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    const s = String(text ?? '');
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   /** Lightweight markup type detector for Quick Paste badges (no heavy libs). */

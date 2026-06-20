@@ -419,11 +419,6 @@ export class PasteCraftFloatingWidget {
     
     root.appendChild(this.widget);
 
-    // Debug: Test if ANY clicks work on the widget
-    this.widget.addEventListener('click', (e) => {
-      console.log('🖱️ Widget clicked! Target:', e.target.className);
-    });
-    
     // Setup event listeners
     this.setupEventListeners();
   }
@@ -431,9 +426,7 @@ export class PasteCraftFloatingWidget {
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
     const existingStyles = root.querySelector('[data-field="pastecraft-floating-widget-styles"]');
-    if (existingStyles) {
-      existingStyles.remove();
-    }
+    if (existingStyles) return;
     
     const styles = document.createElement('style');
     styles.setAttribute('data-field', 'pastecraft-floating-widget-styles');
@@ -639,11 +632,23 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .quick-view-button:hover .eye-drawing,
+        .quick-view-button:focus-visible .eye-drawing,
+        .quick-view-button:hover .eye-pupil,
+        .quick-view-button:focus-visible .eye-pupil {
+          animation: none;
+        }
+        .pastecraft-widget {
+          animation: none;
+        }
       }
 
       @keyframes pastecraft-eye-blink {
@@ -838,18 +843,19 @@ export class PasteCraftFloatingWidget {
     let startTopPct = 0;
     const DRAG_THRESHOLD = 4; // px – distinguishes click from drag
     let moved = false;
+    let dragRafId = 0;
+    let pendingClientY = 0;
 
-    const onMove = (e) => {
+    const applyDragPosition = () => {
+      dragRafId = 0;
       if (!dragging) return;
-      const dy = e.clientY - pointerStartY;
+      const dy = pendingClientY - pointerStartY;
       if (!moved && Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       this.widget.classList.add('pc-dragging');
 
-      // Convert dy pixels to viewport-height percentage
       const vh = window.innerHeight || 1;
       let nextPct = startTopPct + (dy / vh) * 100;
-      // Clamp so the widget stays fully visible
       const widgetH = this.widget.offsetHeight || 0;
       const minPct = (widgetH / 2 / vh) * 100;
       const maxPct = 100 - minPct;
@@ -859,9 +865,20 @@ export class PasteCraftFloatingWidget {
       this.position.top = nextPct;
     };
 
+    const onMove = (e) => {
+      if (!dragging) return;
+      pendingClientY = e.clientY;
+      if (dragRafId) return;
+      dragRafId = requestAnimationFrame(applyDragPosition);
+    };
+
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
+      if (dragRafId) {
+        cancelAnimationFrame(dragRafId);
+        dragRafId = 0;
+      }
       this.widget.classList.remove('pc-dragging');
       document.body.style.userSelect = '';
       if (moved) {
@@ -931,6 +948,14 @@ export class PasteCraftFloatingWidget {
   }
 
   syncPageDocking() {
+    if (this._syncDockRaf) return;
+    this._syncDockRaf = requestAnimationFrame(() => {
+      this._syncDockRaf = 0;
+      this._applyPageDocking();
+    });
+  }
+
+  _applyPageDocking() {
     this.ensurePageDockStyles();
 
     const shouldPush = !!(this.openStates?.popup || this.openStates?.settings || this.openStates?.quickView);

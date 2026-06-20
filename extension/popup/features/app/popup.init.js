@@ -5,6 +5,25 @@ import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 let popupRevealScheduled = false;
 
+function yieldPaintFrame() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+async function renderPopupShell(app) {
+  await yieldPaintFrame();
+  app.renderChips();
+  app.updateLastCapture();
+  app.updatePreview();
+  app.renderCategories();
+  app.updateCategoryFilter();
+}
+
 function revealPopupWithIcons(context = 'unknown') {
   if (typeof window.finishBootLucideIcons === 'function') {
     window.finishBootLucideIcons(context);
@@ -46,11 +65,7 @@ export async function runPopupInit(app) {
     await Promise.all([app.loadData(), app.loadSettings()]);
     app.updateTopBarIdentity();
     await app.setupEventListeners();
-    app.renderChips();
-    app.updateLastCapture();
-    app.updatePreview();
-    app.renderCategories();
-    app.updateCategoryFilter();
+    await renderPopupShell(app);
     await finishPopupReveal(app, 'guest-init');
     app.setupVisibilityListener();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
@@ -151,11 +166,7 @@ export async function runPopupInit(app) {
   }
 
   await app.setupEventListeners();
-  app.renderChips();
-  app.updateLastCapture();
-  app.updatePreview();
-  app.renderCategories();
-  app.updateCategoryFilter();
+  await renderPopupShell(app);
 
   try {
     await app._restoreSessionState();
