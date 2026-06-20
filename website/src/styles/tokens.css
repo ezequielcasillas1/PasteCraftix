@@ -4,6 +4,8 @@
   --navy-deep: #0d1240;
   --navy: #1a1f5e;
   --blue: #2563eb;
+  --neon: #22d3ee;
+  --neon-soft: #38bdf8;
   --gold: #fbbf24;
   --gold-dark: #d97706;
   --gold-light: #fde68a;
@@ -38,4 +40,13 @@
   --gradient-surface: linear-gradient(180deg, rgba(37, 99, 235, 0.18) 0%, rgba(8, 12, 42, 0) 100%);
   --gradient-hero: linear-gradient(135deg, #0d1240 0%, #1a1f5e 50%, #0d1240 100%);
   --grid-line: rgba(37, 99, 235, 0.07);
+  --neon-glow: rgba(34, 211, 238, 0.35);
+  --surface-input: rgba(37, 99, 235, 0.06);
+  --surface-input-strong: rgba(37, 99, 235, 0.12);
+  --gold-alpha-08: rgba(251, 191, 36, 0.08);
+  --gold-alpha-14: rgba(251, 191, 36, 0.14);
+  --gold-alpha-16: rgba(251, 191, 36, 0.16);
+  --gold-alpha-18: rgba(251, 191, 36, 0.18);
+  --gold-alpha-28: rgba(251, 191, 36, 0.28);
+  --gold-alpha-45: rgba(251, 191, 36, 0.45);
 }
