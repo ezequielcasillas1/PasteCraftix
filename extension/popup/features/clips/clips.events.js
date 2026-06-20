@@ -6,7 +6,7 @@ import {
   openGoogleSearchMenu,
   openOrgBundleMenu,
 } from './clips.action-menu.js';
-import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
+import { getClipBulkActionControls, getClipSearchControls, getClipElements } from './clips.selectors.js';
 
 function getAllClipCandidates(app) {
   return [...app.clips, ...app.searchOnlyClips];
@@ -113,6 +113,29 @@ export function registerClipBulkActionEvents(app) {
 export function registerClipEvents(app) {
   registerClipSearchEvents(app);
   registerClipBulkActionEvents(app);
+  setupClipPaginationDelegation(app);
+}
+
+function setupClipPaginationDelegation(app) {
+  if (app._clipPaginationDelegationAttached) return;
+  const { paginationControls } = getClipElements();
+  if (!paginationControls) return;
+
+  paginationControls.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-page]');
+    if (!btn || btn.disabled) return;
+
+    const totalClips = Math.max(app.totalClipsCount || 0, app.clips.length);
+    const totalPages = Math.min(Math.ceil(totalClips / app.clipsPerPage), app.maxPages);
+    const page = parseInt(btn.dataset.page, 10);
+    if (!Number.isFinite(page) || page < 0 || page >= totalPages) return;
+    if (page === app.currentPage) return;
+
+    app.currentPage = page;
+    app.renderChips();
+  });
+
+  app._clipPaginationDelegationAttached = true;
 }
 
 export function setupCategoryClipDelegation(app) {

@@ -1,4 +1,8 @@
-### Jun 20, 2026 - Popup UX perf review fixes (stale tabs + AI credits)
+### Jun 20, 2026 - Scheduled extension performance check (cron)
+**Status:** PARTIAL (awaiting manual DevTools verification)
+**Files:** widget.js, quick-paste.js, content.js, clips.render.js, clips.events.js
+**Result:** Cached DOM refs, debounced storage writes, removed forced reflow/dead DOM scans, pagination delegation, rAF-deferred content boot, reduced-motion eye animation.
+
 **Status:** PARTIAL (awaiting manual DevTools verification)
 **Files:** auth.session.js, tab-nav.helpers.js, tests/tab-nav.helpers.test.mjs
 **Result:** Wired markTabsDirtyForStorageChange on storage changes so inactive tabs re-render on switch. AI tab always refreshes credits when skipping full render. Unit tests pass.

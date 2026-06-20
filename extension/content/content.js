@@ -2,6 +2,13 @@ import { isSiteAllowed } from './safety/site-guard.js';
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
 
+function pastecraftBootContent() {
+  if (window.pasteCraftFloatingWidget) return;
+
+  window.pasteCraftQuickPaste = new QuickPasteInterface();
+  window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
+}
+
 function pastecraftInitContent() {
   if (!isSiteAllowed(location.href)) {
     return;
@@ -17,8 +24,8 @@ function pastecraftInitContent() {
   }
   if (window.pasteCraftFloatingWidget) return;
 
-  window.pasteCraftQuickPaste = new QuickPasteInterface();
-  window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
+  // Defer heavy shadow-DOM injection until after the host page's first paint.
+  requestAnimationFrame(pastecraftBootContent);
 }
 
 pastecraftInitContent();

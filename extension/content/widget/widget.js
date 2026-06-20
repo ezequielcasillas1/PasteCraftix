@@ -341,8 +341,8 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle?.querySelector('.toggle-label');
+    const toggle = this._autoCopyToggle;
+    const label = this._autoCopyLabel;
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
       label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
@@ -443,6 +443,10 @@ export class PasteCraftFloatingWidget {
     this.widget.style.visibility = 'hidden';
     
     root.appendChild(this.widget);
+
+    this._autoCopyToggle = this.widget.querySelector('.auto-copy-toggle');
+    this._autoCopyLabel = this._autoCopyToggle?.querySelector('.toggle-label');
+    this._autoCopyCounter = this.widget.querySelector('.auto-copy-counter');
 
     // Setup event listeners
     this.setupEventListeners();
@@ -685,6 +689,15 @@ export class PasteCraftFloatingWidget {
           transform: translateX(5px);
         }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .quick-view-button:hover .eye-drawing,
+        .quick-view-button:focus-visible .eye-drawing,
+        .quick-view-button:hover .eye-pupil,
+        .quick-view-button:focus-visible .eye-pupil {
+          animation: none !important;
+        }
+      }
       
       /* Tooltips - appear on LEFT; hardened against host page CSS (chess.com etc.) */
       .widget-component[data-tooltip]::before {
@@ -764,6 +777,9 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._widgetListenersBound) return;
+    this._widgetListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
@@ -1756,8 +1772,10 @@ export class PasteCraftFloatingWidget {
   }
   
   toggleAutoCopy() {
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle.querySelector('.toggle-label');
+    const toggle = this._autoCopyToggle;
+    const label = this._autoCopyLabel;
+    if (!toggle || !label) return;
+
     const currentState = toggle.getAttribute('data-state');
     const newState = currentState === 'on' ? 'off' : 'on';
     
@@ -1887,11 +1905,15 @@ export class PasteCraftFloatingWidget {
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
         
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        // Batch counter persistence (rapid multi-copy bursts)
+        if (this._autoCopySaveTimer) clearTimeout(this._autoCopySaveTimer);
+        this._autoCopySaveTimer = setTimeout(() => {
+          this._autoCopySaveTimer = null;
+          chrome.storage.local.set({
+            autoCopyCount: this.autoCopyCount,
+            autoCopyDate: new Date().toDateString(),
+          });
+        }, 200);
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1905,7 +1927,10 @@ export class PasteCraftFloatingWidget {
   }
 
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    if (!this._autoCopyCounter || !this._autoCopyCounter.isConnected) {
+      this._autoCopyCounter = this.widget?.querySelector('.auto-copy-counter') || null;
+    }
+    const counter = this._autoCopyCounter;
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
@@ -3408,7 +3433,11 @@ export class PasteCraftFloatingWidget {
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._positionSaveTimer) clearTimeout(this._positionSaveTimer);
+    this._positionSaveTimer = setTimeout(() => {
+      this._positionSaveTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 150);
   }
 }
 

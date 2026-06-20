@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = this.container.querySelector('.pastecraft-copy-multiple');
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1423,24 +1424,8 @@ export class QuickPasteInterface {
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
     
-    // Reset selections and update button state
+    // Reset selections and update button state (innerHTML rebuild already cleared DOM)
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -1577,9 +1562,11 @@ export class QuickPasteInterface {
   }
   
   escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (!this._escapeHtmlDiv) {
+      this._escapeHtmlDiv = document.createElement('div');
+    }
+    this._escapeHtmlDiv.textContent = text;
+    return this._escapeHtmlDiv.innerHTML;
   }
 
   /** Lightweight markup type detector for Quick Paste badges (no heavy libs). */
@@ -2373,14 +2360,14 @@ export class QuickPasteInterface {
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
     
-    // Force a style recalculation
-    clipElement.offsetHeight;
-    
     this.updateCopyMultipleButton();
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
