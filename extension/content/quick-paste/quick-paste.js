@@ -798,7 +798,7 @@ export class QuickPasteInterface {
       }
       
       #quickPasteCustomDelimiter::placeholder {
-        color: #9ca3af !important;
+        color: #64748b !important;
         font-style: italic !important;
       }
       
@@ -861,7 +861,7 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-interface.dark .pastecraft-clip-meta {
-        color: #9ca3af;
+        color: #cbd5e1;
       }
       
       .pastecraft-footer {
@@ -1007,8 +1007,8 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-copy-multiple:disabled {
-        background: #d1d5db !important;
-        color: #9ca3af !important;
+        background: #e5e7eb !important;
+        color: #6b7280 !important;
         cursor: not-allowed !important;
         transform: none !important;
         box-shadow: none !important;
@@ -1086,6 +1086,7 @@ export class QuickPasteInterface {
     header.style.cursor = 'move';
     
     header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.pastecraft-controls, .pastecraft-btn')) return;
       this.isDragging = true;
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
@@ -1171,8 +1172,10 @@ export class QuickPasteInterface {
     
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
-      // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (!this.isVisible || this.settings.persistOpen) return;
+      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+      const inside = path.includes(this.container) || path.includes(this.shadowMount?.host);
+      if (!inside) {
         this.hideInterface();
       }
     });
