@@ -18,8 +18,16 @@ export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
   }
-  const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+  const result = await chrome.storage.local.get([
+    'clips',
+    'categories',
+    'searchOnlyClips',
+    'pc_deleted_clips',
+    'pc_deleted_categories',
+  ]);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  const deletedClips = Array.isArray(result.pc_deleted_clips) ? result.pc_deleted_clips : [];
+  const deletedCategories = Array.isArray(result.pc_deleted_categories) ? result.pc_deleted_categories : [];
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
@@ -27,10 +35,10 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('categories')
     ]);
     if (Array.isArray(idbClips) && idbClips.length > 0) {
-      clips = mergeActiveClipsSources(clips, idbClips);
+      clips = mergeActiveClipsSources(clips, idbClips, deletedClips);
     }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) {
-      categories = mergeActiveCategoriesSources(categories, idbCategories);
+      categories = mergeActiveCategoriesSources(categories, idbCategories, deletedCategories);
     }
   }
   return { clips, categories, searchOnlyClips };

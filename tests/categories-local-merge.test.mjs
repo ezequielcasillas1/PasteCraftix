@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Run: node --test tests/categories-local-merge.test.mjs
  */
 import assert from 'node:assert/strict';
@@ -8,6 +8,7 @@ import {
   getCategoryMergeKey,
   getCategorySortTime,
   mergeActiveCategoriesSources,
+  filterTombstonedCategories,
 } from '../extension/shared/categories-local-merge.js';
 
 describe('categories local merge', () => {
@@ -53,5 +54,18 @@ describe('categories local merge', () => {
       mergeActiveCategoriesSources(null, [{ id: 'x', updatedAt: 1 }]),
       [{ id: 'x', updatedAt: 1 }],
     );
+  });
+
+  test('merge drops tombstoned IDB category', () => {
+    const local = [];
+    const idb = [{ id: 'gone', name: 'Ghost', updatedAt: 300 }];
+    const tombstones = [{ id: 'gone', deletedAt: 400 }];
+    const merged = mergeActiveCategoriesSources(local, idb, tombstones);
+    assert.equal(merged.length, 0);
+  });
+
+  test('filterTombstonedCategories keeps categories without tombstone match', () => {
+    const categories = [{ id: 'ok', name: 'Keep', updatedAt: 1 }];
+    assert.equal(filterTombstonedCategories(categories, [{ id: 'other', deletedAt: 9 }]).length, 1);
   });
 });
