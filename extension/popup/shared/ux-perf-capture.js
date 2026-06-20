@@ -31,6 +31,14 @@ function levelForMs(durationMs) {
   return 'ok';
 }
 
+const DEDICATED_PERF_SELECTOR = [
+  '.tab-btn',
+  '.ai-lab-tab',
+  '.ai-refactorization-feature',
+  '.ai-breakdown-feature',
+  '#settingsBtn',
+].join(', ');
+
 export function emitUxPerfProbe({
   category,
   label,
@@ -56,10 +64,6 @@ export function emitUxPerfProbe({
     runId,
   };
 
-  // #region agent log
-  console.warn(`[PasteCraft:debug:${SESSION_ID}]`, payload);
-  // #endregion
-
   const entry = { ts: Date.now(), perfMs: performance.now(), ...payload };
   const buf = ensureBuffer();
   buf.push(entry);
@@ -67,7 +71,14 @@ export function emitUxPerfProbe({
     buf.splice(0, buf.length - MAX_ENTRIES);
   }
 
-  relayAgentDebugLog(payload);
+  const shouldEmit = level !== 'ok' || runId === 'boot';
+  if (shouldEmit) {
+    // #region agent log
+    console.warn(`[PasteCraft:debug:${SESSION_ID}]`, payload);
+    // #endregion
+    relayAgentDebugLog(payload);
+  }
+
   return entry;
 }
 
@@ -146,6 +157,8 @@ export function installGlobalClickPerfCapture() {
   document.addEventListener('click', (e) => {
     const target = e.target;
     if (!target || typeof target.closest !== 'function') return;
+
+    if (target.closest(DEDICATED_PERF_SELECTOR)) return;
 
     const actionEl = target.closest('[data-action]');
     if (actionEl) {
