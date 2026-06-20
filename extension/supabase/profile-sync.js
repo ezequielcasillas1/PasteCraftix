@@ -1,4 +1,6 @@
 /** Vertical slice: profile-sync.js */
+import { buildProfileUpsertPayload } from '../shared/profile-sync-payload.js';
+
 export const profileSyncMixin = {
 // USER PROFILE SYNC METHODS
 // =====================================================
@@ -20,9 +22,7 @@ async syncUserProfileToSupabase(localProfile) {
 
     const dbProfile = {
       user_id: userId,
-      user_name: localProfile.userName?.trim() || null,
-      ai_generated_name: localProfile.aiGeneratedName?.trim() || null,
-      updated_at: new Date().toISOString(),
+      ...buildProfileUpsertPayload(localProfile),
     };
 
     const { data, error } = await this.client
