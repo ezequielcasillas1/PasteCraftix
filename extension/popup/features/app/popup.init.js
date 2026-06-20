@@ -1,6 +1,7 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
 import { initializeAllPopupFeatures } from './popup.features.js';
+import { markAllTabsDirty, clearTabRenderDirty } from './tab-nav.helpers.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 let popupRevealScheduled = false;
@@ -24,6 +25,7 @@ async function finishPopupReveal(app, context = 'popup-ready') {
 export async function runPopupInit(app) {
   window.__pcPopupLucideBooting = true;
   popupRevealScheduled = false;
+  markAllTabsDirty(app);
 
   await initializeAllPopupFeatures(app);
 
@@ -52,6 +54,7 @@ export async function runPopupInit(app) {
     app.renderCategories();
     app.updateCategoryFilter();
     await finishPopupReveal(app, 'guest-init');
+    clearTabRenderDirty(app, 'clips');
     app.setupVisibilityListener();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
     return;
@@ -164,6 +167,7 @@ export async function runPopupInit(app) {
   }
 
   await finishPopupReveal(app, 'popup-ready');
+  clearTabRenderDirty(app, app.currentTab || 'clips');
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))
