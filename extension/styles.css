@@ -410,7 +410,7 @@
 }
 
 .manual-input-textarea::placeholder {
-  color: #94a3b8;
+  color: var(--pc-text-placeholder, #64748b);
 }
 
 .manual-input-actions {
@@ -713,6 +713,7 @@
 }
 
 /* PasteCraft Modern UI Styles */
+@import url('./styles/pc-theme.css');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
@@ -1575,7 +1576,7 @@ body {
 
 .magic-page-dots {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--pc-text-muted, #64748b);
   padding: 0 4px;
   font-weight: 600;
 }
@@ -3099,7 +3100,7 @@ body {
 
 .bd-char-count {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--pc-text-muted, #64748b);
   font-weight: 600;
   background: #f1f5f9;
   padding: 2px 10px;
@@ -3108,7 +3109,7 @@ body {
 
 .bd-step-hint {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--pc-text-muted, #64748b);
   font-style: italic;
 }
 
@@ -3705,7 +3706,7 @@ body {
 
 .text-length {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--pc-text-muted, #64748b);
   font-weight: 500;
 }
 
@@ -3883,7 +3884,7 @@ body {
 }
 
 .breakdown-loading small {
-  color: #94a3b8;
+  color: var(--pc-text-muted, #64748b);
   font-size: 13px;
 }
 
@@ -3897,7 +3898,7 @@ body {
 
 .breakdown-result:empty::before {
   content: '👆 Click a comprehension level above to get started';
-  color: #94a3b8;
+  color: var(--pc-text-muted, #64748b);
   font-style: italic;
   font-size: 14px;
   display: flex;

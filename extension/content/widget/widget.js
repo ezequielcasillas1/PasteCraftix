@@ -123,7 +123,7 @@ export class PasteCraftFloatingWidget {
 
   _applyPopupLoadingShellStyles(container) {
     if (!container) return;
-    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    container.style.background = 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%)';
     container.style.transform = 'translateX(0)';
   }
 
@@ -446,7 +446,7 @@ export class PasteCraftFloatingWidget {
         transform: translateY(-50%);
         width: 60px;
         /* 70% transparent background (alpha 0.3) */
-        background: linear-gradient(135deg, rgba(30, 64, 175, 0.3) 0%, rgba(30, 58, 138, 0.3) 50%, rgba(29, 78, 216, 0.3) 100%);
+        background: linear-gradient(135deg, rgba(30, 64, 175, 0.88) 0%, rgba(30, 58, 138, 0.88) 50%, rgba(29, 78, 216, 0.88) 100%);
         border-radius: 12px 0 0 12px;
         box-shadow: 
           -4px 0 16px rgba(0, 0, 0, 0.15),
@@ -790,10 +790,10 @@ export class PasteCraftFloatingWidget {
       console.log('✅ Settings button listener attached');
     }
     
-    // Component 3: Auto Copy Toggle
-    const autoToggle = this.widget.querySelector('.auto-copy-toggle');
-    if (autoToggle) {
-      autoToggle.addEventListener('click', () => {
+    // Component 3: Auto Copy Toggle (whole section clickable)
+    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    if (autoCopySection) {
+      autoCopySection.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
         this.toggleAutoCopy();
       });
@@ -1038,7 +1038,7 @@ export class PasteCraftFloatingWidget {
         if (!currentContainer) return;
         const target = e.target;
         if (currentContainer.contains(target)) return;
-        if (this.widget && this.widget.contains(target)) return;
+        if (this._isPointerInsideWidget(e)) return;
         this.closePopupOverlay();
       };
       document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
@@ -1161,7 +1161,7 @@ export class PasteCraftFloatingWidget {
       }
 
       .pastecraft-overlay-panel-loading {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
       }
 
       .pastecraft-overlay-loader {
@@ -2432,7 +2432,7 @@ export class PasteCraftFloatingWidget {
           if (!currentPanel) return;
           const target = e.target;
           if (currentPanel.contains(target)) return;
-          if (this.widget && this.widget.contains(target)) return;
+          if (this._isPointerInsideWidget(e)) return;
           this.closeQuickView();
         };
         document.addEventListener('pointerdown', this._quickViewOutsidePointerDown, true);
@@ -2621,7 +2621,7 @@ export class PasteCraftFloatingWidget {
           }
           .empty-hint {
             font-size: 14px;
-            color: #94a3b8;
+            color: #64748b;
           }
         </style>
       </head>

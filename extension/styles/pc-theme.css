@@ -1,0 +1,40 @@
+/* PasteCraft design tokens — navy/orange brand palette */
+:root,
+[data-theme="light"] {
+  --pc-bg: #ffffff;
+  --pc-bg-surface: #f8fafc;
+  --pc-bg-subtle: #f1f5f9;
+  --pc-bg-info: #eff6ff;
+  --pc-text: #0f172a;
+  --pc-text-secondary: #1f2937;
+  --pc-text-muted: #64748b;
+  --pc-text-placeholder: #64748b;
+  --pc-text-disabled: #94a3b8;
+  --pc-border: #e5e7eb;
+  --pc-border-subtle: #e2e8f0;
+  --pc-primary: #3b82f6;
+  --pc-primary-dark: #2563eb;
+  --pc-navy-deep: #1e3a5f;
+  --pc-navy: #1e40af;
+  --pc-navy-dark: #1e3a8a;
+  --pc-orange: #f97316;
+  --pc-orange-dark: #ea580c;
+  --pc-success: #10b981;
+  --pc-error: #ef4444;
+  --pc-on-navy: #ffffff;
+  --pc-on-navy-muted: #e2e8f0;
+  --pc-on-navy-subtle: #cbd5e1;
+  --pc-header-gradient: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+  --pc-hero-gradient: linear-gradient(135deg, #1e3a5f 0%, #1e40af 40%, #3b82f6 100%);
+  --pc-widget-gradient: linear-gradient(135deg, rgba(30, 64, 175, 0.88) 0%, rgba(30, 58, 138, 0.88) 50%, rgba(29, 78, 216, 0.88) 100%);
+  --pc-shadow-navy: 0 8px 32px rgba(30, 64, 175, 0.35);
+}
+
+[data-theme="dark"] {
+  --pc-bg: #1f2937;
+  --pc-bg-surface: #374151;
+  --pc-text: #f9fafb;
+  --pc-text-muted: #cbd5e1;
+  --pc-text-placeholder: #cbd5e1;
+  --pc-border: #4b5563;
+}
