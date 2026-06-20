@@ -7,6 +7,7 @@ import {
   hasMeaningfulInput,
   getRemainingMeaningfulWords,
 } from '../features/ai-lab/ai-lab.input-validation.js';
+import { switchMainTab } from '../features/app/tab-nav.helpers.js';
 import {
   finishUxInteractionAfterPaint,
   startUxInteraction,
@@ -26,29 +27,10 @@ export function registerAiLabPageEvents(app) {
     const aiBtn = document.getElementById('aiBtn');
     if (aiBtn) {
       aiBtn.addEventListener('click', () => {
-        const perf = startUxInteraction('nav-feature', 'ai-lab-entry');
-
-        // Switch to AI tab
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
         const aiTabBtn = document.querySelector('.tab-btn[data-tab="ai"]');
         if (aiTabBtn) {
-          aiTabBtn.classList.add('active');
+          switchMainTab(app, 'ai', aiTabBtn);
         }
-        
-        app.currentTab = 'ai';
-        document.getElementById('aiTab').classList.add('active');
-
-        // Persist active tab
-        app._saveActiveTabState();
-
-        // Refresh credits view when entering AI Lab.
-        app.updateAiCreditsPills('ai-tab');
-
-        finishUxInteractionAfterPaint(perf, {
-          location: 'ai-lab-page.events:ai-lab-entry',
-        });
       });
     }
 
