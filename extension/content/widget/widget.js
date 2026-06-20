@@ -99,7 +99,7 @@ export class PasteCraftFloatingWidget {
     if (this._lazyWarmerInstalled) return;
     this._lazyWarmerInstalled = true;
     try {
-      const logo = this.widget?.querySelector('.logo-button');
+      const logo = this._widgetRefs?.logoButton || this.widget?.querySelector('.logo-button');
       const trigger = () => this.warmPopupIframe();
       const target = logo || this.widget;
       if (!target) return;
@@ -307,7 +307,7 @@ export class PasteCraftFloatingWidget {
 
   async applyWidgetIcon() {
     if (!this.widget) return;
-    const logoImg = this.widget.querySelector('.widget-logo');
+    const logoImg = this._widgetRefs?.widgetLogo || this.widget.querySelector('.widget-logo');
     if (!logoImg) return;
 
     const defaultSrc = pastecraftGetURL('logo.svg');
@@ -341,7 +341,7 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const toggle = this._widgetRefs?.autoCopyToggle || this.widget.querySelector('.auto-copy-toggle');
     const label = toggle?.querySelector('.toggle-label');
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
@@ -443,6 +443,16 @@ export class PasteCraftFloatingWidget {
     this.widget.style.visibility = 'hidden';
     
     root.appendChild(this.widget);
+
+    this._widgetRefs = {
+      logoButton: this.widget.querySelector('.logo-button'),
+      settingsButton: this.widget.querySelector('.settings-button'),
+      autoCopySection: this.widget.querySelector('.auto-copy-section'),
+      quickViewButton: this.widget.querySelector('.quick-view-button'),
+      autoCopyToggle: this.widget.querySelector('.auto-copy-toggle'),
+      autoCopyCounter: this.widget.querySelector('.auto-copy-counter'),
+      widgetLogo: this.widget.querySelector('.widget-logo'),
+    };
 
     // Setup event listeners
     this.setupEventListeners();
@@ -769,7 +779,7 @@ export class PasteCraftFloatingWidget {
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
     
     // Component 1: Logo Button - Toggle popup
-    const logoButton = this.widget.querySelector('.logo-button');
+    const logoButton = this._widgetRefs?.logoButton || this.widget.querySelector('.logo-button');
     if (logoButton) {
       logoButton.addEventListener('click', () => {
         console.log('🎨 Logo button clicked!');
@@ -796,7 +806,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 2: Settings Button - Toggle settings
-    const settingsButton = this.widget.querySelector('.settings-button');
+    const settingsButton = this._widgetRefs?.settingsButton || this.widget.querySelector('.settings-button');
     if (settingsButton) {
       settingsButton.addEventListener('click', () => {
         console.log('⚙️ Settings button clicked!');
@@ -810,7 +820,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 3: Auto Copy Toggle (whole section clickable)
-    const autoCopySection = this.widget.querySelector('.auto-copy-section');
+    const autoCopySection = this._widgetRefs?.autoCopySection || this.widget.querySelector('.auto-copy-section');
     if (autoCopySection) {
       autoCopySection.addEventListener('click', () => {
         console.log('🔄 Toggle clicked!');
@@ -820,7 +830,7 @@ export class PasteCraftFloatingWidget {
     }
     
     // Component 4: Quick View Button - Toggle quick view
-    const quickViewButton = this.widget.querySelector('.quick-view-button');
+    const quickViewButton = this._widgetRefs?.quickViewButton || this.widget.querySelector('.quick-view-button');
     if (quickViewButton) {
       const toggleQuickView = () => {
         console.log('👁️ Quick View button clicked!');
@@ -1001,7 +1011,7 @@ export class PasteCraftFloatingWidget {
     this.widget.classList.add('panel-open');
     this.syncPageDocking();
 
-    const logoButton = this.widget.querySelector('.logo-button');
+    const logoButton = this._widgetRefs?.logoButton || this.widget.querySelector('.logo-button');
     if (logoButton) {
       logoButton.classList.add('active');
     }
@@ -1132,7 +1142,7 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from logo button
-      const logoButton = this.widget.querySelector('.logo-button');
+      const logoButton = this._widgetRefs?.logoButton || this.widget.querySelector('.logo-button');
       if (logoButton) {
         logoButton.classList.remove('active');
       }
@@ -1321,7 +1331,7 @@ export class PasteCraftFloatingWidget {
     this.syncPageDocking();
     
     // Add active class to settings button
-    const settingsButton = this.widget.querySelector('.settings-button');
+    const settingsButton = this._widgetRefs?.settingsButton || this.widget.querySelector('.settings-button');
     if (settingsButton) {
       settingsButton.classList.add('active');
     }
@@ -1498,7 +1508,7 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from settings button
-      const settingsButton = this.widget.querySelector('.settings-button');
+      const settingsButton = this._widgetRefs?.settingsButton || this.widget.querySelector('.settings-button');
       if (settingsButton) {
         settingsButton.classList.remove('active');
       }
@@ -1756,7 +1766,7 @@ export class PasteCraftFloatingWidget {
   }
   
   toggleAutoCopy() {
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
+    const toggle = this._widgetRefs?.autoCopyToggle || this.widget.querySelector('.auto-copy-toggle');
     const label = toggle.querySelector('.toggle-label');
     const currentState = toggle.getAttribute('data-state');
     const newState = currentState === 'on' ? 'off' : 'on';
@@ -1887,11 +1897,8 @@ export class PasteCraftFloatingWidget {
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
         
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        // Batch counter writes during rapid copy bursts
+        this._scheduleAutoCopyCounterPersist();
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1904,8 +1911,21 @@ export class PasteCraftFloatingWidget {
     document.addEventListener('copy', this._autoCopyHandler, true);
   }
 
+  _scheduleAutoCopyCounterPersist() {
+    if (this._autoCopyCounterTimer) {
+      clearTimeout(this._autoCopyCounterTimer);
+    }
+    this._autoCopyCounterTimer = setTimeout(() => {
+      this._autoCopyCounterTimer = null;
+      chrome.storage.local.set({
+        autoCopyCount: this.autoCopyCount,
+        autoCopyDate: new Date().toDateString(),
+      });
+    }, 400);
+  }
+
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    const counter = this._widgetRefs?.autoCopyCounter || this.widget.querySelector('.auto-copy-counter');
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
@@ -2421,7 +2441,7 @@ export class PasteCraftFloatingWidget {
       this.syncPageDocking();
       
       // Add active class to quick view button
-      const quickViewButton = this.widget.querySelector('.quick-view-button');
+      const quickViewButton = this._widgetRefs?.quickViewButton || this.widget.querySelector('.quick-view-button');
       if (quickViewButton) {
         quickViewButton.classList.add('active');
       }
@@ -3168,7 +3188,7 @@ export class PasteCraftFloatingWidget {
       }
       
       // Remove active class from quick view button
-      const quickViewButton = this.widget.querySelector('.quick-view-button');
+      const quickViewButton = this._widgetRefs?.quickViewButton || this.widget.querySelector('.quick-view-button');
       if (quickViewButton) {
         quickViewButton.classList.remove('active');
       }
@@ -3408,7 +3428,13 @@ export class PasteCraftFloatingWidget {
   }
   
   savePosition() {
-    chrome.storage.local.set({ widgetPosition: this.position });
+    if (this._positionSaveTimer) {
+      clearTimeout(this._positionSaveTimer);
+    }
+    this._positionSaveTimer = setTimeout(() => {
+      this._positionSaveTimer = null;
+      chrome.storage.local.set({ widgetPosition: this.position });
+    }, 200);
   }
 }
 
