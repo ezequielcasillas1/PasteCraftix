@@ -861,7 +861,7 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-interface.dark .pastecraft-clip-meta {
-        color: #9ca3af;
+        color: #d1d5db;
       }
       
       .pastecraft-footer {
@@ -1049,6 +1049,17 @@ export class QuickPasteInterface {
     root.appendChild(styles);
   }
   
+  _isClickInsideQuickPaste(e) {
+    const host = this.shadowMount?.host;
+    if (!host) return false;
+
+    const target = e?.target;
+    if (target === host) return true;
+
+    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
+    return path.includes(host) || (this.container && path.includes(this.container));
+  }
+
   setupEventListeners() {
     if (!this.container) return;
     
@@ -1172,7 +1183,7 @@ export class QuickPasteInterface {
     // Hide when clicking outside
     document.addEventListener('click', (e) => {
       // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (this.isVisible && !this._isClickInsideQuickPaste(e) && !this.settings.persistOpen) {
         this.hideInterface();
       }
     });
@@ -1640,6 +1651,7 @@ export class QuickPasteInterface {
     console.log('📝 Creating new settings modal');
     this.settingsModal = document.createElement('div');
     this.settingsModal.className = 'pastecraft-settings-modal';
+    this._applyModalOverlayStyles(this.settingsModal);
     this.settingsModal.innerHTML = `
       <div class="pastecraft-modal-backdrop"></div>
       <div class="pastecraft-modal-content">
@@ -1714,6 +1726,8 @@ export class QuickPasteInterface {
     // Create help page modal
     this.helpModal = document.createElement('div');
     this.helpModal.className = 'pastecraft-help-modal';
+    this._applyModalOverlayStyles(this.helpModal);
+    this.helpModal.style.display = 'none';
     this.helpModal.innerHTML = `
       <div class="pastecraft-modal-backdrop"></div>
       <div class="pastecraft-modal-content">
@@ -2205,12 +2219,18 @@ export class QuickPasteInterface {
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    const theme = this.settings.theme || '';
+    this.container.className = `pastecraft-quick-paste pastecraft-interface${theme ? ` ${theme}` : ''}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
     this.container.style.zIndex = '1000000';
+  }
+
+  _applyModalOverlayStyles(el) {
+    if (!el) return;
+    el.style.cssText =
+      'position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;';
   }
   
   showClearAllConfirmation() {
