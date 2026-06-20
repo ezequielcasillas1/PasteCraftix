@@ -28,6 +28,24 @@ function prunePendingNodes(pendingNodes) {
   }
 }
 
+// Lucide's bundled `createIcons({ root })` IGNORES the `root` option and
+// always runs `document.querySelectorAll('[data-lucide]')`. Worse, every SVG
+// it produces is tagged with `data-lucide=<name>` again, so each subsequent
+// call rebuilds every previously-rendered icon in the entire popup
+// (replaceChild + new SVG + child paths per icon). With ~200 icons the cost
+// compounds into >1s of jank on every nav-tab switch that adds a placeholder
+// (clips, search, categories, AI lab, notes). Stripping `data-lucide` from
+// already-rendered SVGs after each call hides them from lucide's full-doc
+// scan so future calls only touch genuinely unrendered placeholders.
+function stripDataLucideFromRenderedSvgs() {
+  if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+  const els = document.querySelectorAll('[data-lucide]');
+  if (!els?.length) return;
+  for (const el of els) {
+    if (el.tagName === 'SVG') el.removeAttribute('data-lucide');
+  }
+}
+
 function runLucideOnRoot(root) {
   const lucide = window.lucide;
   if (!lucide?.createIcons || !root?.nodeType) return;
@@ -36,6 +54,7 @@ function runLucideOnRoot(root) {
     attrs: LUCIDE_ATTRS,
     root,
   });
+  stripDataLucideFromRenderedSvgs();
 }
 
 function runLucideCreateIcons(nodes) {
@@ -100,6 +119,9 @@ function scheduleIconWork(task, urgent = false) {
     try {
       if (activeRoot?.isConnected) {
         window.renderLucideIconsSync(activeRoot);
+        if (!collectUnrenderedPlaceholders(activeRoot).length && activeRoot.dataset) {
+          activeRoot.dataset.pcIconsReady = '1';
+        }
       }
     } finally {
       pendingNodes.clear();
@@ -134,7 +156,12 @@ function scheduleIconWork(task, urgent = false) {
   window.renderLucideIconsForActiveTab = function renderLucideIconsForActiveTab(tabName, _source, options = {}) {
     if (window.__pcPopupLucideBooting) return;
     const immediate = options.immediate === true;
+    const force = options.force === true;
     const tab = tabName || window.pasteCraftPopup?.currentTab || '';
+    const activeRoot = window.getActiveTabContentRoot(tab);
+    if (!force && activeRoot?.dataset?.pcIconsReady === '1' && !collectUnrenderedPlaceholders(activeRoot).length) {
+      return;
+    }
     tabIconFlushTab = tab;
 
     if (immediate) {
