@@ -1,4 +1,5 @@
 /** Vertical slice: full-sync.js */
+import { mergeFreshLocalForFullSync } from '../shared/full-sync-guard.js';
 import { mergeUserProfileLocalRemote } from '../shared/profile-merge.js';
 
 export const fullSyncMixin = {
@@ -93,77 +94,102 @@ async performFullSync() {
 
     let localWritesApplied = false;
 
+    const applyFullSyncMergeWrite = async ({
+      storageKey,
+      fallbackLocal,
+      remoteData,
+      mergeFn,
+      label,
+      countMerged = (merged) => (Array.isArray(merged) ? merged.length : null),
+    }) => {
+      const result = await mergeFreshLocalForFullSync({
+        storageKey,
+        fallbackLocal,
+        remoteData,
+        mergeFn,
+        hasNewerLocalWrites,
+      });
+
+      if (result.skipped) {
+        if (result.reason === 'newer-local-before-merge' || result.reason === 'newer-local-after-merge') {
+          console.warn(`⏭️ Skipping ${label} merge write - newer local changes detected during full sync`);
+        }
+        return false;
+      }
+
+      const changed = await this._safeStorageSet(result.payload);
+      if (changed) {
+        const count = countMerged(result.merged);
+        console.log(
+          count == null
+            ? `✅ ${label} updated`
+            : `✅ ${label} merged: ${count} total`,
+        );
+      }
+      return changed;
+    };
+
     // Read-mostly startup sync:
     // Local changes should travel through the queue/delta path. Re-uploading
     // whole local tables on every popup open is what has been timing out.
     const remoteClips = await this.syncClipsFromSupabase();
     if (remoteClips) {
-      const mergedClips = await this.mergeClips(localClips, remoteClips);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping clips merge write - newer local changes detected during full sync');
-      } else {
-        const clipsChanged = await this._safeStorageSet({ clips: mergedClips });
-        localWritesApplied = localWritesApplied || clipsChanged;
-        if (clipsChanged) {
-          console.log(`✅ Clips merged: ${mergedClips.length} total`);
-        }
-      }
+      const clipsChanged = await applyFullSyncMergeWrite({
+        storageKey: 'clips',
+        fallbackLocal: localClips,
+        remoteData: remoteClips,
+        mergeFn: (local, remote) => this.mergeClips(local, remote),
+        label: 'Clips',
+      });
+      localWritesApplied = localWritesApplied || clipsChanged;
     }
 
     const remoteCategories = await this.syncCategoriesFromSupabase();
     if (remoteCategories) {
-      const mergedCategories = await this.mergeCategories(localCategories, remoteCategories);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping categories merge write - newer local changes detected during full sync');
-      } else {
-        const categoriesChanged = await this._safeStorageSet({ categories: mergedCategories });
-        localWritesApplied = localWritesApplied || categoriesChanged;
-        if (categoriesChanged) {
-          console.log(`✅ Categories merged: ${mergedCategories.length} total`);
-        }
-      }
+      const categoriesChanged = await applyFullSyncMergeWrite({
+        storageKey: 'categories',
+        fallbackLocal: localCategories,
+        remoteData: remoteCategories,
+        mergeFn: (local, remote) => this.mergeCategories(local, remote),
+        label: 'Categories',
+      });
+      localWritesApplied = localWritesApplied || categoriesChanged;
     }
 
     const remoteArchivedClips = await this.syncArchivedClipsFromSupabase();
     if (remoteArchivedClips) {
-      const mergedArchivedClips = await this.mergeArchivedClips(localArchivedClips, remoteArchivedClips);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping archived clips merge write - newer local changes detected during full sync');
-      } else {
-        const archivedClipsChanged = await this._safeStorageSet({ searchOnlyClips: mergedArchivedClips });
-        localWritesApplied = localWritesApplied || archivedClipsChanged;
-        if (archivedClipsChanged) {
-          console.log(`✅ Archived clips merged: ${mergedArchivedClips.length} total (limited to 1000 locally)`);
-        }
-      }
+      const archivedClipsChanged = await applyFullSyncMergeWrite({
+        storageKey: 'searchOnlyClips',
+        fallbackLocal: localArchivedClips,
+        remoteData: remoteArchivedClips,
+        mergeFn: (local, remote) => this.mergeArchivedClips(local, remote),
+        label: 'Archived clips',
+      });
+      localWritesApplied = localWritesApplied || archivedClipsChanged;
     }
 
     const remoteNotes = await this.syncNotesFromSupabase();
     if (remoteNotes) {
-      const mergedNotes = await this.mergeNotes(localNotes, remoteNotes);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping notes merge write - newer local changes detected during full sync');
-      } else {
-        const notesChanged = await this._safeStorageSet({ notes: mergedNotes });
-        localWritesApplied = localWritesApplied || notesChanged;
-        if (notesChanged) {
-          console.log(`✅ Notes merged: ${mergedNotes.length} total`);
-        }
-      }
+      const notesChanged = await applyFullSyncMergeWrite({
+        storageKey: 'notes',
+        fallbackLocal: localNotes,
+        remoteData: remoteNotes,
+        mergeFn: (local, remote) => this.mergeNotes(local, remote),
+        label: 'Notes',
+      });
+      localWritesApplied = localWritesApplied || notesChanged;
     }
 
     const remoteAiHistory = await this.fetchAiHistoryFromSupabase();
     if (remoteAiHistory && remoteAiHistory.length > 0) {
-      const mergedAiHistory = this.mergeAiHistory(localAiHistory, remoteAiHistory);
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping AI history merge write - newer local changes detected during full sync');
-      } else {
-        const aiHistoryChanged = await this._safeStorageSet({ pc_aiHistory_v1: mergedAiHistory });
-        localWritesApplied = localWritesApplied || aiHistoryChanged;
-        if (aiHistoryChanged) {
-          console.log(`✅ AI history merged: ${mergedAiHistory.length} total`);
-        }
-      }
+      const aiHistoryChanged = await applyFullSyncMergeWrite({
+        storageKey: 'pc_aiHistory_v1',
+        fallbackLocal: localAiHistory,
+        remoteData: remoteAiHistory,
+        mergeFn: (local, remote) => this.mergeAiHistory(local, remote),
+        label: 'AI history',
+      });
+      localWritesApplied = localWritesApplied || aiHistoryChanged;
     }
 
     const remoteSettings = await this.syncSettingsFromSupabase();
@@ -193,9 +219,6 @@ async performFullSync() {
 
     const remoteProfile = await this.syncUserProfileFromSupabase();
     if (remoteProfile) {
-      if (await hasNewerLocalWrites()) {
-        console.warn('⏭️ Skipping profile merge write - newer local changes detected during full sync');
-      } else {
       const pickUrl = (localUrl, remoteUrl) => {
         const l = typeof localUrl === 'string' ? localUrl : '';
         const r = typeof remoteUrl === 'string' ? remoteUrl : '';
@@ -218,13 +241,15 @@ async performFullSync() {
         return r || l;
       };
 
-      const mergedProfile = mergeUserProfileLocalRemote(localProfile, remoteProfile, pickUrl);
-      const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
+      const profileChanged = await applyFullSyncMergeWrite({
+        storageKey: 'userProfile',
+        fallbackLocal: localProfile,
+        remoteData: remoteProfile,
+        mergeFn: (local, remote) => mergeUserProfileLocalRemote(local, remote, pickUrl),
+        label: 'User profile',
+        countMerged: () => null,
+      });
       localWritesApplied = localWritesApplied || profileChanged;
-      if (profileChanged) {
-        console.log('✅ User profile updated');
-      }
-      }
     }
 
       console.log('✅ Full sync complete!');
