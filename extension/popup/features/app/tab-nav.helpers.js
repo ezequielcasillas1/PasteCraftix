@@ -142,14 +142,9 @@ export function refreshTabDataInBackground(app, tabName) {
 }
 
 export function paintTabIconsDeferred(tabName, { force = false } = {}) {
-  const run = () => {
+  requestAnimationFrame(() => {
     window.renderLucideIconsForActiveTab?.(tabName, 'tab-nav-click', { immediate: false, force });
-  };
-  if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(run, { timeout: 150 });
-  } else {
-    requestAnimationFrame(run);
-  }
+  });
 }
 
 export function scheduleActiveTabStateSave(app) {
