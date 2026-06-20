@@ -182,11 +182,21 @@ export async function runPopupInit(app) {
     .then(() => app.cleanupOldClips())
     .catch(() => {});
 
-  app.performBackgroundSync();
+  const scheduleIdle = (fn, timeoutMs = 2000) => {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(fn, { timeout: timeoutMs });
+      return;
+    }
+    Promise.resolve().then(fn);
+  };
 
-  Promise.resolve()
-    .then(() => app._maybeMigrateTieredStorage())
-    .catch((e) => console.warn('Tiered storage migration skipped:', e));
+  scheduleIdle(() => app.performBackgroundSync());
+
+  scheduleIdle(() => {
+    Promise.resolve()
+      .then(() => app._maybeMigrateTieredStorage())
+      .catch((e) => console.warn('Tiered storage migration skipped:', e));
+  }, 4000);
 
   app.setupVisibilityListener();
   app.setupRealtimeListeners();
