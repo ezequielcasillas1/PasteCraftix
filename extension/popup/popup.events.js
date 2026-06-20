@@ -6,10 +6,17 @@ import { registerClipsShellEvents } from './events/clips-shell.events.js';
 import { registerSharedModalEvents } from './events/modals-shared.events.js';
 import { registerCraftToolbarEvents } from './events/craft-toolbar.events.js';
 import { registerAiLabPageEvents } from './events/ai-lab-page.events.js';
+import {
+  installGlobalClickPerfCapture,
+  installUxPerfConsoleHelpers,
+} from './shared/ux-perf-capture.js';
 
 export function registerPopupEventListeners(app) {
   if (app._popupEventListenersRegistered) return;
   app._popupEventListenersRegistered = true;
+
+  installUxPerfConsoleHelpers();
+  installGlobalClickPerfCapture();
 
   app.setupCategoryClipDelegation();
   registerBillingUpgradeEvents(app);

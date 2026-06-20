@@ -404,3 +404,8 @@
 **Status:** PENDING USER VERIFY
 **Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
 **Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.
+
+### Jun 20, 2026 - PR #113 popup UX perf regression fix
+**Status:** PARTIAL (static review + unit tests; manual popup verify pending)
+**Files:** ux-perf-capture.js, tab-nav.helpers.js, tab-nav.events.js, ai-lab-page.events.js, settings.events.js, popup.events.js, popup.init.js, auth.session.js, agent-debug-log.js
+**Result:** PR #113 reverted Jun-18 baseline removed perf probes and blocking tab-nav (await loadData per switch). Restored main's switchMainTab deferred render, dirty flags, and PERF instrumentation. 5/5 unit tests pass.
