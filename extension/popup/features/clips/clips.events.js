@@ -113,6 +113,26 @@ export function registerClipBulkActionEvents(app) {
 export function registerClipEvents(app) {
   registerClipSearchEvents(app);
   registerClipBulkActionEvents(app);
+  setupPaginationDelegation(app);
+}
+
+export function setupPaginationDelegation(app) {
+  if (app._paginationDelegationAttached) return;
+  const container = document.getElementById('paginationControls');
+  if (!container) return;
+
+  container.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-page]');
+    if (!btn || btn.disabled) return;
+    const totalPages = parseInt(container.dataset.pcTotalPages || '0', 10);
+    if (!totalPages) return;
+    const page = parseInt(btn.dataset.page, 10);
+    if (Number.isNaN(page) || page < 0 || page >= totalPages) return;
+    app.currentPage = page;
+    app.renderChips();
+  });
+
+  app._paginationDelegationAttached = true;
 }
 
 export function setupCategoryClipDelegation(app) {

@@ -1069,6 +1069,7 @@ export class QuickPasteInterface {
 
     this._clipsContainer = null;
     this._countElement = null;
+    this._copyMultipleBtn = null;
     this._dragBounds = { maxX: 0, maxY: 0 };
     this._dragRafId = 0;
     this._dragPendingEvent = null;
@@ -1218,7 +1219,31 @@ export class QuickPasteInterface {
     document.addEventListener('keydown', this._onDocumentKeydown);
   }
   
+  _scheduleClipsReload(options = {}) {
+    this._clipsReloadOptions = {
+      ...(this._clipsReloadOptions || {}),
+      ...options,
+      autoShow: !!(options.autoShow || this._clipsReloadOptions?.autoShow),
+    };
+    if (this._clipsReloadTimer) return;
+    this._clipsReloadTimer = setTimeout(async () => {
+      this._clipsReloadTimer = null;
+      const opts = this._clipsReloadOptions || {};
+      this._clipsReloadOptions = null;
+      try {
+        await this.loadClips();
+        this.updateInterface();
+        if (opts.autoShow && !this.isVisible && this.clips.length > 0) {
+          this.showInterface();
+        }
+      } catch (_) {}
+    }, 80);
+  }
+
   setupMessageListener() {
+    if (this._messageListenerBound) return;
+    this._messageListenerBound = true;
+
     chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
       const action = message && typeof message.action === 'string' ? message.action : '';
       let handled = false;
@@ -1226,14 +1251,7 @@ export class QuickPasteInterface {
         handled = true;
         console.log('📨 Received clipSaved message:', message.clip);
         console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
-          console.log('🔄 Auto-refreshed clips after new clip saved');
-          this.updateInterface();
-          // Only auto-show if autoShow flag is true (default behavior)
-          if (message.autoShow !== false && !this.isVisible && this.clips.length > 0) {
-            this.showInterface();
-          }
-        });
+        this._scheduleClipsReload({ autoShow: message.autoShow !== false });
         } else if (message.action === 'showQuickPaste') {
         handled = true;
         // Load latest clips before showing
@@ -1251,16 +1269,16 @@ export class QuickPasteInterface {
         handled = true;
         // Another tab updated clips (delete/move/etc) - refresh our interface
         console.log('🔄 Received clipsUpdated - refreshing clips');
-        await this.loadClips();
         if (this.isVisible) {
-          this.updateInterface();
+          this._scheduleClipsReload();
+        } else {
+          await this.loadClips();
         }
       } else if (message.action === 'clipsCleared') {
         handled = true;
         // Another tab cleared all clips - refresh our interface
         console.log('🗑️ Received clipsCleared message - refreshing interface');
-        await this.loadClips();
-        this.updateInterface();
+        this._scheduleClipsReload();
       } else if (message.action === 'openPopupPanel') {
         handled = true;
         // Extension icon clicked - open the slide-in panel
@@ -1423,24 +1441,8 @@ export class QuickPasteInterface {
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
     
-    // Reset selections and update button state
+    // Reset selections (innerHTML rebuild drops prior clip nodes)
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-    selectedElements.forEach(el => {
-      el.classList.remove('selected');
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
     this.updateCopyMultipleButton();
   }
   
@@ -2373,14 +2375,14 @@ export class QuickPasteInterface {
     console.log('🎨 FINAL CLASSES:', clipElement.className);
     console.log('📊 SELECTED CLIPS SET:', Array.from(this.selectedClips));
     
-    // Force a style recalculation
-    clipElement.offsetHeight;
-    
     this.updateCopyMultipleButton();
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    if (!this._copyMultipleBtn || !this._copyMultipleBtn.isConnected) {
+      this._copyMultipleBtn = this.container?.querySelector('.pastecraft-copy-multiple') || null;
+    }
+    const button = this._copyMultipleBtn;
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;

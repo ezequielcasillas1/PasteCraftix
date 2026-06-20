@@ -396,15 +396,7 @@ export function renderPagination(app) {
   paginationHTML += '</div>';
 
   paginationContainer.innerHTML = paginationHTML;
-  paginationContainer.querySelectorAll('[data-page]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const page = parseInt(e.target.dataset.page);
-      if (isValidPage(page, totalPages)) {
-        app.currentPage = page;
-        app.renderChips();
-      }
-    });
-  });
+  paginationContainer.dataset.pcTotalPages = String(totalPages);
 }
 
 export function createChip(app, clip, index) {

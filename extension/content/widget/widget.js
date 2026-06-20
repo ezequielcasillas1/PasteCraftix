@@ -341,8 +341,12 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle?.querySelector('.toggle-label');
+    const toggle = this._autoCopyToggle?.isConnected
+      ? this._autoCopyToggle
+      : (this._autoCopyToggle = this.widget.querySelector('.auto-copy-toggle'));
+    const label = this._autoCopyLabel?.isConnected
+      ? this._autoCopyLabel
+      : (this._autoCopyLabel = toggle?.querySelector('.toggle-label') || null);
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
       label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
@@ -443,6 +447,11 @@ export class PasteCraftFloatingWidget {
     this.widget.style.visibility = 'hidden';
     
     root.appendChild(this.widget);
+
+    // Cache hot-path DOM refs (avoid repeated querySelector on copy counter updates)
+    this._autoCopyToggle = this.widget.querySelector('.auto-copy-toggle');
+    this._autoCopyLabel = this._autoCopyToggle?.querySelector('.toggle-label') || null;
+    this._autoCopyCounter = this.widget.querySelector('.auto-copy-counter');
 
     // Setup event listeners
     this.setupEventListeners();
@@ -764,6 +773,9 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (this._widgetEventListenersBound) return;
+    this._widgetEventListenersBound = true;
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
@@ -1887,11 +1899,8 @@ export class PasteCraftFloatingWidget {
         this.autoCopyCount++;
         this.updateAutoCopyCounter();
         
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
+        // Batch counter writes during rapid copy bursts
+        this._scheduleAutoCopyCounterSave();
         
         console.log('✅ Auto-copied to PasteCraft!');
       } catch (error) {
@@ -1904,8 +1913,22 @@ export class PasteCraftFloatingWidget {
     document.addEventListener('copy', this._autoCopyHandler, true);
   }
 
+  _scheduleAutoCopyCounterSave() {
+    if (this._autoCopySaveTimer) return;
+    this._autoCopySaveTimer = setTimeout(() => {
+      this._autoCopySaveTimer = null;
+      chrome.storage.local.set({
+        autoCopyCount: this.autoCopyCount,
+        autoCopyDate: new Date().toDateString(),
+      }).catch(() => {});
+    }, 400);
+  }
+
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    if (!this._autoCopyCounter?.isConnected) {
+      this._autoCopyCounter = this.widget?.querySelector('.auto-copy-counter') || null;
+    }
+    const counter = this._autoCopyCounter;
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
