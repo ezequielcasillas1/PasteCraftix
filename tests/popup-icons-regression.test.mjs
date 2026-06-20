@@ -39,6 +39,10 @@ class FakeElement {
     return this.attributes.has(name);
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   querySelectorAll(selector) {
     if (selector !== '[data-lucide]') return [];
     const matches = [];
@@ -72,6 +76,10 @@ class FakeDocument {
     el.id = id;
     this.byId.set(id, el);
     return el;
+  }
+
+  querySelectorAll(selector) {
+    return this.body.querySelectorAll(selector);
   }
 
   addEventListener() {}
@@ -226,6 +234,68 @@ describe('popup Lucide renderer regression', () => {
       window.renderLucideIconsSync(scopedRoot);
       assert.equal(calls.length, 1);
       assert.equal(calls[0].root, scopedRoot);
+    });
+  });
+
+  // Regression for nav-tab lag: the bundled lucide.createIcons ignores
+  // `root`, scans the whole document, and re-emits `data-lucide` on every
+  // SVG it produces — meaning each subsequent call rebuilds every previously
+  // rendered icon (>1s jank with ~200 icons). The fix strips `data-lucide`
+  // from rendered SVGs after each call so future calls only touch new
+  // placeholders.
+  test('rendered SVGs get data-lucide stripped after each createIcons call', async () => {
+    await withBrowserHarness(async ({ calls, document }) => {
+      document.body.appendChild(createIcon('clipboard'));
+      document.body.appendChild(createIcon('search'));
+
+      runBrowserScript('extension/popup/shared/popup-icons.js');
+      window.finishBootLucideIcons();
+
+      assert.equal(calls.length, 1);
+      const renderedSvgs = document.body.children.filter((el) => el.tagName === 'SVG');
+      assert.equal(renderedSvgs.length, 2, 'both placeholders should be rendered as SVGs');
+      for (const svg of renderedSvgs) {
+        assert.equal(
+          svg.hasAttribute('data-lucide'),
+          false,
+          'rendered SVGs must have data-lucide stripped so subsequent createIcons calls do not rebuild them',
+        );
+      }
+    });
+  });
+
+  test('subsequent renders only process new placeholders (no full-document rebuild)', async () => {
+    await withBrowserHarness(async ({ calls, document }) => {
+      const tabA = document.registerElement('clipsTab', new FakeElement('section'));
+      tabA.appendChild(createIcon('copy'));
+      tabA.appendChild(createIcon('trash-2'));
+      document.body.appendChild(tabA);
+
+      runBrowserScript('extension/popup/shared/popup-icons.js');
+      window.finishBootLucideIcons();
+      assert.equal(calls.length, 1);
+
+      // Simulate a tab switch that re-renders content with new placeholders.
+      const tabB = document.registerElement('searchTab', new FakeElement('section'));
+      tabB.appendChild(createIcon('search'));
+      document.body.appendChild(tabB);
+
+      window.renderLucideIconsForActiveTab('search', 'tab-switch', { immediate: true, force: true });
+
+      // The second call should run, but the previously-rendered SVGs in tabA
+      // must not have `data-lucide` anymore (so they are invisible to lucide's
+      // full-document scan and won't be rebuilt). The new placeholder in tabB
+      // should be rendered as an SVG.
+      assert.equal(calls.length, 2);
+      const tabASvgs = tabA.children.filter((el) => el.tagName === 'SVG');
+      assert.equal(tabASvgs.length, 2);
+      for (const svg of tabASvgs) {
+        assert.equal(
+          svg.hasAttribute('data-lucide'),
+          false,
+          'icons rendered on prior calls must stay stripped to avoid full-doc re-renders',
+        );
+      }
     });
   });
 });
