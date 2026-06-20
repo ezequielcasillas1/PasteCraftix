@@ -230,21 +230,8 @@ export class PasteCraftFloatingWidget {
       }
 
       // Refresh quick view widget if clips changed and quick view is open
-      if ((changes.clips || changes.searchOnlyClips) && this.openStates.quickView) {
-        const quickViewIframe = document.querySelector('.pastecraft-quickview-iframe');
-        if (quickViewIframe?.contentWindow) {
-          safeRuntimeSendMessage({ action: 'pcGetQuickViewClips' })
-            .then((response) => {
-              const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-              if (quickViewIframe.contentWindow) {
-                quickViewIframe.contentWindow.postMessage(
-                  { type: 'quickview-clips-data', clips },
-                  '*'
-                );
-              }
-            })
-            .catch(() => {});
-        }
+      if (changes.clips || changes.searchOnlyClips) {
+        this._scheduleQuickViewClipsRefresh();
       }
 
       if (changes.widgetPosition) {
@@ -289,6 +276,27 @@ export class PasteCraftFloatingWidget {
     };
 
     chrome.storage.onChanged.addListener(this._storageSyncListener);
+  }
+
+  _scheduleQuickViewClipsRefresh() {
+    if (!this.openStates.quickView) return;
+    if (this._quickViewRefreshTimer) return;
+    this._quickViewRefreshTimer = setTimeout(() => {
+      this._quickViewRefreshTimer = null;
+      const quickViewIframe = document.querySelector('.pastecraft-quickview-iframe');
+      if (!quickViewIframe?.contentWindow) return;
+      safeRuntimeSendMessage({ action: 'pcGetQuickViewClips' })
+        .then((response) => {
+          const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+          if (quickViewIframe.contentWindow) {
+            quickViewIframe.contentWindow.postMessage(
+              { type: 'quickview-clips-data', clips },
+              '*'
+            );
+          }
+        })
+        .catch(() => {});
+    }, 150);
   }
 
   async _getProfileImageForWidget() {
@@ -341,8 +349,12 @@ export class PasteCraftFloatingWidget {
   updateAutoCopyUI() {
     if (!this.widget) return;
 
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle?.querySelector('.toggle-label');
+    if (!this._autoCopyToggle || !this._autoCopyToggle.isConnected) {
+      this._autoCopyToggle = this.widget.querySelector('.auto-copy-toggle');
+      this._autoCopyLabel = this._autoCopyToggle?.querySelector('.toggle-label');
+    }
+    const toggle = this._autoCopyToggle;
+    const label = this._autoCopyLabel;
     if (toggle && label) {
       toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
       label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
@@ -658,11 +670,23 @@ export class PasteCraftFloatingWidget {
       }
       .quick-view-button:hover .eye-drawing,
       .quick-view-button:focus-visible .eye-drawing {
-        animation: pastecraft-eye-blink 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-blink 1.15s ease-in-out 2;
       }
       .quick-view-button:hover .eye-pupil,
       .quick-view-button:focus-visible .eye-pupil {
-        animation: pastecraft-eye-pupil 1.15s ease-in-out infinite;
+        animation: pastecraft-eye-pupil 1.15s ease-in-out 2;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .quick-view-button:hover .eye-drawing,
+        .quick-view-button:focus-visible .eye-drawing,
+        .quick-view-button:hover .eye-pupil,
+        .quick-view-button:focus-visible .eye-pupil {
+          animation: none;
+        }
+        .pastecraft-widget {
+          animation: none;
+        }
       }
 
       @keyframes pastecraft-eye-blink {
@@ -764,6 +788,13 @@ export class PasteCraftFloatingWidget {
   }
   
   setupEventListeners() {
+    if (!this.widget || this._eventListenersBound) return;
+    this._eventListenersBound = true;
+
+    this._autoCopyToggle = this.widget.querySelector('.auto-copy-toggle');
+    this._autoCopyLabel = this._autoCopyToggle?.querySelector('.toggle-label');
+    this._autoCopyCounter = this.widget.querySelector('.auto-copy-counter');
+
     console.log('🎯 Setting up widget event listeners...');
     console.log('🔍 Widget element:', this.widget);
     console.log('🔍 Widget innerHTML sample:', this.widget?.innerHTML?.substring(0, 200));
@@ -1756,8 +1787,13 @@ export class PasteCraftFloatingWidget {
   }
   
   toggleAutoCopy() {
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle.querySelector('.toggle-label');
+    if (!this._autoCopyToggle || !this._autoCopyToggle.isConnected) {
+      this._autoCopyToggle = this.widget?.querySelector('.auto-copy-toggle') || null;
+      this._autoCopyLabel = this._autoCopyToggle?.querySelector('.toggle-label') || null;
+    }
+    const toggle = this._autoCopyToggle;
+    const label = this._autoCopyLabel;
+    if (!toggle || !label) return;
     const currentState = toggle.getAttribute('data-state');
     const newState = currentState === 'on' ? 'off' : 'on';
     
@@ -1905,7 +1941,10 @@ export class PasteCraftFloatingWidget {
   }
 
   updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
+    if (!this._autoCopyCounter || !this._autoCopyCounter.isConnected) {
+      this._autoCopyCounter = this.widget?.querySelector('.auto-copy-counter') || null;
+    }
+    const counter = this._autoCopyCounter;
     if (counter) {
       counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
       // Brief scale animation
@@ -2890,13 +2929,17 @@ export class PasteCraftFloatingWidget {
     const storageListener = (changes, area) => {
       if (area !== 'local' || !iframe.contentWindow) return;
       if (!changes.clips && !changes.searchOnlyClips) return;
-      getQuickViewClips()
-        .then((clips) => {
-          if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
-          }
-        })
-        .catch(() => {});
+      if (this._quickViewStorageDebounceTimer) return;
+      this._quickViewStorageDebounceTimer = setTimeout(() => {
+        this._quickViewStorageDebounceTimer = null;
+        getQuickViewClips()
+          .then((clips) => {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
+            }
+          })
+          .catch(() => {});
+      }, 150);
     };
     chrome.storage.onChanged.addListener(storageListener);
     
@@ -3177,6 +3220,10 @@ export class PasteCraftFloatingWidget {
       if (this._quickViewStorageListener) {
         chrome.storage.onChanged.removeListener(this._quickViewStorageListener);
         this._quickViewStorageListener = null;
+      }
+      if (this._quickViewStorageDebounceTimer) {
+        clearTimeout(this._quickViewStorageDebounceTimer);
+        this._quickViewStorageDebounceTimer = null;
       }
       
       // Clean up message handler
