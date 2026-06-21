@@ -8308,41 +8308,6 @@
             transform: scale(1.1) rotate(90deg);
         }
 
-        /* Undo banner */
-        .magic-undo-banner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border-bottom: 2px solid #fcd34d;
-            padding: 10px 20px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #92400e;
-            box-shadow: 0 2px 8px rgba(252, 211, 77, 0.25);
-            animation: magicBannerSlideDown 0.3s ease-out;
-        }
-
-        .magic-undo-btn {
-            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 6px 16px;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
-            transition: all 0.2s ease;
-        }
-
-        .magic-undo-btn:hover {
-            background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.45);
-        }
-
         /* Clip list body */
         .magic-preview-body {
             flex: 1;
@@ -8510,6 +8475,27 @@
             margin-bottom: 6px;
         }
         .craft-setting-label { font-weight: 600; color: #9a3412; }
+        .craft-beta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-left: 2px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: rgba(249, 115, 22, 0.15);
+            color: #c2410c;
+            border: 1px solid rgba(249, 115, 22, 0.35);
+            vertical-align: middle;
+        }
+        .craft-beta-badge [data-lucide],
+        .craft-beta-badge svg.lucide {
+            width: 10px;
+            height: 10px;
+        }
         .craft-refactor-levels {
             display: flex;
             flex-wrap: wrap;
@@ -8721,11 +8707,6 @@
         @keyframes magicModalFadeIn {
             from { opacity: 0; transform: scale(0.95) translateY(-10px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        @keyframes magicBannerSlideDown {
-            from { opacity: 0; transform: translateY(-100%); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         @keyframes magicClipStagger {
@@ -11663,7 +11644,7 @@ Multiple clips are separated by:
                     </div>
                     <div class="craft-ai-mode-row">
                         <span class="craft-setting-label">AI mode (one per craft):</span>
-                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted</label>
+                        <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiFormatted" value="formatted" checked> AI Formatted <span class="craft-beta-badge" title="AI Formatted is in beta"><i data-lucide="flask-conical"></i> Beta</span></label>
                         <label><input type="radio" name="craftClipsAiMode" id="craftClipsAiRefactoring" value="refactoring"> AI Refactoring</label>
                     </div>
                     <div class="craft-refactor-levels" id="craftClipsRefactorLevels" style="display: none;">
@@ -11684,10 +11665,6 @@ Multiple clips are separated by:
                     <div class="craft-level-info-panel" id="craftClipsLevelInfoPanel" style="display: none;">
                         <p id="craftClipsLevelInfoText"></p>
                     </div>
-                </div>
-                <div class="magic-undo-banner" id="magicUndoBanner" style="display: none;">
-                    <span>Previous craft can be undone</span>
-                    <button class="magic-undo-btn" id="magicUndoBtn"><i data-lucide="undo-2"></i> Undo Last Craft</button>
                 </div>
                 <div class="modal-body magic-preview-body">
                     <div class="magic-clip-list" id="magicClipList"></div>
@@ -11790,7 +11767,7 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>AI Formatted</h4>
-                            <p>Polishes grammar and punctuation in place — same meaning and vocabulary. Skips code, URLs, and data clips. One AI mode per craft.</p>
+                            <p>Fixes grammar and punctuation in place — same meaning and vocabulary. Skips code, URLs, and data clips. One AI mode per craft.</p>
                             <p class="magic-info-credit-note">💎 Premium · ~25 AI text credits per batch</p>
                         </div>
                     </div>
@@ -11813,7 +11790,7 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="copy"></i></div>
                         <div class="magic-info-detail">
                             <h4>Duplicate Handling</h4>
-                            <p>When enabled, archives younger duplicate copies to search storage and keeps the oldest clip. Undo restores archived clips.</p>
+                            <p>When enabled, archives younger duplicate copies to search storage and keeps the oldest clip.</p>
                         </div>
                     </div>
                     <div class="magic-info-section">
@@ -11835,14 +11812,7 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>Craft All Magic to Clips</h4>
-                            <p>Process every clip at once. A snapshot is saved so you can undo all changes by clicking Magic again.</p>
-                        </div>
-                    </div>
-                    <div class="magic-info-section">
-                        <div class="magic-info-icon">↩️</div>
-                        <div class="magic-info-detail">
-                            <h4>Undo</h4>
-                            <p>After using "Craft all," click the Magic button again to see the undo banner and restore your clips to their previous state.</p>
+                            <p>Process every clip at once with your current Craft Clips settings.</p>
                         </div>
                     </div>
                 </div>

@@ -1330,47 +1330,6 @@ body {
   transform: scale(1.1) rotate(90deg);
 }
 
-/* Undo banner */
-.magic-undo-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-bottom: 2px solid #fcd34d;
-  padding: 10px 20px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #92400e;
-  box-shadow: 0 2px 8px rgba(252, 211, 77, 0.2);
-  animation: magicBannerSlideDown 0.3s ease-out;
-}
-
-.magic-undo-banner::before {
-  content: '⚠️';
-  margin-right: 8px;
-  font-size: 14px;
-}
-
-.magic-undo-btn {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 6px 16px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
-  transition: all 0.2s ease;
-}
-
-.magic-undo-btn:hover {
-  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
-}
-
 /* Clip list body */
 .magic-preview-body {
   flex: 1;
@@ -1822,17 +1781,6 @@ body {
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes magicBannerSlideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 

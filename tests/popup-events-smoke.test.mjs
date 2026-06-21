@@ -235,7 +235,6 @@ function createMockApp() {
     _craftMagic: async () => ({}),
     _craftAllMagic: async () => ({}),
     _showMagicResults: noop,
-    _undoMagic: noop,
     updateAiCreditsPills: noop,
     applyAiWorkflowToUi: noop,
     saveAiWorkflowFromUi: asyncNoop,

@@ -82,7 +82,6 @@ class PasteCraftPopup {
     this._magicAnalysis = [];
     this._magicSelected = new Set();
     this._magicPage = 0;
-    this._magicUndoSnapshot = null;
 
     // Breakdown text cache
     this.currentBreakdownText = null;
@@ -778,14 +777,9 @@ class PasteCraftPopup {
     return this.aiLabFeature.refactorization.maybeRefreshRefactorizationPanel(this);
   }
 
-  // --- Magic Button: Craft All with Undo Snapshot ---
+  // --- Magic Button: Craft All ---
   async _craftAllMagic() {
     return this.aiLabFeature.magic._craftAllMagic.call(this);
-  }
-
-  // --- Magic Button: Undo Last Magic ---
-  async _undoMagic() {
-    return this.aiLabFeature.magic._undoMagic.call(this);
   }
 
   // --- Magic Button: Show Results Modal ---
