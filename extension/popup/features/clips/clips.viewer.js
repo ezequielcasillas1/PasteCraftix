@@ -20,9 +20,9 @@ function getClipViewerAiText(app) {
   const clipText = clip && clip.text != null ? String(clip.text) : '';
   const context = app.clipViewerSourceContext || 'clips';
   if (typeof app.getSelectedOrCurrentText === 'function') {
-    return app.getSelectedOrCurrentText(clipText, context);
+    return app.getSelectedOrCurrentText(clipText, context, clip);
   }
-  return getSelectedOrCurrentText(app, clipText, context);
+  return getSelectedOrCurrentText(app, clipText, context, clip);
 }
 
 function captureClipViewerContext(app) {

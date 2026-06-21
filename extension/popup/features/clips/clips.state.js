@@ -192,28 +192,40 @@ export function getSelectedCategoryClipsText(app) {
   return getSelectedCategoryClipObjects(app).map(c => c.text).join('\n\n');
 }
 
-/** Combined selected-clip ids for bulk actions, or single-clip fallback. */
-export function getSelectedOrCurrentClipIdKeys(app, clip, context) {
-  const currentId = clip ? getClipIdKey(clip.id) : '';
+function resolveCurrentClipIdKey(clipOrKey) {
+  if (clipOrKey == null || clipOrKey === '') return '';
+  if (typeof clipOrKey === 'object') return getClipIdKey(clipOrKey.id);
+  return getClipIdKey(clipOrKey);
+}
 
-  if (context === 'clips') {
-    const keys = getSelectedClipIdKeys(app);
-    return keys.length ? keys : (currentId ? [currentId] : []);
-  }
-
-  if (context === 'categories') {
-    const keys = getSelectedCategoryClipIdKeys(app);
-    return keys.length ? keys : (currentId ? [currentId] : []);
-  }
-
+function getContextSelectedClipIdKeys(app, context) {
+  if (context === 'clips') return getSelectedClipIdKeys(app);
+  if (context === 'categories') return getSelectedCategoryClipIdKeys(app);
   if (context === 'search') {
-    const keys = getSelectedSearchClipIdsInUiOrder(app)
+    return getSelectedSearchClipIdsInUiOrder(app)
       .map((id) => getClipIdKey(id))
       .filter(Boolean);
-    return keys.length ? keys : (currentId ? [currentId] : []);
   }
+  return [];
+}
 
-  return currentId ? [currentId] : [];
+/** Prefer clicked row when it is not part of the active multi-select. */
+function resolveActionClipIdKeys(app, clipOrKey, context) {
+  const currentId = resolveCurrentClipIdKey(clipOrKey);
+  const selectedKeys = getContextSelectedClipIdKeys(app, context);
+
+  if (!selectedKeys.length) {
+    return currentId ? [currentId] : [];
+  }
+  if (currentId && !selectedKeys.includes(currentId)) {
+    return [currentId];
+  }
+  return selectedKeys;
+}
+
+/** Combined selected-clip ids for bulk actions, or single-clip fallback. */
+export function getSelectedOrCurrentClipIdKeys(app, clipOrKey, context) {
+  return resolveActionClipIdKeys(app, clipOrKey, context);
 }
 
 export function getSelectedOrCurrentClipObjects(app, clip, context) {
@@ -223,28 +235,33 @@ export function getSelectedOrCurrentClipObjects(app, clip, context) {
 }
 
 /** Combined selected-clip text for AI actions, or single-clip fallback. */
-export function getSelectedOrCurrentText(app, clipText, context) {
+export function getSelectedOrCurrentText(app, clipText, context, clipOrKey = null) {
   const fallback = String(clipText || '');
+  const idKeys = resolveActionClipIdKeys(app, clipOrKey, context);
+
+  if (!idKeys.length) return fallback;
+
+  const selectedKeys = getContextSelectedClipIdKeys(app, context);
+  const currentId = resolveCurrentClipIdKey(clipOrKey);
+  const useSelectionText = selectedKeys.length > 0
+    && (!currentId || selectedKeys.includes(currentId));
 
   if (context === 'clips') {
-    const keys = getSelectedClipIdKeys(app);
-    if (!keys.length) return fallback;
+    if (!useSelectionText) return fallback;
     const text = getSelectedClipsText(app);
     return text || fallback;
   }
 
   if (context === 'categories') {
-    const keys = getSelectedCategoryClipIdKeys(app);
-    if (!keys.length) return fallback;
+    if (!useSelectionText) return fallback;
     const text = getSelectedCategoryClipsText(app);
     return text || fallback;
   }
 
   if (context === 'search') {
-    const keys = getSelectedSearchClipIdsInUiOrder(app);
-    if (!keys.length) return fallback;
+    if (!useSelectionText) return fallback;
     const allClips = [...(app.clips || []), ...(app.searchOnlyClips || [])];
-    const text = keys
+    const text = selectedKeys
       .map((id) => allClips.find((c) => getClipIdKey(c?.id) === getClipIdKey(id))?.text)
       .filter(Boolean)
       .join('\n\n');

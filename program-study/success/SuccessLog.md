@@ -1,4 +1,9 @@
 
+### Jun 21, 2026 - Clip icon actions without prior selection
+**Status:** SUCCESS
+**Files:** clips.state.js, clips.action-menu.js, clips.viewer.js, clips.custom-search.modal.js, popup.js
+**Result:** Icon clicks on unselected rows now target that row via resolveCurrentClipIdKey; no longer require prior checkbox selection. User confirmed SUCCESS.
+
 ### Jun 21, 2026 - Header clip count on all tabs
 **Status:** SUCCESS
 **Files:** extension/popup.html, clips.render.js, clips.selectors.js, clips.constants.js, popup.js, tab-nav.events.js, sync.storage.js

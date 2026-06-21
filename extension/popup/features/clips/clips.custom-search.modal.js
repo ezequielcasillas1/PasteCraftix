@@ -59,7 +59,7 @@ function getClipTextFromContext(app) {
   const ctx = app._customSearchContext;
   if (!ctx) return '';
   const clip = ctx.clip;
-  const text = app.getSelectedOrCurrentText?.(clip?.text ?? '', ctx.context) ?? String(clip?.text ?? '');
+  const text = app.getSelectedOrCurrentText?.(clip?.text ?? '', ctx.context, clip) ?? String(clip?.text ?? '');
   return sanitizeCustomSearchQuery(text);
 }
 

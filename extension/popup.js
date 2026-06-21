@@ -647,8 +647,8 @@ class PasteCraftPopup {
     return this.clipsFeature.render.updateQuickCopyButton(this);
   }
 
-  getSelectedOrCurrentText(clipText, context) {
-    return this.clipsFeature.state.getSelectedOrCurrentText(this, clipText, context);
+  getSelectedOrCurrentText(clipText, context, clipOrKey = null) {
+    return this.clipsFeature.state.getSelectedOrCurrentText(this, clipText, context, clipOrKey);
   }
 
   clearAllSelections() {
