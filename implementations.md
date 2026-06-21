@@ -1,20 +1,30 @@
+### Jun 21, 2026 - AI refactor replace-on-re-refactor + remove Revert
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js, clips.viewer.js, popup.html, popup.js, modals-shared.events.js, clip-viewer.css, request.md
+**Result:** Removed Revert button (dual Original+Refactored view kept). Re-refactor resolves original source, deletes prior sibling, inserts new one; link registry pruned locally.
+
+### Jun 21, 2026 - AI Refactor pipeline + clip viewer dual-view
+**Status:** SUCCESS
+**Files:** ai-refactor/index.ts, ai_workflow.ts, ai-functions.js, ai-lab.magic.js, clips.viewer.js, clip-viewer.css, popup.html, auth.js, bugfixes.md
+**Result:** Haiku primary / GPT-4o fallback; sibling links + resolver hydrate; Original+Refactored viewer; diagnostics + credit gate. User confirmed SUCCESS. Commit d206cc0 on main.
+
 ### Jun 21, 2026 - AI Refactor pipeline diagnostics + error surfacing
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** extension/supabase/ai-functions.js, extension/popup/features/ai-lab/ai-lab.magic.js, extension/popup.js
 **Result:** End-to-end refactor fix: stop silent empty responses on Failed to fetch; log eligible/map/siblings/skipped; toast on network failure, identical text, or zero siblings; purchased-credit users pass `_hasAiAccess`.
 
 ### Jun 21, 2026 - Clip viewer refactor resolver (H1 fix)
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** clips.viewer.js, ai-lab.magic.js, auth.js
 **Result:** Root cause: `_refactorResolverIndex` was session-only (never rebuilt from `pc_refactorLinks_v1`); link persist was fire-and-forget. Fix: hydrate index from storage on viewer open + after craft; await link persist; store `craftRefactorSourceText`; history-text synthetic dual-view; expanded H1 flat diagnostic string.
 
 ### Jun 21, 2026 - AI Craft without clip selection
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** clips.action-menu.js
 **Result:** runAiCraftFromClip passed clip id string to getSelectedOrCurrentClipIdKeys (expects clip object); fallback id was empty when row unselected. Fixed to pass clip object; category idKeys call aligned.
 
 ### Jun 21, 2026 - Clip viewer refactor revert (follow-up)
-**Status:** PENDING USER VERIFY
+**Status:** SUPERSEDED (Revert removed Jun 21 — dual view sufficient)
 **Files:** clips.viewer.js, sync-clips.js, ai-lab.magic.js, ai-lab.constants.js
 **Result:** Removed meta from Supabase upsert (no DB column). Viewer loads AI history + refactor links async; text/content/history-id resolver paths; local pc_refactorLinks_v1 on refactor complete.
 **Status:** SUCCESS

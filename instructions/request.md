@@ -727,6 +727,18 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 ---
 
+#### 56. Refactored Clip History in Activity Tab
+**Priority:** Low  
+**Status:** Future  
+
+**Requirements:**
+- Activity tab lists prior refactored siblings when user re-refactors (replaced clips)
+- View-only restore or compare against current refactored sibling
+- Local meta + refactor link history only (no new Supabase column)
+- Defer until replace-on-re-refactor flow is stable in production
+
+---
+
 ## 🎯 **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):

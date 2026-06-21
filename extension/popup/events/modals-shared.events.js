@@ -240,12 +240,6 @@ export function registerSharedModalEvents(app) {
       clipViewerModal.addEventListener('click', (e) => {
         if (e.target && e.target.id === 'clipViewerModal') {
           app.hideClipViewerModal();
-          return;
-        }
-        const revertBtn = e.target.closest('[data-action="clip-viewer-revert-refactor"]');
-        if (revertBtn) {
-          e.preventDefault();
-          void app.runClipViewerRevertRefactorization?.();
         }
       });
     }

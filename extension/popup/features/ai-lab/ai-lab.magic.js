@@ -13,6 +13,7 @@ import {
 import { openCraftCategoryPickModal } from './ai-lab.craft-clips.category-pick.js';
 import { createCategory } from '../categories/categories.service.js';
 import { getClipIdKey } from '../clips/clips.state.js';
+import { deleteClipsByIdKeys } from '../clips/clips.service.js';
 import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
 import { isOutOfCreditsError } from './ai-lab.credit-error.js';
 import { REFACTOR_TEXT_CREDIT_COST } from './ai-lab.credits.js';
@@ -513,7 +514,10 @@ export async function _craftMagic(clipIds) {
     ? _collectUncategorizedTargets(app, targetSet)
     : [];
   const skipTypes = app._skipAiFormatTypes();
-  const aiEligibleTargets = _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes);
+  let aiEligibleTargets = _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes);
+  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    aiEligibleTargets = _normalizeRefactorEligibleTargets(app, aiEligibleTargets);
+  }
   const hasAi = app._hasAiAccess();
   const deferCategoryPick = settings.smartCategorize
     && hasAi
@@ -672,6 +676,33 @@ function _collectAiEligibleTargets(app, targetSet, clipTypeMap, skipTypes) {
     const ct = clipTypeMap.get(String(clip.id));
     const trimmedLen = (clip.text || '').trim().length;
     if (!skipTypes.has(ct) && trimmedLen > 5) out.push(clip);
+  }
+  return out;
+}
+
+function _resolveRefactorSourceClip(app, clip) {
+  const linkedSourceId = clip?.meta?.craftRefactorSourceId;
+  if (linkedSourceId == null || linkedSourceId === '') return clip;
+  const sourceKey = getClipIdKey(linkedSourceId);
+  if (sourceKey === getClipIdKey(clip?.id)) return clip;
+  const original = app.clips.find((candidate) => getClipIdKey(candidate.id) === sourceKey);
+  if (original) return original;
+  const storedText = String(clip?.meta?.craftRefactorSourceText || '').trim();
+  if (storedText) {
+    return { id: linkedSourceId, text: storedText, meta: {}, category: clip.category };
+  }
+  return clip;
+}
+
+function _normalizeRefactorEligibleTargets(app, targets) {
+  const seen = new Set();
+  const out = [];
+  for (const clip of targets) {
+    const sourceClip = _resolveRefactorSourceClip(app, clip);
+    const key = getClipIdKey(sourceClip.id);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(sourceClip);
   }
   return out;
 }
@@ -1063,11 +1094,14 @@ function _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx) {
     ctx.stats.aiFormatted++;
   }
 
-  const aiRefactored = ctx.aiRefactorMap.get(String(clip.id));
+  const sourceClip = settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
+    ? _resolveRefactorSourceClip(app, clip)
+    : clip;
+  const aiRefactored = ctx.aiRefactorMap.get(String(sourceClip.id));
   if (aiRefactored && settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
-    const original = (clip.text || '').trim();
+    const original = (sourceClip.text || '').trim();
     if (_normalizeRefactorText(aiRefactored) !== _normalizeRefactorText(original)) {
-      ctx.refactorNewClips.push(_buildRefactoredSiblingClip(clip, aiRefactored, settings));
+      ctx.refactorNewClips.push(_buildRefactoredSiblingClip(sourceClip, aiRefactored, settings));
       ctx.stats.aiRefactored++;
     }
   }
@@ -1177,6 +1211,8 @@ async function _insertRefactoredSiblingClips(app, ctx, targetSet) {
   const created = ctx.refactorNewClips || [];
   if (created.length === 0) return;
 
+  await _replaceExistingRefactoredSiblings(app, ctx);
+
   const linkRecords = [];
   for (let i = created.length - 1; i >= 0; i--) {
     const newClip = created[i];
@@ -1235,6 +1271,65 @@ async function _persistRefactorLinks(records) {
       await chrome.storage.local.set({ [AI_STORAGE_KEYS.REFACTOR_LINKS]: links.slice(0, 50) });
     } catch (err) {
       console.warn('_persistRefactorLinks failed:', err?.message || err);
+    }
+  });
+  return _pendingRefactorLinkPersist;
+}
+
+async function _replaceExistingRefactoredSiblings(app, ctx) {
+  const sourceIds = new Set();
+  for (const newClip of ctx.refactorNewClips || []) {
+    const sourceKey = getClipIdKey(newClip?.meta?.craftRefactorSourceId || '');
+    if (sourceKey) sourceIds.add(sourceKey);
+  }
+  if (sourceIds.size === 0) return;
+
+  const toDelete = [];
+  for (const clip of app.clips || []) {
+    const linkedSourceId = clip?.meta?.craftRefactorSourceId;
+    if (linkedSourceId == null || linkedSourceId === '') continue;
+    const sourceKey = getClipIdKey(linkedSourceId);
+    if (!sourceIds.has(sourceKey)) continue;
+    const clipKey = getClipIdKey(clip.id);
+    if (clipKey === sourceKey) continue;
+    toDelete.push(clipKey);
+  }
+  if (toDelete.length === 0) return;
+
+  await deleteClipsByIdKeys(app, toDelete, {
+    reason: 'replace:refactor',
+    rerender: false,
+    clearSelection: false,
+  });
+  await _pruneRefactorLinksForDeletedClips(app, toDelete);
+}
+
+async function _pruneRefactorLinksForDeletedClips(app, deletedIdKeys) {
+  const deleted = new Set((deletedIdKeys || []).map(getClipIdKey).filter(Boolean));
+  if (deleted.size === 0) return;
+
+  if (Array.isArray(app._refactorLinks)) {
+    app._refactorLinks = app._refactorLinks.filter(
+      (link) => !deleted.has(getClipIdKey(link.newClipId)),
+    );
+  }
+  if (app._refactorResolverIndex instanceof Map) {
+    for (const id of deleted) {
+      app._refactorResolverIndex.delete(id);
+    }
+  }
+
+  _pendingRefactorLinkPersist = _pendingRefactorLinkPersist.then(async () => {
+    try {
+      const { [AI_STORAGE_KEYS.REFACTOR_LINKS]: existing = [] } = await chrome.storage.local.get([
+        AI_STORAGE_KEYS.REFACTOR_LINKS,
+      ]);
+      const links = (Array.isArray(existing) ? existing : []).filter(
+        (link) => !deleted.has(getClipIdKey(link.newClipId)),
+      );
+      await chrome.storage.local.set({ [AI_STORAGE_KEYS.REFACTOR_LINKS]: links.slice(0, 50) });
+    } catch (err) {
+      console.warn('_pruneRefactorLinksForDeletedClips failed:', err?.message || err);
     }
   });
   return _pendingRefactorLinkPersist;

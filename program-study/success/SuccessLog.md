@@ -1,4 +1,14 @@
 
+### Jun 21, 2026 - AI Refactor pipeline + viewer dual-view
+**Status:** SUCCESS
+**Files:** ai-refactor/index.ts, ai_workflow.ts, ai-functions.js, ai-lab.magic.js, clips.viewer.js, clip-viewer.css, popup.html, auth.js
+**Result:** Haiku primary / GPT-4o fallback; sibling links + resolver; Original+Refactored viewer. User confirmed SUCCESS. main @ d206cc0.
+
+### Jun 21, 2026 - AI refactor replace-on-re-refactor
+**Status:** SUCCESS
+**Files:** ai-lab.magic.js, clips.viewer.js, popup.html, clip-viewer.css, request.md
+**Result:** Removed Revert button; re-refactor uses original source and replaces prior sibling clip + local link registry.
+
 ### Jun 21, 2026 - Header clip count on all tabs
 **Status:** SUCCESS
 **Files:** extension/popup.html, clips.render.js, clips.selectors.js, clips.constants.js, popup.js, tab-nav.events.js, sync.storage.js

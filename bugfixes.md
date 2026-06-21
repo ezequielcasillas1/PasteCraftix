@@ -1,13 +1,13 @@
 
 ### Jun 21, 2026 - AI Refactor Haiku primary / GPT-4o fallback
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** supabase/functions/_shared/ai_workflow.ts, ai-refactor/index.ts, ai-lab.credits.js, ai-lab.constants.js
-**Result:** Refactor primary model switched from gpt-4o-mini to Claude Haiku (`claude-3-5-haiku-latest`); API failure or unchanged retry uses GPT-4o only (no 4o-mini). Credit gate stays 40 cr (anthropic default).
+**Result:** Refactor primary model switched from gpt-4o-mini to Claude Haiku (`claude-3-5-haiku-latest`); API failure or unchanged retry uses GPT-4o only (no 4o-mini). Credit gate stays 40 cr (anthropic default). User confirmed SUCCESS.
 
 ### Jun 21, 2026 - AI Refactor unchanged text / mapSize=0
-**Status:** PENDING USER VERIFY
+**Status:** SUCCESS
 **Files:** supabase/functions/ai-refactor/index.ts, ai-functions.js, ai-lab.magic.js, ai-lab.credits.js
-**Result:** Root cause: edge used gpt-5-nano (cheapest) and often returned identical text; client skipped map entry → no sibling/link. Fixed: default model (4o-mini), stronger rewrite prompt, retry pass on unchanged, expanded skip diagnostics (outcome, lengths, previews). Credit gate 40 cr.
+**Result:** Root cause: edge used gpt-5-nano (cheapest) and often returned identical text; client skipped map entry → no sibling/link. Fixed: default model (4o-mini), stronger rewrite prompt, retry pass on unchanged, expanded skip diagnostics (outcome, lengths, previews). Credit gate 40 cr. User confirmed SUCCESS.
 
 ### Jun 21, 2026 - AI Refactor mapSize=0 no sibling / silent skip
 **Status:** SUPERSEDED (see unchanged text entry above)

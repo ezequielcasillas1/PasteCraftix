@@ -938,10 +938,6 @@ class PasteCraftPopup {
     return this.clipsFeature?.viewer?.runAiRefactorization?.(this);
   }
 
-  async runClipViewerRevertRefactorization() {
-    return this.clipsFeature?.viewer?.revertRefactorization?.(this);
-  }
-
   runClipViewerAiCraftClips() {
     return this.clipsFeature?.viewer?.runAiCraftClips?.(this);
   }

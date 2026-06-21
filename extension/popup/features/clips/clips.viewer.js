@@ -7,7 +7,7 @@ import {
 } from './clips.state.js';
 import { openGoogleSearchMenu } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
-import { copyClipToClipboard, deleteClipsByIdKeys } from './clips.service.js';
+import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
 import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
 import { ensureRefactorRegistryReady } from '../ai-lab/ai-lab.magic.js';
@@ -77,7 +77,6 @@ function getClipViewerElements() {
     htmlDetails: document.getElementById('clipViewerHtmlDetails'),
     htmlPre: document.getElementById('clipViewerHtml'),
     toggleBtn: document.getElementById('clipViewerToggleRaw'),
-    revertBtn: document.querySelector('#clipViewerModal [data-action="clip-viewer-revert-refactor"]'),
   };
 }
 
@@ -543,11 +542,6 @@ function renderRefactorDualContent(app, renderedEl, rawEl, refactorPair) {
   }
 }
 
-function setClipViewerRevertVisible(revertBtn, visible) {
-  if (!revertBtn) return;
-  revertBtn.style.display = visible ? '' : 'none';
-}
-
 function buildClipViewerContext(clip) {
   const text = clip && clip.text != null ? String(clip.text) : '';
   const meta = clip && clip.meta && typeof clip.meta === 'object' ? clip.meta : null;
@@ -790,7 +784,6 @@ export async function open(app, clip, sourceContext = 'clips') {
     htmlDetails,
     htmlPre,
     toggleBtn,
-    revertBtn,
   } = getClipViewerElements();
 
   if (!modal || !titleEl || !bodyEl) {
@@ -816,7 +809,6 @@ export async function open(app, clip, sourceContext = 'clips') {
 
   titleEl.textContent = resolveClipViewerTitle(clipTitle, meta);
   renderClipViewerMeta(app, metaEl, meta, markupType, canonicalClip);
-  setClipViewerRevertVisible(revertBtn, !!refactorPair);
 
   const safeText = app.escapeHtml(text);
   const { srcHtml, url, imgSrc } = extractClipViewerSource(meta);
@@ -853,42 +845,6 @@ export function hide(app) {
   app.currentClipViewerClip = null;
   app.clipViewerSourceContext = null;
   app._clipViewerRefactorPair = null;
-}
-
-export async function revertRefactorization(app) {
-  const pair = app._clipViewerRefactorPair;
-  if (!pair?.refactoredClipId) {
-    app.showToast?.('No refactor to revert', 'error');
-    return;
-  }
-
-  const sourceContext = app.clipViewerSourceContext || 'clips';
-  const sourceId = pair.sourceClipId;
-
-  try {
-    const result = await deleteClipsByIdKeys(app, [pair.refactoredClipId], {
-      reason: 'revert:refactor',
-      rerender: true,
-    });
-
-    if (!result.deleted) {
-      app.showToast?.('Could not revert refactor', 'error');
-      return;
-    }
-
-    app.showToast?.('Reverted to original clip', 'success');
-
-    const refreshedSource = findClipAcrossCollections(app, sourceId);
-    if (refreshedSource) {
-      await open(app, refreshedSource, sourceContext);
-      return;
-    }
-
-    hide(app);
-  } catch (err) {
-    console.error('[revertRefactorization]', err);
-    app.showToast?.(err?.message || 'Failed to revert refactor', 'error');
-  }
 }
 
 export function runAiSummary(app) {
