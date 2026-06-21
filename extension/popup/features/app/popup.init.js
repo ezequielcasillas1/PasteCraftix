@@ -6,9 +6,6 @@ import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 let popupRevealScheduled = false;
 
 function revealPopupWithIcons(context = 'unknown') {
-  // #region agent log
-  fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup.init.js:revealPopupWithIcons',message:'reveal',data:{context,hasFinishBoot:typeof window.finishBootLucideIcons==='function',booting:!!window.__pcPopupLucideBooting,hasLucide:!!window.lucide},timestamp:Date.now(),hypothesisId:'B-E'})}).catch(()=>{});
-  // #endregion
   if (typeof window.finishBootLucideIcons === 'function') {
     window.finishBootLucideIcons(context);
     return;
@@ -95,9 +92,6 @@ export async function runPopupInit(app) {
   const currentUser = await pasteCraftSupabase.getCurrentUser();
 
   if (!currentUser) {
-    // #region agent log
-    fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup.init.js:noUser',message:'auth modal — no icon boot',data:{booting:!!window.__pcPopupLucideBooting},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     window.__pcPopupLucideBooting = false;
     app.showAuthModal();
     return;
