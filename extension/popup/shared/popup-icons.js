@@ -30,12 +30,23 @@ function prunePendingNodes(pendingNodes) {
 
 function runLucideOnRoot(root) {
   const lucide = window.lucide;
+  const placeholderCount = root?.nodeType ? collectUnrenderedPlaceholders(root).length : 0;
+  // #region agent log
+  fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup-icons.js:runLucideOnRoot',message:'runLucideOnRoot',data:{hasLucide:!!lucide,hasCreateIcons:!!lucide?.createIcons,rootTag:root?.tagName||null,placeholderCount},timestamp:Date.now(),hypothesisId:'A-C'})}).catch(()=>{});
+  // #endregion
   if (!lucide?.createIcons || !root?.nodeType) return;
-  if (!collectUnrenderedPlaceholders(root).length) return;
+  if (!placeholderCount) return;
   lucide.createIcons({
     attrs: LUCIDE_ATTRS,
     root,
   });
+  // Lucide UMD ignores `root` and scans all [data-lucide]; rendered SVGs keep the attr → full rescan lag on tab switch.
+  document.querySelectorAll?.('svg[data-lucide]')?.forEach((el) => el.removeAttribute('data-lucide'));
+  const afterPlaceholders = collectUnrenderedPlaceholders(root).length;
+  const svgCount = root.querySelectorAll?.('svg.lucide')?.length ?? 0;
+  // #region agent log
+  fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup-icons.js:runLucideOnRoot:after',message:'after createIcons',data:{afterPlaceholders,svgCount},timestamp:Date.now(),hypothesisId:'C-D'})}).catch(()=>{});
+  // #endregion
 }
 
 function runLucideCreateIcons(nodes) {
@@ -109,7 +120,11 @@ function scheduleIconWork(task, urgent = false) {
     }
   };
 
-  window.finishBootLucideIcons = function finishBootLucideIcons() {
+  window.finishBootLucideIcons = function finishBootLucideIcons(context) {
+    const bootPlaceholders = document.body?.isConnected ? collectUnrenderedPlaceholders(document.body).length : 0;
+    // #region agent log
+    fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup-icons.js:finishBootLucideIcons',message:'boot start',data:{context:context||'none',hasLucide:!!window.lucide,hasCreateIcons:!!window.lucide?.createIcons,bootPlaceholders,booting:!!window.__pcPopupLucideBooting},timestamp:Date.now(),hypothesisId:'A-B'})}).catch(()=>{});
+    // #endregion
     window.__pcPopupLucideBooting = false;
     pendingNodes.clear();
     flushScheduled = false;
@@ -322,4 +337,9 @@ function scheduleIconWork(task, urgent = false) {
   } else {
     document.addEventListener('DOMContentLoaded', startObserving, { once: true });
   }
+
+  // #region agent log
+  const lucideScript = document.querySelector('script[src*="lucide"]');
+  fetch('http://127.0.0.1:7279/ingest/4c6b50ab-bc05-45f9-bb4c-22ecd8d4a7bb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f21b72'},body:JSON.stringify({sessionId:'f21b72',location:'popup-icons.js:init',message:'popup-icons init',data:{hasLucide:!!window.lucide,hasCreateIcons:!!window.lucide?.createIcons,lucideScriptSrc:lucideScript?.getAttribute('src')||null,bodyPlaceholders:document.body?collectUnrenderedPlaceholders(document.body).length:0},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 })();
