@@ -1,4 +1,13 @@
-﻿### Jun 17, 2026 - Profile photo upload
+
+### Jun 21, 2026 - Header clip count on all tabs
+**Status:** SUCCESS
+**Files:** extension/popup.html, clips.render.js, clips.selectors.js, clips.constants.js, popup.js, tab-nav.events.js, sync.storage.js
+**Result:** Header shows total clips next to Synced across tabs. User confirmed SUCCESS.
+
+### Jun 21, 2026 - AI Refactorization list refresh on clip changes
+**Status:** SUCCESS
+**Files:** ai-lab.refactorization.js, clips.service.js, auth.session.js, sync.listener.js, popup-messaging.js, popup.js, ai-lab.magic.js
+**Result:** Refactor panel clip list stays in sync after CRUD and cloud refresh. User confirmed SUCCESS.### Jun 17, 2026 - Profile photo upload
 **Status:** SUCCESS
 **Files:** profile.events.js, clips-shell.events.js, popup.html
 **Result:** Upload Photo button did not open file picker after modal re-open; fixed by cloning button + input, initProfileImageUpload at popup init, type=button on upload btn. User confirmed SUCCESS.

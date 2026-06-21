@@ -1,4 +1,8 @@
-### Jun 17, 2026 - Profile photo upload not working
+
+### Jun 21, 2026 - AI Refactorization clip list stale after sync
+**Status:** SUCCESS
+**Files:** ai-lab.refactorization.js, clips.service.js, auth.session.js, sync.listener.js, popup-messaging.js, popup.js, ai-lab.magic.js
+**Result:** maybeRefreshRefactorizationPanel on clip mutations, storage, sync, and messages; eligible clips sorted newest-first. User confirmed SUCCESS.### Jun 17, 2026 - Profile photo upload not working
 **Status:** SUCCESS (code path verified; user UI verify pending)
 **Files:** profile.events.js, clips-shell.events.js, popup.html
 **Result:** Upload handlers only bound on first profile open; file input not cloned with button. Fixed early bind at popup init, clone both controls, reset input value, optimization fallback, updated Step 2 copy.

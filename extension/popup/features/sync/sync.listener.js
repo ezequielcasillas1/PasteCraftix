@@ -87,6 +87,7 @@ export async function runSyncAutoRefreshTick(app) {
     app.updateManualInputCategories();
     app.renderSearchResults();
     app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+    app.maybeRefreshRefactorizationPanel?.();
   } finally {
     app._syncAutoRefreshInFlight = false;
   }
@@ -106,6 +107,7 @@ export function setupRealtimeListeners(app) {
       app.renderChips();
       app.updateLastCapture();
       app.renderSearchResults();
+      app.maybeRefreshRefactorizationPanel?.();
     } else if (type === 'categories') {
       await app.loadData();
       app.renderCategories();

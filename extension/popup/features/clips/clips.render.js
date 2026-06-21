@@ -251,6 +251,8 @@ export function renderChips(app) {
   const { chipContainer: container } = getClipElements();
   if (!container) return;
 
+  updateHeaderClipCount(app);
+
   const totalClips = Math.max(app.totalClipsCount || 0, app.clips.length);
 
   if (totalClips === 0) {
@@ -474,6 +476,19 @@ export function getTimeAgo(timestamp) {
   return `${diffDays}d ago`;
 }
 
+export function getHeaderClipCount(app) {
+  return Math.max(app.totalClipsCount || 0, app.clips?.length ?? 0);
+}
+
+export function updateHeaderClipCount(app) {
+  const { headerClipCount: countEl } = getClipElements();
+  if (!countEl) return;
+
+  const count = getHeaderClipCount(app);
+  countEl.textContent = `${count} clip${count === 1 ? '' : 's'}`;
+  countEl.hidden = false;
+}
+
 export function updateLastCapture(app) {
   const { lastCapture: lastCaptureEl } = getClipElements();
   if (!lastCaptureEl) return;
@@ -484,6 +499,7 @@ export function updateLastCapture(app) {
   } else {
     lastCaptureEl.textContent = 'No recent captures';
   }
+  updateHeaderClipCount(app);
 }
 
 export function updateQuickCopyButton(app) {

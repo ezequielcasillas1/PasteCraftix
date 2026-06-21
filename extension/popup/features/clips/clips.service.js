@@ -19,6 +19,7 @@ function renderAfterClipMutation(app) {
   app.updateQuickCopyButton();
   app.updateCategoryBulkActions();
   app.updateSearchBulkActions();
+  app.maybeRefreshRefactorizationPanel?.();
 }
 
 function buildLimitedClipState(activeClips, archivedClips, maxClips) {

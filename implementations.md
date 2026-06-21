@@ -1,3 +1,7 @@
+### Jun 21, 2026 - Header total clip count on all tabs
+**Status:** SUCCESS
+**Files:** extension/popup.html, clips.constants.js, clips.selectors.js, clips.render.js, popup.js, tab-nav.events.js, sync.storage.js
+**Result:** Total clip count beside Synced in header; visible on every tab; updates on switch, tiered load, and clip render. User confirmed SUCCESS.
 ### Jun 17, 2026 - Share: Send to phone QR + email protocol
 **Status:** PARTIAL (iPhone QR deferred)
 **Files:** clips.share.js, protocol-share.js, qr-phone-share.js, qrcode-generator.js, profile.social-share.js, popup.html

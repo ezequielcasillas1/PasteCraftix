@@ -426,6 +426,9 @@ async function _handleStorageChange(app, changes, classification) {
     await app._mirrorChangedLocalStateToIndexedDb(changes);
     await _refreshDataStores(app, classification);
     _refreshCurrentTabView(app, classification);
+    if (classification.clipsChanged) {
+      app.aiLabFeature?.refactorization?.maybeRefreshRefactorizationPanel?.(app);
+    }
     _refreshSettingsModalIfOpen(app, classification);
     _refreshProfileIdentity(app, classification);
   } finally {

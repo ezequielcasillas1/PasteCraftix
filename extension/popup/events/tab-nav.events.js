@@ -21,8 +21,8 @@ export function registerTabNavEvents(app) {
         // Persist active tab so it survives popup close
         app._saveActiveTabState();
         
-        // Format controls, preview, and magic wand are always visible across all tabs
-        
+        app.updateHeaderClipCount();
+
         // Auto-reload data when switching tabs to ensure fresh counts
         try {
           if (app.currentTab === 'clips') {

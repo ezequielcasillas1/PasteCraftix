@@ -1377,12 +1377,14 @@ export function getRefactorEligibleClips() {
   const app = this;
   if (!app._hasAiAccess()) return [];
   const skipTypes = app._skipAiFormatTypes();
-  return app.clips.filter((clip) => {
-    if (clip.meta?.craftRefactor) return false;
-    const contentType = app._detectContentType(clip.text, clip.meta);
-    const trimmedLen = (clip.text || '').trim().length;
-    return trimmedLen > 5 && !skipTypes.has(contentType);
-  });
+  return app.clips
+    .filter((clip) => {
+      if (clip.meta?.craftRefactor) return false;
+      const contentType = app._detectContentType(clip.text, clip.meta);
+      const trimmedLen = (clip.text || '').trim().length;
+      return trimmedLen > 5 && !skipTypes.has(contentType);
+    })
+    .sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0));
 }
 
 /** Refactor selected clips only — no categorize, dedupe, or format. */

@@ -386,6 +386,19 @@
         .sync-status-text {
             font-weight: 500;
         }
+
+        .header-clip-count {
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 0.95;
+            margin-left: 2px;
+        }
+
+        .header-clip-count::before {
+            content: '·';
+            margin-right: 6px;
+            opacity: 0.7;
+        }
         
         .sync-queue-count {
             font-size: 10px;
@@ -10238,6 +10251,7 @@
                     <div class="sync-status" id="syncStatus">
                         <div class="sync-indicator synced" id="syncIndicator"></div>
                         <span class="sync-status-text" id="syncStatusText">Synced</span>
+                        <span class="header-clip-count" id="headerClipCount" hidden aria-live="polite"></span>
                         <span class="sync-queue-count" id="syncQueueCount" style="display: none;"></span>
                     </div>
                     <div class="sync-progress-container" id="syncProgressContainer">

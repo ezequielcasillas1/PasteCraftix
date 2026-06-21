@@ -35,6 +35,12 @@ export function activateRefactorizationSection(app) {
   renderRefactorizationPanel.call(app);
 }
 
+export function maybeRefreshRefactorizationPanel(app) {
+  const section = document.getElementById('aiRefactorizationSection');
+  if (!section?.classList.contains('active')) return;
+  renderRefactorizationPanel.call(app);
+}
+
 export function renderRefactorizationPanel() {
   const app = this;
   const listEl = document.getElementById('refactorizationClipList');

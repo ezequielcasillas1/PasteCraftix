@@ -609,6 +609,10 @@ class PasteCraftPopup {
   updateLastCapture() {
     return this.clipsFeature.render.updateLastCapture(this);
   }
+
+  updateHeaderClipCount() {
+    return this.clipsFeature.render.updateHeaderClipCount(this);
+  }
   
   getTimeAgo(timestamp) {
     return this.clipsFeature.render.getTimeAgo(timestamp);
@@ -761,6 +765,10 @@ class PasteCraftPopup {
 
   renderRefactorizationPanel() {
     return this.aiLabFeature.refactorization.renderRefactorizationPanel.call(this);
+  }
+
+  maybeRefreshRefactorizationPanel() {
+    return this.aiLabFeature.refactorization.maybeRefreshRefactorizationPanel(this);
   }
 
   // --- Magic Button: Craft All with Undo Snapshot ---

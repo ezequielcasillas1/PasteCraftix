@@ -38,4 +38,5 @@ export const CLIPS_SELECTORS = Object.freeze({
   CATEGORY_BULK_DELETE_BUTTON: 'categoryBulkDeleteBtn',
   SEARCH_BULK_COPY_BUTTON: 'searchBulkCopyBtn',
   LAST_CAPTURE: 'lastCapture',
+  HEADER_CLIP_COUNT: 'headerClipCount',
 });

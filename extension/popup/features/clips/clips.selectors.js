@@ -14,6 +14,7 @@ export function getClipElements() {
     previewArea: byId(CLIPS_SELECTORS.PREVIEW_AREA),
     searchResults: byId(CLIPS_SELECTORS.SEARCH_RESULTS),
     lastCapture: byId(CLIPS_SELECTORS.LAST_CAPTURE),
+    headerClipCount: byId(CLIPS_SELECTORS.HEADER_CLIP_COUNT),
   };
 }
 

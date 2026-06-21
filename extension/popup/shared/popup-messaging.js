@@ -25,6 +25,7 @@ export async function handlePopupMessage(message) {
           popup.renderCategories();
           popup.updateCategoryFilter();
           popup.updateManualInputCategories();
+          popup.maybeRefreshRefactorizationPanel?.();
         })
         .catch(() => {});
     }, 120);
@@ -47,6 +48,7 @@ export async function handlePopupMessage(message) {
     popup.renderCategories();
     popup.updateCategoryFilter();
     popup.updateManualInputCategories();
+    popup.maybeRefreshRefactorizationPanel?.();
 
     setTimeout(() => {
       Promise.resolve()
@@ -68,6 +70,7 @@ export async function handlePopupMessage(message) {
           } else if (popup.currentTab === 'categories') {
             popup.renderCategories();
           }
+          popup.maybeRefreshRefactorizationPanel?.();
         })
         .catch(() => {});
     }, 120);

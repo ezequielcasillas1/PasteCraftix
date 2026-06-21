@@ -76,10 +76,12 @@ export async function initializeTieredStorage(app) {
       app.totalClipsCount = app.clips.length;
       app.totalArchivedCount = app.searchOnlyClips.length;
     }
+    app.updateHeaderClipCount?.();
   } catch (e) {
     console.warn('Failed to initialize tiered storage:', e);
     app.totalClipsCount = app.clips.length;
     app.totalArchivedCount = app.searchOnlyClips.length;
+    app.updateHeaderClipCount?.();
   }
 }
 
