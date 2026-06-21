@@ -7,10 +7,70 @@
 }
 
 .clip-viewer-content .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 32%),
     linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
   border-bottom: 1px solid #e5eefb;
+}
+
+.clip-viewer-header-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.clip-viewer-revert-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.clip-viewer-revert-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.clip-viewer-revert-btn:active {
+  transform: translateY(0);
+}
+
+.clip-viewer-refactor-dual {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.clip-viewer-refactor-section {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.clip-viewer-refactor-section .clip-viewer-section-label {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5eefb;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
+}
+
+.clip-viewer-refactor-section-body {
+  padding: 16px 18px;
 }
 
 .clip-viewer-content .modal-body {

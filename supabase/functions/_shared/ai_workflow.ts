@@ -3,7 +3,7 @@ import { requireNotBanned } from './security-gate.ts'
 import { computeTotalRemaining, hasAiUsageEntitlement, planCreditDrain, readPurchasedBalance, type UserSubscriptionCreditRow } from './credit_packs.ts'
 
 export type AiWorkflowPreset = 'default' | 'cheapest' | 'gpt5_mini' | 'latest' | 'gemini_pro';
-export type AiWorkflowProvider = 'openai' | 'google';
+export type AiWorkflowProvider = 'openai' | 'google' | 'anthropic';
 
 export type AiWorkflowConfig = {
   enabled?: boolean;
@@ -22,10 +22,11 @@ export type ResolvedAiModels = {
   apiKeyEnv: string;
 };
 
-const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set(['openai', 'google']);
+const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set(['openai', 'google', 'anthropic']);
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
   openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest']),
   google: new Set(['default', 'cheapest', 'gemini_pro', 'latest']),
+  anthropic: new Set(['default']),
 };
 
 function normalizeProvider(provider: unknown): AiWorkflowProvider {
@@ -103,11 +104,25 @@ function resolveGoogle(preset: AiWorkflowPreset): ResolvedAiModels {
   return { ...base, preset: 'default', chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash', imageGenerationModel: 'gpt-image-1' };
 }
 
+// ── Anthropic Claude model resolution ──────────────────────────
+function resolveAnthropic(_preset: AiWorkflowPreset): ResolvedAiModels {
+  return {
+    provider: 'anthropic',
+    preset: 'default',
+    chatTextModel: CLAUDE_HAIKU_MODEL,
+    chatVisionModel: CLAUDE_HAIKU_MODEL,
+    imageGenerationModel: 'gpt-image-1',
+    apiBaseUrl: 'https://api.anthropic.com/v1',
+    apiKeyEnv: 'ANTHROPIC_API_KEY',
+  };
+}
+
 export function resolveModelsFromWorkflow(workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null): ResolvedAiModels {
   const provider = workflow ? workflow.provider : 'openai';
   const preset = workflow ? workflow.preset : 'default';
 
   if (provider === 'google') return resolveGoogle(preset);
+  if (provider === 'anthropic') return resolveAnthropic(preset);
   return resolveOpenAi(preset);
 }
 
@@ -169,7 +184,9 @@ export function getChatModelFallbackChain(model: string, provider: AiWorkflowPro
   return [m, 'gpt-4o-mini'];
 }
 
-const CLAUDE_FALLBACK_MODEL = 'claude-3-5-haiku-latest';
+export const CLAUDE_HAIKU_MODEL = 'claude-3-5-haiku-latest';
+export const REFACTOR_OPENAI_FALLBACK_MODEL = 'gpt-4o';
+const CLAUDE_FALLBACK_MODEL = CLAUDE_HAIKU_MODEL;
 
 function payloadHasVisionContent(payload: any): boolean {
   const messages = Array.isArray(payload?.messages) ? payload.messages : [];
@@ -224,14 +241,18 @@ function toOpenAiChatResponse(anthropicData: any) {
   };
 }
 
-async function fetchClaudeChatFallback(payload: any) {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY') || '';
+function getAnthropicApiKey(): string {
+  return (Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('ANTHROPIC-API-KEY') || '').trim();
+}
+
+async function fetchClaudeChat(payload: any, model: string = CLAUDE_HAIKU_MODEL) {
+  const apiKey = getAnthropicApiKey();
   if (!apiKey) return null;
 
   const { system, messages } = toAnthropicMessages(payload);
   const maxTokens = Number(payload?.max_completion_tokens ?? payload?.max_tokens ?? 1024);
   const body: Record<string, unknown> = {
-    model: CLAUDE_FALLBACK_MODEL,
+    model,
     max_tokens: Number.isFinite(maxTokens) ? Math.max(256, Math.min(maxTokens, 4096)) : 1024,
     messages,
   };
@@ -250,11 +271,57 @@ async function fetchClaudeChatFallback(payload: any) {
   if (!resp.ok) return null;
 
   const data = await resp.json();
-  return { data: toOpenAiChatResponse(data), usedModel: CLAUDE_FALLBACK_MODEL };
+  return { data: toOpenAiChatResponse(data), usedModel: model };
+}
+
+async function fetchClaudeChatFallback(payload: any) {
+  return fetchClaudeChat(payload, CLAUDE_FALLBACK_MODEL);
+}
+
+async function fetchOpenAiChatSingleModel(apiKey: string, payload: any, model: string) {
+  const bodyPayload = normalizeChatCompletionPayload(payload, model);
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ ...bodyPayload, model }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    const msg = String(err?.error?.message || err?.error || resp.statusText || 'OpenAI API error');
+    throw new Error(msg);
+  }
+
+  const data = await resp.json();
+  return { data, usedModel: model };
+}
+
+/** Refactor path: Claude Haiku primary, GPT-4o fallback (no 4o-mini). */
+export async function fetchRefactorChatCompletions(
+  payload: any,
+  options?: { forceOpenAi?: boolean },
+) {
+  if (!options?.forceOpenAi) {
+    const claudeResult = await fetchClaudeChat(payload, CLAUDE_HAIKU_MODEL);
+    if (claudeResult) return { ...claudeResult, provider: 'anthropic' as const };
+  }
+
+  const openAiKey = Deno.env.get('OPENAI_API_KEY') || '';
+  if (!openAiKey) {
+    throw new Error(options?.forceOpenAi
+      ? 'OpenAI API key not configured'
+      : 'Anthropic and OpenAI unavailable');
+  }
+
+  const result = await fetchOpenAiChatSingleModel(openAiKey, payload, REFACTOR_OPENAI_FALLBACK_MODEL);
+  return { ...result, provider: 'openai' as const };
 }
 
 export async function verifyAnthropicFallback() {
-  const configured = !!(Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
+  const configured = !!getAnthropicApiKey();
   if (!configured) {
     return {
       configured: false,
@@ -361,6 +428,9 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     cheapest:   25,   // Gemini 2.0 Flash Lite
     gemini_pro: 350,  // Gemini 2.5 Pro
     latest:     100,  // Gemini 2.5 Flash
+  },
+  anthropic: {
+    default: 40,   // Claude 3.5 Haiku
   },
 };
 

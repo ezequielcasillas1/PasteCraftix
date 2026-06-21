@@ -1,4 +1,16 @@
 /** Vertical slice: auth.js */
+
+function _isOfflineSupabaseError(error) {
+  const msg = String(error?.message || error || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('timeout')
+  );
+}
+
 export const authMixin = {
 // AUTHENTICATION METHODS
 // =====================================================
@@ -458,7 +470,11 @@ async getUserSubscription(userId) {
 
     return data;
   } catch (error) {
-    console.error('❌ Failed to get subscription:', error);
+    if (_isOfflineSupabaseError(error)) {
+      console.warn('⚠️ Subscription cloud fetch unavailable; using cached access if available.');
+    } else {
+      console.error('❌ Failed to get subscription:', error);
+    }
     return null;
   }
 },
@@ -484,7 +500,11 @@ async _getUserSubscriptionDirect(userId) {
     if (data) this.setCachedSubscription(userId, data);
     return data;
   } catch (error) {
-    console.error('❌ Direct subscription fetch failed:', error);
+    if (_isOfflineSupabaseError(error)) {
+      console.warn('⚠️ Direct subscription fetch unavailable (offline or blocked).');
+    } else {
+      console.error('❌ Direct subscription fetch failed:', error);
+    }
     return null;
   }
 },
@@ -573,13 +593,23 @@ async getEffectiveAccessState(userId) {
       p_user_id: userId,
     });
     if (error) {
-      console.warn('get_effective_access_state:', error.message);
+      const msg = String(error.message || error);
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        console.warn('get_effective_access_state: offline — using cached subscription fallback');
+      } else {
+        console.warn('get_effective_access_state:', msg);
+      }
       return null;
     }
     const row = Array.isArray(data) ? data[0] : data;
     return row && typeof row === 'object' ? row : null;
   } catch (err) {
-    console.warn('get_effective_access_state failed:', err?.message || err);
+    const msg = err?.message || String(err);
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+      console.warn('get_effective_access_state: offline — using cached subscription fallback');
+    } else {
+      console.warn('get_effective_access_state failed:', msg);
+    }
     return null;
   }
 },

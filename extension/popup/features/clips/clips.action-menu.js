@@ -9,7 +9,6 @@ import {
 } from './clips.custom-search.service.js';
 import { showModal as showCustomSearchModal } from './clips.custom-search.modal.js';
 import {
-  getClipIdKey,
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
@@ -207,7 +206,7 @@ function buildGoogleSearchQuery(text, actionId) {
 }
 
 export async function runAiCraftFromClip(app, clip, context) {
-  const idKeys = getSelectedOrCurrentClipIdKeys(app, getClipIdKey(clip?.id), context);
+  const idKeys = getSelectedOrCurrentClipIdKeys(app, clip, context);
   if (!idKeys.length) {
     app.showToast?.('No clip to craft', 'error');
     return;
@@ -289,7 +288,7 @@ async function runOrgBundleAction(app, actionId, { clip, clipIdKey, context }) {
   }
 
   if (actionId === 'add-category' || actionId === 'change-category') {
-    const idKeys = getSelectedOrCurrentClipIdKeys(app, clipIdKey, context);
+    const idKeys = getSelectedOrCurrentClipIdKeys(app, clip, context);
     if (idKeys.length > 1) {
       app.pendingBulkClipIds = idKeys;
       app.pendingText = null;

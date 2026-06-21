@@ -283,3 +283,40 @@ function _updatePill(el, view) {
   el.classList.remove('is-muted', 'is-low', 'is-empty');
   if (view.css) view.css.split(/\s+/).filter(Boolean).forEach(c => el.classList.add(c));
 }
+
+/** Refactor edge function uses Claude Haiku primary (40 cr); retry fallback is GPT-4o server-side. */
+export const REFACTOR_TEXT_CREDIT_COST = AI_CREDIT_COSTS.anthropic.default;
+
+export function computeTextCreditsRemaining(subscription) {
+  if (!subscription) {
+    return { unlimited: false, totalRemaining: 0, hasEntitlement: false, refactorCost: REFACTOR_TEXT_CREDIT_COST };
+  }
+  if (_hasUnlimitedAi(subscription)) {
+    return { unlimited: true, totalRemaining: null, hasEntitlement: true, refactorCost: REFACTOR_TEXT_CREDIT_COST };
+  }
+  if (!_hasAiCreditsEntitlement(subscription)) {
+    return { unlimited: false, totalRemaining: 0, hasEntitlement: false, refactorCost: REFACTOR_TEXT_CREDIT_COST };
+  }
+
+  const limit = _finiteNumberOrNaN(subscription.ai_text_credits_limit);
+  const used = _finiteNumberOr(subscription.ai_text_credits_used, 0);
+  const purchasedBalance = _finiteNumberOr(subscription.ai_purchased_credits_balance, 0);
+  const subRemaining = Number.isFinite(limit) && limit > 0
+    ? Math.max(0, limit - Math.max(0, used))
+    : 0;
+  const totalRemaining = subRemaining + Math.max(0, purchasedBalance);
+
+  return {
+    unlimited: false,
+    totalRemaining,
+    hasEntitlement: true,
+    refactorCost: REFACTOR_TEXT_CREDIT_COST,
+  };
+}
+
+export function hasTextCreditsForRefactor(subscription) {
+  const { unlimited, totalRemaining, hasEntitlement, refactorCost } = computeTextCreditsRemaining(subscription);
+  if (!hasEntitlement) return false;
+  if (unlimited) return true;
+  return totalRemaining >= refactorCost;
+}

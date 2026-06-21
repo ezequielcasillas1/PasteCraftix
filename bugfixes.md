@@ -1,4 +1,24 @@
 
+### Jun 21, 2026 - AI Refactor Haiku primary / GPT-4o fallback
+**Status:** PENDING USER VERIFY
+**Files:** supabase/functions/_shared/ai_workflow.ts, ai-refactor/index.ts, ai-lab.credits.js, ai-lab.constants.js
+**Result:** Refactor primary model switched from gpt-4o-mini to Claude Haiku (`claude-3-5-haiku-latest`); API failure or unchanged retry uses GPT-4o only (no 4o-mini). Credit gate stays 40 cr (anthropic default).
+
+### Jun 21, 2026 - AI Refactor unchanged text / mapSize=0
+**Status:** PENDING USER VERIFY
+**Files:** supabase/functions/ai-refactor/index.ts, ai-functions.js, ai-lab.magic.js, ai-lab.credits.js
+**Result:** Root cause: edge used gpt-5-nano (cheapest) and often returned identical text; client skipped map entry → no sibling/link. Fixed: default model (4o-mini), stronger rewrite prompt, retry pass on unchanged, expanded skip diagnostics (outcome, lengths, previews). Credit gate 40 cr.
+
+### Jun 21, 2026 - AI Refactor mapSize=0 no sibling / silent skip
+**Status:** SUPERSEDED (see unchanged text entry above)
+**Files:** ai-lab.magic.js, ai-lab.credits.js, ai-lab.refactorization.js, ai-lab.credit-error.js, ai-functions.js, popup.js
+**Result:** mapSize=0 when AI text equals original (diagnostic outcome unchanged/identical_text). Added skipSummaries log, outcome-specific toasts, pre-call credit gate (25 cr), credit pill refresh after AI attempt, 402 → "Need more AI credits".
+
+### Jun 21, 2026 - AI Refactorization produces no text change
+**Status:** SUPERSEDED (see mapSize=0 entry above)
+**Files:** ai-functions.js, ai-lab.magic.js, popup.js
+**Result:** Earlier pass: rethrow failures, pipeline logs, access gate with purchased credits.
+
 ### Jun 21, 2026 - AI Refactorization clip list stale after sync
 **Status:** SUCCESS
 **Files:** ai-lab.refactorization.js, clips.service.js, auth.session.js, sync.listener.js, popup-messaging.js, popup.js, ai-lab.magic.js

@@ -270,17 +270,38 @@ async aiRefactor(clips, level = 'college') {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || 'AI refactor failed');
+      const detail = error.error || error.message || 'AI refactor failed';
+      if (response.status === 402 || /no text credits/i.test(String(detail))) {
+        throw new Error('Need more AI credits');
+      }
+      throw new Error(detail);
     }
 
     const data = await response.json();
-    return {
-      refactored: Array.isArray(data.refactored) ? data.refactored : [],
-      diagnostics: Array.isArray(data.diagnostics) ? data.diagnostics : [],
-    };
+    const refactored = Array.isArray(data.refactored) ? data.refactored : [];
+    const diagnostics = Array.isArray(data.diagnostics) ? data.diagnostics : [];
+    const diagSummary = diagnostics.slice(0, 3).map((d, i) => ({
+      index: d?.index ?? i,
+      outcome: d?.outcome,
+      originalLen: d?.originalLen,
+      refactoredLen: d?.refactoredLen,
+      synthesis: d?.synthesis ? String(d.synthesis).slice(0, 120) : undefined,
+    }));
+    console.warn('[PasteCraft:refactor]', {
+      message: 'aiRefactor response',
+      clipCount: clips.length,
+      resultCount: refactored.length,
+      diagnosticCount: diagnostics.length,
+      diagnostics: diagSummary,
+    });
+    return { refactored, diagnostics };
   } catch (error) {
-    console.error('AI refactor failed:', error);
-    return { refactored: [], diagnostics: [] };
+    console.warn('[PasteCraft:refactor]', {
+      message: 'aiRefactor request failed',
+      clipCount: Array.isArray(clips) ? clips.length : 0,
+      error: error?.message || String(error),
+    });
+    throw error;
   }
 },
 

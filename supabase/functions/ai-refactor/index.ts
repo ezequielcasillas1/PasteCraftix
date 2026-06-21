@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import { fetchRefactorChatCompletions, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -9,7 +9,8 @@ const corsHeaders = {
 
 const rewriteRules =
   'Rules:\n' +
-  '- REWRITE the snippet in the requested style/register — do NOT explain it\n' +
+  '- REWRITE every snippet in the requested style/register — do NOT explain it\n' +
+  '- You MUST change wording and sentence structure visibly; never echo the input verbatim\n' +
   '- Preserve facts, meaning, and intent; do not invent new claims\n' +
   '- Keep the same language as the input unless translation is implied\n' +
   '- Preserve code blocks, URLs, emails, phones, and structured data unchanged\n' +
@@ -110,7 +111,48 @@ function buildDiagnostic(
     level,
     reasons,
     synthesis: buildSynthesis(outcome, reasons, level),
+    originalLen: original.length,
+    refactoredLen: refactored.length,
+    originalPreview: original.slice(0, 80),
+    refactoredPreview: refactored.slice(0, 80),
   }
+}
+
+function parseRefactoredJson(raw: string): { refactored: string[]; parseOk: boolean } {
+  let parsed: { refactored?: unknown[] } | null = null
+  try {
+    parsed = JSON.parse(raw)
+  } catch (_) {
+    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (jsonMatch) {
+      try { parsed = JSON.parse(jsonMatch[1].trim()) } catch (_) { parsed = null }
+    }
+  }
+  const parseOk = Array.isArray(parsed?.refactored)
+  const refactored = parseOk
+    ? parsed!.refactored!.map((t: unknown) => String(t || '').trim())
+    : []
+  return { refactored, parseOk }
+}
+
+async function callRefactorModel(
+  systemPrompt: string,
+  userPrompt: string,
+  batchLen: number,
+  temperature: number,
+  forceOpenAi = false,
+) {
+  const payload = {
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    max_tokens: Math.min(2500, batchLen * 120 + 150),
+    temperature,
+  }
+  const { data } = await fetchRefactorChatCompletions(payload, { forceOpenAi })
+  const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+  return { raw, ...parseRefactoredJson(raw) }
 }
 
 serve(async (req) => {
@@ -132,12 +174,10 @@ serve(async (req) => {
     const edgeLevel = levelPrompts[String(level || '')] ? String(level) : 'college'
     const batch = clips.slice(0, 30)
 
-    const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'openai',
-      preset: 'cheapest',
+    const refactorWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
+      provider: 'anthropic',
+      preset: 'default',
     }
-    const models = resolveModelsFromWorkflow(cheapestWorkflow)
-    const apiKey = getApiKeyForResolved(models)
 
     const clipTexts = batch.map((c: { text?: string }, i: number) => {
       const text = String(c.text || '').trim().slice(0, 500)
@@ -145,41 +185,36 @@ serve(async (req) => {
     }).join('\n')
 
     const systemPrompt = levelPrompts[edgeLevel]
-    const userPrompt = `Rewrite these ${batch.length} clipboard snippets:\n${clipTexts}`
+    const userPrompt = `Rewrite these ${batch.length} clipboard snippets. Each output MUST use different wording from its input:\n${clipTexts}`
 
-    const payload = {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: Math.min(2500, batch.length * 80 + 100),
-      temperature: 0.35,
-    }
+    const firstPass = await callRefactorModel(systemPrompt, userPrompt, batch.length, 0.65)
+    const parseOk = firstPass.parseOk
+    const aiCount = firstPass.refactored.length
 
-    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
-
-    let parsed: { refactored?: unknown[] } | null = null
-    try {
-      parsed = JSON.parse(raw)
-    } catch (_) {
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        try { parsed = JSON.parse(jsonMatch[1].trim()) } catch (_) { parsed = null }
-      }
-    }
-
-    const parseOk = Array.isArray(parsed?.refactored)
-    const aiCount = parseOk ? parsed!.refactored!.length : 0
-
-    const refactored: string[] = parseOk
-      ? parsed!.refactored!.map((t: unknown) => String(t || '').trim())
-      : []
-
+    const refactored: string[] = [...firstPass.refactored]
     while (refactored.length < batch.length) {
       refactored.push(String(batch[refactored.length]?.text || '').trim())
     }
     if (refactored.length > batch.length) refactored.length = batch.length
+
+    for (let i = 0; i < batch.length; i++) {
+      const original = String(batch[i]?.text || '').trim()
+      const out = refactored[i] || original
+      if (original === out && !isPreservedContent(original)) {
+        const retryPrompt =
+          `Rewrite this snippet at ${edgeLevel} level. Use completely different words and sentence structure while keeping the same meaning. Do NOT copy the original:\n[0]\n${original}\n[/0]`
+        const retry = await callRefactorModel(
+          systemPrompt + '\n- RETRY: prior output matched input — you must produce a visibly different rewrite.',
+          retryPrompt,
+          1,
+          0.85,
+          true,
+        )
+        if (retry.refactored[0] && retry.refactored[0] !== original) {
+          refactored[i] = retry.refactored[0]
+        }
+      }
+    }
 
     const diagnostics = batch.map((c: { text?: string }, i: number) => {
       const original = String(c.text || '').trim()
@@ -188,7 +223,7 @@ serve(async (req) => {
       return buildDiagnostic(original, out, i, edgeLevel, parseOk, usedFallback)
     })
 
-    const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+    const credits = await decrementTextCredits(gate, getTextCreditCost(refactorWorkflow.provider, refactorWorkflow.preset))
 
     return new Response(
       JSON.stringify({ refactored, diagnostics, ...credits }),

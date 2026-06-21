@@ -1,4 +1,22 @@
-### Jun 21, 2026 - Header total clip count on all tabs
+### Jun 21, 2026 - AI Refactor pipeline diagnostics + error surfacing
+**Status:** PENDING USER VERIFY
+**Files:** extension/supabase/ai-functions.js, extension/popup/features/ai-lab/ai-lab.magic.js, extension/popup.js
+**Result:** End-to-end refactor fix: stop silent empty responses on Failed to fetch; log eligible/map/siblings/skipped; toast on network failure, identical text, or zero siblings; purchased-credit users pass `_hasAiAccess`.
+
+### Jun 21, 2026 - Clip viewer refactor resolver (H1 fix)
+**Status:** PENDING USER VERIFY
+**Files:** clips.viewer.js, ai-lab.magic.js, auth.js
+**Result:** Root cause: `_refactorResolverIndex` was session-only (never rebuilt from `pc_refactorLinks_v1`); link persist was fire-and-forget. Fix: hydrate index from storage on viewer open + after craft; await link persist; store `craftRefactorSourceText`; history-text synthetic dual-view; expanded H1 flat diagnostic string.
+
+### Jun 21, 2026 - AI Craft without clip selection
+**Status:** PENDING USER VERIFY
+**Files:** clips.action-menu.js
+**Result:** runAiCraftFromClip passed clip id string to getSelectedOrCurrentClipIdKeys (expects clip object); fallback id was empty when row unselected. Fixed to pass clip object; category idKeys call aligned.
+
+### Jun 21, 2026 - Clip viewer refactor revert (follow-up)
+**Status:** PENDING USER VERIFY
+**Files:** clips.viewer.js, sync-clips.js, ai-lab.magic.js, ai-lab.constants.js
+**Result:** Removed meta from Supabase upsert (no DB column). Viewer loads AI history + refactor links async; text/content/history-id resolver paths; local pc_refactorLinks_v1 on refactor complete.
 **Status:** SUCCESS
 **Files:** extension/popup.html, clips.constants.js, clips.selectors.js, clips.render.js, popup.js, tab-nav.events.js, sync.storage.js
 **Result:** Total clip count beside Synced in header; visible on every tab; updates on switch, tiered load, and clip render. User confirmed SUCCESS.
@@ -404,7 +422,11 @@
 **Files:** clips.action-menu.js, clips.custom-search.modal.js
 **Result:** Replaced `chrome.tabs.create` (new tab) with `chrome.tabs.query+update` (navigate current tab) for all three search actions: vague search, search for meaning, and custom search (Search Now + saved templates). Manifest already had `tabs` permission — no change needed.
 
-### May 21, 2026 - popup.js safe slice batch (non-risky)
+### Jun 21, 2026 - Clip viewer refactor resolver v2 (float ID + heuristic)
+**Status:** PENDING USER VERIFY
+**Files:** clips.state.js, clips.viewer.js, ai-lab.magic.js
+**Result:** getClipIdKey normalizes legacy float ids; refactor links persist + hydrate before results modal; heuristic-recent fallback for same-session pairs; gated H1 debug spam.
+
 **Status:** PENDING USER VERIFY
 **Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
 **Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.

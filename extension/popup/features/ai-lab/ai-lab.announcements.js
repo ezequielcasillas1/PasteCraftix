@@ -105,7 +105,10 @@ export async function renderAnnouncementBanner(app) {
     const dismissBtn = banner.querySelector('[data-action="dismiss-announcement"]');
     if (dismissBtn) dismissBtn.dataset.announcementId = String(next.id);
   } catch (error) {
-    console.warn('[ai-lab.announcements] fetch failed:', error);
+    const offline = String(error?.message || error || '').toLowerCase().includes('failed to fetch');
+    if (!offline) {
+      console.warn('[ai-lab.announcements] fetch failed:', error);
+    }
     banner.hidden = true;
   }
 }

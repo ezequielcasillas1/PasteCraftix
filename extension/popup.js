@@ -357,6 +357,10 @@ class PasteCraftPopup {
     return this.aiLabFeature.credits.updateAiCreditsPill.call(this, source);
   }
 
+  _hasTextCreditsForRefactor() {
+    return this.aiLabFeature.credits.hasTextCreditsForRefactor(this.userSubscription);
+  }
+
   setupLocalStorageListener() {
     return this.authFeature.session.setupLocalStorageListener(this);
   }
@@ -746,7 +750,10 @@ class PasteCraftPopup {
     const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
     const hasCouponAi = !!(sub.has_unlimited_ai === true || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()));
     const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
-    return isPaidPremium || hasCouponAi;
+    const purchasedBalance = Number.isFinite(Number(sub.ai_purchased_credits_balance))
+      ? Math.max(0, Number(sub.ai_purchased_credits_balance))
+      : 0;
+    return isPaidPremium || hasCouponAi || purchasedBalance > 0;
   }
 
   // --- Magic Button: Content types that should skip AI formatting ---
@@ -929,6 +936,10 @@ class PasteCraftPopup {
 
   runClipViewerAiRefactorization() {
     return this.clipsFeature?.viewer?.runAiRefactorization?.(this);
+  }
+
+  async runClipViewerRevertRefactorization() {
+    return this.clipsFeature?.viewer?.revertRefactorization?.(this);
   }
 
   runClipViewerAiCraftClips() {

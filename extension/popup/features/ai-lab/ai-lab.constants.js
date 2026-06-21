@@ -1,6 +1,7 @@
 export const AI_CREDIT_COSTS = {
   openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500 },
   google: { default: 40, cheapest: 25, gemini_pro: 350, latest: 100 },
+  anthropic: { default: 40 },
 };
 
 export const AI_PROVIDER_PRESETS = {
@@ -17,7 +18,7 @@ export const AI_PROVIDER_PRESETS = {
     { value: 'latest', label: 'Latest (Gemini 2.5 Flash) · 100 cr' },
   ],
   anthropic: [
-    { value: 'default', label: 'Default (Coming Soon)' },
+    { value: 'default', label: 'Default (Claude Haiku) · 40 cr' },
   ],
   groq: [
     { value: 'default', label: 'Default (Coming Soon)' },
@@ -30,6 +31,7 @@ export const AI_ALLOWED_PROVIDERS = new Set(['openai']);
 export const AI_STORAGE_KEYS = {
   WORKFLOW: 'pc_ai_workflow_v1',
   HISTORY: 'pc_aiHistory_v1',
+  REFACTOR_LINKS: 'pc_refactorLinks_v1',
 };
 
 export const AI_HISTORY_PAGE_SIZE = 7;

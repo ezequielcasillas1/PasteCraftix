@@ -12,6 +12,10 @@ import {
 } from './ai-lab.craft-clips.settings.js';
 import { openCraftCategoryPickModal } from './ai-lab.craft-clips.category-pick.js';
 import { createCategory } from '../categories/categories.service.js';
+import { getClipIdKey } from '../clips/clips.state.js';
+import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
+import { isOutOfCreditsError } from './ai-lab.credit-error.js';
+import { REFACTOR_TEXT_CREDIT_COST } from './ai-lab.credits.js';
 
 // ────────────────────────────────────────────────────────────
 // Public entry: open Craft Clips preview modal
@@ -519,6 +523,7 @@ export async function _craftMagic(clipIds) {
   let aiFormatMap = new Map();
   let aiRefactorMap = new Map();
   let refactorDiagnostics = new Map();
+  let refactorPipeline = null;
 
   if (settings.smartCategorize && !deferCategoryPick) {
     aiCategoryMap = await _runAiCategorization(uncategorizedTargets, hasAi, stats);
@@ -527,12 +532,40 @@ export async function _craftMagic(clipIds) {
   if (hasAi && aiEligibleTargets.length > 0) {
     if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
       const edgeLevel = resolveRefactorEdgeLevel(settings.refactorLevel);
-      const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
-      aiRefactorMap = refactorResult.map;
-      refactorDiagnostics = refactorResult.diagnostics;
+      if (!app._hasTextCreditsForRefactor()) {
+        stats.refactorError = 'Need more AI credits';
+        stats.refactorPipeline = {
+          eligible: aiEligibleTargets.length,
+          aiResultCount: 0,
+          mapSize: 0,
+          siblingsCreated: 0,
+          skipped: aiEligibleTargets.map((target) => ({
+            clipId: String(target.id),
+            outcome: 'no_credits',
+            reason: 'insufficient_text_credits',
+          })),
+          blockedBeforeCall: true,
+        };
+        console.warn('[PasteCraft:refactor]', {
+          ...stats.refactorPipeline,
+          reason: 'blocked_no_credits',
+          refactorCost: REFACTOR_TEXT_CREDIT_COST,
+        });
+      } else {
+        const refactorResult = await _runAiRefactoring(aiEligibleTargets, edgeLevel, stats);
+        aiRefactorMap = refactorResult.map;
+        refactorDiagnostics = refactorResult.diagnostics;
+        refactorPipeline = refactorResult.pipeline;
+      }
     } else {
       aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
     }
+  } else if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    console.warn('[PasteCraft:refactor]', {
+      eligible: aiEligibleTargets.length,
+      hasAi,
+      reason: !hasAi ? 'no_ai_access' : 'no_eligible_clips',
+    });
   }
 
   const ctx = {
@@ -549,7 +582,16 @@ export async function _craftMagic(clipIds) {
     deferCategoryPick,
   };
   _processMagicTargetClips(app, ctx);
-  _insertRefactoredSiblingClips(app, ctx, targetSet);
+  await _insertRefactoredSiblingClips(app, ctx, targetSet);
+
+  if (refactorPipeline) {
+    refactorPipeline.siblingsCreated = (ctx.refactorNewClips || []).length;
+    stats.refactorPipeline = refactorPipeline;
+    console.warn('[PasteCraft:refactor]', {
+      ...refactorPipeline,
+      statsAiRefactored: stats.aiRefactored,
+    });
+  }
 
   if (settings.duplicateHandling) {
     _archiveYoungerDuplicates(app, targetSet, stats);
@@ -570,6 +612,10 @@ export async function _craftMagic(clipIds) {
   if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING
     && ((ctx.refactorNewClips || []).length > 0 || (ctx.refactorDiagnostics && ctx.refactorDiagnostics.size > 0))) {
     await _saveCraftRefactorHistory(app, ctx);
+  }
+
+  if (settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    await ensureRefactorRegistryReady(app);
   }
 
   stats.craftAiMode = settings.aiMode;
@@ -774,39 +820,183 @@ async function _runAiFormatting(targets, hasAi) {
 async function _runAiRefactoring(targets, edgeLevel, stats) {
   const map = new Map();
   const diagnostics = new Map();
-  if (targets.length === 0) return { map, diagnostics };
+  const pipeline = {
+    eligible: targets.length,
+    aiResultCount: 0,
+    mapSize: 0,
+    siblingsCreated: 0,
+    skipped: [],
+  };
+
+  if (targets.length === 0) {
+    console.warn('[PasteCraft:refactor]', { ...pipeline, reason: 'no_eligible_targets' });
+    return { map, diagnostics, pipeline };
+  }
+
   try {
     const result = await pasteCraftSupabase.aiRefactor(targets, edgeLevel);
     const aiResults = Array.isArray(result?.refactored) ? result.refactored : [];
     const diagList = Array.isArray(result?.diagnostics) ? result.diagnostics : [];
+    pipeline.aiResultCount = aiResults.length;
+
     if (aiResults.length > 0) {
-      _populateAiRefactorMap(map, targets, aiResults, stats);
+      _populateAiRefactorMap(map, targets, aiResults);
     }
+    pipeline.mapSize = map.size;
+
     targets.forEach((target, i) => {
+      const clipId = String(target.id);
       const diag = diagList[i] || diagList.find((d) => d?.index === i) || null;
-      if (diag) diagnostics.set(String(target.id), diag);
-    });
-  } catch (err) {
-    targets.forEach((target) => {
-      diagnostics.set(String(target.id), {
-        outcome: 'failed',
-        reasons: [String(err?.message || 'AI refactor request failed')],
-        synthesis: 'The refactor request failed before the model could rewrite this clip.',
-        level: edgeLevel,
+      if (diag) diagnostics.set(clipId, diag);
+
+      if (map.has(clipId)) return;
+
+      const original = (target.text || '').trim();
+      const returned = String(aiResults[i] || '').trim();
+      const outcome = diag?.outcome || (returned && returned !== original ? 'unknown' : 'unchanged');
+      pipeline.skipped.push({
+        clipId,
+        outcome,
+        reason: diag?.reasons?.[0] || (returned === original ? 'identical_text' : 'not_in_map'),
+        reasons: Array.isArray(diag?.reasons) ? diag.reasons : undefined,
+        synthesis: diag?.synthesis || '',
+        originalLen: original.length,
+        refactoredLen: returned.length,
+        originalPreview: _textPreview(original),
+        refactoredPreview: _textPreview(returned),
+        level: diag?.level || edgeLevel,
       });
     });
+
+    if (aiResults.length === 0) {
+      pipeline.skipped.push({ outcome: 'empty_response', reason: 'edge_returned_no_refactored_array' });
+    }
+  } catch (err) {
+    const msg = String(err?.message || 'AI refactor request failed');
+    stats.refactorError = msg;
+    pipeline.error = msg;
+    const creditBlocked = isOutOfCreditsError(err) || /need more ai credits/i.test(msg);
+    targets.forEach((target) => {
+      diagnostics.set(String(target.id), {
+        outcome: creditBlocked ? 'no_credits' : 'failed',
+        reasons: [msg],
+        synthesis: creditBlocked
+          ? 'Not enough AI text credits for this refactor batch.'
+          : msg.includes('fetch') || msg.includes('network')
+            ? 'Network error — check connection and Supabase reachability, then try again.'
+            : 'The refactor request failed before the model could rewrite this clip.',
+        level: edgeLevel,
+      });
+      if (creditBlocked) {
+        pipeline.skipped.push({
+          clipId: String(target.id),
+          outcome: 'no_credits',
+          reason: 'insufficient_text_credits',
+        });
+      }
+    });
+    console.warn('[PasteCraft:refactor]', {
+      ...pipeline,
+      reason: creditBlocked ? 'no_credits' : 'request_failed',
+      skipSummaries: pipeline.skipped.map((s) => _formatRefactorSkipLog(s)).join(' | '),
+    });
+    return { map, diagnostics, pipeline };
   }
-  return { map, diagnostics };
+
+  const skipSummaries = pipeline.skipped.map((s) => _formatRefactorSkipLog(s)).join(' | ');
+  console.warn('[PasteCraft:refactor]', {
+    ...pipeline,
+    skipSummaries: skipSummaries || undefined,
+    skipped: pipeline.skipped.length > 0 ? pipeline.skipped : undefined,
+  });
+  return { map, diagnostics, pipeline };
 }
 
-function _populateAiRefactorMap(map, targets, aiResults, stats) {
+function _normalizeRefactorText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function _textPreview(text, max = 60) {
+  const norm = _normalizeRefactorText(text);
+  return norm.length <= max ? norm : `${norm.slice(0, max)}…`;
+}
+
+function _formatRefactorSkipLog(skip) {
+  const parts = [];
+  if (skip.clipId) parts.push(`clip=${skip.clipId}`);
+  parts.push(`outcome=${skip.outcome || 'unknown'}`);
+  parts.push(`reason=${skip.reason || 'unknown'}`);
+  if (skip.originalLen != null) parts.push(`origLen=${skip.originalLen}`);
+  if (skip.refactoredLen != null) parts.push(`refLen=${skip.refactoredLen}`);
+  if (skip.originalPreview) parts.push(`orig="${skip.originalPreview}"`);
+  if (skip.refactoredPreview) parts.push(`ref="${skip.refactoredPreview}"`);
+  if (skip.synthesis) parts.push(`synthesis="${String(skip.synthesis).slice(0, 100)}"`);
+  if (Array.isArray(skip.reasons) && skip.reasons.length > 1) {
+    parts.push(`allReasons=[${skip.reasons.join('; ')}]`);
+  }
+  return parts.join(' ');
+}
+
+function _resolveRefactorSkipToast(skipped, refactorError) {
+  if (refactorError) {
+    if (isOutOfCreditsError({ message: refactorError }) || /need more ai credits/i.test(refactorError)) {
+      return 'Need more AI credits — buy a pack or wait for your monthly reset';
+    }
+    if (/failed to fetch|network|timeout/i.test(refactorError)) {
+      return 'Refactor failed — network error reaching Supabase. Check connection and retry.';
+    }
+    return `Refactor failed: ${refactorError}`;
+  }
+
+  if (!Array.isArray(skipped) || skipped.length === 0) {
+    return 'No refactored copies saved — select text clips (not URLs/code)';
+  }
+
+  const first = skipped[0];
+  const outcome = first?.outcome || 'unknown';
+
+  switch (outcome) {
+    case 'no_credits':
+      return 'Need more AI credits — buy a pack or wait for your monthly reset';
+    case 'unchanged':
+      return 'AI returned the same text — try a different level or a longer clip';
+    case 'minimal_change':
+      return 'AI made only tiny edits — try a higher-contrast level (e.g. Child or PhD)';
+    case 'preserved':
+      return 'This clip looks like code or a link — refactor preserves it unchanged';
+    case 'partial':
+      return 'AI response was incomplete — try again';
+    case 'empty_response':
+      return 'Refactor returned no results — check connection and retry';
+    default:
+      if (first?.reason === 'identical_text') {
+        return 'AI returned the same text — try a different level or a longer clip';
+      }
+      return 'No refactored copies saved — check credits or try again';
+  }
+}
+
+function _resolveRefactorSummaryLine(stats) {
+  if (stats.aiRefactored > 0) {
+    return `Original clip kept; ${stats.aiRefactored} new refactored clip(s) added to recents.`;
+  }
+  if (stats.refactorError || stats.refactorPipeline?.blockedBeforeCall) {
+    return _resolveRefactorSkipToast(stats.refactorPipeline?.skipped || [], stats.refactorError);
+  }
+  const skipped = stats.refactorPipeline?.skipped || [];
+  if (skipped.length > 0) {
+    return _resolveRefactorSkipToast(skipped, null);
+  }
+  return 'No refactored copies saved (check network, credits, or clip type).';
+}
+
+function _populateAiRefactorMap(map, targets, aiResults) {
   const len = Math.min(targets.length, aiResults.length);
   for (let i = 0; i < len; i++) {
     const refactored = String(aiResults[i] || '').trim();
     const original = (targets[i].text || '').trim();
-    if (refactored && refactored !== original) {
+    if (refactored && _normalizeRefactorText(refactored) !== _normalizeRefactorText(original)) {
       map.set(String(targets[i].id), refactored);
-      stats.aiRefactored++;
     }
   }
 }
@@ -876,7 +1066,7 @@ function _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx) {
   const aiRefactored = ctx.aiRefactorMap.get(String(clip.id));
   if (aiRefactored && settings.aiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
     const original = (clip.text || '').trim();
-    if (aiRefactored !== original) {
+    if (_normalizeRefactorText(aiRefactored) !== _normalizeRefactorText(original)) {
       ctx.refactorNewClips.push(_buildRefactoredSiblingClip(clip, aiRefactored, settings));
       ctx.stats.aiRefactored++;
     }
@@ -891,13 +1081,84 @@ function _applyAiFormatRefactorAndCleanup(app, clip, contentType, ctx) {
   }
 }
 
+let _refactorClipIdSeq = 0;
+let _pendingRefactorLinkPersist = Promise.resolve();
+
+function _nextRefactorClipId() {
+  _refactorClipIdSeq = (_refactorClipIdSeq + 1) % 1000;
+  return Date.now() + _refactorClipIdSeq;
+}
+
+export function hydrateRefactorResolverIndex(app, links) {
+  if (!app._refactorResolverIndex) app._refactorResolverIndex = new Map();
+  for (const link of links || []) {
+    const before = String(link.before || '').trim();
+    const after = String(link.after || '').trim();
+    if (!before || !after || before === after) continue;
+    const record = {
+      sourceClipId: getClipIdKey(link.sourceClipId),
+      newClipId: getClipIdKey(link.newClipId),
+      before,
+      after,
+    };
+    if (record.sourceClipId) app._refactorResolverIndex.set(record.sourceClipId, record);
+    if (record.newClipId) app._refactorResolverIndex.set(record.newClipId, record);
+  }
+}
+
+export async function ensureRefactorRegistryReady(app) {
+  await _pendingRefactorLinkPersist;
+  try {
+    const { [AI_STORAGE_KEYS.REFACTOR_LINKS]: stored = [] } = await chrome.storage.local.get([
+      AI_STORAGE_KEYS.REFACTOR_LINKS,
+    ]);
+    app._refactorLinks = Array.isArray(stored) ? stored : [];
+    hydrateRefactorResolverIndex(app, app._refactorLinks);
+  } catch (err) {
+    console.warn('ensureRefactorRegistryReady failed:', err?.message || err);
+  }
+}
+
+function _registerRefactorLinkInMemory(app, record) {
+  if (!record) return;
+  if (!Array.isArray(app._refactorLinks)) app._refactorLinks = [];
+  app._refactorLinks.unshift({
+    sourceClipId: record.sourceClipId,
+    newClipId: record.newClipId,
+    before: record.before,
+    after: record.after,
+    updatedAt: Date.now(),
+  });
+  if (app._refactorLinks.length > 50) app._refactorLinks.length = 50;
+  if (!app._refactorResolverIndex) app._refactorResolverIndex = new Map();
+  app._refactorResolverIndex.set(record.sourceClipId, record);
+  if (record.newClipId) app._refactorResolverIndex.set(record.newClipId, record);
+}
+
+function _rememberRefactorPair(app, sourceClip, newClip) {
+  const before = String(
+    sourceClip?.text || newClip?.meta?.craftRefactorSourceText || '',
+  ).trim();
+  const after = String(newClip?.text || '').trim();
+  if (!before || !after || before === after) return null;
+
+  const record = {
+    sourceClipId: getClipIdKey(sourceClip?.id ?? newClip?.meta?.craftRefactorSourceId),
+    newClipId: getClipIdKey(newClip?.id),
+    before,
+    after,
+  };
+  _registerRefactorLinkInMemory(app, record);
+  return record;
+}
+
 function _buildRefactoredSiblingClip(sourceClip, refactoredText, settings) {
   const now = Date.now();
   const sourceMeta = sourceClip.meta && typeof sourceClip.meta === 'object'
     ? { ...sourceClip.meta }
     : {};
   return {
-    id: now + Math.random(),
+    id: _nextRefactorClipId(),
     text: refactoredText,
     category: sourceClip.category || 'Uncategorized',
     timestamp: now,
@@ -905,24 +1166,78 @@ function _buildRefactoredSiblingClip(sourceClip, refactoredText, settings) {
     meta: {
       ...sourceMeta,
       craftRefactor: true,
-      craftRefactorSourceId: String(sourceClip.id),
+      craftRefactorSourceId: getClipIdKey(sourceClip.id),
+      craftRefactorSourceText: String(sourceClip.text || '').trim(),
       craftRefactorLevel: settings.refactorLevel,
     },
   };
 }
 
-function _insertRefactoredSiblingClips(app, ctx, targetSet) {
+async function _insertRefactoredSiblingClips(app, ctx, targetSet) {
   const created = ctx.refactorNewClips || [];
   if (created.length === 0) return;
 
+  const linkRecords = [];
   for (let i = created.length - 1; i >= 0; i--) {
-    app.clips.unshift(created[i]);
-    targetSet.add(String(created[i].id));
+    const newClip = created[i];
+    const sourceIdKey = getClipIdKey(newClip?.meta?.craftRefactorSourceId || '');
+    const sourceClip = app.clips.find((c) => getClipIdKey(c.id) === sourceIdKey) || {
+      id: sourceIdKey,
+      text: newClip?.meta?.craftRefactorSourceText || '',
+    };
+    const linkRecord = _rememberRefactorPair(app, sourceClip, newClip);
+    if (linkRecord) linkRecords.push(linkRecord);
+    app.clips.unshift(newClip);
+    targetSet.add(getClipIdKey(newClip.id));
+  }
+
+  console.warn('[PasteCraft:refactor]', {
+    message: 'siblings_inserted',
+    siblingsCreated: created.length,
+    linksRegistered: linkRecords.length,
+  });
+
+  if (linkRecords.length > 0) {
+    await _persistRefactorLinks(linkRecords);
+    for (const record of linkRecords) {
+      console.warn('[PasteCraft:refactor-link]', {
+        sourceId: record.sourceClipId,
+        refactoredId: record.newClipId,
+      });
+    }
   }
 
   if (typeof app.enforceClipLimit === 'function') {
-    void app.enforceClipLimit();
+    await app.enforceClipLimit();
   }
+}
+
+async function _persistRefactorLinks(records) {
+  if (!Array.isArray(records) || records.length === 0) return;
+  _pendingRefactorLinkPersist = _pendingRefactorLinkPersist.then(async () => {
+    try {
+      const { [AI_STORAGE_KEYS.REFACTOR_LINKS]: existing = [] } = await chrome.storage.local.get([
+        AI_STORAGE_KEYS.REFACTOR_LINKS,
+      ]);
+      const links = Array.isArray(existing) ? [...existing] : [];
+      for (const record of records) {
+        const before = String(record.before || '').trim();
+        const after = String(record.after || '').trim();
+        if (!before || !after || before === after) continue;
+        links.unshift({
+          sourceClipId: getClipIdKey(record.sourceClipId),
+          newClipId: getClipIdKey(record.newClipId),
+          before,
+          after,
+          updatedAt: Date.now(),
+        });
+      }
+      await chrome.storage.local.set({ [AI_STORAGE_KEYS.REFACTOR_LINKS]: links.slice(0, 50) });
+    } catch (err) {
+      console.warn('_persistRefactorLinks failed:', err?.message || err);
+    }
+  });
+  return _pendingRefactorLinkPersist;
 }
 
 async function _saveCraftRefactorHistory(app, ctx) {
@@ -931,25 +1246,26 @@ async function _saveCraftRefactorHistory(app, ctx) {
   const savedSources = new Set();
 
   for (const newClip of ctx.refactorNewClips || []) {
-    const sourceId = String(newClip.meta?.craftRefactorSourceId || '');
-    const sourceClip = app.clips.find((c) => String(c.id) === sourceId);
+    const sourceIdKey = getClipIdKey(newClip.meta?.craftRefactorSourceId || '');
+    const sourceClip = app.clips.find((c) => getClipIdKey(c.id) === sourceIdKey);
     const before = String(sourceClip?.text || '').trim();
     const after = String(newClip.text || '').trim();
     if (!before || !after) continue;
-    savedSources.add(sourceId);
+    savedSources.add(sourceIdKey);
     records.push({
       before,
       after,
       refactorLevel: ctx.settings?.refactorLevel || 'college',
-      sourceClipId: sourceId,
-      newClipId: String(newClip.id),
-      synthesis: ctx.refactorDiagnostics?.get(sourceId) || {},
+      sourceClipId: sourceIdKey,
+      newClipId: getClipIdKey(newClip.id),
+      synthesis: ctx.refactorDiagnostics?.get(String(sourceIdKey)) || {},
     });
   }
 
   for (const [sourceId, synthesis] of ctx.refactorDiagnostics || []) {
-    if (savedSources.has(String(sourceId))) continue;
-    const sourceClip = app.clips.find((c) => String(c.id) === String(sourceId));
+    const sourceIdKey = getClipIdKey(sourceId);
+    if (savedSources.has(sourceIdKey)) continue;
+    const sourceClip = app.clips.find((c) => getClipIdKey(c.id) === sourceIdKey);
     const before = String(sourceClip?.text || '').trim();
     if (!before) continue;
     const after = String(ctx.aiRefactorMap?.get(String(sourceId)) || before).trim();
@@ -957,13 +1273,14 @@ async function _saveCraftRefactorHistory(app, ctx) {
       before,
       after,
       refactorLevel: ctx.settings?.refactorLevel || 'college',
-      sourceClipId: String(sourceId),
+      sourceClipId: sourceIdKey,
       newClipId: '',
       synthesis: synthesis || {},
     });
   }
 
   if (records.length > 0) {
+    await _persistRefactorLinks(records);
     await app.saveRefactorHistory(records);
   }
 }
@@ -1129,7 +1446,10 @@ async function _syncMagicToSupabase(app) {
 }
 
 function _refreshMagicCreditsAndUi(app, stats) {
-  if (stats.aiCategorized || stats.aiFormatted > 0 || stats.aiRefactored > 0) {
+  const refactorAttempted = (stats.refactorPipeline?.aiResultCount > 0)
+    || stats.refactorPipeline?.error
+    || stats.refactorPipeline?.blockedBeforeCall;
+  if (stats.aiCategorized || stats.aiFormatted > 0 || stats.aiRefactored > 0 || refactorAttempted) {
     app.updateAiCreditsPills('fresh');
   }
   app.renderChips();
@@ -1233,6 +1553,11 @@ export async function _applyCraftCategoryPick(categoryName, clipIds) {
 export async function _finishCraftFlow(stats) {
   const app = this;
 
+  if (stats.craftAiMode === CRAFT_CLIPS_AI_MODES.REFACTORING) {
+    await ensureRefactorRegistryReady(app);
+    _notifyRefactorOutcome(app, stats);
+  }
+
   if (stats.needsCategoryPick && stats.categorySuggestions?.length) {
     const chosen = await openCraftCategoryPickModal(stats.categorySuggestions);
     if (chosen) {
@@ -1244,6 +1569,19 @@ export async function _finishCraftFlow(stats) {
   }
 
   app._showMagicResults(stats);
+}
+
+function _notifyRefactorOutcome(app, stats) {
+  if (stats.aiRefactored > 0) {
+    app.showToast?.(`✨ ${stats.aiRefactored} refactored clip(s) added to recents`);
+    return;
+  }
+
+  const toast = _resolveRefactorSkipToast(
+    stats.refactorPipeline?.skipped || [],
+    stats.refactorError,
+  );
+  app.showToast?.(toast, 'error');
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1313,7 +1651,7 @@ function _populateMagicResultsModal(app, stats) {
       if (stats.aiRefactored > 0) {
         parts.push(`Original clip kept; ${stats.aiRefactored} new refactored clip(s) added to recents.`);
       } else {
-        parts.push('No refactored copies saved (check premium credits or try again).');
+        parts.push(_resolveRefactorSummaryLine(stats));
       }
     } else if (stats.aiFormatted > 0) {
       parts.push('AI Formatted · grammar polish applied to clip text.');

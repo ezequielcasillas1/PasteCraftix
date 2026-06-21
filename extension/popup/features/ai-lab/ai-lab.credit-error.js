@@ -9,6 +9,7 @@ const OUT_OF_CREDITS_PATTERNS = [
   'No image credits remaining',
   'no text credits',
   'no image credits',
+  'need more ai credits',
 ];
 
 export function isOutOfCreditsError(error) {

@@ -1,4 +1,16 @@
 /** Vertical slice: sync-settings.js */
+
+function _isOfflineSupabaseError(error) {
+  const msg = String(error?.message || error || '').toLowerCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('load failed') ||
+    msg.includes('timeout')
+  );
+}
+
 export const syncSettingsMixin = {
 // SETTINGS SYNC METHODS
 // =====================================================
@@ -117,7 +129,11 @@ async syncSettingsFromSupabase() {
     console.log('✅ Fetched settings from Supabase');
     return localSettings;
   } catch (error) {
-    console.error('❌ Failed to fetch settings from Supabase:', error);
+    if (_isOfflineSupabaseError(error)) {
+      console.warn('⚠️ Settings cloud fetch unavailable; using local cache.');
+    } else {
+      console.error('❌ Failed to fetch settings from Supabase:', error);
+    }
     return null;
   }
 },

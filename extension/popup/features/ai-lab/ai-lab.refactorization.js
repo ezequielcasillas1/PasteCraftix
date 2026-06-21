@@ -144,6 +144,11 @@ export async function runRefactorizationFromPanel() {
     return;
   }
 
+  if (!app._hasTextCreditsForRefactor()) {
+    app.showToast('Need more AI credits — buy a pack or wait for your monthly reset', 'error');
+    return;
+  }
+
   const selected = [...(app._refactorizationSelected || [])];
   if (selected.length === 0) {
     app.showToast('Select at least one clip', 'error');

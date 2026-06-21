@@ -1,15 +1,34 @@
 import {
   getClipTitle,
+  getClipIdKey,
   getSelectedOrCurrentText,
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
 import { openGoogleSearchMenu } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
-import { copyClipToClipboard } from './clips.service.js';
+import { copyClipToClipboard, deleteClipsByIdKeys } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
+import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
+import { ensureRefactorRegistryReady } from '../ai-lab/ai-lab.magic.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
+const CLIP_VIEWER_DEBUG = false;
+const HEURISTIC_REFACTOR_WINDOW_MS = 5 * 60 * 1000;
+
+function _debugClipViewerLog(location, message, data, hypothesisId) {
+  if (!CLIP_VIEWER_DEBUG) return;
+  const payload = {
+    sessionId: '93d942',
+    runId: 'post-fix',
+    hypothesisId,
+    location,
+    message,
+    data,
+    timestamp: Date.now(),
+  };
+  console.warn('[PasteCraft:debug:93d942]', payload);
+}
 
 function normalizeClipViewerSourceContext(sourceContext) {
   return CLIP_VIEWER_SOURCE_CONTEXTS.has(sourceContext) ? sourceContext : 'clips';
@@ -58,7 +77,475 @@ function getClipViewerElements() {
     htmlDetails: document.getElementById('clipViewerHtmlDetails'),
     htmlPre: document.getElementById('clipViewerHtml'),
     toggleBtn: document.getElementById('clipViewerToggleRaw'),
+    revertBtn: document.querySelector('#clipViewerModal [data-action="clip-viewer-revert-refactor"]'),
   };
+}
+
+function findClipAcrossCollections(app, id) {
+  if (id == null) return null;
+  const key = getClipIdKey(id);
+  return (
+    app.clips?.find((clip) => getClipIdKey(clip.id) === key) ||
+    app.searchOnlyClips?.find((clip) => getClipIdKey(clip.id) === key) ||
+    null
+  );
+}
+
+function normalizeTextForMatch(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function textsMatch(a, b) {
+  const left = normalizeTextForMatch(a);
+  const right = normalizeTextForMatch(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (left.length >= 120 && right.length >= 120) {
+    return left.slice(0, 240) === right.slice(0, 240);
+  }
+  return false;
+}
+
+async function ensureRefactorResolverData(app) {
+  await ensureRefactorRegistryReady(app);
+  const stored = await chrome.storage.local.get([AI_STORAGE_KEYS.HISTORY]);
+  app.aiHistoryEntries = Array.isArray(stored[AI_STORAGE_KEYS.HISTORY])
+    ? stored[AI_STORAGE_KEYS.HISTORY]
+    : [];
+
+  if (app.aiHistoryEntries.length === 0 && typeof app.loadAiHistory === 'function') {
+    try {
+      await app.loadAiHistory();
+    } catch (_) {
+      /* keep storage read */
+    }
+  }
+}
+
+function findClipByTextMatch(app, text, excludeId = null) {
+  const target = normalizeTextForMatch(text);
+  if (!target) return null;
+  const excludeKey = excludeId != null ? getClipIdKey(excludeId) : '';
+  const all = [...(app.clips || []), ...(app.searchOnlyClips || [])];
+  for (const candidate of all) {
+    if (excludeKey && getClipIdKey(candidate?.id) === excludeKey) continue;
+    if (textsMatch(candidate?.text, target)) return candidate;
+  }
+  return null;
+}
+function findRefactoredSiblingsForSource(app, sourceId) {
+  const key = getClipIdKey(sourceId);
+  const all = [...(app.clips || []), ...(app.searchOnlyClips || [])];
+  return all.filter((clip) => {
+    const linkedSourceId = clip?.meta?.craftRefactorSourceId;
+    if (linkedSourceId == null || linkedSourceId === '') return false;
+    return getClipIdKey(linkedSourceId) === key && getClipIdKey(clip.id) !== key;
+  });
+}
+
+function isRefactoredSiblingClip(clip) {
+  const linkedSourceId = clip?.meta?.craftRefactorSourceId;
+  if (linkedSourceId == null || linkedSourceId === '') return false;
+  return getClipIdKey(linkedSourceId) !== getClipIdKey(clip?.id);
+}
+
+function resolveRefactorContextFromSessionIndex(app, clip) {
+  const clipKey = getClipIdKey(clip?.id);
+  if (!clipKey || !app._refactorResolverIndex?.get) return null;
+
+  const record = app._refactorResolverIndex.get(clipKey);
+  if (!record) return null;
+
+  const sourceId = getClipIdKey(record.sourceClipId);
+  const newClipId = getClipIdKey(record.newClipId);
+  const before = normalizeTextForMatch(record.before);
+  const after = normalizeTextForMatch(record.after);
+  if (!before || !after || before === after) return null;
+
+  let sourceClip = findClipAcrossCollections(app, sourceId);
+  let refactoredClip = findClipAcrossCollections(app, newClipId);
+  if (!sourceClip && clipKey === sourceId) sourceClip = clip;
+  if (!refactoredClip && clipKey === newClipId) refactoredClip = clip;
+
+  return buildRefactorPairResult(
+    sourceClip || { id: sourceId || clipKey, text: record.before },
+    refactoredClip || { id: newClipId || `refactored_session_${sourceId}`, text: record.after },
+    { fromSessionIndex: true, resolverPath: 'session-index' },
+  );
+}
+
+function buildRefactorPairResult(sourceClip, refactoredClip, extra = {}) {
+  const originalText = String(sourceClip?.text ?? '');
+  const refactoredText = String(refactoredClip?.text ?? '');
+  const normOriginal = normalizeTextForMatch(originalText);
+  const normRefactored = normalizeTextForMatch(refactoredText);
+  if (!normOriginal || !normRefactored) return null;
+  if (normOriginal === normRefactored) return null;
+
+  return {
+    sourceClip,
+    refactoredClip,
+    originalText,
+    refactoredText,
+    refactoredClipId: refactoredClip?.id,
+    sourceClipId: sourceClip?.id,
+    ...extra,
+  };
+}
+
+function formatRefactorResolverDiag(diag) {
+  const attemptSummary = (diag.resolverAttempts || [])
+    .map((a) => {
+      let part = `${a.path}:${a.matched ? 'hit' : 'miss'}`;
+      if (a.siblingCount != null) part += `(siblings=${a.siblingCount})`;
+      if (a.hasSourceClip != null) part += `(src=${a.hasSourceClip},ref=${a.hasRefactoredClip})`;
+      if (a.detail) part += `[${a.detail}]`;
+      return part;
+    })
+    .join(' | ');
+  return [
+    `clipId=${diag.clipId}`,
+    `sourceId=${diag.sourceId}`,
+    `viewingRefactored=${diag.viewingRefactoredCopy}`,
+    `history=${diag.refactorHistoryEntries}/${diag.historyEntryCount}`,
+    `links=${diag.refactorLinksCount}`,
+    `sessionIdx=${diag.sessionIndexCount}`,
+    `idxKeys=[${(diag.sessionIndexKeys || []).join(',')}]`,
+    `meta=${diag.metaCraftRefactor}/${diag.metaSourceId}`,
+    `preview="${diag.clipTextPreview || ''}"`,
+    `attempts={${attemptSummary}}`,
+  ].join(' ');
+}
+
+function backfillRefactorMetaLink(refactoredClip, sourceClipId) {
+  if (!refactoredClip || sourceClipId == null) return;
+  if (!refactoredClip.meta || typeof refactoredClip.meta !== 'object') {
+    refactoredClip.meta = {};
+  }
+  if (!refactoredClip.meta.craftRefactorSourceId) {
+    refactoredClip.meta.craftRefactorSourceId = getClipIdKey(sourceClipId);
+  }
+  if (refactoredClip.meta.craftRefactor !== true) {
+    refactoredClip.meta.craftRefactor = true;
+  }
+}
+
+function logRefactorPairResolved(clip, pair) {
+  console.warn('[PasteCraft:refactor-link]', {
+    clipId: getClipIdKey(clip?.id),
+    sourceClipId: getClipIdKey(pair.sourceClipId),
+    refactoredClipId: getClipIdKey(pair.refactoredClipId),
+    resolverPath: pair.resolverPath || 'unknown',
+  });
+}
+
+function resolveRefactorContextFromHistory(app, clip) {
+  const clipId = getClipIdKey(clip?.id);
+  const clipText = normalizeTextForMatch(clip?.text);
+  if (!clipId && !clipText) return null;
+
+  const entries = app.aiHistoryEntries || [];
+  for (const entry of entries) {
+    if (entry?.type !== 'refactorization') continue;
+    const thread = entry.threads?.[0];
+    if (!thread) continue;
+
+    const sourceId = getClipIdKey(thread.sourceClipId);
+    const newClipId = getClipIdKey(thread.newClipId);
+    const beforeRaw = thread.before || entry.originalText || thread.question || '';
+    const afterRaw = thread.after || thread.answer || '';
+    const before = normalizeTextForMatch(beforeRaw);
+    const after = normalizeTextForMatch(afterRaw);
+    if (!before || !after || before === after) continue;
+
+    const idMatch = clipId && (clipId === sourceId || clipId === newClipId);
+    const textMatchBefore = clipText && textsMatch(clipText, before);
+    const textMatchAfter = clipText && textsMatch(clipText, after);
+    if (!idMatch && !textMatchBefore && !textMatchAfter) continue;
+
+    const viewingAfter = textMatchAfter || (clipId && clipId === newClipId);
+    const viewingBefore = textMatchBefore || (clipId && clipId === sourceId);
+
+    let sourceClip = findClipAcrossCollections(app, sourceId);
+    let refactoredClip = findClipAcrossCollections(app, newClipId);
+
+    if (!sourceClip) {
+      sourceClip = viewingBefore
+        ? clip
+        : findClipByTextMatch(app, beforeRaw, refactoredClip?.id ?? clipId);
+    }
+    if (!refactoredClip) {
+      refactoredClip = viewingAfter
+        ? clip
+        : findClipByTextMatch(app, afterRaw, sourceClip?.id ?? clipId);
+    }
+
+    const resolverPath = idMatch ? 'history-id' : 'history-text';
+    const pair = buildRefactorPairResult(
+      sourceClip || { id: sourceId || clipId, text: beforeRaw },
+      refactoredClip || { id: newClipId || `refactored_${entry.id}`, text: afterRaw },
+      { fromHistory: true, historyEntryId: entry.id, resolverPath, synthetic: !refactoredClip?.id || !sourceClip?.id },
+    );
+    if (pair) return pair;
+  }
+
+  return null;
+}
+
+function resolveRefactorContextFromLinks(app, clip) {
+  const clipId = getClipIdKey(clip?.id);
+  const clipText = normalizeTextForMatch(clip?.text);
+  const links = app._refactorLinks || [];
+
+  for (const link of links) {
+    const sourceId = getClipIdKey(link.sourceClipId);
+    const newClipId = getClipIdKey(link.newClipId);
+    const before = normalizeTextForMatch(link.before);
+    const after = normalizeTextForMatch(link.after);
+    if (!before || !after || before === after) continue;
+
+    const matchesSource = (clipId && clipId === sourceId) || textsMatch(clipText, before);
+    const matchesRefactored = (clipId && clipId === newClipId) || textsMatch(clipText, after);
+    if (!matchesSource && !matchesRefactored) continue;
+
+    let sourceClip = findClipAcrossCollections(app, sourceId);
+    let refactoredClip = findClipAcrossCollections(app, newClipId);
+
+    if (!sourceClip && matchesSource) sourceClip = clip;
+    if (!refactoredClip && matchesRefactored) refactoredClip = clip;
+    if (!sourceClip) sourceClip = findClipByTextMatch(app, before, refactoredClip?.id ?? clipId);
+    if (!refactoredClip) refactoredClip = findClipByTextMatch(app, after, sourceClip?.id ?? clipId);
+
+    const pair = buildRefactorPairResult(
+      sourceClip || { id: sourceId || clipId, text: before },
+      refactoredClip || { id: newClipId || `refactored_link_${sourceId}`, text: after },
+      { fromLinks: true, resolverPath: 'content-link' },
+    );
+    if (pair) return pair;
+  }
+
+  return null;
+}
+
+function resolveRefactorContextFromContentMatch(app, clip) {
+  const clipId = getClipIdKey(clip?.id);
+  if (!clipId) return null;
+
+  const all = [...(app.clips || []), ...(app.searchOnlyClips || [])];
+  for (const other of all) {
+    if (getClipIdKey(other.id) === clipId) continue;
+    const linkedSourceId = other?.meta?.craftRefactorSourceId;
+    if (linkedSourceId == null || linkedSourceId === '') continue;
+    if (getClipIdKey(linkedSourceId) === clipId) {
+      return buildRefactorPairResult(clip, other, { resolverPath: 'content-meta' });
+    }
+  }
+
+  return null;
+}
+
+function resolveRefactorContextHeuristicRecent(app, clip) {
+  const clipKey = getClipIdKey(clip?.id);
+  const clipText = normalizeTextForMatch(clip?.text);
+  if (!clipKey || !clipText) return null;
+
+  const clipTs = clip?.timestamp || 0;
+  const clipCategory = clip?.category || 'Uncategorized';
+  const all = [...(app.clips || []), ...(app.searchOnlyClips || [])];
+
+  const siblingCandidates = all.filter((other) => {
+    if (getClipIdKey(other?.id) === clipKey) return false;
+    if (!other?.meta?.craftRefactor) return false;
+    const sameCategory = (other.category || 'Uncategorized') === clipCategory;
+    const timeClose = Math.abs((other.timestamp || 0) - clipTs) <= HEURISTIC_REFACTOR_WINDOW_MS;
+    const textDiffers = normalizeTextForMatch(other.text) !== clipText;
+    if (!sameCategory || !timeClose || !textDiffers) return false;
+
+    const linkedSourceKey = getClipIdKey(other.meta?.craftRefactorSourceId);
+    const sourceTextMatch = textsMatch(other.meta?.craftRefactorSourceText, clip?.text);
+    return linkedSourceKey === clipKey || sourceTextMatch;
+  });
+
+  if (siblingCandidates.length === 0) return null;
+
+  const refactoredClip = siblingCandidates.sort(
+    (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+  )[0];
+  const viewingRefactored = isRefactoredSiblingClip(clip);
+  const sourceClip = viewingRefactored
+    ? findClipAcrossCollections(app, getClipIdKey(clip.meta.craftRefactorSourceId)) || {
+        id: getClipIdKey(clip.meta.craftRefactorSourceId),
+        text: clip.meta?.craftRefactorSourceText || '',
+      }
+    : clip;
+  const refClip = viewingRefactored ? clip : refactoredClip;
+
+  return buildRefactorPairResult(sourceClip, refClip, { resolverPath: 'heuristic-recent' });
+}
+
+function resolveRefactorContext(app, clip) {
+  const attempts = [];
+  const tryPath = (path, resolver) => {
+    const pair = resolver();
+    attempts.push({
+      path,
+      matched: !!pair,
+      detail: pair ? pair.resolverPath || path : null,
+    });
+    return pair;
+  };
+
+  if (!clip) {
+    _debugClipViewerLog('clips.viewer.js:resolveRefactorContext', 'no clip', { attempts }, 'H5');
+    return null;
+  }
+
+  const sessionPair = tryPath('session-index', () => resolveRefactorContextFromSessionIndex(app, clip));
+  if (sessionPair) {
+    logRefactorPairResolved(clip, sessionPair);
+    return sessionPair;
+  }
+
+  const viewingRefactoredCopy = isRefactoredSiblingClip(clip);
+  const sourceId = viewingRefactoredCopy
+    ? getClipIdKey(clip.meta.craftRefactorSourceId)
+    : getClipIdKey(clip.id);
+
+  let sourceClip = viewingRefactoredCopy ? findClipAcrossCollections(app, sourceId) : clip;
+  let refactoredClip = viewingRefactoredCopy ? clip : null;
+
+  if (viewingRefactoredCopy && !sourceClip) {
+    const historyPair = tryPath('history-fallback', () => resolveRefactorContextFromHistory(app, clip));
+    if (historyPair) {
+      logRefactorPairResolved(clip, historyPair);
+      return historyPair;
+    }
+    const linkPair = tryPath('content-link-fallback', () => resolveRefactorContextFromLinks(app, clip));
+    if (linkPair) {
+      logRefactorPairResolved(clip, linkPair);
+      return linkPair;
+    }
+  }
+
+  if (!refactoredClip) {
+    const siblings = findRefactoredSiblingsForSource(app, sourceId);
+    attempts.push({ path: 'meta-siblings', matched: siblings.length > 0, siblingCount: siblings.length });
+    if (siblings.length > 0) {
+      refactoredClip = siblings.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+    }
+  } else {
+    attempts.push({ path: 'meta-siblings', matched: true, siblingCount: 1, viewingRefactoredCopy: true });
+  }
+
+  if (sourceClip && refactoredClip) {
+    const metaPair = buildRefactorPairResult(sourceClip, refactoredClip, { resolverPath: 'meta' });
+    attempts.push({ path: 'meta', matched: !!metaPair });
+    if (metaPair) {
+      logRefactorPairResolved(clip, metaPair);
+      return metaPair;
+    }
+  } else {
+    attempts.push({
+      path: 'meta',
+      matched: false,
+      hasSourceClip: !!sourceClip,
+      hasRefactoredClip: !!refactoredClip,
+    });
+  }
+
+  const historyPair = tryPath('history', () => resolveRefactorContextFromHistory(app, clip));
+  if (historyPair) {
+    if (historyPair.refactoredClip?.id && historyPair.sourceClipId) {
+      backfillRefactorMetaLink(historyPair.refactoredClip, historyPair.sourceClipId);
+    }
+    logRefactorPairResolved(clip, historyPair);
+    return historyPair;
+  }
+
+  const linkPair = tryPath('content-link', () => resolveRefactorContextFromLinks(app, clip));
+  if (linkPair) {
+    if (linkPair.refactoredClip?.id && linkPair.sourceClipId) {
+      backfillRefactorMetaLink(linkPair.refactoredClip, linkPair.sourceClipId);
+    }
+    logRefactorPairResolved(clip, linkPair);
+    return linkPair;
+  }
+
+  const contentPair = tryPath('content-meta', () => resolveRefactorContextFromContentMatch(app, clip));
+  if (contentPair) {
+    logRefactorPairResolved(clip, contentPair);
+    return contentPair;
+  }
+
+  const heuristicPair = tryPath('heuristic-recent', () => resolveRefactorContextHeuristicRecent(app, clip));
+  if (heuristicPair) {
+    if (heuristicPair.refactoredClip?.id && heuristicPair.sourceClipId) {
+      backfillRefactorMetaLink(heuristicPair.refactoredClip, heuristicPair.sourceClipId);
+    }
+    logRefactorPairResolved(clip, heuristicPair);
+    return heuristicPair;
+  }
+
+  console.warn('[PasteCraft:refactor-link]', {
+    clipId: getClipIdKey(clip.id),
+    resolverPath: null,
+    message: 'No refactor link for this clip — run AI Refactorization first',
+  });
+  _debugClipViewerLog(
+    'clips.viewer.js:resolveRefactorContext',
+    `no refactored siblings | ${formatRefactorResolverDiag({
+      sourceId,
+      viewingRefactoredCopy,
+      clipId: getClipIdKey(clip.id),
+      clipTextPreview: normalizeTextForMatch(clip?.text).slice(0, 120),
+      historyEntryCount: (app.aiHistoryEntries || []).length,
+      refactorHistoryEntries: (app.aiHistoryEntries || []).filter((e) => e?.type === 'refactorization').length,
+      refactorLinksCount: (app._refactorLinks || []).length,
+      sessionIndexCount: app._refactorResolverIndex?.size ?? 0,
+      sessionIndexKeys: app._refactorResolverIndex
+        ? [...app._refactorResolverIndex.keys()].slice(0, 12)
+        : [],
+      resolverAttempts: attempts,
+      metaCraftRefactor: clip?.meta?.craftRefactor,
+      metaSourceId: clip?.meta?.craftRefactorSourceId,
+    })}`,
+    {
+      clipId: getClipIdKey(clip.id),
+      attempts,
+    },
+    'H1',
+  );
+  return null;
+}
+
+function buildRefactorSectionHtml(app, label, text) {
+  const content = formatClipViewerPlainText.call(app, text);
+  return `
+    <section class="clip-viewer-refactor-section">
+      <div class="clip-viewer-section-label">${app.escapeHtml(label)}</div>
+      <div class="clip-viewer-refactor-section-body">${content}</div>
+    </section>`;
+}
+
+function renderRefactorDualContent(app, renderedEl, rawEl, refactorPair) {
+  if (!renderedEl || !refactorPair) return;
+
+  renderedEl.innerHTML = `
+    <div class="clip-viewer-refactor-dual">
+      ${buildRefactorSectionHtml(app, 'Original clip', refactorPair.originalText)}
+      ${buildRefactorSectionHtml(app, 'Refactored clip', refactorPair.refactoredText)}
+    </div>`;
+  renderedEl.style.display = 'block';
+
+  if (rawEl) {
+    rawEl.textContent = '';
+    rawEl.style.display = 'none';
+  }
+}
+
+function setClipViewerRevertVisible(revertBtn, visible) {
+  if (!revertBtn) return;
+  revertBtn.style.display = visible ? '' : 'none';
 }
 
 function buildClipViewerContext(clip) {
@@ -292,34 +779,67 @@ function renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
   htmlDetails.style.display = 'none';
 }
 
-export function open(app, clip, sourceContext = 'clips') {
-  const { modal, titleEl, metaEl, bodyEl, renderedEl, rawEl, htmlDetails, htmlPre, toggleBtn } =
-    getClipViewerElements();
+export async function open(app, clip, sourceContext = 'clips') {
+  const {
+    modal,
+    titleEl,
+    metaEl,
+    bodyEl,
+    renderedEl,
+    rawEl,
+    htmlDetails,
+    htmlPre,
+    toggleBtn,
+    revertBtn,
+  } = getClipViewerElements();
 
-  if (!modal || !titleEl || !bodyEl) return;
+  if (!modal || !titleEl || !bodyEl) {
+    _debugClipViewerLog(
+      'clips.viewer.js:open',
+      'missing modal elements',
+      { hasModal: !!modal, hasTitle: !!titleEl, hasBody: !!bodyEl },
+      'H4',
+    );
+    return;
+  }
 
-  app.currentClipViewerClip = clip || null;
+  await ensureRefactorResolverData(app);
+
+  const canonicalClip = findClipAcrossCollections(app, clip?.id) || clip;
+  app.currentClipViewerClip = canonicalClip || null;
   app.clipViewerSourceContext = normalizeClipViewerSourceContext(sourceContext);
   app._clipViewerShowingRaw = false;
 
-  const { text, meta, clipTitle, markupType } = buildClipViewerContext(clip);
+  const { text, meta, clipTitle, markupType } = buildClipViewerContext(canonicalClip);
+  const refactorPair = resolveRefactorContext(app, canonicalClip);
+  app._clipViewerRefactorPair = refactorPair;
+
   titleEl.textContent = resolveClipViewerTitle(clipTitle, meta);
-  renderClipViewerMeta(app, metaEl, meta, markupType, clip);
+  renderClipViewerMeta(app, metaEl, meta, markupType, canonicalClip);
+  setClipViewerRevertVisible(revertBtn, !!refactorPair);
 
   const safeText = app.escapeHtml(text);
   const { srcHtml, url, imgSrc } = extractClipViewerSource(meta);
   const headerParts = buildClipViewerHeaderParts(app, text, meta, url, imgSrc);
-  const hasMarkup = renderClipViewerMainContent(
-    app,
-    renderedEl,
-    text,
-    meta,
-    markupType,
-    headerParts,
-    safeText,
-  );
-  renderClipViewerRawContent(rawEl, text);
-  bindClipViewerToggle(app, toggleBtn, hasMarkup);
+
+  let hasMarkup = false;
+  if (refactorPair) {
+    renderRefactorDualContent(app, renderedEl, rawEl, refactorPair);
+    if (toggleBtn) toggleBtn.style.display = 'none';
+  } else {
+    hasMarkup = renderClipViewerMainContent(
+      app,
+      renderedEl,
+      text,
+      meta,
+      markupType,
+      headerParts,
+      safeText,
+    );
+    renderClipViewerRawContent(rawEl, text);
+    bindClipViewerToggle(app, toggleBtn, hasMarkup);
+  }
+
   bindClipViewerLinkHandler(app, bodyEl);
   renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
 
@@ -332,6 +852,43 @@ export function hide(app) {
   if (modal) modal.style.display = 'none';
   app.currentClipViewerClip = null;
   app.clipViewerSourceContext = null;
+  app._clipViewerRefactorPair = null;
+}
+
+export async function revertRefactorization(app) {
+  const pair = app._clipViewerRefactorPair;
+  if (!pair?.refactoredClipId) {
+    app.showToast?.('No refactor to revert', 'error');
+    return;
+  }
+
+  const sourceContext = app.clipViewerSourceContext || 'clips';
+  const sourceId = pair.sourceClipId;
+
+  try {
+    const result = await deleteClipsByIdKeys(app, [pair.refactoredClipId], {
+      reason: 'revert:refactor',
+      rerender: true,
+    });
+
+    if (!result.deleted) {
+      app.showToast?.('Could not revert refactor', 'error');
+      return;
+    }
+
+    app.showToast?.('Reverted to original clip', 'success');
+
+    const refreshedSource = findClipAcrossCollections(app, sourceId);
+    if (refreshedSource) {
+      await open(app, refreshedSource, sourceContext);
+      return;
+    }
+
+    hide(app);
+  } catch (err) {
+    console.error('[revertRefactorization]', err);
+    app.showToast?.(err?.message || 'Failed to revert refactor', 'error');
+  }
 }
 
 export function runAiSummary(app) {
