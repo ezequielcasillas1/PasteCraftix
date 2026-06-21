@@ -163,7 +163,6 @@ export async function runRefactorizationFromPanel() {
   }
 
   try {
-    app.aiLabFeature.magic.saveMagicUndoSnapshot.call(app);
     const stats = await app.aiLabFeature.magic.runRefactorizationOnly.call(app, selected, level);
     await app._finishCraftFlow(stats);
     app._refactorizationSelected = new Set();

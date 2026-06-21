@@ -125,7 +125,6 @@ export function registerCraftToolbarEvents(app) {
     const craftSelectedBtn = document.getElementById('magicCraftSelectedBtn');
     if (craftSelectedBtn) craftSelectedBtn.addEventListener('click', async () => {
       if (app._magicSelected.size === 0) return;
-      app.aiLabFeature.magic.saveMagicUndoSnapshot.call(app);
       document.getElementById('magicPreviewModal').style.display = 'none';
       const stats = await app._craftMagic([...app._magicSelected]);
       await app._finishCraftFlow(stats);
@@ -137,12 +136,6 @@ export function registerCraftToolbarEvents(app) {
       document.getElementById('magicPreviewModal').style.display = 'none';
       const stats = await app._craftAllMagic();
       await app._finishCraftFlow(stats);
-    });
-
-    // Magic preview: Undo
-    const magicUndoBtn = document.getElementById('magicUndoBtn');
-    if (magicUndoBtn) magicUndoBtn.addEventListener('click', () => {
-      app._undoMagic();
     });
 
     // Magic results modal: close
