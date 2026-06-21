@@ -1,5 +1,6 @@
 import { CATEGORIES_DEFAULTS } from './categories.constants.js';
 import { createClips, mutateClipCollections } from '../clips/clips.service.js';
+import { getClipIdKey } from '../clips/clips.state.js';
 
 // ── createCategory ─────────────────────────────────────────────────────────
 
@@ -205,7 +206,7 @@ export async function deleteCategory(app, category) {
 function checkBulkCapacity(app, ids, targetCategory) {
   if (targetCategory === CATEGORIES_DEFAULTS.UNCATEGORIZED) return true;
   const allClips = [...app.clips, ...app.searchOnlyClips];
-  const existing = allClips.filter(c => c.category === targetCategory && !ids.includes(app._clipIdKey(c?.id))).length;
+  const existing = allClips.filter(c => c.category === targetCategory && !ids.includes(getClipIdKey(c?.id))).length;
   return existing + ids.length <= CATEGORIES_DEFAULTS.MAX_CLIPS_PER_CATEGORY;
 }
 
@@ -215,14 +216,14 @@ function bulkReassignClips(app, ids, targetCategory, updatedAt) {
   let moved = 0;
 
   ids.forEach(idKey => {
-    const ai = app.clips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+    const ai = app.clips.findIndex(c => getClipIdKey(c?.id) === idKey);
     if (ai >= 0) {
       app.clips[ai] = { ...app.clips[ai], category: targetCategory, updatedAt };
       changedActiveClips.push(window.PasteCraftCRUD.createSnapshot(app.clips[ai]));
       moved += 1;
       return;
     }
-    const ri = app.searchOnlyClips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+    const ri = app.searchOnlyClips.findIndex(c => getClipIdKey(c?.id) === idKey);
     if (ri >= 0) {
       app.searchOnlyClips[ri] = { ...app.searchOnlyClips[ri], category: targetCategory, updatedAt };
       changedArchivedClips.push(window.PasteCraftCRUD.createSnapshot(app.searchOnlyClips[ri]));
@@ -277,7 +278,7 @@ async function handleBulkReassignment(app) {
       const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
       const pool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
       return ids.every((id) => {
-        const clip = pool.find((item) => app._clipIdKey(item?.id) === id);
+        const clip = pool.find((item) => getClipIdKey(item?.id) === id);
         return clip && clip.category === targetCategory;
       });
     },
@@ -294,6 +295,7 @@ async function handleBulkReassignment(app) {
       app.hideCategoryModal();
     },
     errorMessage: 'Failed to move clips',
+    showToast: (msg, type) => app.showToast(msg, type),
   });
 
   app.showToast(`Moved ${moved} clip${moved === 1 ? '' : 's'} to ${targetCategory}`);
@@ -310,12 +312,12 @@ function checkSingleReassignCapacity(app, currentClip, targetCategory) {
 function reassignSingleClip(app, idKey, updatedAt) {
   let changedActiveClip = null;
   let changedArchivedClip = null;
-  const ai = app.clips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+  const ai = app.clips.findIndex(c => getClipIdKey(c?.id) === idKey);
   if (ai >= 0) {
     app.clips[ai] = { ...app.clips[ai], category: app.selectedCategoryForSave, updatedAt };
     changedActiveClip = window.PasteCraftCRUD.createSnapshot(app.clips[ai]);
   } else {
-    const ri = app.searchOnlyClips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+    const ri = app.searchOnlyClips.findIndex(c => getClipIdKey(c?.id) === idKey);
     if (ri >= 0) {
       app.searchOnlyClips[ri] = { ...app.searchOnlyClips[ri], category: app.selectedCategoryForSave, updatedAt };
       changedArchivedClip = window.PasteCraftCRUD.createSnapshot(app.searchOnlyClips[ri]);
@@ -327,9 +329,12 @@ function reassignSingleClip(app, idKey, updatedAt) {
 async function handleExistingClipReassignment(app) {
   const idKey = String(app.pendingClipId || '');
   const currentClip =
-    app.clips.find(c => app._clipIdKey(c?.id) === idKey) ||
-    app.searchOnlyClips.find(c => app._clipIdKey(c?.id) === idKey);
-  if (!currentClip) return;
+    app.clips.find(c => getClipIdKey(c?.id) === idKey) ||
+    app.searchOnlyClips.find(c => getClipIdKey(c?.id) === idKey);
+  if (!currentClip) {
+    app.showToast('Clip not found', 'error');
+    return;
+  }
 
   if (!checkSingleReassignCapacity(app, currentClip, app.selectedCategoryForSave)) {
     app.showToast(`Category "${app.selectedCategoryForSave}" is full (${CATEGORIES_DEFAULTS.MAX_CLIPS_PER_CATEGORY} clips max). Remove some clips first.`);
@@ -355,7 +360,7 @@ async function handleExistingClipReassignment(app) {
     verifier: async () => {
       const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
       const pool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
-      const clip = pool.find((item) => app._clipIdKey(item?.id) === idKey);
+      const clip = pool.find((item) => getClipIdKey(item?.id) === idKey);
       return !!clip && clip.category === app.selectedCategoryForSave;
     },
     backgroundSync: async () => {
@@ -373,6 +378,7 @@ async function handleExistingClipReassignment(app) {
       app.updateCategoryFilter();
     },
     errorMessage: 'Failed to move clip',
+    showToast: (msg, type) => app.showToast(msg, type),
   });
 
   app.showToast(`Moved to ${app.selectedCategoryForSave}!`);
@@ -408,17 +414,36 @@ async function handleNewClipSave(app) {
 }
 
 export async function saveTextWithCategory(app) {
-  if (Array.isArray(app.pendingBulkClipIds) && app.pendingBulkClipIds.length > 0) {
-    await handleBulkReassignment(app);
+  const hasBulk = Array.isArray(app.pendingBulkClipIds) && app.pendingBulkClipIds.length > 0;
+  const hasReassign = app.pendingClipId != null && app.pendingClipId !== '';
+  const hasNewClip = typeof app.pendingText === 'string' && app.pendingText.length > 0;
+
+  if (hasBulk) {
+    try {
+      await handleBulkReassignment(app);
+    } catch (err) {
+      console.error('[saveTextWithCategory] bulk reassignment failed:', err);
+      app.showToast(err?.message || 'Failed to move clips', 'error');
+    }
     return;
   }
-  if (!app.pendingText) return;
-  if (app.pendingClipId !== null) {
-    await handleExistingClipReassignment(app);
-  } else {
-    await handleNewClipSave(app);
+
+  if (!hasReassign && !hasNewClip) {
+    app.showToast('Nothing to save to that category', 'error');
+    return;
   }
-  app.hideCategoryModal();
+
+  try {
+    if (hasReassign) {
+      await handleExistingClipReassignment(app);
+    } else {
+      await handleNewClipSave(app);
+    }
+    app.hideCategoryModal();
+  } catch (err) {
+    console.error('[saveTextWithCategory] failed:', err);
+    app.showToast(err?.message || 'Failed to save to category', 'error');
+  }
 }
 
 // ── showCreateCategoryFromModal ────────────────────────────────────────────
