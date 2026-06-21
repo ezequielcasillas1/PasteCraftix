@@ -7,6 +7,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const AI_FILLER_RE = /\b(delve|delving|it's important to note|it is important to note|furthermore|in conclusion|additionally|moreover|it's worth noting|it is worth noting|in today's world|navigate the complexities|as an ai|underscores the importance|comprehensive overview|robust solution)\b/i
+
+function countEmDashes(text: string): number {
+  return (text.match(/—/g) || []).length
+}
+
+function isSuspiciousFormatOutput(original: string, formatted: string): boolean {
+  const orig = String(original || '').trim()
+  const fmt = String(formatted || '').trim()
+  if (!fmt || fmt === orig) return false
+  if (orig.length > 0 && fmt.length > orig.length * 1.12) return true
+  if (AI_FILLER_RE.test(fmt) && !AI_FILLER_RE.test(orig)) return true
+  if (countEmDashes(fmt) > countEmDashes(orig)) return true
+  return false
+}
+
+const systemPrompt =
+  'You are a copy editor fixing standard English grammar in clipboard snippets. Correctness only — not style upgrades or AI polish.\n' +
+  'Fix when wrong:\n' +
+  '- Subject-verb agreement, pronoun-antecedent agreement, verb tense consistency\n' +
+  '- Double negatives, dangling or misplaced modifiers, sentence fragments, run-ons\n' +
+  '- Homophones (your/you\'re, there/their/they\'re, its/it\'s, affect/effect, to/too/two)\n' +
+  '- Punctuation, capitalization, and spelling\n' +
+  '- Wordiness only when it is a clear tautology or grammar error\n' +
+  'Do NOT:\n' +
+  '- Rewrite for better wording, corporate tone, or marketing polish\n' +
+  '- Add phrases, disclaimers, transitions, explanations, or new sentences\n' +
+  '- Use AI filler (delve, furthermore, additionally, in conclusion, it\'s important to note, leverage, utilize, robust, comprehensive, landscape)\n' +
+  '- Add em dashes (—) unless they already appear in the input\n' +
+  '- Change vocabulary, tone, voice, or meaning\n' +
+  '- Expand, summarize, or rephrase — minimal edits only\n' +
+  'Preserve line breaks, lists, and formatting. Return code, URLs, emails, phones, and structured data unchanged.\n' +
+  'If already grammatically correct, return unchanged.\n' +
+  'Return STRICT JSON only: {"formatted":["text0","text1",...]}\n' +
+  'Array length MUST match the number of input clips, in the same order.\n' +
+  'No markdown wrapping, no extra keys'
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -41,22 +78,7 @@ serve(async (req) => {
       return `[${i}]\n${text}\n[/${i}]`
     }).join('\n')
 
-    const systemPrompt =
-      'You are a grammar and punctuation editor. Fix ONLY grammar, punctuation, capitalization, and sentence structure.\n' +
-      'Rules:\n' +
-      '- Fix spelling, grammar, punctuation, and capitalization errors\n' +
-      '- Improve sentence structure for clarity\n' +
-      '- DO NOT change vocabulary, tone, or meaning\n' +
-      '- DO NOT add new words or expand the text\n' +
-      '- DO NOT rewrite or rephrase — just polish what exists\n' +
-      '- Preserve line breaks, formatting, and code blocks as-is\n' +
-      '- If text is already correct, return it unchanged\n' +
-      '- If text is code, URL, email, phone, or data (JSON/YAML/XML/CSV) — return it unchanged\n' +
-      '- Return STRICT JSON only: {"formatted":["text0","text1",...]}\n' +
-      '- Array length MUST match the number of input clips, in the same order\n' +
-      '- No markdown wrapping, no extra keys'
-
-    const userPrompt = `Fix grammar and punctuation for these ${batch.length} clipboard snippets:\n${clipTexts}`
+    const userPrompt = `Fix grammar only (no rewrites) for these ${batch.length} clipboard snippets:\n${clipTexts}`
 
     const payload = {
       messages: [
@@ -82,7 +104,13 @@ serve(async (req) => {
     }
 
     const formatted: string[] = Array.isArray(parsed?.formatted)
-      ? parsed.formatted.map((t: any) => String(t || '').trim())
+      ? parsed.formatted.map((t: any, i: number) => {
+          const original = String(batch[i]?.text || '').trim()
+          const candidate = String(t || '').trim()
+          if (!candidate || candidate === original) return original
+          if (isSuspiciousFormatOutput(original, candidate)) return original
+          return candidate
+        })
       : []
 
     // Pad with originals if AI returned fewer results

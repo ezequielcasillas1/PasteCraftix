@@ -33,7 +33,6 @@ export async function magicFormat() {
   app._magicSelected = new Set();
   app._magicPage = 0;
 
-  _toggleMagicUndoBanner(app);
   _toggleMagicAiCreditNotice(app);
 
   app._renderMagicPage(0);
@@ -49,12 +48,6 @@ function _animateMagicWand() {
   if (!wand) return;
   wand.style.transform = 'scale(1.2) rotate(360deg)';
   setTimeout(() => { wand.style.transform = ''; }, 500);
-}
-
-function _toggleMagicUndoBanner(app) {
-  const banner = document.getElementById('magicUndoBanner');
-  if (!banner) return;
-  banner.style.display = app._magicUndoSnapshot ? 'flex' : 'none';
 }
 
 function _toggleMagicAiCreditNotice(app) {
@@ -1032,14 +1025,29 @@ function _populateAiRefactorMap(map, targets, aiResults) {
   }
 }
 
+function _countEmDashes(text) {
+  return (String(text || '').match(/—/g) || []).length;
+}
+
+const AI_FORMAT_FILLER_RE = /\b(delve|delving|it's important to note|it is important to note|furthermore|in conclusion|additionally|moreover|it's worth noting|it is worth noting|in today's world|navigate the complexities|as an ai|underscores the importance|comprehensive overview|robust solution)\b/i;
+
+function _isSuspiciousAiFormatOutput(original, formatted) {
+  const orig = String(original || '').trim();
+  const fmt = String(formatted || '').trim();
+  if (!fmt || fmt === orig) return false;
+  if (orig.length > 0 && fmt.length > orig.length * 1.12) return true;
+  if (AI_FORMAT_FILLER_RE.test(fmt) && !AI_FORMAT_FILLER_RE.test(orig)) return true;
+  if (_countEmDashes(fmt) > _countEmDashes(orig)) return true;
+  return false;
+}
+
 function _populateAiFormatMap(map, targets, aiResults) {
   const len = Math.min(targets.length, aiResults.length);
   for (let i = 0; i < len; i++) {
-    const formatted = String(aiResults[i] || '').trim();
     const original = (targets[i].text || '').trim();
-    if (formatted && formatted !== original) {
-      map.set(String(targets[i].id), formatted);
-    }
+    const formatted = String(aiResults[i] || '').trim();
+    if (!formatted || formatted === original || _isSuspiciousAiFormatOutput(original, formatted)) continue;
+    map.set(String(targets[i].id), formatted);
   }
 }
 
@@ -1554,55 +1562,15 @@ function _refreshMagicCreditsAndUi(app, stats) {
 }
 
 // ────────────────────────────────────────────────────────────
-// Craft all + undo
+// Craft all
 // ────────────────────────────────────────────────────────────
 
 export async function _craftAllMagic() {
   const app = this;
-  _saveMagicUndoSnapshot(app);
   const allClipIds = app.clips.map(c => String(c.id));
   const stats = await app._craftMagic(allClipIds);
-  app.showToast('✨ All clips crafted! Open Craft Clips again to undo.');
+  app.showToast('✨ All clips crafted!');
   return stats;
-}
-
-export function saveMagicUndoSnapshot() {
-  _saveMagicUndoSnapshot(this);
-}
-
-function _saveMagicUndoSnapshot(app) {
-  app._magicUndoSnapshot = {
-    clips: JSON.parse(JSON.stringify(app.clips)),
-    categories: JSON.parse(JSON.stringify(app.categories)),
-    searchOnlyClips: JSON.parse(JSON.stringify(app.searchOnlyClips || [])),
-  };
-}
-
-export async function _undoMagic() {
-  const app = this;
-  if (!app._magicUndoSnapshot) {
-    app.showToast('⚠️ No magic to undo');
-    return;
-  }
-
-  app.clips = app._magicUndoSnapshot.clips;
-  app.categories = app._magicUndoSnapshot.categories;
-  app.searchOnlyClips = app._magicUndoSnapshot.searchOnlyClips || [];
-  app._magicUndoSnapshot = null;
-
-  await _saveMagicState(app, {
-    uiUpdater: () => {
-      app.renderChips();
-      app.renderCategories();
-      app.updateCategoryFilter();
-      app.updateManualInputCategories();
-    },
-    syncToCloud: true,
-  });
-
-  const modal = document.getElementById('magicPreviewModal');
-  if (modal) modal.style.display = 'none';
-  app.showToast('✨ Craft Clips undone! Clips restored.');
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1749,7 +1717,7 @@ function _populateMagicResultsModal(app, stats) {
         parts.push(_resolveRefactorSummaryLine(stats));
       }
     } else if (stats.aiFormatted > 0) {
-      parts.push('AI Formatted · grammar polish applied to clip text.');
+      parts.push('AI Formatted · grammar fixes applied to clip text.');
     } else if (app._hasAiAccess()) {
       parts.push('AI Formatted · no changes needed or AI call skipped.');
     } else {
