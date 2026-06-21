@@ -1,6 +1,6 @@
 # PasteCraft - Future Feature Requests
 
-**Last Updated:** December 21, 2025  
+**Last Updated:** June 21, 2026  
 **MVP Status:** ✅ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
@@ -736,6 +736,18 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - View-only restore or compare against current refactored sibling
 - Local meta + refactor link history only (no new Supabase column)
 - Defer until replace-on-re-refactor flow is stable in production
+
+---
+
+#### 57. Grammar API for AI Formatted (Craft Clips)
+**Priority:** Medium  
+**Status:** Future — explore alongside Craft Clips **#47** (`ai-format` edge function)
+
+**Requirements:**
+- Evaluate **LanguageTool** (REST API, tiered daily calls, self-host option), **Sapling** (usage-based ~$0.025/1K chars; Grammarly SDK alternative), **ProWritingAid** (official API sunsetting — verify enterprise/custom only)
+- Integrate chosen grammar/writing API into `ai-format`; keep current LLM path as fallback when API unavailable, rate-limited, or key unset
+- Preserve anti-AI-artifact guards; grammar API handles mechanics, LLM only for remaining polish gaps
+- Server-side API keys only; premium-gated; compare cost, latency, and quality vs pure-LLM before defaulting provider
 
 ---
 
