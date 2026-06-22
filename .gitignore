@@ -71,6 +71,14 @@ supabase_keys.*
 # Local-only / generated in this workspace
 supabase/.temp/
 
+# Private security playbooks & vulnerability docs — NEVER push to GitHub
+local/
+docs/security/*
+!docs/security/README.md
+db/vulnerabilityfixes.md
+docs/supabase/SUPABASEcsReport.md
+docs/pre-publish_hardening.plan.md
+
 # Local configs/docs (ignore)
 config.toml
 PRODUCTION_*.md
@@ -86,3 +94,6 @@ admin/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
+# Private security rules — keep local, never push (must follow un-ignore above)
+.cursor/rules/pastecraft-security-breach-response.mdc
+.cursor/rules/zscaler-mcp-security.mdc

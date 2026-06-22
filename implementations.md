@@ -1,3 +1,8 @@
+### Jun 22, 2026 - Security fundamentals docs + breach response rule
+**Status:** SUCCESS (local-only — not on GitHub)
+**Files:** local/security/security-fundamentals.md, local/security/*, .cursor/rules/pastecraft-security-breach-response.mdc (gitignored), docs/security/README.md, .gitignore
+**Result:** Private playbooks in `local/security/` + gitignore; public repo keeps stub README only. Removed tracked vulnerability reports from git index.
+
 ### Jun 21, 2026 - AI refactor replace-on-re-refactor + remove Revert
 **Status:** SUCCESS
 **Files:** ai-lab.magic.js, clips.viewer.js, popup.html, popup.js, modals-shared.events.js, clip-viewer.css, request.md
