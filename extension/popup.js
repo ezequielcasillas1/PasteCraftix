@@ -920,12 +920,12 @@ class PasteCraftPopup {
     return this.clipsFeature?.viewer?.openGoogleSearchActions?.(this);
   }
 
-  showCustomSearchModal(clip, context = 'clips') {
-    return this.clipsFeature?.customSearch?.showModal?.(this, { clip, context });
+  showCustomSearchModule(clip, context = 'clips') {
+    return this.clipsFeature?.customSearch?.showModule?.(this, { clip, context });
   }
 
-  hideCustomSearchModal() {
-    return this.clipsFeature?.customSearch?.hideModal?.(this);
+  hideCustomSearchModule() {
+    return this.clipsFeature?.customSearch?.hideModule?.(this);
   }
 
   runClipViewerAiRefactorization() {

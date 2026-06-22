@@ -1,5 +1,9 @@
 
-### Jun 21, 2026 - AI Refactor pipeline + viewer dual-view
+### Jun 22, 2026 - Custom Search popup module overhaul
+**Status:** SUCCESS
+**Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.action-menu.js, popup.html, popup.js, tests/custom-search.test.mjs
+**Result:** Dual-input popup module replaces saved-search modal; highlight + question → Google on active tab. Fixed formatClipViewerPlainText.call(app) open crash. User verified SUCCESS.
+
 **Status:** SUCCESS
 **Files:** ai-refactor/index.ts, ai_workflow.ts, ai-functions.js, ai-lab.magic.js, clips.viewer.js, clip-viewer.css, popup.html, auth.js
 **Result:** Haiku primary / GPT-4o fallback; sibling links + resolver; Original+Refactored viewer. User confirmed SUCCESS. main @ d206cc0.

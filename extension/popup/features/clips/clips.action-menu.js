@@ -1,13 +1,5 @@
-import { CUSTOM_SEARCH_SAVED_ACTION_PREFIX } from './clips.custom-search.constants.js';
-import {
-  buildGoogleSearchUrl,
-  buildQueryFromTemplate,
-  ensureCustomSearchesLoaded,
-  getCustomSearchById,
-  logCustomSearchUsage,
-  templateUsesClipPlaceholder,
-} from './clips.custom-search.service.js';
-import { showModal as showCustomSearchModal } from './clips.custom-search.modal.js';
+import { showModule as showCustomSearchModule } from './clips.custom-search.module.js';
+import { buildGoogleSearchUrl } from './clips.custom-search.service.js';
 import {
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
@@ -249,24 +241,9 @@ function getGoogleSearchBaseItems() {
   ];
 }
 
-function getSavedCustomSearchMenuItems(app) {
-  const items = Array.isArray(app.customSearches) ? app.customSearches : [];
-  if (!items.length) return [];
-  return [
-    { type: 'separator' },
-    ...items.map((entry) => ({
-      id: `${CUSTOM_SEARCH_SAVED_ACTION_PREFIX}${entry.id}`,
-      icon: 'bookmark',
-      label: entry.name,
-    })),
-  ];
-}
-
-async function getGoogleSearchItems(app) {
-  await ensureCustomSearchesLoaded(app);
+function getGoogleSearchItems() {
   return [
     ...getGoogleSearchBaseItems(),
-    ...getSavedCustomSearchMenuItems(app),
     { type: 'separator' },
     { id: 'custom-search', icon: 'search', label: 'Custom Search' },
   ];
@@ -325,30 +302,7 @@ async function runAiBundleAction(app, actionId, { clip, context }) {
 
 export async function runGoogleSearchAction(app, actionId, { clip, context }) {
   if (actionId === 'custom-search') {
-    await showCustomSearchModal(app, { clip, context });
-    return;
-  }
-
-  if (String(actionId || '').startsWith(CUSTOM_SEARCH_SAVED_ACTION_PREFIX)) {
-    const templateId = actionId.slice(CUSTOM_SEARCH_SAVED_ACTION_PREFIX.length);
-    const saved = getCustomSearchById(app, templateId);
-    if (!saved) {
-      app.showToast?.('Saved search not found', 'error');
-      return;
-    }
-    const text = getSelectedOrCurrentSearchText(app, clip, context);
-    if (templateUsesClipPlaceholder(saved.template) && !text) {
-      app.showToast?.('No clip text to search', 'error');
-      return;
-    }
-    const query = buildQueryFromTemplate(saved.template, text);
-    const url = buildGoogleSearchUrl(query);
-    if (!url) {
-      app.showToast?.('Invalid search query', 'error');
-      return;
-    }
-    await logCustomSearchUsage('search', { templateId: saved.id, name: saved.name });
-    navigateActiveTab(url);
+    showCustomSearchModule(app, { clip, context });
     return;
   }
 
@@ -380,7 +334,7 @@ export function openAiBundleMenu(app, { anchor, clip, context }) {
 }
 
 export async function openGoogleSearchMenu(app, { anchor, clip, context }) {
-  const items = await getGoogleSearchItems(app);
+  const items = getGoogleSearchItems();
   openClipActionMenu({
     anchor,
     title: 'Google search',

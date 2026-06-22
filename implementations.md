@@ -440,3 +440,8 @@
 **Status:** PENDING USER VERIFY
 **Files:** extension/popup.js, extension/popup.html, extension/popup/shared/popup-ui.js, extension/popup/shared/popup-messaging.js, extension/popup/features/clips/clips.preview.js, extension/popup/features/clips/clips.controller.js
 **Result:** Extracted UI utilities (toast/overlay/confetti/escapeHtml), craft preview (updatePreview/delimiter/toggles), background message handler. Thin delegates kept on PasteCraftPopup. CodeScene new files: 9.68 / 9.66 / 9.52. Deferred: _initImpl, auth callbacks, restore+repairLocalClipIds, PDF, AI breakdown, profile AI, visibility listener.
+
+### Jun 22, 2026 - Custom Search popup module overhaul
+**Status:** SUCCESS
+**Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.custom-search.constants.js, clips.action-menu.js, clips.controller.js, modals-shared.events.js, popup.js, popup.html, tests/custom-search.test.mjs
+**Result:** Replaced saved-search modal with popup module: clip preview, read-only highlight input, editable question input, Search Google on active tab. Removed CRUD, site: templates, and pc_custom_searches storage. User verified SUCCESS.

@@ -1,9 +1,9 @@
 /** Extracted from popup.js setupEventListeners — behavior unchanged. */
 
-import { registerCustomSearchModalEvents } from '../features/clips/clips.custom-search.modal.js';
+import { registerCustomSearchModuleEvents } from '../features/clips/clips.custom-search.module.js';
 
 export function registerSharedModalEvents(app) {
-    registerCustomSearchModalEvents(app);
+    registerCustomSearchModuleEvents(app);
     // Breakdown modal events
     document.getElementById('closeBreakdownModal').addEventListener('click', () => {
       app.hideBreakdownModal();

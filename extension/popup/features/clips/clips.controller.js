@@ -9,7 +9,7 @@ import * as clipPdf from './clips.pdf.js';
 import * as clipTitle from './clips.title.js';
 import * as clipShare from './clips.share.js';
 import * as clipActionMenu from './clips.action-menu.js';
-import * as clipCustomSearch from './clips.custom-search.modal.js';
+import * as clipCustomSearch from './clips.custom-search.module.js';
 
 export function initClipsFeature(app) {
   app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
