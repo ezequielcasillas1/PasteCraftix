@@ -1,6 +1,6 @@
 # PasteCraft - Future Feature Requests
 
-**Last Updated:** June 21, 2026  
+**Last Updated:** June 22, 2026  
 **MVP Status:** ✅ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
@@ -424,19 +424,6 @@ state management.
 
 ---
 
-#### 37. Tips & Tricks Top Nav Bar (All Pages)
-**Priority:** High  
-**Status:** Not started  
-**Requirements:**
-- Current: Top-right "PasteCraft Tips" widget shows Clipboard Coach tips from copy events + optional Daily Trends
-- Current: Settings toggles for enable, rule-based tips, AI tips, and show-after-copy; widget is draggable
-- New: Move tips into a full-width top nav bar strip (left-to-right rectangular area)
-- New: Top nav bar persists and is inherited across all webpages
-- New: Two themes in settings: standard color + transparent (match current widget transparency)
-- New: Top bar must remain readable, accessible, and high-contrast in both themes
-
----
-
 #### 34. AI Output Formatting Mode (Summaries + Breakdowns)
 **Priority:** Low  
 **Status:** Not started  
@@ -748,6 +735,84 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Integrate chosen grammar/writing API into `ai-format`; keep current LLM path as fallback when API unavailable, rate-limited, or key unset
 - Preserve anti-AI-artifact guards; grammar API handles mechanics, LLM only for remaining polish gaps
 - Server-side API keys only; premium-gated; compare cost, latency, and quality vs pure-LLM before defaulting provider
+
+---
+
+#### 58. PasteCraft Merchant (Seller Service Layer)
+**Priority:** High  
+**Status:** In progress (Phases 1–2 on main; Phase 3 next)  
+**Depends on:** **#29** Spot, **#21** Image→Text top strip  
+**Roadmap doc:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md` — feature assessment, nav/prefs, phases 1–9+, Merchant Test Lab (`merchant-test-lab/` at repo root, not pastecraft.com)
+- Tags-first / tags-only default UI; title/description Advanced only
+- Core = paste annoying small fields (tags → materials → snippets); alt text deprioritized
+- Phased vertical slices in `extension/content/merchant/`; user test between phases
+- Separate Test Lab mock Etsy/Printify forms for QA + DOM adapters without marketplace accounts
+
+**Product & subscription:**
+- Separate subscription from PasteCraft Scholar (see **Product Lines & Roadmap**)
+- Options: Scholar only, Merchant only, bundle (Scholar + Merchant)
+- Extension stays "PasteCraft"; Scholar / Merchant are gated service layers
+
+**Pricing (Merchant only):**
+- **$1.99 weekly**, **$6.99 monthly**, **$15.99 yearly**
+- Own Stripe prices + tier gate; ship after Spot + top-toolbar slice
+- Client-side Spot/top-strip + ephemeral staging only — no per-call AI/API cost like Scholar AI Lab
+- Lower price reflects no ongoing API burn; bundle with Scholar still TBD
+
+**Ephemeral listing payload:**
+- **Listing Dock** — temporary staging for title / description / tags (clip, AI, Spot list, clipboard)
+- Corruptible Merchant-only layer with TTL; never permanent Scholar archive
+- Merchant-only storage keys / staging table with `expires_at`; auto-expire fallback (e.g. 24h)
+
+**UI flow:**
+- **Merchant Pulse** — strip indicator (staging live / will vanish; "not saved forever")
+- Spot paste/fill + tag queue until listing fields complete
+- **Seal & Ship** — Done → success → confirm purge → corrupt/delete locally (+ cloud staging row)
+
+**Spot Phase A+B (build with Merchant):**
+- Listing pack clip shape: `title:` / `description:` / `tags:` sections
+- Etsy tag profile: 13 tags × 20 chars, dedupe, preview before copy
+- Batch copy/join (delimiter presets); tag queue "paste next tag"
+- Import from clip / AI text; platform presets (Etsy, Printify, generic)
+
+**Phase C (future) & gating:**
+- Etsy DOM tag-input adapter — defer until A+B stable; see **Product Lines**
+- `user_subscriptions`: `has_merchant` flag or tier enum (`scholar` | `merchant` | `bundle`)
+- Spot + top strip → merchant; AI Lab → scholar; bundle = both flags active
+
+---
+
+## Product Lines & Roadmap
+
+See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md`.
+
+### Brand split
+- **PasteCraft Scholar** — core study/productivity (clips, categories, notes, search, AI Lab)
+- **PasteCraft Merchant** — Etsy/POD seller add-on: **Spot #29** + **Image→Text #21** top strip
+- Extension name stays "PasteCraft"; Scholar / Merchant are subscription **service layers**
+
+### Subscription options (planned)
+- **Scholar only** — existing FREE / BASIC / PREMIUM tiers (cloud sync + AI Lab)
+- **Merchant only** — **$1.99/wk**, **$6.99/mo**, **$15.99/yr** (Spot + listing workflow; see **#58**)
+- **Bundle (Scholar + Merchant)** — combined access; pricing TBD (may discount vs both separately)
+
+### Merchant standalone — can it work without Scholar?
+- **Yes** — self-sufficient for Etsy/POD at full quality
+- **Includes:** minimal clips/categories, Spot lists, listing packs, top strip (Spot + #21), tag queue
+- **Shared infra:** same extension, auth, Supabase; Merchant gates Spot/top strip; Scholar gates AI Lab
+
+### Implementation order
+1. **Next:** Spot #29 + Image→Text #21 shared ~1cm top strip on web pages
+2. **Then:** UI color phases — leaner cohesive popup/module look (phased rollout)
+3. **Later:** Merchant billing + gating — after toolbar slice works
+- **#37 Tips bar** — removed from roadmap (already done)
+
+### Spot phases (summary)
+- **Phase A+B (Merchant — build first):** listing pack, Etsy tags, batch copy, tag queue — see **#58**
+- **Phase C (future — do NOT build yet):** Etsy (then Printify) DOM tag-input adapter — follow-up to **#29**; ship after A+B stable
+
+### Tomorrow
+- Start **Spot + Image→Text** top-toolbar implementation (Merchant layer foundation)
 
 ---
 

@@ -1,3 +1,19 @@
+### Jun 23, 2026 - Merchant roadmap + Test Lab architecture doc
+**Status:** DOC ONLY (planning)
+**Files:** docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md, instructions/request.md (#58 cross-ref)
+**Result:** Locked tags-first product decisions, feature assessment table, top-strip nav map, prefs keys, phases 1–9+, `merchant-test-lab/` spec, testing matrix. No code; not committed.
+
+### Jun 23, 2026 - Merchant Phase 3 tags-only dock + Etsy validation
+**Status:** SUCCESS (user-approved commit)
+**Files:** merchant.tags.js, merchant.listing-dock.js, merchant.dock-storage.js, merchant.dock-styles.js, merchant.spot.js, merchant.constants.js, merchant-test-lab/*
+**Result:** Tags-first dock UI (title/desc under Advanced); live Etsy 13×20 preview chips; dedupe/trim on save; Spot stages listing pack tags; `tagsOnlyMode: true` pref stub; Test Lab mock pages at repo root.
+
+### Jun 23, 2026 - Merchant Phase 2 Listing Dock + Pulse
+**Status:** SUCCESS (user-approved commit)
+**Files:** extension/content/merchant/merchant.constants.js, merchant.dock-storage.js, merchant.pulse.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.controller.js, merchant.top-strip.js, merchant.events.js, merchant.spot.js, merchant.styles.js, merchant.layout.js (+ Phase 1 merchant files restored from feat/merchant-phase-1-top-strip)
+**Result:** Ephemeral listing dock (title/description/tags) with 24h TTL in `pc_merchant_dock_staging_v1`; Merchant Pulse indicator in top strip; Shadow DOM dock panel; Spot stages page selection/listing-pack text; Seal & Ship stub disabled. Supabase row shape prep only — no cloud sync.
+**Layout fix:** Strip mounts on `document.documentElement` (outside Etsy scroll/transform stacks) with hardened `position:fixed !important`, pin guard on scroll/resize, max z-index; `merchant.layout.js` compensates via html/body padding (flow sites) or fixed-shell top offset (Etsy). Class `pc-merchant-strip-active`; styles restored on unmount.
+
 ### Jun 22, 2026 - Security fundamentals docs + breach response rule
 **Status:** SUCCESS (local-only — not on GitHub)
 **Files:** local/security/security-fundamentals.md, local/security/*, .cursor/rules/pastecraft-security-breach-response.mdc (gitignored), docs/security/README.md, .gitignore

@@ -1,4 +1,14 @@
 
+### Jun 23, 2026 - Merchant Phase 2 Listing Dock + Pulse
+**Status:** SUCCESS
+**Files:** merchant.dock-storage.js, merchant.pulse.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.layout.js, merchant.controller.js
+**Result:** Ephemeral 24h staging dock + Pulse in top strip; Shadow DOM panel; Spot stages selection. User-approved commit on feat/merchant-phase-2-3.
+
+### Jun 23, 2026 - Merchant Phase 3 Etsy tag validation + Test Lab
+**Status:** SUCCESS
+**Files:** merchant.tags.js, merchant.listing-dock.js, merchant.spot.js, merchant.constants.js, merchant-test-lab/*
+**Result:** Tags-only default dock UI; 13×20 preview chips; dedupe on save; Test Lab mock Etsy/Printify/generic pages. User-approved commit on feat/merchant-phase-2-3.
+
 ### Jun 22, 2026 - Custom Search popup module overhaul
 **Status:** SUCCESS
 **Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.action-menu.js, popup.html, popup.js, tests/custom-search.test.mjs
