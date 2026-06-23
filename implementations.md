@@ -1,3 +1,32 @@
+### Jun 23, 2026 - Merchant Phase 1 top strip (#58)
+**Status:** SUCCESS
+**Files:** extension/content/merchant/*, extension/content/content.js, extension/manifest.json, manifest.json
+**Result:** Shared ~38px Merchant top strip (Spot + Image→Text placeholders) via Shadow DOM; pushes page content down; no billing/gating yet. User verified working. Commit 0744764 on feat/merchant-phase-1-top-strip.
+
+**Status:** SUCCESS (docs only)
+**Files:** instructions/request.md, implementations.md
+**Result:** Merchant-only tiers $4.99/$10.99/$54.99 → $1.99 wk / $6.99 mo / $15.99 yr; rationale added (no AI API burn, bundle TBD).
+
+### Jun 22, 2026 - #58 PasteCraft Merchant feature spec
+**Status:** SUCCESS (docs only)
+**Files:** instructions/request.md, implementations.md
+**Result:** Added #### 58 Merchant seller service layer after #57; Product Lines trimmed with #58 cross-ref; gating, pricing, ephemeral staging, Spot A+B/C summarized.
+
+### Jun 22, 2026 - Merchant ephemeral listing payload (docs)
+**Status:** SUCCESS (docs only)
+**Files:** instructions/request.md, implementations.md
+**Result:** Documented corruptible Merchant staging layer, 5-step flow, UI naming sets (Dock/Pulse/Seal & Ship), TTL + merchant-only storage keys.
+
+### Jun 22, 2026 - Subscription bundling + Merchant standalone analysis
+**Status:** SUCCESS (docs only)
+**Files:** instructions/request.md, implementations.md
+**Result:** Extended Product Lines with Scholar/Merchant/bundle subscription options, Merchant standalone boundaries (includes/excludes), and `user_subscriptions` gating notes.
+
+### Jun 22, 2026 - Product lines & roadmap → request.md
+**Status:** SUCCESS
+**Files:** instructions/request.md, docs/README.md
+**Result:** Moved Scholar/Merchant brand split, Merchant pricing, Spot A+B/C order, and tomorrow note into request.md. Reverted misplaced section from docs/README.md.
+
 ### Jun 22, 2026 - Security fundamentals docs + breach response rule
 **Status:** SUCCESS (local-only — not on GitHub)
 **Files:** local/security/security-fundamentals.md, local/security/*, .cursor/rules/pastecraft-security-breach-response.mdc (gitignored), docs/security/README.md, .gitignore
