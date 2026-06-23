@@ -4,9 +4,9 @@ const LAYOUT_STYLE_ID = 'pc-merchant-layout-styles';
 const STRIP_HOST_FIELD = 'pc-merchant-strip-host';
 const DOCK_HOST_FIELD = 'pc-merchant-dock-host';
 
-/** Top-level mount target — outside SPA scroll/transform stacks on body. */
+/** Top-level mount target — valid DOM under body (documentElement siblings are dropped by some SPAs). */
 export function getMerchantMountRoot() {
-  return document.documentElement || document.body;
+  return document.body || document.documentElement;
 }
 
 export function isMerchantHostElement(el) {
@@ -47,7 +47,6 @@ function buildLayoutStyleText() {
       opacity: 1 !important;
       visibility: visible !important;
       pointer-events: auto !important;
-      contain: layout style;
     }
 
     [data-field="${DOCK_HOST_FIELD}"] {
@@ -98,7 +97,6 @@ export function applyStripHostFixedStyles(host, heightPx = MERCHANT_STRIP_HEIGHT
     opacity: '1',
     visibility: 'visible',
     pointerEvents: 'auto',
-    contain: 'layout style',
   };
   for (const [key, value] of Object.entries(rules)) {
     host.style.setProperty(toKebab(key), value, 'important');
@@ -108,22 +106,25 @@ export function applyStripHostFixedStyles(host, heightPx = MERCHANT_STRIP_HEIGHT
 let _pinGuardHost = null;
 let _pinGuardHandler = null;
 
-/** Keep strip host on documentElement and viewport-pinned during nested scroll. */
+/** Keep strip host connected and viewport-pinned during nested scroll / SPA DOM churn. */
 export function bindMerchantStripPinGuard(host) {
   if (!host || _pinGuardHost === host) return;
   unbindMerchantStripPinGuard();
 
   _pinGuardHost = host;
   _pinGuardHandler = () => {
-    if (!_pinGuardHost?.isConnected) return;
-    mountMerchantHost(_pinGuardHost);
-    _pinGuardHost.style.setProperty('top', '0', 'important');
-    _pinGuardHost.style.setProperty('position', 'fixed', 'important');
+    if (!_pinGuardHost) return;
+    if (!_pinGuardHost.isConnected) {
+      mountMerchantHost(_pinGuardHost);
+    }
+    if (!_pinGuardHost.isConnected) return;
+    applyStripHostFixedStyles(_pinGuardHost);
   };
 
   window.addEventListener('scroll', _pinGuardHandler, { capture: true, passive: true });
   document.addEventListener('scroll', _pinGuardHandler, { capture: true, passive: true });
   window.addEventListener('resize', _pinGuardHandler, { passive: true });
+  _pinGuardHandler();
 }
 
 export function unbindMerchantStripPinGuard() {

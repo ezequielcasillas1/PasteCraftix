@@ -1,3 +1,16 @@
+### Jun 23, 2026 - Merchant Listing Dock tag-limit presets scroll + providers
+**Status:** PENDING USER TEST
+**Files:** merchant.constants.js, merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Scrollable preset list (~220px); added Amazon, eBay, Redbubble, TeePublic, WooCommerce with documented limits; Custom row is a pill button that reveals max-tags input + Apply custom max.
+**Status:** SUCCESS
+**Files:** merchant.tags.js, merchant.dock-storage.js, merchant.listing-dock.js, merchant.tag-queue.js, merchant.constants.js
+**Result:** `parseSmartTagCandidates` detects AI list formats (newline, comma, bullet, pipe, tab) and word-groups space prose to platform max (Etsy 13Ã—20). From clipboard + tags-field paste auto-normalize to comma-separated valid tags. Batch delimiter UI/pref removed; Copy tags always comma-join.
+
+### Jun 23, 2026 - Merchant clipboard tag comma join
+**Status:** PENDING USER TEST
+**Files:** merchant.tag-queue.js (new), merchant.constants.js, merchant.top-strip.js, merchant.events.js, merchant.controller.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.styles.js, merchant.tags.js, merchant.dock-storage.js
+**Result:** Tag Queue strip toggle (paste-next on tag field focus); dock Copy tags / Paste next tag; platform preset (Etsy/Printify/Generic) + delimiter prefs in `pc_merchant_prefs_v1`; clipboard write with fallback.
+
 ### Jun 23, 2026 - Merchant roadmap + Test Lab architecture doc
 **Status:** DOC ONLY (planning)
 **Files:** docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md, instructions/request.md (#58 cross-ref)
@@ -466,3 +479,8 @@
 **Status:** SUCCESS
 **Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.custom-search.constants.js, clips.action-menu.js, clips.controller.js, modals-shared.events.js, popup.js, popup.html, tests/custom-search.test.mjs
 **Result:** Replaced saved-search modal with popup module: clip preview, read-only highlight input, editable question input, Search Google on active tab. Removed CRUD, site: templates, and pc_custom_searches storage. User verified SUCCESS.
+
+### Jun 23, 2026 - Listing Dock tag limit Options
+**Status:** SUCCESS (UI alignment PARTIAL — see PartialLog)
+**Files:** merchant.constants.js, merchant.tag-queue.js, merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Options button beside Tags label opens preset popover (Etsy 13, Shopify 250, Printify 20, Custom). Selection persists; hint, validation, smart paste, and tag queue respect chosen max. Etsy Options row alignment bug pending fix.

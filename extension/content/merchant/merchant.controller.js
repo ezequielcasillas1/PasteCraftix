@@ -2,6 +2,7 @@ import { MERCHANT_STORAGE_KEYS } from './merchant.constants.js';
 import { MerchantTopStrip } from './merchant.top-strip.js';
 import { MerchantListingDock } from './merchant.listing-dock.js';
 import { refreshMerchantPulse } from './merchant.pulse.js';
+import { initMerchantTagQueue, refreshTagQueueTags } from './merchant.tag-queue.js';
 
 async function isStripEnabled() {
   try {
@@ -27,6 +28,7 @@ function bindStoragePulseRefresh(stripEl) {
     if (dock?.isOpen?.()) {
       dock.hydrateFromStorage().catch(() => {});
     }
+    refreshTagQueueTags().catch(() => {});
   });
 }
 
@@ -34,7 +36,17 @@ function bindStoragePulseRefresh(stripEl) {
  * Initialize Merchant content layer (Phase 2 — listing dock + pulse).
  * Billing/gating deferred; strip defaults to enabled for user testing.
  */
+function clearStaleMerchantLayer() {
+  const layer = window.__pasteCraftMerchant;
+  if (!layer?.strip?.isMounted?.()) return;
+  if (layer.strip.host?.isConnected) return;
+  layer.dock?.unmount?.();
+  layer.strip?.unmount?.();
+  window.__pasteCraftMerchant = null;
+}
+
 export async function initMerchantLayer() {
+  clearStaleMerchantLayer();
   if (window.__pasteCraftMerchant?.strip?.isMounted?.()) {
     return window.__pasteCraftMerchant;
   }
@@ -52,6 +64,7 @@ export async function initMerchantLayer() {
   window.__pasteCraftMerchant = {
     strip,
     dock,
+    tagQueue: null,
     isMounted() {
       return strip.isMounted();
     },
@@ -62,6 +75,11 @@ export async function initMerchantLayer() {
 
   bindStoragePulseRefresh(strip.stripEl);
   await refreshMerchantPulse(strip.stripEl);
+
+  window.__pasteCraftMerchant.tagQueue = await initMerchantTagQueue({
+    stripEl: strip.stripEl,
+    getToastRoot: () => strip.root,
+  });
 
   return window.__pasteCraftMerchant;
 }

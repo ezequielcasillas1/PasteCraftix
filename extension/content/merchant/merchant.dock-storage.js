@@ -1,8 +1,9 @@
 import {
+  ETSY_TAG_PROFILE,
   MERCHANT_DOCK_DEFAULT_TTL_MS,
   MERCHANT_STORAGE_KEYS,
 } from './merchant.constants.js';
-import { normalizeTagsForSave, splitTagInput } from './merchant.tags.js';
+import { normalizeTagsForSave, normalizeTagsInputString } from './merchant.tags.js';
 
 const DOCK_KEY = MERCHANT_STORAGE_KEYS.DOCK_STAGING;
 
@@ -22,10 +23,10 @@ function sanitizeField(value, maxLen) {
 }
 
 /** Validates and normalizes dock payload before write. */
-export function normalizeDockPayload(input = {}, source = 'manual') {
+export function normalizeDockPayload(input = {}, source = 'manual', profile = null) {
   const title = sanitizeField(input.title, 500);
   const description = sanitizeField(input.description, 5000);
-  const { tags, validation } = normalizeTagsForSave(input.tags || '');
+  const { tags, validation } = normalizeTagsForSave(input.tags || '', profile);
   const allowedSources = new Set(['manual', 'clipboard', 'selection', 'spot', 'clip']);
   const safeSource = allowedSources.has(source) ? source : 'manual';
 
@@ -86,8 +87,8 @@ export async function readListingDock() {
   }
 }
 
-export async function saveListingDock(input, source = 'manual') {
-  const payload = normalizeDockPayload(input, source);
+export async function saveListingDock(input, source = 'manual', profile = null) {
+  const payload = normalizeDockPayload(input, source, profile);
   if (isDockPayloadEmpty(payload)) {
     return { ok: false, error: 'At least one field (title, description, or tags) is required.' };
   }
@@ -111,8 +112,18 @@ export async function clearListingDock() {
   }
 }
 
+function looksLikeTagList(text) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return false;
+  if (/[,;\n\t|]/.test(trimmed)) return true;
+  if (/^\s*(?:[-*•]|\d+[.)])\s+/m.test(trimmed)) return true;
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && trimmed.length <= 500;
+}
+
 /** Minimal listing-pack parse: title:/description:/tags: sections. */
-export function parseListingPackText(text) {
+export function parseListingPackText(text, profile = null) {
+  const tagProfile = profile || ETSY_TAG_PROFILE;
   const result = { title: '', description: '', tags: '' };
   const trimmed = (text || '').trim();
   if (!trimmed) return result;
@@ -120,9 +131,8 @@ export function parseListingPackText(text) {
   const sectionPattern = /(?:^|\n)(title|description|tags):\s*/gi;
   const matches = [...trimmed.matchAll(sectionPattern)];
   if (matches.length === 0) {
-    const tagParts = splitTagInput(trimmed);
-    if (tagParts.length > 1 || (tagParts.length === 1 && !trimmed.includes('\n') && trimmed.length <= 80)) {
-      result.tags = trimmed;
+    if (looksLikeTagList(trimmed)) {
+      result.tags = normalizeTagsInputString(trimmed, tagProfile);
     } else {
       result.description = trimmed;
     }
@@ -137,21 +147,25 @@ export function parseListingPackText(text) {
     const value = trimmed.slice(start, end).trim();
     if (key === 'title') result.title = value;
     else if (key === 'description') result.description = value;
-    else if (key === 'tags') result.tags = value;
+    else if (key === 'tags') result.tags = normalizeTagsInputString(value, tagProfile);
   }
   return result;
 }
 
-export async function stageFromSelectionText(text, source = 'selection') {
-  const parsed = parseListingPackText(text);
-  return saveListingDock(parsed, source);
+export async function stageFromSelectionText(text, source = 'selection', profile = null) {
+  const parsed = parseListingPackText(text, profile);
+  return saveListingDock(parsed, source, profile);
 }
 
-export async function stageFromClipboard() {
+export async function stageFromClipboard(profile = null) {
   try {
     const text = await navigator.clipboard.readText();
-    const parsed = parseListingPackText(text);
-    return saveListingDock(parsed, 'clipboard');
+    const parsed = parseListingPackText(text, profile);
+    const result = await saveListingDock(parsed, 'clipboard', profile);
+    if (result.ok) {
+      result.rawInput = parsed;
+    }
+    return result;
   } catch (err) {
     console.error('[merchant.dock-storage:stageFromClipboard]', err);
     return { ok: false, error: 'Could not read clipboard. Try again after clicking the page.' };

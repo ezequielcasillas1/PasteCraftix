@@ -196,6 +196,24 @@ export function getMerchantStripStyles() {
       border-color: #f59e0b;
     }
 
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"] {
+      border-color: #c4b5fd;
+      background: #f5f3ff;
+      color: #5b21b6;
+    }
+
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"]:hover {
+      background: #ede9fe;
+      border-color: #a78bfa;
+    }
+
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"].is-active,
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"][aria-pressed="true"] {
+      background: #7c3aed;
+      border-color: #6d28d9;
+      color: #ffffff;
+    }
+
     .pc-merchant-hint {
       margin-left: auto;
       font-size: 11px;

@@ -1,4 +1,19 @@
 
+### Jun 23, 2026 - Tags max options button with provider presets
+**Status:** SUCCESS
+**Files:** merchant.listing-dock.js, merchant.constants.js, merchant.dock-storage.js, merchant.dock-styles.js
+**Result:** Options control beside Tags label opens preset popover; Etsy/Shopify/Printify/Custom limits persist in merchant prefs and drive validation, hints, and tag queue cap.
+
+### Jun 23, 2026 - Scrollable tag presets list + more providers + Custom
+**Status:** SUCCESS
+**Files:** merchant.listing-dock.js, merchant.dock-styles.js, merchant.constants.js
+**Result:** Preset list scrolls in popover; additional provider caps wired; Custom opens numeric limit entry with persisted preference.
+
+### Jun 23, 2026 - Smart tag paste + batch delimiter removal
+**Status:** SUCCESS
+**Files:** merchant.tags.js, merchant.dock-storage.js, merchant.listing-dock.js, merchant.tag-queue.js, merchant.constants.js
+**Result:** Batch delimiter only affected copy export, not clipboard import. Smart paste now normalizes Perplexity/AI tag lists on From clipboard and field paste into Etsy-valid comma-separated tags. Batch delimiter UI removed.
+
 ### Jun 23, 2026 - Merchant Phase 2 Listing Dock + Pulse
 **Status:** SUCCESS
 **Files:** merchant.dock-storage.js, merchant.pulse.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.layout.js, merchant.controller.js

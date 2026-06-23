@@ -67,6 +67,212 @@ export function getMerchantDockStyles() {
       letter-spacing: 0.03em;
     }
 
+    .pc-merchant-dock-field-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .pc-merchant-dock-field-label-text {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .pc-merchant-dock-options-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid #fcd34d;
+      border-radius: 999px;
+      background: #fff;
+      color: #92400e;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .pc-merchant-dock-options-btn:hover {
+      background: #fef3c7;
+    }
+
+    .pc-merchant-dock-options-btn:focus-visible {
+      outline: 2px solid #f59e0b;
+      outline-offset: 1px;
+    }
+
+    .pc-merchant-dock-options-btn[aria-expanded="true"] {
+      background: #fde68a;
+      border-color: #f59e0b;
+    }
+
+    .pc-merchant-dock-tag-options {
+      margin: 2px 0 6px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #fcd34d;
+      background: #fff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .pc-merchant-dock-tag-options[hidden] {
+      display: none !important;
+    }
+
+    .pc-merchant-dock-tag-limit-title {
+      margin: 0 0 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #92400e;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .pc-merchant-dock-tag-limit-scroll {
+      max-height: 220px;
+      overflow-y: auto;
+      margin-bottom: 8px;
+      padding-right: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: #fcd34d #fef3c7;
+    }
+
+    .pc-merchant-dock-tag-limit-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .pc-merchant-dock-tag-limit-scroll::-webkit-scrollbar-track {
+      background: #fef3c7;
+      border-radius: 999px;
+    }
+
+    .pc-merchant-dock-tag-limit-scroll::-webkit-scrollbar-thumb {
+      background: #fcd34d;
+      border-radius: 999px;
+    }
+
+    .pc-merchant-dock-tag-limit-scroll::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+
+    .pc-merchant-dock-tag-limit-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #374151;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+    }
+
+    .pc-merchant-dock-tag-limit-option:last-child {
+      margin-bottom: 0;
+    }
+
+    .pc-merchant-dock-tag-limit-option input {
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-radio {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 32px;
+      margin: 0 0 6px;
+      padding: 6px 12px;
+      border: 1px dashed #f59e0b;
+      border-radius: 999px;
+      background: #fffbeb;
+      color: #92400e;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-btn:hover {
+      background: #fef3c7;
+      border-color: #d97706;
+      border-style: solid;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-btn:focus-visible {
+      outline: 2px solid #f59e0b;
+      outline-offset: 2px;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-btn.is-selected {
+      border-style: solid;
+      border-color: #f59e0b;
+      background: #fde68a;
+      box-shadow: inset 0 0 0 1px #fbbf24;
+    }
+
+    .pc-merchant-dock-tag-limit-custom {
+      margin: 0 0 4px;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid #fcd34d;
+      background: #fffbeb;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-field span {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .pc-merchant-dock-tag-limit-custom-field input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      font: inherit;
+      font-size: 12px;
+      color: #111827;
+    }
+
+    .pc-merchant-dock-tag-limit-apply {
+      width: 100%;
+      margin-top: 8px;
+    }
+
     .pc-merchant-dock-field-primary span {
       font-size: 12px;
       color: #92400e;
@@ -279,6 +485,63 @@ export function getMerchantDockStyles() {
 
     .pc-merchant-dock-advanced[open] summary::before {
       content: '▾ ';
+    }
+
+    .pc-merchant-dock-prefs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #fde68a;
+    }
+
+    .pc-merchant-dock-pref {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .pc-merchant-dock-pref span {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .pc-merchant-dock-pref select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 5px 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      background: #fff;
+      font: inherit;
+      font-size: 12px;
+      color: #111827;
+    }
+
+    .pc-merchant-dock-pref-check {
+      flex-direction: row;
+      align-items: center;
+      min-width: 140px;
+    }
+
+    .pc-merchant-dock-pref-check input {
+      margin: 0;
+      flex-shrink: 0;
+    }
+
+    .pc-merchant-dock-pref-check span {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 11px;
+      color: #374151;
     }
   `;
 }

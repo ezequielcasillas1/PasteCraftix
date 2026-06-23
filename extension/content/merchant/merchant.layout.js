@@ -116,7 +116,7 @@ export function applyMerchantLayoutCompensation(heightPx = MERCHANT_STRIP_HEIGHT
     htmlPaddingTop: html.style.paddingTop,
     bodyPaddingTop: body.style.paddingTop,
     bodyMarginTop: body.style.marginTop,
-    mode: pinnedTargets.length > 0 ? 'fixed-shell' : 'padding',
+    mode: pinnedTargets.length > 0 ? 'hybrid' : 'padding',
     fixedAdjustments: [],
   };
 
@@ -124,10 +124,11 @@ export function applyMerchantLayoutCompensation(heightPx = MERCHANT_STRIP_HEIGHT
   html.style.setProperty('--pc-merchant-strip-height', `${heightPx}px`);
   injectMerchantLayoutStyles();
 
+  // Always reserve viewport space; also nudge fixed/sticky shells (Etsy sidebars).
+  applyPaddingCompensation(html, body, heightPx, snapshot);
   if (pinnedTargets.length > 0) {
+    snapshot.mode = 'hybrid';
     snapshot.fixedAdjustments = applyFixedShellOffsets(pinnedTargets, heightPx);
-  } else {
-    applyPaddingCompensation(html, body, heightPx, snapshot);
   }
 
   _activeSnapshot = snapshot;
@@ -145,9 +146,10 @@ export function removeMerchantLayoutCompensation() {
   html.style.removeProperty('--pc-merchant-strip-height');
   removeMerchantLayoutStyles();
 
-  if (snapshot.mode === 'fixed-shell') {
+  if (snapshot.fixedAdjustments?.length) {
     restoreFixedShellOffsets(snapshot.fixedAdjustments);
-  } else if (html && body) {
+  }
+  if (html && body) {
     html.style.paddingTop = snapshot.htmlPaddingTop;
     body.style.paddingTop = snapshot.bodyPaddingTop;
     body.style.marginTop = snapshot.bodyMarginTop;
