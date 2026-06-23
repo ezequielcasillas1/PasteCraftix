@@ -1,3 +1,8 @@
+
+### Jun 23, 2026 - Etsy Options popover row alignment
+**Status:** PARTIAL
+**Files:** merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Tag limit preset list renders but Etsy Options rows are misaligned/unparallel; visual polish pending in Options popover CSS/layout.
 # Partial Log
 
 **Purpose:** Document partially working implementations

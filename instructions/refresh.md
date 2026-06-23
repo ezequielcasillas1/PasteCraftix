@@ -3,7 +3,7 @@
 ## ğŸ› Current Issues Requiring Attention:
 
 {
-
+- Merchant Listing Dock: Etsy Options popover — preset rows misaligned/unparallel (merchant.listing-dock.js, merchant.dock-styles.js)
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

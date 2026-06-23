@@ -159,5 +159,3 @@ All documentation follows these principles:
 ---
 
 **Need to start setup?** Go back to **`../START_HERE.md`** in the root folder! 🚀
-
-

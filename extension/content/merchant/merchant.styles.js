@@ -6,7 +6,10 @@ export function getMerchantStripStyles() {
       display: block;
       width: 100%;
       height: ${MERCHANT_STRIP_HEIGHT_PX}px;
+      min-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
+      max-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
       box-sizing: border-box;
+      flex-shrink: 0;
     }
 
     .pc-merchant-strip {
@@ -14,7 +17,9 @@ export function getMerchantStripStyles() {
       align-items: center;
       gap: 8px;
       width: 100%;
-      height: 100%;
+      height: ${MERCHANT_STRIP_HEIGHT_PX}px;
+      min-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
+      max-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
       box-sizing: border-box;
       padding: 0 12px;
       background: #ffffff;
@@ -24,6 +29,7 @@ export function getMerchantStripStyles() {
       line-height: 1;
       color: #1f2937;
       pointer-events: auto;
+      flex-shrink: 0;
     }
 
     .pc-merchant-brand {
@@ -40,6 +46,80 @@ export function getMerchantStripStyles() {
       text-transform: uppercase;
       flex-shrink: 0;
       user-select: none;
+    }
+
+    .pc-merchant-pulse {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      cursor: default;
+    }
+
+    .pc-merchant-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d1d5db;
+      flex-shrink: 0;
+    }
+
+    .pc-merchant-pulse[data-pulse="live"] .pc-merchant-pulse-dot {
+      background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+      animation: pc-merchant-pulse-live 1.8s ease-out infinite;
+    }
+
+    .pc-merchant-pulse[data-pulse="expiring"] .pc-merchant-pulse-dot {
+      background: #f59e0b;
+      animation: pc-merchant-pulse-expiring 1.2s ease-in-out infinite;
+    }
+
+    .pc-merchant-pulse[data-pulse="expired"] .pc-merchant-pulse-dot {
+      background: #ef4444;
+    }
+
+    @keyframes pc-merchant-pulse-live {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
+      70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    @keyframes pc-merchant-pulse-expiring {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    .pc-merchant-pulse-label {
+      font-size: 10px;
+      color: #6b7280;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+      user-select: none;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+
+    .pc-merchant-strip:has(.pc-merchant-pulse[data-pulse="live"]) .pc-merchant-pulse-label {
+      color: #166534;
+      font-weight: 600;
+    }
+
+    .pc-merchant-strip:has(.pc-merchant-pulse[data-pulse="expiring"]) .pc-merchant-pulse-label {
+      color: #92400e;
+      font-weight: 600;
+    }
+
+    .pc-merchant-btn[data-action="merchant-dock-toggle"] {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .pc-merchant-btn[data-action="merchant-dock-toggle"]:hover {
+      background: #fef3c7;
+      border-color: #f59e0b;
     }
 
     .pc-merchant-divider {
@@ -114,6 +194,24 @@ export function getMerchantStripStyles() {
     .pc-merchant-btn[data-action="merchant-image-to-text"]:hover {
       background: #fef3c7;
       border-color: #f59e0b;
+    }
+
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"] {
+      border-color: #c4b5fd;
+      background: #f5f3ff;
+      color: #5b21b6;
+    }
+
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"]:hover {
+      background: #ede9fe;
+      border-color: #a78bfa;
+    }
+
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"].is-active,
+    .pc-merchant-btn[data-action="merchant-tag-queue-toggle"][aria-pressed="true"] {
+      background: #7c3aed;
+      border-color: #6d28d9;
+      color: #ffffff;
     }
 
     .pc-merchant-hint {

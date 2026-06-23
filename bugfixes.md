@@ -1,4 +1,9 @@
 
+### Jun 23, 2026 - Merchant Etsy Options preset row alignment
+**Status:** PARTIAL
+**Files:** extension/content/merchant/merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Preset popover shows provider rows but columns misalign on Etsy Options UI; fix flex/grid in dock-styles + listing-dock markup.
+
 ### Jun 21, 2026 - AI Refactor Haiku primary / GPT-4o fallback
 **Status:** SUCCESS
 **Files:** supabase/functions/_shared/ai_workflow.ts, ai-refactor/index.ts, ai-lab.credits.js, ai-lab.constants.js

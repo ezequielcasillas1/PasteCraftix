@@ -5,20 +5,51 @@ import {
 } from './merchant.constants.js';
 import { getMerchantStripStyles } from './merchant.styles.js';
 import { bindMerchantStripEvents, resetMerchantFeatureState } from './merchant.events.js';
+import { refreshMerchantPulse } from './merchant.pulse.js';
+import {
+  applyMerchantLayoutCompensation,
+  removeMerchantLayoutCompensation,
+} from './merchant.layout.js';
+import {
+  applyStripHostFixedStyles,
+  bindMerchantStripPinGuard,
+  mountMerchantHost,
+  unbindMerchantStripPinGuard,
+} from './merchant.mount.js';
 import { injectShadowStyles } from '../safety/shadow-host.js';
 
 function buildStripMarkup() {
   return `
     <div class="pc-merchant-strip" data-field="pc-merchant-strip" role="toolbar" aria-label="PasteCraft Merchant tools">
       <span class="pc-merchant-brand" data-field="pc-merchant-brand">${MERCHANT_BRAND.LABEL}</span>
+      <span
+        class="pc-merchant-pulse"
+        data-field="pc-merchant-pulse"
+        data-pulse="empty"
+        role="status"
+        aria-live="polite"
+        aria-label="No staging — dock empty"
+        title="Merchant Pulse — ephemeral staging indicator"
+      >
+        <span class="pc-merchant-pulse-dot" aria-hidden="true"></span>
+      </span>
       <span class="pc-merchant-divider" aria-hidden="true"></span>
       <div class="pc-merchant-actions">
         <button
           type="button"
           class="pc-merchant-btn"
+          data-action="${MERCHANT_ACTIONS.DOCK_TOGGLE}"
+          title="Listing Dock — ephemeral title, description, tags"
+        >
+          <span class="pc-merchant-btn-icon" aria-hidden="true">⎘</span>
+          <span class="pc-merchant-btn-label">${MERCHANT_BRAND.DOCK_LABEL}</span>
+        </button>
+        <button
+          type="button"
+          class="pc-merchant-btn"
           data-action="${MERCHANT_ACTIONS.SPOT}"
           aria-pressed="false"
-          title="Spot — detect and fill listing fields"
+          title="Spot — stage selection into listing dock"
         >
           <span class="pc-merchant-btn-icon" aria-hidden="true">◎</span>
           <span class="pc-merchant-btn-label">${MERCHANT_BRAND.SPOT_LABEL}</span>
@@ -32,7 +63,18 @@ function buildStripMarkup() {
           <span class="pc-merchant-btn-icon" aria-hidden="true">▣</span>
           <span class="pc-merchant-btn-label">${MERCHANT_BRAND.IMAGE_TO_TEXT_LABEL}</span>
         </button>
+        <button
+          type="button"
+          class="pc-merchant-btn"
+          data-action="${MERCHANT_ACTIONS.TAG_QUEUE_TOGGLE}"
+          aria-pressed="false"
+          title="Tag Queue — paste-next mode for staged tags"
+        >
+          <span class="pc-merchant-btn-icon" aria-hidden="true">⎇</span>
+          <span class="pc-merchant-btn-label">${MERCHANT_BRAND.TAG_QUEUE_LABEL}</span>
+        </button>
       </div>
+      <span class="pc-merchant-pulse-label" data-field="pc-merchant-pulse-label">No staging — dock empty</span>
       <span class="pc-merchant-hint" data-field="pc-merchant-hint">Spot idle</span>
     </div>
   `;
@@ -50,15 +92,7 @@ export class MerchantTopStrip {
     if (this._mounted || !document.body) return this;
 
     this.host = document.createElement('div');
-    this.host.setAttribute('data-field', 'pc-merchant-strip-host');
-    this.host.style.cssText = [
-      'display:block',
-      'width:100%',
-      `height:${MERCHANT_STRIP_HEIGHT_PX}px`,
-      'position:relative',
-      'z-index:2147483644',
-      'box-sizing:border-box',
-    ].join(';');
+    applyStripHostFixedStyles(this.host, MERCHANT_STRIP_HEIGHT_PX);
 
     this.root = this.host.attachShadow({ mode: 'closed' });
     injectShadowStyles(this.root, getMerchantStripStyles(), 'pc-merchant-strip-styles');
@@ -70,16 +104,21 @@ export class MerchantTopStrip {
 
     bindMerchantStripEvents(this.root, this.stripEl);
     resetMerchantFeatureState(this.stripEl);
+    refreshMerchantPulse(this.stripEl).catch(() => {});
 
-    document.body.insertBefore(this.host, document.body.firstChild);
+    applyMerchantLayoutCompensation(MERCHANT_STRIP_HEIGHT_PX);
+    mountMerchantHost(this.host);
+    bindMerchantStripPinGuard(this.host);
     this._mounted = true;
     return this;
   }
 
   unmount() {
     if (!this._mounted) return;
+    unbindMerchantStripPinGuard();
     resetMerchantFeatureState(this.stripEl);
     this.host?.remove();
+    removeMerchantLayoutCompensation();
     this.host = null;
     this.root = null;
     this.stripEl = null;
@@ -90,3 +129,4 @@ export class MerchantTopStrip {
     return this._mounted;
   }
 }
+

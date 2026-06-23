@@ -1,9 +1,29 @@
 
-### [Jun 23, 2026] - Merchant Phase 1 top strip
+### Jun 23, 2026 - Tags max options button with provider presets
 **Status:** SUCCESS
-**Commit:** 0744764
-**Files:** extension/content/merchant/*, content.js, manifest.json
-**Result:** ~1cm top strip with Spot/Image?Text placeholders; user verified working.
+**Files:** merchant.listing-dock.js, merchant.constants.js, merchant.dock-storage.js, merchant.dock-styles.js
+**Result:** Options control beside Tags label opens preset popover; Etsy/Shopify/Printify/Custom limits persist in merchant prefs and drive validation, hints, and tag queue cap.
+
+### Jun 23, 2026 - Scrollable tag presets list + more providers + Custom
+**Status:** SUCCESS
+**Files:** merchant.listing-dock.js, merchant.dock-styles.js, merchant.constants.js
+**Result:** Preset list scrolls in popover; additional provider caps wired; Custom opens numeric limit entry with persisted preference.
+
+### Jun 23, 2026 - Smart tag paste + batch delimiter removal
+**Status:** SUCCESS
+**Files:** merchant.tags.js, merchant.dock-storage.js, merchant.listing-dock.js, merchant.tag-queue.js, merchant.constants.js
+**Result:** Batch delimiter only affected copy export, not clipboard import. Smart paste now normalizes Perplexity/AI tag lists on From clipboard and field paste into Etsy-valid comma-separated tags. Batch delimiter UI removed.
+
+### Jun 23, 2026 - Merchant Phase 2 Listing Dock + Pulse
+**Status:** SUCCESS
+**Files:** merchant.dock-storage.js, merchant.pulse.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.layout.js, merchant.controller.js
+**Result:** Ephemeral 24h staging dock + Pulse in top strip; Shadow DOM panel; Spot stages selection. User-approved commit on feat/merchant-phase-2-3.
+
+### Jun 23, 2026 - Merchant Phase 3 Etsy tag validation + Test Lab
+**Status:** SUCCESS
+**Files:** merchant.tags.js, merchant.listing-dock.js, merchant.spot.js, merchant.constants.js, merchant-test-lab/*
+**Result:** Tags-only default dock UI; 13×20 preview chips; dedupe on save; Test Lab mock Etsy/Printify/generic pages. User-approved commit on feat/merchant-phase-2-3.
+
 ### Jun 22, 2026 - Custom Search popup module overhaul
 **Status:** SUCCESS
 **Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.action-menu.js, popup.html, popup.js, tests/custom-search.test.mjs
@@ -229,4 +249,3 @@
 **Status:** SUCCESS
 **Files:** supabase/functions/ai-format/index.ts, extension/popup/features/ai-lab/ai-lab.magic.js, extension/popup.html, extension/popup.js, extension/popup/events/craft-toolbar.events.js, extension/popup/features/ai-lab/ai-lab.refactorization.js, extension/styles.css, tests/popup-events-smoke.test.mjs, instructions/request.md
 **Result:** Edge + client grammar guards reject AI filler/expansion; Craft Clips Beta badge shipped and magic undo UI removed; request.md #57 documents future grammar API. Branches fix/ai-format-grammar-guards @ fe4cd54, feat/craft-clips-formatted-beta @ 72db1a3, docs/grammar-api-craft-clips @ 5ec32ab merged to main @ 82c3585 and pushed.
-

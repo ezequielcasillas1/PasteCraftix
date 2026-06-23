@@ -1,31 +1,31 @@
-### Jun 23, 2026 - Merchant Phase 1 top strip (#58)
+### Jun 23, 2026 - Merchant Listing Dock tag-limit presets scroll + providers
+**Status:** PENDING USER TEST
+**Files:** merchant.constants.js, merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Scrollable preset list (~220px); added Amazon, eBay, Redbubble, TeePublic, WooCommerce with documented limits; Custom row is a pill button that reveals max-tags input + Apply custom max.
 **Status:** SUCCESS
-**Files:** extension/content/merchant/*, extension/content/content.js, extension/manifest.json, manifest.json
-**Result:** Shared ~38px Merchant top strip (Spot + Image→Text placeholders) via Shadow DOM; pushes page content down; no billing/gating yet. User verified working. Commit 0744764 on feat/merchant-phase-1-top-strip.
+**Files:** merchant.tags.js, merchant.dock-storage.js, merchant.listing-dock.js, merchant.tag-queue.js, merchant.constants.js
+**Result:** `parseSmartTagCandidates` detects AI list formats (newline, comma, bullet, pipe, tab) and word-groups space prose to platform max (Etsy 13×20). From clipboard + tags-field paste auto-normalize to comma-separated valid tags. Batch delimiter UI/pref removed; Copy tags always comma-join.
 
-**Status:** SUCCESS (docs only)
-**Files:** instructions/request.md, implementations.md
-**Result:** Merchant-only tiers $4.99/$10.99/$54.99 → $1.99 wk / $6.99 mo / $15.99 yr; rationale added (no AI API burn, bundle TBD).
+### Jun 23, 2026 - Merchant clipboard tag comma join
+**Status:** PENDING USER TEST
+**Files:** merchant.tag-queue.js (new), merchant.constants.js, merchant.top-strip.js, merchant.events.js, merchant.controller.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.styles.js, merchant.tags.js, merchant.dock-storage.js
+**Result:** Tag Queue strip toggle (paste-next on tag field focus); dock Copy tags / Paste next tag; platform preset (Etsy/Printify/Generic) + delimiter prefs in `pc_merchant_prefs_v1`; clipboard write with fallback.
 
-### Jun 22, 2026 - #58 PasteCraft Merchant feature spec
-**Status:** SUCCESS (docs only)
-**Files:** instructions/request.md, implementations.md
-**Result:** Added #### 58 Merchant seller service layer after #57; Product Lines trimmed with #58 cross-ref; gating, pricing, ephemeral staging, Spot A+B/C summarized.
+### Jun 23, 2026 - Merchant roadmap + Test Lab architecture doc
+**Status:** DOC ONLY (planning)
+**Files:** docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md, instructions/request.md (#58 cross-ref)
+**Result:** Locked tags-first product decisions, feature assessment table, top-strip nav map, prefs keys, phases 1–9+, `merchant-test-lab/` spec, testing matrix. No code; not committed.
 
-### Jun 22, 2026 - Merchant ephemeral listing payload (docs)
-**Status:** SUCCESS (docs only)
-**Files:** instructions/request.md, implementations.md
-**Result:** Documented corruptible Merchant staging layer, 5-step flow, UI naming sets (Dock/Pulse/Seal & Ship), TTL + merchant-only storage keys.
+### Jun 23, 2026 - Merchant Phase 3 tags-only dock + Etsy validation
+**Status:** SUCCESS (user-approved commit)
+**Files:** merchant.tags.js, merchant.listing-dock.js, merchant.dock-storage.js, merchant.dock-styles.js, merchant.spot.js, merchant.constants.js, merchant-test-lab/*
+**Result:** Tags-first dock UI (title/desc under Advanced); live Etsy 13×20 preview chips; dedupe/trim on save; Spot stages listing pack tags; `tagsOnlyMode: true` pref stub; Test Lab mock pages at repo root.
 
-### Jun 22, 2026 - Subscription bundling + Merchant standalone analysis
-**Status:** SUCCESS (docs only)
-**Files:** instructions/request.md, implementations.md
-**Result:** Extended Product Lines with Scholar/Merchant/bundle subscription options, Merchant standalone boundaries (includes/excludes), and `user_subscriptions` gating notes.
-
-### Jun 22, 2026 - Product lines & roadmap → request.md
-**Status:** SUCCESS
-**Files:** instructions/request.md, docs/README.md
-**Result:** Moved Scholar/Merchant brand split, Merchant pricing, Spot A+B/C order, and tomorrow note into request.md. Reverted misplaced section from docs/README.md.
+### Jun 23, 2026 - Merchant Phase 2 Listing Dock + Pulse
+**Status:** SUCCESS (user-approved commit)
+**Files:** extension/content/merchant/merchant.constants.js, merchant.dock-storage.js, merchant.pulse.js, merchant.listing-dock.js, merchant.dock-styles.js, merchant.controller.js, merchant.top-strip.js, merchant.events.js, merchant.spot.js, merchant.styles.js, merchant.layout.js (+ Phase 1 merchant files restored from feat/merchant-phase-1-top-strip)
+**Result:** Ephemeral listing dock (title/description/tags) with 24h TTL in `pc_merchant_dock_staging_v1`; Merchant Pulse indicator in top strip; Shadow DOM dock panel; Spot stages page selection/listing-pack text; Seal & Ship stub disabled. Supabase row shape prep only — no cloud sync.
+**Layout fix:** Strip mounts on `document.documentElement` (outside Etsy scroll/transform stacks) with hardened `position:fixed !important`, pin guard on scroll/resize, max z-index; `merchant.layout.js` compensates via html/body padding (flow sites) or fixed-shell top offset (Etsy). Class `pc-merchant-strip-active`; styles restored on unmount.
 
 ### Jun 22, 2026 - Security fundamentals docs + breach response rule
 **Status:** SUCCESS (local-only — not on GitHub)
@@ -479,3 +479,8 @@
 **Status:** SUCCESS
 **Files:** clips.custom-search.module.js, clips.custom-search.service.js, clips.custom-search.constants.js, clips.action-menu.js, clips.controller.js, modals-shared.events.js, popup.js, popup.html, tests/custom-search.test.mjs
 **Result:** Replaced saved-search modal with popup module: clip preview, read-only highlight input, editable question input, Search Google on active tab. Removed CRUD, site: templates, and pc_custom_searches storage. User verified SUCCESS.
+
+### Jun 23, 2026 - Listing Dock tag limit Options
+**Status:** SUCCESS (UI alignment PARTIAL � see PartialLog)
+**Files:** merchant.constants.js, merchant.tag-queue.js, merchant.listing-dock.js, merchant.dock-styles.js
+**Result:** Options button beside Tags label opens preset popover (Etsy 13, Shopify 250, Printify 20, Custom). Selection persists; hint, validation, smart paste, and tag queue respect chosen max. Etsy Options row alignment bug pending fix.

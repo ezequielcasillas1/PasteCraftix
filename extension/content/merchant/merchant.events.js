@@ -1,6 +1,12 @@
 import { MERCHANT_ACTIONS } from './merchant.constants.js';
-import { activateSpotPlaceholder, deactivateSpotPlaceholder, getSpotStatusLabel } from './merchant.spot.js';
+import { activateSpot, deactivateSpot, getSpotStatusLabel } from './merchant.spot.js';
 import { toggleImageToTextPlaceholder } from './merchant.image-to-text.js';
+import {
+  toggleTagQueue,
+  deactivateTagQueueOnUnmount,
+  syncTagQueueStripUi,
+  isTagQueueActive,
+} from './merchant.tag-queue.js';
 
 let _toastTimer = null;
 
@@ -22,14 +28,21 @@ function showMerchantToast(root, message) {
 
 function updateHint(stripEl) {
   const hint = stripEl.querySelector('[data-field="pc-merchant-hint"]');
-  if (hint) {
-    hint.textContent = getSpotStatusLabel();
+  if (!hint) return;
+  if (isTagQueueActive()) {
+    syncTagQueueStripUi();
+    return;
   }
+  hint.textContent = getSpotStatusLabel();
 }
 
-function handleSpotAction(root, stripEl, spotBtn) {
-  const result = activateSpotPlaceholder();
-  spotBtn.setAttribute('aria-pressed', 'true');
+function getDock() {
+  return window.__pasteCraftMerchant?.dock || null;
+}
+
+async function handleSpotAction(root, stripEl, spotBtn) {
+  const result = await activateSpot();
+  spotBtn.setAttribute('aria-pressed', result.staged ? 'true' : 'false');
   updateHint(stripEl);
   showMerchantToast(root, result.message);
 }
@@ -38,6 +51,18 @@ function handleImageToTextAction(root, stripEl) {
   const result = toggleImageToTextPlaceholder();
   updateHint(stripEl);
   showMerchantToast(root, result.message);
+}
+
+function handleDockToggleAction() {
+  const dock = getDock();
+  if (!dock) return;
+  dock.toggle();
+}
+
+async function handleTagQueueToggle(root) {
+  const result = await toggleTagQueue();
+  syncTagQueueStripUi();
+  showMerchantToast(root, result.message || (result.ok ? 'Tag queue toggled.' : 'Tag queue failed.'));
 }
 
 export function bindMerchantStripEvents(root, stripEl) {
@@ -51,14 +76,24 @@ export function bindMerchantStripEvents(root, stripEl) {
     if (!btn || !stripEl.contains(btn)) return;
 
     const action = btn.getAttribute('data-action');
+    if (action === MERCHANT_ACTIONS.DOCK_TOGGLE) {
+      event.preventDefault();
+      handleDockToggleAction();
+      return;
+    }
     if (action === MERCHANT_ACTIONS.SPOT) {
       event.preventDefault();
-      handleSpotAction(root, stripEl, btn);
+      handleSpotAction(root, stripEl, btn).catch(() => {});
       return;
     }
     if (action === MERCHANT_ACTIONS.IMAGE_TO_TEXT) {
       event.preventDefault();
       handleImageToTextAction(root, stripEl);
+      return;
+    }
+    if (action === MERCHANT_ACTIONS.TAG_QUEUE_TOGGLE) {
+      event.preventDefault();
+      handleTagQueueToggle(root).catch(() => {});
     }
   });
 
@@ -72,10 +107,14 @@ export function bindMerchantStripEvents(root, stripEl) {
 }
 
 export function resetMerchantFeatureState(stripEl) {
-  deactivateSpotPlaceholder();
+  deactivateSpot();
+  deactivateTagQueueOnUnmount();
   if (stripEl) {
     const spotBtn = stripEl.querySelector(`[data-action="${MERCHANT_ACTIONS.SPOT}"]`);
     spotBtn?.setAttribute('aria-pressed', 'false');
+    const queueBtn = stripEl.querySelector(`[data-action="${MERCHANT_ACTIONS.TAG_QUEUE_TOGGLE}"]`);
+    queueBtn?.setAttribute('aria-pressed', 'false');
+    queueBtn?.classList.remove('is-active');
     updateHint(stripEl);
   }
 }
