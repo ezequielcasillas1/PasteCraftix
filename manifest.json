@@ -56,6 +56,7 @@
         "extension/content/*.js",
         "extension/content/quick-paste/*.js",
         "extension/content/widget/*.js",
+        "extension/content/merchant/*.js",
         "extension/styles.css",
         "extension/logo.svg",
         "extension/icon.png",
