@@ -14,23 +14,28 @@
   </header>
 
   <form class="lab-form" data-field="ebay-listing-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> eBay uses <em>item specifics</em> — category-defined name/value pairs. “Material” may appear as one specific (e.g. Material → Cotton), not Etsy-style material chips.
+    </div>
+
     <p class="lab-meta">Preset: eBay — ~12 item specifics × 65 char values</p>
 
     <label>
       Item title
-      <input type="text" data-field="ebay-title" maxlength="80" placeholder="Listing title" />
+      <input type="text" data-field="ebay-title" maxlength="80" placeholder="Short, searchable title (80 chars max)" />
     </label>
 
     <fieldset>
       <legend>Item specifics (name → value)</legend>
+      <p class="edu-hint">Each row is a filter buyers use — Brand, Size, Material, etc. Names come from eBay’s category; values are short (65 chars). Different from listing tags.</p>
       <div class="kv-grid">
         <div class="kv-row">
-          <input type="text" data-field="ebay-specific-name-1" placeholder="Specific name 1" aria-label="Specific name 1" />
-          <input type="text" data-field="ebay-specific-value-1" maxlength="65" placeholder="Value 1" aria-label="Specific value 1" />
+          <input type="text" data-field="ebay-specific-name-1" placeholder="e.g. Material" aria-label="Specific name 1" />
+          <input type="text" data-field="ebay-specific-value-1" maxlength="65" placeholder="e.g. Cotton" aria-label="Specific value 1" />
         </div>
         <div class="kv-row">
-          <input type="text" data-field="ebay-specific-name-2" placeholder="Specific name 2" aria-label="Specific name 2" />
-          <input type="text" data-field="ebay-specific-value-2" maxlength="65" placeholder="Value 2" aria-label="Specific value 2" />
+          <input type="text" data-field="ebay-specific-name-2" placeholder="e.g. Brand" aria-label="Specific name 2" />
+          <input type="text" data-field="ebay-specific-value-2" maxlength="65" placeholder="e.g. Handmade" aria-label="Specific value 2" />
         </div>
         <div class="kv-row">
           <input type="text" data-field="ebay-specific-name-3" placeholder="Specific name 3" aria-label="Specific name 3" />

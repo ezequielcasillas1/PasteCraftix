@@ -14,18 +14,24 @@
   </header>
 
   <form class="lab-form" data-field="amazon-listing-form">
+    <div class="edu-banner" role="note">
+      <strong>Amazon mock:</strong> Amazon splits shopper-facing bullet points from hidden backend search terms — no Etsy-style tag grid or materials chips. Merchant helps paste backend keywords one slot at a time and stage bullet copy without breaking Amazon’s byte limits.
+    </div>
+
     <p class="lab-meta">Preset: Amazon — ~30 backend terms × 50 chars; 5 bullet points</p>
 
     <label>
       Product title
-      <input type="text" data-field="amazon-title" maxlength="200" placeholder="Product title" />
+      <p class="edu-hint">Title is the main search headline on Amazon — keyword-rich but readable. Not the same as backend search terms or bullet points.</p>
+      <input type="text" data-field="amazon-title" maxlength="200" placeholder="Keyword-rich title within Amazon’s character rules" />
     </label>
 
     <fieldset>
       <legend>Bullet points (key features)</legend>
+      <p class="edu-hint">Bullets are shopper-facing selling points on the product page — each ~500 characters max. Lead with benefits, not tag spam.</p>
       <div class="materials-grid">
-        <input type="text" data-field="amazon-bullet-1" maxlength="500" placeholder="Bullet point 1" aria-label="Bullet 1" />
-        <input type="text" data-field="amazon-bullet-2" maxlength="500" placeholder="Bullet point 2" aria-label="Bullet 2" />
+        <input type="text" data-field="amazon-bullet-1" maxlength="500" placeholder="e.g. Premium 100% cotton — soft and breathable" aria-label="Bullet 1" />
+        <input type="text" data-field="amazon-bullet-2" maxlength="500" placeholder="e.g. Machine washable — holds color after 50+ washes" aria-label="Bullet 2" />
         <input type="text" data-field="amazon-bullet-3" maxlength="500" placeholder="Bullet point 3" aria-label="Bullet 3" />
         <input type="text" data-field="amazon-bullet-4" maxlength="500" placeholder="Bullet point 4" aria-label="Bullet 4" />
         <input type="text" data-field="amazon-bullet-5" maxlength="500" placeholder="Bullet point 5" aria-label="Bullet 5" />
@@ -34,9 +40,10 @@
 
     <fieldset>
       <legend>Backend search terms (individual keyword slots)</legend>
+      <p class="edu-hint">Backend terms are hidden search keywords — buyers never see them. Strict byte limits; no commas needed between terms in the real field (mock uses slots for paste testing).</p>
       <div class="tag-grid">
-        <input type="text" data-field="amazon-keyword-1" maxlength="50" placeholder="Keyword 1" aria-label="Keyword 1" />
-        <input type="text" data-field="amazon-keyword-2" maxlength="50" placeholder="Keyword 2" aria-label="Keyword 2" />
+        <input type="text" data-field="amazon-keyword-1" maxlength="50" placeholder="e.g. organic cotton" aria-label="Keyword 1" />
+        <input type="text" data-field="amazon-keyword-2" maxlength="50" placeholder="e.g. gift for mom" aria-label="Keyword 2" />
         <input type="text" data-field="amazon-keyword-3" maxlength="50" placeholder="Keyword 3" aria-label="Keyword 3" />
         <input type="text" data-field="amazon-keyword-4" maxlength="50" placeholder="Keyword 4" aria-label="Keyword 4" />
         <input type="text" data-field="amazon-keyword-5" maxlength="50" placeholder="Keyword 5" aria-label="Keyword 5" />
@@ -47,6 +54,20 @@
         <input type="text" data-field="amazon-keyword-10" maxlength="50" placeholder="Keyword 10" aria-label="Keyword 10" />
       </div>
     </fieldset>
+
+    <aside class="test-checklist" aria-labelledby="amazon-test-heading">
+      <h2 id="amazon-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip mounts.</li>
+        <li><strong>Listing Dock</strong> → stage backend keywords (not bullets) → Save → <strong>Pulse</strong> live.</li>
+        <li><strong>Spot</strong> → select a keyword placeholder → stages to dock tags list.</li>
+        <li><strong>Tag Queue</strong> ON → focus backend keyword slot → Ctrl+V pastes next term (not comma lists).</li>
+        <li>Bullet points → paste manually or use <strong>Snippets</strong> for reusable benefit lines (~500 chars each).</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — verify queue through 10 keyword slots.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm purge → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → Amazon preset (30×50) → over-long terms should warn in dock preview.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Save listing (mock)</button>
   </form>

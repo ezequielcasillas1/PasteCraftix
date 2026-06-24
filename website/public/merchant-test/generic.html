@@ -14,13 +14,18 @@
   </header>
 
   <form class="lab-form" data-field="generic-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> Use this page when your marketplace isn’t listed — configure a custom tag limit in Merchant Options and map fields manually.
+    </div>
+
     <p class="lab-meta">Preset: Generic — max 30 tags × 50 chars</p>
 
     <fieldset>
       <legend>Small text fields (paste targets)</legend>
+      <p class="edu-hint">These stand in for any platform’s small inputs — tags, keywords, materials chips, or bullet fragments. Merchant Tag Queue fills them one at a time.</p>
       <div class="tag-grid">
-        <input type="text" data-field="generic-field-1" maxlength="50" placeholder="Field 1" aria-label="Field 1" />
-        <input type="text" data-field="generic-field-2" maxlength="50" placeholder="Field 2" aria-label="Field 2" />
+        <input type="text" data-field="generic-field-1" maxlength="50" placeholder="e.g. search keyword" aria-label="Field 1" />
+        <input type="text" data-field="generic-field-2" maxlength="50" placeholder="e.g. cotton" aria-label="Field 2" />
         <input type="text" data-field="generic-field-3" maxlength="50" placeholder="Field 3" aria-label="Field 3" />
         <input type="text" data-field="generic-field-4" maxlength="50" placeholder="Field 4" aria-label="Field 4" />
         <input type="text" data-field="generic-field-5" maxlength="50" placeholder="Field 5" aria-label="Field 5" />
@@ -54,7 +59,7 @@
 
     <label>
       Notes (large field)
-      <textarea data-field="generic-notes" rows="4" placeholder="Optional notes block"></textarea>
+      <textarea data-field="generic-notes" rows="4" placeholder="Large text area — title, description, or buyer instructions on other platforms"></textarea>
     </label>
 
     <button type="button" data-action="mock-save">Submit (mock)</button>

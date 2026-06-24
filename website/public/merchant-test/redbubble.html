@@ -14,18 +14,24 @@
   </header>
 
   <form class="lab-form" data-field="redbubble-design-form">
+    <div class="edu-banner" role="note">
+      <strong>Redbubble mock:</strong> Redbubble is tag-driven for art discovery — 15 tags × 39 chars, no materials field. Merchant helps paste tags one slot at a time and catch over-length terms before publish.
+    </div>
+
     <p class="lab-meta">Preset: Redbubble — max 15 tags × 39 chars</p>
 
     <label>
       Design title
-      <input type="text" data-field="redbubble-title" placeholder="Design title" />
+      <p class="edu-hint">Short design name on mockups — tags below drive search, not the title alone.</p>
+      <input type="text" data-field="redbubble-title" placeholder="Short design name shown on product mockups" />
     </label>
 
     <fieldset>
       <legend>Tags</legend>
+      <p class="edu-hint">Tags help buyers find your art on Redbubble — 15 tags max, 39 characters each. Not materials, not social hashtags.</p>
       <div class="tag-grid">
-        <input type="text" data-field="redbubble-tag-1" maxlength="39" placeholder="Tag 1" aria-label="Tag 1" />
-        <input type="text" data-field="redbubble-tag-2" maxlength="39" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="redbubble-tag-1" maxlength="39" placeholder="e.g. cute cat illustration" aria-label="Tag 1" />
+        <input type="text" data-field="redbubble-tag-2" maxlength="39" placeholder="e.g. kawaii sticker art" aria-label="Tag 2" />
         <input type="text" data-field="redbubble-tag-3" maxlength="39" placeholder="Tag 3" aria-label="Tag 3" />
         <input type="text" data-field="redbubble-tag-4" maxlength="39" placeholder="Tag 4" aria-label="Tag 4" />
         <input type="text" data-field="redbubble-tag-5" maxlength="39" placeholder="Tag 5" aria-label="Tag 5" />
@@ -44,7 +50,7 @@
 
     <label>
       Description
-      <textarea data-field="redbubble-description" rows="4" placeholder="Design description"></textarea>
+      <textarea data-field="redbubble-description" rows="4" placeholder="Optional design story — tags do the heavy lifting for search"></textarea>
     </label>
 
     <button type="button" data-action="mock-save">Publish design (mock)</button>

@@ -14,23 +14,29 @@
   </header>
 
   <form class="lab-form" data-field="ebay-listing-form">
+    <div class="edu-banner" role="note">
+      <strong>eBay mock:</strong> eBay listings use category-defined item specifics (name → value pairs) instead of tag grids. Merchant helps paste short values into the value column — e.g. Material → Cotton — without confusing specifics with Etsy tags or materials chips.
+    </div>
+
     <p class="lab-meta">Preset: eBay — ~12 item specifics × 65 char values</p>
 
     <label>
       Item title
-      <input type="text" data-field="ebay-title" maxlength="80" placeholder="Listing title" />
+      <p class="edu-hint">eBay titles are short (80 chars) and search-focused — separate from item specific values below.</p>
+      <input type="text" data-field="ebay-title" maxlength="80" placeholder="Short, searchable title (80 chars max)" />
     </label>
 
     <fieldset>
       <legend>Item specifics (name → value)</legend>
+      <p class="edu-hint">Each row is a filter buyers use — Brand, Size, Material, etc. Names come from eBay’s category; values are short (65 chars). Different from listing tags.</p>
       <div class="kv-grid">
         <div class="kv-row">
-          <input type="text" data-field="ebay-specific-name-1" placeholder="Specific name 1" aria-label="Specific name 1" />
-          <input type="text" data-field="ebay-specific-value-1" maxlength="65" placeholder="Value 1" aria-label="Specific value 1" />
+          <input type="text" data-field="ebay-specific-name-1" placeholder="e.g. Material" aria-label="Specific name 1" />
+          <input type="text" data-field="ebay-specific-value-1" maxlength="65" placeholder="e.g. Cotton" aria-label="Specific value 1" />
         </div>
         <div class="kv-row">
-          <input type="text" data-field="ebay-specific-name-2" placeholder="Specific name 2" aria-label="Specific name 2" />
-          <input type="text" data-field="ebay-specific-value-2" maxlength="65" placeholder="Value 2" aria-label="Specific value 2" />
+          <input type="text" data-field="ebay-specific-name-2" placeholder="e.g. Brand" aria-label="Specific name 2" />
+          <input type="text" data-field="ebay-specific-value-2" maxlength="65" placeholder="e.g. Handmade" aria-label="Specific value 2" />
         </div>
         <div class="kv-row">
           <input type="text" data-field="ebay-specific-name-3" placeholder="Specific name 3" aria-label="Specific name 3" />
@@ -74,6 +80,20 @@
         </div>
       </div>
     </fieldset>
+
+    <aside class="test-checklist" aria-labelledby="ebay-test-heading">
+      <h2 id="ebay-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip.</li>
+        <li><strong>Listing Dock</strong> → stage values for specifics (Brand, Material, Size) → Save → <strong>Pulse</strong> live.</li>
+        <li><strong>Spot</strong> → select a value placeholder (e.g. “Cotton”) → stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus value column (right input) → Ctrl+V pastes next value (65 char max).</li>
+        <li>Leave name column (left) typed manually — eBay supplies category-specific names.</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — queue through multiple value fields.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → eBay preset (12×65) → validate value length chips.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Save listing (mock)</button>
   </form>

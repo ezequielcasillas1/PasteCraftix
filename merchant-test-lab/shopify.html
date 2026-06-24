@@ -14,18 +14,23 @@
   </header>
 
   <form class="lab-form" data-field="shopify-product-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> Shopify has product tags and SEO meta — no dedicated “materials” field like Etsy. Fabric content often goes in description or metafields.
+    </div>
+
     <p class="lab-meta">Preset: Shopify — practical limit 250 tags × 255 chars (10 slots shown)</p>
 
     <label>
       Product title
-      <input type="text" data-field="shopify-title" placeholder="Product title" />
+      <input type="text" data-field="shopify-title" placeholder="Product name on your storefront" />
     </label>
 
     <fieldset>
       <legend>Product tags</legend>
+      <p class="edu-hint">Tags organize products in Shopify admin and some themes — loose limits (255 chars). Real Shopify uses one comma field; this mock uses separate inputs for Tag Queue testing.</p>
       <div class="tag-grid">
-        <input type="text" data-field="shopify-tag-1" maxlength="255" placeholder="Tag 1" aria-label="Tag 1" />
-        <input type="text" data-field="shopify-tag-2" maxlength="255" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="shopify-tag-1" maxlength="255" placeholder="e.g. summer collection" aria-label="Tag 1" />
+        <input type="text" data-field="shopify-tag-2" maxlength="255" placeholder="e.g. linen dress" aria-label="Tag 2" />
         <input type="text" data-field="shopify-tag-3" maxlength="255" placeholder="Tag 3" aria-label="Tag 3" />
         <input type="text" data-field="shopify-tag-4" maxlength="255" placeholder="Tag 4" aria-label="Tag 4" />
         <input type="text" data-field="shopify-tag-5" maxlength="255" placeholder="Tag 5" aria-label="Tag 5" />
@@ -39,17 +44,18 @@
 
     <fieldset>
       <legend>Search engine listing (SEO)</legend>
+      <p class="edu-hint">SEO title and meta description control how the product appears in Google — separate from product tags and not visible as chips on the product page.</p>
       <label>
         SEO title
-        <input type="text" data-field="shopify-seo-title" maxlength="70" placeholder="Page title for search" />
+        <input type="text" data-field="shopify-seo-title" maxlength="70" placeholder="~70 chars — shown in search results" />
       </label>
       <label>
         SEO description
-        <textarea data-field="shopify-seo-description" rows="3" maxlength="320" placeholder="Meta description"></textarea>
+        <textarea data-field="shopify-seo-description" rows="3" maxlength="320" placeholder="~320 chars — search snippet under the title"></textarea>
       </label>
       <label>
         URL handle
-        <input type="text" data-field="shopify-handle" placeholder="product-url-handle" />
+        <input type="text" data-field="shopify-handle" placeholder="product-url-slug (no spaces)" />
       </label>
     </fieldset>
 

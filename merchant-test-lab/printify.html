@@ -14,18 +14,23 @@
   </header>
 
   <form class="lab-form" data-field="printify-product-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> Printify uses <em>keywords</em> for marketplace SEO — not Etsy-style materials chips. Variant rows below mimic the grid paste pain of color/size/SKU tables.
+    </div>
+
     <p class="lab-meta">Preset: Printify — max 20 tags × 40 chars</p>
 
     <label>
       Product title
-      <input type="text" data-field="printify-title" placeholder="Product title" />
+      <input type="text" data-field="printify-title" placeholder="Name shown in your Printify catalog and connected stores" />
     </label>
 
     <fieldset>
       <legend>Tags / keywords (individual inputs)</legend>
+      <p class="edu-hint">Printify keywords help search on connected marketplaces. One keyword per field (20 slots × 40 chars) — similar to tags, but no materials section on Printify.</p>
       <div class="tag-grid">
-        <input type="text" data-field="printify-tag-1" maxlength="40" placeholder="Keyword 1" aria-label="Keyword 1" />
-        <input type="text" data-field="printify-tag-2" maxlength="40" placeholder="Keyword 2" aria-label="Keyword 2" />
+        <input type="text" data-field="printify-tag-1" maxlength="40" placeholder="e.g. vintage floral" aria-label="Keyword 1" />
+        <input type="text" data-field="printify-tag-2" maxlength="40" placeholder="e.g. minimalist tee" aria-label="Keyword 2" />
         <input type="text" data-field="printify-tag-3" maxlength="40" placeholder="Keyword 3" aria-label="Keyword 3" />
         <input type="text" data-field="printify-tag-4" maxlength="40" placeholder="Keyword 4" aria-label="Keyword 4" />
         <input type="text" data-field="printify-tag-5" maxlength="40" placeholder="Keyword 5" aria-label="Keyword 5" />
@@ -49,18 +54,19 @@
 
     <label>
       SEO description
-      <textarea data-field="printify-seo-desc" rows="4" placeholder="Short SEO text"></textarea>
+      <textarea data-field="printify-seo-desc" rows="4" placeholder="Short catalog blurb for search — not the same as listing tags"></textarea>
     </label>
 
     <fieldset>
       <legend>Variant options (stub grid)</legend>
+      <p class="edu-hint">Variants/SKU grids are paste-heavy: each color × size combo may need its own row. Merchant tests batch paste into scattered inputs.</p>
       <div class="variant-grid">
-        <input type="text" data-field="printify-variant-color-1" placeholder="Color option row 1" aria-label="Variant color 1" />
-        <input type="text" data-field="printify-variant-size-1" placeholder="Size option row 1" aria-label="Variant size 1" />
-        <input type="text" data-field="printify-variant-color-2" placeholder="Color option row 2" aria-label="Variant color 2" />
-        <input type="text" data-field="printify-variant-size-2" placeholder="Size option row 2" aria-label="Variant size 2" />
-        <input type="text" data-field="printify-variant-sku-1" placeholder="SKU row 1" aria-label="Variant SKU 1" />
-        <input type="text" data-field="printify-variant-sku-2" placeholder="SKU row 2" aria-label="Variant SKU 2" />
+        <input type="text" data-field="printify-variant-color-1" placeholder="e.g. Heather Grey" aria-label="Variant color 1" />
+        <input type="text" data-field="printify-variant-size-1" placeholder="e.g. M" aria-label="Variant size 1" />
+        <input type="text" data-field="printify-variant-color-2" placeholder="e.g. Navy" aria-label="Variant color 2" />
+        <input type="text" data-field="printify-variant-size-2" placeholder="e.g. L" aria-label="Variant size 2" />
+        <input type="text" data-field="printify-variant-sku-1" placeholder="e.g. MUG-GRY-M" aria-label="Variant SKU 1" />
+        <input type="text" data-field="printify-variant-sku-2" placeholder="e.g. MUG-NVY-L" aria-label="Variant SKU 2" />
       </div>
     </fieldset>
 

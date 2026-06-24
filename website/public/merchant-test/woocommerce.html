@@ -14,18 +14,23 @@
   </header>
 
   <form class="lab-form" data-field="woocommerce-product-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> WooCommerce product tags work like WordPress tags — loose limits, comma-separated on the real admin page. No Etsy-style materials chips.
+    </div>
+
     <p class="lab-meta">Preset: WooCommerce — practical 250 tags (10 slots shown)</p>
 
     <label>
       Product name
-      <input type="text" data-field="woocommerce-title" placeholder="Product name" />
+      <input type="text" data-field="woocommerce-title" placeholder="Product name on your WooCommerce store" />
     </label>
 
     <fieldset>
       <legend>Product tags</legend>
+      <p class="edu-hint">Tags group products for filters and related items. Real WooCommerce uses one comma field; this mock splits slots for Tag Queue paste testing.</p>
       <div class="tag-grid">
-        <input type="text" data-field="woocommerce-tag-1" maxlength="255" placeholder="Tag 1" aria-label="Tag 1" />
-        <input type="text" data-field="woocommerce-tag-2" maxlength="255" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="woocommerce-tag-1" maxlength="255" placeholder="e.g. handmade soap" aria-label="Tag 1" />
+        <input type="text" data-field="woocommerce-tag-2" maxlength="255" placeholder="e.g. lavender" aria-label="Tag 2" />
         <input type="text" data-field="woocommerce-tag-3" maxlength="255" placeholder="Tag 3" aria-label="Tag 3" />
         <input type="text" data-field="woocommerce-tag-4" maxlength="255" placeholder="Tag 4" aria-label="Tag 4" />
         <input type="text" data-field="woocommerce-tag-5" maxlength="255" placeholder="Tag 5" aria-label="Tag 5" />
@@ -39,7 +44,7 @@
 
     <label>
       Short description
-      <textarea data-field="woocommerce-short-desc" rows="3" placeholder="Product excerpt"></textarea>
+      <textarea data-field="woocommerce-short-desc" rows="3" placeholder="Brief excerpt above the full description — good for key specs like materials"></textarea>
     </label>
 
     <button type="button" data-action="mock-save">Update product (mock)</button>

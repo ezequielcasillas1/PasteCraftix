@@ -14,18 +14,23 @@
   </header>
 
   <form class="lab-form" data-field="amazon-listing-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> Amazon splits visible selling points (bullets) from hidden backend keywords. Material info often lives in category attributes — not a tag-style materials list.
+    </div>
+
     <p class="lab-meta">Preset: Amazon — ~30 backend terms × 50 chars; 5 bullet points</p>
 
     <label>
       Product title
-      <input type="text" data-field="amazon-title" maxlength="200" placeholder="Product title" />
+      <input type="text" data-field="amazon-title" maxlength="200" placeholder="Keyword-rich title within Amazon’s character rules" />
     </label>
 
     <fieldset>
       <legend>Bullet points (key features)</legend>
+      <p class="edu-hint">Bullets are shopper-facing selling points on the product page — each ~500 characters max. Lead with benefits, not tag spam.</p>
       <div class="materials-grid">
-        <input type="text" data-field="amazon-bullet-1" maxlength="500" placeholder="Bullet point 1" aria-label="Bullet 1" />
-        <input type="text" data-field="amazon-bullet-2" maxlength="500" placeholder="Bullet point 2" aria-label="Bullet 2" />
+        <input type="text" data-field="amazon-bullet-1" maxlength="500" placeholder="e.g. Premium 100% cotton — soft and breathable" aria-label="Bullet 1" />
+        <input type="text" data-field="amazon-bullet-2" maxlength="500" placeholder="e.g. Machine washable — holds color after 50+ washes" aria-label="Bullet 2" />
         <input type="text" data-field="amazon-bullet-3" maxlength="500" placeholder="Bullet point 3" aria-label="Bullet 3" />
         <input type="text" data-field="amazon-bullet-4" maxlength="500" placeholder="Bullet point 4" aria-label="Bullet 4" />
         <input type="text" data-field="amazon-bullet-5" maxlength="500" placeholder="Bullet point 5" aria-label="Bullet 5" />
@@ -34,9 +39,10 @@
 
     <fieldset>
       <legend>Backend search terms (individual keyword slots)</legend>
+      <p class="edu-hint">Backend terms are hidden search keywords — buyers never see them. Strict byte limits; no commas needed between terms in the real field (mock uses slots for paste testing).</p>
       <div class="tag-grid">
-        <input type="text" data-field="amazon-keyword-1" maxlength="50" placeholder="Keyword 1" aria-label="Keyword 1" />
-        <input type="text" data-field="amazon-keyword-2" maxlength="50" placeholder="Keyword 2" aria-label="Keyword 2" />
+        <input type="text" data-field="amazon-keyword-1" maxlength="50" placeholder="e.g. organic cotton" aria-label="Keyword 1" />
+        <input type="text" data-field="amazon-keyword-2" maxlength="50" placeholder="e.g. gift for mom" aria-label="Keyword 2" />
         <input type="text" data-field="amazon-keyword-3" maxlength="50" placeholder="Keyword 3" aria-label="Keyword 3" />
         <input type="text" data-field="amazon-keyword-4" maxlength="50" placeholder="Keyword 4" aria-label="Keyword 4" />
         <input type="text" data-field="amazon-keyword-5" maxlength="50" placeholder="Keyword 5" aria-label="Keyword 5" />

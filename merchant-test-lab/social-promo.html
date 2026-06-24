@@ -14,24 +14,29 @@
   </header>
 
   <form class="lab-form" data-field="social-promo-form">
+    <div class="edu-banner" role="note">
+      <strong>Course note:</strong> Social promo fields are for Instagram/Pinterest — not marketplace listing tags. Hashtags have different limits and rules than Etsy tags or materials.
+    </div>
+
     <p class="lab-meta">Social promo export target — Phase 8</p>
 
     <label>
       Post caption
-      <textarea data-field="social-caption" rows="4" placeholder="Main caption text"></textarea>
+      <textarea data-field="social-caption" rows="4" placeholder="Main post text — hook, product mention, call to action"></textarea>
     </label>
 
     <label>
       Link / CTA line
-      <input type="text" data-field="social-link-line" placeholder="Shop link or call to action" />
+      <input type="text" data-field="social-link-line" placeholder="e.g. Shop link in bio or pinned comment" />
     </label>
 
     <fieldset>
       <legend>Hashtags (individual slots)</legend>
+      <p class="edu-hint">Social hashtags (#) boost discovery on Instagram/Pinterest — not the same as Etsy listing tags. Mix broad and niche; platform limits vary (often 30 on IG).</p>
       <div class="tag-grid">
-        <input type="text" data-field="social-hashtag-1" maxlength="100" placeholder="#hashtag1" aria-label="Hashtag 1" />
-        <input type="text" data-field="social-hashtag-2" maxlength="100" placeholder="#hashtag2" aria-label="Hashtag 2" />
-        <input type="text" data-field="social-hashtag-3" maxlength="100" placeholder="#hashtag3" aria-label="Hashtag 3" />
+        <input type="text" data-field="social-hashtag-1" maxlength="100" placeholder="#handmadejewelry" aria-label="Hashtag 1" />
+        <input type="text" data-field="social-hashtag-2" maxlength="100" placeholder="#shopsmall" aria-label="Hashtag 2" />
+        <input type="text" data-field="social-hashtag-3" maxlength="100" placeholder="#giftideas" aria-label="Hashtag 3" />
         <input type="text" data-field="social-hashtag-4" maxlength="100" placeholder="#hashtag4" aria-label="Hashtag 4" />
         <input type="text" data-field="social-hashtag-5" maxlength="100" placeholder="#hashtag5" aria-label="Hashtag 5" />
         <input type="text" data-field="social-hashtag-6" maxlength="100" placeholder="#hashtag6" aria-label="Hashtag 6" />
@@ -49,13 +54,14 @@
 
     <fieldset>
       <legend>Pinterest-specific (stub)</legend>
+      <p class="edu-hint">Pin title and description are Pinterest SEO — keyword-rich but readable. Different from Instagram captions and listing tags.</p>
       <label>
         Pin title
-        <input type="text" data-field="pinterest-pin-title" maxlength="100" placeholder="Pin title" />
+        <input type="text" data-field="pinterest-pin-title" maxlength="100" placeholder="e.g. Handmade Ceramic Mug Gift Idea" />
       </label>
       <label>
         Pin description
-        <textarea data-field="pinterest-pin-desc" rows="3" placeholder="Pin description"></textarea>
+        <textarea data-field="pinterest-pin-desc" rows="3" placeholder="Keyword-rich pin blurb with natural sentences"></textarea>
       </label>
     </fieldset>
 

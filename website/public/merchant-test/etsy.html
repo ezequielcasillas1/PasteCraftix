@@ -14,28 +14,34 @@
   </header>
 
   <form class="lab-form" data-field="etsy-listing-form">
+    <div class="edu-banner" role="note">
+      <strong>Etsy mock:</strong> This page mimics Etsy’s listing editor — the marketplace where sellers paste into many small fields (13 tag slots, material chips, personalization notes). Merchant targets Etsy because strict limits and one-value-per-box inputs make comma-list paste fail. Learn each field here, then verify Tag Queue, Materials, and Snippets before editing a live listing.
+    </div>
+
     <p class="lab-meta">Preset: Etsy — max 13 tags × 20 chars</p>
 
     <details class="lab-advanced">
       <summary>Title &amp; description (Advanced / collapsed)</summary>
+      <p class="edu-hint">Title and description are shopper-facing copy. Merchant treats these as Advanced — focus Tag Queue and Materials first; don’t keyword-stuff the big boxes.</p>
       <label>
         Title
-        <input type="text" data-field="listing-title" maxlength="140" placeholder="Listing title" />
+        <input type="text" data-field="listing-title" maxlength="140" placeholder="Clear product name buyers would search for" />
       </label>
       <label>
         Description
-        <textarea data-field="listing-description" rows="6" placeholder="Listing description"></textarea>
+        <textarea data-field="listing-description" rows="6" placeholder="Story, dimensions, care — not a tag dump"></textarea>
       </label>
     </details>
 
     <fieldset>
       <legend>Tags (13 slots × 20 chars)</legend>
+      <p class="edu-hint">Tags are Etsy search keywords — strict limit of 13 tags, 20 characters each. They help buyers find you; they are <em>not</em> materials or hashtags.</p>
       <div class="tag-grid">
-        <input type="text" data-field="etsy-tag-1" maxlength="20" placeholder="Tag 1" aria-label="Tag 1" />
-        <input type="text" data-field="etsy-tag-2" maxlength="20" placeholder="Tag 2" aria-label="Tag 2" />
-        <input type="text" data-field="etsy-tag-3" maxlength="20" placeholder="Tag 3" aria-label="Tag 3" />
-        <input type="text" data-field="etsy-tag-4" maxlength="20" placeholder="Tag 4" aria-label="Tag 4" />
-        <input type="text" data-field="etsy-tag-5" maxlength="20" placeholder="Tag 5" aria-label="Tag 5" />
+        <input type="text" data-field="etsy-tag-1" maxlength="20" placeholder="e.g. ceramic mug" aria-label="Tag 1" />
+        <input type="text" data-field="etsy-tag-2" maxlength="20" placeholder="e.g. gift for her" aria-label="Tag 2" />
+        <input type="text" data-field="etsy-tag-3" maxlength="20" placeholder="e.g. coffee lover" aria-label="Tag 3" />
+        <input type="text" data-field="etsy-tag-4" maxlength="20" placeholder="e.g. handmade" aria-label="Tag 4" />
+        <input type="text" data-field="etsy-tag-5" maxlength="20" placeholder="e.g. kitchen decor" aria-label="Tag 5" />
         <input type="text" data-field="etsy-tag-6" maxlength="20" placeholder="Tag 6" aria-label="Tag 6" />
         <input type="text" data-field="etsy-tag-7" maxlength="20" placeholder="Tag 7" aria-label="Tag 7" />
         <input type="text" data-field="etsy-tag-8" maxlength="20" placeholder="Tag 8" aria-label="Tag 8" />
@@ -49,27 +55,31 @@
 
     <fieldset>
       <legend>Materials</legend>
+      <p class="edu-hint">Materials answer “what is this made of?” — fibers, metals, wood types, etc. Etsy shows them as chips and uses them in buyer filters. Separate from tags; up to 13 on Etsy (5 slots here).</p>
+      <p class="edu-callout"><strong>Etsy pattern:</strong> one material per input/chip — not a comma textarea. Example: cotton, linen, sterling silver each get their own slot.</p>
       <div class="materials-grid">
-        <input type="text" data-field="etsy-material-1" placeholder="Material 1" aria-label="Material 1" />
-        <input type="text" data-field="etsy-material-2" placeholder="Material 2" aria-label="Material 2" />
-        <input type="text" data-field="etsy-material-3" placeholder="Material 3" aria-label="Material 3" />
-        <input type="text" data-field="etsy-material-4" placeholder="Material 4" aria-label="Material 4" />
-        <input type="text" data-field="etsy-material-5" placeholder="Material 5" aria-label="Material 5" />
+        <input type="text" data-field="etsy-material-1" placeholder="Educational: cotton — fiber buyers filter on" aria-label="Material 1" />
+        <input type="text" data-field="etsy-material-2" placeholder="Educational: linen, waxed thread, sterling silver" aria-label="Material 2" />
+        <input type="text" data-field="etsy-material-3" placeholder="One material per slot — not comma lists" aria-label="Material 3" />
+        <input type="text" data-field="etsy-material-4" placeholder="e.g. recycled paper" aria-label="Material 4" />
+        <input type="text" data-field="etsy-material-5" placeholder="e.g. soy wax" aria-label="Material 5" />
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Buyer instructions / personalization</legend>
+      <p class="edu-hint">Optional note shown at checkout — ask for names, colors, or care info. Primary Snippets paste target in Merchant.</p>
       <label>
         Message to buyers
-        <textarea data-field="etsy-buyer-instructions" rows="4" placeholder="Add personalization or care notes for buyers" aria-label="Buyer instructions"></textarea>
+        <textarea data-field="etsy-buyer-instructions" rows="4" placeholder="e.g. Please leave the name to engrave in the notes at checkout" aria-label="Buyer instructions"></textarea>
       </label>
     </fieldset>
 
     <details class="lab-advanced">
       <summary>Image alt text (10 slots — optional SEO pack)</summary>
+      <p class="edu-hint">Alt text describes each photo for accessibility and image search. Optional but helpful — one line per listing image.</p>
       <div class="materials-grid">
-        <input type="text" data-field="etsy-alt-1" maxlength="250" placeholder="Alt text image 1" aria-label="Alt text 1" />
+        <input type="text" data-field="etsy-alt-1" maxlength="250" placeholder="e.g. White ceramic mug on wooden table" aria-label="Alt text 1" />
         <input type="text" data-field="etsy-alt-2" maxlength="250" placeholder="Alt text image 2" aria-label="Alt text 2" />
         <input type="text" data-field="etsy-alt-3" maxlength="250" placeholder="Alt text image 3" aria-label="Alt text 3" />
         <input type="text" data-field="etsy-alt-4" maxlength="250" placeholder="Alt text image 4" aria-label="Alt text 4" />
@@ -81,6 +91,22 @@
         <input type="text" data-field="etsy-alt-10" maxlength="250" placeholder="Alt text image 10" aria-label="Alt text 10" />
       </div>
     </details>
+
+    <aside class="test-checklist" aria-labelledby="etsy-test-heading">
+      <h2 id="etsy-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension (<code>chrome://extensions</code> → Reload); open this page.</li>
+        <li>Confirm <strong>Merchant</strong> strip at top — <strong>Pulse</strong> empty, <strong>Listing Dock</strong> button visible.</li>
+        <li><strong>Listing Dock</strong> → stage tags, materials, and buyer-instruction text → Save → <strong>Pulse</strong> shows live staging.</li>
+        <li><strong>Spot</strong> → select tag placeholder text on page → selection stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus tag slot 1 → Ctrl+V pastes next tag; advance through all 13 slots.</li>
+        <li><strong>Materials</strong> → dock <strong>Copy materials</strong> or queue into each material input (one fiber per slot).</li>
+        <li><strong>Snippets</strong> → focus buyer-instructions textarea → <strong>Snippets</strong> → insert preset.</li>
+        <li>In dock: <strong>Copy tags</strong> and <strong>Paste next tag</strong> — verify clipboard + queue advance.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → staging purged, <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → switch preset (e.g. Printify) → return to Etsy → re-validate 13×20 limits.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Save listing (mock)</button>
   </form>

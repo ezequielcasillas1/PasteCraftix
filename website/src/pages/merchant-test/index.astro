@@ -24,16 +24,41 @@ const mockPages = [
     <p class="eyebrow">Dev / QA</p>
     <h1>Merchant Test Lab</h1>
     <p class="lead">
-      Crude mock shop forms for manual Merchant QA. Load the unpacked extension, open a mock page, and exercise strip actions.
+      Crude mock shop forms for manual Merchant QA and seller field education. Load the unpacked extension, open a mock page, read the yellow callouts to learn what each field means, then exercise strip actions.
     </p>
 
     <section class="surface-card panel">
-      <h2>Quick setup</h2>
+      <h2>How to use these mocks</h2>
       <ol>
         <li>Load extension from <code>extension/</code> in Chrome/Edge</li>
-        <li>Open any mock page below</li>
-        <li>Verify Merchant strip, Listing Dock, Tag Queue, Materials, Snippets</li>
+        <li>Open any mock page — each has a course-style banner and field tips</li>
+        <li>Practice Tag Queue, Materials (Etsy), Snippets, and Seal &amp; Ship</li>
+        <li>Compare field types below before pasting into real shop pages</li>
       </ol>
+    </section>
+
+    <section class="surface-card panel" id="field-glossary">
+      <h2>Field glossary</h2>
+      <dl class="glossary">
+        <dt>Tags / keywords</dt>
+        <dd>Search terms buyers use to find listings. Strict count and character limits per platform (e.g. Etsy 13×20).</dd>
+        <dt>Materials</dt>
+        <dd>What the product is made of — fibers, metals, components. Etsy uses separate chips (not tags). eBay may use a “Material” item specific; most POD platforms have no materials field.</dd>
+        <dt>Title &amp; description</dt>
+        <dd>Shopper-facing copy. Merchant deprioritizes these (Advanced) — don’t keyword-stuff.</dd>
+        <dt>Buyer instructions</dt>
+        <dd>Checkout personalization prompt. Primary Snippets paste target on Etsy.</dd>
+        <dt>Alt text</dt>
+        <dd>Per-image accessibility and SEO descriptions. Optional on Etsy.</dd>
+        <dt>Bullets (Amazon)</dt>
+        <dd>Visible selling points with character limits — not backend keywords.</dd>
+        <dt>Item specifics (eBay)</dt>
+        <dd>Category key-value pairs (Brand, Size, Material) — different from tag grids.</dd>
+        <dt>Hashtags (social)</dt>
+        <dd>Instagram/Pinterest discovery tags — not listing tags or materials.</dd>
+        <dt>Variants / SKU</dt>
+        <dd>Color, size, and inventory rows — grid paste targets (Printify mock).</dd>
+      </dl>
     </section>
 
     <section class="surface-card panel">
@@ -139,5 +164,23 @@ const mockPages = [
 
   .mock-table td:last-child {
     color: var(--text-soft);
+  }
+
+  .glossary {
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .glossary dt {
+    font-weight: 600;
+    color: var(--gold);
+    margin: 0;
+  }
+
+  .glossary dd {
+    margin: 0.15rem 0 0;
+    color: var(--text-soft);
+    line-height: 1.6;
   }
 </style>
