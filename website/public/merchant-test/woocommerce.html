@@ -15,13 +15,14 @@
 
   <form class="lab-form" data-field="woocommerce-product-form">
     <div class="edu-banner" role="note">
-      <strong>Course note:</strong> WooCommerce product tags work like WordPress tags — loose limits, comma-separated on the real admin page. No Etsy-style materials chips.
+      <strong>WooCommerce mock:</strong> WooCommerce product tags work like WordPress taxonomy tags — loose limits, comma-separated on the real admin page. No Etsy-style materials; fabric specs often go in short description.
     </div>
 
     <p class="lab-meta">Preset: WooCommerce — practical 250 tags (10 slots shown)</p>
 
     <label>
       Product name
+      <p class="edu-hint">Product name on your WooCommerce store — tags below organize filters and related products.</p>
       <input type="text" data-field="woocommerce-title" placeholder="Product name on your WooCommerce store" />
     </label>
 
@@ -44,8 +45,23 @@
 
     <label>
       Short description
-      <textarea data-field="woocommerce-short-desc" rows="3" placeholder="Brief excerpt above the full description — good for key specs like materials"></textarea>
+      <p class="edu-hint">Brief excerpt above full description — good place for material specs (e.g. “100% organic cotton”) since WooCommerce has no materials chips.</p>
+      <textarea data-field="woocommerce-short-desc" rows="3" placeholder="Educational: list fibers buyers care about — cotton, linen, essential oils"></textarea>
     </label>
+
+    <aside class="test-checklist" aria-labelledby="woocommerce-test-heading">
+      <h2 id="woocommerce-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip.</li>
+        <li><strong>Listing Dock</strong> → stage product tags → Save → <strong>Pulse</strong> live.</li>
+        <li><strong>Spot</strong> → select tag placeholder → stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus tag slot → Ctrl+V pastes next tag.</li>
+        <li>Short description → use <strong>Snippets</strong> for care/shipping boilerplate or material specs.</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — verify queue through tag grid.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → WooCommerce preset (250×255) → validate limits.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Update product (mock)</button>
   </form>

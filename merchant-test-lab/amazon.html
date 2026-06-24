@@ -15,13 +15,14 @@
 
   <form class="lab-form" data-field="amazon-listing-form">
     <div class="edu-banner" role="note">
-      <strong>Course note:</strong> Amazon splits visible selling points (bullets) from hidden backend keywords. Material info often lives in category attributes — not a tag-style materials list.
+      <strong>Amazon mock:</strong> Amazon splits shopper-facing bullet points from hidden backend search terms — no Etsy-style tag grid or materials chips. Merchant helps paste backend keywords one slot at a time and stage bullet copy without breaking Amazon’s byte limits.
     </div>
 
     <p class="lab-meta">Preset: Amazon — ~30 backend terms × 50 chars; 5 bullet points</p>
 
     <label>
       Product title
+      <p class="edu-hint">Title is the main search headline on Amazon — keyword-rich but readable. Not the same as backend search terms or bullet points.</p>
       <input type="text" data-field="amazon-title" maxlength="200" placeholder="Keyword-rich title within Amazon’s character rules" />
     </label>
 
@@ -53,6 +54,20 @@
         <input type="text" data-field="amazon-keyword-10" maxlength="50" placeholder="Keyword 10" aria-label="Keyword 10" />
       </div>
     </fieldset>
+
+    <aside class="test-checklist" aria-labelledby="amazon-test-heading">
+      <h2 id="amazon-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip mounts.</li>
+        <li><strong>Listing Dock</strong> → stage backend keywords (not bullets) → Save → <strong>Pulse</strong> live.</li>
+        <li><strong>Spot</strong> → select a keyword placeholder → stages to dock tags list.</li>
+        <li><strong>Tag Queue</strong> ON → focus backend keyword slot → Ctrl+V pastes next term (not comma lists).</li>
+        <li>Bullet points → paste manually or use <strong>Snippets</strong> for reusable benefit lines (~500 chars each).</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — verify queue through 10 keyword slots.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm purge → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → Amazon preset (30×50) → over-long terms should warn in dock preview.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Save listing (mock)</button>
   </form>

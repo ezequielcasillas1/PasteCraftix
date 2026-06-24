@@ -15,13 +15,14 @@
 
   <form class="lab-form" data-field="teepublic-design-form">
     <div class="edu-banner" role="note">
-      <strong>Course note:</strong> TeePublic allows many tags per design (32) with generous length — great for testing large Tag Queue batches. No materials section.
+      <strong>TeePublic mock:</strong> TeePublic allows up to 32 tags per design with generous length — ideal for testing large Tag Queue batches. No materials field; tags are the primary discovery mechanism.
     </div>
 
     <p class="lab-meta">Preset: TeePublic — max 32 tags × 255 chars</p>
 
     <label>
       Design title
+      <p class="edu-hint">Design name on your TeePublic storefront — separate from the 32 search tags below.</p>
       <input type="text" data-field="teepublic-title" placeholder="Design name on TeePublic storefront" />
     </label>
 
@@ -63,6 +64,20 @@
         <input type="text" data-field="teepublic-tag-32" maxlength="255" placeholder="Tag 32" aria-label="Tag 32" />
       </div>
     </fieldset>
+
+    <aside class="test-checklist" aria-labelledby="teepublic-test-heading">
+      <h2 id="teepublic-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip.</li>
+        <li><strong>Listing Dock</strong> → stage 32 tags → Save → <strong>Pulse</strong> live (32×255 preset).</li>
+        <li><strong>Spot</strong> → select tag placeholder → stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus tag slot → Ctrl+V — batch through large grid without comma paste.</li>
+        <li>Dock <strong>Copy tags</strong> — copy full batch to clipboard for external backup.</li>
+        <li>Dock <strong>Paste next tag</strong> — verify queue advances through all 32 slots.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → TeePublic preset → compare vs Redbubble 15×39 limits.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Save design (mock)</button>
   </form>

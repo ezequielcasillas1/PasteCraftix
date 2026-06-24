@@ -9,125 +9,123 @@
 <body>
   <header class="lab-header">
     <h1>PasteCraft Merchant Test Lab</h1>
-    <p>Mock seller forms for extension QA and Phase 7+ DOM adapters — also at <a href="https://pastecraft.com/merchant-test.html">pastecraft.com/merchant-test</a></p>
+    <p>Mock seller forms with educational hints and on-page checklists — also at <a href="https://pastecraft.com/merchant-test">pastecraft.com/merchant-test</a></p>
   </header>
 
   <main class="lab-hub">
     <section>
-      <h2>How to use these mocks</h2>
-      <ul class="lab-checklist">
-        <li>Load unpacked extension from <code>extension/</code></li>
-        <li>Reload extension after code changes</li>
-        <li>Open any mock page — yellow callouts explain what each seller field is for</li>
-        <li>Practice Merchant strip, Tag Queue, Materials (Etsy), Snippets, Seal &amp; Ship</li>
-      </ul>
+      <h2>Merchant Test Lab — mini course</h2>
+      <p class="lab-meta">Five-step path to validate Merchant before live seller dashboards.</p>
+      <ol class="lab-checklist">
+        <li>Load unpacked extension → reload after code changes</li>
+        <li>Open Etsy mock first — full field set (tags + materials + snippets)</li>
+        <li>Run each page’s green <strong>Test with PasteCraft Merchant</strong> checklist</li>
+        <li>Switch dock <strong>Options</strong> preset per platform — limits must match mock meta line</li>
+        <li>Finish with <strong>Seal &amp; Ship</strong> on every page — staging must purge</li>
+      </ol>
     </section>
 
-    <section id="field-glossary">
-      <h2>Field glossary</h2>
-      <dl class="glossary">
-        <dt>Tags / keywords</dt>
-        <dd>Search terms buyers use to find listings. Strict count and character limits per platform (e.g. Etsy 13×20).</dd>
-        <dt>Materials</dt>
-        <dd>What the product is made of — fibers, metals, components. Etsy uses separate chips (not tags). eBay may use a “Material” item specific; most POD platforms have no materials field.</dd>
-        <dt>Title &amp; description</dt>
-        <dd>Shopper-facing copy. Merchant deprioritizes these (Advanced) — don’t keyword-stuff.</dd>
-        <dt>Buyer instructions</dt>
-        <dd>Checkout personalization prompt. Primary Snippets paste target on Etsy.</dd>
-        <dt>Alt text</dt>
-        <dd>Per-image accessibility and SEO descriptions. Optional on Etsy.</dd>
-        <dt>Bullets (Amazon)</dt>
-        <dd>Visible selling points with character limits — not backend keywords.</dd>
-        <dt>Item specifics (eBay)</dt>
-        <dd>Category key-value pairs (Brand, Size, Material) — different from tag grids.</dd>
-        <dt>Hashtags (social)</dt>
-        <dd>Instagram/Pinterest discovery tags — not listing tags or materials.</dd>
-        <dt>Variants / SKU</dt>
-        <dd>Color, size, and inventory rows — grid paste targets (Printify mock).</dd>
+    <section>
+      <h2>Strip glossary</h2>
+      <dl class="glossary-dl">
+        <dt>Listing Dock</dt><dd>Ephemeral staging — tags, materials, title/description. Save updates Pulse.</dd>
+        <dt>Pulse</dt><dd>Strip indicator — empty = no staging; live = dock has content.</dd>
+        <dt>Spot</dt><dd>Select page text → stages into dock.</dd>
+        <dt>Tag Queue</dt><dd>Paste-next mode — focus input, Ctrl+V inserts next tag.</dd>
+        <dt>Materials</dt><dd>Etsy-only — one fiber per chip input.</dd>
+        <dt>Snippets</dt><dd>Reusable boilerplate — inserts into focused textarea.</dd>
+        <dt>Seal &amp; Ship</dt><dd>Confirm and purge staging — Pulse returns empty.</dd>
+        <dt>Options</dt><dd>Dock preset popover — Etsy, Amazon, Custom limits.</dd>
       </dl>
     </section>
 
     <section>
-      <h2>Mock shop pages</h2>
+      <h2>Setup</h2>
+      <ul class="lab-checklist">
+        <li>Load unpacked extension from <code>extension/</code></li>
+        <li>Reload extension after code changes</li>
+        <li>Open any mock page below — Merchant strip should mount at top</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Mock pages — fields &amp; strip actions</h2>
       <table class="lab-page-table">
         <thead>
           <tr>
             <th>Page</th>
             <th>Preset</th>
-            <th>Test these Merchant actions</th>
+            <th>Fields to test</th>
+            <th>Strip actions to use</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td><a href="etsy.html">Etsy</a></td>
             <td>13×20</td>
-            <td>Tag queue, materials queue, snippets → buyer instructions, Spot, Seal &amp; Ship, alt text (Advanced)</td>
+            <td>Tags, materials, buyer instructions, alt text</td>
+            <td>Listing Dock, Tag Queue, Materials, Snippets, Seal &amp; Ship, Options</td>
           </tr>
           <tr>
             <td><a href="printify.html">Printify</a></td>
             <td>20×40</td>
-            <td>Platform preset switch, tag queue, variant grid stub paste</td>
+            <td>Keywords, SEO desc, variant grid</td>
+            <td>Listing Dock, Tag Queue, Options preset switch, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="shopify.html">Shopify</a></td>
             <td>250×255</td>
-            <td>Tag queue, SEO fields, preset limits in dock Options</td>
+            <td>Product tags, SEO title/desc</td>
+            <td>Listing Dock, Tag Queue, Snippets, Options, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="amazon.html">Amazon</a></td>
             <td>30×50</td>
-            <td>Backend keyword queue, bullet point fields</td>
+            <td>Bullets, backend keyword slots</td>
+            <td>Listing Dock, Tag Queue (keywords), Snippets (bullets), Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="ebay.html">eBay</a></td>
             <td>12×65</td>
-            <td>Item specifics key-value paste, custom preset</td>
+            <td>Item specifics (name → value)</td>
+            <td>Listing Dock, Tag Queue (values), Spot, Options, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="redbubble.html">Redbubble</a></td>
             <td>15×39</td>
-            <td>Tag validation, dock preview chips</td>
+            <td>Tags, description</td>
+            <td>Listing Dock, Tag Queue, validation chips, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="teepublic.html">TeePublic</a></td>
             <td>32×255</td>
-            <td>Large tag grid, batch copy from dock</td>
+            <td>32 tag slots</td>
+            <td>Listing Dock, Tag Queue, Copy tags batch, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="woocommerce.html">WooCommerce</a></td>
             <td>250×255</td>
-            <td>Tag queue, generic multi-tag paste</td>
+            <td>Product tags, short description</td>
+            <td>Listing Dock, Tag Queue, Snippets, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="generic.html">Generic</a></td>
             <td>30×50</td>
-            <td>Custom max tags, generic preset, listing pack parse</td>
+            <td>30 small fields, notes textarea</td>
+            <td>Listing Dock, listing pack parse, Custom Options, Seal &amp; Ship</td>
           </tr>
           <tr>
             <td><a href="social-promo.html">Social promo</a></td>
             <td>Promo</td>
-            <td>Hashtag slots, caption paste, promo export (Phase 8)</td>
+            <td>Caption, CTA, hashtags, Pinterest stub</td>
+            <td>Listing Dock, Tag Queue (hashtags), Snippets, Copy tags, Seal &amp; Ship</td>
           </tr>
         </tbody>
       </table>
     </section>
 
     <section>
-      <h2>Global checklist</h2>
-      <ul class="lab-checklist">
-        <li><strong>Strip</strong> — Merchant badge + Pulse visible; page layout not broken</li>
-        <li><strong>Listing Dock</strong> — tags-first UI, preview chips, count matches preset</li>
-        <li><strong>Spot</strong> — stage comma tags or listing pack (<code>tags:</code> block)</li>
-        <li><strong>Tag Queue</strong> — toggle on, focus tag input, next tag pastes</li>
-        <li><strong>Materials</strong> — Etsy mock: queue into material inputs</li>
-        <li><strong>Snippets</strong> — insert into buyer-instructions textarea</li>
-        <li><strong>Seal &amp; Ship</strong> — confirm clears staging; Pulse empty</li>
-        <li><strong>Platform preset</strong> — dock Options popover limits match page preset</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>Sample listing pack</h2>
+      <h2>Sample listing pack (Spot)</h2>
       <pre style="background:#fff;padding:12px;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;overflow:auto">tags: handmade mug, ceramic gift, coffee lover, this tag is way too long for etsy
 title: Optional title
 description: Optional description</pre>

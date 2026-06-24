@@ -2,16 +2,95 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 
 const mockPages = [
-  { href: '/merchant-test/etsy.html', label: 'Etsy', preset: '13×20', tests: 'Tag queue, materials, snippets, alt text, Seal & Ship' },
-  { href: '/merchant-test/printify.html', label: 'Printify', preset: '20×40', tests: 'Preset switch, tag queue, variant stub' },
-  { href: '/merchant-test/shopify.html', label: 'Shopify', preset: '250×255', tests: 'Tags + SEO fields' },
-  { href: '/merchant-test/amazon.html', label: 'Amazon', preset: '30×50', tests: 'Bullets + backend keywords' },
-  { href: '/merchant-test/ebay.html', label: 'eBay', preset: '12×65', tests: 'Item specifics key-value' },
-  { href: '/merchant-test/redbubble.html', label: 'Redbubble', preset: '15×39', tests: 'Tag validation chips' },
-  { href: '/merchant-test/teepublic.html', label: 'TeePublic', preset: '32×255', tests: 'Large tag grid' },
-  { href: '/merchant-test/woocommerce.html', label: 'WooCommerce', preset: '250×255', tests: 'Product tags' },
-  { href: '/merchant-test/generic.html', label: 'Generic', preset: '30×50', tests: 'Custom max, listing pack' },
-  { href: '/merchant-test/social-promo.html', label: 'Social promo', preset: 'Promo', tests: 'Hashtags + caption' },
+  {
+    href: '/merchant-test/etsy.html',
+    label: 'Etsy',
+    preset: '13×20',
+    fields: 'Tags, materials, buyer instructions, alt text',
+    stripActions: 'Listing Dock, Spot, Tag Queue, Materials, Snippets, Copy tags, Seal & Ship, Options',
+  },
+  {
+    href: '/merchant-test/printify.html',
+    label: 'Printify',
+    preset: '20×40',
+    fields: 'Keywords, SEO desc, variant grid',
+    stripActions: 'Listing Dock, Tag Queue, Spot, Options preset switch, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/shopify.html',
+    label: 'Shopify',
+    preset: '250×255',
+    fields: 'Product tags, SEO title/desc, URL handle',
+    stripActions: 'Listing Dock, Tag Queue, Snippets, Options, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/amazon.html',
+    label: 'Amazon',
+    preset: '30×50',
+    fields: 'Bullets, backend keyword slots',
+    stripActions: 'Listing Dock, Tag Queue (keywords), Snippets (bullets), Seal & Ship',
+  },
+  {
+    href: '/merchant-test/ebay.html',
+    label: 'eBay',
+    preset: '12×65',
+    fields: 'Item specifics (name → value)',
+    stripActions: 'Listing Dock, Tag Queue (values), Spot, Options, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/redbubble.html',
+    label: 'Redbubble',
+    preset: '15×39',
+    fields: 'Tags, description',
+    stripActions: 'Listing Dock, Tag Queue, validation chips, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/teepublic.html',
+    label: 'TeePublic',
+    preset: '32×255',
+    fields: '32 tag slots',
+    stripActions: 'Listing Dock, Tag Queue, Copy tags batch, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/woocommerce.html',
+    label: 'WooCommerce',
+    preset: '250×255',
+    fields: 'Product tags, short description',
+    stripActions: 'Listing Dock, Tag Queue, Snippets, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/generic.html',
+    label: 'Generic',
+    preset: '30×50',
+    fields: '30 small fields, notes textarea',
+    stripActions: 'Listing Dock, listing pack parse, Custom Options, Seal & Ship',
+  },
+  {
+    href: '/merchant-test/social-promo.html',
+    label: 'Social promo',
+    preset: 'Promo',
+    fields: 'Caption, CTA, hashtags, Pinterest stub',
+    stripActions: 'Listing Dock, Tag Queue (hashtags), Snippets, Copy tags, Seal & Ship',
+  },
+];
+
+const glossary = [
+  { term: 'Listing Dock', def: 'Ephemeral staging panel — tags, materials, title/description. Save updates Pulse.' },
+  { term: 'Pulse', def: 'Strip indicator — empty = no staging; live = dock has content.' },
+  { term: 'Spot', def: 'Select page text → stages into dock (tags or listing pack).' },
+  { term: 'Tag Queue', def: 'Paste-next mode — focus an input, Ctrl+V inserts next staged tag.' },
+  { term: 'Materials', def: 'Etsy-only dock section — one fiber/material per chip input.' },
+  { term: 'Snippets', def: 'Reusable seller boilerplate — inserts into focused textarea.' },
+  { term: 'Seal & Ship', def: 'Confirm and purge ephemeral staging — Pulse returns empty.' },
+  { term: 'Options', def: 'Dock preset popover — Etsy, Amazon, Custom limits, etc.' },
+];
+
+const courseSteps = [
+  'Load unpacked extension → reload after code changes.',
+  'Open Etsy mock first — full field set (tags + materials + snippets).',
+  'Run each mock page checklist — verify strip buttons match fields.',
+  'Switch Options preset per platform — limits must match mock meta line.',
+  'Finish with Seal & Ship on every page — staging must purge.',
 ];
 ---
 
@@ -24,51 +103,49 @@ const mockPages = [
     <p class="eyebrow">Dev / QA</p>
     <h1>Merchant Test Lab</h1>
     <p class="lead">
-      Crude mock shop forms for manual Merchant QA and seller field education. Load the unpacked extension, open a mock page, read the yellow callouts to learn what each field means, then exercise strip actions.
+      Mock shop forms with educational hints and on-page checklists. Load the unpacked extension, open a mock, and exercise every strip action.
     </p>
 
     <section class="surface-card panel">
-      <h2>How to use these mocks</h2>
-      <ol>
-        <li>Load extension from <code>extension/</code> in Chrome/Edge</li>
-        <li>Open any mock page — each has a course-style banner and field tips</li>
-        <li>Practice Tag Queue, Materials (Etsy), Snippets, and Seal &amp; Ship</li>
-        <li>Compare field types below before pasting into real shop pages</li>
+      <h2>Merchant Test Lab — mini course</h2>
+      <p class="panel-intro">Five-step path to validate Merchant before touching live seller dashboards.</p>
+      <ol class="course-outline">
+        {courseSteps.map((step) => (
+          <li>{step}</li>
+        ))}
       </ol>
     </section>
 
-    <section class="surface-card panel" id="field-glossary">
-      <h2>Field glossary</h2>
+    <section class="surface-card panel">
+      <h2>Strip glossary</h2>
       <dl class="glossary">
-        <dt>Tags / keywords</dt>
-        <dd>Search terms buyers use to find listings. Strict count and character limits per platform (e.g. Etsy 13×20).</dd>
-        <dt>Materials</dt>
-        <dd>What the product is made of — fibers, metals, components. Etsy uses separate chips (not tags). eBay may use a “Material” item specific; most POD platforms have no materials field.</dd>
-        <dt>Title &amp; description</dt>
-        <dd>Shopper-facing copy. Merchant deprioritizes these (Advanced) — don’t keyword-stuff.</dd>
-        <dt>Buyer instructions</dt>
-        <dd>Checkout personalization prompt. Primary Snippets paste target on Etsy.</dd>
-        <dt>Alt text</dt>
-        <dd>Per-image accessibility and SEO descriptions. Optional on Etsy.</dd>
-        <dt>Bullets (Amazon)</dt>
-        <dd>Visible selling points with character limits — not backend keywords.</dd>
-        <dt>Item specifics (eBay)</dt>
-        <dd>Category key-value pairs (Brand, Size, Material) — different from tag grids.</dd>
-        <dt>Hashtags (social)</dt>
-        <dd>Instagram/Pinterest discovery tags — not listing tags or materials.</dd>
-        <dt>Variants / SKU</dt>
-        <dd>Color, size, and inventory rows — grid paste targets (Printify mock).</dd>
+        {glossary.map((item) => (
+          <>
+            <dt>{item.term}</dt>
+            <dd>{item.def}</dd>
+          </>
+        ))}
       </dl>
     </section>
 
     <section class="surface-card panel">
-      <h2>Mock pages</h2>
+      <h2>Quick setup</h2>
+      <ol>
+        <li>Load extension from <code>extension/</code> in Chrome/Edge</li>
+        <li>Reload extension after code changes</li>
+        <li>Open any mock page — each has a green <strong>Test with PasteCraft Merchant</strong> checklist</li>
+      </ol>
+    </section>
+
+    <section class="surface-card panel">
+      <h2>Mock pages — fields &amp; strip actions</h2>
       <table class="mock-table">
         <thead>
           <tr>
-            <th>Platform</th>
+            <th>Page</th>
             <th>Preset</th>
-            <th>What to test</th>
+            <th>Fields to test</th>
+            <th>Strip actions to use</th>
           </tr>
         </thead>
         <tbody>
@@ -76,11 +153,19 @@ const mockPages = [
             <tr>
               <td><a href={page.href}>{page.label}</a></td>
               <td>{page.preset}</td>
-              <td>{page.tests}</td>
+              <td>{page.fields}</td>
+              <td>{page.stripActions}</td>
             </tr>
           ))}
         </tbody>
       </table>
+    </section>
+
+    <section class="surface-card panel">
+      <h2>Sample listing pack (Spot)</h2>
+      <pre class="listing-pack">tags: handmade mug, ceramic gift, coffee lover, this tag is way too long for etsy
+title: Optional title
+description: Optional description</pre>
     </section>
   </div>
 </BaseLayout>
@@ -88,7 +173,7 @@ const mockPages = [
 <style>
   .lab-page {
     padding: 2rem 0 4rem;
-    max-width: 820px;
+    max-width: 920px;
   }
 
   .eyebrow {
@@ -121,7 +206,14 @@ const mockPages = [
     color: var(--gold);
   }
 
-  .panel ol {
+  .panel-intro {
+    color: var(--text-soft);
+    margin: 0 0 0.75rem;
+    font-size: 0.92rem;
+  }
+
+  .panel ol,
+  .course-outline {
     margin: 0;
     padding-left: 1.25rem;
     color: var(--text-soft);
@@ -133,10 +225,30 @@ const mockPages = [
     color: var(--gold);
   }
 
+  .glossary {
+    margin: 0;
+    display: grid;
+    gap: 0.5rem 1rem;
+    grid-template-columns: auto 1fr;
+    font-size: 0.92rem;
+  }
+
+  .glossary dt {
+    font-weight: 600;
+    color: var(--gold);
+    margin: 0;
+  }
+
+  .glossary dd {
+    margin: 0;
+    color: var(--text-soft);
+    line-height: 1.55;
+  }
+
   .mock-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
   }
 
   .mock-table th,
@@ -162,25 +274,18 @@ const mockPages = [
     text-decoration: underline;
   }
 
-  .mock-table td:last-child {
+  .mock-table td:nth-child(n + 3) {
     color: var(--text-soft);
   }
 
-  .glossary {
+  .listing-pack {
     margin: 0;
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .glossary dt {
-    font-weight: 600;
-    color: var(--gold);
-    margin: 0;
-  }
-
-  .glossary dd {
-    margin: 0.15rem 0 0;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(251, 191, 36, 0.15);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    overflow: auto;
     color: var(--text-soft);
-    line-height: 1.6;
   }
 </style>

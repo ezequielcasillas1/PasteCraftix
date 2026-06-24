@@ -15,7 +15,7 @@
 
   <form class="lab-form" data-field="generic-form">
     <div class="edu-banner" role="note">
-      <strong>Course note:</strong> Use this page when your marketplace isn’t listed — configure a custom tag limit in Merchant Options and map fields manually.
+      <strong>Generic mock:</strong> Use this page when your marketplace isn’t listed — configure a custom tag limit in Merchant Options and map fields manually. Tests listing-pack parse, custom max tags, and any platform with scattered small inputs.
     </div>
 
     <p class="lab-meta">Preset: Generic — max 30 tags × 50 chars</p>
@@ -59,8 +59,23 @@
 
     <label>
       Notes (large field)
+      <p class="edu-hint">Stands in for title, description, or buyer instructions on other platforms — use <strong>Snippets</strong> to insert boilerplate here.</p>
       <textarea data-field="generic-notes" rows="4" placeholder="Large text area — title, description, or buyer instructions on other platforms"></textarea>
     </label>
+
+    <aside class="test-checklist" aria-labelledby="generic-test-heading">
+      <h2 id="generic-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip.</li>
+        <li><strong>Listing Dock</strong> → paste listing pack (<code>tags: a, b, c</code>) → Save → <strong>Pulse</strong> live.</li>
+        <li><strong>Spot</strong> → select text on page → stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus any small field → Ctrl+V pastes next staged value.</li>
+        <li>Dock <strong>Options</strong> → Custom preset → set max tags/count to match your platform.</li>
+        <li><strong>Snippets</strong> → focus Notes textarea → insert preset.</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — fill 30 slots.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → <strong>Pulse</strong> empty.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Submit (mock)</button>
   </form>

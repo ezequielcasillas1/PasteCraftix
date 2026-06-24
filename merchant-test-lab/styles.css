@@ -73,25 +73,6 @@ body {
   color: #92400e;
 }
 
-.glossary {
-  margin: 0;
-  display: grid;
-  gap: 10px;
-  font-size: 13px;
-}
-
-.glossary dt {
-  font-weight: 700;
-  color: #92400e;
-  margin: 0;
-}
-
-.glossary dd {
-  margin: 2px 0 0;
-  color: #6b7280;
-  line-height: 1.55;
-}
-
 .lab-form {
   max-width: 640px;
   margin: 0 auto;
@@ -291,4 +272,24 @@ fieldset > .edu-hint:first-of-type {
   background: rgba(255, 255, 255, 0.6);
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+.glossary-dl {
+  margin: 0;
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: auto 1fr;
+  font-size: 13px;
+}
+
+.glossary-dl dt {
+  font-weight: 600;
+  color: #92400e;
+  margin: 0;
+}
+
+.glossary-dl dd {
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.5;
 }

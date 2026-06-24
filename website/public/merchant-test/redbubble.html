@@ -50,8 +50,23 @@
 
     <label>
       Description
+      <p class="edu-hint">Optional design story — tags do the heavy lifting for Redbubble search. Not hashtags or materials.</p>
       <textarea data-field="redbubble-description" rows="4" placeholder="Optional design story — tags do the heavy lifting for search"></textarea>
     </label>
+
+    <aside class="test-checklist" aria-labelledby="redbubble-test-heading">
+      <h2 id="redbubble-test-heading">Test with PasteCraft Merchant</h2>
+      <ol>
+        <li>Reload extension; open this page — confirm <strong>Merchant</strong> strip.</li>
+        <li><strong>Listing Dock</strong> → stage 15 tags → Save → dock preview shows 39-char validation chips.</li>
+        <li><strong>Spot</strong> → select tag text → stages to dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus tag slot → Ctrl+V pastes next tag; over-39-char tags should warn in dock.</li>
+        <li>No materials section — skip Materials actions on this page.</li>
+        <li>Dock <strong>Copy tags</strong> / <strong>Paste next tag</strong> — fill all 15 slots.</li>
+        <li><strong>Seal &amp; Ship</strong> → confirm → <strong>Pulse</strong> empty.</li>
+        <li>Dock <strong>Options</strong> → Redbubble preset (15×39) → verify limits match page.</li>
+      </ol>
+    </aside>
 
     <button type="button" data-action="mock-save">Publish design (mock)</button>
   </form>
