@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WooCommerce Product Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="woocommerce">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>WooCommerce product editor (mock)</h1>
+    <p>Product tags + short description</p>
+  </header>
+
+  <form class="lab-form" data-field="woocommerce-product-form">
+    <p class="lab-meta">Preset: WooCommerce — practical 250 tags (10 slots shown)</p>
+
+    <label>
+      Product name
+      <input type="text" data-field="woocommerce-title" placeholder="Product name" />
+    </label>
+
+    <fieldset>
+      <legend>Product tags</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="woocommerce-tag-1" maxlength="255" placeholder="Tag 1" aria-label="Tag 1" />
+        <input type="text" data-field="woocommerce-tag-2" maxlength="255" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="woocommerce-tag-3" maxlength="255" placeholder="Tag 3" aria-label="Tag 3" />
+        <input type="text" data-field="woocommerce-tag-4" maxlength="255" placeholder="Tag 4" aria-label="Tag 4" />
+        <input type="text" data-field="woocommerce-tag-5" maxlength="255" placeholder="Tag 5" aria-label="Tag 5" />
+        <input type="text" data-field="woocommerce-tag-6" maxlength="255" placeholder="Tag 6" aria-label="Tag 6" />
+        <input type="text" data-field="woocommerce-tag-7" maxlength="255" placeholder="Tag 7" aria-label="Tag 7" />
+        <input type="text" data-field="woocommerce-tag-8" maxlength="255" placeholder="Tag 8" aria-label="Tag 8" />
+        <input type="text" data-field="woocommerce-tag-9" maxlength="255" placeholder="Tag 9" aria-label="Tag 9" />
+        <input type="text" data-field="woocommerce-tag-10" maxlength="255" placeholder="Tag 10" aria-label="Tag 10" />
+      </div>
+    </fieldset>
+
+    <label>
+      Short description
+      <textarea data-field="woocommerce-short-desc" rows="3" placeholder="Product excerpt"></textarea>
+    </label>
+
+    <button type="button" data-action="mock-save">Update product (mock)</button>
+  </form>
+</body>
+</html>

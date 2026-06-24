@@ -56,6 +56,16 @@
   to = "/reset-password.html"
   status = 200
 
+[[redirects]]
+  from = "/merchant-test"
+  to = "/merchant-test.html"
+  status = 200
+
+[[redirects]]
+  from = "/merchant-test/"
+  to = "/merchant-test.html"
+  status = 200
+
 
 
 

@@ -28,6 +28,11 @@ function buildLayoutStyleText() {
   return `
     html.${MERCHANT_LAYOUT_HTML_CLASS} {
       scroll-padding-top: var(--pc-merchant-strip-height, ${h}px);
+      box-sizing: border-box;
+    }
+
+    html.${MERCHANT_LAYOUT_HTML_CLASS} body {
+      box-sizing: border-box;
     }
 
     [data-field="${STRIP_HOST_FIELD}"] {

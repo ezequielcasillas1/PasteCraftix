@@ -1,3 +1,23 @@
+### Jun 24, 2026 - Merchant Test Lab website (all platform mocks)
+**Status:** PENDING USER TEST
+**Files:** website/public/merchant-test/*, website/src/pages/merchant-test/index.astro, website/src/data/site.js, netlify.toml, merchant-test-lab/*, merchant-test-lab/README.md, docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md
+**Result:** Full mock matrix (Etsy, Printify, Shopify, Amazon, eBay, Redbubble, TeePublic, WooCommerce, generic, social promo) with individual tag inputs + data-field hooks; live at pastecraft.com/merchant-test via Astro hub + footer nav; local static serve via merchant-test-lab/.
+
+### Jun 24, 2026 - Merchant Phase 5 snippets, Seal & Ship, dock materials
+**Status:** PENDING USER TEST
+**Files:** merchant.materials.js, merchant.snippets.js, merchant.seal-ship.js, merchant.constants.js, merchant.listing-dock.js, merchant.top-strip.js, merchant.events.js, merchant.controller.js, merchant.styles.js, merchant-test-lab/etsy.html
+**Result:** Snippets dropdown (default library in `pc_merchant_prefs_v1`) inserts into focused field; Seal & Ship shadow-DOM confirm purges staging + Pulse empty; materials dock-only (Copy materials one-shot) — strip materials queue removed as redundant.
+
+### Jun 24, 2026 - Merchant Phase 4 complete (tag queue + presets)
+**Status:** PENDING USER TEST
+**Files:** merchant.tag-queue.js, merchant.listing-dock.js, merchant.top-strip.js, merchant.events.js, merchant.controller.js, merchant.constants.js, merchant.dock-styles.js
+**Result:** Tag Queue strip toggle with paste-next on tag field focus; dock Copy tags / Paste next tag; platform presets in Options popover (`pc_merchant_prefs_v1`); queueAutoAdvance pref; Options popover row alignment fix.
+
+### Jun 24, 2026 - Merchant innovation tier plan locked (docs)
+**Status:** DOC ONLY
+**Files:** docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md, instructions/request.md (#58), implementations.md
+**Result:** Locked big three (tags + materials + snippets), alt text Phase 9+ deprioritized, tier 1–3 summary, merchant-worthy criteria; #58 status Phases 1–3 on main → Phase 4 verify → 5–7. No code.
+
 ### Jun 23, 2026 - Merchant Listing Dock tag-limit presets scroll + providers
 **Status:** PENDING USER TEST
 **Files:** merchant.constants.js, merchant.listing-dock.js, merchant.dock-styles.js
@@ -481,6 +501,6 @@
 **Result:** Replaced saved-search modal with popup module: clip preview, read-only highlight input, editable question input, Search Google on active tab. Removed CRUD, site: templates, and pc_custom_searches storage. User verified SUCCESS.
 
 ### Jun 23, 2026 - Listing Dock tag limit Options
-**Status:** SUCCESS (UI alignment PARTIAL � see PartialLog)
+**Status:** SUCCESS (UI alignment PARTIAL � see PartialLog)
 **Files:** merchant.constants.js, merchant.tag-queue.js, merchant.listing-dock.js, merchant.dock-styles.js
 **Result:** Options button beside Tags label opens preset popover (Etsy 13, Shopify 250, Printify 20, Custom). Selection persists; hint, validation, smart paste, and tag queue respect chosen max. Etsy Options row alignment bug pending fix.

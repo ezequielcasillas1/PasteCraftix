@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Amazon Listing Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="amazon">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>Amazon product listing (mock)</h1>
+    <p>Bullet points + backend search term slots</p>
+  </header>
+
+  <form class="lab-form" data-field="amazon-listing-form">
+    <p class="lab-meta">Preset: Amazon — ~30 backend terms × 50 chars; 5 bullet points</p>
+
+    <label>
+      Product title
+      <input type="text" data-field="amazon-title" maxlength="200" placeholder="Product title" />
+    </label>
+
+    <fieldset>
+      <legend>Bullet points (key features)</legend>
+      <div class="materials-grid">
+        <input type="text" data-field="amazon-bullet-1" maxlength="500" placeholder="Bullet point 1" aria-label="Bullet 1" />
+        <input type="text" data-field="amazon-bullet-2" maxlength="500" placeholder="Bullet point 2" aria-label="Bullet 2" />
+        <input type="text" data-field="amazon-bullet-3" maxlength="500" placeholder="Bullet point 3" aria-label="Bullet 3" />
+        <input type="text" data-field="amazon-bullet-4" maxlength="500" placeholder="Bullet point 4" aria-label="Bullet 4" />
+        <input type="text" data-field="amazon-bullet-5" maxlength="500" placeholder="Bullet point 5" aria-label="Bullet 5" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Backend search terms (individual keyword slots)</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="amazon-keyword-1" maxlength="50" placeholder="Keyword 1" aria-label="Keyword 1" />
+        <input type="text" data-field="amazon-keyword-2" maxlength="50" placeholder="Keyword 2" aria-label="Keyword 2" />
+        <input type="text" data-field="amazon-keyword-3" maxlength="50" placeholder="Keyword 3" aria-label="Keyword 3" />
+        <input type="text" data-field="amazon-keyword-4" maxlength="50" placeholder="Keyword 4" aria-label="Keyword 4" />
+        <input type="text" data-field="amazon-keyword-5" maxlength="50" placeholder="Keyword 5" aria-label="Keyword 5" />
+        <input type="text" data-field="amazon-keyword-6" maxlength="50" placeholder="Keyword 6" aria-label="Keyword 6" />
+        <input type="text" data-field="amazon-keyword-7" maxlength="50" placeholder="Keyword 7" aria-label="Keyword 7" />
+        <input type="text" data-field="amazon-keyword-8" maxlength="50" placeholder="Keyword 8" aria-label="Keyword 8" />
+        <input type="text" data-field="amazon-keyword-9" maxlength="50" placeholder="Keyword 9" aria-label="Keyword 9" />
+        <input type="text" data-field="amazon-keyword-10" maxlength="50" placeholder="Keyword 10" aria-label="Keyword 10" />
+      </div>
+    </fieldset>
+
+    <button type="button" data-action="mock-save">Save listing (mock)</button>
+  </form>
+</body>
+</html>

@@ -39,6 +39,13 @@ import {
   updateMerchantPrefs,
 } from './merchant.tag-queue.js';
 
+import {
+  copyAllStagedMaterials,
+  normalizeMaterialsInputString,
+} from './merchant.materials.js';
+
+import { runSealAndShip } from './merchant.seal-ship.js';
+
 
 
 function buildTagLimitOptionsMarkup() {
@@ -175,6 +182,18 @@ function buildDockMarkup() {
 
       </div>
 
+      <label class="pc-merchant-dock-field pc-merchant-dock-field-secondary">
+
+        <span class="pc-merchant-dock-field-label-text">
+
+          Materials <em class="pc-merchant-dock-hint">comma-separated · up to 13</em>
+
+        </span>
+
+        <input type="text" data-field="dock-materials" autocomplete="off" maxlength="500" placeholder="cotton, linen, waxed thread" />
+
+      </label>
+
       <details class="pc-merchant-dock-advanced" data-field="dock-advanced">
 
         <summary>Advanced — title &amp; description</summary>
@@ -219,6 +238,12 @@ function buildDockMarkup() {
 
         </button>
 
+        <button type="button" class="pc-merchant-dock-btn" data-action="${MERCHANT_ACTIONS.DOCK_COPY_MATERIALS}">
+
+          Copy materials
+
+        </button>
+
         <button type="button" class="pc-merchant-dock-btn" data-action="${MERCHANT_ACTIONS.DOCK_CLIPBOARD}">
 
           From clipboard
@@ -231,7 +256,7 @@ function buildDockMarkup() {
 
         </button>
 
-        <button type="button" class="pc-merchant-dock-btn pc-merchant-dock-btn-muted" data-action="${MERCHANT_ACTIONS.SEAL_SHIP}" disabled title="Seal &amp; Ship ships in Phase 5">
+        <button type="button" class="pc-merchant-dock-btn pc-merchant-dock-btn-seal" data-action="${MERCHANT_ACTIONS.SEAL_SHIP}" title="Confirm and purge ephemeral staging">
 
           Seal &amp; Ship
 
@@ -450,6 +475,48 @@ export class MerchantListingDock {
 
     });
 
+    const materialsEl = this.panelEl.querySelector('[data-field="dock-materials"]');
+
+    materialsEl?.addEventListener('paste', (event) => {
+
+      const raw = event.clipboardData?.getData('text/plain');
+
+      if (!raw?.trim()) return;
+
+      event.preventDefault();
+
+      const normalized = normalizeMaterialsInputString(raw);
+
+      const start = materialsEl.selectionStart ?? 0;
+
+      const end = materialsEl.selectionEnd ?? 0;
+
+      const before = materialsEl.value.slice(0, start).replace(/,\s*$/, '');
+
+      const after = materialsEl.value.slice(end).replace(/^\s*,\s*/, '');
+
+      let next = normalized;
+
+      if (before && after) {
+
+        next = `${before}, ${normalized}, ${after}`;
+
+      } else if (before) {
+
+        next = `${before}, ${normalized}`;
+
+      } else if (after) {
+
+        next = `${normalized}, ${after}`;
+
+      }
+
+      materialsEl.value = next;
+
+    });
+
+
+
     tagsEl?.addEventListener('paste', (event) => {
 
       const raw = event.clipboardData?.getData('text/plain');
@@ -586,6 +653,14 @@ export class MerchantListingDock {
 
       }
 
+      if (action === MERCHANT_ACTIONS.DOCK_COPY_MATERIALS) {
+
+        this.handleCopyMaterials().catch(() => {});
+
+        return;
+
+      }
+
       if (action === MERCHANT_ACTIONS.DOCK_CLEAR) {
 
         this.handleClear().catch(() => {});
@@ -621,6 +696,14 @@ export class MerchantListingDock {
       if (action === MERCHANT_ACTIONS.DOCK_TAG_LIMIT_APPLY) {
 
         this.applyTagLimitSelection({ closePanel: true }).catch(() => {});
+
+        return;
+
+      }
+
+      if (action === MERCHANT_ACTIONS.SEAL_SHIP) {
+
+        this.handleSealShip().catch(() => {});
 
       }
 
@@ -993,6 +1076,41 @@ export class MerchantListingDock {
 
 
 
+  async handleCopyMaterials() {
+
+    const result = await copyAllStagedMaterials();
+
+    this.showDockToast(result.message || (result.ok ? 'Materials copied.' : 'Copy failed.'));
+
+    return result;
+
+  }
+
+
+
+  async handleSealShip() {
+
+    const result = await runSealAndShip({
+      stripEl: this.stripEl,
+      root: window.__pasteCraftMerchant?.strip?.root || null,
+    });
+
+    if (result.ok) {
+
+      this.setFieldValues({});
+
+      this.close();
+
+    }
+
+    this.showDockToast(result.message || (result.ok ? 'Staging purged.' : 'Seal & Ship failed.'));
+
+    return result;
+
+  }
+
+
+
   getFieldValues() {
 
     return {
@@ -1002,6 +1120,8 @@ export class MerchantListingDock {
       description: this.panelEl?.querySelector('[data-field="dock-description"]')?.value || '',
 
       tags: this.panelEl?.querySelector('[data-field="dock-tags"]')?.value || '',
+
+      materials: this.panelEl?.querySelector('[data-field="dock-materials"]')?.value || '',
 
     };
 
@@ -1017,6 +1137,8 @@ export class MerchantListingDock {
 
     const tagsEl = this.panelEl?.querySelector('[data-field="dock-tags"]');
 
+    const materialsEl = this.panelEl?.querySelector('[data-field="dock-materials"]');
+
     const metaEl = this.panelEl?.querySelector('[data-field="pc-merchant-dock-meta"]');
 
     const advancedEl = this.panelEl?.querySelector('[data-field="dock-advanced"]');
@@ -1024,6 +1146,8 @@ export class MerchantListingDock {
     if (titleEl) titleEl.value = payload.title || '';
 
     if (descEl) descEl.value = payload.description || '';
+
+    if (materialsEl) materialsEl.value = payload.materials || '';
 
     if (tagsEl) {
 

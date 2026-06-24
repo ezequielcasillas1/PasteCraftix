@@ -3,6 +3,7 @@ import {
   MERCHANT_DOCK_DEFAULT_TTL_MS,
   MERCHANT_STORAGE_KEYS,
 } from './merchant.constants.js';
+import { normalizeMaterialsForSave } from './merchant.materials.js';
 import { normalizeTagsForSave, normalizeTagsInputString } from './merchant.tags.js';
 
 const DOCK_KEY = MERCHANT_STORAGE_KEYS.DOCK_STAGING;
@@ -27,6 +28,7 @@ export function normalizeDockPayload(input = {}, source = 'manual', profile = nu
   const title = sanitizeField(input.title, 500);
   const description = sanitizeField(input.description, 5000);
   const { tags, validation } = normalizeTagsForSave(input.tags || '', profile);
+  const { materials, validation: materialsValidation } = normalizeMaterialsForSave(input.materials || '');
   const allowedSources = new Set(['manual', 'clipboard', 'selection', 'spot', 'clip']);
   const safeSource = allowedSources.has(source) ? source : 'manual';
 
@@ -34,11 +36,18 @@ export function normalizeDockPayload(input = {}, source = 'manual', profile = nu
     title,
     description,
     tags,
+    materials,
     tag_validation: {
       count: validation.count,
       maxTags: validation.maxTags,
       warnings: validation.warnings,
       hasErrors: validation.hasErrors,
+    },
+    materials_validation: {
+      count: materialsValidation.count,
+      maxItems: materialsValidation.maxItems,
+      warnings: materialsValidation.warnings,
+      hasErrors: materialsValidation.hasErrors,
     },
     source: safeSource,
     updated_at: nowIso(),
@@ -53,7 +62,7 @@ export function isDockPayloadExpired(payload) {
 
 export function isDockPayloadEmpty(payload) {
   if (!payload) return true;
-  return !payload.title && !payload.description && !payload.tags;
+  return !payload.title && !payload.description && !payload.tags && !payload.materials;
 }
 
 /** Future Supabase row shape — local-only in Phase 2. */
@@ -64,6 +73,7 @@ export function toSupabaseStagingRow(dockPayload, userId = null) {
     title: dockPayload.title || '',
     description: dockPayload.description || '',
     tags: dockPayload.tags || '',
+    materials: dockPayload.materials || '',
     source: dockPayload.source || 'manual',
     updated_at: dockPayload.updated_at,
     expires_at: dockPayload.expires_at,
@@ -90,7 +100,7 @@ export async function readListingDock() {
 export async function saveListingDock(input, source = 'manual', profile = null) {
   const payload = normalizeDockPayload(input, source, profile);
   if (isDockPayloadEmpty(payload)) {
-    return { ok: false, error: 'At least one field (title, description, or tags) is required.' };
+    return { ok: false, error: 'At least one field (title, description, tags, or materials) is required.' };
   }
 
   try {

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Social Promo Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="social">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>Social promo pack (mock)</h1>
+    <p>Pinterest / Instagram hashtags, caption, link line</p>
+  </header>
+
+  <form class="lab-form" data-field="social-promo-form">
+    <p class="lab-meta">Social promo export target — Phase 8</p>
+
+    <label>
+      Post caption
+      <textarea data-field="social-caption" rows="4" placeholder="Main caption text"></textarea>
+    </label>
+
+    <label>
+      Link / CTA line
+      <input type="text" data-field="social-link-line" placeholder="Shop link or call to action" />
+    </label>
+
+    <fieldset>
+      <legend>Hashtags (individual slots)</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="social-hashtag-1" maxlength="100" placeholder="#hashtag1" aria-label="Hashtag 1" />
+        <input type="text" data-field="social-hashtag-2" maxlength="100" placeholder="#hashtag2" aria-label="Hashtag 2" />
+        <input type="text" data-field="social-hashtag-3" maxlength="100" placeholder="#hashtag3" aria-label="Hashtag 3" />
+        <input type="text" data-field="social-hashtag-4" maxlength="100" placeholder="#hashtag4" aria-label="Hashtag 4" />
+        <input type="text" data-field="social-hashtag-5" maxlength="100" placeholder="#hashtag5" aria-label="Hashtag 5" />
+        <input type="text" data-field="social-hashtag-6" maxlength="100" placeholder="#hashtag6" aria-label="Hashtag 6" />
+        <input type="text" data-field="social-hashtag-7" maxlength="100" placeholder="#hashtag7" aria-label="Hashtag 7" />
+        <input type="text" data-field="social-hashtag-8" maxlength="100" placeholder="#hashtag8" aria-label="Hashtag 8" />
+        <input type="text" data-field="social-hashtag-9" maxlength="100" placeholder="#hashtag9" aria-label="Hashtag 9" />
+        <input type="text" data-field="social-hashtag-10" maxlength="100" placeholder="#hashtag10" aria-label="Hashtag 10" />
+        <input type="text" data-field="social-hashtag-11" maxlength="100" placeholder="#hashtag11" aria-label="Hashtag 11" />
+        <input type="text" data-field="social-hashtag-12" maxlength="100" placeholder="#hashtag12" aria-label="Hashtag 12" />
+        <input type="text" data-field="social-hashtag-13" maxlength="100" placeholder="#hashtag13" aria-label="Hashtag 13" />
+        <input type="text" data-field="social-hashtag-14" maxlength="100" placeholder="#hashtag14" aria-label="Hashtag 14" />
+        <input type="text" data-field="social-hashtag-15" maxlength="100" placeholder="#hashtag15" aria-label="Hashtag 15" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pinterest-specific (stub)</legend>
+      <label>
+        Pin title
+        <input type="text" data-field="pinterest-pin-title" maxlength="100" placeholder="Pin title" />
+      </label>
+      <label>
+        Pin description
+        <textarea data-field="pinterest-pin-desc" rows="3" placeholder="Pin description"></textarea>
+      </label>
+    </fieldset>
+
+    <button type="button" data-action="mock-save">Save promo (mock)</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Printify Product Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="printify">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>Printify product stub</h1>
+    <p>20 keyword slots × 40 chars, variant option rows</p>
+  </header>
+
+  <form class="lab-form" data-field="printify-product-form">
+    <p class="lab-meta">Preset: Printify — max 20 tags × 40 chars</p>
+
+    <label>
+      Product title
+      <input type="text" data-field="printify-title" placeholder="Product title" />
+    </label>
+
+    <fieldset>
+      <legend>Tags / keywords (individual inputs)</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="printify-tag-1" maxlength="40" placeholder="Keyword 1" aria-label="Keyword 1" />
+        <input type="text" data-field="printify-tag-2" maxlength="40" placeholder="Keyword 2" aria-label="Keyword 2" />
+        <input type="text" data-field="printify-tag-3" maxlength="40" placeholder="Keyword 3" aria-label="Keyword 3" />
+        <input type="text" data-field="printify-tag-4" maxlength="40" placeholder="Keyword 4" aria-label="Keyword 4" />
+        <input type="text" data-field="printify-tag-5" maxlength="40" placeholder="Keyword 5" aria-label="Keyword 5" />
+        <input type="text" data-field="printify-tag-6" maxlength="40" placeholder="Keyword 6" aria-label="Keyword 6" />
+        <input type="text" data-field="printify-tag-7" maxlength="40" placeholder="Keyword 7" aria-label="Keyword 7" />
+        <input type="text" data-field="printify-tag-8" maxlength="40" placeholder="Keyword 8" aria-label="Keyword 8" />
+        <input type="text" data-field="printify-tag-9" maxlength="40" placeholder="Keyword 9" aria-label="Keyword 9" />
+        <input type="text" data-field="printify-tag-10" maxlength="40" placeholder="Keyword 10" aria-label="Keyword 10" />
+        <input type="text" data-field="printify-tag-11" maxlength="40" placeholder="Keyword 11" aria-label="Keyword 11" />
+        <input type="text" data-field="printify-tag-12" maxlength="40" placeholder="Keyword 12" aria-label="Keyword 12" />
+        <input type="text" data-field="printify-tag-13" maxlength="40" placeholder="Keyword 13" aria-label="Keyword 13" />
+        <input type="text" data-field="printify-tag-14" maxlength="40" placeholder="Keyword 14" aria-label="Keyword 14" />
+        <input type="text" data-field="printify-tag-15" maxlength="40" placeholder="Keyword 15" aria-label="Keyword 15" />
+        <input type="text" data-field="printify-tag-16" maxlength="40" placeholder="Keyword 16" aria-label="Keyword 16" />
+        <input type="text" data-field="printify-tag-17" maxlength="40" placeholder="Keyword 17" aria-label="Keyword 17" />
+        <input type="text" data-field="printify-tag-18" maxlength="40" placeholder="Keyword 18" aria-label="Keyword 18" />
+        <input type="text" data-field="printify-tag-19" maxlength="40" placeholder="Keyword 19" aria-label="Keyword 19" />
+        <input type="text" data-field="printify-tag-20" maxlength="40" placeholder="Keyword 20" aria-label="Keyword 20" />
+      </div>
+    </fieldset>
+
+    <label>
+      SEO description
+      <textarea data-field="printify-seo-desc" rows="4" placeholder="Short SEO text"></textarea>
+    </label>
+
+    <fieldset>
+      <legend>Variant options (stub grid)</legend>
+      <div class="variant-grid">
+        <input type="text" data-field="printify-variant-color-1" placeholder="Color option row 1" aria-label="Variant color 1" />
+        <input type="text" data-field="printify-variant-size-1" placeholder="Size option row 1" aria-label="Variant size 1" />
+        <input type="text" data-field="printify-variant-color-2" placeholder="Color option row 2" aria-label="Variant color 2" />
+        <input type="text" data-field="printify-variant-size-2" placeholder="Size option row 2" aria-label="Variant size 2" />
+        <input type="text" data-field="printify-variant-sku-1" placeholder="SKU row 1" aria-label="Variant SKU 1" />
+        <input type="text" data-field="printify-variant-sku-2" placeholder="SKU row 2" aria-label="Variant SKU 2" />
+      </div>
+    </fieldset>
+
+    <button type="button" data-action="mock-save">Save product (mock)</button>
+  </form>
+</body>
+</html>

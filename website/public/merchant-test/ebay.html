@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>eBay Listing Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="ebay">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>eBay listing editor (mock)</h1>
+    <p>Item specifics as key-value pairs</p>
+  </header>
+
+  <form class="lab-form" data-field="ebay-listing-form">
+    <p class="lab-meta">Preset: eBay — ~12 item specifics × 65 char values</p>
+
+    <label>
+      Item title
+      <input type="text" data-field="ebay-title" maxlength="80" placeholder="Listing title" />
+    </label>
+
+    <fieldset>
+      <legend>Item specifics (name → value)</legend>
+      <div class="kv-grid">
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-1" placeholder="Specific name 1" aria-label="Specific name 1" />
+          <input type="text" data-field="ebay-specific-value-1" maxlength="65" placeholder="Value 1" aria-label="Specific value 1" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-2" placeholder="Specific name 2" aria-label="Specific name 2" />
+          <input type="text" data-field="ebay-specific-value-2" maxlength="65" placeholder="Value 2" aria-label="Specific value 2" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-3" placeholder="Specific name 3" aria-label="Specific name 3" />
+          <input type="text" data-field="ebay-specific-value-3" maxlength="65" placeholder="Value 3" aria-label="Specific value 3" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-4" placeholder="Specific name 4" aria-label="Specific name 4" />
+          <input type="text" data-field="ebay-specific-value-4" maxlength="65" placeholder="Value 4" aria-label="Specific value 4" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-5" placeholder="Specific name 5" aria-label="Specific name 5" />
+          <input type="text" data-field="ebay-specific-value-5" maxlength="65" placeholder="Value 5" aria-label="Specific value 5" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-6" placeholder="Specific name 6" aria-label="Specific name 6" />
+          <input type="text" data-field="ebay-specific-value-6" maxlength="65" placeholder="Value 6" aria-label="Specific value 6" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-7" placeholder="Specific name 7" aria-label="Specific name 7" />
+          <input type="text" data-field="ebay-specific-value-7" maxlength="65" placeholder="Value 7" aria-label="Specific value 7" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-8" placeholder="Specific name 8" aria-label="Specific name 8" />
+          <input type="text" data-field="ebay-specific-value-8" maxlength="65" placeholder="Value 8" aria-label="Specific value 8" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-9" placeholder="Specific name 9" aria-label="Specific name 9" />
+          <input type="text" data-field="ebay-specific-value-9" maxlength="65" placeholder="Value 9" aria-label="Specific value 9" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-10" placeholder="Specific name 10" aria-label="Specific name 10" />
+          <input type="text" data-field="ebay-specific-value-10" maxlength="65" placeholder="Value 10" aria-label="Specific value 10" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-11" placeholder="Specific name 11" aria-label="Specific name 11" />
+          <input type="text" data-field="ebay-specific-value-11" maxlength="65" placeholder="Value 11" aria-label="Specific value 11" />
+        </div>
+        <div class="kv-row">
+          <input type="text" data-field="ebay-specific-name-12" placeholder="Specific name 12" aria-label="Specific name 12" />
+          <input type="text" data-field="ebay-specific-value-12" maxlength="65" placeholder="Value 12" aria-label="Specific value 12" />
+        </div>
+      </div>
+    </fieldset>
+
+    <button type="button" data-action="mock-save">Save listing (mock)</button>
+  </form>
+</body>
+</html>

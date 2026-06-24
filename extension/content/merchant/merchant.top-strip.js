@@ -73,6 +73,28 @@ function buildStripMarkup() {
           <span class="pc-merchant-btn-icon" aria-hidden="true">⎇</span>
           <span class="pc-merchant-btn-label">${MERCHANT_BRAND.TAG_QUEUE_LABEL}</span>
         </button>
+        <div class="pc-merchant-snippet-wrap" data-field="pc-merchant-snippet-wrap">
+          <button
+            type="button"
+            class="pc-merchant-btn"
+            data-action="${MERCHANT_ACTIONS.SNIPPETS_TOGGLE}"
+            aria-expanded="false"
+            title="Snippets — insert reusable seller boilerplate"
+          >
+            <span class="pc-merchant-btn-icon" aria-hidden="true">¶</span>
+            <span class="pc-merchant-btn-label">${MERCHANT_BRAND.SNIPPETS_LABEL}</span>
+          </button>
+          <div class="pc-merchant-snippet-menu" data-field="pc-merchant-snippet-menu" hidden></div>
+        </div>
+        <button
+          type="button"
+          class="pc-merchant-btn pc-merchant-btn-seal"
+          data-action="${MERCHANT_ACTIONS.SEAL_SHIP}"
+          title="Seal &amp; Ship — confirm and purge ephemeral staging"
+        >
+          <span class="pc-merchant-btn-icon" aria-hidden="true">✓</span>
+          <span class="pc-merchant-btn-label">${MERCHANT_BRAND.SEAL_SHIP_LABEL}</span>
+        </button>
       </div>
       <span class="pc-merchant-pulse-label" data-field="pc-merchant-pulse-label">No staging — dock empty</span>
       <span class="pc-merchant-hint" data-field="pc-merchant-hint">Spot idle</span>
@@ -129,4 +151,4 @@ export class MerchantTopStrip {
     return this._mounted;
   }
 }
-
+

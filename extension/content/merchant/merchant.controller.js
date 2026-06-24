@@ -2,6 +2,7 @@ import { MERCHANT_STORAGE_KEYS } from './merchant.constants.js';
 import { MerchantTopStrip } from './merchant.top-strip.js';
 import { MerchantListingDock } from './merchant.listing-dock.js';
 import { refreshMerchantPulse } from './merchant.pulse.js';
+import { initMerchantSnippets } from './merchant.snippets.js';
 import { initMerchantTagQueue, refreshTagQueueTags } from './merchant.tag-queue.js';
 
 async function isStripEnabled() {
@@ -65,6 +66,7 @@ export async function initMerchantLayer() {
     strip,
     dock,
     tagQueue: null,
+    snippets: null,
     isMounted() {
       return strip.isMounted();
     },
@@ -79,6 +81,11 @@ export async function initMerchantLayer() {
   window.__pasteCraftMerchant.tagQueue = await initMerchantTagQueue({
     stripEl: strip.stripEl,
     getToastRoot: () => strip.root,
+  });
+
+  window.__pasteCraftMerchant.snippets = await initMerchantSnippets({
+    stripEl: strip.stripEl,
+    root: strip.root,
   });
 
   return window.__pasteCraftMerchant;

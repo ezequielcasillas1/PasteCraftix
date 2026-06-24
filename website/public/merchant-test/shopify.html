@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopify Product Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="shopify">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>Shopify product editor (mock)</h1>
+    <p>Product tags + SEO meta fields</p>
+  </header>
+
+  <form class="lab-form" data-field="shopify-product-form">
+    <p class="lab-meta">Preset: Shopify — practical limit 250 tags × 255 chars (10 slots shown)</p>
+
+    <label>
+      Product title
+      <input type="text" data-field="shopify-title" placeholder="Product title" />
+    </label>
+
+    <fieldset>
+      <legend>Product tags</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="shopify-tag-1" maxlength="255" placeholder="Tag 1" aria-label="Tag 1" />
+        <input type="text" data-field="shopify-tag-2" maxlength="255" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="shopify-tag-3" maxlength="255" placeholder="Tag 3" aria-label="Tag 3" />
+        <input type="text" data-field="shopify-tag-4" maxlength="255" placeholder="Tag 4" aria-label="Tag 4" />
+        <input type="text" data-field="shopify-tag-5" maxlength="255" placeholder="Tag 5" aria-label="Tag 5" />
+        <input type="text" data-field="shopify-tag-6" maxlength="255" placeholder="Tag 6" aria-label="Tag 6" />
+        <input type="text" data-field="shopify-tag-7" maxlength="255" placeholder="Tag 7" aria-label="Tag 7" />
+        <input type="text" data-field="shopify-tag-8" maxlength="255" placeholder="Tag 8" aria-label="Tag 8" />
+        <input type="text" data-field="shopify-tag-9" maxlength="255" placeholder="Tag 9" aria-label="Tag 9" />
+        <input type="text" data-field="shopify-tag-10" maxlength="255" placeholder="Tag 10" aria-label="Tag 10" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Search engine listing (SEO)</legend>
+      <label>
+        SEO title
+        <input type="text" data-field="shopify-seo-title" maxlength="70" placeholder="Page title for search" />
+      </label>
+      <label>
+        SEO description
+        <textarea data-field="shopify-seo-description" rows="3" maxlength="320" placeholder="Meta description"></textarea>
+      </label>
+      <label>
+        URL handle
+        <input type="text" data-field="shopify-handle" placeholder="product-url-handle" />
+      </label>
+    </fieldset>
+
+    <button type="button" data-action="mock-save">Save product (mock)</button>
+  </form>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 ## 1. Vision & positioning
 
-PasteCraft Merchant is a **subscription-gated service layer** inside the single PasteCraft extension — not a separate app. Core promise: **paste the annoying small fields** (tags first, then tag-like metadata) for Etsy/POD/multi-channel sellers. Title and description stay optional (Advanced); tags-only is the default UI. Scholar (clips, AI Lab) and Merchant (Spot, top strip, listing dock) share auth and Supabase but gate independently. Delivery: **vertical slices** in `extension/content/merchant/`, phased rollout with **user test between phases**.
+PasteCraft Merchant is a **subscription-gated service layer** inside the single PasteCraft extension — not a separate app. Core promise: **paste the annoying small fields** (tags first, then materials, snippets) for Etsy/POD/multi-channel sellers. Title and description stay optional (Advanced); tags-only is the default UI forever. Scholar (clips, AI Lab) and Merchant (Spot, top strip, listing dock) share auth and Supabase but gate independently. Delivery: **vertical slices** in `extension/content/merchant/`, phased rollout with **user test between phases**.
 
 ---
 
@@ -37,9 +37,27 @@ PasteCraft Merchant is a **subscription-gated service layer** inside the single 
 
 **Locked product decisions**
 
-- Tags-first / tags-only **default** — title/description hidden under Advanced.
-- Alt text **not** core marketing lever — build only after tags + materials + snippets.
-- Core Merchant = **paste the annoying small fields**, not re-type title/description.
+- Positioning: **paste the annoying small fields** — tags first, then materials, snippets; NOT title/description.
+- Tags-first / tags-only **default** — title/description under Advanced; keep forever as default.
+- **Big three (core Merchant):** Tags + Materials + Snippets — NOT alt text as core.
+- **Core (must):** Tags, tag queue, Etsy 13×20 validation, platform presets (Etsy/Printify/generic).
+- **Next highest ROI:** Materials queue (same engine as tags); Snippet presets (personalization/compliance).
+- Alt text **deprioritized** — late “SEO pack” add-on only (Phase 9+ backlog); not core marketing lever.
+
+**Merchant-worthy criteria**
+
+- High paste pain (many small slots, strict limits, repetitive click-paste).
+- Clear Merchant demo moment (time saved vs generic clip tools).
+- Tag-like or queue-friendly field shape — not big-box title/description.
+- Fits tags-only default UI or strip/dock workflow.
+
+**Innovation tier summary**
+
+| Tier | Scope | Notes |
+|---|---|---|
+| **Tier 1 backlog** | Materials, alt text (deprioritized), personalization snippets, cross-channel packs, variant grid | Materials/snippets Phase 5; alt text Phase 9+; variant grid Phase C+ |
+| **Tier 2** | Item attributes, compliance, shop sections, social promo, duplicate-listing cleanup | After big three + adapters proven |
+| **Tier 3 skip** | Title/desc, price, category, shipping, photos, policies | Easy in Etsy UI; redundant for core story |
 
 ---
 
@@ -55,9 +73,9 @@ Fixed strip on `document.documentElement` (`merchant.mount.js`). Order left → 
 | **Listing Dock** | Toggle ephemeral panel | ✅ Live | Tags-only default layout |
 | **Spot** | Stage selection / listing pack | ✅ Live | Tag queue handoff |
 | **Image→Text** | Region OCR → dock | ✅ Stub | Full #21 pipeline |
-| **Tag Queue** | Paste-next-tag mode | Planned | Phase 4 |
-| **Snippets** | Preset library dropdown | Planned | Phase 5 |
-| **Seal & Ship** | Purge staging | Stub disabled | Phase 5 |
+| **Tag Queue** | Paste-next-tag mode | ✅ Built | Phase 4 |
+| **Snippets** | Preset library dropdown | ✅ Built | Phase 5 |
+| **Seal & Ship** | Purge staging | ✅ Live | Phase 5 |
 | Overflow `⋯` | Platform preset, Promo export, Advanced | Planned | Phase 4–8 |
 
 Strip height: `MERCHANT_STRIP_HEIGHT_PX` (38). Layout compensation: `merchant.layout.js` + `pc-merchant-strip-active` on `html`.
@@ -104,6 +122,7 @@ extension/content/merchant/          ← Merchant content slice (primary)
     etsy-tags.adapter.js
     etsy-materials.adapter.js
     printify-stub.adapter.js
+  merchant.materials.js              (Phase 5) validation + copy one-shot
   merchant.tag-queue.js              (Phase 4)
   merchant.snippets.js               (Phase 5)
   merchant.seal-ship.js              (Phase 5)
@@ -119,19 +138,16 @@ extension/shared/                    constants only — no cross-feature imports
 - Gating deferred until Phase 6 — `has_merchant` checked in controller before mount.
 - DOM adapters: isolated modules, registered by `platformPreset` + host URL match (Test Lab + real Etsy).
 
-### Test Lab slice (repo root)
+### Test Lab slice (repo root + website public)
 
 ```
-merchant-test-lab/                   ← standalone static mocks (NOT pastecraft.com)
-  index.html                         hub links
-  etsy-listing-editor.html           tag slots, materials, optional title/desc
-  printify-product-stub.html         keywords + variant-ish fields
-  generic-multi-field-form.html      generic tag-like inputs
-  social-promo-stub.html             hashtags + caption slots
-  README.md                          local open instructions
+merchant-test-lab/                   ← local static serve (mirrors public mocks)
+website/public/merchant-test/        ← deploy target (Netlify / pastecraft.com)
+website/src/pages/merchant-test/     ← Astro hub with site nav
+  index.astro                        hub + links to all mocks
+  etsy.html … social-promo.html      (in public/)
+  README.md                          local + production URLs
 ```
-
-Not included in `website/` Astro build → **not deployed to pastecraft.com** unless explicitly approved and linked.
 
 ### Shared constants (later)
 
@@ -145,9 +161,9 @@ Not included in `website/` Astro build → **not deployed to pastecraft.com** un
 |---|---|---|---|
 | **1** | Top strip; Spot + Image→Text entry (stubs OK) | Strip visible, no page break | ✅ Done |
 | **2** | Listing Dock + Pulse + ephemeral TTL staging | Stage text; Pulse shows live/expiring | ✅ Done / verify |
-| **3** | Tags-first dock UI; Etsy 13×20 validation, dedupe, preview; listing pack parse | Tags-only default; invalid tags flagged | Next |
-| **4** | Tag queue; batch copy/join; platform presets (Etsy/Printify/generic) | Paste-next on Test Lab Etsy page | Planned |
-| **5** | Materials queue; snippet presets; Seal & Ship purge | Materials + snippets on Test Lab | Planned |
+| **3** | Tags-first dock UI; Etsy 13×20 validation, dedupe, preview; listing pack parse | Tags-only default; invalid tags flagged | ✅ Done / verify |
+| **4** | Tag queue; batch copy/join; platform presets (Etsy/Printify/generic) | Paste-next on Test Lab Etsy page | ✅ Built — user test |
+| **5** | Dock materials (copy one-shot); snippet presets; Seal & Ship purge | Snippets + Seal on Test Lab | ✅ Built — user test |
 | **6** | Subscription gating; optional cloud staging sync | Strip hidden without Merchant tier | Planned |
 | **7** | DOM adapter — Etsy tags (Phase C) | Auto-fill Test Lab + real Etsy | Planned |
 | **8** | DOM adapters — materials; social promo export; duplicate-listing quick-load | Multi-page Test Lab matrix | Planned |
@@ -165,22 +181,30 @@ Crude mock shop forms for **manual QA** and **Phase C DOM adapter** development 
 
 ### Location
 
-**`merchant-test-lab/`** at repo root (sibling to `website/`, `extension/`).
+**Deploy target:** `website/public/merchant-test/` — copied to pastecraft.com on Netlify build.
 
-- **Not** part of `website/` Astro `dist` build.
-- **Not** linked from pastecraft.com nav until user explicitly approves (workspace rule).
-- Local: open `merchant-test-lab/index.html` in browser with extension loaded.
-- Optional later: separate Netlify site or `netlify.toml` redirect excluded from production — never mixed into main marketing routes.
+**Local dev:** `merchant-test-lab/` at repo root (mirrors public mocks + standalone `index.html` hub).
+
+- **Production hub:** https://pastecraft.com/merchant-test.html (Astro page + site nav/footer link)
+- **Mock pages:** https://pastecraft.com/merchant-test/etsy.html (etc.)
+- **Local Astro:** `cd website && npm run dev` → http://localhost:4321/merchant-test.html
+- **Local static:** `npx serve merchant-test-lab -p 5173`
 
 ### Mock pages (crude DOM, intentional)
 
 | Page | Mimics | Key fields for Merchant |
 |---|---|---|
-| `etsy-listing-editor.html` | Etsy listing edit | 13 tag inputs, materials multi-input, optional title/desc (collapsed), 10 alt text slots (Advanced) |
-| `printify-product-stub.html` | Printify product | Tags/keywords, short SEO fields, variant option rows |
-| `generic-multi-field-form.html` | Any marketplace | Configurable N small text inputs |
-| `social-promo-stub.html` | Pinterest/IG promo | Hashtag slots, caption, link line |
-| `index.html` | Hub | Links + “last tested” checklist |
+| `etsy.html` | Etsy listing edit | 13 tag inputs, materials, buyer instructions, optional title/desc + 10 alt text (Advanced) |
+| `printify.html` | Printify product | 20 individual keyword inputs, variant option/SKU rows |
+| `shopify.html` | Shopify product | 10 tag inputs, SEO title/description/handle |
+| `amazon.html` | Amazon listing | 5 bullet points, 10 backend keyword slots |
+| `ebay.html` | eBay listing | 12 item-specific key-value pairs |
+| `redbubble.html` | Redbubble design | 15 tags × 39 chars |
+| `teepublic.html` | TeePublic design | 32 tag slots |
+| `woocommerce.html` | WooCommerce product | 10 product tag inputs |
+| `generic.html` | Any marketplace | 30 configurable small inputs |
+| `social-promo.html` | Pinterest/IG promo | Hashtag slots, caption, link line, Pinterest stub |
+| `index.html` (merchant-test-lab only) | Static hub | Links + checklist (Astro hub replaces on site) |
 
 DOM should use **realistic input patterns** (individual `<input>` per tag, not one textarea) so adapters match production pain.
 
@@ -205,12 +229,12 @@ DOM should use **realistic input patterns** (individual `<input>` per tag, not o
 | Tag queue | Etsy mock | Tag Queue → click tag fields | Next tag pastes into correct input |
 | Batch copy | Any | Dock clipboard action | Delimiter-joined export matches preset |
 | Platform preset | Printify mock | Switch preset in prefs | Limits/labels match Printify rules |
-| Materials queue | Etsy mock | Materials tab → queue | Sequential paste into material inputs |
+| Materials copy | Etsy mock | Dock → Copy materials | Comma-joined materials on clipboard |
 | Snippets | Etsy mock | Snippets → insert | Boilerplate in buyer-instructions field |
 | Image→Text | Any image on page | Image→Text | OCR text lands in dock tags |
 | Seal & Ship | Any | Seal & Ship | Confirm → staging cleared; Pulse empty |
 | Etsy tag DOM adapter | Etsy mock → real Etsy | Queue + adapter | Fields filled without manual paste |
-| Materials adapter | Etsy mock | Materials queue + adapter | Material inputs populated |
+| Materials adapter | Etsy mock | Copy materials + adapter | Material inputs populated (Phase 7) |
 | Social promo pack | Social stub | Export promo from tags | Hashtags fit platform limits |
 | Gating | Any | Toggle `has_merchant` off | Strip not mounted |
 | TTL expiry | Any | Wait / shorten TTL in prefs | Staging auto-clears; Pulse expired |

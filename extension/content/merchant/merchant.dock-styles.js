@@ -165,15 +165,15 @@ export function getMerchantDockStyles() {
     }
 
     .pc-merchant-dock-tag-limit-option {
-      display: flex;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
       gap: 8px;
       margin-bottom: 6px;
+      padding: 4px 2px;
       font-size: 11px;
       font-weight: 500;
       color: #374151;
-      text-transform: none;
-      letter-spacing: 0;
       cursor: pointer;
     }
 
@@ -182,8 +182,18 @@ export function getMerchantDockStyles() {
     }
 
     .pc-merchant-dock-tag-limit-option input {
-      margin-top: 2px;
+      margin: 0;
       flex-shrink: 0;
+    }
+
+    .pc-merchant-dock-tag-limit-option span {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #374151;
+      text-transform: none;
+      letter-spacing: 0;
+      line-height: 1.35;
     }
 
     .pc-merchant-dock-tag-limit-custom-radio {
@@ -276,6 +286,13 @@ export function getMerchantDockStyles() {
     .pc-merchant-dock-field-primary span {
       font-size: 12px;
       color: #92400e;
+    }
+
+    .pc-merchant-dock-field-secondary span {
+      font-size: 11px;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
 
     .pc-merchant-dock-hint {
@@ -374,6 +391,18 @@ export function getMerchantDockStyles() {
 
     .pc-merchant-dock-btn-danger:hover {
       background: #fee2e2;
+    }
+
+    .pc-merchant-dock-btn-seal {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+      opacity: 1;
+      cursor: pointer;
+    }
+
+    .pc-merchant-dock-btn-seal:hover {
+      background: #dbeafe;
     }
 
     .pc-merchant-dock-btn-muted {

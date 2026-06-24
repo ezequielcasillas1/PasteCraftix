@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Etsy Listing Mock — Merchant Test Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-platform="etsy">
+  <header class="lab-header">
+    <p><a href="index.html">← Test Lab hub</a></p>
+    <h1>Etsy listing editor (mock)</h1>
+    <p>13×20 tags, materials, buyer instructions — Phase 5 snippets + Seal &amp; Ship testing</p>
+  </header>
+
+  <form class="lab-form" data-field="etsy-listing-form">
+    <p class="lab-meta">Preset: Etsy — max 13 tags × 20 chars</p>
+
+    <details class="lab-advanced">
+      <summary>Title &amp; description (Advanced / collapsed)</summary>
+      <label>
+        Title
+        <input type="text" data-field="listing-title" maxlength="140" placeholder="Listing title" />
+      </label>
+      <label>
+        Description
+        <textarea data-field="listing-description" rows="6" placeholder="Listing description"></textarea>
+      </label>
+    </details>
+
+    <fieldset>
+      <legend>Tags (13 slots × 20 chars)</legend>
+      <div class="tag-grid">
+        <input type="text" data-field="etsy-tag-1" maxlength="20" placeholder="Tag 1" aria-label="Tag 1" />
+        <input type="text" data-field="etsy-tag-2" maxlength="20" placeholder="Tag 2" aria-label="Tag 2" />
+        <input type="text" data-field="etsy-tag-3" maxlength="20" placeholder="Tag 3" aria-label="Tag 3" />
+        <input type="text" data-field="etsy-tag-4" maxlength="20" placeholder="Tag 4" aria-label="Tag 4" />
+        <input type="text" data-field="etsy-tag-5" maxlength="20" placeholder="Tag 5" aria-label="Tag 5" />
+        <input type="text" data-field="etsy-tag-6" maxlength="20" placeholder="Tag 6" aria-label="Tag 6" />
+        <input type="text" data-field="etsy-tag-7" maxlength="20" placeholder="Tag 7" aria-label="Tag 7" />
+        <input type="text" data-field="etsy-tag-8" maxlength="20" placeholder="Tag 8" aria-label="Tag 8" />
+        <input type="text" data-field="etsy-tag-9" maxlength="20" placeholder="Tag 9" aria-label="Tag 9" />
+        <input type="text" data-field="etsy-tag-10" maxlength="20" placeholder="Tag 10" aria-label="Tag 10" />
+        <input type="text" data-field="etsy-tag-11" maxlength="20" placeholder="Tag 11" aria-label="Tag 11" />
+        <input type="text" data-field="etsy-tag-12" maxlength="20" placeholder="Tag 12" aria-label="Tag 12" />
+        <input type="text" data-field="etsy-tag-13" maxlength="20" placeholder="Tag 13" aria-label="Tag 13" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Materials</legend>
+      <div class="materials-grid">
+        <input type="text" data-field="etsy-material-1" placeholder="Material 1" aria-label="Material 1" />
+        <input type="text" data-field="etsy-material-2" placeholder="Material 2" aria-label="Material 2" />
+        <input type="text" data-field="etsy-material-3" placeholder="Material 3" aria-label="Material 3" />
+        <input type="text" data-field="etsy-material-4" placeholder="Material 4" aria-label="Material 4" />
+        <input type="text" data-field="etsy-material-5" placeholder="Material 5" aria-label="Material 5" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Buyer instructions / personalization</legend>
+      <label>
+        Message to buyers
+        <textarea data-field="etsy-buyer-instructions" rows="4" placeholder="Add personalization or care notes for buyers" aria-label="Buyer instructions"></textarea>
+      </label>
+    </fieldset>
+
+    <details class="lab-advanced">
+      <summary>Image alt text (10 slots — optional SEO pack)</summary>
+      <div class="materials-grid">
+        <input type="text" data-field="etsy-alt-1" maxlength="250" placeholder="Alt text image 1" aria-label="Alt text 1" />
+        <input type="text" data-field="etsy-alt-2" maxlength="250" placeholder="Alt text image 2" aria-label="Alt text 2" />
+        <input type="text" data-field="etsy-alt-3" maxlength="250" placeholder="Alt text image 3" aria-label="Alt text 3" />
+        <input type="text" data-field="etsy-alt-4" maxlength="250" placeholder="Alt text image 4" aria-label="Alt text 4" />
+        <input type="text" data-field="etsy-alt-5" maxlength="250" placeholder="Alt text image 5" aria-label="Alt text 5" />
+        <input type="text" data-field="etsy-alt-6" maxlength="250" placeholder="Alt text image 6" aria-label="Alt text 6" />
+        <input type="text" data-field="etsy-alt-7" maxlength="250" placeholder="Alt text image 7" aria-label="Alt text 7" />
+        <input type="text" data-field="etsy-alt-8" maxlength="250" placeholder="Alt text image 8" aria-label="Alt text 8" />
+        <input type="text" data-field="etsy-alt-9" maxlength="250" placeholder="Alt text image 9" aria-label="Alt text 9" />
+        <input type="text" data-field="etsy-alt-10" maxlength="250" placeholder="Alt text image 10" aria-label="Alt text 10" />
+      </div>
+    </details>
+
+    <button type="button" data-action="mock-save">Save listing (mock)</button>
+  </form>
+</body>
+</html>

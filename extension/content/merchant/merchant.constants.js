@@ -62,17 +62,41 @@ export const MERCHANT_CUSTOM_TAG_LIMIT = Object.freeze({
   DEFAULT: 30,
 });
 
+export const MERCHANT_DEFAULT_SNIPPETS = Object.freeze([
+  Object.freeze({
+    id: 'personalization',
+    label: 'Personalization prompt',
+    text: 'Please leave your personalization details in the order notes at checkout.',
+  }),
+  Object.freeze({
+    id: 'care',
+    label: 'Care instructions',
+    text: 'Hand wash cold. Lay flat to dry. Do not bleach.',
+  }),
+  Object.freeze({
+    id: 'shipping',
+    label: 'Shipping note',
+    text: 'Ships within 1–3 business days via USPS.',
+  }),
+  Object.freeze({
+    id: 'compliance',
+    label: 'Color disclaimer',
+    text: 'Colors may vary slightly due to monitor settings.',
+  }),
+]);
+
 export const MERCHANT_DEFAULT_PREFS = Object.freeze({
   tagsOnlyMode: true,
   platformPreset: 'etsy',
   customMaxTags: MERCHANT_CUSTOM_TAG_LIMIT.DEFAULT,
   queueAutoAdvance: true,
+  snippetLibrary: [...MERCHANT_DEFAULT_SNIPPETS],
 });
 
 /** Future Supabase merchant_listing_staging table shape (Phase 2 prep only). */
 export const MERCHANT_SUPABASE_STAGING_SHAPE = Object.freeze({
   table: 'merchant_listing_staging',
-  fields: ['user_id', 'title', 'description', 'tags', 'source', 'updated_at', 'expires_at'],
+  fields: ['user_id', 'title', 'description', 'tags', 'materials', 'source', 'updated_at', 'expires_at'],
 });
 
 export const MERCHANT_PULSE_STATES = Object.freeze({
@@ -86,11 +110,14 @@ export const MERCHANT_ACTIONS = Object.freeze({
   SPOT: 'merchant-spot',
   IMAGE_TO_TEXT: 'merchant-image-to-text',
   TAG_QUEUE_TOGGLE: 'merchant-tag-queue-toggle',
+  SNIPPETS_TOGGLE: 'merchant-snippets-toggle',
+  SNIPPET_INSERT: 'merchant-snippet-insert',
   DOCK_TOGGLE: 'merchant-dock-toggle',
   DOCK_SAVE: 'merchant-dock-save',
   DOCK_CLIPBOARD: 'merchant-dock-clipboard',
   DOCK_COPY_TAGS: 'merchant-dock-copy-tags',
   DOCK_NEXT_TAG: 'merchant-dock-next-tag',
+  DOCK_COPY_MATERIALS: 'merchant-dock-copy-materials',
   DOCK_CLEAR: 'merchant-dock-clear',
   DOCK_CLOSE: 'merchant-dock-close',
   DOCK_ADVANCED_TOGGLE: 'merchant-dock-advanced-toggle',
@@ -98,6 +125,8 @@ export const MERCHANT_ACTIONS = Object.freeze({
   DOCK_TAG_LIMIT_APPLY: 'merchant-dock-tag-limit-apply',
   DOCK_TAG_LIMIT_CUSTOM_SELECT: 'merchant-dock-tag-limit-custom-select',
   SEAL_SHIP: 'merchant-seal-ship',
+  SEAL_CONFIRM: 'merchant-seal-confirm',
+  SEAL_CANCEL: 'merchant-seal-cancel',
 });
 
 export const MERCHANT_BRAND = Object.freeze({
@@ -105,5 +134,7 @@ export const MERCHANT_BRAND = Object.freeze({
   SPOT_LABEL: 'Spot',
   IMAGE_TO_TEXT_LABEL: 'Image → Text',
   TAG_QUEUE_LABEL: 'Tag Queue',
+  SNIPPETS_LABEL: 'Snippets',
+  SEAL_SHIP_LABEL: 'Seal & Ship',
   DOCK_LABEL: 'Listing Dock',
 });

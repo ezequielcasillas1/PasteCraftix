@@ -10,6 +10,7 @@ export const footerLinks = [
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/merchant-test.html', label: 'Merchant Test Lab' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
 ];

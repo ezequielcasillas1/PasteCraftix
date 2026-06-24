@@ -740,11 +740,14 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 #### 58. PasteCraft Merchant (Seller Service Layer)
 **Priority:** High  
-**Status:** In progress (Phases 1–2 on main; Phase 3 next)  
-**Depends on:** **#29** Spot, **#21** Image→Text top strip  
+**Status:** In progress (Phases 1–4 on main; Phase 5 built → user test; Phase 6–7 next)
+**Depends on:** **#29** Spot, **#21** Image→Text top strip
 **Roadmap doc:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md` — feature assessment, nav/prefs, phases 1–9+, Merchant Test Lab (`merchant-test-lab/` at repo root, not pastecraft.com)
-- Tags-first / tags-only default UI; title/description Advanced only
-- Core = paste annoying small fields (tags → materials → snippets); alt text deprioritized
+- Tags-first / tags-only default UI; title/description Advanced only — keep forever as default
+- **Big three (core Merchant):** tags + materials + snippets — NOT alt text as core
+- Core (must): tags, tag queue, Etsy 13×20 validation, platform presets (Etsy/Printify/generic)
+- Next ROI: dock materials copy (Phase 5); snippet presets (personalization/compliance); Seal & Ship purge
+- Alt text deprioritized — Phase 9+ “SEO pack” add-on only; not core marketing lever
 - Phased vertical slices in `extension/content/merchant/`; user test between phases
 - Separate Test Lab mock Etsy/Printify forms for QA + DOM adapters without marketplace accounts
 
