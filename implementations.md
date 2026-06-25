@@ -504,3 +504,8 @@
 **Status:** SUCCESS (UI alignment PARTIAL � see PartialLog)
 **Files:** merchant.constants.js, merchant.tag-queue.js, merchant.listing-dock.js, merchant.dock-styles.js
 **Result:** Options button beside Tags label opens preset popover (Etsy 13, Shopify 250, Printify 20, Custom). Selection persists; hint, validation, smart paste, and tag queue respect chosen max. Etsy Options row alignment bug pending fix.
+
+### Jun 25, 2026 - Merchant tag queue chip submit (Etsy paste+Enter)
+**Status:** SUCCESS
+**Files:** merchant.tag-submit.js, merchant.tag-queue.js
+**Result:** Chip-style tag inputs sync paste events; trusted Enter commits via native flow; _committing blocks recursion; queue advances on commit success via onCommitSuccess.

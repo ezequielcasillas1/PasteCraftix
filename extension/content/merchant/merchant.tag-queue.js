@@ -7,7 +7,9 @@ import {
   MERCHANT_TAG_LIMIT_PRESET_IDS,
 } from './merchant.constants.js';
 import { readListingDock } from './merchant.dock-storage.js';
+import { syncMerchantQueueHints } from './merchant.queue-hints.js';
 import { tagsToStorageString, validateTags } from './merchant.tags.js';
+import { createTagSubmitController, isLikelyTagInput } from './merchant.tag-submit.js';
 
 let _active = false;
 let _index = 0;
@@ -17,6 +19,26 @@ let _stripEl = null;
 let _getToastRoot = null;
 let _onFocusIn = null;
 let _bound = false;
+
+async function advanceTagQueueAfterCommit() {
+  if (!_active) {
+    return { ok: false };
+  }
+  const result = await pasteNextTag();
+  if (!result.ok) {
+  }
+  if (result.message) {
+    showToast(result.message);
+  }
+  syncTagQueueStripUi();
+  return result;
+}
+
+const _tagSubmit = createTagSubmitController({
+  isActive: () => _active,
+  isInsideMerchantHost,
+  onCommitSuccess: advanceTagQueueAfterCommit,
+});
 
 export function clampCustomMaxTags(value) {
   const parsed = parseInt(value, 10);
@@ -120,10 +142,18 @@ export async function copyTextToClipboard(text) {
 async function loadStagedTags() {
   const profile = getPlatformProfile(_prefs.platformPreset, _prefs);
   const payload = await readListingDock();
-  const raw = payload?.tags || '';
   const dock = window.__pasteCraftMerchant?.dock;
-  const liveRaw = dock?.getFieldValues?.()?.tags;
-  const source = (liveRaw || '').trim() ? liveRaw : raw;
+  const liveValues = dock?.getFieldValues?.() || {};
+  let source = (liveValues.tags || '').trim();
+  if (!source) {
+    source = (liveValues.keywords || '').trim();
+  }
+  if (!source) {
+    source = (payload?.tags || '').trim();
+  }
+  if (!source) {
+    source = (payload?.keywords || '').trim();
+  }
   const result = validateTags(source, profile);
   _tags = result.tags;
   if (_index > _tags.length) {
@@ -140,13 +170,14 @@ export function getTagQueueStatus() {
   const total = _tags.length;
   const at = total === 0 ? 0 : Math.min(_index + 1, total);
   const nextTag = _tags[_index] || null;
+  const done = total > 0 && _index >= total;
   return {
     active: _active,
     index: _index,
     total,
     at,
     nextTag,
-    done: total > 0 && _index >= total,
+    done,
     empty: total === 0,
   };
 }
@@ -172,47 +203,10 @@ function showToast(message) {
 export function syncTagQueueStripUi() {
   if (!_stripEl) return;
   const btn = _stripEl.querySelector(`[data-action="${MERCHANT_ACTIONS.TAG_QUEUE_TOGGLE}"]`);
-  const hint = _stripEl.querySelector('[data-field="pc-merchant-hint"]');
-  const status = getTagQueueStatus();
 
   btn?.setAttribute('aria-pressed', _active ? 'true' : 'false');
   btn?.classList.toggle('is-active', _active);
-
-  if (!_active) return;
-  if (status.empty) {
-    if (hint) hint.textContent = 'Tag queue — no tags staged';
-    return;
-  }
-  if (status.done) {
-    if (hint) hint.textContent = 'Tag queue complete';
-    return;
-  }
-  const label = status.nextTag
-    ? `Queue ${status.at}/${status.total}: ${status.nextTag}`
-    : `Queue ${status.at}/${status.total}`;
-  if (hint) hint.textContent = label;
-}
-
-function isLikelyTagInput(el) {
-  if (!el || el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return false;
-  if (el.type && !['text', 'search', ''].includes(el.type)) return false;
-  if (el.disabled || el.readOnly) return false;
-
-  const field = (el.getAttribute('data-field') || '').toLowerCase();
-  const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-  const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
-  const name = (el.getAttribute('name') || '').toLowerCase();
-  const id = (el.getAttribute('id') || '').toLowerCase();
-  const maxLen = el.maxLength > 0 ? el.maxLength : null;
-
-  if (field.includes('tag') || field.includes('keyword')) return true;
-  if (aria.includes('tag') || aria.includes('keyword')) return true;
-  if (placeholder.includes('tag') || placeholder.includes('keyword')) return true;
-  if (name.includes('tag') || name.includes('keyword')) return true;
-  if (id.includes('tag') || id.includes('keyword')) return true;
-  if (maxLen != null && maxLen <= 25) return true;
-
-  return false;
+  syncMerchantQueueHints(_stripEl);
 }
 
 function isInsideMerchantHost(el) {
@@ -230,7 +224,8 @@ function isInsideMerchantHost(el) {
 async function handleTagFieldFocus(event) {
   if (!_active) return;
   const target = event.target;
-  if (!isLikelyTagInput(target) || isInsideMerchantHost(target)) return;
+  if (isInsideMerchantHost(target)) return;
+  if (!isLikelyTagInput(target)) return;
 
   const result = await pasteNextTag();
   if (result.message) {
@@ -245,6 +240,7 @@ function bindPageListeners() {
     handleTagFieldFocus(event).catch(() => {});
   };
   document.addEventListener('focusin', _onFocusIn, true);
+  _tagSubmit.bind();
   _bound = true;
 }
 
@@ -252,6 +248,7 @@ function unbindPageListeners() {
   if (!_bound || !_onFocusIn) return;
   document.removeEventListener('focusin', _onFocusIn, true);
   _onFocusIn = null;
+  _tagSubmit.unbind();
   _bound = false;
 }
 
@@ -275,7 +272,7 @@ export async function activateTagQueue() {
   syncTagQueueStripUi();
   return {
     ok: true,
-    message: `Tag queue on — click a tag field (${_index + 1}/${_tags.length} next)`,
+    message: `Tag queue on — focus tag field · ${_index + 1}/${_tags.length} next`,
   };
 }
 
@@ -306,6 +303,7 @@ export async function pasteNextTag() {
   }
 
   const tag = _tags[_index];
+  const indexBefore = _index;
   const copyResult = await copyTextToClipboard(tag);
   if (!copyResult.ok) {
     return { ok: false, message: copyResult.error || 'Copy failed.' };

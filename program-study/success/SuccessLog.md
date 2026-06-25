@@ -249,3 +249,8 @@
 **Status:** SUCCESS
 **Files:** supabase/functions/ai-format/index.ts, extension/popup/features/ai-lab/ai-lab.magic.js, extension/popup.html, extension/popup.js, extension/popup/events/craft-toolbar.events.js, extension/popup/features/ai-lab/ai-lab.refactorization.js, extension/styles.css, tests/popup-events-smoke.test.mjs, instructions/request.md
 **Result:** Edge + client grammar guards reject AI filler/expansion; Craft Clips Beta badge shipped and magic undo UI removed; request.md #57 documents future grammar API. Branches fix/ai-format-grammar-guards @ fe4cd54, feat/craft-clips-formatted-beta @ 72db1a3, docs/grammar-api-craft-clips @ 5ec32ab merged to main @ 82c3585 and pushed.
+
+### Jun 25, 2026 - Merchant tag queue chip submit
+**Status:** SUCCESS
+**Files:** extension/content/merchant/merchant.tag-submit.js, extension/content/merchant/merchant.tag-queue.js
+**Result:** Etsy chip tag paste+Enter commit and queue auto-advance verified; debug probes removed before commit.
