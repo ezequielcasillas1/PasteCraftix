@@ -348,7 +348,7 @@ export function loadQuickViewIframeContent(widget, iframe) {
             // Simple toast notification
             const toast = document.createElement('div');
             toast.textContent = message;
-            const bgColor = isError ? '#ef4444' : '#10b981';
+            const bgColor = isError ? '#ef4444' : '#2563eb';
             toast.style.cssText = \`position:fixed;top:20px;left:50%;transform:translateX(-50%);background:\${bgColor};color:white;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideDown 0.3s ease\`;
             document.body.appendChild(toast);
             setTimeout(() => {
@@ -764,7 +764,7 @@ export async function populateMiniQuickViewBody(body) {
         const original = txt.textContent;
         const originalColor = card.style.borderColor;
         txt.textContent = '✓ Copied!';
-        card.style.borderColor = '#10b981';
+        card.style.borderColor = '#2563eb';
         setTimeout(() => {
           txt.textContent = original;
           card.style.borderColor = originalColor;

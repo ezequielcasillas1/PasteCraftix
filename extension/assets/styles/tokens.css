@@ -1,0 +1,63 @@
+/**
+ * PasteCraft Design Tokens — Phase 0
+ * Primary: dark premium navy | Secondary: rich sky-blue
+ * Neutrals: gray-white surfaces (unchanged)
+ */
+:root {
+  /* PRIMARY — dark premium blue */
+  --pc-primary-900: #080c2a;
+  --pc-primary-800: #0d1240;
+  --pc-primary-700: #1a1f5e;
+  --pc-primary-600: #1e3a8a;
+  --pc-primary-500: #1d4ed8;
+
+  /* SECONDARY — rich sky-blue */
+  --pc-secondary-500: #2563eb;
+  --pc-secondary-400: #3b82f6;
+  --pc-secondary-300: #60a5fa;
+  --pc-secondary-200: #93c5fd;
+  --pc-secondary-100: #dbeafe;
+  --pc-secondary-50: #eff6ff;
+
+  /* NEUTRALS — light extension surfaces */
+  --pc-bg: #ffffff;
+  --pc-surface: #f8fafc;
+  --pc-surface-2: #f1f5f9;
+  --pc-border: #e5e7eb;
+  --pc-text: #1f2937;
+  --pc-text-muted: #64748b;
+  --pc-text-soft: #94a3b8;
+
+  /* SEMANTIC (minimal — delete/error only) */
+  --pc-error: #ef4444;
+  --pc-error-dark: #dc2626;
+
+  /* LEGACY ALIASES — maps old var names used in popup inline CSS */
+  --primary: var(--pc-secondary-500);
+  --primary-hover: var(--pc-primary-500);
+  --secondary: var(--pc-text-muted);
+  --background: var(--pc-bg);
+  --surface: var(--pc-surface);
+  --border: var(--pc-border);
+  --text: var(--pc-text);
+  --text-muted: var(--pc-text-muted);
+  --success: var(--pc-secondary-500);
+  --warning: var(--pc-secondary-300);
+  --error: var(--pc-error);
+
+  /* GRADIENTS */
+  --pc-gradient-brand: linear-gradient(135deg, var(--pc-secondary-500) 0%, var(--pc-primary-700) 100%);
+  --pc-gradient-brand-soft: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
+  --pc-gradient-surface: linear-gradient(135deg, var(--pc-bg) 0%, var(--pc-surface) 100%);
+  --pc-gradient-header: linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-primary-700) 50%, var(--pc-secondary-500) 100%);
+
+  /* SHADOWS */
+  --pc-shadow-brand: 0 4px 14px rgba(37, 99, 235, 0.35);
+  --pc-shadow-brand-lg: 0 10px 24px rgba(26, 31, 94, 0.28);
+  --pc-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
+
+  /* RADIUS */
+  --pc-radius-sm: 8px;
+  --pc-radius-md: 12px;
+  --pc-radius-lg: 16px;
+}

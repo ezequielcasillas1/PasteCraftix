@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PasteCraft — Phase 0 Palette Preview</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; background: var(--pc-surface); color: var(--pc-text); padding: 24px; max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; margin-bottom: 8px; color: var(--pc-primary-800); }
+    p { color: var(--pc-text-muted); margin-bottom: 20px; font-size: 14px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .swatch { width: 120px; border-radius: 12px; overflow: hidden; box-shadow: var(--pc-shadow-sm); border: 1px solid var(--pc-border); }
+    .swatch-color { height: 72px; }
+    .swatch-label { padding: 8px 10px; background: var(--pc-bg); font-size: 11px; font-weight: 600; }
+    .swatch-hex { font-weight: 400; color: var(--pc-text-muted); display: block; margin-top: 2px; }
+    .demo-header { background: var(--pc-gradient-header); color: #fff; padding: 16px 20px; border-radius: 12px; margin-bottom: 16px; }
+    .demo-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .demo-tab { padding: 8px 14px; border-radius: 8px; font-size: 13px; background: var(--pc-surface-2); color: var(--pc-text-muted); }
+    .demo-tab.active { background: var(--pc-gradient-brand-soft); color: #fff; }
+    .demo-banner { background: var(--pc-gradient-brand); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+    .demo-card { background: var(--pc-bg); border: 1px solid var(--pc-border); border-radius: 12px; padding: 16px; }
+    .demo-btn { background: var(--pc-gradient-brand-soft); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: default; }
+  </style>
+</head>
+<body>
+  <h1>PasteCraft Premium Navy + Sky Blue</h1>
+  <p>Phase 0–4 preview — open this file in a browser after reloading the extension.</p>
+
+  <div class="row">
+    <div class="swatch"><div class="swatch-color" style="background:#080c2a"></div><div class="swatch-label">Primary 900<span class="swatch-hex">#080c2a</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#0d1240"></div><div class="swatch-label">Primary 800<span class="swatch-hex">#0d1240</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1a1f5e"></div><div class="swatch-label">Primary 700<span class="swatch-hex">#1a1f5e</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#2563eb"></div><div class="swatch-label">Secondary 500<span class="swatch-hex">#2563eb</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#3b82f6"></div><div class="swatch-label">Secondary 400<span class="swatch-hex">#3b82f6</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#93c5fd"></div><div class="swatch-label">Secondary 200<span class="swatch-hex">#93c5fd</span></div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f8fafc;border-bottom:1px solid #e5e7eb"></div><div class="swatch-label">Surface<span class="swatch-hex">#f8fafc</span></div></div>
+  </div>
+
+  <div class="demo-header">PasteCraft — header gradient</div>
+  <div class="demo-banner">⚡ Upgrade Membership — Cloud Sync & AI Tools</div>
+  <div class="demo-tabs">
+    <span class="demo-tab active">Clips</span>
+    <span class="demo-tab">Search</span>
+    <span class="demo-tab">AI Lab</span>
+  </div>
+  <div class="demo-card">
+    <p style="margin-bottom:12px">Gray-white card surface with navy/sky accents.</p>
+    <button class="demo-btn" type="button">Primary action</button>
+  </div>
+</body>
+</html>

@@ -15,7 +15,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0d1240 0%, #1a1f5e 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -49,13 +49,13 @@
             width: 90px;
             height: 90px;
             margin: 0 auto 25px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
             border-radius: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 48px;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
         }
         
         h1 {
@@ -79,9 +79,9 @@
         }
         
         .spinner {
-            border: 4px solid rgba(102, 126, 234, 0.2);
+            border: 4px solid rgba(37, 99, 235, 0.2);
             border-radius: 50%;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #3b82f6;
             width: 60px;
             height: 60px;
             animation: spin 0.8s linear infinite;
@@ -94,14 +94,14 @@
         }
         
         .success {
-            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            color: #155724;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            color: #1e3a8a;
             padding: 25px;
             border-radius: 16px;
             margin: 25px 0;
             font-weight: 600;
             font-size: 18px;
-            border: 2px solid #b1dfbb;
+            border: 2px solid #93c5fd;
         }
         
         .error {
@@ -117,7 +117,7 @@
         
         .instructions {
             background: #edf2f7;
-            border-left: 5px solid #667eea;
+            border-left: 5px solid #2563eb;
             padding: 25px 30px;
             margin: 30px 0;
             text-align: left;
@@ -125,7 +125,7 @@
         }
         
         .instructions strong {
-            color: #667eea;
+            color: #2563eb;
             font-size: 18px;
             display: block;
             margin-bottom: 15px;
@@ -143,7 +143,7 @@
         }
         
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
             color: white;
             border: none;
             padding: 16px 36px;
@@ -153,13 +153,13 @@
             font-weight: 600;
             margin: 12px 6px;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
             display: inline-block;
         }
         
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
         }
         
         .btn:active {
@@ -194,7 +194,7 @@
             border-radius: 8px;
             font-family: 'Courier New', monospace;
             font-size: 14px;
-            color: #667eea;
+            color: #2563eb;
             margin: 10px 0;
             border: 2px solid #e2e8f0;
         }
@@ -208,7 +208,7 @@
         }
         
         footer a {
-            color: #667eea;
+            color: #2563eb;
             text-decoration: none;
             font-weight: 600;
         }
@@ -463,11 +463,11 @@
                 navigator.clipboard.writeText(resetCode).then(() => {
                     const btn = document.getElementById('copyBtn');
                     btn.textContent = '✅ Code Copied!';
-                    btn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+                    btn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
                     
                     setTimeout(() => {
                         btn.textContent = '📋 Copy Reset Code';
-                        btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                        btn.style.background = 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)';
                     }, 3000);
                     
                     // Show next step

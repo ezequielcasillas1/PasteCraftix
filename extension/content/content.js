@@ -1,7 +1,6 @@
 import { isSiteAllowed } from './safety/site-guard.js';
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
-import { initMerchantLayer } from './merchant/merchant.controller.js';
 
 function pastecraftInitContent() {
   if (!isSiteAllowed(location.href)) {
@@ -20,7 +19,12 @@ function pastecraftInitContent() {
 
   window.pasteCraftQuickPaste = new QuickPasteInterface();
   window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
-  initMerchantLayer().catch(() => {});
+
+  import('./merchant/merchant.controller.js')
+    .then(({ initMerchantLayer }) => initMerchantLayer())
+    .catch((err) => {
+      console.warn('[PasteCraft] merchant layer skipped:', err);
+    });
 }
 
 pastecraftInitContent();

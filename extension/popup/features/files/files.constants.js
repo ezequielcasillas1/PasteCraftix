@@ -28,12 +28,12 @@ export const FILES_ELEMENT_IDS = Object.freeze({
 });
 
 export const FILES_COLORS = [
+  '#2563eb', // sky blue
   '#3b82f6', // blue
-  '#ef4444', // red
-  '#10b981', // green
-  '#f59e0b', // emerald
-  '#8b5cf6', // amber
-  '#6366f1', // violet
-  '#ec4899', // pink
+  '#60a5fa', // light sky
+  '#1a1f5e', // navy
+  '#1e3a8a', // deep blue
+  '#93c5fd', // pale sky
+  '#ef4444', // red (semantic)
   '#64748b'  // slate
 ];

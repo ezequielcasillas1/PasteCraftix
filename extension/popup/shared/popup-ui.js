@@ -17,7 +17,7 @@
   }
 
   const TOAST_COLORS = {
-    success: '#10b981',
+    success: '#2563eb',
     error: '#ef4444',
     info: '#3b82f6',
   };
@@ -90,7 +90,7 @@
   }
 
   function showConfetti() {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+    const colors = ['#2563eb', '#3b82f6', '#60a5fa', '#ef4444', '#1a1f5e'];
     const container = document.body;
 
     for (let i = 0; i < 30; i++) {

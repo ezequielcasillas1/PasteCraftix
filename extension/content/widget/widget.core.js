@@ -201,8 +201,12 @@ export function setupWidgetDrag(widget) {
 
 export function loadSavedWidgetPosition(widget) {
   const revealWidget = () => {
-    if (widget.widget) {
-      widget.widget.style.visibility = 'visible';
+    if (!widget.widget) return;
+    widget.widget.style.visibility = 'visible';
+    widget.widget.style.opacity = '1';
+    if (widget.shadowMount?.host) {
+      widget.shadowMount.host.style.overflow = 'visible';
+      widget.shadowMount.host.style.pointerEvents = 'auto';
     }
   };
 

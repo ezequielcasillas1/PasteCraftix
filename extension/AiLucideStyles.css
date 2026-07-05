@@ -52,41 +52,41 @@
 
 /* Done / primary variant */
 .pc-ai-icon-btn--done {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   border-color: transparent;
   color: #fff;
   margin-left: auto;
 }
 .pc-ai-icon-btn--done:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
-/* Continue Conversation — teal accent */
+/* Continue Conversation — sky-blue accent */
 .pc-ai-icon-btn--continue {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border-color: transparent;
   color: #fff;
 }
 .pc-ai-icon-btn--continue:hover {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1a1f5e 100%);
   border-color: transparent;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
-/* Report Ticket — amber accent */
+/* Report Ticket — navy outline accent */
 .pc-ai-icon-btn--report {
-  border-color: #fcd34d;
-  color: #d97706;
+  border-color: #93c5fd;
+  color: #1a1f5e;
 }
 .pc-ai-icon-btn--report:hover {
-  background: #fffbeb;
-  border-color: #f59e0b;
-  color: #b45309;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1e3a8a;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 /* ── 1-second delayed tooltip ── */
@@ -142,7 +142,7 @@
 
 /* Legacy alias kept for backward compat */
 .ai-history-continue-btn {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
   color: white !important;
   border: none !important;
   border-radius: 10px;
@@ -156,7 +156,7 @@
   transition: all 0.2s ease;
 }
 .ai-history-continue-btn:hover {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1a1f5e 100%) !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }

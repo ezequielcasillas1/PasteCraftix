@@ -64,6 +64,7 @@
         "content/merchant/*.js",
         "styles.css",
         "styles/*.css",
+        "assets/styles/*.css",
         "markup-renderer.js",
         "logo.svg",
         "icon.png",

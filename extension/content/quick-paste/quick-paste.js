@@ -351,14 +351,14 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-paste {
-        background: #10b981 !important;
+        background: #2563eb !important;
         color: white !important;
         padding: 6px !important;
         border-radius: 6px !important;
       }
       
       .pastecraft-paste:hover {
-        background: #059669 !important;
+        background: #1d4ed8 !important;
       }
       
       .pastecraft-empty {
@@ -982,14 +982,14 @@ export class QuickPasteInterface {
       
       /* Copy Multiple button styling */
       .pastecraft-copy-multiple {
-        background: #8b5cf6 !important;
+        background: #2563eb !important;
         color: white !important;
         font-weight: 600 !important;
         padding: 6px 12px !important;
         border-radius: 6px !important;
         font-size: 12px !important;
-        border: 1px solid #7c3aed !important;
-        box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3) !important;
+        border: 1px solid #1a1f5e !important;
+        box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
         flex: none !important;
         min-width: auto !important;
         max-width: 140px !important;
@@ -1001,9 +1001,9 @@ export class QuickPasteInterface {
       }
       
       .pastecraft-copy-multiple:hover:not(:disabled) {
-        background: #7c3aed !important;
+        background: #1a1f5e !important;
         transform: translateY(-1px) !important;
-        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5) !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.5) !important;
       }
       
       .pastecraft-copy-multiple:disabled {
@@ -1483,7 +1483,7 @@ export class QuickPasteInterface {
       top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+      background: ${type === 'success' ? '#2563eb' : type === 'error' ? '#ef4444' : '#3b82f6'};
       color: white;
       padding: 12px 24px;
       border-radius: 8px;
@@ -1554,7 +1554,7 @@ export class QuickPasteInterface {
     // YAML
     if (/^---\s*\n/.test(t)) return `<span style="${badgeStyle}background:#cb171e;color:#fff;">YAML</span>`;
     // Code block
-    if (/^```[\w-]*\s*\n/m.test(t)) return `<span style="${badgeStyle}background:#1e293b;color:#10b981;">Code</span>`;
+    if (/^```[\w-]*\s*\n/m.test(t)) return `<span style="${badgeStyle}background:#1e293b;color:#2563eb;">Code</span>`;
     // MediaWiki
     if (/^={2,5}\s*.+?\s*={2,5}\s*$/m.test(t) && /\[\[.+?\]\]/.test(t)) return `<span style="${badgeStyle}background:#006699;color:#fff;">Wiki</span>`;
     // Textile
@@ -1569,7 +1569,7 @@ export class QuickPasteInterface {
       if (/\b(?:public\s+(?:static|class|void)|#include\s*[<"]|int\s+main\s*\(|func\s+\w+\(|fn\s+\w+)\b/.test(t)) cs += 3;
       if (/\b(?:return\s|if\s*\(|for\s*\(|while\s*\()\b/.test(t)) cs += 2;
       if (/[{};]\s*$/m.test(t)) cs++;
-      if (cs >= 5) return `<span style="${badgeStyle}background:#1e293b;color:#10b981;">Code</span>`;
+      if (cs >= 5) return `<span style="${badgeStyle}background:#1e293b;color:#2563eb;">Code</span>`;
     }
     return '';
   }
@@ -2353,7 +2353,7 @@ export class QuickPasteInterface {
     if (selectedCount >= 2) {
       button.disabled = false;
       button.textContent = `Copy ${selectedCount} Clips`;
-      button.style.background = '#8b5cf6';
+      button.style.background = '#2563eb';
       console.log('✅ Copy Multiple Button ENABLED');
     } else {
       button.disabled = true;

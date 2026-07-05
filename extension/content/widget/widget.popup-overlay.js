@@ -58,7 +58,7 @@ export function revealPopupIframe(widget, iframe) {
 
 export function applyPopupLoadingShellStyles(widget, container) {
   if (!container) return;
-  container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  container.style.background = 'linear-gradient(135deg, #2563eb 0%, #1a1f5e 100%)';
   container.style.transform = 'translateX(0)';
 }
 

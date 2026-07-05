@@ -7,7 +7,7 @@ import {
   MERCHANT_TAG_LIMIT_PRESET_IDS,
 } from './merchant.constants.js';
 import { readListingDock } from './merchant.dock-storage.js';
-import { syncMerchantQueueHints } from './merchant.queue-hints.js';
+import { getSpotStatusLabel } from './merchant.spot.js';
 import { tagsToStorageString, validateTags } from './merchant.tags.js';
 import { createTagSubmitController, isLikelyTagInput } from './merchant.tag-submit.js';
 
@@ -198,6 +198,30 @@ function showToast(message) {
   showToast._timer = setTimeout(() => {
     toast.classList.remove('is-visible');
   }, 2200);
+}
+
+function syncMerchantQueueHints(stripEl) {
+  if (!stripEl) return;
+  const hint = stripEl.querySelector('[data-field="pc-merchant-hint"]');
+  if (!hint) return;
+
+  if (!_active) {
+    hint.textContent = getSpotStatusLabel();
+    return;
+  }
+
+  const status = getTagQueueStatus();
+  if (status.empty) {
+    hint.textContent = 'Tag queue — no tags staged';
+    return;
+  }
+  if (status.done) {
+    hint.textContent = `Tag queue complete (${status.total})`;
+    return;
+  }
+
+  const next = status.nextTag ? `: ${status.nextTag}` : '';
+  hint.textContent = `Tag queue ${status.at}/${status.total}${next}`;
 }
 
 export function syncTagQueueStripUi() {

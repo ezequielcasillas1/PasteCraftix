@@ -113,9 +113,9 @@ export const WIDGET_CORE_CSS = `
       }
       
       .auto-copy-toggle[data-state="on"] {
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-        border-color: #15803d;
-        box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+        background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+        border-color: #1a1f5e;
+        box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
       }
       
       .toggle-label {
@@ -347,7 +347,7 @@ export const WIDGET_OVERLAY_CSS = `
       }
 
       .pastecraft-overlay-panel-loading {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #0d1240 0%, #1a1f5e 100%);
       }
 
       .pastecraft-overlay-loader {

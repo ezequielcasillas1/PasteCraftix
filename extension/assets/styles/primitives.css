@@ -1,0 +1,40 @@
+/**
+ * PasteCraft UI Primitives — Phase 1
+ * Shared patterns; loaded after tokens, before popup inline CSS.
+ */
+
+.btn-primary,
+.btn-save,
+.btn-confirm {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border: none;
+}
+
+.btn-primary:hover,
+.btn-save:hover,
+.btn-confirm:hover {
+  background: linear-gradient(135deg, var(--pc-secondary-500) 0%, var(--pc-primary-600) 100%);
+}
+
+.tab-btn.active {
+  background: var(--pc-gradient-brand-soft) !important;
+  color: #fff !important;
+  box-shadow: var(--pc-shadow-brand) !important;
+}
+
+.sync-indicator.synced {
+  background: var(--pc-secondary-400) !important;
+}
+
+.sync-indicator.syncing {
+  background: var(--pc-secondary-300) !important;
+}
+
+.upgrade-banner {
+  background: var(--pc-gradient-brand) !important;
+}
+
+#loadingOverlay {
+  background: var(--pc-gradient-brand) !important;
+}

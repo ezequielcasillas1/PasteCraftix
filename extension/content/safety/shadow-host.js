@@ -11,6 +11,7 @@ export function createClosedShadowHost(fieldName = 'pc-shadow-host') {
   host.style.left = '0';
   host.style.width = '0';
   host.style.height = '0';
+  host.style.overflow = 'visible';
   host.style.pointerEvents = 'none';
 
   const root = host.attachShadow({ mode: 'closed' });

@@ -17,8 +17,8 @@
     yaml:     { label: 'YAML', bg: '#cb171e', fg: '#fff' },
     xml:      { label: 'XML', bg: '#f97316', fg: '#fff' },
     toml:     { label: 'TOML', bg: '#9d4edd', fg: '#fff' },
-    csv:      { label: 'CSV', bg: '#10b981', fg: '#fff' },
-    tsv:      { label: 'TSV', bg: '#10b981', fg: '#fff' },
+    csv:      { label: 'CSV', bg: '#2563eb', fg: '#fff' },
+    tsv:      { label: 'TSV', bg: '#2563eb', fg: '#fff' },
     latex:    { label: 'LaTeX', bg: '#008080', fg: '#fff' },
     mermaid:  { label: 'Diagram', bg: '#ff3670', fg: '#fff' },
     bbcode:   { label: 'BBCode', bg: '#6366f1', fg: '#fff' },
@@ -29,7 +29,7 @@
     mediawiki:  { label: 'Wiki', bg: '#006699', fg: '#fff' },
     textile:    { label: 'Textile', bg: '#c7254e', fg: '#fff' },
     jira:       { label: 'JIRA', bg: '#0052cc', fg: '#fff' },
-    code:       { label: 'Code', bg: '#1e293b', fg: '#10b981' },
+    code:       { label: 'Code', bg: '#1e293b', fg: '#93c5fd' },
     text:       null, // no badge for plain text
   };
 
