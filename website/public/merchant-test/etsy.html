@@ -56,7 +56,7 @@
     <fieldset>
       <legend>Materials</legend>
       <p class="edu-hint">Materials answer “what is this made of?” — fibers, metals, wood types, etc. Etsy shows them as chips and uses them in buyer filters. Separate from tags; up to 13 on Etsy (5 slots here).</p>
-      <p class="edu-callout"><strong>Etsy pattern:</strong> one material per input/chip — not a comma textarea. Example: cotton, linen, sterling silver each get their own slot.</p>
+      <p class="edu-callout"><strong>Etsy pattern:</strong> one material per input/chip — not a comma textarea. Live Etsy uses preset material references; Material Queue helps mock slots only.</p>
       <div class="materials-grid">
         <input type="text" data-field="etsy-material-1" placeholder="Educational: cotton — fiber buyers filter on" aria-label="Material 1" />
         <input type="text" data-field="etsy-material-2" placeholder="Educational: linen, waxed thread, sterling silver" aria-label="Material 2" />
@@ -92,18 +92,37 @@
       </div>
     </details>
 
+    <fieldset>
+      <legend>Image → Text test target</legend>
+      <p class="edu-hint">Use <strong>Image → Text</strong> and drag over the mock tag block or sample image below — extracted tags stage in Listing Dock.</p>
+      <div
+        class="mock-tag-image"
+        data-ocr-text="ceramic mug, gift for her, coffee lover, handmade"
+      >
+        ceramic mug · gift for her · coffee lover · handmade
+      </div>
+      <img
+        class="mock-ocr-image"
+        src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='120' viewBox='0 0 420 120'%3E%3Crect width='420' height='120' fill='%23fff7ed'/%3E%3Ctext x='20' y='42' font-family='system-ui,sans-serif' font-size='22' fill='%2392400e'%3Eceramic mug · gift for her%3C/text%3E%3Ctext x='20' y='78' font-family='system-ui,sans-serif' font-size='22' fill='%2392400e'%3Ecoffee lover · handmade%3C/text%3E%3C/svg%3E"
+        alt="ceramic mug, gift for her, coffee lover, handmade"
+        data-ocr-text="ceramic mug, gift for her, coffee lover, handmade"
+        width="420"
+        height="120"
+      />
+    </fieldset>
+
     <aside class="test-checklist" aria-labelledby="etsy-test-heading">
       <h2 id="etsy-test-heading">Test with PasteCraft Merchant</h2>
       <ol>
         <li>Reload extension (<code>chrome://extensions</code> → Reload); open this page.</li>
         <li>Confirm <strong>Merchant</strong> strip at top — <strong>Pulse</strong> empty, <strong>Listing Dock</strong> button visible.</li>
         <li><strong>Listing Dock</strong> → stage tags, materials, and buyer-instruction text → Save → <strong>Pulse</strong> shows live staging.</li>
-        <li><strong>Spot</strong> → select tag placeholder text on page → selection stages to dock.</li>
-        <li><strong>Tag Queue</strong> ON → focus tag slot 1 → Ctrl+V pastes next tag; advance through all 13 slots.</li>
-        <li><strong>Materials</strong> → dock <strong>Copy materials</strong> or queue into each material input (one fiber per slot).</li>
+        <li><strong>Spot</strong> → select tag placeholder text on page → click Spot → selection stages to dock.</li>
+        <li><strong>Image → Text</strong> → drag over mock tag block or sample image → tags stage in dock.</li>
+        <li><strong>Tag Queue</strong> ON → focus tag slot 1 → Ctrl+V pastes next tag; repeat for all 13 slots.</li>
+        <li><strong>Material Queue</strong> ON → Advanced → stage comma list → focus each material slot → Ctrl+V (independent from Tag Queue).</li>
         <li><strong>Snippets</strong> → focus buyer-instructions textarea → <strong>Snippets</strong> → insert preset.</li>
         <li>In dock: <strong>Copy tags</strong> and <strong>Paste next tag</strong> — verify clipboard + queue advance.</li>
-        <li><strong>Seal &amp; Ship</strong> → confirm → staging purged, <strong>Pulse</strong> empty.</li>
         <li>Dock <strong>Options</strong> → switch preset (e.g. Printify) → return to Etsy → re-validate 13×20 limits.</li>
       </ol>
     </aside>

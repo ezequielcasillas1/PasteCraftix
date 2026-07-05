@@ -63,7 +63,6 @@ All inputs use `data-field` attributes for future DOM adapters. Source of truth 
 7. **Tag Queue** — toggle on, focus tag input, paste next
 8. **Materials** — Etsy mock: queue into material inputs
 9. **Snippets** — insert into buyer-instructions field
-10. **Seal & Ship** — confirm clears staging
 
 ## Sample listing pack
 

@@ -7,70 +7,70 @@ const mockPages = [
     label: 'Etsy',
     preset: '13×20',
     fields: 'Tags, materials, buyer instructions, alt text',
-    stripActions: 'Listing Dock, Spot, Tag Queue, Materials, Snippets, Copy tags, Seal & Ship, Options',
+    stripActions: 'Listing Dock, Spot, Tag Queue, Materials, Snippets, Copy tags, Options',
   },
   {
     href: '/merchant-test/printify.html',
     label: 'Printify',
     preset: '20×40',
     fields: 'Keywords, SEO desc, variant grid',
-    stripActions: 'Listing Dock, Tag Queue, Spot, Options preset switch, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue, Spot, Options preset switch',
   },
   {
     href: '/merchant-test/shopify.html',
     label: 'Shopify',
     preset: '250×255',
     fields: 'Product tags, SEO title/desc, URL handle',
-    stripActions: 'Listing Dock, Tag Queue, Snippets, Options, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue, Snippets, Options',
   },
   {
     href: '/merchant-test/amazon.html',
     label: 'Amazon',
     preset: '30×50',
     fields: 'Bullets, backend keyword slots',
-    stripActions: 'Listing Dock, Tag Queue (keywords), Snippets (bullets), Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue (keywords), Snippets (bullets)',
   },
   {
     href: '/merchant-test/ebay.html',
     label: 'eBay',
     preset: '12×65',
     fields: 'Item specifics (name → value)',
-    stripActions: 'Listing Dock, Tag Queue (values), Spot, Options, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue (values), Spot, Options',
   },
   {
     href: '/merchant-test/redbubble.html',
     label: 'Redbubble',
     preset: '15×39',
     fields: 'Tags, description',
-    stripActions: 'Listing Dock, Tag Queue, validation chips, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue, validation chips',
   },
   {
     href: '/merchant-test/teepublic.html',
     label: 'TeePublic',
     preset: '32×255',
     fields: '32 tag slots',
-    stripActions: 'Listing Dock, Tag Queue, Copy tags batch, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue, Copy tags batch',
   },
   {
     href: '/merchant-test/woocommerce.html',
     label: 'WooCommerce',
     preset: '250×255',
     fields: 'Product tags, short description',
-    stripActions: 'Listing Dock, Tag Queue, Snippets, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue, Snippets',
   },
   {
     href: '/merchant-test/generic.html',
     label: 'Generic',
     preset: '30×50',
     fields: '30 small fields, notes textarea',
-    stripActions: 'Listing Dock, listing pack parse, Custom Options, Seal & Ship',
+    stripActions: 'Listing Dock, listing pack parse, Custom Options',
   },
   {
     href: '/merchant-test/social-promo.html',
     label: 'Social promo',
     preset: 'Promo',
     fields: 'Caption, CTA, hashtags, Pinterest stub',
-    stripActions: 'Listing Dock, Tag Queue (hashtags), Snippets, Copy tags, Seal & Ship',
+    stripActions: 'Listing Dock, Tag Queue (hashtags), Snippets, Copy tags',
   },
 ];
 
@@ -81,7 +81,6 @@ const glossary = [
   { term: 'Tag Queue', def: 'Paste-next mode — focus an input, Ctrl+V inserts next staged tag.' },
   { term: 'Materials', def: 'Etsy-only dock section — one fiber/material per chip input.' },
   { term: 'Snippets', def: 'Reusable seller boilerplate — inserts into focused textarea.' },
-  { term: 'Seal & Ship', def: 'Confirm and purge ephemeral staging — Pulse returns empty.' },
   { term: 'Options', def: 'Dock preset popover — Etsy, Amazon, Custom limits, etc.' },
 ];
 
@@ -90,7 +89,6 @@ const courseSteps = [
   'Open Etsy mock first — full field set (tags + materials + snippets).',
   'Run each mock page checklist — verify strip buttons match fields.',
   'Switch Options preset per platform — limits must match mock meta line.',
-  'Finish with Seal & Ship on every page — staging must purge.',
 ];
 ---
 

@@ -21,7 +21,6 @@
         <li>Open Etsy mock first — full field set (tags + materials + snippets)</li>
         <li>Run each page’s green <strong>Test with PasteCraft Merchant</strong> checklist</li>
         <li>Switch dock <strong>Options</strong> preset per platform — limits must match mock meta line</li>
-        <li>Finish with <strong>Seal &amp; Ship</strong> on every page — staging must purge</li>
       </ol>
     </section>
 
@@ -30,11 +29,13 @@
       <dl class="glossary-dl">
         <dt>Listing Dock</dt><dd>Ephemeral staging — tags, materials, title/description. Save updates Pulse.</dd>
         <dt>Pulse</dt><dd>Strip indicator — empty = no staging; live = dock has content.</dd>
-        <dt>Spot</dt><dd>Select page text → stages into dock.</dd>
-        <dt>Tag Queue</dt><dd>Paste-next mode — focus input, Ctrl+V inserts next tag.</dd>
-        <dt>Materials</dt><dd>Etsy-only — one fiber per chip input.</dd>
+        <dt>Spot</dt><dd>Select page text → click Spot → stages into dock.</dd>
+        <dt>Image → Text</dt><dd>Drag a region → extracts text (DOM / alt / data-ocr-text) → dock tags.</dd>
+        <dt>Spot &amp; Image → Text dock to</dt><dd>Second strip row — pick which dock field Spot and Image → Text send captured content into.</dd>
+        <dt>Tag Queue</dt><dd>Paste-next mode — focus tag input, Ctrl+V inserts next tag.</dd>
+        <dt>Material Queue</dt><dd>Paste-next mode — focus material input, Ctrl+V inserts next material.</dd>
+        <dt>Materials</dt><dd>Etsy-only — one fiber per chip input; stage comma list in dock Advanced.</dd>
         <dt>Snippets</dt><dd>Reusable boilerplate — inserts into focused textarea.</dd>
-        <dt>Seal &amp; Ship</dt><dd>Confirm and purge staging — Pulse returns empty.</dd>
         <dt>Options</dt><dd>Dock preset popover — Etsy, Amazon, Custom limits.</dd>
       </dl>
     </section>
@@ -64,61 +65,61 @@
             <td><a href="etsy.html">Etsy</a></td>
             <td>13×20</td>
             <td>Tags, materials, buyer instructions, alt text</td>
-            <td>Listing Dock, Tag Queue, Materials, Snippets, Seal &amp; Ship, Options</td>
+            <td>Listing Dock, Tag Queue, Material Queue, Snippets, Options</td>
           </tr>
           <tr>
             <td><a href="printify.html">Printify</a></td>
             <td>20×40</td>
             <td>Keywords, SEO desc, variant grid</td>
-            <td>Listing Dock, Tag Queue, Options preset switch, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue, Options preset switch</td>
           </tr>
           <tr>
             <td><a href="shopify.html">Shopify</a></td>
             <td>250×255</td>
             <td>Product tags, SEO title/desc</td>
-            <td>Listing Dock, Tag Queue, Snippets, Options, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue, Snippets, Options</td>
           </tr>
           <tr>
             <td><a href="amazon.html">Amazon</a></td>
             <td>30×50</td>
             <td>Bullets, backend keyword slots</td>
-            <td>Listing Dock, Tag Queue (keywords), Snippets (bullets), Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue (keywords), Snippets (bullets)</td>
           </tr>
           <tr>
             <td><a href="ebay.html">eBay</a></td>
             <td>12×65</td>
             <td>Item specifics (name → value)</td>
-            <td>Listing Dock, Tag Queue (values), Spot, Options, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue (values), Spot, Options</td>
           </tr>
           <tr>
             <td><a href="redbubble.html">Redbubble</a></td>
             <td>15×39</td>
             <td>Tags, description</td>
-            <td>Listing Dock, Tag Queue, validation chips, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue, validation chips</td>
           </tr>
           <tr>
             <td><a href="teepublic.html">TeePublic</a></td>
             <td>32×255</td>
             <td>32 tag slots</td>
-            <td>Listing Dock, Tag Queue, Copy tags batch, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue, Copy tags batch</td>
           </tr>
           <tr>
             <td><a href="woocommerce.html">WooCommerce</a></td>
             <td>250×255</td>
             <td>Product tags, short description</td>
-            <td>Listing Dock, Tag Queue, Snippets, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue, Snippets</td>
           </tr>
           <tr>
             <td><a href="generic.html">Generic</a></td>
             <td>30×50</td>
             <td>30 small fields, notes textarea</td>
-            <td>Listing Dock, listing pack parse, Custom Options, Seal &amp; Ship</td>
+            <td>Listing Dock, listing pack parse, Custom Options</td>
           </tr>
           <tr>
             <td><a href="social-promo.html">Social promo</a></td>
             <td>Promo</td>
             <td>Caption, CTA, hashtags, Pinterest stub</td>
-            <td>Listing Dock, Tag Queue (hashtags), Snippets, Copy tags, Seal &amp; Ship</td>
+            <td>Listing Dock, Tag Queue (hashtags), Snippets, Copy tags</td>
           </tr>
         </tbody>
       </table>

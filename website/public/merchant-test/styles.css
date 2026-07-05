@@ -293,3 +293,22 @@ fieldset > .edu-hint:first-of-type {
   color: #6b7280;
   line-height: 1.5;
 }
+
+.mock-tag-image {
+  margin: 8px 0 12px;
+  padding: 16px 20px;
+  border: 2px dashed #fcd34d;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #92400e;
+  font: 600 18px/1.4 Georgia, "Times New Roman", serif;
+  letter-spacing: 0.02em;
+}
+
+.mock-ocr-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+}
