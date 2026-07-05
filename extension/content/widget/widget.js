@@ -1,4 +1,4 @@
-import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
+import { pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from '../shared.js';
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 import {
   injectWidgetStyles,
@@ -16,6 +16,13 @@ import {
   openSettingsPanel,
   closeSettingsPanel,
 } from './widget.settings.js';
+import {
+  setupWidgetStorageSync,
+  setupWidgetAutoCopyListener,
+  toggleWidgetAutoCopy,
+  updateWidgetAutoCopyUI,
+  loadWidgetAutoCopyState,
+} from './widget.events.js';
 
 export class PasteCraftFloatingWidget {
   constructor() {
@@ -184,102 +191,7 @@ export class PasteCraftFloatingWidget {
   }
 
   setupStorageSync() {
-    // Keep widget settings/state in sync across all open tabs
-    if (this._storageSyncListener) return;
-
-    this._storageSyncListener = (changes, area) => {
-      if (area !== 'local') return;
-
-      let settingsRefreshNeeded = false;
-
-      // Widget-specific settings
-      if (changes.widgetSettings) {
-        const next = this.sanitizeWidgetSettings(changes.widgetSettings.newValue);
-        if (next && typeof next === 'object') {
-          this.settings = { ...this.settings, ...next };
-        }
-        // Apply widget icon on any widgetSettings update
-        try { this.applyWidgetIcon(); } catch (_) {}
-        if (this.settings && this.settings.clickAndDragEnabled === false) {
-          this.hideClickAndDragDropBox(true);
-        }
-        settingsRefreshNeeded = true;
-      }
-
-      // General PasteCraft settings (autoDeletePeriod, quickPasteSettings, albumAttachmentOpenMode)
-      if (changes.autoDeletePeriod || changes.quickPasteSettings || changes.albumAttachmentOpenMode) {
-        settingsRefreshNeeded = true;
-        // Reload settings if settings panel is open
-        if (this.openStates.settings) {
-          this.loadSettings().catch(() => {});
-        }
-      }
-
-      // Profile changes (if using profile image as widget icon)
-      if (changes.userProfile && this.settings && this.settings.widgetIconUseProfileImage) {
-        try { this.applyWidgetIcon(); } catch (_) {}
-      }
-
-      // Refresh quick view widget if clips changed and quick view is open
-      if ((changes.clips || changes.searchOnlyClips) && this.openStates.quickView) {
-        const quickViewIframe = document.querySelector('.pastecraft-quickview-iframe');
-        if (quickViewIframe?.contentWindow) {
-          safeRuntimeSendMessage({ action: 'pcGetQuickViewClips' })
-            .then((response) => {
-              const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-              if (quickViewIframe.contentWindow) {
-                quickViewIframe.contentWindow.postMessage(
-                  { type: 'quickview-clips-data', clips },
-                  '*'
-                );
-              }
-            })
-            .catch(() => {});
-        }
-      }
-
-      if (changes.widgetPosition) {
-        const nextPos = changes.widgetPosition.newValue;
-        if (nextPos && typeof nextPos === 'object') {
-          this.position = nextPos;
-          if (this.widget && typeof this.position.top === 'number') {
-            this.widget.style.top = this.position.top + '%';
-          }
-        }
-      }
-
-      let autoCopyUiChanged = false;
-
-      if (changes.autoCopyEnabled) {
-        this.autoCopyEnabled = !!changes.autoCopyEnabled.newValue;
-        autoCopyUiChanged = true;
-      }
-
-      if (changes.autoCopyCount || changes.autoCopyDate) {
-        const today = new Date().toDateString();
-        const nextDate = changes.autoCopyDate ? changes.autoCopyDate.newValue : undefined;
-        const nextCount = changes.autoCopyCount ? changes.autoCopyCount.newValue : undefined;
-
-        // Reset across tabs on day rollover
-        if (nextDate && nextDate !== today) {
-          this.autoCopyCount = 0;
-        } else if (typeof nextCount === 'number') {
-          this.autoCopyCount = nextCount;
-        }
-        autoCopyUiChanged = true;
-      }
-
-      if (autoCopyUiChanged) {
-        this.updateAutoCopyUI();
-      }
-
-      // Refresh settings UI if settings panel is open and settings changed
-      if (settingsRefreshNeeded && this.openStates.settings) {
-        // Settings will be refreshed via loadSettings() call above
-      }
-    };
-
-    chrome.storage.onChanged.addListener(this._storageSyncListener);
+    setupWidgetStorageSync(this);
   }
 
   async _getProfileImageForWidget() {
@@ -330,18 +242,9 @@ export class PasteCraftFloatingWidget {
   }
 
   updateAutoCopyUI() {
-    if (!this.widget) return;
-
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle?.querySelector('.toggle-label');
-    if (toggle && label) {
-      toggle.setAttribute('data-state', this.autoCopyEnabled ? 'on' : 'off');
-      label.textContent = this.autoCopyEnabled ? 'ON' : 'OFF';
-    }
-
-    this.updateAutoCopyCounter();
+    updateWidgetAutoCopyUI(this);
   }
-  
+
   async loadSettings() {
     return loadWidgetSettings(this);
   }
@@ -804,183 +707,17 @@ export class PasteCraftFloatingWidget {
   }
 
   toggleAutoCopy() {
-    const toggle = this.widget.querySelector('.auto-copy-toggle');
-    const label = toggle.querySelector('.toggle-label');
-    const currentState = toggle.getAttribute('data-state');
-    const newState = currentState === 'on' ? 'off' : 'on';
-    
-    toggle.setAttribute('data-state', newState);
-    label.textContent = newState.toUpperCase();
-    this.autoCopyEnabled = newState === 'on';
-    
-    // Save state to storage
-    chrome.storage.local.set({ autoCopyEnabled: this.autoCopyEnabled });
-    
-    console.log(`🔄 Auto Copy: ${newState.toUpperCase()}`);
-    
-    // Show feedback toast
-    if (this.autoCopyEnabled) {
-      this.showWidgetToast('Auto-copy ON - copied text will be saved');
-    } else {
-      this.showWidgetToast('Auto-copy OFF');
-    }
+    toggleWidgetAutoCopy(this);
   }
-  
-  // Listen for copy events to auto-save copied text
+
   setupAutoCopyListener() {
-    const handler = async (e) => {
-      if (!this.autoCopyEnabled) return;
-      
-      const MAX_TEXT = 30000;
-      const MAX_HTML = 50000;
-      const MAX_IMAGE_BYTES = 600 * 1024; // ~600KB max for dataURL capture
-
-      const cd = e && e.clipboardData ? e.clipboardData : null;
-
-      const safeTrim = (s, max) => {
-        const str = String(s ?? '');
-        if (str.length <= max) return str;
-        return str.slice(0, max) + '…';
-      };
-
-      const isProbablyUrl = (s) => {
-        const t = String(s || '').trim();
-        if (!t) return false;
-        try {
-          const u = new URL(t);
-          return u.protocol === 'http:' || u.protocol === 'https:';
-        } catch (_) {
-          return false;
-        }
-      };
-
-      // Prefer clipboardData payloads (more reliable for rich copy)
-      const plain = cd ? (cd.getData('text/plain') || '') : '';
-      const html = cd ? (cd.getData('text/html') || '') : '';
-      const selection = window.getSelection ? String(window.getSelection().toString() || '') : '';
-
-      let textToSave = (plain || selection || '').trim();
-
-      const meta = {
-        kind: 'text',
-        plainText: safeTrim(textToSave, MAX_TEXT),
-        html: html ? safeTrim(html, MAX_HTML) : '',
-        url: isProbablyUrl(textToSave) ? textToSave.trim() : '',
-        image: null,
-        sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
-        capturedAt: Date.now()
-      };
-
-      if (meta.url) meta.kind = 'url';
-      if (meta.html && !meta.url) meta.kind = 'html';
-
-      // Attempt to capture an image item (when browser provides it on copy)
-      try {
-        if (cd && cd.items && cd.items.length) {
-          for (let i = 0; i < cd.items.length; i++) {
-            const it = cd.items[i];
-            const type = String(it && it.type ? it.type : '');
-            if (type.startsWith('image/')) {
-              const file = it.getAsFile ? it.getAsFile() : null;
-              if (!file) continue;
-              if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
-                meta.image = { mime: type, dataUrl: '', srcUrl: '', tooLarge: true, size: file.size };
-                meta.kind = 'image';
-                if (!textToSave) textToSave = '[Image]';
-                break;
-              }
-
-              const dataUrl = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(String(reader.result || ''));
-                reader.onerror = () => resolve('');
-                reader.readAsDataURL(file);
-              });
-
-              if (dataUrl) {
-                meta.image = { mime: type, dataUrl, srcUrl: '' };
-                meta.kind = 'image';
-                // Ensure we save something searchable even when copy had no text
-                if (!textToSave) textToSave = '[Image]';
-                meta.plainText = safeTrim(textToSave, MAX_TEXT);
-              }
-              break;
-            }
-          }
-        }
-      } catch (err) {
-        // Non-fatal: text capture still works
-        console.warn('⚠️ Auto-copy image capture failed:', err?.message || err);
-      }
-
-      // If nothing textual and no image payload, nothing to save.
-      if (!textToSave && !(meta && meta.kind === 'image')) return;
-
-      console.log('📋 Auto-copy detected:', textToSave.substring(0, 50) + '...');
-
-      try {
-        // Save to PasteCraft via background script
-        await safeRuntimeSendMessage({
-          action: 'saveClip',
-          text: safeTrim(textToSave, MAX_TEXT),
-          meta,
-          category: 'Uncategorized',
-          autoShow: false // Don't auto-show popup for auto-copied clips
-        });
-        
-        // Update counter
-        this.autoCopyCount++;
-        this.updateAutoCopyCounter();
-        
-        // Save counter to storage (resets daily)
-        chrome.storage.local.set({ 
-          autoCopyCount: this.autoCopyCount,
-          autoCopyDate: new Date().toDateString()
-        });
-        
-        console.log('✅ Auto-copied to PasteCraft!');
-      } catch (error) {
-        console.error('❌ Auto-copy failed:', error);
-      }
-    };
-
-    // Use capture phase: some native copy actions don’t bubble.
-    document.addEventListener('copy', handler, true);
+    setupWidgetAutoCopyListener(this);
   }
 
-  updateAutoCopyCounter() {
-    const counter = this.widget.querySelector('.auto-copy-counter');
-    if (counter) {
-      counter.textContent = `${this.autoCopyCount} clip${this.autoCopyCount !== 1 ? 's' : ''}`;
-      // Brief scale animation
-      counter.style.transform = 'scale(1.2)';
-      setTimeout(() => {
-        counter.style.transform = 'scale(1)';
-      }, 200);
-    }
-  }
-  
   async loadAutoCopyState() {
-    try {
-      const result = await chrome.storage.local.get(['autoCopyEnabled', 'autoCopyCount', 'autoCopyDate']);
-      
-      // Check if counter should reset (new day)
-      const today = new Date().toDateString();
-      if (result.autoCopyDate !== today) {
-        this.autoCopyCount = 0;
-      } else {
-        this.autoCopyCount = result.autoCopyCount || 0;
-      }
-      
-      this.autoCopyEnabled = result.autoCopyEnabled || false;
-
-      this.updateAutoCopyUI();
-      console.log('📋 Auto-copy state loaded:', this.autoCopyEnabled, 'Count:', this.autoCopyCount);
-    } catch (error) {
-      console.error('Failed to load auto-copy state:', error);
-    }
+    return loadWidgetAutoCopyState(this);
   }
-  
+
   showWidgetToast(message) {
     // Create a simple toast near the widget
     const existing = document.querySelector('.pastecraft-widget-toast');
