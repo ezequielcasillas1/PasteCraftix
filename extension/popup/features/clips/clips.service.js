@@ -626,6 +626,8 @@ export async function removeChip(app, clipIdKey) {
   });
   if (result.deleted > 0) {
     app.showToast(`Deleted ${result.deleted} clip${result.deleted === 1 ? '' : 's'}`, 'success');
+  } else if (result.missing > 0) {
+    app.showToast('Clip not found', 'error');
   }
 }
 

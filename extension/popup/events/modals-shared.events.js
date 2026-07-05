@@ -219,6 +219,10 @@ export function registerSharedModalEvents(app) {
     if (clipViewerGoogleSearchBtn) {
       clipViewerGoogleSearchBtn.addEventListener('click', () => app.openClipViewerGoogleSearchMenu());
     }
+    const clipViewerTitleBundleBtn = document.getElementById('clipViewerTitleBundleBtn');
+    if (clipViewerTitleBundleBtn) {
+      clipViewerTitleBundleBtn.addEventListener('click', () => app.openClipViewerTitleBundleMenu());
+    }
     const clipViewerAiRefactorBtn = document.getElementById('clipViewerAiRefactorBtn');
     if (clipViewerAiRefactorBtn) {
       clipViewerAiRefactorBtn.addEventListener('click', () => app.runClipViewerAiRefactorization());

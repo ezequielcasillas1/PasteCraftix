@@ -1,5 +1,7 @@
+import { getClipIdKey } from '../../../shared/clip-id.js';
 import { showModule as showCustomSearchModule } from './clips.custom-search.module.js';
 import { buildGoogleSearchUrl } from './clips.custom-search.service.js';
+import { findClipLocationById } from './clips.title.js';
 import {
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
@@ -343,6 +345,98 @@ export async function openGoogleSearchMenu(app, { anchor, clip, context }) {
   });
 }
 
+function getTitleBundleItems() {
+  return [
+    { id: 'edit-title', icon: 'pencil-line', label: 'Edit title' },
+    { id: 'edit-clip', icon: 'file-pen-line', label: 'Edit clip' },
+  ];
+}
+
+export function canEditClipInPool(app, clip) {
+  if (!clip?.id) return false;
+  return !!findClipLocationById(app, clip.id);
+}
+
+export function resolveTitleBundleClipIdKey(clip) {
+  return clip?.id != null ? getClipIdKey(clip.id) : '';
+}
+
+async function runTitleBundleAction(app, actionId, { clipIdKey }) {
+  if (!clipIdKey) {
+    app.showToast?.('Clip not found', 'error');
+    return;
+  }
+  if (actionId === 'edit-title') {
+    app.promptEditClipTitle?.(clipIdKey);
+    return;
+  }
+  if (actionId === 'edit-clip') {
+    app.promptEditClipContent?.(clipIdKey);
+  }
+}
+
+export function openTitleBundleMenu(app, { anchor, clipIdKey }) {
+  openClipActionMenu({
+    anchor,
+    title: 'Edit clip',
+    items: getTitleBundleItems(),
+    onSelect: (actionId) => runTitleBundleAction(app, actionId, { clipIdKey }),
+  });
+}
+
+export function openTitleBundleMenuForClip(app, { anchor, clip }) {
+  const clipIdKey = resolveTitleBundleClipIdKey(clip);
+  if (!clipIdKey || !canEditClipInPool(app, clip)) {
+    app.showToast?.('Clip not found', 'error');
+    return;
+  }
+  openTitleBundleMenu(app, { anchor, clipIdKey });
+}
+
+export function getTitleBundleButtonHtml(className, extraAttributes = '') {
+  return `
+    <button
+      class="pc-clip-title-bundle-btn ${className}"
+      type="button"
+      title="Edit clip"
+      aria-label="Edit clip"
+      aria-haspopup="menu"
+      aria-expanded="false"${extraAttributes}
+    >
+      <i data-lucide="pencil-line"></i>
+    </button>
+  `;
+}
+
+export function getViewerTitleBundleButtonHtml({
+  className = 'clip-viewer-title-bundle-btn',
+  buttonId = '',
+  style = '',
+} = {}) {
+  const idAttr = buttonId ? ` id="${buttonId}"` : '';
+  const styleAttr = style ? ` style="${style}"` : '';
+  return `
+    <button
+      class="pc-ai-icon-btn pc-delay-tip pc-clip-title-bundle-btn ${className}"${idAttr}
+      type="button"
+      aria-label="Edit clip"
+      aria-haspopup="menu"
+      aria-expanded="false"${styleAttr}
+    >
+      <i data-lucide="pencil-line"></i>
+      <span class="pc-tip" role="tooltip">Edit clip</span>
+    </button>
+  `;
+}
+
+export const CLIP_TITLE_BUNDLE_SELECTOR = [
+  '.pc-clip-title-bundle-btn',
+  '.chip-title-bundle-btn',
+  '.search-title-bundle-btn',
+  '.category-clip-title-bundle-btn',
+  '.clip-viewer-title-bundle-btn',
+  '.album-attachment-title-bundle-btn',
+].join(', ');
 export const CLIP_ORG_BUNDLE_SELECTOR = '.chip-org-bundle-btn, .search-org-bundle-btn, .category-clip-org-bundle-btn';
 export const CLIP_AI_BUNDLE_SELECTOR = '.chip-ai-bundle-btn, .search-ai-bundle-btn, .category-clip-ai-bundle-btn';
 export const CLIP_GOOGLE_SEARCH_SELECTOR = '.chip-google-search-btn, .search-google-search-btn, .category-clip-google-search-btn';

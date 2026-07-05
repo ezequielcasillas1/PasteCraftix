@@ -7,6 +7,7 @@ import * as noteAlbum from './notes.album.js';
 import * as albumInterlayingsCrud from './notes.album-interlayings.crud.js';
 import * as albumInterlayingEditor from './notes.album-interlaying.editor.js';
 import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
+import { refreshOpenViewsForClipEdit } from './notes.refresh-open-views-for-clip.js';
 
 export function initNotesFeature(_app) {
   return {
@@ -19,5 +20,6 @@ export function initNotesFeature(_app) {
     albumInterlayings: albumInterlayingsCrud,
     albumInterlayingEditor,
     albumAttachmentViewer,
+    refreshOpenViewsForClipEdit,
   };
 }

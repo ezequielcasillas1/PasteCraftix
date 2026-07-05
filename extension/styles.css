@@ -977,9 +977,15 @@ body {
 .chip-breakdown-btn,
 .chip-summary-btn,
 .chip-category-btn,
-.chip-title-btn {
+.chip-title-btn,
+.chip-title-bundle-btn,
+.pc-clip-title-bundle-btn,
+.search-title-bundle-btn,
+.category-clip-title-bundle-btn {
   background: none;
   border: none;
+  outline: none;
+  box-shadow: none;
   cursor: pointer;
   font-size: 16px;
   padding: 2px 4px;
@@ -993,7 +999,11 @@ body {
 .chip-breakdown-btn:hover,
 .chip-summary-btn:hover,
 .chip-category-btn:hover,
-.chip-title-btn:hover {
+.chip-title-btn:hover,
+.chip-title-bundle-btn:hover,
+.pc-clip-title-bundle-btn:hover,
+.search-title-bundle-btn:hover,
+.category-clip-title-bundle-btn:hover {
   opacity: 1;
   transform: scale(1.15);
 }

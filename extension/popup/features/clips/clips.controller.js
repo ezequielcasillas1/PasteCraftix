@@ -7,6 +7,7 @@ import * as clipViewer from './clips.viewer.js';
 import * as clipPreview from './clips.preview.js';
 import * as clipPdf from './clips.pdf.js';
 import * as clipTitle from './clips.title.js';
+import * as clipContent from './clips.content.js';
 import * as clipShare from './clips.share.js';
 import * as clipActionMenu from './clips.action-menu.js';
 import * as clipCustomSearch from './clips.custom-search.module.js';
@@ -25,6 +26,7 @@ export function initClipsFeature(app) {
     preview: clipPreview,
     pdf: clipPdf,
     title: clipTitle,
+    content: clipContent,
     share: clipShare,
     actionMenu: clipActionMenu,
     customSearch: clipCustomSearch,

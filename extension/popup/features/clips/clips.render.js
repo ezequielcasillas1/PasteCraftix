@@ -3,9 +3,12 @@ import {
   CLIP_AI_BUNDLE_SELECTOR,
   CLIP_GOOGLE_SEARCH_SELECTOR,
   CLIP_ORG_BUNDLE_SELECTOR,
+  CLIP_TITLE_BUNDLE_SELECTOR,
+  getTitleBundleButtonHtml,
   openAiBundleMenu,
   openGoogleSearchMenu,
   openOrgBundleMenu,
+  openTitleBundleMenu,
 } from './clips.action-menu.js';
 import { getClipElements } from './clips.selectors.js';
 import {
@@ -219,7 +222,7 @@ function getCategoryClipViewModel(app, clip) {
 async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
   const actionHandlers = [
     ['.chip-remove', () => app.removeChip(clipIdKey)],
-    ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
+    [CLIP_TITLE_BUNDLE_SELECTOR, (anchor) => openTitleBundleMenu(app, { anchor, clipIdKey })],
     [CLIP_ORG_BUNDLE_SELECTOR, (anchor) => openOrgBundleMenu(app, { anchor, clip, clipIdKey, context: 'clips' })],
     [CLIP_GOOGLE_SEARCH_SELECTOR, (anchor) => openGoogleSearchMenu(app, { anchor, clip, context: 'clips' })],
     [CLIP_AI_BUNDLE_SELECTOR, (anchor) => openAiBundleMenu(app, { anchor, clip, context: 'clips' })],
@@ -433,7 +436,7 @@ export function createChip(app, clip, index) {
     </span>
     <span class="chip-time">${timeAgo}</span>
     <div class="chip-actions">
-      <button class="chip-title-btn" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+      ${getTitleBundleButtonHtml('chip-title-bundle-btn')}
       <button class="chip-org-bundle-btn" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
       ${getGoogleSearchButtonHtml('chip-google-search-btn')}
       <button class="chip-open-btn" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
@@ -642,7 +645,7 @@ export function createSearchResultItem(app, clip) {
       </div>
     </div>
     <div class="search-result-actions">
-      <button class="chip-title-btn" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+      ${getTitleBundleButtonHtml('search-title-bundle-btn')}
       <button class="search-org-bundle-btn" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
       ${getGoogleSearchButtonHtml('search-google-search-btn')}
       <button class="chip-open-btn" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
@@ -665,9 +668,9 @@ export function createSearchResultItem(app, clip) {
     e.stopPropagation();
     app.copyClipToClipboard(clip.text);
   });
-  item.querySelector('.chip-title-btn').addEventListener('click', (e) => {
+  item.querySelector('.search-title-bundle-btn').addEventListener('click', (e) => {
     e.stopPropagation();
-    app.promptEditClipTitle(getClipIdKey(clip.id));
+    openTitleBundleMenu(app, { anchor: e.currentTarget, clipIdKey: getClipIdKey(clip.id) });
   });
   item.querySelector('.search-org-bundle-btn').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -723,7 +726,7 @@ export function createCategoryClipsHTML(app, clips) {
           <div class="category-clip-time">${timeAgo}</div>
         </div>
         <div class="category-clip-actions">
-          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+          ${getTitleBundleButtonHtml('category-clip-title-bundle-btn', ` data-clip-id="${clip.id}"`)}
           <button class="category-clip-org-bundle-btn" data-clip-id="${clip.id}" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
           ${getGoogleSearchButtonHtml('category-clip-google-search-btn', ` data-clip-id="${clip.id}"`)}
           <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>

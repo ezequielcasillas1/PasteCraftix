@@ -920,6 +920,10 @@ class PasteCraftPopup {
     return this.clipsFeature?.viewer?.openGoogleSearchActions?.(this);
   }
 
+  openClipViewerTitleBundleMenu() {
+    return this.clipsFeature?.viewer?.openTitleBundleActions?.(this);
+  }
+
   showCustomSearchModule(clip, context = 'clips') {
     return this.clipsFeature?.customSearch?.showModule?.(this, { clip, context });
   }
@@ -1192,8 +1196,16 @@ class PasteCraftPopup {
     return this.clipsFeature?.title?.promptEditClipTitle?.(this, clipId);
   }
 
+  promptEditClipContent(clipId) {
+    return this.clipsFeature?.content?.promptEditClipContent?.(this, clipId);
+  }
+
   async updateClipTitleById(clipId, title) {
     return this.clipsFeature?.title?.updateClipTitleById?.(this, clipId, title);
+  }
+
+  async updateClipContentById(clipId, text) {
+    return this.clipsFeature?.content?.updateClipContentById?.(this, clipId, text);
   }
 
   _updateNoteClipTitlesById(clipId, title, updatedAt) {
@@ -1637,6 +1649,7 @@ class PasteCraftPopup {
   runAlbumAttachmentAiSummary() { return this.notesFeature.albumAttachmentViewer.runAiSummary(this); }
   runAlbumAttachmentAiBreakdown() { return this.notesFeature.albumAttachmentViewer.runAiBreakdown(this); }
   openAlbumAttachmentGoogleSearchMenu() { return this.notesFeature.albumAttachmentViewer.openGoogleSearchActions(this); }
+  openAlbumAttachmentTitleBundleMenu() { return this.notesFeature.albumAttachmentViewer.openTitleBundleActions(this); }
   runAlbumAttachmentAiRefactorization() { return this.notesFeature.albumAttachmentViewer.runAiRefactorization(this); }
   runAlbumAttachmentAiCraftClips() { return this.notesFeature.albumAttachmentViewer.runAiCraftClips(this); }
   runAlbumAttachmentSendToCategories() { return this.notesFeature.albumAttachmentViewer.runSendToCategories(this); }

@@ -282,3 +282,18 @@
 .clip-viewer-toolbar .pc-ai-icon-btn > svg * {
   pointer-events: none;
 }
+
+.clip-viewer-toolbar .pc-clip-title-bundle-btn,
+.clip-viewer-toolbar .clip-viewer-title-bundle-btn,
+.clip-viewer-toolbar .album-attachment-title-bundle-btn {
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.clip-viewer-toolbar .pc-clip-title-bundle-btn[aria-expanded="true"],
+.clip-viewer-toolbar .clip-viewer-title-bundle-btn[aria-expanded="true"],
+.clip-viewer-toolbar .album-attachment-title-bundle-btn[aria-expanded="true"] {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.14);
+}

@@ -537,6 +537,7 @@ async function _renderRemoteNotesPage(app, startIndex, pageSize, container) {
   if (remoteNotes && remoteNotes.length > 0) {
     container.innerHTML = remoteNotes.map(note => app._renderNoteCard(note)).join('');
     app._attachNoteCardListeners(container);
+    window.renderLucideIconsSync?.(container);
     return;
   }
   container.innerHTML = `

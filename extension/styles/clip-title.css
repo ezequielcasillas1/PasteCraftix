@@ -36,9 +36,60 @@
   margin-bottom: 4px;
 }
 
+.category-clip-title-bundle-btn,
+.chip-title-bundle-btn,
+.search-title-bundle-btn,
 .category-clip-title-btn,
-.chip-title-btn {
+.chip-title-btn,
+.pc-clip-title-bundle-btn {
   color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+.pc-clip-title-bundle-btn[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.chip-title-bundle-btn[aria-expanded="true"],
+.search-title-bundle-btn[aria-expanded="true"],
+.category-clip-title-bundle-btn[aria-expanded="true"] {
+  transform: scale(1.1);
+}
+
+.pc-clip-content-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pc-clip-content-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.pc-clip-content-textarea:focus {
+  border-color: #6366f1;
+  outline: 2px solid rgba(99, 102, 241, 0.25);
+}
+
+.pc-clip-content-editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
 }
 
 .viewer-attachment-title {

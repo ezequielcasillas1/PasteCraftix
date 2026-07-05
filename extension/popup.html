@@ -1204,7 +1204,11 @@
         .category-clip-ai-bundle-btn,
         .chip-open-btn,
         .chip-share-btn,
-        .chip-title-btn {
+        .chip-title-btn,
+        .chip-title-bundle-btn,
+        .pc-clip-title-bundle-btn,
+        .search-title-bundle-btn,
+        .category-clip-title-bundle-btn {
             background: none;
             border: none;
             cursor: pointer;
@@ -1238,7 +1242,11 @@
         .category-clip-ai-bundle-btn:hover,
         .chip-open-btn:hover,
         .chip-share-btn:hover,
-        .chip-title-btn:hover {
+        .chip-title-btn:hover,
+        .chip-title-bundle-btn:hover,
+        .pc-clip-title-bundle-btn:hover,
+        .search-title-bundle-btn:hover,
+        .category-clip-title-bundle-btn:hover {
             opacity: 1;
             transform: scale(1.15);
         }
@@ -4095,6 +4103,37 @@
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .settings-coupon-form {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+
+        .settings-coupon-form .settings-select {
+            flex: 1 1 180px;
+            min-width: 0;
+            cursor: text;
+        }
+
+        .settings-coupon-form .btn-primary {
+            flex: 0 0 auto;
+            min-width: 96px;
+        }
+
+        .settings-coupon-badge {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #4338ca;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
         
         .settings-note {
@@ -10985,6 +11024,36 @@ Multiple clips are separated by:
                             <span>Only affects clips in "Uncategorized". Categorized clips are never auto-deleted.</span>
                         </div>
                     </div>
+                    <div class="settings-section" id="settingsCouponSection">
+                        <h4><i data-lucide="ticket"></i> Coupon Code</h4>
+                        <p class="settings-description">Redeem a promo code to activate Basic cloud sync, AI access, or other account benefits.</p>
+                        <div class="settings-note" id="settingsCouponGuestNote" style="display: none; margin-top: 8px;">
+                            <span class="note-icon"><i data-lucide="info"></i></span>
+                            <span>Sign in with your PasteCraft account to redeem a coupon code.</span>
+                        </div>
+                        <div class="settings-note" id="settingsCouponStatus" style="display: none; margin-top: 8px;">
+                            <span class="note-icon"><i data-lucide="badge-check"></i></span>
+                            <span></span>
+                        </div>
+                        <div id="settingsCouponCodeBadge" class="settings-coupon-badge" style="display: none;" aria-live="polite"></div>
+                        <div id="settingsCouponForm" class="settings-coupon-form" style="display: none; margin-top: 10px;">
+                            <input
+                                type="text"
+                                id="settingsCouponInput"
+                                class="settings-select"
+                                placeholder="Enter coupon code"
+                                autocomplete="off"
+                                spellcheck="false"
+                                maxlength="32"
+                                aria-label="Coupon code"
+                            >
+                            <button type="button" class="btn-primary" id="settingsCouponRedeemBtn">Redeem</button>
+                        </div>
+                        <div class="settings-note" style="margin-top: 8px;">
+                            <span class="note-icon"><i data-lucide="info"></i></span>
+                            <span>Codes are case-insensitive. Each code can only be redeemed once per account.</span>
+                        </div>
+                    </div>
                     <div class="settings-section">
                         <h4><i data-lucide="moon"></i> Appearance</h4>
                         <p class="settings-description">Theme applies across PasteCraft (including Quick Paste).</p>
@@ -11391,6 +11460,10 @@ Multiple clips are separated by:
                         </button>
                         <span class="clip-viewer-toolbar-spacer" aria-hidden="true"></span>
                         <div class="clip-viewer-trailing-actions">
+                            <button class="pc-ai-icon-btn pc-delay-tip pc-clip-title-bundle-btn clip-viewer-title-bundle-btn" id="clipViewerTitleBundleBtn" type="button" aria-label="Edit clip" aria-haspopup="menu" aria-expanded="false" style="display:none;">
+                                <i data-lucide="pencil-line"></i>
+                                <span class="pc-tip" role="tooltip">Edit clip</span>
+                            </button>
                             <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerToggleRaw" type="button" aria-label="View raw" style="display:none;">
                                 <i data-lucide="file-text"></i>
                                 <span class="pc-tip" role="tooltip">View Raw</span>
@@ -12465,6 +12538,11 @@ Multiple clips are separated by:
                     <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentSendNotesBtn" type="button" aria-label="Send to note">
                         <i data-lucide="folder-plus"></i>
                         <span class="pc-tip" role="tooltip">Send to Note</span>
+                    </button>
+                    <span class="clip-viewer-toolbar-spacer" aria-hidden="true"></span>
+                    <button class="pc-ai-icon-btn pc-delay-tip pc-clip-title-bundle-btn album-attachment-title-bundle-btn" id="albumAttachmentTitleBundleBtn" type="button" aria-label="Edit clip" aria-haspopup="menu" aria-expanded="false" style="display:none;">
+                        <i data-lucide="pencil-line"></i>
+                        <span class="pc-tip" role="tooltip">Edit clip</span>
                     </button>
                 </div>
             </div>
