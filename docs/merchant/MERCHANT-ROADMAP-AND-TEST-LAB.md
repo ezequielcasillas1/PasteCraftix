@@ -21,7 +21,6 @@ PasteCraft Merchant is a **subscription-gated service layer** inside the single 
 | **Listing Dock staging** | Medium — staging before paste | Medium — visual hub for Merchant workflow | **P0** | Strip: Listing Dock btn (live) | 2 ✅ |
 | **Spot (#29)** | High — capture page/selection into dock | High — flagship Merchant action | **P0** | Strip: Spot btn (live) | 1–2 ✅ |
 | **Image→Text (#21)** | Medium — OCR into dock | Medium — Scholar-adjacent, useful for tags from images | **P1** | Strip: Image→Text btn (live stub) | 1 ✅ / enrich 6 |
-| **Seal & Ship** (purge staging) | Low — workflow closure | Low–medium — hygiene, trust | **P1** | Strip: Seal & Ship (disabled stub → enable) | 5 |
 | **DOM adapters** (auto-fill marketplace fields) | Very high when stable — eliminates manual paste | Very high — “magic” demo | **P1** (after A+B) | Same strip actions; adapter runs on paste/fill | 7 (C) |
 | **Etsy tag-input adapter** | Very high | Very high | **P1** | Phase C first adapter | 7 |
 | **Materials / alt DOM adapters** | High / medium | Medium | **P2** | After tag adapter proven | 8 |
@@ -75,7 +74,6 @@ Fixed strip on `document.documentElement` (`merchant.mount.js`). Order left → 
 | **Image→Text** | Region OCR → dock | ✅ Stub | Full #21 pipeline |
 | **Tag Queue** | Paste-next-tag mode | ✅ Built | Phase 4 |
 | **Snippets** | Preset library dropdown | ✅ Built | Phase 5 |
-| **Seal & Ship** | Purge staging | ✅ Live | Phase 5 |
 | Overflow `⋯` | Platform preset, Promo export, Advanced | Planned | Phase 4–8 |
 
 Strip height: `MERCHANT_STRIP_HEIGHT_PX` (38). Layout compensation: `merchant.layout.js` + `pc-merchant-strip-active` on `html`.
@@ -125,7 +123,6 @@ extension/content/merchant/          ← Merchant content slice (primary)
   merchant.materials.js              (Phase 5) validation + copy one-shot
   merchant.tag-queue.js              (Phase 4)
   merchant.snippets.js               (Phase 5)
-  merchant.seal-ship.js              (Phase 5)
 
 extension/background/handlers/       merchant.* handlers (sync, gating)
 extension/shared/                    constants only — no cross-feature imports
@@ -163,7 +160,7 @@ website/src/pages/merchant-test/     ← Astro hub with site nav
 | **2** | Listing Dock + Pulse + ephemeral TTL staging | Stage text; Pulse shows live/expiring | ✅ Done / verify |
 | **3** | Tags-first dock UI; Etsy 13×20 validation, dedupe, preview; listing pack parse | Tags-only default; invalid tags flagged | ✅ Done / verify |
 | **4** | Tag queue; batch copy/join; platform presets (Etsy/Printify/generic) | Paste-next on Test Lab Etsy page | ✅ Built — user test |
-| **5** | Dock materials (copy one-shot); snippet presets; Seal & Ship purge | Snippets + Seal on Test Lab | ✅ Built — user test |
+| **5** | Dock materials (copy one-shot); snippet presets | Snippets on Test Lab | ✅ Built — user test |
 | **6** | Subscription gating; optional cloud staging sync | Strip hidden without Merchant tier | Planned |
 | **7** | DOM adapter — Etsy tags (Phase C) | Auto-fill Test Lab + real Etsy | Planned |
 | **8** | DOM adapters — materials; social promo export; duplicate-listing quick-load | Multi-page Test Lab matrix | Planned |
@@ -232,7 +229,6 @@ DOM should use **realistic input patterns** (individual `<input>` per tag, not o
 | Materials copy | Etsy mock | Dock → Copy materials | Comma-joined materials on clipboard |
 | Snippets | Etsy mock | Snippets → insert | Boilerplate in buyer-instructions field |
 | Image→Text | Any image on page | Image→Text | OCR text lands in dock tags |
-| Seal & Ship | Any | Seal & Ship | Confirm → staging cleared; Pulse empty |
 | Etsy tag DOM adapter | Etsy mock → real Etsy | Queue + adapter | Fields filled without manual paste |
 | Materials adapter | Etsy mock | Copy materials + adapter | Material inputs populated (Phase 7) |
 | Social promo pack | Social stub | Export promo from tags | Hashtags fit platform limits |
@@ -244,5 +240,6 @@ DOM should use **realistic input patterns** (individual `<input>` per tag, not o
 ## References
 
 - `instructions/request.md` — **#58** PasteCraft Merchant, Product Lines
+- `docs/merchant/MERCHANT-QUEUE-SYSTEM.md` — queue support vision, comma-separated rules, queue tiers
 - `extension/content/merchant/` — implementation slice
 - `implementations.md` — phase completion log

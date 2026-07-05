@@ -96,4 +96,3 @@ admin/
 !.cursor/rules/**
 # Private security rules — keep local, never push (must follow un-ignore above)
 .cursor/rules/pastecraft-security-breach-response.mdc
-.cursor/rules/zscaler-mcp-security.mdc

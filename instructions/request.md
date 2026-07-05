@@ -1,13 +1,13 @@
-# PasteCraft - Future Feature Requests
+﻿# PasteCraft - Future Feature Requests
 
 **Last Updated:** June 22, 2026  
-**MVP Status:** ✅ COMPLETE AND DEPLOYED
+**MVP Status:** Ã¢Å“â€¦ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
 
 ---
 
-## 📋 **FUTURE ENHANCEMENTS (Post-MVP)**
+## Ã°Å¸â€œâ€¹ **FUTURE ENHANCEMENTS (Post-MVP)**
 
 ---
 
@@ -21,7 +21,7 @@
 - **PREMIUM:** Cloud sync + AI features (Breakdown/Summary/Image) + backup/restore
 
 **Requirements:**
-- Blocked by **#2** (Stripe tier configuration + price → tier mapping)
+- Blocked by **#2** (Stripe tier configuration + price Ã¢â€ â€™ tier mapping)
 - Enforce cloud sync entitlements server-side (FREE local-only; BASIC/PREMIUM allowed)
 - Keep AI premium gating + subscription validation (already exists)
 - Add grace period handling for expired/past_due subscriptions
@@ -36,16 +36,16 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Status:** Next up  
 
 **Requirements:**
-- Update Stripe → DB sync to support **FREE / BASIC / PREMIUM** tiers (unblocks **#1**)
-- Map Stripe Price IDs → tier + features; persist tier on webhook events
+- Update Stripe Ã¢â€ â€™ DB sync to support **FREE / BASIC / PREMIUM** tiers (unblocks **#1**)
+- Map Stripe Price IDs Ã¢â€ â€™ tier + features; persist tier on webhook events
 - Authenticate premium-gated endpoints (sync + AI) and enforce entitlements server-side
-- End-to-end test: upgrade/downgrade/cancel → webhook → tier update → feature gating
+- End-to-end test: upgrade/downgrade/cancel Ã¢â€ â€™ webhook Ã¢â€ â€™ tier update Ã¢â€ â€™ feature gating
 
 ---
 
 #### 3. Subscription Description (Website + Upgrade Page)
 **Priority:** HIGH  
-**Status:** ✅ Completed  
+**Status:** Ã¢Å“â€¦ Completed  
 
 ---
 
@@ -65,7 +65,7 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Status:** Not started  
 
 **Requirements:**
-- Add a **top-right mainframe widget** (fixed) with 3 icons stacked **above** the main widget: **Batch Copy**, **Add to Copy**, **Image → Text**
+- Add a **top-right mainframe widget** (fixed) with 3 icons stacked **above** the main widget: **Batch Copy**, **Add to Copy**, **Image Ã¢â€ â€™ Text**
 - Styling: top-right icons + cursor bar should **match the main widget style** (colors, rounded edges, glow, spacing, tooltips)
 - Batch icon: **green = ON**, **black = OFF** (like auto-copy)
 - When ON: sequential copies append into **one** batch clip (delimiter-based)
@@ -81,7 +81,7 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Requirements:**
 - Add-to-Copy icon lives in the **top-right mainframe widget**
 - On copy: system automatically captures **ONLY the most recent copy** (refreshes each new copy)
-- Cursor bar: clickable **“Add to Copy”** button (50% transparent blue bar, right of cursor)
+- Cursor bar: clickable **Ã¢â‚¬Å“Add to CopyÃ¢â‚¬Â** button (50% transparent blue bar, right of cursor)
 - Opens compact card-sized search catalog (same sort/filter behavior as Search tab)
 - Multi-select clips to append to the **current (most recent) copy** or active batch (delimiter-based)
 
@@ -92,9 +92,9 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Status:** Not started  
 
 **Requirements:**
-- Replace the PasteCraft logo **on the main widget icon** with the user's **profile-made image** (profile image or selected Images → Gallery image)
+- Replace the PasteCraft logo **on the main widget icon** with the user's **profile-made image** (profile image or selected Images Ã¢â€ â€™ Gallery image)
 - Preferences: add button under Dark Mode: "Set profile image to widget icon" (rectangular)
-- Images → Gallery: per-image widget-icon button with tooltip: "Set as widget icon"
+- Images Ã¢â€ â€™ Gallery: per-image widget-icon button with tooltip: "Set as widget icon"
 - Persist setting in storage; fallback to default logo if image fails
 
 ---
@@ -109,11 +109,11 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 ---
 
-#### 9. Images Page (Image → Text + Image Copy + Gallery)
+#### 9. Images Page (Image Ã¢â€ â€™ Text + Image Copy + Gallery)
 **Priority:** Medium  
 **Requirements:**
 - Add new **Images** page/tab (replaces AI Lab Gallery page + removes AI Image Generator)
-- Images page includes: **Image → Text analyzer**, **Image Copy library**, **Gallery**
+- Images page includes: **Image Ã¢â€ â€™ Text analyzer**, **Image Copy library**, **Gallery**
 - Gallery shows images created by AI via the **Profile popup module**
 - Gallery supports **download** (PNG/JPEG) + filename with timestamp/prompt reference
 
@@ -223,8 +223,8 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Status:** Needs Update  
 **Requirements:**
 - Update Free tier card: **Unlimited clips (local storage only)**
-- Show: ❌ No cloud sync, ❌ No AI
-- Add copy line: “Clips stay on your device”
+- Show: Ã¢ÂÅ’ No cloud sync, Ã¢ÂÅ’ No AI
+- Add copy line: Ã¢â‚¬Å“Clips stay on your deviceÃ¢â‚¬Â
 
 
 ---
@@ -249,7 +249,7 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 ---
 
-#### 21. Image-to-Text Analyzer (Snipping Tool OCR → Clip)
+#### 21. Image-to-Text Analyzer (Snipping Tool OCR Ã¢â€ â€™ Clip)
 **Priority:** High  
 **Status:** Not started  
 **Requirements:**
@@ -257,8 +257,8 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 - Top strip includes **Spot + Image Picker** (single clean bar at top of webpage)
 - Snipping-tool style: click + drag to capture region; extract text into **editable/formable text**
 - Save result as a clip showing **image + extracted text** (Clips page is the main feed)
-- Hybrid OCR: **local OCR** → if mismatch, prompt “does the text match?” → retry local → **AI/vision OCR fallback on first redo**
-- Optional: preview before saving; popup/module supports manual Image → Text (upload or paste image)
+- Hybrid OCR: **local OCR** Ã¢â€ â€™ if mismatch, prompt Ã¢â‚¬Å“does the text match?Ã¢â‚¬Â Ã¢â€ â€™ retry local Ã¢â€ â€™ **AI/vision OCR fallback on first redo**
+- Optional: preview before saving; popup/module supports manual Image Ã¢â€ â€™ Text (upload or paste image)
 
 ---
 
@@ -266,8 +266,8 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Priority:** Medium  
 **Status:** Partial (Needs multi-device + sync reliability fixes)  
 **Requirements:**
-- Opt-in “Remember login with 3-digit code” on Sign In
-- Require PIN to unlock the extension UI on open (keep Supabase session; don’t store passwords)
+- Opt-in Ã¢â‚¬Å“Remember login with 3-digit codeÃ¢â‚¬Â on Sign In
+- Require PIN to unlock the extension UI on open (keep Supabase session; donÃ¢â‚¬â„¢t store passwords)
 - Ensure Supabase login/session is recognized across multiple computers (sync ops work seamlessly after sign-in)
 - PIN unlock works across devices via browser sync storage (same account, same PIN hash)
 **Setup & Authentication:**
@@ -289,8 +289,8 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 **Bug Fixes:**
 - After setting a 3-digit PIN during sign-in, the extension later reports no PIN exists and prompts to create it again.
-- “Require 3-digit code on open” checkbox is unreliable (doesn’t consistently enforce lock/unlock on open)
-- “Change 3-digit code” and “Disable code” actions do not reliably apply/persist; review state/storage flow
+- Ã¢â‚¬Å“Require 3-digit code on openÃ¢â‚¬Â checkbox is unreliable (doesnÃ¢â‚¬â„¢t consistently enforce lock/unlock on open)
+- Ã¢â‚¬Å“Change 3-digit codeÃ¢â‚¬Â and Ã¢â‚¬Å“Disable codeÃ¢â‚¬Â actions do not reliably apply/persist; review state/storage flow
 - Add confirm modal for **Disable code** (are you sure?)
 - Add confirm modal for **Change 3-digit code** (confirm new PIN / confirm changes)
 
@@ -300,7 +300,7 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 **Priority:** Low  
 **Status:** Coming soon  
 **Requirements:**
-- Remove Quick Paste “Theme” setting (redundant with global Dark Mode)
+- Remove Quick Paste Ã¢â‚¬Å“ThemeÃ¢â‚¬Â setting (redundant with global Dark Mode)
 - Quick Paste UI should follow the global theme from Profile/Settings (single source of truth):
 making sure that settings and profile have a dark mode setting, in which if one turns on the other in settings has to match which is called
 state management.
@@ -313,7 +313,7 @@ state management.
 **Status:** Coming soon  
 **Requirements:**
 - Add a third right-click option: **Copy both (Image + URL)**
-- Ensure “Copy Image” → image clip only, “Copy Image Link” → URL clip only, “Copy both” → saves both clip types
+- Ensure Ã¢â‚¬Å“Copy ImageÃ¢â‚¬Â Ã¢â€ â€™ image clip only, Ã¢â‚¬Å“Copy Image LinkÃ¢â‚¬Â Ã¢â€ â€™ URL clip only, Ã¢â‚¬Å“Copy bothÃ¢â‚¬Â Ã¢â€ â€™ saves both clip types
 
 ---
 
@@ -366,7 +366,7 @@ state management.
 **Priority:** High  
 **Status:** Not started  
 **Requirements:**
-- Popup/module “Spot” page: preset categories (Tags, Address) + CRUD lists inside each category
+- Popup/module Ã¢â‚¬Å“SpotÃ¢â‚¬Â page: preset categories (Tags, Address) + CRUD lists inside each category
 - On-page Spot UI lives in the **full-width white top strip** (~1cm height) that pushes page content down
 - Spot turns green when matching fields exist on page; shows menu items for detected category
 - Settings: matcher checkboxes (visible match default, focus match, manual scan gate, strict autocomplete) + actions (preview, fill, copy, batch fill, batch copy/join)
@@ -391,8 +391,8 @@ state management.
 **Status:** Not started  
 **Requirements:**
 - Detect copy attempts (Ctrl+C/context menu/PasteCraft copy actions) and show indicator: Copied / Not copied
-- “Copied” is true if clipboard updated OR PasteCraft clip saved (either)
-- Optional AI hints: “needed/recommended to copy?” + up to 3 tips (premium-only), non-blocking UI
+- Ã¢â‚¬Å“CopiedÃ¢â‚¬Â is true if clipboard updated OR PasteCraft clip saved (either)
+- Optional AI hints: Ã¢â‚¬Å“needed/recommended to copy?Ã¢â‚¬Â + up to 3 tips (premium-only), non-blocking UI
 - Privacy guardrails: cap text length + include pageUrl only
 
 ---
@@ -407,9 +407,9 @@ state management.
 - **Diagram markup:** Mermaid, PlantUML, Graphviz/DOT (render as inline SVG/image)
 - **Structured data:** JSON, YAML, TOML, XML, CSV/TSV (syntax-highlighted, collapsible)
 - **Code blocks:** Syntax-highlighted code for common languages (auto-detect or fenced block lang tag)
-- **Math:** Handled by Feature #25 (LaTeX/MathML/KaTeX/MathJax) — already done
+- **Math:** Handled by Feature #25 (LaTeX/MathML/KaTeX/MathJax) Ã¢â‚¬â€ already done
 - Store/use copied `text/html` when available; fallback to plain text detection/heuristics
-- "View raw" toggle per clip for any markup payload; user can switch between rendered ↔ source
+- "View raw" toggle per clip for any markup payload; user can switch between rendered Ã¢â€ â€ source
 - Best-effort approach: unknown/ambiguous markup renders as plain text (no errors)
 
 ---
@@ -438,7 +438,7 @@ state management.
 **Priority:** Low  
 **Status:** Not started  
 **Requirements:**
-- Ensure renamed “funky animal name” **persists and renders consistently** across the PasteCraft UI
+- Ensure renamed Ã¢â‚¬Å“funky animal nameÃ¢â‚¬Â **persists and renders consistently** across the PasteCraft UI
 - Ensure related UI copy/labels that reference the name stay consistent across sessions
 
 ---
@@ -490,12 +490,12 @@ state management.
 
 #### 42. Admin Dashboard (Security + User Management)
 **Priority:** High
-**Status:** Not started — builds on auto-ban system (implemented Apr 2026)
+**Status:** Not started Ã¢â‚¬â€ builds on auto-ban system (implemented Apr 2026)
 
 **Requirements:**
 - Protected page (admin_users table gates access via service role Edge Function)
 - **Users list:** email, tier, is_banned, warning_count, created_at, last_seen, clip count
-- **Security events feed:** event_type, severity, triggered_at, details, resolved status — filter by user, type, date
+- **Security events feed:** event_type, severity, triggered_at, details, resolved status Ã¢â‚¬â€ filter by user, type, date
 - **Per-user panel:** view profile stats (no clipboard data), subscription info, security event history
 - **Actions:** ban (temp/permanent + reason), unban, adjust clip limit override, send warning email, delete account
 - **Rate limit violations log:** who hit limits, how often, on which tables
@@ -539,7 +539,7 @@ state management.
 
 #### 46. Icon Click Hit-Target Fix (Post-Refactor)
 **Priority:** High
-**Status:** Queued — implement after modular refactor is complete
+**Status:** Queued Ã¢â‚¬â€ implement after modular refactor is complete
 **Implement After:** Clips-first modular refactor (clips.events.js, categories.events.js, widget events)
 
 **Problem:** Clicking the icon portion of any button does not trigger the action; only clicking the label text works.
@@ -549,22 +549,22 @@ state management.
 - OR icon SVG/img element intercepts pointer events and the click never reaches the handler
 
 **Requirements:**
-- Add `pointer-events: none` to all icon elements (`svg`, `img`, `i`, `.icon`) inside action buttons — lets clicks pass through to the button
+- Add `pointer-events: none` to all icon elements (`svg`, `img`, `i`, `.icon`) inside action buttons Ã¢â‚¬â€ lets clicks pass through to the button
 - Ensure all button event handlers are registered on the outermost button/container element, not on inner children
 - Apply fix across all affected surfaces: Popup (Quick Save PDF button, Save Clip button), content widget (Magic wand button), and any other button that contains an icon + label pair
-- Validate fix in `*.events.js` modules during/after refactor extraction — do not patch the monolith `popup.js` just to move it again
+- Validate fix in `*.events.js` modules during/after refactor extraction Ã¢â‚¬â€ do not patch the monolith `popup.js` just to move it again
 - After fix: clicking anywhere on a button (icon or label) must trigger the same action
 
 ---
 
 #### 47. Craft Clips AI Rebuild (Magic Wand revamp)
 **Priority:** High
-**Status:** In progress — ships as **Craft Clips** (`ai-lab.magic.js`, settings in `ai-lab.craft-clips.*`)
+**Status:** In progress Ã¢â‚¬â€ ships as **Craft Clips** (`ai-lab.magic.js`, settings in `ai-lab.craft-clips.*`)
 **Requirements:**
-- Rebrand UI/copy: Magic Wand → **Craft Clips**; **action cards** per clip (categorize, format/refactor, cleanup, dedupe)
-- **Smart categorize** toggle: premium → 5 AI title picker modal after craft, then apply; else rules; `createCategory` CRUD
-- **AI modes (one per craft):** **AI Formatted** (`ai-format`, polishes `text`) *or* **AI Refactoring** (`ai-refactor`, levels ELI5–Wise Man, keeps original clip + adds new refactored clip in recents)
-- **Settings:** categorize on/off, archive-duplicates on/off, refactor level chips with ⓘ tooltips
+- Rebrand UI/copy: Magic Wand Ã¢â€ â€™ **Craft Clips**; **action cards** per clip (categorize, format/refactor, cleanup, dedupe)
+- **Smart categorize** toggle: premium Ã¢â€ â€™ 5 AI title picker modal after craft, then apply; else rules; `createCategory` CRUD
+- **AI modes (one per craft):** **AI Formatted** (`ai-format`, polishes `text`) *or* **AI Refactoring** (`ai-refactor`, levels ELI5Ã¢â‚¬â€œWise Man, keeps original clip + adds new refactored clip in recents)
+- **Settings:** categorize on/off, archive-duplicates on/off, refactor level chips with Ã¢â€œËœ tooltips
 - **Duplicates:** archive younger copies to `searchOnlyClips` when toggle on; undo restores clips + archived
 - **Storage:** `pc_craft_clips_settings_v1`; refactor fields local on clip; sync archived on craft
 - Plan: `docs/refactoring/craft-clips-ai-implementation-plan.md`
@@ -589,7 +589,7 @@ state management.
 | `Escape` | Close Quick View / Cancel action |
 | `Ctrl+Shift+N` | Create new note |
 | `Ctrl+Shift+A` | Toggle AI Summary on selected text |
-| `↑ / ↓` | Navigate clips in Quick View |
+| `Ã¢â€ â€˜ / Ã¢â€ â€œ` | Navigate clips in Quick View |
 | `Enter` | Select/copy highlighted clip |
 
 - Register shortcuts in `manifest.json` using `commands` API
@@ -598,34 +598,34 @@ state management.
 
 ---
 
-#### 48. Activity Log — Deleted Item Recovery
+#### 48. Activity Log Ã¢â‚¬â€ Deleted Item Recovery
 **Priority:** Medium
-**Status:** Not started — depends on Activity Log refactor (done)
+**Status:** Not started Ã¢â‚¬â€ depends on Activity Log refactor (done)
 
 **Requirements:**
 - On the Activity Log tab, any DELETE row shows a "Recover" button
-- Recovery window: **7 days max** — entries older than 7 days show Recover button as grayed/hidden
-- Works fully offline — no Supabase dependency for the recovery read path
+- Recovery window: **7 days max** Ã¢â‚¬â€ entries older than 7 days show Recover button as grayed/hidden
+- Works fully offline Ã¢â‚¬â€ no Supabase dependency for the recovery read path
 - After recovery, show toast and refresh the relevant feature list
 
-**Storage decision — IndexedDB + `navigator.storage.persist()`:**
-- `chrome.storage.local` is a 10MB hard cap — too small; already used by clips/notes/settings
+**Storage decision Ã¢â‚¬â€ IndexedDB + `navigator.storage.persist()`:**
+- `chrome.storage.local` is a 10MB hard cap Ã¢â‚¬â€ too small; already used by clips/notes/settings
 - Supabase `change_audit_log` cannot be the source of truth: FREE tier has no cloud sync, offline kills recovery, and sync must have already run before the delete is logged
 - IndexedDB has no hard extension cap but is evictable by browser under disk pressure
-- Fix: call `navigator.storage.persist()` at install/startup — browser marks the origin as persistent and **cannot silently evict it** (must prompt user first). PasteCraft already uses IndexedDB, so no new infrastructure needed.
+- Fix: call `navigator.storage.persist()` at install/startup Ã¢â‚¬â€ browser marks the origin as persistent and **cannot silently evict it** (must prompt user first). PasteCraft already uses IndexedDB, so no new infrastructure needed.
 
 **Implementation notes:**
-- On every delete (clip, note, category, archived clip) — write full item snapshot to IndexedDB `deleted_items` store with `{ item, table_name, deleted_at }`
+- On every delete (clip, note, category, archived clip) Ã¢â‚¬â€ write full item snapshot to IndexedDB `deleted_items` store with `{ item, table_name, deleted_at }`
 - Prune entries older than 7 days on each write (keeps store bounded)
 - Hard cap: 200 items max as a safety valve
-- `activity.service.js`: add `recoverDeletedEntry(entry)` — reads from IndexedDB, re-inserts locally, queues Supabase upsert via existing `syncQueue` if online
+- `activity.service.js`: add `recoverDeletedEntry(entry)` Ã¢â‚¬â€ reads from IndexedDB, re-inserts locally, queues Supabase upsert via existing `syncQueue` if online
 - Call `navigator.storage.persist()` in `background.js` `onInstalled` handler
 
 ---
 
 #### 49. Multi-Provider AI Keys (Gemini, Anthropic, Grok)
 **Priority:** Medium  
-**Status:** Coming soon — OpenAI only for MVP  
+**Status:** Coming soon Ã¢â‚¬â€ OpenAI only for MVP  
 
 **Requirements:**
 - Supabase Edge Function secrets: `GOOGLE_AI_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` (user-provided)
@@ -635,7 +635,7 @@ state management.
 
 ---
 
-## Account Dashboard (Website — `/account`)
+## Account Dashboard (Website Ã¢â‚¬â€ `/account`)
 
 Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admin-api).
 
@@ -645,9 +645,9 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 **Requirements:**
 - New **Security** panel/section on `pastecraft.com/account` (signed-in dashboard only)
-- **Account standing:** Read own `user_profiles` — show `is_banned`, `ban_reason`, `ban_expires_at`, `quarantine_paused_until` when set
-- **Devices:** List own `pastecraft_devices` (display name, `last_seen_at`); full Auth session revoke is follow-up — not in v1 unless Supabase session API is wired
-- **Usage guardrails:** Today’s clip count vs `daily_clip_limit` (warn near limit); do not expose admin-only `rate_limit_violations` rows
+- **Account standing:** Read own `user_profiles` Ã¢â‚¬â€ show `is_banned`, `ban_reason`, `ban_expires_at`, `quarantine_paused_until` when set
+- **Devices:** List own `pastecraft_devices` (display name, `last_seen_at`); full Auth session revoke is follow-up Ã¢â‚¬â€ not in v1 unless Supabase session API is wired
+- **Usage guardrails:** TodayÃ¢â‚¬â„¢s clip count vs `daily_clip_limit` (warn near limit); do not expose admin-only `rate_limit_violations` rows
 - **Protection summary:** Extension link-safety read-only (site-guard blocklist last sync / `pastecraft.com/safety/blocklist.json` updated-at); count of clips with `expires_at` (auto-expire)
 - **Activity link:** Cross-link to Activity History (**#39**); user-facing `security_events` feed needs scoped RLS or user Edge Function (table is admin-only today)
 
@@ -658,11 +658,11 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 **Status:** Scaffolding in progress  
 
 **Requirements:**
-- Unified purchased credit pool (`ai_purchased_credits_balance`) — works for text (weighted) and image (1:1)
+- Unified purchased credit pool (`ai_purchased_credits_balance`) Ã¢â‚¬â€ works for text (weighted) and image (1:1)
 - Stripe one-time packs: **1,000 credits / $5**, **5,000 credits / $15**
-- Custom credits: min **25** input; tiered price from credits (25–999 @ $0.005, 5000+ @ $0.003)
+- Custom credits: min **25** input; tiered price from credits (25Ã¢â‚¬â€œ999 @ $0.005, 5000+ @ $0.003)
 - Stripe Checkout `price_data` for custom; server calculates cents from credit count
-- Checkout floor **100 credits ($0.50)** — Stripe minimum; UI previews sub-min amounts
+- Checkout floor **100 credits ($0.50)** Ã¢â‚¬â€ Stripe minimum; UI previews sub-min amounts
 - Webhook fulfills via `credit_purchases` audit + balance increment
 - Premium required to buy or spend purchased credits
 
@@ -673,8 +673,8 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 **Status:** Scaffolding in progress  
 
 **Requirements:**
-- Banner in AI Lab header area: “Want to buy more credits?” with pack buttons
-- Show when total remaining credits ≤ 500 (text + image + purchased)
+- Banner in AI Lab header area: Ã¢â‚¬Å“Want to buy more credits?Ã¢â‚¬Â with pack buttons
+- Show when total remaining credits Ã¢â€°Â¤ 500 (text + image + purchased)
 - Checkout via existing background `pcCreateCheckout` message (`mode: payment`)
 - Follow-up: same banner on website `/account` and popup widget header
 
@@ -688,22 +688,22 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Supabase `app_announcements` table (title, body, link, audience, active window, priority)
 - Edge Function `get-announcements` returns active rows for extension + website
 - AI Lab banner stack: announcements above buy-credits banner; dismiss persists locally
-- Admin authoring UI deferred — seed rows via Supabase dashboard for now
+- Admin authoring UI deferred Ã¢â‚¬â€ seed rows via Supabase dashboard for now
 
 ---
 
-#### 54. Increase Craft Power (Regular ⟷ Super)
+#### 54. Increase Craft Power (Regular Ã¢Å¸Â· Super)
 **Priority:** Medium
 **Status:** Implemented
 **Requirements:**
-- Two-mode toggle in Craft Clips modal: Regular (GPT-5 Nano, 25 cr/batch, default) ⟷ Super (higher tier, more credits)
-- Super tier = single constant `CRAFT_SUPER_PRESET` (client + server, currently `default`/40 cr) — change one place to upgrade
+- Two-mode toggle in Craft Clips modal: Regular (GPT-5 Nano, 25 cr/batch, default) Ã¢Å¸Â· Super (higher tier, more credits)
+- Super tier = single constant `CRAFT_SUPER_PRESET` (client + server, currently `default`/40 cr) Ã¢â‚¬â€ change one place to upgrade
 - Server whitelists `craftPower` and recomputes charged credits; premium-gated; unknown values fall back to Regular
 - Persist choice in `pc_craft_clips_settings_v1`; blue/gold palette; aria/focus accessible
 
 ---
 
-#### 55. Send to Phone QR — iPhone Notes-Friendly Flow
+#### 55. Send to Phone QR Ã¢â‚¬â€ iPhone Notes-Friendly Flow
 **Priority:** Low  
 **Status:** Deferred (plain-text encoding improved Jun 2026; Safari redirect may still occur)  
 
@@ -728,10 +728,10 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 #### 57. Grammar API for AI Formatted (Craft Clips)
 **Priority:** Medium  
-**Status:** Future — explore alongside Craft Clips **#47** (`ai-format` edge function)
+**Status:** Future Ã¢â‚¬â€ explore alongside Craft Clips **#47** (`ai-format` edge function)
 
 **Requirements:**
-- Evaluate **LanguageTool** (REST API, tiered daily calls, self-host option), **Sapling** (usage-based ~$0.025/1K chars; Grammarly SDK alternative), **ProWritingAid** (official API sunsetting — verify enterprise/custom only)
+- Evaluate **LanguageTool** (REST API, tiered daily calls, self-host option), **Sapling** (usage-based ~$0.025/1K chars; Grammarly SDK alternative), **ProWritingAid** (official API sunsetting Ã¢â‚¬â€ verify enterprise/custom only)
 - Integrate chosen grammar/writing API into `ai-format`; keep current LLM path as fallback when API unavailable, rate-limited, or key unset
 - Preserve anti-AI-artifact guards; grammar API handles mechanics, LLM only for remaining polish gaps
 - Server-side API keys only; premium-gated; compare cost, latency, and quality vs pure-LLM before defaulting provider
@@ -740,14 +740,15 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 #### 58. PasteCraft Merchant (Seller Service Layer)
 **Priority:** High  
-**Status:** In progress (Phases 1–4 on main; Phase 5 built → user test; Phase 6–7 next)
-**Depends on:** **#29** Spot, **#21** Image→Text top strip
-**Roadmap doc:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md` — feature assessment, nav/prefs, phases 1–9+, Merchant Test Lab (`merchant-test-lab/` at repo root, not pastecraft.com)
-- Tags-first / tags-only default UI; title/description Advanced only — keep forever as default
-- **Big three (core Merchant):** tags + materials + snippets — NOT alt text as core
-- Core (must): tags, tag queue, Etsy 13×20 validation, platform presets (Etsy/Printify/generic)
-- Next ROI: dock materials copy (Phase 5); snippet presets (personalization/compliance); Seal & Ship purge
-- Alt text deprioritized — Phase 9+ “SEO pack” add-on only; not core marketing lever
+**Status:** In progress (Phases 1Ã¢â‚¬â€œ4 on main; Phase 5 built Ã¢â€ â€™ user test; Phase 6Ã¢â‚¬â€œ7 next)
+**Depends on:** **#29** Spot, **#21** ImageÃ¢â€ â€™Text top strip
+**Roadmap doc:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md` Ã¢â‚¬â€ feature assessment, nav/prefs, phases 1Ã¢â‚¬â€œ9+, Merchant Test Lab (`merchant-test-lab/` at repo root, not pastecraft.com)
+- **Queue system vision:** `docs/merchant/MERCHANT-QUEUE-SYSTEM.md` Ã¢â‚¬â€ comma-separated Ã¢â€ â€™ queue items; Phase 1 tag/material; Phase 2 title/description + keyword/bullet/hashtag
+- Tags-first / tags-only default UI; title/description Advanced only Ã¢â‚¬â€ keep forever as default
+- **Big three (core Merchant):** tags + materials + snippets Ã¢â‚¬â€ NOT alt text as core
+- Core (must): tags, tag queue, Etsy 13Ãƒâ€”20 validation, platform presets (Etsy/Printify/generic)
+- Next ROI: dock materials copy (Phase 5); snippet presets (personalization/compliance)
+- Alt text deprioritized Ã¢â‚¬â€ Phase 9+ Ã¢â‚¬Å“SEO packÃ¢â‚¬Â add-on only; not core marketing lever
 - Phased vertical slices in `extension/content/merchant/`; user test between phases
 - Separate Test Lab mock Etsy/Printify forms for QA + DOM adapters without marketplace accounts
 
@@ -759,29 +760,54 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 **Pricing (Merchant only):**
 - **$1.99 weekly**, **$6.99 monthly**, **$15.99 yearly**
 - Own Stripe prices + tier gate; ship after Spot + top-toolbar slice
-- Client-side Spot/top-strip + ephemeral staging only — no per-call AI/API cost like Scholar AI Lab
+- Client-side Spot/top-strip + ephemeral staging only Ã¢â‚¬â€ no per-call AI/API cost like Scholar AI Lab
 - Lower price reflects no ongoing API burn; bundle with Scholar still TBD
 
 **Ephemeral listing payload:**
-- **Listing Dock** — temporary staging for title / description / tags (clip, AI, Spot list, clipboard)
+- **Listing Dock** Ã¢â‚¬â€ temporary staging for title / description / tags (clip, AI, Spot list, clipboard)
 - Corruptible Merchant-only layer with TTL; never permanent Scholar archive
 - Merchant-only storage keys / staging table with `expires_at`; auto-expire fallback (e.g. 24h)
 
 **UI flow:**
-- **Merchant Pulse** — strip indicator (staging live / will vanish; "not saved forever")
+- **Merchant Pulse** Ã¢â‚¬â€ strip indicator (staging live / will vanish; "not saved forever")
 - Spot paste/fill + tag queue until listing fields complete
-- **Seal & Ship** — Done → success → confirm purge → corrupt/delete locally (+ cloud staging row)
 
 **Spot Phase A+B (build with Merchant):**
 - Listing pack clip shape: `title:` / `description:` / `tags:` sections
-- Etsy tag profile: 13 tags × 20 chars, dedupe, preview before copy
+- Etsy tag profile: 13 tags Ãƒâ€” 20 chars, dedupe, preview before copy
 - Batch copy/join (delimiter presets); tag queue "paste next tag"
 - Import from clip / AI text; platform presets (Etsy, Printify, generic)
 
 **Phase C (future) & gating:**
-- Etsy DOM tag-input adapter — defer until A+B stable; see **Product Lines**
+- Etsy DOM tag-input adapter Ã¢â‚¬â€ defer until A+B stable; see **Product Lines**
 - `user_subscriptions`: `has_merchant` flag or tier enum (`scholar` | `merchant` | `bundle`)
-- Spot + top strip → merchant; AI Lab → scholar; bundle = both flags active
+- Spot + top strip Ã¢â€ â€™ merchant; AI Lab Ã¢â€ â€™ scholar; bundle = both flags active
+
+---
+
+#### 59. PasteCraft Flow (Scholar Action Layer)
+**Priority:** High  
+**Status:** Concept  
+**Concept doc:** `docs/PASTECRAFT-FLOW.md`
+
+**Requirements:**
+- Connect Scholar clips, notes, AI outputs, and task-related correspondence into paste-ready contextual lanes on arbitrary webpages
+- Mirror Merchant's paste-loop feel: intake/stage → toggle lane → focus target → paste next
+- Add explicit **Intakes** + **Insights** surfaces so users can see what Flow used and why it suggested an output
+- Keep Scholar as the source of truth; Flow is the live action layer and can save strong outputs back into Scholar
+
+---
+
+#### 60. Admin Coupon Code Generation
+**Priority:** Medium  
+**Status:** Not started  
+
+**Requirements:**
+- Admin-only UI or script to create `coupon_codes` rows (benefit type, months, max redemptions, expiry)
+- Support benefit types: `unlimited`, `months_free`, `basic_plan`
+- Optional bulk export of codes for campaigns (Reddit, Fiverr, email)
+- Audit trail: tie new codes to `admin_actions` or security log entry
+- No client-side generation Ã¢â‚¬â€ service role / Supabase dashboard or admin Edge Function only
 
 ---
 
@@ -791,35 +817,36 @@ See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/m
 
 ### Brand split
 - **PasteCraft Scholar** — core study/productivity (clips, categories, notes, search, AI Lab)
+- **PasteCraft Flow** — Scholar action layer: contextual paste lanes on any webpage (see **#59**)
 - **PasteCraft Merchant** — Etsy/POD seller add-on: **Spot #29** + **Image→Text #21** top strip
-- Extension name stays "PasteCraft"; Scholar / Merchant are subscription **service layers**
+- Extension name stays "PasteCraft"; Scholar / Flow / Merchant are subscription **service layers**
 
 ### Subscription options (planned)
-- **Scholar only** — existing FREE / BASIC / PREMIUM tiers (cloud sync + AI Lab)
-- **Merchant only** — **$1.99/wk**, **$6.99/mo**, **$15.99/yr** (Spot + listing workflow; see **#58**)
-- **Bundle (Scholar + Merchant)** — combined access; pricing TBD (may discount vs both separately)
+- **Scholar only** Ã¢â‚¬â€ existing FREE / BASIC / PREMIUM tiers (cloud sync + AI Lab)
+- **Merchant only** Ã¢â‚¬â€ **$1.99/wk**, **$6.99/mo**, **$15.99/yr** (Spot + listing workflow; see **#58**)
+- **Bundle (Scholar + Merchant)** Ã¢â‚¬â€ combined access; pricing TBD (may discount vs both separately)
 
-### Merchant standalone — can it work without Scholar?
-- **Yes** — self-sufficient for Etsy/POD at full quality
+### Merchant standalone Ã¢â‚¬â€ can it work without Scholar?
+- **Yes** Ã¢â‚¬â€ self-sufficient for Etsy/POD at full quality
 - **Includes:** minimal clips/categories, Spot lists, listing packs, top strip (Spot + #21), tag queue
 - **Shared infra:** same extension, auth, Supabase; Merchant gates Spot/top strip; Scholar gates AI Lab
 
 ### Implementation order
-1. **Next:** Spot #29 + Image→Text #21 shared ~1cm top strip on web pages
-2. **Then:** UI color phases — leaner cohesive popup/module look (phased rollout)
-3. **Later:** Merchant billing + gating — after toolbar slice works
-- **#37 Tips bar** — removed from roadmap (already done)
+1. **Next:** Spot #29 + ImageÃ¢â€ â€™Text #21 shared ~1cm top strip on web pages
+2. **Then:** UI color phases Ã¢â‚¬â€ leaner cohesive popup/module look (phased rollout)
+3. **Later:** Merchant billing + gating Ã¢â‚¬â€ after toolbar slice works
+- **#37 Tips bar** Ã¢â‚¬â€ removed from roadmap (already done)
 
 ### Spot phases (summary)
-- **Phase A+B (Merchant — build first):** listing pack, Etsy tags, batch copy, tag queue — see **#58**
-- **Phase C (future — do NOT build yet):** Etsy (then Printify) DOM tag-input adapter — follow-up to **#29**; ship after A+B stable
+- **Phase A+B (Merchant Ã¢â‚¬â€ build first):** listing pack, Etsy tags, batch copy, tag queue Ã¢â‚¬â€ see **#58**
+- **Phase C (future Ã¢â‚¬â€ do NOT build yet):** Etsy (then Printify) DOM tag-input adapter Ã¢â‚¬â€ follow-up to **#29**; ship after A+B stable
 
 ### Tomorrow
-- Start **Spot + Image→Text** top-toolbar implementation (Merchant layer foundation)
+- Start **Spot + ImageÃ¢â€ â€™Text** top-toolbar implementation (Merchant layer foundation)
 
 ---
 
-## 🎯 **PRIORITY ROADMAP**
+## Ã°Å¸Å½Â¯ **PRIORITY ROADMAP**
 
 ### Immediate (Post-MVP Release):
 1. Monitor production issues
@@ -840,10 +867,26 @@ See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/m
 1. Export/Import functionality
 2. Collaboration features
 3. Cross-browser expansion
+4. Unofficial Cursor News (Expo mobile + API) — standalone at `C:\Dev\CursorAINews`
 
 ---
 
-## 📝 **FEATURE REQUEST PROCESS**
+#### 59. Unofficial Cursor News (Expo + API)
+**Priority:** Medium  
+**Status:** Phase 1 in progress  
+
+- **Moved:** standalone repo folder `C:\Dev\CursorAINews` (removed from `PasteCraft/unofficial-cursor-news/`)
+- Expo Dev Client (`mobile/`) primary; `web/` legacy Vite client kept
+- Node ingest API on port 8787; official feeds only (Phase 1)
+- Feed + refresh ingest + disclaimer + About stub
+- Name: **Unofficial Cursor News** Ã¢â‚¬â€ not affiliated with Anysphere
+- Phase 2+: aggregators, notifications, membership
+- **Project root:** `C:\Dev\CursorAINews` (api/, mobile/, web/, docs/) â€” open as its own Cursor workspace
+- Docs: `C:\Dev\CursorAINews\docs\SOURCE-STRATEGY.md`
+
+---
+
+## Ã°Å¸â€œÂ **FEATURE REQUEST PROCESS**
 
 To request a new feature:
 
@@ -858,7 +901,7 @@ To request a new feature:
 
 ---
 
-## 🔧 **TECHNICAL DEBT & REFACTORING**
+## Ã°Å¸â€Â§ **TECHNICAL DEBT & REFACTORING**
 
 ### Code Cleanup Needed:
 - [ ] Remove debug console.logs before production
@@ -880,7 +923,7 @@ To request a new feature:
 
 ---
 
-## 📁 Related Files
+## Ã°Å¸â€œÂ Related Files
 
 - **Completed Features:** `program-study/Completed/Implementations.md` - All MVP v1.0 implementations
 - **Fixed Bugs:** `program-study/Fixed/RefreshFixedLog.md` - Resolved issues
@@ -898,7 +941,7 @@ You will now execute this request in full compliance with your **AUTONOMOUS PRIN
 
 -   **Directive:** Perform a non-destructive scan of the entire repository to build a complete, evidence-based mental model of the current system architecture, dependencies, and established patterns.
 
--   **Output:** Produce a concise digest (≤ 200 lines) of your findings. This digest will anchor all subsequent actions.
+-   **Output:** Produce a concise digest (Ã¢â€°Â¤ 200 lines) of your findings. This digest will anchor all subsequent actions.
 
 -   **Constraint:** **No mutations are permitted during this phase.**
 
@@ -982,4 +1025,4 @@ You will now execute this request in full compliance with your **AUTONOMOUS PRIN
 
         -   `"Self-Audit Complete. CRITICAL ISSUE FOUND. Halting work. [Describe issue and recommend immediate diagnostic steps]."`
 
--   **Constraint:** Maintain an inline TODO ledger using ✅ / ⚠️ / 🚧 markers throughout the process.
+-   **Constraint:** Maintain an inline TODO ledger using Ã¢Å“â€¦ / Ã¢Å¡Â Ã¯Â¸Â / Ã°Å¸Å¡Â§ markers throughout the process.

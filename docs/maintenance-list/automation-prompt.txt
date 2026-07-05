@@ -1,0 +1,23 @@
+When this automation runs:
+
+1. Web-search current official sources for breaking changes, deprecations, deadlines, or policy updates relevant to PasteCraft browser extension maintenance:
+   - Chrome/Chromium Manifest V3 and extension platform (developer.chrome.com)
+   - Microsoft Edge add-ons MV3 parity
+   - Supabase (auth, JS client, Edge Functions, RLS docs)
+   - Stripe API/checkout/webhooks for subscription extensions
+   - Chrome Web Store and Edge Add-ons publisher policy changes
+   - Google OAuth for installed apps / redirect URI requirements
+
+2. Cross-check findings against PasteCraft maintenance scope (do NOT require @file — docs may be uncommitted):
+   - MV3: manifest, service worker, CSP, permissions, storage migrations
+   - Platform: Supabase sync/auth, Stripe billing, chrome.storage SCHEMA_VERSION, OAuth redirects for Chrome+Edge extension IDs, website merchant-test parity, security/RLS, pnpm deps, Resend/DNS
+
+3. Output a concise report:
+   - **Status:** ALL CLEAR or ACTION NEEDED
+   - **Findings:** bullet list with source links
+   - **Recommended actions:** which maintenance areas and likely first-touch files
+   - **Urgency:** low / medium / high with deadline if known
+
+4. If ALL CLEAR, say so in one line — still list what was checked.
+
+5. Do not modify repo files unless user explicitly enabled write tools in automation editor.

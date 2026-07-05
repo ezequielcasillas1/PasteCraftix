@@ -1,0 +1,173 @@
+---
+description: Phased plan (1–7) for Unofficial Cursor News feed service — vertical slices + modularity. Use when building unofficial-cursor-news/.
+globs: unofficial-cursor-news/**
+alwaysApply: false
+---
+
+# Unofficial Cursor News — Feed Service Plan (Phases 1–7)
+
+Build the **Unofficial Cursor News** app feed service through **vertical slices** (shippable user value per phase) and **modularity** (single-responsibility modules inside each slice).
+
+**Product name:** Unofficial Cursor News  
+**Positioning:** Unofficial fan app — **not affiliated with Anysphere.**  
+**Brand copy:** Refer to the product as **Cursor** (not "Cursor AI").  
+**Stack:** `unofficial-cursor-news/api` (Node ingest + JSON API) + `unofficial-cursor-news/mobile` (Expo Dev Client). Optional `web/` for browser preview.
+
+**Out of scope:** Phase 8 (native Swift/iOS without Expo) — do not plan or implement unless user explicitly requests.
+
+---
+
+## Architecture (always)
+
+```
+Sources (registry) → Ingest → Normalize → Store → API routes → Mobile/Web client → Open original URL
+```
+
+| Module | Path | Responsibility |
+|---|---|---|
+| Source registry | `api/src/sources/registry.js` | Allowlisted feeds; enable/disable; ingest method |
+| Ingest | `api/src/ingest/feeds.js`, `scrape.js` | Pull RSS/Atom/scrape (metadata only) |
+| Normalize | `api/src/normalize/news-item.js` | `NewsItem` shape, excerpt cap, dedupe keys |
+| Store | `api/src/store/` | Cache (memory → DB later) |
+| Routes | `api/src/index.js` | HTTP only — no ingest logic inline |
+| Mobile API client | `mobile/src/services/` | Fetch JSON — no RSS, no UI |
+| Screens | `mobile/App.js` or `mobile/src/screens/` | UI only — calls API client |
+
+**Ethics (every phase):** title + short excerpt (≤300 chars) + canonical URL + attribution. Tap opens original in browser. Never republish full article body in-app.
+
+**Four ingest paths (expand in Phase 3):** (1) RSS/Atom, (2) scrape API fallback, (3) curated registry, (4) third-party aggregator feeds.
+
+---
+
+## Phase 1 — Core feed (official sources)
+
+**Vertical slice:** User sees Cursor changelog + GitHub releases on device; tap opens original.
+
+**Sources (registry, enabled):**
+- `https://cursor.com/rss.xml` (changelog)
+- `https://github.com/getcursor/cursor/releases.atom`
+
+**API:** `GET /v1/news`, `GET /v1/sources`, `POST /v1/ingest`, `GET /v1/status`, `GET /health`
+
+**Mobile:** Feed list, refresh (ingest + reload), disclaimer banner, open link via `Linking.openURL`.
+
+**Done when:** Refresh returns real items; every card opens a valid external URL; disclaimer visible.
+
+**Do not:** scraping, aggregators, payments, push, UI polish.
+
+---
+
+## Phase 2 — Dedupe + registry quality
+
+**Vertical slice:** One clean timeline — duplicate stories appear once.
+
+**Work:** `dedupeNewsItems` by canonical URL; official source wins over aggregator when added later. Sort by `publishedAt` desc. Expose source metadata on `GET /v1/sources`.
+
+**Done when:** Same story from two sources shows once; registry is the single place to add sources.
+
+**Do not:** change mobile UI layout beyond what dedupe requires.
+
+---
+
+## Phase 3 — Expand coverage (four ingest paths)
+
+**Vertical slice:** More Cursor news sources, same rules.
+
+**Add incrementally (one source at a time, test each):**
+1. RSS/Atom — forum/community feeds if available
+2. Scrape — `scrape.js` behind env flag; metadata only; robots/ToS respect
+3. Registry — new rows in `registry.js` (later DB)
+4. Aggregators — e.g. Releasebot Cursor RSS (`enabled: false` until verified)
+
+**Done when:** ≥2 ingest methods live; each source documented in registry with `ingestMethod`, `attributionLabel`, `maxExcerptChars`.
+
+**Do not:** full-page scrape storage; paywalled content republishing.
+
+---
+
+## Phase 4 — UX essentials (functional, not beautiful)
+
+**Vertical slice:** Daily-usable reader on Windows + phone.
+
+**Work:** loading/error states; category filter (All, Changelog, Releases, Blog, Forum); About panel (unofficial notice, how sources work); empty state; API-down hint with dev commands.
+
+**Done when:** User can filter, refresh, and understand unofficial status without confusion.
+
+**Do not:** animations, custom themes, marketing polish.
+
+---
+
+## Phase 5 — Notifications
+
+**Vertical slice:** User gets alerted when **new** items appear (opt-in).
+
+**Work:** scheduled ingest job (`api/src/jobs/`); diff new vs last run; device token registration endpoint; Expo push or web push (PWA path via `web/` if needed). Per-category toggles: Changelog, Releases, Blog. Default digest; instant = Pro later (Phase 6).
+
+**Done when:** New changelog entry triggers notification user subscribed to; mute/opt-out works.
+
+**Do not:** spam; notify on duplicates; push unrelated marketing.
+
+---
+
+## Phase 6 — Membership ($1–$5/mo)
+
+**Vertical slice:** Optional support — **core news stays free.**
+
+| Tier | Price | Free | Paid |
+|---|---|---|---|
+| Core feed + open originals | $0 | ✅ | ✅ |
+| Advanced filters / saved items | — | basic | ✅ |
+| Notification modes (instant vs digest) | — | digest | ✅ |
+
+**Work:** Stripe/web billing module (not in mobile bundle secrets); gate **convenience only**, never headlines or links.
+
+**Done when:** Free users retain full feed; members get extras only.
+
+**Do not:** paywall news; external payment CTAs that violate store rules without IAP where required.
+
+---
+
+## Phase 7 — Ship web + PWA
+
+**Vertical slice:** Public URL; add-to-home-screen; production API.
+
+**Work:** Deploy API (Railway/Fly/Render/etc.); deploy Expo EAS or static `web/` build (Netlify/Vercel); env-based `API_BASE`; PWA manifest + service worker shell; Privacy Policy + DMCA/opt-out page.
+
+**Done when:** Public URL works on phone browser; ingest runs on schedule in production; disclaimer + attribution on every item.
+
+**Do not:** go live without privacy/DMCA pages; expose scrape API keys client-side.
+
+---
+
+## Agent workflow per phase
+
+1. **Research** target slice files before coding.
+2. **Implement vertical slice** end-to-end (API + client for that slice).
+3. **Verify** on Windows: API `npm run dev` + mobile `npx expo start --dev-client` (or web `npm run dev`).
+4. Ask user: **"Ezequiel, is the implementation successful?"** before SUCCESS logs or branch commit.
+5. **One phase at a time** — do not skip ahead unless user approves.
+
+---
+
+## Key paths
+
+| Artifact | Path |
+|---|---|
+| API entry | `unofficial-cursor-news/api/src/index.js` |
+| Source registry | `unofficial-cursor-news/api/src/sources/registry.js` |
+| Strategy doc | `unofficial-cursor-news/docs/SOURCE-STRATEGY.md` |
+| Week checklist | `unofficial-cursor-news/docs/WEEK-PLAN.md` |
+| Mobile app | `unofficial-cursor-news/mobile/` |
+| Web preview (optional) | `unofficial-cursor-news/web/` |
+
+---
+
+## Windows dev commands (PowerShell)
+
+```powershell
+cd unofficial-cursor-news/api; npm install; npm run dev
+# separate terminal:
+cd unofficial-cursor-news/mobile; npm install; npx expo start --dev-client
+```
+
+Use `;` not `&&` in PowerShell. API default: `http://127.0.0.1:8787`.

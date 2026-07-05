@@ -1,0 +1,51 @@
+---
+description: Cursor AI News (Unofficial Cursor News) workspace routing. Triggers on "Cursor AI News", "CursorAINews", "cursor ai news", "CAI news", or "unofficial cursor news feed". Forces all implementation to CursorAINews root — NEVER PasteCraft.
+alwaysApply: true
+---
+
+# Cursor AI News — Project Root (NOT PasteCraft)
+
+When the user talks about **Cursor AI News**, all work belongs in **CursorAINews**, not PasteCraft — even if the active workspace is `C:\Dev\PasteCraft`.
+
+## Canonical project root
+
+**Absolute path:** `C:\Dev\CursorAINews`
+
+| What | Path |
+|---|---|
+| Project root | `C:\Dev\CursorAINews` |
+| API (Node ingest + JSON) | `C:\Dev\CursorAINews\api` |
+| Mobile (Expo Dev Client) | `C:\Dev\CursorAINews\mobile` |
+| Web preview (optional) | `C:\Dev\CursorAINews\web` |
+| Docs | `C:\Dev\CursorAINews\docs` |
+
+## Trigger phrases (apply this rule)
+
+- **Cursor AI News**
+- **CursorAINews**
+- **cursor ai news**
+- **CAI news**
+- **unofficial cursor news feed**
+- **Unofficial Cursor News**
+
+## Mandatory agent behavior
+
+1. **Scope all reads, edits, terminals, and commits** to `C:\Dev\CursorAINews` and its subdirectories.
+2. **Do NOT** implement, debug, or refactor Cursor AI News features under `C:\Dev\PasteCraft` unless the user explicitly asks to copy PasteCraft patterns only (read-only reference).
+3. **Do NOT** conflate with PasteCraft: browser extension, merchant dock/queue, clips, Supabase sync, or any `extension/` path.
+4. If the active workspace is PasteCraft and the task needs sustained editing, use **move_agent_to_root** (Cursor MCP) to `C:\Dev\CursorAINews`, or ask the user to open the CursorAINews workspace.
+5. For phased feed-service work, also follow `unofficial-cursor-news-feed-service.mdc` inside CursorAINews.
+
+## Explicit forbiddens
+
+| Wrong (PasteCraft) | Right (CursorAINews) |
+|---|---|
+| `C:\Dev\PasteCraft\` for news feed code | `C:\Dev\CursorAINews\api`, `mobile`, `web` |
+| PasteCraft `extension/` | `C:\Dev\CursorAINews\api\src\`, `mobile\src\` |
+| PasteCraft merchant features | CursorAINews ingest, API routes, mobile feed |
+| PasteCraft `request.md` / merchant docs | `C:\Dev\CursorAINews\docs\` |
+
+## Product identity
+
+- **Cursor AI News / Unofficial Cursor News** — unofficial fan app; not affiliated with Anysphere.
+- **PasteCraft** — separate browser-extension product. Never the default workspace for news feed work.
