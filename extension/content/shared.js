@@ -29,6 +29,14 @@ async function safeRuntimeSendMessage(message) {
   }
 }
 
+function isExtensionContextValid() {
+  try {
+    return Boolean(chrome?.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
 // Resource URL helper:
 // - When loaded via repo root `manifest.json` ("Repo Loader"), assets live under `extension/*`.
 // - When loaded via `/extension/manifest.json`, assets live at the extension root.
@@ -53,4 +61,4 @@ function pastecraftGetURL(path) {
 const PASTECRAFT_PAGE_ORIGIN = window.location.origin;
 
 
-export { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN };
+export { safeRuntimeSendMessage, isExtensionContextValid, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN };

@@ -1,4 +1,4 @@
-import { safeRuntimeSendMessage } from '../shared.js';
+import { safeRuntimeSendMessage, isExtensionContextValid } from '../shared.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
 
 export function setupWidgetStorageSync(widget) {
@@ -145,7 +145,11 @@ export function toggleWidgetAutoCopy(widget) {
   label.textContent = newState.toUpperCase();
   widget.autoCopyEnabled = newState === 'on';
 
-  chrome.storage.local.set({ autoCopyEnabled: widget.autoCopyEnabled });
+  if (isExtensionContextValid()) {
+    try {
+      chrome.storage.local.set({ autoCopyEnabled: widget.autoCopyEnabled });
+    } catch (_) {}
+  }
 
   console.log(`🔄 Auto Copy: ${newState.toUpperCase()}`);
 
@@ -254,10 +258,14 @@ export function setupWidgetAutoCopyListener(widget) {
       widget.autoCopyCount++;
       updateWidgetAutoCopyCounter(widget);
 
-      chrome.storage.local.set({
-        autoCopyCount: widget.autoCopyCount,
-        autoCopyDate: new Date().toDateString()
-      });
+      if (isExtensionContextValid()) {
+        try {
+          chrome.storage.local.set({
+            autoCopyCount: widget.autoCopyCount,
+            autoCopyDate: new Date().toDateString()
+          });
+        } catch (_) {}
+      }
 
       console.log('✅ Auto-copied to PasteCraft!');
     } catch (error) {

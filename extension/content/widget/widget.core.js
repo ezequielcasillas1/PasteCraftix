@@ -1,4 +1,4 @@
-import { pastecraftGetURL } from '../shared.js';
+import { pastecraftGetURL, isExtensionContextValid } from '../shared.js';
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 import { injectWidgetStyles } from './widget.styles.js';
 import { loadWidgetSettings } from './widget.settings.js';
@@ -206,20 +206,32 @@ export function loadSavedWidgetPosition(widget) {
     }
   };
 
-  chrome.storage.local.get(['widgetPosition'], (result) => {
-    if (result.widgetPosition && widget.widget) {
-      widget.position = result.widgetPosition;
-      widget.widget.style.top = widget.position.top + '%';
-      console.log('📍 Widget position loaded:', widget.position.top + '%');
-    }
+  if (!isExtensionContextValid()) {
     revealWidget();
-  });
+    return;
+  }
+
+  try {
+    chrome.storage.local.get(['widgetPosition'], (result) => {
+      if (result.widgetPosition && widget.widget) {
+        widget.position = result.widgetPosition;
+        widget.widget.style.top = widget.position.top + '%';
+        console.log('📍 Widget position loaded:', widget.position.top + '%');
+      }
+      revealWidget();
+    });
+  } catch (_) {
+    revealWidget();
+  }
 
   setTimeout(revealWidget, 800);
 }
 
 export function saveWidgetPosition(widget) {
-  chrome.storage.local.set({ widgetPosition: widget.position });
+  if (!isExtensionContextValid()) return;
+  try {
+    chrome.storage.local.set({ widgetPosition: widget.position });
+  } catch (_) {}
 }
 
 export async function initWidgetAsync(widget) {
