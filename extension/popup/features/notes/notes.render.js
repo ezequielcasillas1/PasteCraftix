@@ -65,6 +65,11 @@ function _shouldLazyLoad(app, query, start, filteredLength) {
   return !!app.tieredNotesStore?.needsLazyLoading();
 }
 
+function _paintNoteLucideIcons(container) {
+  if (!container) return;
+  window.renderLucideIconsSync?.(container);
+}
+
 function _renderNotesPage(app, container, pageItems) {
   container.innerHTML = pageItems.map(note => renderNoteCard(note, app)).join('');
 }
@@ -81,6 +86,7 @@ export function renderNotes(app) {
 
   if (totalNotes === 0) {
     _renderEmptyNotesState(container, paginationEl, app, searchQuery);
+    _paintNoteLucideIcons(container);
     return;
   }
 
@@ -99,6 +105,7 @@ export function renderNotes(app) {
 
   renderNotesPagination(app, paginationEl, pageCount);
   attachNoteCardListeners(app, container);
+  _paintNoteLucideIcons(container);
 }
 
 // ── renderNoteCard ─────────────────────────────────────────────────────────

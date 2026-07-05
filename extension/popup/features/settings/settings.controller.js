@@ -24,6 +24,7 @@ import {
   importBackupFromJsonMerge,
 } from './settings.backup.js';
 import * as settingsRestore from './settings.restore.js';
+import { refreshCouponSettingsUI, redeemCouponCode } from './settings.coupon.js';
 
 export function initSettingsFeature(app) {
   try {
@@ -66,6 +67,10 @@ export function initSettingsFeature(app) {
       previewRestore: (windowKey) => settingsRestore.previewRestore(app, windowKey),
       applyRestoreFromPreview: () => settingsRestore.applyRestoreFromPreview(app),
       syncRestoredDataToCloud: () => settingsRestore.syncRestoredDataToCloud(app),
+    },
+    coupon: {
+      refreshCouponSettingsUI: () => refreshCouponSettingsUI(app),
+      redeemCouponCode: (code) => redeemCouponCode(app, code),
     },
   };
 }

@@ -2,9 +2,11 @@ import {
   CLIP_AI_BUNDLE_SELECTOR,
   CLIP_GOOGLE_SEARCH_SELECTOR,
   CLIP_ORG_BUNDLE_SELECTOR,
+  CLIP_TITLE_BUNDLE_SELECTOR,
   openAiBundleMenu,
   openGoogleSearchMenu,
   openOrgBundleMenu,
+  openTitleBundleMenu,
 } from './clips.action-menu.js';
 import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
 
@@ -31,7 +33,7 @@ function toggleCategoryRow(app, clipIdKey, row, event) {
 
 function getCategoryClipActionHandlers(app, clip, clipIdKey) {
   return [
-    ['.category-clip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
+    [CLIP_TITLE_BUNDLE_SELECTOR, (anchor) => openTitleBundleMenu(app, { anchor, clipIdKey })],
     [CLIP_ORG_BUNDLE_SELECTOR, (anchor) => clip && openOrgBundleMenu(app, { anchor, clip, clipIdKey, context: 'categories' })],
     [CLIP_GOOGLE_SEARCH_SELECTOR, (anchor) => clip && openGoogleSearchMenu(app, { anchor, clip, context: 'categories' })],
     ['.category-clip-open-btn', () => clip && typeof app.openClipViewer === 'function' && app.openClipViewer(clip, 'categories')],

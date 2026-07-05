@@ -95,6 +95,7 @@ export const NOTES_SELECTORS = Object.freeze({
   ALBUM_ATTACHMENT_AI_CRAFT_BTN: 'albumAttachmentAiCraftBtn',
   ALBUM_ATTACHMENT_SEND_CATEGORIES_BTN: 'albumAttachmentSendCategoriesBtn',
   ALBUM_ATTACHMENT_SEND_NOTES_BTN: 'albumAttachmentSendNotesBtn',
+  ALBUM_ATTACHMENT_TITLE_BUNDLE_BTN: 'albumAttachmentTitleBundleBtn',
   // Album source note overlay
   ALBUM_SOURCE_NOTE_MODAL: 'albumSourceNoteModal',
   ALBUM_SOURCE_NOTE_BACK_BTN: 'albumSourceNoteBackBtn',

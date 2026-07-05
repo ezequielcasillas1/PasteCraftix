@@ -5,7 +5,7 @@ import {
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
-import { openGoogleSearchMenu } from './clips.action-menu.js';
+import { canEditClipInPool, openGoogleSearchMenu, openTitleBundleMenuForClip } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
@@ -77,7 +77,14 @@ function getClipViewerElements() {
     htmlDetails: document.getElementById('clipViewerHtmlDetails'),
     htmlPre: document.getElementById('clipViewerHtml'),
     toggleBtn: document.getElementById('clipViewerToggleRaw'),
+    titleBundleBtn: document.getElementById('clipViewerTitleBundleBtn'),
   };
+}
+
+function setClipViewerTitleBundleVisibility(app, clip) {
+  const btn = document.getElementById('clipViewerTitleBundleBtn');
+  if (!btn) return;
+  btn.style.display = canEditClipInPool(app, clip) ? '' : 'none';
 }
 
 function findClipAcrossCollections(app, id) {
@@ -835,8 +842,21 @@ export async function open(app, clip, sourceContext = 'clips') {
   bindClipViewerLinkHandler(app, bodyEl);
   renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
 
+  setClipViewerTitleBundleVisibility(app, canonicalClip);
   modal.style.display = 'flex';
   window.renderLucideIcons?.(modal);
+}
+
+export async function refreshIfOpen(app, clipId) {
+  const idKey = getClipIdKey(clipId);
+  const current = app.currentClipViewerClip;
+  if (!current || getClipIdKey(current.id) !== idKey) return;
+
+  const modal = document.getElementById('clipViewerModal');
+  if (!modal || modal.style.display === 'none') return;
+
+  const updated = findClipAcrossCollections(app, current.id) || current;
+  await open(app, updated, app.clipViewerSourceContext || 'clips');
 }
 
 export function hide(app) {
@@ -878,6 +898,13 @@ export function openGoogleSearchActions(app) {
     clip,
     context: app.clipViewerSourceContext || 'clips',
   });
+}
+
+export function openTitleBundleActions(app) {
+  const anchor = document.getElementById('clipViewerTitleBundleBtn');
+  const clip = app.currentClipViewerClip;
+  if (!anchor || !clip) return;
+  openTitleBundleMenuForClip(app, { anchor, clip });
 }
 
 export function runAiRefactorization(app) {

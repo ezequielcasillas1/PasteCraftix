@@ -58,6 +58,16 @@ export const SETTINGS_ELEMENT_IDS = {
   UNCATEGORIZED_CLIPS: 'uncategorizedClipsCount',
 };
 
+export const SETTINGS_COUPON_ELEMENT_IDS = {
+  SECTION: 'settingsCouponSection',
+  GUEST_NOTE: 'settingsCouponGuestNote',
+  FORM: 'settingsCouponForm',
+  INPUT: 'settingsCouponInput',
+  REDEEM_BTN: 'settingsCouponRedeemBtn',
+  STATUS: 'settingsCouponStatus',
+  CODE_BADGE: 'settingsCouponCodeBadge',
+};
+
 export const BROADCAST_CHANNEL_NAME = 'pastecraft-settings-sync';
 
 export const RESTORE_STORAGE_KEYS = Object.freeze({

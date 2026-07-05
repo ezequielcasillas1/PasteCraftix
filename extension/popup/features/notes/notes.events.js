@@ -239,6 +239,10 @@ export function registerNotesEvents(app) {
   if (albumAttachmentSendNotesBtn) {
     albumAttachmentSendNotesBtn.addEventListener('click', () => app.runAlbumAttachmentSendToNotes());
   }
+  const albumAttachmentTitleBundleBtn = document.getElementById('albumAttachmentTitleBundleBtn');
+  if (albumAttachmentTitleBundleBtn) {
+    albumAttachmentTitleBundleBtn.addEventListener('click', () => app.openAlbumAttachmentTitleBundleMenu());
+  }
 
   // Album source note overlay
   const albumSourceNoteBackBtn = document.getElementById('albumSourceNoteBackBtn');

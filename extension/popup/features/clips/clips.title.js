@@ -1,9 +1,16 @@
+import {
+  getClipWriteCrud,
+  persistClipTitleState,
+  queueClipTitleSync,
+} from '../../../bridges/clips/clips-write.facade.js';
+import { getClipIdKey } from '../../../shared/clip-id.js';
+
 export function findClipLocationById(app, clipId) {
-  const idKey = app._clipIdKey(clipId);
-  const activeIndex = app.clips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+  const idKey = getClipIdKey(clipId);
+  const activeIndex = app.clips.findIndex(c => getClipIdKey(c?.id) === idKey);
   if (activeIndex >= 0) return { listName: 'clips', index: activeIndex, clip: app.clips[activeIndex] };
 
-  const archivedIndex = app.searchOnlyClips.findIndex(c => app._clipIdKey(c?.id) === idKey);
+  const archivedIndex = app.searchOnlyClips.findIndex(c => getClipIdKey(c?.id) === idKey);
   if (archivedIndex >= 0) {
     return { listName: 'searchOnlyClips', index: archivedIndex, clip: app.searchOnlyClips[archivedIndex] };
   }
@@ -27,12 +34,13 @@ export function promptEditClipTitle(app, clipId) {
 }
 
 export async function updateClipTitleById(app, clipId, title) {
-  const idKey = app._clipIdKey(clipId);
-  const normalizedTitle = typeof PCClipTitle !== 'undefined'
-    ? PCClipTitle.normalizeTitle(title)
+  const idKey = getClipIdKey(clipId);
+  const normalizedTitle = typeof globalThis.PCClipTitle !== 'undefined'
+    ? globalThis.PCClipTitle.normalizeTitle(title)
     : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
 
   return app._queueClipOp(async () => {
+    const PasteCraftCRUD = getClipWriteCrud();
     const result = await PasteCraftCRUD.saveOperation({
       stateGetter: () => ({
         clips: app.clips,
@@ -46,7 +54,7 @@ export async function updateClipTitleById(app, clipId, title) {
       },
       stateKeys: ['clips', 'searchOnlyClips', 'notes'],
       validator: () => {
-        const location = findClipLocationById(app, idKey);
+        const location = findClipLocationById(app, clipId);
         return { valid: !!location?.clip, error: 'Clip not found' };
       },
       mutateState: async (state) => {
@@ -54,7 +62,7 @@ export async function updateClipTitleById(app, clipId, title) {
           ...app,
           clips: state.clips,
           searchOnlyClips: state.searchOnlyClips,
-        }, idKey);
+        }, clipId);
         if (!location?.clip) throw new Error('Clip not found');
 
         const updatedAt = Date.now();
@@ -78,20 +86,12 @@ export async function updateClipTitleById(app, clipId, title) {
       },
       storageKeys: ['clips', 'searchOnlyClips', 'notes'],
       storageWriter: async (data) => {
-        await chrome.storage.local.set({
-          clips: data.clips,
-          searchOnlyClips: data.searchOnlyClips,
-          notes: data.notes,
-          pc_local_updatedAt: Date.now(),
-        });
-        if (typeof window !== 'undefined' && window.pasteCraftIndexedDB?.syncEntityFromLocalStorage) {
-          await window.pasteCraftIndexedDB.syncEntityFromLocalStorage('clips', Array.isArray(data?.clips) ? data.clips : []);
-        }
+        await persistClipTitleState(data);
       },
       verifier: async () => {
         const verification = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
         const verifiedPool = [...(verification.clips || []), ...(verification.searchOnlyClips || [])];
-        const verifiedClip = verifiedPool.find(c => app._clipIdKey(c?.id) === idKey);
+        const verifiedClip = verifiedPool.find(c => getClipIdKey(c?.id) === idKey);
         return !!verifiedClip && app._clipTitle(verifiedClip) === normalizedTitle;
       },
       uiUpdater: () => {
@@ -99,17 +99,11 @@ export async function updateClipTitleById(app, clipId, title) {
         app.renderSearchResults();
         app.renderCategories();
         app.renderNotes();
+        app.clipsFeature?.viewer?.refreshIfOpen?.(app, clipId);
+        app.notesFeature?.refreshOpenViewsForClipEdit?.(app, clipId, { title: normalizedTitle });
       },
       backgroundSync: async (meta) => {
-        const syncName = meta.listName === 'clips' ? 'syncClips' : 'syncArchivedClips';
-        const syncFn = meta.listName === 'clips'
-          ? pasteCraftSupabase.syncClipsToSupabase
-          : pasteCraftSupabase.syncArchivedClipsToSupabase;
-        await pasteCraftSupabase.syncWithQueue(syncName, [meta.nextClip], syncFn);
-
-        if (meta.changedNotes.length > 0) {
-          await pasteCraftSupabase.syncWithQueue('syncNotes', meta.changedNotes, pasteCraftSupabase.syncNotesToSupabase);
-        }
+        await queueClipTitleSync(meta);
       },
       successMessage: () => '',
       errorMessage: (error) => `Failed to update clip title: ${error.message || 'Unknown error'}`,
@@ -119,7 +113,6 @@ export async function updateClipTitleById(app, clipId, title) {
     });
 
     if (!result.success) {
-      app.showToast('Failed to update clip title');
       return false;
     }
 
@@ -130,13 +123,14 @@ export async function updateClipTitleById(app, clipId, title) {
 
 export function updateNoteClipTitlesById(app, clipId, title, updatedAt) {
   const changedNotes = [];
-  const idKey = app._clipIdKey(clipId);
+  const idKey = getClipIdKey(clipId);
+  const PasteCraftCRUD = getClipWriteCrud();
 
   (app.notes || []).forEach(note => {
     if (!Array.isArray(note?.clips)) return;
     let changed = false;
     note.clips = note.clips.map(clip => {
-      if (app._clipIdKey(clip?.id) !== idKey) return clip;
+      if (getClipIdKey(clip?.id) !== idKey) return clip;
       changed = true;
       return { ...clip, title };
     });

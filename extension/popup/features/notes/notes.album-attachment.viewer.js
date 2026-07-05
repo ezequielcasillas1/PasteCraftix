@@ -1,6 +1,6 @@
 import { collectAlbumInterlayings } from './notes.album-interlayings.crud.js';
 import { resolveSafeExternalUrl } from '../../../safe-url.js';
-import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
+import { canEditClipInPool, openGoogleSearchMenu, openTitleBundleMenuForClip } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 
 const SOURCE_CONTEXT = 'album';
@@ -91,8 +91,12 @@ function refreshLucideIcons(root) {
   window.renderLucideIcons?.(root);
 }
 
-function setAiToolbarVisible(els, visible) {
-  if (els.aiFooter) els.aiFooter.style.display = visible ? 'flex' : 'none';
+function setAlbumAttachmentTitleBundleVisibility(app, att) {
+  const btn = document.getElementById('albumAttachmentTitleBundleBtn');
+  if (!btn) return;
+  const clip = app.currentAlbumAttachmentClip;
+  const show = att?.type === 'clip' && canEditClipInPool(app, clip);
+  btn.style.display = show ? '' : 'none';
 }
 
 function captureViewerContext(app) {
@@ -141,6 +145,7 @@ export function open(app, noteId, attachmentIndex) {
 
   renderAttachmentBody(app, att, els.body);
   setAiToolbarVisible(els, att.type === 'clip' || !!String(app.currentAlbumAttachmentClip?.text || '').trim());
+  setAlbumAttachmentTitleBundleVisibility(app, att);
   refreshLucideIcons(els.aiFooter);
 
   els.modal.style.display = 'flex';
@@ -180,6 +185,26 @@ export function openGoogleSearchActions(app) {
   const clip = app.currentAlbumAttachmentClip;
   if (!anchor || !clip) return;
   openGoogleSearchMenu(app, { anchor, clip, context: SOURCE_CONTEXT });
+}
+
+export function openTitleBundleActions(app) {
+  const anchor = document.getElementById('albumAttachmentTitleBundleBtn');
+  const clip = app.currentAlbumAttachmentClip;
+  if (!anchor || !clip) return;
+  openTitleBundleMenuForClip(app, { anchor, clip });
+}
+
+export async function refreshIfOpen(app, clipId) {
+  const ctx = app.currentAlbumAttachmentContext;
+  if (!ctx) return;
+
+  const clip = app.currentAlbumAttachmentClip;
+  if (!clip || getClipIdKey(clip.id) !== getClipIdKey(clipId)) return;
+
+  const modal = document.getElementById('albumAttachmentViewerModal');
+  if (!modal || modal.style.display === 'none') return;
+
+  open(app, ctx.noteId, ctx.attachmentIndex);
 }
 
 export function runAiRefactorization(app) {

@@ -1,5 +1,6 @@
 import { saveSettings, saveThemeOnly, saveWidgetIconUseProfileImage, getCurrentProfileImageForWidget } from './settings.storage.js';
 import { showSettingsModal, hideSettingsModal, showHelpModal, hideHelpModal, openRestorePreviewModal, hideRestorePreviewModal } from './settings.render.js';
+import { SETTINGS_COUPON_ELEMENT_IDS } from './settings.constants.js';
 
 // ── Auto-save debounce ────────────────────────────────────────────────────────
 
@@ -203,6 +204,30 @@ function _wireInfoModals() {
   });
 }
 
+// ── Coupon redemption ─────────────────────────────────────────────────────────
+
+function _wireCouponRedemption(app) {
+  const input = document.getElementById(SETTINGS_COUPON_ELEMENT_IDS.INPUT);
+  const redeemBtn = document.getElementById(SETTINGS_COUPON_ELEMENT_IDS.REDEEM_BTN);
+  if (!redeemBtn) return;
+
+  const submit = async () => {
+    const code = input?.value || '';
+    await app.settingsFeature?.coupon?.redeemCouponCode?.(code);
+  };
+
+  redeemBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await submit();
+  });
+
+  input?.addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    await submit();
+  });
+}
+
 // ── Public init ───────────────────────────────────────────────────────────────
 
 export function initSettingsEvents(app) {
@@ -220,4 +245,5 @@ export function initSettingsEvents(app) {
   wire('restoreClips', () => _wireRestoreClips(app));
   wire('exportImport', () => _wireExportImport(app));
   wire('infoModals', () => _wireInfoModals());
+  wire('couponRedemption', () => _wireCouponRedemption(app));
 }
