@@ -42,6 +42,7 @@ export async function showSettingsModal(app) {
 
   _applyBasicSettingsToUI(app);
   Promise.resolve().then(() => app.applyAuthPrefsToUi()).catch(() => {});
+  Promise.resolve().then(() => app.settingsFeature?.coupon?.refreshCouponSettingsUI?.()).catch(() => {});
   _applyRestoreUI(app);
 
   document.getElementById('settingsModal').style.display = 'flex';
