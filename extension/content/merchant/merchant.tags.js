@@ -154,6 +154,16 @@ export function tagsToStorageString(tags) {
   return tags.filter(Boolean).join(', ');
 }
 
+/** Remove one tag segment by chip index (matches validateTags chip order). */
+export function removeTagAtIndex(rawInput, index, profile = null) {
+  const items = splitTagInput(typeof rawInput === 'string' ? rawInput : tagsToStorageString(rawInput), profile);
+  if (index < 0 || index >= items.length) {
+    return tagsToStorageString(items);
+  }
+  items.splice(index, 1);
+  return tagsToStorageString(items);
+}
+
 /**
  * Validate tags against a platform profile (dedupe, trim, length, count).
  * @returns {{ tags: string[], chips: Array, count: number, maxTags: number, maxChars: number, warnings: string[], hasErrors: boolean }}
@@ -167,14 +177,14 @@ export function validateTags(rawInput, profile) {
   const validTags = [];
   const warnings = [];
 
-  for (const raw of items) {
+  items.forEach((raw, segmentIndex) => {
     const trimmed = raw.trim();
-    if (!trimmed) continue;
+    if (!trimmed) return;
 
     const lower = trimmed.toLowerCase();
     if (seen.has(lower)) {
-      chips.push({ text: trimmed, status: 'duplicate', message: 'Duplicate tag' });
-      continue;
+      chips.push({ text: trimmed, status: 'duplicate', message: 'Duplicate tag', segmentIndex });
+      return;
     }
     seen.add(lower);
 
@@ -183,8 +193,9 @@ export function validateTags(rawInput, profile) {
         text: trimmed,
         status: 'invalid_length',
         message: `${trimmed.length}/${maxChars} chars`,
+        segmentIndex,
       });
-      continue;
+      return;
     }
 
     if (validTags.length >= maxTags) {
@@ -192,13 +203,14 @@ export function validateTags(rawInput, profile) {
         text: trimmed,
         status: 'over_limit',
         message: `Over ${maxTags} tag limit`,
+        segmentIndex,
       });
-      continue;
+      return;
     }
 
     validTags.push(trimmed);
-    chips.push({ text: trimmed, status: 'valid', message: null });
-  }
+    chips.push({ text: trimmed, status: 'valid', message: null, segmentIndex });
+  });
 
   const invalidCount = chips.filter((c) => c.status === 'invalid_length').length;
   const duplicateCount = chips.filter((c) => c.status === 'duplicate').length;

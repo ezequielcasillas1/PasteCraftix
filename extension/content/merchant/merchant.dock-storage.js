@@ -1,10 +1,18 @@
 import {
   ETSY_TAG_PROFILE,
   MERCHANT_DOCK_DEFAULT_TTL_MS,
+  MERCHANT_DOCK_TARGET_IDS,
+  MERCHANT_QUEUE_LIMITS,
   MERCHANT_STORAGE_KEYS,
 } from './merchant.constants.js';
 import { normalizeMaterialsForSave } from './merchant.materials.js';
-import { normalizeTagsForSave, normalizeTagsInputString } from './merchant.tags.js';
+import {
+  normalizeTagsForSave,
+  normalizeTagsInputString,
+  parseSmartTagCandidates,
+  tagsToStorageString,
+} from './merchant.tags.js';
+import { normalizeQueueForSave } from './merchant.queue-parse.js';
 
 const DOCK_KEY = MERCHANT_STORAGE_KEYS.DOCK_STAGING;
 
@@ -25,10 +33,22 @@ function sanitizeField(value, maxLen) {
 
 /** Validates and normalizes dock payload before write. */
 export function normalizeDockPayload(input = {}, source = 'manual', profile = null) {
-  const title = sanitizeField(input.title, 500);
-  const description = sanitizeField(input.description, 5000);
+  const { value: title } = normalizeQueueForSave(input.title || '', MERCHANT_QUEUE_LIMITS.TITLE);
+  const { value: description } = normalizeQueueForSave(input.description || '', MERCHANT_QUEUE_LIMITS.DESCRIPTION);
   const { tags, validation } = normalizeTagsForSave(input.tags || '', profile);
   const { materials, validation: materialsValidation } = normalizeMaterialsForSave(input.materials || '');
+  const { value: keywords, validation: keywordsValidation } = normalizeQueueForSave(
+    input.keywords || '',
+    MERCHANT_QUEUE_LIMITS.KEYWORD,
+  );
+  const { value: bullets, validation: bulletsValidation } = normalizeQueueForSave(
+    input.bullets || '',
+    MERCHANT_QUEUE_LIMITS.BULLET,
+  );
+  const { value: hashtags, validation: hashtagsValidation } = normalizeQueueForSave(
+    input.hashtags || '',
+    MERCHANT_QUEUE_LIMITS.HASHTAG,
+  );
   const allowedSources = new Set(['manual', 'clipboard', 'selection', 'spot', 'clip']);
   const safeSource = allowedSources.has(source) ? source : 'manual';
 
@@ -37,6 +57,9 @@ export function normalizeDockPayload(input = {}, source = 'manual', profile = nu
     description,
     tags,
     materials,
+    keywords,
+    bullets,
+    hashtags,
     tag_validation: {
       count: validation.count,
       maxTags: validation.maxTags,
@@ -48,6 +71,24 @@ export function normalizeDockPayload(input = {}, source = 'manual', profile = nu
       maxItems: materialsValidation.maxItems,
       warnings: materialsValidation.warnings,
       hasErrors: materialsValidation.hasErrors,
+    },
+    keywords_validation: {
+      count: keywordsValidation.count,
+      maxItems: keywordsValidation.maxItems,
+      warnings: keywordsValidation.warnings,
+      hasErrors: keywordsValidation.hasErrors,
+    },
+    bullets_validation: {
+      count: bulletsValidation.count,
+      maxItems: bulletsValidation.maxItems,
+      warnings: bulletsValidation.warnings,
+      hasErrors: bulletsValidation.hasErrors,
+    },
+    hashtags_validation: {
+      count: hashtagsValidation.count,
+      maxItems: hashtagsValidation.maxItems,
+      warnings: hashtagsValidation.warnings,
+      hasErrors: hashtagsValidation.hasErrors,
     },
     source: safeSource,
     updated_at: nowIso(),
@@ -62,7 +103,13 @@ export function isDockPayloadExpired(payload) {
 
 export function isDockPayloadEmpty(payload) {
   if (!payload) return true;
-  return !payload.title && !payload.description && !payload.tags && !payload.materials;
+  return !payload.title
+    && !payload.description
+    && !payload.tags
+    && !payload.materials
+    && !payload.keywords
+    && !payload.bullets
+    && !payload.hashtags;
 }
 
 /** Future Supabase row shape — local-only in Phase 2. */
@@ -74,6 +121,9 @@ export function toSupabaseStagingRow(dockPayload, userId = null) {
     description: dockPayload.description || '',
     tags: dockPayload.tags || '',
     materials: dockPayload.materials || '',
+    keywords: dockPayload.keywords || '',
+    bullets: dockPayload.bullets || '',
+    hashtags: dockPayload.hashtags || '',
     source: dockPayload.source || 'manual',
     updated_at: dockPayload.updated_at,
     expires_at: dockPayload.expires_at,
@@ -100,7 +150,7 @@ export async function readListingDock() {
 export async function saveListingDock(input, source = 'manual', profile = null) {
   const payload = normalizeDockPayload(input, source, profile);
   if (isDockPayloadEmpty(payload)) {
-    return { ok: false, error: 'At least one field (title, description, tags, or materials) is required.' };
+    return { ok: false, error: 'At least one field (title, description, tags, materials, keywords, bullets, or hashtags) is required.' };
   }
 
   try {
@@ -162,6 +212,69 @@ export function parseListingPackText(text, profile = null) {
   return result;
 }
 
+function mergeCommaField(existing, incoming) {
+  const next = (incoming || '').trim();
+  if (!next) return existing || '';
+  const prev = (existing || '').trim();
+  if (!prev) return next;
+  return `${prev.replace(/,\s*$/, '')}, ${next.replace(/^\s*,\s*/, '')}`;
+}
+
+function dockPayloadToInput(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  return {
+    title: payload.title || '',
+    description: payload.description || '',
+    tags: payload.tags || '',
+    materials: payload.materials || '',
+    keywords: payload.keywords || '',
+    bullets: payload.bullets || '',
+    hashtags: payload.hashtags || '',
+  };
+}
+
+/** Normalize captured text for a single dock field. */
+export function normalizeTextForDockField(text, field, profile = null) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) return '';
+
+  switch (field) {
+    case 'tags': {
+      const parsed = parseListingPackText(trimmed, profile);
+      if (parsed.tags) return parsed.tags;
+      return normalizeTagsInputString(trimmed, profile);
+    }
+    case 'materials':
+      return normalizeMaterialsForSave(trimmed).materials;
+    case 'title':
+      return normalizeQueueForSave(trimmed, MERCHANT_QUEUE_LIMITS.TITLE).value;
+    case 'description':
+      return normalizeQueueForSave(trimmed, MERCHANT_QUEUE_LIMITS.DESCRIPTION).value;
+    case 'keywords':
+      return normalizeQueueForSave(trimmed, MERCHANT_QUEUE_LIMITS.KEYWORD).value;
+    case 'bullets':
+      return normalizeQueueForSave(trimmed, MERCHANT_QUEUE_LIMITS.BULLET).value;
+    case 'hashtags':
+      return normalizeQueueForSave(trimmed, MERCHANT_QUEUE_LIMITS.HASHTAG).value;
+    default:
+      return trimmed;
+  }
+}
+
+/** Stage text into a specific dock field, preserving other staged fields. */
+export async function stageTextToDockTarget(text, targetField, source = 'selection', profile = null) {
+  const field = MERCHANT_DOCK_TARGET_IDS.includes(targetField) ? targetField : 'tags';
+  const normalized = normalizeTextForDockField(text, field, profile);
+  if (!normalized) {
+    return { ok: false, error: 'No text to stage.' };
+  }
+
+  const existing = await readListingDock();
+  const input = dockPayloadToInput(existing);
+  input[field] = normalized;
+  return saveListingDock(input, source, profile);
+}
+
 export async function stageFromSelectionText(text, source = 'selection', profile = null) {
   const parsed = parseListingPackText(text, profile);
   return saveListingDock(parsed, source, profile);
@@ -170,10 +283,34 @@ export async function stageFromSelectionText(text, source = 'selection', profile
 export async function stageFromClipboard(profile = null) {
   try {
     const text = await navigator.clipboard.readText();
-    const parsed = parseListingPackText(text, profile);
-    const result = await saveListingDock(parsed, 'clipboard', profile);
+    const trimmed = (text || '').trim();
+    if (!trimmed) {
+      return { ok: false, error: 'Clipboard is empty.' };
+    }
+
+    const parsed = parseListingPackText(trimmed, profile);
+    const smartTags = tagsToStorageString(parseSmartTagCandidates(trimmed, profile));
+    const existing = await readListingDock();
+    const input = dockPayloadToInput(existing);
+
+    const tagContent = parsed.tags || smartTags;
+    if (tagContent) {
+      input.tags = mergeCommaField(input.tags, tagContent);
+    } else if (parsed.title) {
+      input.title = mergeCommaField(input.title, parsed.title);
+    } else if (parsed.description) {
+      const maxChars = profile?.maxChars ?? ETSY_TAG_PROFILE.MAX_CHARS;
+      const singleToken = trimmed.split(/[,;\n\t|]+/).map((part) => part.trim()).filter(Boolean);
+      if (singleToken.length === 1 && singleToken[0].length <= maxChars) {
+        input.tags = mergeCommaField(input.tags, singleToken[0]);
+      } else {
+        input.description = mergeCommaField(input.description, parsed.description);
+      }
+    }
+
+    const result = await saveListingDock(input, 'clipboard', profile);
     if (result.ok) {
-      result.rawInput = parsed;
+      result.rawInput = input;
     }
     return result;
   } catch (err) {

@@ -26,27 +26,27 @@ import {
 
 import { refreshMerchantPulse } from './merchant.pulse.js';
 
-import { normalizeTagsInputString, validateTags } from './merchant.tags.js';
+import { normalizeTagsInputString } from './merchant.tags.js';
+
+import {
+  bindDockChipFieldEnterKey,
+  buildDockChipPreviewMarkup,
+  DOCK_CHIP_FIELD_CONFIG,
+  DOCK_CHIP_FIELD_KEYS,
+  renderDockChipPreview,
+} from './merchant.dock-chips.js';
 
 import {
   copyAllStagedTags,
   clampCustomMaxTags,
   getPlatformProfile,
-  pasteNextTag,
   readMerchantPrefs,
-  refreshTagQueueTags,
-  resetTagQueueIndex,
   updateMerchantPrefs,
 } from './merchant.tag-queue.js';
 
-import {
-  copyAllStagedMaterials,
-  normalizeMaterialsInputString,
-} from './merchant.materials.js';
-
-import { runSealAndShip } from './merchant.seal-ship.js';
-
-
+import { normalizeMaterialsInputString } from './merchant.materials.js';
+import { normalizeQueueInputString } from './merchant.queue-parse.js';
+import { refreshAllMerchantQueues, resetAllMerchantQueueIndices } from './merchant.queue-all.js';
 
 function buildTagLimitOptionsMarkup() {
   const presetRows = MERCHANT_TAG_LIMIT_PRESET_IDS
@@ -168,51 +168,119 @@ function buildDockMarkup() {
 
       </label>
 
-      <div class="pc-merchant-dock-tag-preview" data-field="dock-tag-preview" hidden>
+      <div class="pc-merchant-dock-chip-preview pc-merchant-dock-tag-preview" data-field="dock-tag-preview" hidden>
 
-        <div class="pc-merchant-dock-tag-preview-head">
+        <div class="pc-merchant-dock-chip-preview-head pc-merchant-dock-tag-preview-head">
 
           <span data-field="dock-tag-count">0/13</span>
 
         </div>
 
-        <div class="pc-merchant-dock-tag-chips" data-field="dock-tag-chips"></div>
+        <div class="pc-merchant-dock-chip-chips pc-merchant-dock-tag-chips" data-field="dock-tag-chips"></div>
 
-        <ul class="pc-merchant-dock-tag-warnings" data-field="dock-tag-warnings" hidden></ul>
+        <ul class="pc-merchant-dock-chip-warnings pc-merchant-dock-tag-warnings" data-field="dock-tag-warnings" hidden></ul>
 
       </div>
 
-      <label class="pc-merchant-dock-field pc-merchant-dock-field-secondary">
-
-        <span class="pc-merchant-dock-field-label-text">
-
-          Materials <em class="pc-merchant-dock-hint">comma-separated · up to 13</em>
-
-        </span>
-
-        <input type="text" data-field="dock-materials" autocomplete="off" maxlength="500" placeholder="cotton, linen, waxed thread" />
-
-      </label>
-
       <details class="pc-merchant-dock-advanced" data-field="dock-advanced">
 
-        <summary>Advanced — title &amp; description</summary>
+        <summary>Advanced — title, description, materials &amp; queue fields</summary>
+
+        <p class="pc-merchant-dock-hint">Comma-separated values stage queue items. Toggle a queue on the strip, then focus each marketplace field to paste-next.</p>
+
+        <label class="pc-merchant-dock-field pc-merchant-dock-field-secondary">
+
+          <span class="pc-merchant-dock-field-label-text">
+
+            Materials <em class="pc-merchant-dock-hint">comma-separated · up to 13</em>
+
+          </span>
+
+          <input type="text" data-field="dock-materials" autocomplete="off" maxlength="500" placeholder="cotton, linen, waxed thread" />
+
+        </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-materials-preview',
+          countField: 'dock-materials-count',
+          chipsField: 'dock-materials-chips',
+          warningsField: 'dock-materials-warnings',
+        })}
 
         <label class="pc-merchant-dock-field">
 
-          <span>Title</span>
+          <span>Title variants <em class="pc-merchant-dock-hint">comma-separated · Title Queue</em></span>
 
-          <input type="text" data-field="dock-title" autocomplete="off" maxlength="500" />
+          <input type="text" data-field="dock-title" autocomplete="off" maxlength="500" placeholder="Variant A, Variant B" />
 
         </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-title-preview',
+          countField: 'dock-title-count',
+          chipsField: 'dock-title-chips',
+          warningsField: 'dock-title-warnings',
+        })}
 
         <label class="pc-merchant-dock-field">
 
-          <span>Description</span>
+          <span>Description variants <em class="pc-merchant-dock-hint">comma-separated · Desc Queue</em></span>
 
-          <textarea data-field="dock-description" rows="4" maxlength="5000"></textarea>
+          <textarea data-field="dock-description" rows="4" maxlength="5000" placeholder="Short blurb A, Short blurb B"></textarea>
 
         </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-description-preview',
+          countField: 'dock-description-count',
+          chipsField: 'dock-description-chips',
+          warningsField: 'dock-description-warnings',
+        })}
+
+        <label class="pc-merchant-dock-field">
+
+          <span>Keywords <em class="pc-merchant-dock-hint">comma-separated · falls back to tags</em></span>
+
+          <input type="text" data-field="dock-keywords" autocomplete="off" maxlength="1000" placeholder="organic cotton, gift for mom" />
+
+        </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-keywords-preview',
+          countField: 'dock-keywords-count',
+          chipsField: 'dock-keywords-chips',
+          warningsField: 'dock-keywords-warnings',
+        })}
+
+        <label class="pc-merchant-dock-field">
+
+          <span>Bullets <em class="pc-merchant-dock-hint">comma-separated · up to 5</em></span>
+
+          <input type="text" data-field="dock-bullets" autocomplete="off" maxlength="2500" placeholder="Premium cotton, Machine washable, …" />
+
+        </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-bullets-preview',
+          countField: 'dock-bullets-count',
+          chipsField: 'dock-bullets-chips',
+          warningsField: 'dock-bullets-warnings',
+        })}
+
+        <label class="pc-merchant-dock-field">
+
+          <span>Hashtags <em class="pc-merchant-dock-hint">comma-separated · up to 15</em></span>
+
+          <input type="text" data-field="dock-hashtags" autocomplete="off" maxlength="1500" placeholder="#handmade, #shopsmall, …" />
+
+        </label>
+
+        ${buildDockChipPreviewMarkup({
+          previewField: 'dock-hashtags-preview',
+          countField: 'dock-hashtags-count',
+          chipsField: 'dock-hashtags-chips',
+          warningsField: 'dock-hashtags-warnings',
+        })}
 
       </details>
 
@@ -232,18 +300,6 @@ function buildDockMarkup() {
 
         </button>
 
-        <button type="button" class="pc-merchant-dock-btn" data-action="${MERCHANT_ACTIONS.DOCK_NEXT_TAG}">
-
-          Paste next tag
-
-        </button>
-
-        <button type="button" class="pc-merchant-dock-btn" data-action="${MERCHANT_ACTIONS.DOCK_COPY_MATERIALS}">
-
-          Copy materials
-
-        </button>
-
         <button type="button" class="pc-merchant-dock-btn" data-action="${MERCHANT_ACTIONS.DOCK_CLIPBOARD}">
 
           From clipboard
@@ -253,12 +309,6 @@ function buildDockMarkup() {
         <button type="button" class="pc-merchant-dock-btn pc-merchant-dock-btn-danger" data-action="${MERCHANT_ACTIONS.DOCK_CLEAR}">
 
           Clear dock
-
-        </button>
-
-        <button type="button" class="pc-merchant-dock-btn pc-merchant-dock-btn-seal" data-action="${MERCHANT_ACTIONS.SEAL_SHIP}" title="Confirm and purge ephemeral staging">
-
-          Seal &amp; Ship
 
         </button>
 
@@ -303,32 +353,6 @@ function formatMeta(payload) {
   return `Updated ${updated} · Expires ${expires} · Source: ${payload.source || 'manual'}${tagNote}`;
 
 }
-
-
-
-function chipStatusClass(status) {
-
-  if (status === 'valid') return 'pc-merchant-tag-chip-valid';
-
-  if (status === 'duplicate') return 'pc-merchant-tag-chip-duplicate';
-
-  if (status === 'invalid_length') return 'pc-merchant-tag-chip-invalid';
-
-  if (status === 'over_limit') return 'pc-merchant-tag-chip-over';
-
-  return 'pc-merchant-tag-chip-invalid';
-
-}
-
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-
 
 export class MerchantListingDock {
 
@@ -469,10 +493,17 @@ export class MerchantListingDock {
 
     tagsEl?.addEventListener('input', () => {
 
-      this.renderTagPreview(tagsEl.value);
+      this.renderChipPreview('tags', tagsEl.value);
 
-      refreshTagQueueTags().catch(() => {});
+      refreshAllMerchantQueues().catch(() => {});
 
+    });
+
+    bindDockChipFieldEnterKey(tagsEl, {
+      onFinalize: () => {
+        this.renderChipPreview('tags', tagsEl.value);
+        refreshAllMerchantQueues().catch(() => {});
+      },
     });
 
     const materialsEl = this.panelEl.querySelector('[data-field="dock-materials"]');
@@ -513,6 +544,73 @@ export class MerchantListingDock {
 
       materialsEl.value = next;
 
+      this.renderChipPreview('materials', next);
+
+      refreshAllMerchantQueues().catch(() => {});
+
+    });
+
+    materialsEl?.addEventListener('input', () => {
+
+      this.renderChipPreview('materials', materialsEl.value);
+
+      refreshAllMerchantQueues().catch(() => {});
+
+    });
+
+    bindDockChipFieldEnterKey(materialsEl, {
+      onFinalize: () => {
+        this.renderChipPreview('materials', materialsEl.value);
+        refreshAllMerchantQueues().catch(() => {});
+      },
+    });
+
+    const queueFieldBindings = [
+      { selector: '[data-field="dock-title"]', chipKey: 'title' },
+      { selector: '[data-field="dock-description"]', chipKey: 'description' },
+      { selector: '[data-field="dock-keywords"]', chipKey: 'keywords' },
+      { selector: '[data-field="dock-bullets"]', chipKey: 'bullets' },
+      { selector: '[data-field="dock-hashtags"]', chipKey: 'hashtags' },
+    ];
+
+    queueFieldBindings.forEach(({ selector, chipKey }) => {
+      const el = this.panelEl.querySelector(selector);
+      el?.addEventListener('input', () => {
+        this.renderChipPreview(chipKey, el.value);
+        refreshAllMerchantQueues().catch(() => {});
+      });
+      bindDockChipFieldEnterKey(el, {
+        multiline: el?.tagName === 'TEXTAREA',
+        onFinalize: () => {
+          this.renderChipPreview(chipKey, el.value);
+          refreshAllMerchantQueues().catch(() => {});
+        },
+      });
+      el?.addEventListener('paste', (event) => {
+        const raw = event.clipboardData?.getData('text/plain');
+        if (!raw?.trim()) return;
+        event.preventDefault();
+        const normalized = normalizeQueueInputString(raw);
+        if (el.tagName === 'TEXTAREA') {
+          el.value = normalized;
+        } else {
+          const start = el.selectionStart ?? 0;
+          const end = el.selectionEnd ?? 0;
+          const before = el.value.slice(0, start).replace(/,\s*$/, '');
+          const after = el.value.slice(end).replace(/^\s*,\s*/, '');
+          let next = normalized;
+          if (before && after) {
+            next = `${before}, ${normalized}, ${after}`;
+          } else if (before) {
+            next = `${before}, ${normalized}`;
+          } else if (after) {
+            next = `${normalized}, ${after}`;
+          }
+          el.value = next;
+        }
+        this.renderChipPreview(chipKey, el.value);
+        refreshAllMerchantQueues().catch(() => {});
+      });
     });
 
 
@@ -555,9 +653,9 @@ export class MerchantListingDock {
 
       tagsEl.value = next;
 
-      this.renderTagPreview(next);
+      this.renderChipPreview('tags', next);
 
-      refreshTagQueueTags().catch(() => {});
+      refreshAllMerchantQueues().catch(() => {});
 
     });
 
@@ -645,22 +743,6 @@ export class MerchantListingDock {
 
       }
 
-      if (action === MERCHANT_ACTIONS.DOCK_NEXT_TAG) {
-
-        this.handleNextTag().catch(() => {});
-
-        return;
-
-      }
-
-      if (action === MERCHANT_ACTIONS.DOCK_COPY_MATERIALS) {
-
-        this.handleCopyMaterials().catch(() => {});
-
-        return;
-
-      }
-
       if (action === MERCHANT_ACTIONS.DOCK_CLEAR) {
 
         this.handleClear().catch(() => {});
@@ -701,9 +783,18 @@ export class MerchantListingDock {
 
       }
 
-      if (action === MERCHANT_ACTIONS.SEAL_SHIP) {
+      if (action === MERCHANT_ACTIONS.DOCK_CHIP_REMOVE || action === MERCHANT_ACTIONS.DOCK_TAG_REMOVE) {
 
-        this.handleSealShip().catch(() => {});
+        const dockField = btn.getAttribute('data-dock-field');
+        const chipIndex = parseInt(btn.getAttribute('data-chip-index') ?? btn.getAttribute('data-tag-index'), 10);
+
+        if (dockField && Number.isFinite(chipIndex)) {
+
+          this.handleRemoveChip(dockField, chipIndex).catch(() => {});
+
+        }
+
+        return;
 
       }
 
@@ -729,76 +820,29 @@ export class MerchantListingDock {
 
 
 
+  getChipPreviewContext() {
+    return { profile: this.getActiveProfile() };
+  }
+
+  renderChipPreview(fieldKey, rawValue) {
+    const config = DOCK_CHIP_FIELD_CONFIG[fieldKey];
+    if (!config || !this.panelEl) return null;
+    const context = config.needsProfile ? this.getChipPreviewContext() : {};
+    return renderDockChipPreview(this.panelEl, config, rawValue, context);
+  }
+
+  renderAllChipPreviews(values = null) {
+    const source = values || this.getFieldValues();
+    DOCK_CHIP_FIELD_KEYS.forEach((key) => {
+      const config = DOCK_CHIP_FIELD_CONFIG[key];
+      const raw = source[config.dockField] || '';
+      this.renderChipPreview(key, raw);
+    });
+  }
+
+  /** @deprecated use renderChipPreview('tags', raw) */
   renderTagPreview(rawTags) {
-
-    const previewEl = this.panelEl?.querySelector('[data-field="dock-tag-preview"]');
-
-    const countEl = this.panelEl?.querySelector('[data-field="dock-tag-count"]');
-
-    const chipsEl = this.panelEl?.querySelector('[data-field="dock-tag-chips"]');
-
-    const warningsEl = this.panelEl?.querySelector('[data-field="dock-tag-warnings"]');
-
-    if (!previewEl || !countEl || !chipsEl || !warningsEl) return;
-
-
-
-    const trimmed = (rawTags || '').trim();
-
-    if (!trimmed) {
-
-      previewEl.hidden = true;
-
-      chipsEl.innerHTML = '';
-
-      warningsEl.hidden = true;
-
-      warningsEl.innerHTML = '';
-
-      return;
-
-    }
-
-
-
-    const result = validateTags(trimmed, this.getActiveProfile());
-
-    previewEl.hidden = false;
-
-    countEl.textContent = `${result.count}/${result.maxTags}`;
-
-    countEl.classList.toggle('pc-merchant-tag-count-warn', result.count >= result.maxTags);
-
-    countEl.classList.toggle('pc-merchant-tag-count-error', result.hasErrors);
-
-
-
-    chipsEl.innerHTML = result.chips.map((chip) => {
-
-      const safeText = escapeHtml(chip.text);
-
-      const title = chip.message ? ` title="${escapeHtml(chip.message)}"` : '';
-
-      return `<span class="pc-merchant-tag-chip ${chipStatusClass(chip.status)}"${title}>${safeText}</span>`;
-
-    }).join('');
-
-
-
-    if (result.warnings.length > 0) {
-
-      warningsEl.hidden = false;
-
-      warningsEl.innerHTML = result.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('');
-
-    } else {
-
-      warningsEl.hidden = true;
-
-      warningsEl.innerHTML = '';
-
-    }
-
+    return this.renderChipPreview('tags', rawTags);
   }
 
 
@@ -1036,11 +1080,10 @@ export class MerchantListingDock {
 
     if (tagsEl) {
 
-      this.renderTagPreview(tagsEl.value);
+      this.renderChipPreview('tags', tagsEl.value);
 
     }
 
-    await refreshTagQueueTags();
 
     if (closePanel) {
 
@@ -1064,53 +1107,6 @@ export class MerchantListingDock {
 
 
 
-  async handleNextTag() {
-
-    const result = await pasteNextTag();
-
-    this.showDockToast(result.message || (result.ok ? 'Tag copied.' : 'Queue failed.'));
-
-    return result;
-
-  }
-
-
-
-  async handleCopyMaterials() {
-
-    const result = await copyAllStagedMaterials();
-
-    this.showDockToast(result.message || (result.ok ? 'Materials copied.' : 'Copy failed.'));
-
-    return result;
-
-  }
-
-
-
-  async handleSealShip() {
-
-    const result = await runSealAndShip({
-      stripEl: this.stripEl,
-      root: window.__pasteCraftMerchant?.strip?.root || null,
-    });
-
-    if (result.ok) {
-
-      this.setFieldValues({});
-
-      this.close();
-
-    }
-
-    this.showDockToast(result.message || (result.ok ? 'Staging purged.' : 'Seal & Ship failed.'));
-
-    return result;
-
-  }
-
-
-
   getFieldValues() {
 
     return {
@@ -1122,6 +1118,12 @@ export class MerchantListingDock {
       tags: this.panelEl?.querySelector('[data-field="dock-tags"]')?.value || '',
 
       materials: this.panelEl?.querySelector('[data-field="dock-materials"]')?.value || '',
+
+      keywords: this.panelEl?.querySelector('[data-field="dock-keywords"]')?.value || '',
+
+      bullets: this.panelEl?.querySelector('[data-field="dock-bullets"]')?.value || '',
+
+      hashtags: this.panelEl?.querySelector('[data-field="dock-hashtags"]')?.value || '',
 
     };
 
@@ -1139,6 +1141,12 @@ export class MerchantListingDock {
 
     const materialsEl = this.panelEl?.querySelector('[data-field="dock-materials"]');
 
+    const keywordsEl = this.panelEl?.querySelector('[data-field="dock-keywords"]');
+
+    const bulletsEl = this.panelEl?.querySelector('[data-field="dock-bullets"]');
+
+    const hashtagsEl = this.panelEl?.querySelector('[data-field="dock-hashtags"]');
+
     const metaEl = this.panelEl?.querySelector('[data-field="pc-merchant-dock-meta"]');
 
     const advancedEl = this.panelEl?.querySelector('[data-field="dock-advanced"]');
@@ -1149,19 +1157,23 @@ export class MerchantListingDock {
 
     if (materialsEl) materialsEl.value = payload.materials || '';
 
-    if (tagsEl) {
+    if (keywordsEl) keywordsEl.value = payload.keywords || '';
 
-      tagsEl.value = payload.tags || '';
+    if (bulletsEl) bulletsEl.value = payload.bullets || '';
 
-      const previewSource = previewTags != null ? previewTags : tagsEl.value;
+    if (hashtagsEl) hashtagsEl.value = payload.hashtags || '';
 
-      this.renderTagPreview(previewSource);
+    if (tagsEl) tagsEl.value = payload.tags || '';
 
+    const previewValues = { ...payload };
+    if (previewTags != null) {
+      previewValues.tags = previewTags;
     }
+    this.renderAllChipPreviews(previewValues);
 
     if (metaEl) metaEl.textContent = formatMeta(payload);
 
-    if (advancedEl && (payload.title || payload.description)) {
+    if (advancedEl && (payload.title || payload.description || payload.materials || payload.keywords || payload.bullets || payload.hashtags)) {
 
       advancedEl.open = true;
 
@@ -1187,7 +1199,6 @@ export class MerchantListingDock {
 
     await this.notifyChange();
 
-    await refreshTagQueueTags();
 
   }
 
@@ -1261,6 +1272,53 @@ export class MerchantListingDock {
 
 
 
+  async handleRemoveChip(dockField, chipIndex) {
+
+    const config = Object.values(DOCK_CHIP_FIELD_CONFIG).find((c) => c.dockField === dockField);
+
+    if (!config) return { ok: false, error: 'Unknown chip field.' };
+
+    const inputEl = this.panelEl?.querySelector(`[data-field="${config.inputField}"]`);
+
+    if (!inputEl) return { ok: false, error: 'Field not found.' };
+
+    const context = config.needsProfile ? this.getChipPreviewContext() : {};
+
+    const next = config.removeAtIndex(inputEl.value, chipIndex, context);
+
+    inputEl.value = next;
+
+    this.renderChipPreview(config.key, next);
+
+    const values = { ...this.getFieldValues(), [config.dockField]: next };
+
+    const profile = config.needsProfile ? this.getActiveProfile() : null;
+
+    const result = await saveListingDock(values, 'manual', profile);
+
+    if (result.ok && result.payload) {
+
+      inputEl.value = result.payload[config.dockField] || '';
+
+      this.renderChipPreview(config.key, inputEl.value);
+
+    }
+
+    await this.notifyChange();
+
+    await refreshAllMerchantQueues();
+
+    return { ok: true };
+
+  }
+
+  /** @deprecated use handleRemoveChip('tags', chipIndex) */
+  async handleRemoveTag(tagIndex) {
+    return this.handleRemoveChip('tags', tagIndex);
+  }
+
+
+
   async handleSave() {
 
     const result = await saveListingDock(
@@ -1279,9 +1337,9 @@ export class MerchantListingDock {
 
     await this.notifyChange();
 
-    await refreshTagQueueTags();
+    await refreshAllMerchantQueues();
 
-    resetTagQueueIndex();
+    resetAllMerchantQueueIndices();
 
     return result;
 
@@ -1301,9 +1359,9 @@ export class MerchantListingDock {
 
     await this.notifyChange();
 
-    await refreshTagQueueTags();
+    await refreshAllMerchantQueues();
 
-    resetTagQueueIndex();
+    resetAllMerchantQueueIndices();
 
     return result;
 
@@ -1319,9 +1377,8 @@ export class MerchantListingDock {
 
     await this.notifyChange();
 
-    resetTagQueueIndex();
+    resetAllMerchantQueueIndices();
 
-    await refreshTagQueueTags();
 
     return { ok: true, message: 'Listing dock cleared.' };
 

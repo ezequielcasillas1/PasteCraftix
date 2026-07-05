@@ -52,54 +52,6 @@ export async function saveSnippetLibrary(snippets) {
   }
 }
 
-function getFocusedField() {
-  const active = document.activeElement;
-  if (!active) return null;
-  if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') {
-    return active;
-  }
-  if (active.isContentEditable) {
-    return active;
-  }
-  return null;
-}
-
-function isInsideMerchantHost(el) {
-  let node = el;
-  while (node) {
-    const field = node.getAttribute?.('data-field');
-    if (field === 'pc-merchant-strip-host' || field === 'pc-merchant-dock-host') {
-      return true;
-    }
-    node = node.parentNode || node.host;
-  }
-  return false;
-}
-
-function insertIntoField(field, text) {
-  if (!field || !text) return false;
-
-  if (field.isContentEditable) {
-    field.focus();
-    document.execCommand('insertText', false, text);
-    return true;
-  }
-
-  if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
-    const start = field.selectionStart ?? field.value.length;
-    const end = field.selectionEnd ?? field.value.length;
-    const before = field.value.slice(0, start);
-    const after = field.value.slice(end);
-    field.value = `${before}${text}${after}`;
-    const caret = start + text.length;
-    field.setSelectionRange?.(caret, caret);
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-    return true;
-  }
-
-  return false;
-}
-
 export async function insertSnippet(snippetId) {
   const library = await readSnippetLibrary();
   const snippet = library.find((s) => s.id === snippetId);
@@ -107,26 +59,54 @@ export async function insertSnippet(snippetId) {
     return { ok: false, message: 'Snippet not found.' };
   }
 
-  const field = getFocusedField();
-  if (field && !isInsideMerchantHost(field)) {
-    const inserted = insertIntoField(field, snippet.text);
-    if (inserted) {
-      closeSnippetsMenu();
-      return { ok: true, message: `Inserted "${snippet.label}"` };
-    }
-  }
-
   const copyResult = await copyTextToClipboard(snippet.text);
   closeSnippetsMenu();
   if (!copyResult.ok) {
-    return { ok: false, message: copyResult.error || 'Insert failed.' };
+    return { ok: false, message: copyResult.error || 'Copy failed.' };
   }
   return {
     ok: true,
-    message: field
-      ? `Copied "${snippet.label}" — paste with Ctrl+V`
-      : `Copied "${snippet.label}" — focus a field or paste`,
+    message: `Copied "${snippet.label}" — paste with Ctrl+V`,
   };
+}
+
+function deriveSnippetLabel(text) {
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  if (oneLine.length <= 36) return oneLine;
+  return `${oneLine.slice(0, 33)}…`;
+}
+
+export async function addSnippetFromInput(text) {
+  const trimmed = (text || '').trim();
+  if (!trimmed) {
+    return { ok: false, message: 'Enter snippet text first.' };
+  }
+  await readSnippetLibrary();
+  const entry = {
+    id: `snippet-${Date.now()}`,
+    label: deriveSnippetLabel(trimmed),
+    text: trimmed,
+  };
+  await saveSnippetLibrary([..._snippets, entry]);
+  renderMenuItems();
+  if (_menuOpen) positionSnippetMenu();
+  return { ok: true, message: `Saved "${entry.label}"` };
+}
+
+export async function deleteSnippet(snippetId) {
+  const id = (snippetId || '').trim();
+  if (!id) {
+    return { ok: false, message: 'Snippet not found.' };
+  }
+  await readSnippetLibrary();
+  const next = _snippets.filter((s) => s.id !== id);
+  if (next.length === _snippets.length) {
+    return { ok: false, message: 'Snippet not found.' };
+  }
+  await saveSnippetLibrary(next);
+  renderMenuItems();
+  if (_menuOpen) positionSnippetMenu();
+  return { ok: true, message: 'Snippet removed.' };
 }
 
 function escapeHtml(text) {
@@ -137,26 +117,69 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+function isEventInsideSnippetsWrap(event, wrap) {
+  if (!wrap) return false;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  if (path.includes(wrap)) return true;
+  return wrap.contains(event.target);
+}
+
+function positionSnippetMenu() {
+  const menu = _stripEl?.querySelector('[data-field="pc-merchant-snippet-menu"]');
+  const btn = _stripEl?.querySelector(`[data-action="${MERCHANT_ACTIONS.SNIPPETS_TOGGLE}"]`);
+  if (!menu || !btn) return;
+  const rect = btn.getBoundingClientRect();
+  menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+  menu.style.left = `${Math.round(rect.left)}px`;
+}
+
 function renderMenuItems() {
   const menu = _stripEl?.querySelector('[data-field="pc-merchant-snippet-menu"]');
   if (!menu) return;
 
-  if (_snippets.length === 0) {
-    menu.innerHTML = '<p class="pc-merchant-snippet-empty">No snippets saved</p>';
-    return;
-  }
-
-  menu.innerHTML = _snippets.map((snippet) => `
-    <button
-      type="button"
-      class="pc-merchant-snippet-item"
-      data-action="${MERCHANT_ACTIONS.SNIPPET_INSERT}"
-      data-snippet-id="${escapeHtml(snippet.id)}"
-      title="${escapeHtml(snippet.text.slice(0, 120))}"
-    >
-      <span class="pc-merchant-snippet-item-label">${escapeHtml(snippet.label)}</span>
-    </button>
+  const listHtml = _snippets.length === 0
+    ? '<p class="pc-merchant-snippet-empty">No snippets yet — add one below</p>'
+    : _snippets.map((snippet) => `
+    <div class="pc-merchant-snippet-row">
+      <button
+        type="button"
+        class="pc-merchant-snippet-item"
+        data-action="${MERCHANT_ACTIONS.SNIPPET_INSERT}"
+        data-snippet-id="${escapeHtml(snippet.id)}"
+        title="${escapeHtml(snippet.text.slice(0, 120))}"
+      >
+        <span class="pc-merchant-snippet-item-label">${escapeHtml(snippet.label)}</span>
+      </button>
+      <button
+        type="button"
+        class="pc-merchant-snippet-delete"
+        data-action="${MERCHANT_ACTIONS.SNIPPET_DELETE}"
+        data-snippet-id="${escapeHtml(snippet.id)}"
+        aria-label="Delete ${escapeHtml(snippet.label)}"
+      >×</button>
+    </div>
   `).join('');
+
+  menu.innerHTML = `
+    <div class="pc-merchant-snippet-header">
+      <span class="pc-merchant-snippet-label">Choose a snippet</span>
+    </div>
+    <div class="pc-merchant-snippet-list">${listHtml}</div>
+    <div class="pc-merchant-snippet-add">
+      <textarea
+        data-field="pc-merchant-snippet-new-text"
+        class="pc-merchant-snippet-input"
+        rows="2"
+        maxlength="2000"
+        placeholder="New snippet text…"
+      ></textarea>
+      <button
+        type="button"
+        class="pc-merchant-snippet-save"
+        data-action="${MERCHANT_ACTIONS.SNIPPET_SAVE}"
+      >Save</button>
+    </div>
+  `;
 }
 
 export function isSnippetsMenuOpen() {
@@ -167,8 +190,10 @@ export function closeSnippetsMenu() {
   _menuOpen = false;
   const menu = _stripEl?.querySelector('[data-field="pc-merchant-snippet-menu"]');
   const btn = _stripEl?.querySelector(`[data-action="${MERCHANT_ACTIONS.SNIPPETS_TOGGLE}"]`);
+  const wrap = _stripEl?.querySelector('[data-field="pc-merchant-snippet-wrap"]');
   if (menu) menu.hidden = true;
   if (btn) btn.setAttribute('aria-expanded', 'false');
+  wrap?.classList.remove('is-open');
 }
 
 export async function toggleSnippetsMenu() {
@@ -181,9 +206,14 @@ export async function toggleSnippetsMenu() {
   _menuOpen = true;
   const menu = _stripEl?.querySelector('[data-field="pc-merchant-snippet-menu"]');
   const btn = _stripEl?.querySelector(`[data-action="${MERCHANT_ACTIONS.SNIPPETS_TOGGLE}"]`);
-  if (menu) menu.hidden = false;
+  const wrap = _stripEl?.querySelector('[data-field="pc-merchant-snippet-wrap"]');
+  if (menu) {
+    menu.hidden = false;
+    positionSnippetMenu();
+  }
   if (btn) btn.setAttribute('aria-expanded', 'true');
-  return { ok: true, message: 'Choose a snippet' };
+  wrap?.classList.add('is-open');
+  return { ok: true };
 }
 
 export function bindSnippetsOutsideClick(stripEl) {
@@ -193,9 +223,18 @@ export function bindSnippetsOutsideClick(stripEl) {
   document.addEventListener('click', (event) => {
     if (!_menuOpen) return;
     const wrap = stripEl.querySelector('[data-field="pc-merchant-snippet-wrap"]');
-    if (wrap?.contains(event.target)) return;
+    if (isEventInsideSnippetsWrap(event, wrap)) return;
     closeSnippetsMenu();
   }, true);
+
+  window.addEventListener('resize', () => {
+    if (_menuOpen) positionSnippetMenu();
+  });
+
+  const actions = stripEl.querySelector('.pc-merchant-actions');
+  actions?.addEventListener('scroll', () => {
+    if (_menuOpen) positionSnippetMenu();
+  });
 }
 
 export async function initMerchantSnippets({ stripEl, root } = {}) {
@@ -210,6 +249,8 @@ export async function initMerchantSnippets({ stripEl, root } = {}) {
     readLibrary: readSnippetLibrary,
     saveLibrary: saveSnippetLibrary,
     insert: insertSnippet,
+    addFromInput: addSnippetFromInput,
+    delete: deleteSnippet,
     toggleMenu: toggleSnippetsMenu,
     closeMenu: closeSnippetsMenu,
     isMenuOpen: isSnippetsMenuOpen,

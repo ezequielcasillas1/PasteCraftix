@@ -1,4 +1,4 @@
-import { MERCHANT_STRIP_HEIGHT_PX } from './merchant.constants.js';
+import { MERCHANT_STRIP_HEIGHT_PX, MERCHANT_STRIP_MAIN_HEIGHT_PX } from './merchant.constants.js';
 
 export function getMerchantStripStyles() {
   return `
@@ -14,14 +14,15 @@ export function getMerchantStripStyles() {
 
     .pc-merchant-strip {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
       width: 100%;
       height: ${MERCHANT_STRIP_HEIGHT_PX}px;
       min-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
       max-height: ${MERCHANT_STRIP_HEIGHT_PX}px;
       box-sizing: border-box;
-      padding: 0 12px;
+      padding: 0;
       background: #ffffff;
       border-bottom: 1px solid #e5e7eb;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -30,6 +31,84 @@ export function getMerchantStripStyles() {
       color: #1f2937;
       pointer-events: auto;
       flex-shrink: 0;
+    }
+
+    .pc-merchant-strip-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      height: ${MERCHANT_STRIP_MAIN_HEIGHT_PX}px;
+      min-height: ${MERCHANT_STRIP_MAIN_HEIGHT_PX}px;
+      max-height: ${MERCHANT_STRIP_MAIN_HEIGHT_PX}px;
+      box-sizing: border-box;
+      padding: 0 12px;
+      flex-shrink: 0;
+    }
+
+    .pc-merchant-dock-target-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0 12px 6px;
+      border-top: 1px solid #f3f4f6;
+      flex-shrink: 0;
+      min-height: 0;
+    }
+
+    .pc-merchant-dock-target-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6b7280;
+      white-space: nowrap;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .pc-merchant-dock-target-options {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+    }
+
+    .pc-merchant-dock-target-btn {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      background: #f9fafb;
+      color: #374151;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .pc-merchant-dock-target-btn:hover {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+
+    .pc-merchant-dock-target-btn:focus-visible {
+      outline: 2px solid #f59e0b;
+      outline-offset: 1px;
+    }
+
+    .pc-merchant-dock-target-btn[aria-pressed="true"] {
+      border-color: #86efac;
+      background: #ecfdf5;
+      color: #166534;
     }
 
     .pc-merchant-brand {
@@ -95,9 +174,9 @@ export function getMerchantStripStyles() {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 140px;
+      max-width: 160px;
       user-select: none;
-      flex-shrink: 1;
+      flex-shrink: 0;
       min-width: 0;
     }
 
@@ -106,7 +185,17 @@ export function getMerchantStripStyles() {
       font-weight: 600;
     }
 
+    .pc-merchant-strip-row:has(.pc-merchant-pulse[data-pulse="live"]) .pc-merchant-pulse-label {
+      color: #166534;
+      font-weight: 600;
+    }
+
     .pc-merchant-strip:has(.pc-merchant-pulse[data-pulse="expiring"]) .pc-merchant-pulse-label {
+      color: #92400e;
+      font-weight: 600;
+    }
+
+    .pc-merchant-strip-row:has(.pc-merchant-pulse[data-pulse="expiring"]) .pc-merchant-pulse-label {
       color: #92400e;
       font-weight: 600;
     }
@@ -122,6 +211,17 @@ export function getMerchantStripStyles() {
       border-color: #f59e0b;
     }
 
+    .pc-merchant-btn[data-action="merchant-one-shot-paste"] {
+      border-color: #86efac;
+      background: #ecfdf5;
+      color: #166534;
+    }
+
+    .pc-merchant-btn[data-action="merchant-one-shot-paste"]:hover {
+      background: #d1fae5;
+      border-color: #22c55e;
+    }
+
     .pc-merchant-divider {
       width: 1px;
       height: 20px;
@@ -135,6 +235,9 @@ export function getMerchantStripStyles() {
       gap: 6px;
       flex: 1;
       min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
     }
 
     .pc-merchant-btn {
@@ -214,6 +317,13 @@ export function getMerchantStripStyles() {
       color: #ffffff;
     }
 
+    .pc-merchant-btn[data-action$="-queue-toggle"].is-active,
+    .pc-merchant-btn[data-action$="-queue-toggle"][aria-pressed="true"] {
+      background: #7c3aed;
+      border-color: #6d28d9;
+      color: #ffffff;
+    }
+
     .pc-merchant-btn[data-action="merchant-snippets-toggle"] {
       border-color: #7dd3fc;
       background: #f0f9ff;
@@ -231,17 +341,6 @@ export function getMerchantStripStyles() {
       color: #ffffff;
     }
 
-    .pc-merchant-btn-seal {
-      border-color: #93c5fd;
-      background: #eff6ff;
-      color: #1d4ed8;
-    }
-
-    .pc-merchant-btn-seal:hover {
-      background: #dbeafe;
-      border-color: #60a5fa;
-    }
-
     .pc-merchant-snippet-wrap {
       position: relative;
       display: inline-flex;
@@ -249,14 +348,16 @@ export function getMerchantStripStyles() {
     }
 
     .pc-merchant-snippet-menu {
-      position: absolute;
-      top: calc(100% + 4px);
+      position: fixed;
+      top: 0;
       left: 0;
-      z-index: 10;
-      min-width: 200px;
+      z-index: 2147483646;
+      min-width: 220px;
       max-width: 280px;
-      max-height: 240px;
-      overflow-y: auto;
+      max-height: 320px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       padding: 6px;
       border-radius: 8px;
       border: 1px solid #7dd3fc;
@@ -268,12 +369,50 @@ export function getMerchantStripStyles() {
       display: none !important;
     }
 
-    .pc-merchant-snippet-item {
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-      padding: 8px 10px;
+    .pc-merchant-snippet-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      flex-shrink: 0;
+      padding: 2px 2px 6px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid #e0f2fe;
+    }
+
+    .pc-merchant-snippet-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 3px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      user-select: none;
+      line-height: 1.2;
+    }
+
+    .pc-merchant-snippet-row {
+      display: flex;
+      align-items: center;
       margin: 0 0 4px;
+      border-radius: 6px;
+    }
+
+    .pc-merchant-snippet-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .pc-merchant-snippet-row:hover {
+      background: #f0f9ff;
+    }
+
+    .pc-merchant-snippet-item {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: block;
+      box-sizing: border-box;
+      padding: 8px 4px 8px 10px;
+      margin: 0;
       border: none;
       border-radius: 6px;
       background: transparent;
@@ -285,12 +424,34 @@ export function getMerchantStripStyles() {
       cursor: pointer;
     }
 
-    .pc-merchant-snippet-item:last-child {
-      margin-bottom: 0;
+    .pc-merchant-snippet-item-label {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .pc-merchant-snippet-item:hover {
-      background: #f0f9ff;
+    .pc-merchant-snippet-delete {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      margin: 0 4px 0 0;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: #64748b;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 1;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .pc-merchant-snippet-delete:hover {
+      color: #dc2626;
+      background: #fef2f2;
     }
 
     .pc-merchant-snippet-empty {
@@ -300,8 +461,66 @@ export function getMerchantStripStyles() {
       color: #64748b;
     }
 
+    .pc-merchant-snippet-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 2px 0 4px;
+      margin-bottom: 6px;
+    }
+
+    .pc-merchant-snippet-add {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-top: 6px;
+      border-top: 1px solid #e0f2fe;
+    }
+
+    .pc-merchant-snippet-input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #0f172a;
+      resize: vertical;
+      min-height: 44px;
+    }
+
+    .pc-merchant-snippet-input:focus {
+      outline: none;
+      border-color: #0284c7;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+    }
+
+    .pc-merchant-snippet-save {
+      align-self: flex-end;
+      padding: 5px 12px;
+      border: 1px solid #0284c7;
+      border-radius: 6px;
+      background: #0284c7;
+      color: #ffffff;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .pc-merchant-snippet-save:hover {
+      background: #0369a1;
+      border-color: #0369a1;
+    }
+
     .pc-merchant-hint {
       margin-left: auto;
+      flex-shrink: 0;
+      max-width: min(280px, 38vw);
+      min-width: 72px;
       font-size: 11px;
       color: #9ca3af;
       white-space: nowrap;
@@ -331,79 +550,6 @@ export function getMerchantStripStyles() {
 
     .pc-merchant-toast.is-visible {
       opacity: 1;
-    }
-
-    .pc-merchant-seal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 2147483647;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(15, 23, 42, 0.45);
-      pointer-events: auto;
-    }
-
-    .pc-merchant-seal-backdrop[hidden] {
-      display: none !important;
-    }
-
-    .pc-merchant-seal-dialog {
-      width: min(360px, calc(100vw - 32px));
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-      background: #ffffff;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-
-    .pc-merchant-seal-title {
-      margin: 0 0 8px;
-      font-size: 16px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .pc-merchant-seal-message {
-      margin: 0 0 16px;
-      font-size: 13px;
-      line-height: 1.45;
-      color: #475569;
-    }
-
-    .pc-merchant-seal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    .pc-merchant-seal-btn {
-      height: 32px;
-      padding: 0 14px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: #f8fafc;
-      color: #334155;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .pc-merchant-seal-btn:hover {
-      background: #f1f5f9;
-    }
-
-    .pc-merchant-seal-btn-confirm {
-      border-color: #2563eb;
-      background: #2563eb;
-      color: #ffffff;
-    }
-
-    .pc-merchant-seal-btn-confirm:hover {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
     }
   `;
 }

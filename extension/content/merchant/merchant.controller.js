@@ -1,21 +1,24 @@
-import { MERCHANT_STORAGE_KEYS } from './merchant.constants.js';
 import { MerchantTopStrip } from './merchant.top-strip.js';
 import { MerchantListingDock } from './merchant.listing-dock.js';
 import { refreshMerchantPulse } from './merchant.pulse.js';
 import { initMerchantSnippets } from './merchant.snippets.js';
-import { initMerchantTagQueue, refreshTagQueueTags } from './merchant.tag-queue.js';
-
-async function isStripEnabled() {
-  try {
-    const stored = await chrome.storage.local.get([MERCHANT_STORAGE_KEYS.STRIP_ENABLED]);
-    if (stored[MERCHANT_STORAGE_KEYS.STRIP_ENABLED] === undefined) {
-      return true;
-    }
-    return stored[MERCHANT_STORAGE_KEYS.STRIP_ENABLED] !== false;
-  } catch (_) {
-    return true;
-  }
-}
+import { initMerchantTagQueue } from './merchant.tag-queue.js';
+import { initMerchantMaterialQueue } from './merchant.material-queue.js';
+import { initMerchantTitleQueue } from './merchant.title-queue.js';
+import { initMerchantDescriptionQueue } from './merchant.description-queue.js';
+import { initMerchantKeywordQueue } from './merchant.keyword-queue.js';
+import { initMerchantBulletQueue } from './merchant.bullet-queue.js';
+import { initMerchantHashtagQueue } from './merchant.hashtag-queue.js';
+import { refreshAllMerchantQueues } from './merchant.queue-all.js';
+import { initMerchantVisibilityToggle } from './merchant.visibility-toggle.js';
+import { MERCHANT_STORAGE_KEYS } from './merchant.constants.js';
+import {
+  bindMerchantStripPreferenceStorageSync,
+  getMerchantStripEnabled,
+  persistMerchantStripEnabled,
+  subscribeMerchantStripEnabled,
+} from './merchant.strip-preference.js';
+import { resolveMerchantAccess } from './merchant.gating.js';
 
 function bindStoragePulseRefresh(stripEl) {
   if (window.__pasteCraftMerchantStorageBound) return;
@@ -29,14 +32,10 @@ function bindStoragePulseRefresh(stripEl) {
     if (dock?.isOpen?.()) {
       dock.hydrateFromStorage().catch(() => {});
     }
-    refreshTagQueueTags().catch(() => {});
+    refreshAllMerchantQueues().catch(() => {});
   });
 }
 
-/**
- * Initialize Merchant content layer (Phase 2 — listing dock + pulse).
- * Billing/gating deferred; strip defaults to enabled for user testing.
- */
 function clearStaleMerchantLayer() {
   const layer = window.__pasteCraftMerchant;
   if (!layer?.strip?.isMounted?.()) return;
@@ -46,14 +45,12 @@ function clearStaleMerchantLayer() {
   window.__pasteCraftMerchant = null;
 }
 
-export async function initMerchantLayer() {
+async function mountMerchantLayer() {
   clearStaleMerchantLayer();
+
   if (window.__pasteCraftMerchant?.strip?.isMounted?.()) {
     return window.__pasteCraftMerchant;
   }
-
-  const enabled = await isStripEnabled();
-  if (!enabled) return null;
 
   const strip = new MerchantTopStrip();
   strip.mount();
@@ -62,10 +59,21 @@ export async function initMerchantLayer() {
   dock.setStripEl(strip.stripEl);
   dock.mount();
 
+  const queueInitArgs = {
+    stripEl: strip.stripEl,
+    getToastRoot: () => strip.root,
+  };
+
   window.__pasteCraftMerchant = {
     strip,
     dock,
     tagQueue: null,
+    materialQueue: null,
+    titleQueue: null,
+    descriptionQueue: null,
+    keywordQueue: null,
+    bulletQueue: null,
+    hashtagQueue: null,
     snippets: null,
     isMounted() {
       return strip.isMounted();
@@ -78,11 +86,13 @@ export async function initMerchantLayer() {
   bindStoragePulseRefresh(strip.stripEl);
   await refreshMerchantPulse(strip.stripEl);
 
-  window.__pasteCraftMerchant.tagQueue = await initMerchantTagQueue({
-    stripEl: strip.stripEl,
-    getToastRoot: () => strip.root,
-  });
-
+  window.__pasteCraftMerchant.tagQueue = await initMerchantTagQueue(queueInitArgs);
+  window.__pasteCraftMerchant.materialQueue = await initMerchantMaterialQueue(queueInitArgs);
+  window.__pasteCraftMerchant.titleQueue = await initMerchantTitleQueue(queueInitArgs);
+  window.__pasteCraftMerchant.descriptionQueue = await initMerchantDescriptionQueue(queueInitArgs);
+  window.__pasteCraftMerchant.keywordQueue = await initMerchantKeywordQueue(queueInitArgs);
+  window.__pasteCraftMerchant.bulletQueue = await initMerchantBulletQueue(queueInitArgs);
+  window.__pasteCraftMerchant.hashtagQueue = await initMerchantHashtagQueue(queueInitArgs);
   window.__pasteCraftMerchant.snippets = await initMerchantSnippets({
     stripEl: strip.stripEl,
     root: strip.root,
@@ -91,17 +101,57 @@ export async function initMerchantLayer() {
   return window.__pasteCraftMerchant;
 }
 
-export async function setMerchantStripEnabled(enabled) {
-  await chrome.storage.local.set({
-    [MERCHANT_STORAGE_KEYS.STRIP_ENABLED]: !!enabled,
+function unmountMerchantLayer() {
+  if (!window.__pasteCraftMerchant) return;
+  window.__pasteCraftMerchant.dock?.unmount();
+  window.__pasteCraftMerchant.strip?.unmount();
+  window.__pasteCraftMerchant = null;
+}
+
+async function applyMerchantStripLayer(enabled) {
+  if (!enabled) {
+    unmountMerchantLayer();
+    return null;
+  }
+  return mountMerchantLayer();
+}
+
+let preferenceSyncBound = false;
+
+function bindMerchantStripLayerPreferenceSync() {
+  if (preferenceSyncBound) return;
+  preferenceSyncBound = true;
+  bindMerchantStripPreferenceStorageSync();
+  subscribeMerchantStripEnabled((enabled) => {
+    applyMerchantStripLayer(enabled).catch(() => {});
   });
-  if (!enabled && window.__pasteCraftMerchant) {
-    window.__pasteCraftMerchant.dock?.unmount();
-    window.__pasteCraftMerchant.strip?.unmount();
-    window.__pasteCraftMerchant = null;
-    return;
+}
+
+/**
+ * Initialize Merchant content layer (Phase 2 — listing dock + pulse).
+ * Respects persisted strip preference — does not mount when user turned merchant off.
+ */
+export async function initMerchantLayer() {
+  const enabled = await getMerchantStripEnabled();
+  if (!enabled) return null;
+  return mountMerchantLayer();
+}
+
+/**
+ * Mount right-side visibility toggle (always) and merchant strip/dock when enabled.
+ */
+export async function initMerchantChrome() {
+  bindMerchantStripLayerPreferenceSync();
+  const access = await resolveMerchantAccess();
+  await initMerchantVisibilityToggle({ merchantAccess: access });
+  if (!access.allowed) {
+    return null;
   }
-  if (enabled && !window.__pasteCraftMerchant?.strip?.isMounted?.()) {
-    await initMerchantLayer();
-  }
+  const enabled = await getMerchantStripEnabled();
+  return applyMerchantStripLayer(enabled);
+}
+
+export async function setMerchantStripEnabled(enabled) {
+  await persistMerchantStripEnabled(enabled);
+  await applyMerchantStripLayer(!!enabled);
 }

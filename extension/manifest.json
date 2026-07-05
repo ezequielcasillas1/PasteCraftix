@@ -12,7 +12,8 @@
     "tabs",
     "scripting",
     "identity",
-    "clipboardWrite"
+    "clipboardWrite",
+    "clipboardRead"
   ],
   "host_permissions": [
     "https://*.supabase.co/*",
@@ -62,6 +63,7 @@
         "content/widget/*.js",
         "content/safety/*.js",
         "content/merchant/*.js",
+        "content/merchant/merchant.adapters/*.js",
         "styles.css",
         "styles/*.css",
         "markup-renderer.js",

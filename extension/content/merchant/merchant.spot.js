@@ -1,90 +1,163 @@
-/**
- * Spot (#29) — Merchant content hook (Phase 3).
- * Opens listing dock and stages page selection / listing pack with Etsy tag validation.
- */
-
-import { parseListingPackText, stageFromSelectionText } from './merchant.dock-storage.js';
-import { validateEtsyTags } from './merchant.tags.js';
-
-let _spotActive = false;
-
-export function isSpotActive() {
-  return _spotActive;
-}
-
-function getPageSelectionText() {
-  try {
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return '';
-    return selection.toString().trim();
-  } catch (_) {
-    return '';
-  }
-}
-
-/** Phase 3: open dock + stage selection or listing-pack text with tag validation. */
-export async function activateSpot() {
-  _spotActive = true;
-  const dock = window.__pasteCraftMerchant?.dock;
-  dock?.open();
-
-  const selectedText = getPageSelectionText();
-  if (!selectedText) {
-    return {
-      ok: true,
-      staged: false,
-      phase: 3,
-      message: 'Spot opened dock — select text on page, then click Spot again to stage.',
-    };
-  }
-
-  const parsed = parseListingPackText(selectedText);
-  const result = await stageFromSelectionText(selectedText, 'spot');
-  if (!result.ok) {
-    return {
-      ok: false,
-      staged: false,
-      phase: 3,
-      message: result.error || 'Could not stage selection.',
-    };
-  }
-
-  await dock?.applyPayload(result.payload);
-
-  let fieldHint = 'Selection staged';
-  if (parsed.tags) {
-    const validation = validateEtsyTags(parsed.tags);
-    fieldHint = `${validation.count} tag(s) staged`;
-    if (validation.warnings.length > 0) {
-      fieldHint += ` (${validation.warnings[0]})`;
-    }
-  } else if (parsed.title || parsed.description) {
-    fieldHint = 'Listing pack staged (title/desc in Advanced)';
-  } else if (result.payload?.tags) {
-    const validation = validateEtsyTags(result.payload.tags);
-    fieldHint = `${validation.count} tag(s) staged from selection`;
-  }
-
-  return {
-    ok: true,
-    staged: true,
-    phase: 3,
-    message: `${fieldHint} — ephemeral, not saved forever.`,
-  };
-}
-
-export function deactivateSpot() {
-  _spotActive = false;
-}
-
-export function getSpotStatusLabel() {
-  if (!_spotActive) return 'Spot idle';
-  const dock = window.__pasteCraftMerchant?.dock;
-  if (dock?.isOpen?.()) return 'Spot + dock open';
-  return 'Spot active';
-}
-
-/** Legacy export for backward compat within merchant layer. */
-export const activateSpotPlaceholder = activateSpot;
-export const deactivateSpotPlaceholder = deactivateSpot;
-
+/**
+
+ * Spot (#29) — Merchant content hook (Phase 3).
+
+ * Opens listing dock and stages page selection into the selected dock target.
+
+ */
+
+
+
+import { stageTextToDockTarget } from './merchant.dock-storage.js';
+
+import { getCaptureDockTarget, getDockTargetLabel, readCaptureDockTarget } from './merchant.dock-target.js';
+
+import { clearSelectionCache, readSelectionText } from './merchant.selection-cache.js';
+
+
+
+let _spotActive = false;
+
+
+
+export function isSpotActive() {
+
+  return _spotActive;
+
+}
+
+
+
+function buildStageMessage(targetField, payload) {
+
+  const label = getDockTargetLabel(targetField);
+
+  if (targetField === 'tags' && payload?.tag_validation?.count) {
+
+    const count = payload.tag_validation.count;
+
+    const warn = payload.tag_validation.warnings?.[0];
+
+    return warn
+
+      ? `${count} tag(s) staged to ${label} (${warn})`
+
+      : `${count} tag(s) staged to ${label}`;
+
+  }
+
+  return `Staged to ${label}`;
+
+}
+
+
+
+/** Open dock + stage selection into the saved capture dock target. */
+
+export async function activateSpot() {
+
+  _spotActive = true;
+
+  const dock = window.__pasteCraftMerchant?.dock;
+
+  dock?.open();
+
+
+
+  const selectedText = readSelectionText();
+
+  if (!selectedText) {
+
+    const targetLabel = getDockTargetLabel(getCaptureDockTarget());
+
+    return {
+
+      ok: true,
+
+      staged: false,
+
+      phase: 3,
+
+      message: `Spot opened dock — select text, then click Spot to stage to ${targetLabel}.`,
+
+    };
+
+  }
+
+
+
+  const targetField = await readCaptureDockTarget();
+
+  const result = await stageTextToDockTarget(selectedText, targetField, 'spot');
+
+  if (!result.ok) {
+
+    return {
+
+      ok: false,
+
+      staged: false,
+
+      phase: 3,
+
+      message: result.error || 'Could not stage selection.',
+
+    };
+
+  }
+
+
+
+  await dock?.applyPayload(result.payload);
+
+  clearSelectionCache();
+
+
+
+  return {
+
+    ok: true,
+
+    staged: true,
+
+    phase: 3,
+
+    message: `${buildStageMessage(targetField, result.payload)} — ephemeral, not saved forever.`,
+
+  };
+
+}
+
+
+
+export function deactivateSpot() {
+
+  _spotActive = false;
+
+  clearSelectionCache();
+
+}
+
+
+
+export function getSpotStatusLabel() {
+
+  if (!_spotActive) return 'Spot idle';
+
+  const dock = window.__pasteCraftMerchant?.dock;
+
+  if (dock?.isOpen?.()) return 'Spot + dock open';
+
+  return 'Spot active';
+
+}
+
+
+
+/** Legacy export for backward compat within merchant layer. */
+
+export const activateSpotPlaceholder = activateSpot;
+
+export const deactivateSpotPlaceholder = deactivateSpot;
+
+
