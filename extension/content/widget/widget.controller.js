@@ -1,4 +1,3 @@
-import { pastecraftGetURL } from '../shared.js';
 import { injectOverlayStyles } from './widget.styles.js';
 import {
   openQuickViewPanel,
@@ -46,6 +45,8 @@ import {
   flashClickAndDragDropBoxSuccess as flashWidgetClickAndDragDropBoxSuccess,
   saveClickAndDragFromDataTransfer as saveWidgetClickAndDragFromDataTransfer,
 } from './widget.drag-capture.js';
+import { showWidgetToast as renderWidgetToast } from './widget.toast.js';
+import { applyWidgetIcon as applyWidgetProfileIcon } from './widget.profile-icon.js';
 
 export class PasteCraftFloatingWidget {
   constructor() {
@@ -110,51 +111,8 @@ export class PasteCraftFloatingWidget {
     setupWidgetStorageSync(this);
   }
 
-  async _getProfileImageForWidget() {
-    try {
-      const res = await chrome.storage.local.get(['userProfile']);
-      const p = res ? res.userProfile : null;
-      const url = p && typeof p.profileImageUrl === 'string' ? p.profileImageUrl : '';
-      if (url) return url;
-      const b64 = p && typeof p.profileImageBase64 === 'string' ? p.profileImageBase64 : '';
-      if (b64 && b64.startsWith('data:image/') && b64.length <= 250000) return b64;
-      return '';
-    } catch (_) {
-      return '';
-    }
-  }
-
   async applyWidgetIcon() {
-    if (!this.widget) return;
-    const logoImg = this.widget.querySelector('.widget-logo');
-    if (!logoImg) return;
-
-    const defaultSrc = pastecraftGetURL('logo.svg');
-    const useProfile = !!(this.settings && this.settings.widgetIconUseProfileImage);
-
-    if (!useProfile) {
-      if (logoImg.src !== defaultSrc) logoImg.src = defaultSrc;
-      logoImg.classList.remove('is-profile-icon');
-      return;
-    }
-
-    const src = await this._getProfileImageForWidget();
-    if (!src) {
-      // Fallback to default logo if profile image is missing
-      logoImg.src = defaultSrc;
-      logoImg.classList.remove('is-profile-icon');
-      return;
-    }
-
-    // Set and fallback on error
-    logoImg.classList.add('is-profile-icon');
-    logoImg.onerror = () => {
-      try {
-        logoImg.src = defaultSrc;
-        logoImg.classList.remove('is-profile-icon');
-      } catch (_) {}
-    };
-    logoImg.src = src;
+    return applyWidgetProfileIcon(this);
   }
 
   updateAutoCopyUI() {
@@ -218,45 +176,7 @@ export class PasteCraftFloatingWidget {
   }
 
   showWidgetToast(message) {
-    // Create a simple toast near the widget
-    const existing = document.querySelector('.pastecraft-widget-toast');
-    if (existing) existing.remove();
-    
-    const toast = document.createElement('div');
-    toast.className = 'pastecraft-widget-toast';
-    toast.textContent = message;
-    toast.style.cssText = `
-      position: fixed;
-      right: 70px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(30, 64, 175, 0.95);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      z-index: 2147483647;
-      animation: fadeInOut 2s ease forwards;
-    `;
-    
-    // Add animation styles if not exists
-    if (!document.querySelector('#pastecraft-toast-styles')) {
-      const style = document.createElement('style');
-      style.id = 'pastecraft-toast-styles';
-      style.textContent = `
-        @keyframes fadeInOut {
-          0% { opacity: 0; transform: translateY(-50%) translateX(10px); }
-          15% { opacity: 1; transform: translateY(-50%) translateX(0); }
-          85% { opacity: 1; transform: translateY(-50%) translateX(0); }
-          100% { opacity: 0; transform: translateY(-50%) translateX(10px); }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-    
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2000);
+    renderWidgetToast(message);
   }
 
   setupClickAndDragCapture() {
