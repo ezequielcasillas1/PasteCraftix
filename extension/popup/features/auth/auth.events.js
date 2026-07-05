@@ -433,10 +433,13 @@ function _bindNewPasswordFlow(app) {
 function _bindCloseAppButton(app) {
   const btn = document.getElementById(AUTH_ELEMENT_IDS.CLOSE_APP_BTN);
   if (!btn) return;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (window.self !== window.top) {
-      const parentOrigin = document.referrer ? new URL(document.referrer).origin : window.location.origin;
-      window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, parentOrigin);
+      // Parent validates event.source; use '*' because referrer is often empty
+      // for extension iframes and chrome-extension:// origin would not match.
+      window.parent.postMessage({ type: 'PASTECRAFT_CLOSE_POPUP' }, '*');
     } else {
       window.close();
     }

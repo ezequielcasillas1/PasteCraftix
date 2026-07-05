@@ -26,6 +26,12 @@ import {
   saveWidgetPosition,
   initWidgetAsync,
 } from './widget.core.js';
+import {
+  installLazyPopupWarmer,
+  openPopupOverlayPanel,
+  closePopupOverlayPanel,
+  isPointerInsideWidget,
+} from './widget.popup-overlay.js';
 
 export class PasteCraftFloatingWidget {
   constructor() {
@@ -77,110 +83,13 @@ export class PasteCraftFloatingWidget {
     setupWidgetDrag(this);
     this.setupStorageSync();
     this.setupClickAndDragCapture();
-    this._installLazyPopupWarmer();
+    installLazyPopupWarmer(this);
 
     initWidgetAsync(this);
   }
 
   async initAsync() {
     return initWidgetAsync(this);
-  }
-
-  _installLazyPopupWarmer() {
-    if (this._lazyWarmerInstalled) return;
-    this._lazyWarmerInstalled = true;
-    try {
-      const logo = this.widget?.querySelector('.logo-button');
-      const trigger = () => this.warmPopupIframe();
-      const target = logo || this.widget;
-      if (!target) return;
-      target.addEventListener('pointerenter', trigger, { once: true });
-      target.addEventListener('focusin', trigger, { once: true });
-    } catch (_) {}
-  }
-
-  warmPopupIframe() {
-    if (this._popupPreloadIframe?.isConnected) return;
-    if (document.querySelector('[data-pastecraft-popup-preload="1"]')) return;
-
-    const iframe = document.createElement('iframe');
-    iframe.src = pastecraftGetURL('popup.html');
-    iframe.setAttribute('data-pastecraft-popup-preload', '1');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.tabIndex = -1;
-    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;opacity:0;pointer-events:none;left:-9999px;top:0;';
-    document.body.appendChild(iframe);
-    this._popupPreloadIframe = iframe;
-  }
-
-  _isPopupIframeReady(iframe) {
-    try {
-      return iframe?.contentDocument?.readyState === 'complete';
-    } catch (_) {
-      return false;
-    }
-  }
-
-  _applyPopupIframeHidden(iframe) {
-    if (!iframe) return;
-    iframe.classList.add('pastecraft-overlay-iframe-loading');
-    iframe.style.opacity = '0';
-    iframe.style.visibility = 'hidden';
-    iframe.style.pointerEvents = 'none';
-  }
-
-  _revealPopupIframe(iframe) {
-    if (!iframe) return;
-    iframe.classList.remove('pastecraft-overlay-iframe-loading');
-    iframe.style.removeProperty('opacity');
-    iframe.style.removeProperty('visibility');
-    iframe.style.removeProperty('pointer-events');
-  }
-
-  _applyPopupLoadingShellStyles(container) {
-    if (!container) return;
-    container.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    container.style.transform = 'translateX(0)';
-  }
-
-  _takePopupIframe() {
-    const preloaded = this._popupPreloadIframe;
-    if (preloaded?.isConnected) {
-      preloaded.removeAttribute('data-pastecraft-popup-preload');
-      preloaded.removeAttribute('aria-hidden');
-      preloaded.removeAttribute('tabindex');
-      preloaded.className = 'pastecraft-overlay-iframe';
-      preloaded.setAttribute('allowtransparency', 'true');
-      // Keep iframe hidden until reveal — never flash the white popup document.
-      preloaded.style.cssText = 'width:100%;height:100%;border:none;flex:1;min-height:0;opacity:0;visibility:hidden;pointer-events:none;';
-      preloaded.classList.add('pastecraft-overlay-iframe-loading');
-      this._popupPreloadIframe = null;
-      // Re-warm intentionally NOT scheduled here — caused popup init contention
-      // across tabs. User opens panel again will be a cold cycle (still fast).
-      return preloaded;
-    }
-
-    const iframe = document.createElement('iframe');
-    iframe.src = pastecraftGetURL('popup.html');
-    iframe.className = 'pastecraft-overlay-iframe pastecraft-overlay-iframe-loading';
-    iframe.setAttribute('allowtransparency', 'true');
-    iframe.style.cssText = 'width:100%;height:100%;border:none;flex:1;min-height:0;opacity:0;visibility:hidden;pointer-events:none;';
-    return iframe;
-  }
-
-  _clearPopupRevealTimer() {
-    if (this._popupRevealTimer) {
-      clearTimeout(this._popupRevealTimer);
-      this._popupRevealTimer = null;
-    }
-  }
-
-  _forceRemovePopupOverlayDom() {
-    this._clearPopupRevealTimer();
-    const backdrop = document.getElementById('pastecraft-popup-backdrop');
-    const container = document.getElementById('pastecraft-popup-overlay');
-    if (backdrop) backdrop.remove();
-    if (container) container.remove();
   }
 
   setupStorageSync() {
@@ -310,177 +219,15 @@ export class PasteCraftFloatingWidget {
   }
 
   openPopupOverlay() {
-    console.log('🎨 Opening popup overlay (slide-in from right)');
-    injectOverlayStyles();
-
-    const existingOverlay = document.getElementById('pastecraft-popup-overlay');
-    if (existingOverlay) {
-      const existingIframe = existingOverlay.querySelector('.pastecraft-overlay-iframe');
-      if (existingOverlay.classList.contains('visible') && this._isPopupIframeReady(existingIframe)) {
-        return;
-      }
-      this._forceRemovePopupOverlayDom();
-    }
-
-    this.openStates.popup = true;
-    this.widget.classList.add('panel-open');
-    this.syncPageDocking();
-
-    const logoButton = this.widget.querySelector('.logo-button');
-    if (logoButton) {
-      logoButton.classList.add('active');
-    }
-
-    const backdrop = document.createElement('div');
-    backdrop.id = 'pastecraft-popup-backdrop';
-    backdrop.className = 'pastecraft-overlay-backdrop';
-
-    const container = document.createElement('div');
-    container.id = 'pastecraft-popup-overlay';
-    container.className = 'pastecraft-overlay-panel pastecraft-overlay-panel-loading';
-    this._applyPopupLoadingShellStyles(container);
-
-    const closeButton = document.createElement('button');
-    closeButton.className = 'pastecraft-overlay-close';
-    closeButton.innerHTML = '×';
-    closeButton.setAttribute('aria-label', 'Close');
-
-    const loader = document.createElement('div');
-    loader.className = 'pastecraft-overlay-loader';
-    loader.setAttribute('role', 'status');
-    loader.setAttribute('aria-live', 'polite');
-    loader.innerHTML = '<div class="pastecraft-overlay-loader-spinner"></div><div class="pastecraft-overlay-loader-text">Loading PasteCraft…</div>';
-
-    const iframe = this._takePopupIframe();
-    const iframeReady = this._isPopupIframeReady(iframe);
-
-    container.appendChild(closeButton);
-    if (!iframeReady) {
-      container.appendChild(loader);
-    }
-    document.body.appendChild(backdrop);
-    document.body.appendChild(container);
-    container.appendChild(iframe);
-
-    const revealPopupPanel = () => {
-      if (!container.isConnected) return;
-      this._clearPopupRevealTimer();
-      loader.remove();
-      this._revealPopupIframe(iframe);
-      container.classList.remove('pastecraft-overlay-panel-loading');
-      container.style.removeProperty('background');
-      container.style.removeProperty('transform');
-      backdrop.classList.add('visible');
-      container.classList.add('visible');
-      this.syncPageDocking();
-    };
-
-    closeButton.addEventListener('click', () => this.closePopupOverlay());
-
-    if (this._popupMessageHandler) {
-      window.removeEventListener('message', this._popupMessageHandler);
-      this._popupMessageHandler = null;
-    }
-    this._popupMessageHandler = (event) => {
-      if (event.source !== iframe.contentWindow) return;
-      if (event.data && event.data.type === 'PASTECRAFT_CLOSE_POPUP') {
-        this.closePopupOverlay();
-      }
-    };
-    window.addEventListener('message', this._popupMessageHandler);
-
-    if (this._popupOutsidePointerDown) {
-      document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
-      this._popupOutsidePointerDown = null;
-    }
-    if (!this.settings.keepPopupOpen) {
-      this._popupOutsidePointerDown = (e) => {
-        const currentContainer = document.getElementById('pastecraft-popup-overlay');
-        if (!currentContainer) return;
-        const target = e.target;
-        if (currentContainer.contains(target)) return;
-        if (this.widget && this.widget.contains(target)) return;
-        this.closePopupOverlay();
-      };
-      document.addEventListener('pointerdown', this._popupOutsidePointerDown, true);
-    }
-
-    const escHandler = (e) => {
-      if (e.key === 'Escape') {
-        this.closePopupOverlay();
-        document.removeEventListener('keydown', escHandler);
-      }
-    };
-    document.addEventListener('keydown', escHandler);
-
-    if (iframeReady) {
-      revealPopupPanel();
-    } else {
-      iframe.addEventListener('load', revealPopupPanel, { once: true });
-      this._popupRevealTimer = setTimeout(revealPopupPanel, 12000);
-    }
-
-    console.log('✅ Popup overlay opened');
+    openPopupOverlayPanel(this);
   }
-  
+
   closePopupOverlay() {
-    this._clearPopupRevealTimer();
-
-    const backdrop = document.getElementById('pastecraft-popup-backdrop');
-    const container = document.getElementById('pastecraft-popup-overlay');
-    
-    // Cleanup outside click handler
-    if (this._popupOutsidePointerDown) {
-      document.removeEventListener('pointerdown', this._popupOutsidePointerDown, true);
-      this._popupOutsidePointerDown = null;
-    }
-    if (this._popupMessageHandler) {
-      window.removeEventListener('message', this._popupMessageHandler);
-      this._popupMessageHandler = null;
-    }
-    
-    if (backdrop) backdrop.classList.remove('visible');
-    if (container) container.classList.remove('visible');
-    if (backdrop || container) {
-      // Remove after animation
-      setTimeout(() => {
-        if (backdrop) backdrop.remove();
-        if (container) container.remove();
-      }, 300);
-      
-      // Update open state
-      this.openStates.popup = false;
-      
-      // Slide widget back to right edge (if no other panels open)
-      if (!this.openStates.settings && !this.openStates.quickView) {
-        this.widget.classList.remove('panel-open');
-      }
-      
-      // Remove active class from logo button
-      const logoButton = this.widget.querySelector('.logo-button');
-      if (logoButton) {
-        logoButton.classList.remove('active');
-      }
-
-      // Update docked page push based on remaining panels
-      this.syncPageDocking();
-
-      // Re-warm intentionally NOT scheduled — see _installLazyPopupWarmer comment.
-
-      console.log('✅ Popup overlay closed');
-    }
+    closePopupOverlayPanel(this);
   }
-  
-  
+
   _isPointerInsideWidget(e) {
-    const widgetHost = this.shadowMount?.host;
-    if (!widgetHost) return false;
-
-    const target = e?.target;
-    if (target === widgetHost) return true;
-
-    const path = typeof e?.composedPath === 'function' ? e.composedPath() : [];
-    return path.includes(widgetHost) || (this.widget && path.includes(this.widget));
+    return isPointerInsideWidget(this, e);
   }
 
   openSettings() {
