@@ -13,6 +13,39 @@
       this._deviceIdKey = 'pc_device_id_v1';
     }
 
+    _normalizeClipIdKey(id) {
+      if (id == null || id === '') return '';
+      if (typeof id === 'number') {
+        if (Number.isInteger(id)) return String(id);
+        if (id >= 1e12 && id < 1e16) {
+          const rounded = Math.round(id * 10000) / 10000;
+          if (Number.isInteger(rounded)) return String(rounded);
+          return rounded.toFixed(4).replace(/\.?0+$/, '');
+        }
+        return String(id);
+      }
+      const raw = String(id).trim();
+      if (!raw) return '';
+      const num = Number(raw);
+      if (raw.includes('.') && Number.isFinite(num) && num >= 1e12 && num < 1e16) {
+        const rounded = Math.round(num * 10000) / 10000;
+        if (Number.isInteger(rounded)) return String(rounded);
+        return rounded.toFixed(4).replace(/\.?0+$/, '');
+      }
+      return raw;
+    }
+
+    _expandClipIdDeleteSet(ids) {
+      const idSet = new Set();
+      for (const id of ids) {
+        const raw = String(id);
+        if (raw) idSet.add(raw);
+        const normalized = this._normalizeClipIdKey(id);
+        if (normalized) idSet.add(normalized);
+      }
+      return idSet;
+    }
+
     async open() {
       if (this._db) return this._db;
       if (this._openPromise) return this._openPromise;
@@ -79,7 +112,7 @@
     async deleteByIds(storeName, ids) {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       const db = await this.open();
-      const idSet = new Set(ids.map((id) => String(id)));
+      const idSet = this._expandClipIdDeleteSet(ids);
       return new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, 'readwrite');
         const store = tx.objectStore(storeName);
@@ -90,7 +123,14 @@
           if (cursor) {
             const payloadId = cursor.value && cursor.value.payload ? String(cursor.value.payload.id || '') : '';
             const recordId = cursor.value ? String(cursor.value.id || '') : '';
-            if (idSet.has(payloadId) || idSet.has(recordId)) {
+            const payloadKey = this._normalizeClipIdKey(cursor.value?.payload?.id ?? payloadId);
+            const recordKey = this._normalizeClipIdKey(cursor.value?.id ?? recordId);
+            if (
+              idSet.has(payloadId)
+              || idSet.has(recordId)
+              || (payloadKey && idSet.has(payloadKey))
+              || (recordKey && idSet.has(recordKey))
+            ) {
               cursor.delete();
               removed++;
             }
