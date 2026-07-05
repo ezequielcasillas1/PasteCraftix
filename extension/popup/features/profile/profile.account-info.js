@@ -46,11 +46,25 @@ function _resolvePlanLabel(app) {
   if (app._isFreemiumGuest) return 'Freemium (local only — no account)';
   const sub = app.userSubscription;
   if (!sub) return 'Free';
+
+  if (sub.has_unlimited_ai === true) {
+    return 'Premium (coupon — unlimited AI)';
+  }
+
+  const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
+  if (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) {
+    const dateStr = new Date(expiresAtMs).toLocaleDateString();
+    const tier = String(sub.subscription_tier || 'free').toLowerCase();
+    const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+    return `${tierLabel} + AI until ${dateStr}`;
+  }
+
   const tier = String(sub.subscription_tier || 'free').toLowerCase();
   const status = String(sub.subscription_status || 'active').toLowerCase();
   const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
   if (status === 'past_due') return `${tierLabel} (payment issue)`;
   if (status !== 'active') return `${tierLabel} (${status})`;
+  if (tier === 'basic') return 'Basic (cloud sync)';
   return tierLabel;
 }
 

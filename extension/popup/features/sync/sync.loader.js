@@ -1,4 +1,5 @@
-import { mergeActiveClipsSources } from '../../../shared/clips-local-merge.js';
+import { getClipIdKey } from '../../../shared/clip-id.js';
+import { filterTombstonedClips, mergeActiveClipsSources } from '../../../shared/clips-local-merge.js';
 import { mergeActiveCategoriesSources } from '../../../shared/categories-local-merge.js';
 
 function isExtensionContextValid() {
@@ -14,12 +15,33 @@ export async function ensureStorageReady(app) {
   await app._ensureIndexedDbReadyAndMigrate();
 }
 
+async function loadDeletedClipIdSet() {
+  try {
+    const result = await chrome.storage.local.get(['pc_deleted_clips', 'pc_deleted_archived_clips']);
+    const active = Array.isArray(result?.pc_deleted_clips) ? result.pc_deleted_clips : [];
+    const archived = Array.isArray(result?.pc_deleted_archived_clips) ? result.pc_deleted_archived_clips : [];
+    return new Set(
+      [...active, ...archived]
+        .map((t) => getClipIdKey(t?.id))
+        .filter(Boolean),
+    );
+  } catch (_) {
+    return new Set();
+  }
+}
+
 export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
   }
-  const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
-  let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  const [storageResult, deletedClipIds] = await Promise.all([
+    chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']),
+    loadDeletedClipIdSet(),
+  ]);
+  let { clips = [], categories = [], searchOnlyClips = [] } = storageResult;
+
+  clips = filterTombstonedClips(clips, deletedClipIds);
+  searchOnlyClips = filterTombstonedClips(searchOnlyClips, deletedClipIds);
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
@@ -27,7 +49,7 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('categories')
     ]);
     if (Array.isArray(idbClips) && idbClips.length > 0) {
-      clips = mergeActiveClipsSources(clips, idbClips);
+      clips = mergeActiveClipsSources(clips, idbClips, deletedClipIds);
     }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) {
       categories = mergeActiveCategoriesSources(categories, idbCategories);
