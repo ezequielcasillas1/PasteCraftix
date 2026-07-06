@@ -1,45 +1,57 @@
 ---
+description: Forward architecture cutoff — vertical slices, bridges, strangler migration (Arkitect-aligned)
 alwaysApply: true
 ---
 
 # Forward Architecture Cutoff (July 2026)
 
-**Parent strategy** for PasteCraft structure. **Implementation detail:** `vertical-slice-modularity.mdc`. **Full spec:** [docs/architecture/FORWARD-ARCHITECTURE.md](docs/architecture/FORWARD-ARCHITECTURE.md).
+**Canonical spec:** [docs/architecture/FORWARD-ARCHITECTURE.md](docs/architecture/FORWARD-ARCHITECTURE.md)  
+**Slice layout detail:** [vertical-slice-modularity.mdc](vertical-slice-modularity.mdc)  
+**Arkitect intake:** [arkitect-mcp-paved-route.mdc](arkitect-mcp-paved-route.mdc)
 
-## Cutoff
+## Cutoff (2026-07-05)
 
-From **2026-07-05**, new or materially changed code follows **Modular Vertical Slices + Legacy Facades** — no big-bang rewrite.
+**Modular Vertical Slices + Legacy Facades** — ship first, no big-bang rewrite.
 
-## Legacy vs new (path convention)
-
-| New (forward) | Legacy (do not add logic) |
+| Forward (new logic) | Legacy (extract only on touch) |
 |---|---|
-| `extension/content/<feature>/` | `extension/popup.js`, `quick-paste/quick-paste.js` |
-| `extension/popup/features/<feature>/` | Root shims until facaded |
-| `extension/background/handlers/`, `messaging/` | Pre-cutoff ad-hoc roots |
-| `extension/supabase/*.js` | |
-| **`extension/bridges/<domain>/`** — ACL to legacy | |
+| `extension/popup/features/<feature>/` | `extension/popup.js` |
+| `extension/content/<feature>/` | `quick-paste/quick-paste.js` |
+| `extension/background/handlers/`, `messaging/` | Root shims until facaded |
+| `extension/supabase/*.js`, `extension/shared/` | Pre-cutoff ad-hoc roots |
+| **`extension/bridges/<domain>/`** — ACL | `extension/popup.html` inline CSS (strangler via UI phases) |
 
-No `extension/legacy/` mass move. Optional header: `@forward-slice` / `@legacy-cutoff`.
+## Arkitect complement (clean-slice-fusion)
+
+| Arkitect ID | PasteCraft role |
+|---|---|
+| **vertical-slice** | Feature folders own UI + orchestration |
+| **modular-monolith** | Single MV3 zip; strict internal boundaries |
+| **strangler-fig** | Replace legacy only when edited |
+| **anti-corruption-layer** | `extension/bridges/*` translates legacy ↔ slice |
+| **clean-slice-fusion** | Inward dependency direction inside slices |
+
+**Patterns at seams:** Facade + Adapter (`bridges/`), Command + Mediator (background router), Strategy (site/sync adapters), Decorator (wrap legacy during migration). **Deferred:** CQRS, event sourcing, microservices.
 
 ## Bridge rules
 
-1. Slices **never** import legacy monoliths directly — use **one facade per domain** in `extension/bridges/<domain>/`.
-2. Facade owns ID normalization, sync queue, storage quirks.
-3. Cross-context: `message-types.js` + router — not ad-hoc message strings.
-4. **Extract on touch:** facade first → extract to slice → shrink legacy.
+1. Slices **never** import legacy monoliths — one facade per domain in `extension/bridges/<domain>/`.
+2. Facade owns ID normalization, sync queue, storage quirks; ≤10 exports per domain.
+3. Cross-context: `message-types.js` + router — not ad-hoc strings.
+4. **Extract on touch:** facade first → slice extract → shrink legacy.
+
+## CRUD (forward code)
+
+- Server IDs only (`session.user.id`, Postgres `gen_random_uuid()`).
+- Writes through facades / services — RLS by `auth.uid()`.
+- No custom RLS plumbing (`set_config`, device_id query filters).
 
 ## Forbidden
 
-- New business logic in monolith files.
-- Cross-slice imports (use shared API, messages, storage keys).
-- Mass file moves without explicit migration ticket.
+- New business logic in monolith files or growing `popup.html` JS.
+- Cross-slice imports; mass `extension/legacy/` moves.
 - Auto-refactor without explicit migration intent (Arkitect policy).
-
-## Before structural work
-
-Run Arkitect: `diagnose_repository` → `recommend_patterns` → (if legacy) `analyze_refactoring_opportunities`. See FORWARD-ARCHITECTURE.md §10.
 
 ## Agent default
 
-Implement on `main` until SUCCESS → task branch commit. CodeScene on changed files. Ask Ezequiel before SuccessLog.
+Arkitect paved route → implement on `main` until SUCCESS → task branch commit. CodeScene on changed files.

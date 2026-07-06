@@ -234,16 +234,15 @@ flowchart LR
 
 ## 9. Arkitect MCP — recommendations captured
 
-**Diagnosis (2026-07-05):**
+**Diagnosis (2026-07-06, refreshed):**
 
-- **Selected architecture:** `modular-monolith` (score 1.0) — single deployable, enforced internal boundaries.
-- **Remix:** `clean-slice-fusion` — Vertical Slice + Clean Architecture dependency direction.
-- **Migration:** `strangler-fig` + `anti-corruption-layer` at legacy seams.
-- **Intent:** migration / guide-new-foundation — **auto-refactor: false**.
-- **Patterns:** Strategy, Decorator, Composite, Command, Mediator; Facade + Adapter at bridges.
-- **Smells:** duplicate code, god class (`popup.js`, `quick-paste.js`).
-- **Techniques:** Move Method, Extract Class when splitting god classes.
-- **Tags:** `vertical-slice-delivery`, `legacy-strangler`, `plugin-system`, `monolith-foundation`.
+- **Selected architecture:** `vertical-slice` — feature folders own delivery paths.
+- **Remix:** `clean-slice-fusion` — Vertical Slice + Clean dependency direction.
+- **Migration:** `strangler-fig` + `anti-corruption-layer` at `extension/bridges/`.
+- **Action:** `guide-new-foundation` — **auto-refactor: false**.
+- **Patterns (top):** Strategy, Decorator, Adapter, Command, Facade; Mediator at background router when needed.
+- **Tags:** `vertical-slice-delivery`, `legacy-strangler`, `design-tokens`, `strangler-fig`, `crud`, `plugin-system`.
+- **Cursor rules:** `.cursor/rules/arkitect-mcp-paved-route.mdc`, `forward-architecture.mdc`, `premium-ui-phases.mdc`.
 
 **Relation to existing docs:**
 
@@ -251,6 +250,9 @@ flowchart LR
 | Doc                               | Role                                                           |
 | --------------------------------- | -------------------------------------------------------------- |
 | This file                         | **Canonical cutoff + bridge strategy**                         |
+| `arkitect-mcp-paved-route.mdc`    | **Mandatory** MCP workflow before every implementation         |
+| `forward-architecture.mdc`        | Always-on cutoff + Arkitect complement (this doc summarized)   |
+| `premium-ui-phases.mdc`           | Phased CSS/token UI vertical slices                            |
 | `vertical-slice-modularity.mdc`   | Implementation detail for slice layout                         |
 | `refactor-plan-composer-first.md` | Phased execution roadmap (MV3-B, Supabase 2.x, QuickPaste 3.x) |
 | `architecture-reference.mdc`      | MV3 data flow + component responsibilities                     |

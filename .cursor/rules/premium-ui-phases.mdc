@@ -1,0 +1,50 @@
+---
+description: Premium navy + sky-blue UI redesign — phased CSS vertical slices
+globs: extension/assets/styles/**,extension/popup.html,extension/content/**/*.css
+alwaysApply: false
+---
+
+# Premium UI Phases (CSS-only vertical slices)
+
+**Palette:** dark premium navy primary + rich sky-blue secondary. **Neutrals:** gray-white surfaces unchanged.  
+**Arkitect tags:** `design-tokens`, `ui-redesign`, `vertical-slice-delivery`, `strangler-fig`  
+**Rule:** CSS-only per phase — no JS/state refactors unless a separate feature ticket.
+
+## Paved route (UI work)
+
+1. Run Arkitect paved route ([arkitect-mcp-paved-route.mdc](arkitect-mcp-paved-route.mdc)) with UI tags above.
+2. One tab/surface per phase; link new sheet in `popup.html` after `tokens.css` + `primitives.css`.
+3. Tokenize matching inline rules in `popup.html` so cascade stays correct.
+4. Bump `palette-preview.html` phase label.
+
+## Phase map
+
+| Phase | Asset | Scope |
+|---|---|---|
+| 0 | `tokens.css` | Design tokens (`--pc-*`) |
+| 1 | `primitives.css` | Shared buttons, inputs, chips |
+| 2–4 | inline → extract | Header, tabs, auth banner |
+| 5 | `clips.css` | `#clipsTab` |
+| 6 | `search.css` | `#searchTab` |
+| 7 | `categories.css` | `#categoriesTab`, files carousel, category picker |
+| 8 | `ai-lab.css` | `#aiTab`, summary/breakdown/refactor, credits, gallery |
+| 9+ | next sheet | modals, settings, content widget, website |
+
+## File order in popup.html
+
+```html
+<link rel="stylesheet" href="assets/styles/tokens.css">
+<link rel="stylesheet" href="assets/styles/primitives.css">
+<!-- phase sheets: clips.css, categories.css, ai-lab.css, search.css, … -->
+<style> /* inline critical + not yet extracted */ </style>
+```
+
+## Forbidden in UI phases
+
+- New hardcoded purple/green brand hex — use `--pc-*` tokens.
+- Renaming storage keys or message types during CSS-only phases.
+- Expanding `popup.html` inline CSS for a tab already extracted to its phase sheet.
+
+## Verify each phase
+
+Reload at `chrome://extensions` → spot-check target tab → ask Ezequiel SUCCESS before SuccessLog.

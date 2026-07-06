@@ -1,0 +1,43 @@
+---
+description: Mandatory Arkitect MCP paved route before every implementation
+alwaysApply: true
+---
+
+# Arkitect MCP — Paved Route (Mandatory)
+
+**Server:** `project-0-PasteCraft-arkitect-mcp`  
+**PasteCraft defaults:** `architectureId: vertical-slice`, `remixId: clean-slice-fusion`, `complexityProfile: balanced`
+
+## Before ANY implementation
+
+1. **Route the request** — features → `instructions/request.md`; bugs → `instructions/refresh.md`.
+2. **`diagnose_repository`** — `repoPath: c:\Dev\PasteCraft`; include `requestedOutcome`, `repoSummary`, `catalogPreferences.requirementTags`.
+3. **`recommend_patterns`** — same intake; seed `facade`, `command`, `strategy`, `adapter`, `decorator` when legacy or CRUD involved.
+4. **Legacy / structural touch** — `analyze_refactoring_opportunities` (report only; no auto-refactor).
+5. **Say the paved route aloud** — architecture, remix, top 2–3 patterns, forbidden paths.
+6. **Implement** — forward zones only ([forward-architecture.mdc](forward-architecture.mdc)); legacy via `extension/bridges/<domain>/` (strangler + ACL).
+7. **After code** — CodeScene on changed files; ask Ezequiel SUCCESS before SuccessLog / task-branch commit.
+
+## Default requirement tags
+
+| Work type | Tags |
+|---|---|
+| New feature slice | `vertical-slice-delivery`, `crud`, `plugin-system` |
+| Legacy touch / migration | `strangler-fig`, `migration`, `legacy-strangler` |
+| UI token / tab phase | `design-tokens`, `ui-redesign`, `vertical-slice-delivery` |
+| Refactor | add `boundary-repair`; set `explicitRefactorIntent: true` in intake |
+
+## Arkitect policy (honor always)
+
+- **Auto-refactor: false** — no mass moves without explicit migration intent.
+- **Facade at legacy seams** — slices never import `popup.js`, `quick-paste.js`, or root monoliths directly.
+- **Defer heavy patterns** — no CQRS, event sourcing, microservices unless diagnosis explicitly selects them.
+
+## Exemptions (still read forward-architecture)
+
+- Docs-only / rules-only edits with zero code behavior change.
+- Trivial typo inside an existing forward slice file with no new exports or legacy imports.
+
+## Optional
+
+`apply_workbench_intake` when Arkitect Desktop bridge is running — preset `pastecraft-forward-<feature>`.
