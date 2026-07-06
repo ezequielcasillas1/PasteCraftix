@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+
+# Vertical Slice + Modularity (PasteCraft)
+
+**Parent strategy:** [forward-architecture.mdc](forward-architecture.mdc) (cutoff 2026-07-05). This rule is the **implementation detail** for slice layout.
+
+New features and refactors follow **one folder per feature slice**. Reference implementations: `extension/content/merchant/`, `extension/content/widget/`, `extension/background/messaging/`.
+
+## Slice layout
+
+| Layer | Pattern |
+|---|---|
+| **Content feature** | `extension/content/<feature>/` — `<feature>.controller.js` (init), `.constants.js`, `.events.js`, `.styles.js`, submodules by concern |
+| **Popup feature** | `extension/popup/features/<feature>/` — controller, service, state, render, events |
+| **Background** | `extension/background/handlers/<cluster>.handler.js` + `messaging/message-types.js` + `messaging/router.js` |
+| **Shared** | `extension/shared/` only — storage keys, messaging helpers, auth, clip IDs |
+
+## Rules
+
+1. **No cross-import between feature slices.** Slice A talks to slice B via shared public API, chrome messages, or storage keys — not direct imports across `content/merchant/` ↔ `content/widget/` etc.
+2. **Entry points stay thin.** `content/content.js` and `background/service-worker.js` only init slices; no business logic.
+3. **Shadow DOM for injected UI.** No bare HTML/CSS on host pages; use `data-action` delegation (MV3 — no inline handlers).
+4. **Site-specific logic → adapters.** Match `merchant.adapters/`: `canHandle(ctx)` + `resolve*Adapter()` registry; generic fallback last.
+5. **Queues / factories.** Repeated patterns use a factory (`merchant.queue-factory.js`) — do not copy-paste queue boilerplate.
+6. **Extract on touch.** When editing a legacy monolith (`quick-paste.js`, `popup.js` shell), peel one vertical slice per change — do not expand the monolith.
+7. **Background: one handler cluster per message family.** Register actions in `message-types.js`; route in `router.js`.
+
+## Forbidden
+
+- Feature modules importing popup or background directly (use `sendToBackground` / message types).
+- New globals on `window` except documented init bridges (`window.__pasteCraftMerchant` pattern).
+- Shared constants duplicated inside slices — promote to `*.constants.js` within slice or `extension/shared/`.
+
+## Agent checklist (new work)
+
+1. Pick slice folder name before coding.
+2. List public exports (controller init + constants).
+3. Confirm no imports from sibling feature folders.
+4. CodeScene review on new files before declaring merge-ready.
