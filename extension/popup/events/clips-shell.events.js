@@ -20,13 +20,15 @@ export function registerClipsShellEvents(app) {
     const manualInputClearBtn = document.getElementById('manualInputClearBtn');
     const manualInputSaveSpinner = document.getElementById('manualInputSaveSpinner');
     const manualInputSaveIcon = document.getElementById('manualInputSaveIcon');
-    const manualInputSaveLabel = document.getElementById('manualInputSaveLabel');
 
     const setManualInputSavingState = (isSaving) => {
-      if (manualInputSaveBtn) manualInputSaveBtn.disabled = !!isSaving;
+      if (manualInputSaveBtn) {
+        manualInputSaveBtn.disabled = !!isSaving;
+        manualInputSaveBtn.title = isSaving ? 'Saving…' : 'Save clip';
+        manualInputSaveBtn.setAttribute('aria-label', isSaving ? 'Saving…' : 'Save clip');
+      }
       if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
       if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
-      if (manualInputSaveLabel) manualInputSaveLabel.textContent = isSaving ? 'Saving…' : 'Save Clip';
     };
 
     const manualInputMarkup = document.getElementById('manualInputMarkup');

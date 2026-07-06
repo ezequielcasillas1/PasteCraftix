@@ -321,8 +321,8 @@
 
 /* Manual Text Input Section */
 .manual-input-section {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-bottom: 2px solid #bae6fd;
+  background: linear-gradient(135deg, var(--pc-secondary-50) 0%, var(--pc-secondary-100) 100%);
+  border-bottom: 2px solid var(--pc-secondary-200);
   transition: all 0.3s ease;
 }
 
@@ -337,7 +337,7 @@
 }
 
 .manual-input-header:hover {
-  background: rgba(59, 130, 246, 0.05);
+  background: color-mix(in srgb, var(--pc-secondary-400) 5%, transparent);
 }
 
 .manual-input-icon {
@@ -347,7 +347,7 @@
 .manual-input-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1e40af;
+  color: var(--pc-primary-700);
   flex: 1;
 }
 
@@ -355,7 +355,7 @@
   background: none;
   border: none;
   font-size: 14px;
-  color: #3b82f6;
+  color: var(--pc-secondary-400);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -363,7 +363,7 @@
 }
 
 .manual-input-toggle:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--pc-secondary-400) 10%, transparent);
 }
 
 .manual-input-toggle.active {
@@ -391,13 +391,13 @@
   min-height: 80px;
   max-height: 200px;
   padding: 12px;
-  border: 2px solid #bae6fd;
+  border: 2px solid var(--pc-secondary-200);
   border-radius: 8px;
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   line-height: 1.5;
   resize: vertical;
-  background: white;
+  background: var(--pc-bg);
   color: var(--text);
   outline: none;
   transition: all 0.2s ease;
@@ -405,12 +405,12 @@
 }
 
 .manual-input-textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc-secondary-400) 15%, transparent);
 }
 
 .manual-input-textarea::placeholder {
-  color: #94a3b8;
+  color: var(--pc-text-soft);
 }
 
 .manual-input-actions {
@@ -423,44 +423,44 @@
 .manual-input-category {
   flex: 1;
   padding: 10px 12px;
-  border: 2px solid #bae6fd;
+  border: 2px solid var(--pc-secondary-200);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
-  background: white;
+  background: var(--pc-bg);
   outline: none;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .manual-input-category:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc-secondary-400) 15%, transparent);
 }
 
 .manual-input-markup {
   flex: 0.8;
   padding: 10px 12px;
-  border: 2px solid #bae6fd;
+  border: 2px solid var(--pc-secondary-200);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text);
-  background: white;
+  background: var(--pc-bg);
   outline: none;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .manual-input-markup:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc-secondary-400) 15%, transparent);
 }
 
 .manual-input-save-btn {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--pc-gradient-brand-soft);
   color: white;
   border: none;
   border-radius: 8px;
@@ -475,9 +475,9 @@
 }
 
 .manual-input-save-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: var(--pc-gradient-brand);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: var(--pc-shadow-brand);
 }
 
 .manual-input-save-btn:active {
@@ -502,9 +502,9 @@
 
 .manual-input-clear-btn {
   padding: 10px 12px;
-  background: white;
-  color: #64748b;
-  border: 2px solid #e5e7eb;
+  background: var(--pc-bg);
+  color: var(--pc-text-muted);
+  border: 2px solid var(--pc-border);
   border-radius: 8px;
   font-size: 16px;
   cursor: pointer;
@@ -515,9 +515,9 @@
 }
 
 .manual-input-clear-btn:hover {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--pc-error) 6%, white);
+  border-color: color-mix(in srgb, var(--pc-error) 45%, white);
+  color: var(--pc-error-dark);
   transform: translateY(-1px);
 }
 

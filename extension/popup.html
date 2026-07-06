@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="AiLucideStyles.css">
     <link rel="stylesheet" href="assets/styles/tokens.css">
     <link rel="stylesheet" href="assets/styles/primitives.css">
+    <link rel="stylesheet" href="assets/styles/clips.css">
     <style>
         /* Inline Critical CSS to fix blue box issue */
         * {
@@ -1119,7 +1120,7 @@
             width: 100%;
             height: 100%;
             transform: translate(-50%, -50%) scale(0.8);
-            background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+            background: radial-gradient(ellipse at center, color-mix(in srgb, var(--pc-secondary-400) 8%, transparent) 0%, transparent 70%);
             border-radius: 50%;
             opacity: 0;
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1156,21 +1157,21 @@
         }
         
         .chip:hover {
-            border-color: rgba(59, 130, 246, 0.3);
+            border-color: color-mix(in srgb, var(--pc-secondary-400) 30%, transparent);
             box-shadow: 
-                0 0 0 4px rgba(59, 130, 246, 0.04),
-                0 0 0 8px rgba(59, 130, 246, 0.02),
-                0 2px 8px rgba(59, 130, 246, 0.12),
-                0 4px 16px rgba(59, 130, 246, 0.08),
+                0 0 0 4px color-mix(in srgb, var(--pc-secondary-400) 4%, transparent),
+                0 0 0 8px color-mix(in srgb, var(--pc-secondary-400) 2%, transparent),
+                0 2px 8px color-mix(in srgb, var(--pc-secondary-400) 12%, transparent),
+                0 4px 16px color-mix(in srgb, var(--pc-secondary-400) 8%, transparent),
                 inset 0 1px 0 rgba(255, 255, 255, 0.8);
             transform: translateY(-1px);
         }
         
         .chip.selected {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            background: var(--pc-gradient-brand-soft);
             color: white;
-            border-color: rgba(37, 99, 235, 0.8);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3), 0 4px 16px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: var(--pc-secondary-500);
+            box-shadow: var(--pc-shadow-brand), inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
         
         .chip-text {
@@ -1563,8 +1564,8 @@
             50% {
                 transform: scale(1.05);
                 box-shadow: 
-                    0 8px 32px rgba(16, 185, 129, 0.6),
-                    0 0 50px rgba(52, 211, 153, 0.6);
+                    0 8px 32px color-mix(in srgb, var(--pc-secondary-500) 60%, transparent),
+                    0 0 50px color-mix(in srgb, var(--pc-secondary-300) 60%, transparent);
             }
             100% {
                 transform: scale(1);
@@ -1706,43 +1707,43 @@
         }
 
         .clips-bulk-ai-actions .bulk-ai-btn.ai-summary {
-            color: #1e3a8a;
-            border-color: #ddd6fe;
+            color: var(--pc-primary-700);
+            border-color: var(--pc-secondary-200);
         }
         .clips-bulk-ai-actions .bulk-ai-btn.ai-summary:hover {
-            background: #f5f3ff;
-            border-color: #a78bfa;
-            box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.2);
+            background: var(--pc-secondary-50);
+            border-color: var(--pc-secondary-400);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
 
         .clips-bulk-ai-actions .bulk-ai-btn.send-categories {
-            color: #0369a1;
-            border-color: #bae6fd;
+            color: var(--pc-primary-600);
+            border-color: var(--pc-secondary-200);
         }
         .clips-bulk-ai-actions .bulk-ai-btn.send-categories:hover {
-            background: #f0f9ff;
-            border-color: #38bdf8;
-            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+            background: var(--pc-secondary-50);
+            border-color: var(--pc-secondary-400);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
 
         .clips-bulk-ai-actions .bulk-ai-btn.send-notes {
-            color: #065f46;
-            border-color: #a7f3d0;
+            color: var(--pc-primary-700);
+            border-color: var(--pc-secondary-100);
         }
         .clips-bulk-ai-actions .bulk-ai-btn.send-notes:hover {
-            background: #ecfdf5;
-            border-color: #60a5fa;
-            box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2);
+            background: var(--pc-secondary-50);
+            border-color: var(--pc-secondary-300);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         }
 
         .clips-bulk-ai-actions .bulk-ai-btn.ai-breakdown {
-            color: #92400e;
-            border-color: #fde68a;
+            color: var(--pc-primary-800);
+            border-color: var(--pc-secondary-200);
         }
         .clips-bulk-ai-actions .bulk-ai-btn.ai-breakdown:hover {
-            background: #fffbeb;
-            border-color: #fbbf24;
-            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+            background: var(--pc-secondary-50);
+            border-color: var(--pc-secondary-500);
+            box-shadow: 0 0 0 2px rgba(26, 31, 94, 0.12);
         }
 
         /* Pagination Styles */
@@ -1777,9 +1778,9 @@
         }
         
         .pagination-btn:hover:not([disabled]), .pagination-number:hover:not(.active) {
-            background: #f1f5f9;
-            border-color: #3b82f6;
-            color: #3b82f6;
+            background: var(--pc-surface-2);
+            border-color: var(--pc-secondary-400);
+            color: var(--pc-secondary-400);
             transform: translateY(-1px);
         }
         
@@ -1789,10 +1790,10 @@
         }
         
         .pagination-number.active {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            background: var(--pc-gradient-brand-soft);
             color: white;
-            border-color: #2563eb;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            border-color: var(--pc-secondary-500);
+            box-shadow: var(--pc-shadow-brand);
         }
         
         .pagination-ellipsis {
@@ -2224,9 +2225,9 @@
             gap: 12px;
             padding: 10px 12px;
             margin: 0 0 12px 0;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            background: #f8fafc;
+            border: 1px solid var(--pc-border);
+            border-radius: var(--pc-radius-md);
+            background: var(--pc-surface);
             cursor: pointer;
         }
 
@@ -2240,12 +2241,12 @@
         .clips-one-click-copy-bar .clips-one-click-copy-title {
             font-size: 13px;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--pc-primary-800);
         }
 
         .clips-one-click-copy-bar .clips-one-click-copy-hint {
             font-size: 11px;
-            color: #64748b;
+            color: var(--pc-text-muted);
             line-height: 1.35;
         }
 
@@ -10178,18 +10179,19 @@
                         <option value="jira">JIRA / Confluence</option>
                         <option value="code">Code</option>
                     </select>
-                    <button class="pdf-upload-btn" id="pdfUploadBtn" title="Extract text from PDF">
-                        <span><i data-lucide="file-text"></i></span>
-                        <span>PDF</span>
-                    </button>
-                    <button class="manual-input-save-btn" id="manualInputSaveBtn">
-                        <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
-                        <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
-                        <span id="manualInputSaveLabel">Save Clip</span>
-                    </button>
-                    <button class="manual-input-clear-btn" id="manualInputClearBtn">
-                        <span><i data-lucide="trash-2"></i></span>
-                    </button>
+                    <div class="manual-input-toolbar">
+                        <button class="pdf-upload-btn" id="pdfUploadBtn" type="button" title="Extract text from PDF">
+                            <span><i data-lucide="file-text"></i></span>
+                            <span class="pdf-upload-btn-label">PDF</span>
+                        </button>
+                        <button class="manual-input-save-btn" id="manualInputSaveBtn" type="button" title="Save clip" aria-label="Save clip">
+                            <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
+                            <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
+                        </button>
+                        <button class="manual-input-clear-btn" id="manualInputClearBtn" type="button" title="Clear" aria-label="Clear">
+                            <span><i data-lucide="trash-2"></i></span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
