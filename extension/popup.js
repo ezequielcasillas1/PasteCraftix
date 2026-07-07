@@ -281,10 +281,14 @@ class PasteCraftPopup {
     // Guarantees that the purple loading overlay never gets stuck. Wraps the
     // real init body in try/catch/finally with an absolute 10s watchdog so a
     // throw, hang, or network stall can't freeze the popup in a loading state.
-    const watchdog = setTimeout(() => {
+    const watchdog = setTimeout(async () => {
       try {
         console.warn('? init() watchdog fired at 10s � force-hiding overlay');
         this.hideLoadingOverlay();
+        try {
+          const { emergencyStartupReveal } = await import('./popup/features/app/popup.init.js');
+          emergencyStartupReveal(this, 'watchdog');
+        } catch (_) {}
         this._showOfflineModeBanner();
       } catch (_) {}
     }, 10000);
@@ -293,6 +297,10 @@ class PasteCraftPopup {
       await this._initImpl();
     } catch (e) {
       console.error('? init() failed:', e);
+      try {
+        const { emergencyStartupReveal } = await import('./popup/features/app/popup.init.js');
+        emergencyStartupReveal(this, 'init-failed');
+      } catch (_) {}
       try { this._showOfflineModeBanner(); } catch (_) {}
     } finally {
       clearTimeout(watchdog);

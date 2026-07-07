@@ -169,7 +169,10 @@ export function updateAiCreditsPill(source = '') {
 
 async function _readSyncWorkflow(key) {
   try {
-    return await new Promise((resolve) => chrome.storage.sync.get([key], resolve));
+    return await PasteCraftAsyncUtils.withTimeout(
+      new Promise((resolve) => chrome.storage.sync.get([key], resolve)),
+      { ms: 1500, fallback: null },
+    );
   } catch (_) {
     return null;
   }

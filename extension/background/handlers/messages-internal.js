@@ -26,6 +26,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   console.log('📨 Internal message received:', message.action);
 
+  if (message.action === 'pcCaptureRegion') {
+    const tabId = sender.tab?.id;
+    if (!Number.isFinite(tabId)) {
+      sendResponse({ success: false, error: 'missing_tab' });
+      return false;
+    }
+    chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' }, (dataUrl) => {
+      const err = chrome.runtime.lastError;
+      if (err || !dataUrl) {
+        sendResponse({ success: false, error: err?.message || 'capture_failed' });
+        return;
+      }
+      sendResponse({ success: true, dataUrl });
+    });
+    return true;
+  }
+
   if (message.action === 'pcCopyText') {
     const text = String(message.text || '');
     (async () => {

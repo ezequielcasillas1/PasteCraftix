@@ -1,6 +1,6 @@
 import { MERCHANT_ACTIONS } from './merchant.constants.js';
 import { activateSpot, deactivateSpot, getSpotStatusLabel } from './merchant.spot.js';
-import { toggleImageToTextPlaceholder } from './merchant.image-to-text.js';
+import { toggleImageToTextPlaceholder, runImageToTextCapture, disarmImageToText, isImageToTextArmed } from './merchant.image-to-text.js';
 import {
   toggleTagQueue,
   deactivateTagQueueOnUnmount,
@@ -49,8 +49,10 @@ async function handleSpotAction(root, stripEl, spotBtn) {
   showMerchantToast(root, result.message);
 }
 
-function handleImageToTextAction(root, stripEl) {
-  const result = toggleImageToTextPlaceholder();
+async function handleImageToTextAction(root, stripEl) {
+  const result = isImageToTextArmed()
+    ? await runImageToTextCapture()
+    : toggleImageToTextPlaceholder();
   updateHint(stripEl);
   showMerchantToast(root, result.message);
 }
@@ -112,7 +114,7 @@ export function bindMerchantStripEvents(root, stripEl) {
     }
     if (action === MERCHANT_ACTIONS.IMAGE_TO_TEXT) {
       event.preventDefault();
-      handleImageToTextAction(root, stripEl);
+      handleImageToTextAction(root, stripEl).catch(() => {});
       return;
     }
     if (action === MERCHANT_ACTIONS.TAG_QUEUE_TOGGLE) {
@@ -147,6 +149,7 @@ export function bindMerchantStripEvents(root, stripEl) {
 
 export function resetMerchantFeatureState(stripEl) {
   deactivateSpot();
+  disarmImageToText();
   deactivateTagQueueOnUnmount();
   closeSnippetsMenu();
   if (stripEl) {

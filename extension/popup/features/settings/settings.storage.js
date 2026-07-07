@@ -95,7 +95,10 @@ async function _fetchCloudSettings() {
 async function _fetchLocalAndSyncSettings() {
   let syncData = {};
   try {
-    syncData = await new Promise((resolve) => chrome.storage.sync.get(SETTINGS_SYNC_KEYS, resolve));
+    syncData = await PasteCraftAsyncUtils.withTimeout(
+      new Promise((resolve) => chrome.storage.sync.get(SETTINGS_SYNC_KEYS, resolve)),
+      { ms: 1500, fallback: {} },
+    );
   } catch (_) {}
   const localData = await chrome.storage.local.get(SETTINGS_SYNC_KEYS);
   return { syncData, localData };

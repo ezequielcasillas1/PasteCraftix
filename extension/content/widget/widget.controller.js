@@ -92,6 +92,7 @@ export class PasteCraftFloatingWidget {
     
     console.log('🔨 Creating widget...');
     createWidgetShell(this);
+    this.initCaptureToolsMenu();
     console.log('✅ Widget created successfully');
     injectOverlayStyles();
     loadSavedWidgetPosition(this);
@@ -105,6 +106,14 @@ export class PasteCraftFloatingWidget {
 
   async initAsync() {
     return initWidgetAsync(this);
+  }
+
+  initCaptureToolsMenu() {
+    import('./widget.capture-menu.js')
+      .then(({ initWidgetCaptureMenu }) => initWidgetCaptureMenu(this))
+      .catch((err) => {
+        console.warn('[PasteCraft] Capture Tools menu skipped:', err);
+      });
   }
 
   setupStorageSync() {

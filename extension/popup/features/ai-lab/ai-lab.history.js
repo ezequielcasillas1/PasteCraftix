@@ -407,7 +407,10 @@ async function _mergeCloudHistory(localEntries) {
   }
 
   try {
-    const remoteHistory = await pasteCraftSupabase.fetchAiHistoryFromSupabase();
+    const remoteHistory = await PasteCraftAsyncUtils.withTimeout(
+      pasteCraftSupabase.fetchAiHistoryFromSupabase(),
+      { ms: 4000, fallback: [] },
+    );
     if (remoteHistory && remoteHistory.length > 0) {
       localHistory = pasteCraftSupabase.mergeAiHistory(localHistory, remoteHistory);
       await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: localHistory });

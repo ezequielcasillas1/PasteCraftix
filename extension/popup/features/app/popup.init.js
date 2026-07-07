@@ -4,6 +4,7 @@ import { initializeAllPopupFeatures } from './popup.features.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 let popupRevealScheduled = false;
+const STARTUP_CORE_TIMEOUT_MS = 5000;
 
 function revealPopupWithIcons(context = 'unknown') {
   if (typeof window.finishBootLucideIcons === 'function') {
@@ -19,6 +20,45 @@ async function finishPopupReveal(app, context = 'popup-ready') {
   popupRevealScheduled = true;
   revealPopupWithIcons(context);
   app.hideLoadingOverlay();
+}
+
+function renderPrimaryPopupUi(app) {
+  app.updateTopBarIdentity?.();
+  app.renderChips?.();
+  app.updateLastCapture?.();
+  app.updatePreview?.();
+  app.renderCategories?.();
+  app.updateCategoryFilter?.();
+}
+
+export function emergencyStartupReveal(app, context = 'watchdog') {
+  try {
+    renderPrimaryPopupUi(app);
+  } catch (_) {}
+  finishPopupReveal(app, context).catch(() => {});
+}
+
+async function loadStartupCore(app) {
+  await Promise.all([
+    app._withTimeout(app.loadData(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadData'),
+    app._withTimeout(app.loadSettings(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadSettings'),
+  ]);
+}
+
+function loadStartupSecondary(app) {
+  Promise.allSettled([
+    app._withTimeout(app.loadAiWorkflow(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadAiWorkflow'),
+    app._withTimeout(app.loadUserProfile(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadUserProfile'),
+    app._withTimeout(app.loadAnalysisHistory(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadAnalysisHistory'),
+    app._withTimeout(app.loadAiHistory(), STARTUP_CORE_TIMEOUT_MS, undefined, 'loadAiHistory'),
+  ]).then((results) => {
+    const profileLoaded = results.some((r) => r.status === 'fulfilled');
+    if (!profileLoaded) return;
+    app.updateTopBarIdentity?.();
+    if (app.userProfile?.profileImageUrl) {
+      app.displayImageTopLeft?.(app.userProfile.profileImageUrl);
+    }
+  }).catch(() => {});
 }
 
 export async function runPopupInit(app) {
@@ -43,15 +83,12 @@ export async function runPopupInit(app) {
     app.currentUser = null;
     app.userSubscription = null;
     document.getElementById('topBar').style.display = 'flex';
-    await Promise.all([app.loadData(), app.loadSettings()]);
+    await loadStartupCore(app);
     app.updateTopBarIdentity();
     await app.setupEventListeners();
-    app.renderChips();
-    app.updateLastCapture();
-    app.updatePreview();
-    app.renderCategories();
-    app.updateCategoryFilter();
+    renderPrimaryPopupUi(app);
     await finishPopupReveal(app, 'guest-init');
+    loadStartupSecondary(app);
     app.setupVisibilityListener();
     Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
     return;
@@ -119,17 +156,7 @@ export async function runPopupInit(app) {
   app.setupLocalStorageListener();
   await app._ensureIndexedDbReadyAndMigrate();
 
-  const coreBatch = Promise.all([
-    app.loadData(),
-    app.loadSettings(),
-    app.loadAiWorkflow(),
-  ]);
-  const profileBatch = Promise.all([
-    app.loadUserProfile(),
-    app.loadAnalysisHistory(),
-    app.loadAiHistory(),
-  ]);
-  await Promise.all([coreBatch, profileBatch]);
+  await loadStartupCore(app);
 
   if (!app.userProfile?.userName && !app.userProfile?.aiGeneratedName && !app.userProfile?.profileImageUrl) {
     try {
@@ -144,18 +171,12 @@ export async function runPopupInit(app) {
     } catch (_) {}
   }
 
-  app.updateTopBarIdentity();
-
   if (app.userProfile?.profileImageUrl) {
     app.displayImageTopLeft(app.userProfile.profileImageUrl);
   }
 
   await app.setupEventListeners();
-  app.renderChips();
-  app.updateLastCapture();
-  app.updatePreview();
-  app.renderCategories();
-  app.updateCategoryFilter();
+  renderPrimaryPopupUi(app);
 
   try {
     await app._restoreSessionState();
@@ -164,6 +185,7 @@ export async function runPopupInit(app) {
   }
 
   await finishPopupReveal(app, 'popup-ready');
+  loadStartupSecondary(app);
 
   Promise.resolve()
     .then(() => app.maybeCreateDailyRestorePoint('startup'))

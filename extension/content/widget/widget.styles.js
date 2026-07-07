@@ -84,8 +84,95 @@ export const WIDGET_CORE_CSS = `
       .settings-button:hover .widget-icon {
         transform: rotate(90deg);
       }
+
+      /* Capture Tools bundle — between Settings and Auto-Copy */
+      .capture-tools-wrap {
+        position: relative;
+        flex-direction: column;
+        height: auto;
+        padding: 4px;
+      }
+
+      .capture-tools-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+
+      .capture-tools-btn:hover,
+      .capture-tools-wrap.is-open .capture-tools-btn {
+        background: rgba(96, 165, 250, 0.25);
+        box-shadow: 0 0 16px rgba(96, 165, 250, 0.45);
+      }
+
+      .capture-tools-icon {
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .capture-tools-menu {
+        position: absolute;
+        right: calc(100% + 10px);
+        top: 50%;
+        transform: translateY(-50%);
+        min-width: 148px;
+        padding: 6px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 2;
+      }
+
+      .capture-tools-menu[hidden] {
+        display: none !important;
+      }
+
+      .capture-tools-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: #f8fafc;
+        font: 600 13px system-ui, sans-serif;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .capture-tools-menu-item:hover {
+        background: rgba(96, 165, 250, 0.2);
+      }
+
+      .capture-tools-menu-icon {
+        width: 22px;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      .capture-tools-menu-icon.spot {
+        color: #4ade80;
+      }
+
+      .capture-tools-menu-icon.image {
+        color: #fbbf24;
+      }
       
-      /* Component 3: Auto Copy Toggle - Circular Button */
+      /* Component 4: Auto Copy Toggle - Circular Button */
       .auto-copy-section {
         flex-direction: column;
         height: auto;
