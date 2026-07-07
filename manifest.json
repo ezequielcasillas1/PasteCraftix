@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PasteCraft (Repo Loader)",
+  "name": "PasteCraft Scholar (Repo Loader)",
   "version": "3.0.6",
-  "description": "Dev loader manifest to allow loading the PasteCraft repo root as an unpacked extension. Actual extension lives in /extension.",
+  "description": "Dev loader manifest to load the PasteCraft Scholar extension from the repo root. Scholar lives in /extension. Merchant is a separate app in /extension-merchant.",
   "author": "Ezequiel Casillas",
   "permissions": [
     "contextMenus",
@@ -56,7 +56,6 @@
         "extension/content/*.js",
         "extension/content/quick-paste/*.js",
         "extension/content/widget/*.js",
-        "extension/content/merchant/*.js",
         "extension/styles.css",
         "extension/logo.svg",
         "extension/icon.png",

@@ -748,13 +748,14 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Core (must): tags, tag queue, Etsy 13×20 validation, platform presets (Etsy/Printify/generic)
 - Next ROI: dock materials copy (Phase 5); snippet presets (personalization/compliance); Seal & Ship purge
 - Alt text deprioritized — Phase 9+ “SEO pack” add-on only; not core marketing lever
-- Phased vertical slices in `extension/content/merchant/`; user test between phases
+- Phased vertical slices in `extension-merchant/content/merchant/`; user test between phases
 - Separate Test Lab mock Etsy/Printify forms for QA + DOM adapters without marketplace accounts
 
 **Product & subscription:**
-- Separate subscription from PasteCraft Scholar (see **Product Lines & Roadmap**)
-- Options: Scholar only, Merchant only, bundle (Scholar + Merchant)
-- Extension stays "PasteCraft"; Scholar / Merchant are gated service layers
+- Separate Chrome/Edge extension from PasteCraft Scholar (see **Product Lines & Roadmap**)
+- Scholar and Merchant are **different extension apps** — separate installs, manifests, store listings
+- Shared Supabase auth/backend possible; each app gates its own features independently
+- Bundle pricing (Scholar + Merchant) TBD on website — not a single combined extension
 
 **Pricing (Merchant only):**
 - **$1.99 weekly**, **$6.99 monthly**, **$15.99 yearly**
@@ -789,20 +790,21 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md`.
 
-### Brand split
-- **PasteCraft Scholar** — core study/productivity (clips, categories, notes, search, AI Lab)
-- **PasteCraft Merchant** — Etsy/POD seller add-on: **Spot #29** + **Image→Text #21** top strip
-- Extension name stays "PasteCraft"; Scholar / Merchant are subscription **service layers**
+### Brand split (separate extension apps)
+- **PasteCraft Scholar** (`extension/`) — study/productivity: clips, categories, notes, search, AI Lab
+- **PasteCraft Merchant** (`extension-merchant/`) — Etsy/POD seller tools: Spot, top strip, listing dock, tag queue
+- **Two installs** — separate MV3 packages, manifests, and store listings (Chrome + Edge each)
+- Shared Supabase project/auth is OK; storage keys and feature code stay app-scoped
 
 ### Subscription options (planned)
 - **Scholar only** — existing FREE / BASIC / PREMIUM tiers (cloud sync + AI Lab)
 - **Merchant only** — **$1.99/wk**, **$6.99/mo**, **$15.99/yr** (Spot + listing workflow; see **#58**)
-- **Bundle (Scholar + Merchant)** — combined access; pricing TBD (may discount vs both separately)
+- **Bundle (Scholar + Merchant)** — website/account bundle; user installs both extensions
 
 ### Merchant standalone — can it work without Scholar?
-- **Yes** — self-sufficient for Etsy/POD at full quality
-- **Includes:** minimal clips/categories, Spot lists, listing packs, top strip (Spot + #21), tag queue
-- **Shared infra:** same extension, auth, Supabase; Merchant gates Spot/top strip; Scholar gates AI Lab
+- **Yes** — self-sufficient for Etsy/POD at full quality as its own extension
+- **Includes:** Spot lists, listing packs, top strip, tag queue, ephemeral listing dock
+- **No Scholar dependency** — Merchant does not load Scholar content scripts or popup
 
 ### Implementation order
 1. **Next:** Spot #29 + Image→Text #21 shared ~1cm top strip on web pages

@@ -6,7 +6,7 @@ alwaysApply: true
 
 **Parent strategy:** [forward-architecture.mdc](forward-architecture.mdc) (cutoff 2026-07-05). This rule is the **implementation detail** for slice layout.
 
-New features and refactors follow **one folder per feature slice**. Reference implementations: `extension/content/merchant/`, `extension/content/widget/`, `extension/background/messaging/`.
+New features and refactors follow **one folder per feature slice**. Reference implementations: `extension-merchant/content/merchant/` (Merchant app), `extension/content/widget/` (Scholar app), `extension/background/messaging/`.
 
 ## Slice layout
 
@@ -19,7 +19,7 @@ New features and refactors follow **one folder per feature slice**. Reference im
 
 ## Rules
 
-1. **No cross-import between feature slices.** Slice A talks to slice B via shared public API, chrome messages, or storage keys — not direct imports across `content/merchant/` ↔ `content/widget/` etc.
+1. **No cross-import between feature slices.** Slice A talks to slice B via shared public API, chrome messages, or storage keys — not direct imports across slices. **Scholar and Merchant are separate extension apps** — no cross-import between `extension/` and `extension-merchant/`.
 2. **Entry points stay thin.** `content/content.js` and `background/service-worker.js` only init slices; no business logic.
 3. **Shadow DOM for injected UI.** No bare HTML/CSS on host pages; use `data-action` delegation (MV3 — no inline handlers).
 4. **Site-specific logic → adapters.** Match `merchant.adapters/`: `canHandle(ctx)` + `resolve*Adapter()` registry; generic fallback last.

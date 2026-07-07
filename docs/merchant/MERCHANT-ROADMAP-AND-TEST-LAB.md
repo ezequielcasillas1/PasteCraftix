@@ -2,7 +2,7 @@
 
 ## 1. Vision & positioning
 
-PasteCraft Merchant is a **subscription-gated service layer** inside the single PasteCraft extension — not a separate app. Core promise: **paste the annoying small fields** (tags first, then materials, snippets) for Etsy/POD/multi-channel sellers. Title and description stay optional (Advanced); tags-only is the default UI forever. Scholar (clips, AI Lab) and Merchant (Spot, top strip, listing dock) share auth and Supabase but gate independently. Delivery: **vertical slices** in `extension/content/merchant/`, phased rollout with **user test between phases**.
+PasteCraft Merchant is a **standalone browser extension** (`extension-merchant/`) — separate from PasteCraft Scholar (`extension/`). Core promise: **paste the annoying small fields** (tags first, then materials, snippets) for Etsy/POD/multi-channel sellers. Title and description stay optional (Advanced); tags-only is the default UI forever. Scholar and Merchant share Supabase auth optionally but are **different installs** with independent manifests and store listings. Delivery: **vertical slices** in `extension-merchant/content/merchant/`, phased rollout with **user test between phases**.
 
 ---
 
@@ -108,7 +108,7 @@ Popup/options: future **Merchant** section under Settings (or Merchant-only popu
 ### Vertical slices (extension)
 
 ```
-extension/content/merchant/          ← Merchant content slice (primary)
+extension-merchant/content/merchant/   ← Merchant content slice (primary)
   merchant.controller.js             orchestration
   merchant.top-strip.js              nav shell
   merchant.listing-dock.js           dock UI
@@ -244,5 +244,5 @@ DOM should use **realistic input patterns** (individual `<input>` per tag, not o
 ## References
 
 - `instructions/request.md` — **#58** PasteCraft Merchant, Product Lines
-- `extension/content/merchant/` — implementation slice
+- `extension-merchant/content/merchant/` — implementation slice
 - `implementations.md` — phase completion log

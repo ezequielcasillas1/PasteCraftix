@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PasteCraft",
+  "name": "PasteCraft Scholar",
   "version": "3.0.13",
-  "description": "Smart clipboard manager with search, categories, Quick View, and AI. Break down text, summarize notes, and organize research clips as a study tool.",
+  "description": "Smart clipboard manager with search, categories, Quick View, and AI. Study and research tool for notes, clips, and AI Lab.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
   "permissions": [
@@ -61,7 +61,6 @@
         "content/quick-paste/*.js",
         "content/widget/*.js",
         "content/safety/*.js",
-        "content/merchant/*.js",
         "styles.css",
         "styles/*.css",
         "assets/styles/*.css",

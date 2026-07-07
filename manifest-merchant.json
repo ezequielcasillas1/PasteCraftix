@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "PasteCraft Merchant (Repo Loader)",
+  "version": "1.0.0",
+  "description": "Dev loader manifest to load PasteCraft Merchant from the repo root. Merchant lives in /extension-merchant. Scholar is a separate app in /extension.",
+  "author": "Ezequiel Casillas",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://accounts.google.com/*",
+    "https://pastecraft.com/*",
+    "https://*.pastecraft.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["extension-merchant/content-script.js"],
+      "type": "module",
+      "run_at": "document_end"
+    }
+  ],
+  "action": {},
+  "background": {
+    "service_worker": "extension-merchant/background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "extension-merchant/icon.png",
+    "32": "extension-merchant/icon.png",
+    "48": "extension-merchant/icon.png",
+    "128": "extension-merchant/icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "extension-merchant/content/*.js",
+        "extension-merchant/content/merchant/*.js",
+        "extension-merchant/content/safety/*.js",
+        "extension-merchant/icon.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://auth.pastecraft.com/*"
+    ]
+  }
+}

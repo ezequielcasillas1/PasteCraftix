@@ -1,3 +1,8 @@
+### Jul 7, 2026 - Scholar / Merchant separate extension apps
+**Status:** PENDING USER TEST
+**Files:** extension-merchant/*, extension/content/content.js, extension/manifest.json, manifest.json, manifest-merchant.json, instructions/request.md, docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md, .cursor/rules/vertical-slice-modularity.mdc
+**Result:** Merchant moved to standalone `extension-merchant/` package; Scholar (`extension/`) no longer loads merchant layer. Two manifests: PasteCraft Scholar + PasteCraft Merchant. Dev loaders: repo root `manifest.json` (Scholar) and `manifest-merchant.json` (Merchant).
+
 ### Jun 24, 2026 - Merchant Test Lab website (all platform mocks)
 **Status:** PENDING USER TEST
 **Files:** website/public/merchant-test/*, website/src/pages/merchant-test/index.astro, website/src/data/site.js, netlify.toml, merchant-test-lab/*, merchant-test-lab/README.md, docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md

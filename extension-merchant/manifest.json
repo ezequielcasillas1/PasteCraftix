@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "PasteCraft Merchant",
+  "version": "1.0.0",
+  "description": "Etsy and POD seller tools — Spot, listing dock, tag queue, and ephemeral listing staging for marketplace sellers.",
+  "default_locale": "en",
+  "author": "Ezequiel Casillas",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://accounts.google.com/*",
+    "https://pastecraft.com/*",
+    "https://*.pastecraft.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "type": "module",
+      "run_at": "document_end"
+    }
+  ],
+  "action": {},
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icon.png",
+    "32": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/*.js",
+        "content/merchant/*.js",
+        "content/safety/*.js",
+        "icon.png"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://auth.pastecraft.com/*"
+    ]
+  }
+}

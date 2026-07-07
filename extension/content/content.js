@@ -19,12 +19,6 @@ function pastecraftInitContent() {
 
   window.pasteCraftQuickPaste = new QuickPasteInterface();
   window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
-
-  import('./merchant/merchant.controller.js')
-    .then(({ initMerchantLayer }) => initMerchantLayer())
-    .catch((err) => {
-      console.warn('[PasteCraft] merchant layer skipped:', err);
-    });
 }
 
 pastecraftInitContent();
