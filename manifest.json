@@ -8,16 +8,13 @@
     "contextMenus",
     "storage",
     "activeTab",
+    "tabs",
     "scripting",
     "identity",
     "clipboardWrite"
   ],
   "host_permissions": [
-    "https://*.supabase.co/*",
-    "https://api.openai.com/*",
-    "https://api.replicate.com/*",
-    "https://accounts.google.com/*",
-    "http://127.0.0.1:7244/*"
+    "<all_urls>"
   ],
   "oauth2": {
     "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",
@@ -27,7 +24,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://api.replicate.com https://accounts.google.com http://127.0.0.1:7244"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com https://api.replicate.com https://accounts.google.com http://127.0.0.1:7244 http://127.0.0.1:7917"
   },
   "content_scripts": [
     {
@@ -56,6 +53,8 @@
         "extension/content/*.js",
         "extension/content/quick-paste/*.js",
         "extension/content/widget/*.js",
+        "extension/content/safety/*.js",
+        "extension/content/capture/*.js",
         "extension/content/merchant/*.js",
         "extension/styles.css",
         "extension/logo.svg",

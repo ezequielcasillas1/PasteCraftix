@@ -18,7 +18,11 @@ function pastecraftInitContent() {
   if (window.pasteCraftFloatingWidget) return;
 
   window.pasteCraftQuickPaste = new QuickPasteInterface();
-  window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
+  try {
+    window.pasteCraftFloatingWidget = new PasteCraftFloatingWidget();
+  } catch (err) {
+    console.error('[PasteCraft] Widget init failed:', err);
+  }
 
   import('./merchant/merchant.controller.js')
     .then(({ initMerchantLayer }) => initMerchantLayer())
