@@ -189,21 +189,6 @@ export async function getPageSelectionTextDeep() {
 
   try {
     const response = await chrome.runtime.sendMessage({ action: 'pcGetPageSelection' });
-    // #region agent log
-    console.warn('[PasteCraft:debug:a58b3c]', {
-      runId: 'pre-fix',
-      hypothesisId: 'H1',
-      location: 'capture.selection.js:getPageSelectionTextDeep',
-      message: 'pcGetPageSelection response',
-      data: {
-        success: !!response?.success,
-        error: response?.error || null,
-        textLen: response?.text ? String(response.text).trim().length : 0,
-        localLen: local.length,
-      },
-    });
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'pre-fix', hypothesisId: 'H1', location: 'capture.selection.js:getPageSelectionTextDeep', message: 'pcGetPageSelection response', data: { success: !!response?.success, error: response?.error || null, textLen: response?.text ? String(response.text).trim().length : 0, localLen: local.length }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     if (response?.success && response.text) {
       return String(response.text).trim();
     }

@@ -71,21 +71,6 @@ async function captureVisibleTabScreenshot() {
     }
   }
   const errText = response?.error || lastError || 'capture_failed';
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'post-fix',
-    hypothesisId: 'H5',
-    location: 'capture.region.js:captureVisibleTabScreenshot',
-    message: `pcCaptureRegion success=${!!response?.success} err=${errText} len=${response?.dataUrl ? response.dataUrl.length : 0}`,
-    data: {
-      success: !!response?.success,
-      error: errText,
-      dataUrlLen: response?.dataUrl ? response.dataUrl.length : 0,
-      hasResponse: response != null,
-    },
-  });
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H5', location: 'capture.region.js:captureVisibleTabScreenshot', message: `pcCaptureRegion success=${!!response?.success} err=${errText}`, data: { success: !!response?.success, error: errText, hasResponse: response != null }, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
   if (!response?.success || !response?.dataUrl) {
     throw new Error(errText);
   }
@@ -162,16 +147,6 @@ export function capturePageRegion() {
 
     const onDown = (event) => {
       if (event.button !== 0) return;
-      // #region agent log
-      console.warn('[PasteCraft:debug:a58b3c]', {
-        runId: 'pre-fix',
-        hypothesisId: 'H6',
-        location: 'capture.region.js:onDown',
-        message: 'region overlay pointerdown',
-        data: { x: event.clientX, y: event.clientY },
-      });
-      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'pre-fix', hypothesisId: 'H6', location: 'capture.region.js:onDown', message: 'region overlay pointerdown', data: { x: event.clientX, y: event.clientY }, timestamp: Date.now() }) }).catch(() => {});
-      // #endregion
       dragging = true;
       startX = event.clientX;
       startY = event.clientY;

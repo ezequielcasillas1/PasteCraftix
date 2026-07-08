@@ -27,38 +27,11 @@ function scheduleCheck(delayMs = 220) {
 async function checkAndSaveSelection(explicitText = '') {
   if (!_armed) return null;
 
-  const localText = getPageSelectionText();
   const text = String(explicitText || '').trim() || await getPageSelectionTextDeep();
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'pre-fix',
-    hypothesisId: 'H1',
-    location: 'widget.spot.js:checkAndSaveSelection',
-    message: 'spot selection probe',
-    data: {
-      armed: _armed,
-      explicitLen: String(explicitText || '').trim().length,
-      localLen: localText.length,
-      deepLen: text.length,
-      sameAsLast: text === _lastSavedText,
-    },
-  });
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'pre-fix', hypothesisId: 'H1', location: 'widget.spot.js:checkAndSaveSelection', message: 'spot selection probe', data: { armed: _armed, explicitLen: String(explicitText || '').trim().length, localLen: localText.length, deepLen: text.length, sameAsLast: text === _lastSavedText }, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
   if (!text || text.length < 1) return null;
   if (text === _lastSavedText) return null;
 
   const saveResult = await saveTextClipFromContent(text);
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'post-fix',
-    hypothesisId: 'H2',
-    location: 'widget.spot.js:checkAndSaveSelection',
-    message: `spot save ok=${saveResult.ok} err=${saveResult.error || 'none'}`,
-    data: { ok: saveResult.ok, error: saveResult.error || null, textLen: text.length },
-  });
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'pre-fix', hypothesisId: 'H2', location: 'widget.spot.js:checkAndSaveSelection', message: 'spot save result', data: { ok: saveResult.ok, error: saveResult.error || null, textLen: text.length }, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
   if (!saveResult.ok) {
     const msg = saveResult.error || 'Could not save clip.';
     _onToast?.(msg);
@@ -75,16 +48,6 @@ async function checkAndSaveSelection(explicitText = '') {
   };
   _onToast?.(result.message);
   copyTextToClipboard(text).catch(() => {});
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'post-fix',
-    hypothesisId: 'H3',
-    location: 'widget.spot.js:checkAndSaveSelection',
-    message: 'spot saved + counter callback fired',
-    data: { textLen: text.length, hasSavedHandler: typeof _onSaved === 'function' },
-  });
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H3', location: 'widget.spot.js:checkAndSaveSelection', message: 'spot saved + counter callback fired', data: { textLen: text.length, hasSavedHandler: typeof _onSaved === 'function' }, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
   return result;
 }
 
@@ -169,16 +132,6 @@ export function armWidgetSpot() {
   _lastSavedText = '';
   bindSelectionListeners();
   _onModeChange?.('spot');
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'pre-fix',
-    hypothesisId: 'H4',
-    location: 'widget.spot.js:armWidgetSpot',
-    message: 'spot armed',
-    data: { armed: _armed },
-  });
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'pre-fix', hypothesisId: 'H4', location: 'widget.spot.js:armWidgetSpot', message: 'spot armed', data: { armed: _armed }, timestamp: Date.now() }) }).catch(() => {});
-  // #endregion
 
   return {
     ok: true,
