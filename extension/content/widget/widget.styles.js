@@ -84,8 +84,120 @@ export const WIDGET_CORE_CSS = `
       .settings-button:hover .widget-icon {
         transform: rotate(90deg);
       }
+
+      /* Capture Tools — hexagon bundle between Settings and Auto-Copy */
+      .capture-tools-wrap {
+        position: relative;
+        flex-direction: column;
+        height: auto;
+        padding: 4px;
+        gap: 4px;
+      }
+
+      .capture-tools-btn {
+        width: 40px;
+        height: 40px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 0.2s ease;
+      }
+
+      .capture-tools-btn:hover,
+      .capture-tools-wrap.is-open .capture-tools-btn {
+        background: rgba(96, 165, 250, 0.22);
+        box-shadow: 0 0 14px rgba(96, 165, 250, 0.45);
+      }
+
+      .capture-tools-wrap.is-spot-active .capture-tools-btn {
+        box-shadow: 0 0 14px rgba(74, 222, 128, 0.55);
+      }
+
+      .capture-tools-wrap.is-image-active .capture-tools-btn {
+        box-shadow: 0 0 14px rgba(251, 191, 36, 0.55);
+      }
+
+      .capture-hex-svg {
+        width: 28px;
+        height: 28px;
+        display: block;
+        pointer-events: none;
+      }
+
+      .capture-hex-shape {
+        transition: fill 0.2s ease, stroke 0.2s ease;
+      }
+
+      .capture-tools-counter {
+        font-size: 10px;
+        color: #e0f2fe;
+        text-align: center;
+        white-space: nowrap;
+        transition: transform 0.2s ease;
+        pointer-events: none;
+        line-height: 1.2;
+      }
+
+      .capture-tools-menu {
+        position: absolute;
+        right: calc(100% + 10px);
+        top: 8px;
+        min-width: 148px;
+        padding: 6px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 2;
+      }
+
+      .capture-tools-menu[hidden] {
+        display: none !important;
+      }
+
+      .capture-tools-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: #f8fafc;
+        font: 600 13px system-ui, sans-serif;
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .capture-tools-menu-item:hover {
+        background: rgba(96, 165, 250, 0.2);
+      }
+
+      .capture-tools-menu-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .capture-tools-menu-dot.spot {
+        background: #4ade80;
+      }
+
+      .capture-tools-menu-dot.image {
+        background: #fbbf24;
+      }
       
-      /* Component 3: Auto Copy Toggle - Circular Button */
+      /* Component 4: Auto Copy Toggle - Circular Button */
       .auto-copy-section {
         flex-direction: column;
         height: auto;
@@ -273,6 +385,33 @@ export const WIDGET_CORE_CSS = `
       .widget-component:hover[data-tooltip]::before,
       .widget-component:hover[data-tooltip]::after {
         opacity: 1 !important;
+      }
+
+      /* Capture Tools tooltip — above hexagon so it never covers the Spot/Image menu */
+      .capture-tools-wrap[data-tooltip]::before {
+        right: auto !important;
+        top: auto !important;
+        bottom: calc(100% + 10px) !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 1 !important;
+      }
+
+      .capture-tools-wrap[data-tooltip]::after {
+        right: auto !important;
+        top: auto !important;
+        bottom: calc(100% + 4px) !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        border-left-color: transparent !important;
+        border-bottom-color: rgba(15, 23, 42, 0.92) !important;
+        z-index: 1 !important;
+      }
+
+      /* Hide tooltip while the capture menu is open */
+      .capture-tools-wrap.is-open:hover[data-tooltip]::before,
+      .capture-tools-wrap.is-open:hover[data-tooltip]::after {
+        opacity: 0 !important;
       }
       
       /* Animations - slides in from right */

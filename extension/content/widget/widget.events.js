@@ -1,5 +1,6 @@
 import { safeRuntimeSendMessage } from '../shared.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
+import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
 
 export function setupWidgetStorageSync(widget) {
   if (widget._storageSyncListener) return;
@@ -82,6 +83,8 @@ export function setupWidgetStorageSync(widget) {
     if (autoCopyUiChanged) {
       updateWidgetAutoCopyUI(widget);
     }
+
+    applyCaptureToolsStorageChange(widget, changes);
 
     if (settingsRefreshNeeded && widget.openStates.settings) {
       // Settings UI refresh handled via loadSettings() above when panel is open.

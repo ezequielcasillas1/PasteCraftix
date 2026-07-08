@@ -86,12 +86,18 @@ export class PasteCraftFloatingWidget {
     this.autoCopyEnabled = false;
     this.autoCopyCount = 0;
 
+    // Capture Tools stats (Spot + Image Picker)
+    this.captureToolsCount = 0;
+    this.captureToolsSpotCount = 0;
+    this.captureToolsImageCount = 0;
+
     // In-page popup iframe warm-cache (avoids blank panel on cold tab)
     this._popupPreloadIframe = null;
     this._popupRevealTimer = null;
     
     console.log('🔨 Creating widget...');
     createWidgetShell(this);
+    this.initCaptureToolsMenu();
     console.log('✅ Widget created successfully');
     injectOverlayStyles();
     loadSavedWidgetPosition(this);
@@ -105,6 +111,14 @@ export class PasteCraftFloatingWidget {
 
   async initAsync() {
     return initWidgetAsync(this);
+  }
+
+  initCaptureToolsMenu() {
+    import('./widget.capture-menu.js')
+      .then(({ initWidgetCaptureMenu }) => initWidgetCaptureMenu(this))
+      .catch((err) => {
+        console.warn('[PasteCraft] Capture Tools skipped:', err);
+      });
   }
 
   setupStorageSync() {

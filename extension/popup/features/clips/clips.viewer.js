@@ -13,22 +13,7 @@ import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
 import { ensureRefactorRegistryReady } from '../ai-lab/ai-lab.magic.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
-const CLIP_VIEWER_DEBUG = false;
 const HEURISTIC_REFACTOR_WINDOW_MS = 5 * 60 * 1000;
-
-function _debugClipViewerLog(location, message, data, hypothesisId) {
-  if (!CLIP_VIEWER_DEBUG) return;
-  const payload = {
-    sessionId: '93d942',
-    runId: 'post-fix',
-    hypothesisId,
-    location,
-    message,
-    data,
-    timestamp: Date.now(),
-  };
-  console.warn('[PasteCraft:debug:93d942]', payload);
-}
 
 function normalizeClipViewerSourceContext(sourceContext) {
   return CLIP_VIEWER_SOURCE_CONTEXTS.has(sourceContext) ? sourceContext : 'clips';
@@ -190,30 +175,6 @@ function buildRefactorPairResult(sourceClip, refactoredClip, extra = {}) {
     sourceClipId: sourceClip?.id,
     ...extra,
   };
-}
-
-function formatRefactorResolverDiag(diag) {
-  const attemptSummary = (diag.resolverAttempts || [])
-    .map((a) => {
-      let part = `${a.path}:${a.matched ? 'hit' : 'miss'}`;
-      if (a.siblingCount != null) part += `(siblings=${a.siblingCount})`;
-      if (a.hasSourceClip != null) part += `(src=${a.hasSourceClip},ref=${a.hasRefactoredClip})`;
-      if (a.detail) part += `[${a.detail}]`;
-      return part;
-    })
-    .join(' | ');
-  return [
-    `clipId=${diag.clipId}`,
-    `sourceId=${diag.sourceId}`,
-    `viewingRefactored=${diag.viewingRefactoredCopy}`,
-    `history=${diag.refactorHistoryEntries}/${diag.historyEntryCount}`,
-    `links=${diag.refactorLinksCount}`,
-    `sessionIdx=${diag.sessionIndexCount}`,
-    `idxKeys=[${(diag.sessionIndexKeys || []).join(',')}]`,
-    `meta=${diag.metaCraftRefactor}/${diag.metaSourceId}`,
-    `preview="${diag.clipTextPreview || ''}"`,
-    `attempts={${attemptSummary}}`,
-  ].join(' ');
 }
 
 function backfillRefactorMetaLink(refactoredClip, sourceClipId) {
@@ -383,23 +344,11 @@ function resolveRefactorContextHeuristicRecent(app, clip) {
 }
 
 function resolveRefactorContext(app, clip) {
-  const attempts = [];
-  const tryPath = (path, resolver) => {
-    const pair = resolver();
-    attempts.push({
-      path,
-      matched: !!pair,
-      detail: pair ? pair.resolverPath || path : null,
-    });
-    return pair;
-  };
-
   if (!clip) {
-    _debugClipViewerLog('clips.viewer.js:resolveRefactorContext', 'no clip', { attempts }, 'H5');
     return null;
   }
 
-  const sessionPair = tryPath('session-index', () => resolveRefactorContextFromSessionIndex(app, clip));
+  const sessionPair = resolveRefactorContextFromSessionIndex(app, clip);
   if (sessionPair) {
     logRefactorPairResolved(clip, sessionPair);
     return sessionPair;
@@ -414,12 +363,12 @@ function resolveRefactorContext(app, clip) {
   let refactoredClip = viewingRefactoredCopy ? clip : null;
 
   if (viewingRefactoredCopy && !sourceClip) {
-    const historyPair = tryPath('history-fallback', () => resolveRefactorContextFromHistory(app, clip));
+    const historyPair = resolveRefactorContextFromHistory(app, clip);
     if (historyPair) {
       logRefactorPairResolved(clip, historyPair);
       return historyPair;
     }
-    const linkPair = tryPath('content-link-fallback', () => resolveRefactorContextFromLinks(app, clip));
+    const linkPair = resolveRefactorContextFromLinks(app, clip);
     if (linkPair) {
       logRefactorPairResolved(clip, linkPair);
       return linkPair;
@@ -428,31 +377,20 @@ function resolveRefactorContext(app, clip) {
 
   if (!refactoredClip) {
     const siblings = findRefactoredSiblingsForSource(app, sourceId);
-    attempts.push({ path: 'meta-siblings', matched: siblings.length > 0, siblingCount: siblings.length });
     if (siblings.length > 0) {
       refactoredClip = siblings.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
     }
-  } else {
-    attempts.push({ path: 'meta-siblings', matched: true, siblingCount: 1, viewingRefactoredCopy: true });
   }
 
   if (sourceClip && refactoredClip) {
     const metaPair = buildRefactorPairResult(sourceClip, refactoredClip, { resolverPath: 'meta' });
-    attempts.push({ path: 'meta', matched: !!metaPair });
     if (metaPair) {
       logRefactorPairResolved(clip, metaPair);
       return metaPair;
     }
-  } else {
-    attempts.push({
-      path: 'meta',
-      matched: false,
-      hasSourceClip: !!sourceClip,
-      hasRefactoredClip: !!refactoredClip,
-    });
   }
 
-  const historyPair = tryPath('history', () => resolveRefactorContextFromHistory(app, clip));
+  const historyPair = resolveRefactorContextFromHistory(app, clip);
   if (historyPair) {
     if (historyPair.refactoredClip?.id && historyPair.sourceClipId) {
       backfillRefactorMetaLink(historyPair.refactoredClip, historyPair.sourceClipId);
@@ -461,7 +399,7 @@ function resolveRefactorContext(app, clip) {
     return historyPair;
   }
 
-  const linkPair = tryPath('content-link', () => resolveRefactorContextFromLinks(app, clip));
+  const linkPair = resolveRefactorContextFromLinks(app, clip);
   if (linkPair) {
     if (linkPair.refactoredClip?.id && linkPair.sourceClipId) {
       backfillRefactorMetaLink(linkPair.refactoredClip, linkPair.sourceClipId);
@@ -470,13 +408,13 @@ function resolveRefactorContext(app, clip) {
     return linkPair;
   }
 
-  const contentPair = tryPath('content-meta', () => resolveRefactorContextFromContentMatch(app, clip));
+  const contentPair = resolveRefactorContextFromContentMatch(app, clip);
   if (contentPair) {
     logRefactorPairResolved(clip, contentPair);
     return contentPair;
   }
 
-  const heuristicPair = tryPath('heuristic-recent', () => resolveRefactorContextHeuristicRecent(app, clip));
+  const heuristicPair = resolveRefactorContextHeuristicRecent(app, clip);
   if (heuristicPair) {
     if (heuristicPair.refactoredClip?.id && heuristicPair.sourceClipId) {
       backfillRefactorMetaLink(heuristicPair.refactoredClip, heuristicPair.sourceClipId);
@@ -490,30 +428,6 @@ function resolveRefactorContext(app, clip) {
     resolverPath: null,
     message: 'No refactor link for this clip — run AI Refactorization first',
   });
-  _debugClipViewerLog(
-    'clips.viewer.js:resolveRefactorContext',
-    `no refactored siblings | ${formatRefactorResolverDiag({
-      sourceId,
-      viewingRefactoredCopy,
-      clipId: getClipIdKey(clip.id),
-      clipTextPreview: normalizeTextForMatch(clip?.text).slice(0, 120),
-      historyEntryCount: (app.aiHistoryEntries || []).length,
-      refactorHistoryEntries: (app.aiHistoryEntries || []).filter((e) => e?.type === 'refactorization').length,
-      refactorLinksCount: (app._refactorLinks || []).length,
-      sessionIndexCount: app._refactorResolverIndex?.size ?? 0,
-      sessionIndexKeys: app._refactorResolverIndex
-        ? [...app._refactorResolverIndex.keys()].slice(0, 12)
-        : [],
-      resolverAttempts: attempts,
-      metaCraftRefactor: clip?.meta?.craftRefactor,
-      metaSourceId: clip?.meta?.craftRefactorSourceId,
-    })}`,
-    {
-      clipId: getClipIdKey(clip.id),
-      attempts,
-    },
-    'H1',
-  );
   return null;
 }
 
@@ -787,12 +701,6 @@ export async function open(app, clip, sourceContext = 'clips') {
   } = getClipViewerElements();
 
   if (!modal || !titleEl || !bodyEl) {
-    _debugClipViewerLog(
-      'clips.viewer.js:open',
-      'missing modal elements',
-      { hasModal: !!modal, hasTitle: !!titleEl, hasBody: !!bodyEl },
-      'H4',
-    );
     return;
   }
 

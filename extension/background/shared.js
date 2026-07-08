@@ -780,7 +780,7 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
   // Safety check: Don't save empty/undefined text
   if (!text || text.trim().length === 0) {
     console.log('⚠️ Attempted to save empty/undefined text - ABORTED');
-    return;
+    throw new Error('empty_text');
   }
 
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
@@ -861,37 +861,37 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     throw error;
   }
 
-  await syncClipsToIndexedDb(clips);
-  await enqueueClipSyncOperation([newClip]);
+  // Respond to callers before slow/non-critical work (MV3 message port + IndexedDB).
+  void syncClipsToIndexedDb(clips).catch((err) => {
+    console.warn('[saveTextDirectly] IndexedDB sync deferred failure:', err?.message || err);
+  });
+  void enqueueClipSyncOperation([newClip]);
 
   console.log('✅ Saved to local storage:', { active: clips.length, archived: searchOnlyClips.length });
-  
+
   // Notify content scripts and popup about new clip
   try {
-    // Notify all tabs (content scripts)
     chrome.tabs.query({}, (tabs) => {
-      tabs.forEach(tab => {
-        chrome.tabs.sendMessage(tab.id, {
+      normalizeArray(tabs).forEach((tab) => {
+        const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
+        if (tabId == null) return;
+        chrome.tabs.sendMessage(tabId, {
           action: 'clipSaved',
           clip: newClip,
-          autoShow: autoShow // Pass the autoShow flag
-        }).catch(() => {}); // Ignore errors for tabs without content script
+          autoShow,
+        }).catch(() => {});
       });
     });
-    
-    // Also notify popup via runtime messaging
+
     chrome.runtime.sendMessage({
       action: 'clipSaved',
       clip: newClip,
-      autoShow: autoShow
-    }).catch(() => {
-      // Popup might not be open, that's OK
-      console.log('Popup not open, skipping runtime message');
-    });
+      autoShow,
+    }).catch(() => {});
   } catch (error) {
     console.log('Could not notify about new clip:', error);
   }
-  
+
   console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text ? (text.substring(0, 30) + '...') : 'NO TEXT');
 }
 
