@@ -3,6 +3,7 @@
 ## 🐛 Current Issues Requiring Attention:
 
 {
+- Website account sign-in not working (email/password on /account "Access your account" form)
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`
