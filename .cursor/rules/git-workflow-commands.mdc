@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Git Workflow Commands (Voice Triggers)
 
+**Before any playbook below:** run [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc) (fetch + behind-main check + feature-marker spot-check). Sync stale branches with `origin/main` before commit/test so merged features do not “disappear.”
+
 When the user says one of these phrases, follow the matching playbook. Do **not** ask which files to stage unless the command is ambiguous or secrets are present.
 
 | User says | Action |

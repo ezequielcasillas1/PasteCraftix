@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PasteCraft Git Branch Guide</title>
+<style>
+  :root { --text: #1e293b; --heading: #0f172a; --accent: #2563eb; --bg: #ffffff; --border: #e2e8f0; }
+  @media print {
+    body { font-size: 11pt; line-height: 1.5; }
+    h1 { font-size: 18pt; }
+    h2 { font-size: 14pt; }
+    pre, code { background: #f1f5f9; }
+    pre { border: 1px solid #cbd5e1; page-break-inside: avoid; }
+    table { page-break-inside: avoid; }
+  }
+  body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: var(--text); background: var(--bg); }
+  h1 { color: var(--heading); border-bottom: 3px solid var(--accent); padding-bottom: 8px; }
+  h2 { color: var(--heading); border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 36px; }
+  h3 { color: var(--heading); margin-top: 24px; }
+  code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Monaco, "Courier New", monospace; font-size: 0.95em; }
+  pre { background: #f1f5f9; padding: 14px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { border: 1px solid var(--border); padding: 10px; text-align: left; }
+  th { background: #f8fafc; font-weight: 600; }
+  ul li { margin-bottom: 6px; }
+  .highlight { background: #fef3c7; padding: 12px; border-left: 4px solid #f59e0b; border-radius: 4px; }
+  .footer { margin-top: 48px; font-size: 0.9em; color: #64748b; border-top: 1px solid var(--border); padding-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>PasteCraft Git Branch Guide</h1>
+<h2>Why Capture Tools Keep "Disappearing" and How to Stop It</h2>
+
+<h2>1. The Simple Mental Model</h2>
+<p>A <strong>branch</strong> is a snapshot of your project at a point in time.</p>
+<ul>
+  <li><code>main</code> = your stable, permanent copy</li>
+  <li>Feature/PR branches = temporary copies where new work happens</li>
+  <li>When you <code>checkout</code> a branch, Git replaces all files on disk with that branch's snapshot</li>
+</ul>
+<p class="highlight"><strong>Important:</strong> A branch does <strong>not</strong> automatically contain work from another branch unless it was created from or merged with that branch.</p>
+
+<h2>2. The Capture Tools Story</h2>
+<h3>What happened</h3>
+<ol>
+  <li>Capture Tools were built on branch <code>feat/region-capture-scholar</code></li>
+  <li>The branch was committed and pushed to GitHub</li>
+  <li>It was <strong>merged into <code>main</code></strong> via Pull Request #120</li>
+  <li>After the merge, <code>main</code> permanently has Capture Tools</li>
+  <li>But <code>pr-119-qp-helpers</code> was created <strong>before</strong> that merge — so it does <strong>not</strong> have Capture Tools</li>
+  <li>When you checked out <code>pr-119-qp-helpers</code>, the files on disk reverted to the older snapshot, and the hexagon disappeared</li>
+</ol>
+
+<p class="highlight">The real rule:<br><strong>Merge into <code>main</code> is permanent for <code>main</code>. Other branches do not automatically get it. You must merge or rebase them onto the new <code>main</code>.</strong></p>
+
+<h2>3. Essential Commands</h2>
+
+<h3>Check what branch you are on</h3>
+<pre><code>git branch --show-current</code></pre>
+
+<h3>Switch to main</h3>
+<pre><code>git checkout main</code></pre>
+
+<h3>Update main from GitHub</h3>
+<pre><code>git pull origin main</code></pre>
+
+<h3>Merge main into your current branch</h3>
+<pre><code>git pull origin main</code></pre>
+<p>Run this while on the branch you want to update.</p>
+
+<h3>See if a branch contains Capture Tools</h3>
+<pre><code>git log main --oneline</code></pre>
+<p>Look for <code>Merge pull request #120 from feat/region-capture-scholar</code> or <code>feat: widget capture tools hexagon menu with tooltip fix</code>.</p>
+
+<h3>List capture files on the current branch</h3>
+<pre><code>git ls-files extension/content/widget/widget.capture*</code></pre>
+<p>If this returns nothing, the branch does not have Capture Tools.</p>
+
+<h2>4. Branch History Visualization</h2>
+<pre><code>main:  4e959c5 -- 110fd19 -- a700acb
+                |            |
+                |            └─ latest main (has Capture Tools)
+                |
+                └─ merged PR #120 (Capture Tools added here)
+
+pr-119-qp-helpers:  4e959c5 -- 487dce0
+                    |
+                    └─ branched before Capture Tools merge</code></pre>
+
+<p>Because <code>pr-119-qp-helpers</code> started at <code>4e959c5</code> (before the merge), it has no Capture Tools unless you merge <code>main</code> into it.</p>
+
+<h2>5. How to Keep Capture Tools on Any Branch</h2>
+
+<p>If you want to test a PR branch and still see Capture Tools:</p>
+<pre><code>git checkout pr-119-qp-helpers
+git pull origin main</code></pre>
+
+<p>This brings the latest <code>main</code> (including Capture Tools) into <code>pr-119-qp-helpers</code>.</p>
+
+<h3>Alternative: rebase</h3>
+<pre><code>git checkout pr-119-qp-helpers
+git rebase main</code></pre>
+<p>This rewrites the branch history so it appears to start from the latest <code>main</code>.</p>
+
+<p class="highlight"><strong>Note:</strong> Only rebase if you understand the risks. <code>git pull origin main</code> is safer for beginners.</p>
+
+<h2>6. Before You Test in Chrome</h2>
+
+<p>Always check the active branch before reloading the extension:</p>
+<pre><code>git branch --show-current</code></pre>
+
+<table>
+  <tr><th>Branch</th><th>Will Capture Tools appear?</th></tr>
+  <tr><td><code>main</code></td><td>Yes, if you ran <code>git pull origin main</code></td></tr>
+  <tr><td>Another branch</td><td>Only if that branch was merged with or rebased onto <code>main</code> after PR #120</td></tr>
+</table>
+
+<p>If unsure, run:</p>
+<pre><code>git ls-files extension/content/widget/widget.capture-menu.js</code></pre>
+<p>If it returns a file path, Capture Tools exist on the current branch.</p>
+
+<h2>7. What Each Git Action Does</h2>
+
+<table>
+  <tr><th>Action</th><th>What it does</th><th>Does it put Capture Tools on <code>main</code>?</th></tr>
+  <tr><td><code>git commit</code></td><td>Saves changes to current branch</td><td>No — only saves to the current branch</td></tr>
+  <tr><td><code>git push</code></td><td>Uploads current branch to GitHub</td><td>No — uploads but does not merge</td></tr>
+  <tr><td><code>git merge</code></td><td>Combines another branch into current branch</td><td>Only if the source branch has Capture Tools</td></tr>
+  <tr><td><code>git pull origin main</code></td><td>Downloads and merges <code>main</code> into current branch</td><td>Yes, if <code>main</code> has Capture Tools</td></tr>
+  <tr><td>Pull Request (PR)</td><td>Requests a merge on GitHub</td><td>Only after PR is merged</td></tr>
+  <tr><td>Merge PR</td><td>Permanently adds changes to <code>main</code></td><td>Yes</td></tr>
+</table>
+
+<h2>8. Common Mistake</h2>
+
+<p class="highlight">"I merged Capture Tools. Why did they disappear?"<br><br>Because you switched to a branch that was created <strong>before</strong> the merge. The merge only affects the branch you merged into.<br><br>To fix: merge <code>main</code> into that branch too.</p>
+
+<h2>9. Quick Checklist When Something Is Missing</h2>
+
+<ol>
+  <li>Run <code>git branch --show-current</code></li>
+  <li>If not on <code>main</code>, check if the branch was created before the merge</li>
+  <li>Run <code>git log --oneline -5</code> to see the branch's recent commits</li>
+  <li>If you need the missing feature, run <code>git pull origin main</code></li>
+  <li>Reload the extension in Chrome</li>
+</ol>
+
+<h2>10. Summary</h2>
+
+<ul>
+  <li>Capture Tools were merged into <code>main</code> and will stay there forever</li>
+  <li>Other branches do not automatically get Capture Tools</li>
+  <li>To keep a feature on every branch you test, merge <code>main</code> into each branch</li>
+  <li>Always check <code>git branch --show-current</code> before testing in Chrome</li>
+</ul>
+
+<div class="footer">
+  Generated for PasteCraft — July 8, 2026<br>
+  File: <code>docs/git-branch-capture-tools-guide.html</code>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,109 @@
+---
+description: Pivotal Git examination gate — prevent features from disappearing when switching/committing/merging branches. Always sync old branches with main before testing.
+alwaysApply: true
+---
+
+# Git Branch Sync Preflight (Pivotal)
+
+**Incident source:** [Capture Tools vanished on branch switch](cc661455-dcdb-4c5d-9778-b77cb128f922) — feature lived on `main` after merge, but checkout of an older PR branch (`pr-119-qp-helpers`) removed it from disk because that branch forked **before** the merge.
+
+A branch is a **snapshot**. Checking out an old branch rewrites the working tree to that snapshot. Features already on `main` are **not deleted from GitHub** — they are simply absent from the older snapshot.
+
+This rule is the **mandatory examination unit** before any Git voice command (`git commit`, `git commit all`, `git commit push`, merge, pull, checkout, PR review, `git workflow`).
+
+---
+
+## Hard rule
+
+**Never leave the user on a branch that is behind `main` when they need features already merged into `main`.** Sync first, then continue.
+
+---
+
+## Preflight (run every time — before commit / push / merge / checkout / PR test)
+
+Say out loud:
+
+> Phase: git-preflight. Branch: `<current>`. Behind main: `<yes/no N commits>`. Action: `<sync | stay | abort>`.
+
+Run in parallel:
+
+```powershell
+git fetch origin
+git branch --show-current
+git status --short
+git rev-list --left-right --count origin/main...HEAD
+```
+
+| Result | Meaning | Action |
+|---|---|---|
+| `N 0` (behind main) | Current branch missing commits that are on `main` | **Sync** before testing or committing unrelated work (see below) |
+| `0 M` (ahead only) | Fine — has unique commits | Proceed |
+| `N M` (diverged) | Both sides moved | Sync with merge (default) or rebase only if user asks |
+| On `main`, clean | Stable checkout | Proceed; create task branches from updated `main` only |
+
+Also spot-check **canonical feature markers** when the user reports something “disappeared”:
+
+| Feature | Marker path (must exist after sync) |
+|---|---|
+| Capture Tools | `extension/content/widget/widget.capture-menu.js` |
+| Capture slice | `extension/content/capture/` |
+
+If marker missing on current branch but present on `origin/main` → branch is stale. Sync. Do not re-implement.
+
+---
+
+## Sync playbook (old / PR / review branches)
+
+When current branch is behind `origin/main` **and** the user will test the extension or continue work on that branch:
+
+```powershell
+git fetch origin
+git merge origin/main
+# resolve conflicts if any, then:
+git push
+```
+
+Only after sync: reload the unpacked extension and verify markers exist.
+
+**Do not** “fix” a missing feature by copying files from `main` without merging — that creates duplicate history and future conflicts.
+
+---
+
+## Commit / push / merge orchestration
+
+1. **Implement on `main`** until SUCCESS (see `git-commit-branch-alignment.mdc`).
+2. **Commit on a task branch** created from **fresh** `main` (`git pull origin main` first).
+3. **Land on `main` via PR merge** (or explicit user-approved merge) — that is what makes a feature permanent.
+4. After merge: `git checkout main && git pull origin main`.
+5. **Any older open branch** the user will test next → run Sync playbook so it inherits `main`.
+6. After `git commit all`: return to `main` (already required) **and** report if any open local task branches are still behind `origin/main`.
+
+---
+
+## Forbidden (causes the “disappeared again” loop)
+
+- Checking out an old PR/review branch for testing **without** merging `origin/main` first.
+- Assuming “merged to main” means every local branch has the files.
+- Re-implementing a feature that already exists on `origin/main` because the current checkout is stale.
+- Leaving the user on a stale branch after a successful `main` merge without warning them.
+
+---
+
+## User education (one short line when this fires)
+
+When preflight finds a stale branch, tell Ezequiel:
+
+> This branch forked before `<feature>` landed on `main`. Merging `origin/main` into this branch brings it back; the code was never deleted.
+
+---
+
+## Relationship to other Git rules
+
+| Rule | Role |
+|---|---|
+| **This file** | Examination + sync gate (prevent disappearances) |
+| `git-workflow-commands.mdc` | Voice triggers (`git commit all`, etc.) |
+| `git-commit-branch-alignment.mdc` | Implement on `main`, branch after SUCCESS |
+| `git-commit-push-mastery.mdc` | What belongs on `main` vs task branches |
+
+Run **this preflight first**, then the matching voice-command playbook.
