@@ -174,6 +174,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'pcReadClipboard') {
+    (async () => {
+      try {
+        const hasOffscreen = await chrome.offscreen.hasDocument?.();
+        if (!hasOffscreen) {
+          await chrome.offscreen.createDocument({
+            url: 'offscreen-clipboard.html',
+            reasons: ['CLIPBOARD'],
+            justification: 'Read clipboard text when PDF viewer steals page focus',
+          });
+        }
+      } catch (err) {
+        // hasDocument may be missing on older Chromium; try create anyway.
+        try {
+          await chrome.offscreen.createDocument({
+            url: 'offscreen-clipboard.html',
+            reasons: ['CLIPBOARD'],
+            justification: 'Read clipboard text when PDF viewer steals page focus',
+          });
+        } catch (createErr) {
+          const msg = String(createErr?.message || createErr || '');
+          if (!/already exists|Only a single offscreen/i.test(msg)) {
+            sendResponse({ success: false, error: msg || 'offscreen_create_failed' });
+            return;
+          }
+        }
+      }
+
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'pcOffscreenReadClipboard' });
+        if (response?.success && response.text) {
+          sendResponse({ success: true, text: String(response.text).trim() });
+          return;
+        }
+        sendResponse({
+          success: false,
+          error: response?.error || 'offscreen_read_empty',
+        });
+      } catch (error) {
+        sendResponse({ success: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
+
   if (message.action === 'pcOpenPopupWindow') {
     try {
       const rawUrl = message && typeof message.url === 'string' ? message.url : '';

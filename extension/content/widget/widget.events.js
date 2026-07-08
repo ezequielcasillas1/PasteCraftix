@@ -1,6 +1,11 @@
 import { safeRuntimeSendMessage } from '../shared.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
 import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
+import {
+  isPdfViewerPage,
+  subscribePdfClipboardCapture,
+  getPdfCaptureHint,
+} from '../pdf/pdf.capture.js';
 
 export function setupWidgetStorageSync(widget) {
   if (widget._storageSyncListener) return;
@@ -65,6 +70,7 @@ export function setupWidgetStorageSync(widget) {
     if (changes.autoCopyEnabled) {
       widget.autoCopyEnabled = !!changes.autoCopyEnabled.newValue;
       autoCopyUiChanged = true;
+      syncAutoCopyPdfBridge(widget);
     }
 
     if (changes.autoCopyCount || changes.autoCopyDate) {
@@ -132,141 +138,171 @@ export async function loadWidgetAutoCopyState(widget) {
     widget.autoCopyEnabled = result.autoCopyEnabled || false;
 
     updateWidgetAutoCopyUI(widget);
+    syncAutoCopyPdfBridge(widget);
     console.log('📋 Auto-copy state loaded:', widget.autoCopyEnabled, 'Count:', widget.autoCopyCount);
   } catch (error) {
     console.error('Failed to load auto-copy state:', error);
   }
 }
 
+function syncAutoCopyPdfBridge(widget) {
+  if (widget.autoCopyEnabled && isPdfViewerPage()) {
+    if (widget._pdfAutoCopyUnsub) return;
+    let lastPdfText = '';
+    widget._pdfAutoCopyUnsub = subscribePdfClipboardCapture(async ({ text }) => {
+      if (!widget.autoCopyEnabled) return;
+      const body = String(text || '').trim();
+      if (!body || body === lastPdfText) return;
+      lastPdfText = body;
+      await saveAutoCopyClip(widget, { textToSave: body });
+    });
+    return;
+  }
+  if (widget._pdfAutoCopyUnsub) {
+    widget._pdfAutoCopyUnsub();
+    widget._pdfAutoCopyUnsub = null;
+  }
+}
+
 export function toggleWidgetAutoCopy(widget) {
+  if (!widget?.widget) return;
+
   const toggle = widget.widget.querySelector('.auto-copy-toggle');
-  const label = toggle.querySelector('.toggle-label');
-  const currentState = toggle.getAttribute('data-state');
+  const label = toggle?.querySelector('.toggle-label');
+  const currentState = toggle?.getAttribute('data-state') || (widget.autoCopyEnabled ? 'on' : 'off');
   const newState = currentState === 'on' ? 'off' : 'on';
 
-  toggle.setAttribute('data-state', newState);
-  label.textContent = newState.toUpperCase();
+  if (toggle) toggle.setAttribute('data-state', newState);
+  if (label) label.textContent = newState.toUpperCase();
   widget.autoCopyEnabled = newState === 'on';
 
   chrome.storage.local.set({ autoCopyEnabled: widget.autoCopyEnabled });
+  syncAutoCopyPdfBridge(widget);
 
   console.log(`🔄 Auto Copy: ${newState.toUpperCase()}`);
 
   if (widget.autoCopyEnabled) {
-    widget.showWidgetToast('Auto-copy ON - copied text will be saved');
+    const pdfHint = isPdfViewerPage() ? ` ${getPdfCaptureHint()}` : '';
+    widget.showWidgetToast(`Auto-copy ON - copied text will be saved.${pdfHint}`);
   } else {
     widget.showWidgetToast('Auto-copy OFF');
   }
 }
 
+async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = null }) {
+  const MAX_TEXT = 30000;
+  const MAX_HTML = 50000;
+
+  const safeTrim = (s, max) => {
+    const str = String(s ?? '');
+    if (str.length <= max) return str;
+    return str.slice(0, max) + '…';
+  };
+
+  const isProbablyUrl = (s) => {
+    const t = String(s || '').trim();
+    if (!t) return false;
+    try {
+      const u = new URL(t);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch (_) {
+      return false;
+    }
+  };
+
+  let body = String(textToSave || '').trim();
+  const meta = {
+    kind: 'text',
+    plainText: safeTrim(body, MAX_TEXT),
+    html: html ? safeTrim(html, MAX_HTML) : '',
+    url: isProbablyUrl(body) ? body : '',
+    image: imageMeta,
+    sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
+    capturedAt: Date.now(),
+  };
+
+  if (meta.url) meta.kind = 'url';
+  if (meta.html && !meta.url) meta.kind = 'html';
+  if (imageMeta) {
+    meta.kind = 'image';
+    if (!body) body = '[Image]';
+    meta.plainText = safeTrim(body, MAX_TEXT);
+  }
+
+  if (!body && !(meta && meta.kind === 'image')) return false;
+
+  console.log('📋 Auto-copy detected:', body.substring(0, 50) + '...');
+
+  try {
+    await safeRuntimeSendMessage({
+      action: 'saveClip',
+      text: safeTrim(body, MAX_TEXT),
+      meta,
+      category: 'Uncategorized',
+      autoShow: false,
+    });
+
+    widget.autoCopyCount++;
+    updateWidgetAutoCopyCounter(widget);
+
+    chrome.storage.local.set({
+      autoCopyCount: widget.autoCopyCount,
+      autoCopyDate: new Date().toDateString(),
+    });
+
+    console.log('✅ Auto-copied to PasteCraft!');
+    return true;
+  } catch (error) {
+    console.error('❌ Auto-copy failed:', error);
+    return false;
+  }
+}
+
 export function setupWidgetAutoCopyListener(widget) {
+  if (widget._autoCopyListenerBound) return;
+  widget._autoCopyListenerBound = true;
+
+  const MAX_IMAGE_BYTES = 600 * 1024;
+
   const handler = async (e) => {
     if (!widget.autoCopyEnabled) return;
 
-    const MAX_TEXT = 30000;
-    const MAX_HTML = 50000;
-    const MAX_IMAGE_BYTES = 600 * 1024;
-
     const cd = e && e.clipboardData ? e.clipboardData : null;
-
-    const safeTrim = (s, max) => {
-      const str = String(s ?? '');
-      if (str.length <= max) return str;
-      return str.slice(0, max) + '…';
-    };
-
-    const isProbablyUrl = (s) => {
-      const t = String(s || '').trim();
-      if (!t) return false;
-      try {
-        const u = new URL(t);
-        return u.protocol === 'http:' || u.protocol === 'https:';
-      } catch (_) {
-        return false;
-      }
-    };
-
     const plain = cd ? (cd.getData('text/plain') || '') : '';
     const html = cd ? (cd.getData('text/html') || '') : '';
     const selection = window.getSelection ? String(window.getSelection().toString() || '') : '';
-
     let textToSave = (plain || selection || '').trim();
-
-    const meta = {
-      kind: 'text',
-      plainText: safeTrim(textToSave, MAX_TEXT),
-      html: html ? safeTrim(html, MAX_HTML) : '',
-      url: isProbablyUrl(textToSave) ? textToSave.trim() : '',
-      image: null,
-      sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
-      capturedAt: Date.now()
-    };
-
-    if (meta.url) meta.kind = 'url';
-    if (meta.html && !meta.url) meta.kind = 'html';
+    let imageMeta = null;
 
     try {
       if (cd && cd.items && cd.items.length) {
         for (let i = 0; i < cd.items.length; i++) {
           const it = cd.items[i];
           const type = String(it && it.type ? it.type : '');
-          if (type.startsWith('image/')) {
-            const file = it.getAsFile ? it.getAsFile() : null;
-            if (!file) continue;
-            if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
-              meta.image = { mime: type, dataUrl: '', srcUrl: '', tooLarge: true, size: file.size };
-              meta.kind = 'image';
-              if (!textToSave) textToSave = '[Image]';
-              break;
-            }
-
-            const dataUrl = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result || ''));
-              reader.onerror = () => resolve('');
-              reader.readAsDataURL(file);
-            });
-
-            if (dataUrl) {
-              meta.image = { mime: type, dataUrl, srcUrl: '' };
-              meta.kind = 'image';
-              if (!textToSave) textToSave = '[Image]';
-              meta.plainText = safeTrim(textToSave, MAX_TEXT);
-            }
+          if (!type.startsWith('image/')) continue;
+          const file = it.getAsFile ? it.getAsFile() : null;
+          if (!file) continue;
+          if (typeof file.size === 'number' && file.size > MAX_IMAGE_BYTES) {
+            imageMeta = { mime: type, dataUrl: '', srcUrl: '', tooLarge: true, size: file.size };
             break;
           }
+          const dataUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(file);
+          });
+          if (dataUrl) imageMeta = { mime: type, dataUrl, srcUrl: '' };
+          break;
         }
       }
     } catch (err) {
       console.warn('⚠️ Auto-copy image capture failed:', err?.message || err);
     }
 
-    if (!textToSave && !(meta && meta.kind === 'image')) return;
-
-    console.log('📋 Auto-copy detected:', textToSave.substring(0, 50) + '...');
-
-    try {
-      await safeRuntimeSendMessage({
-        action: 'saveClip',
-        text: safeTrim(textToSave, MAX_TEXT),
-        meta,
-        category: 'Uncategorized',
-        autoShow: false
-      });
-
-      widget.autoCopyCount++;
-      updateWidgetAutoCopyCounter(widget);
-
-      chrome.storage.local.set({
-        autoCopyCount: widget.autoCopyCount,
-        autoCopyDate: new Date().toDateString()
-      });
-
-      console.log('✅ Auto-copied to PasteCraft!');
-    } catch (error) {
-      console.error('❌ Auto-copy failed:', error);
-    }
+    await saveAutoCopyClip(widget, { textToSave, html, imageMeta });
   };
 
   document.addEventListener('copy', handler, true);
+  syncAutoCopyPdfBridge(widget);
 }

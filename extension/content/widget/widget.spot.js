@@ -1,5 +1,7 @@
 /**
  * Scholar Spot — arm mode; reads Monaco/code editor selections + all frames.
+ * On PDF viewers, native plugin selections are captured via Ctrl+C / clipboard poll
+ * (highlight→release is blocked by the browser PDF plugin).
  */
 
 import {
@@ -8,6 +10,11 @@ import {
   copyTextToClipboard,
 } from '../capture/capture.selection.js';
 import { saveTextClipFromContent } from '../capture/capture.clip-save.js';
+import {
+  isPdfViewerPage,
+  subscribePdfClipboardCapture,
+  getPdfCaptureHint,
+} from '../pdf/pdf.capture.js';
 
 let _armed = false;
 let _lastSavedText = '';
@@ -16,6 +23,7 @@ let _onToast = null;
 let _onSaved = null;
 let _checkTimer = null;
 let _copyHandler = null;
+let _pdfUnsub = null;
 
 function scheduleCheck(delayMs = 220) {
   clearTimeout(_checkTimer);
@@ -85,6 +93,13 @@ function onKeyReleaseEvent(event) {
   }
 }
 
+function onPdfClipboardCapture(payload) {
+  if (!_armed) return;
+  const text = String(payload?.text || '').trim();
+  if (!text) return;
+  checkAndSaveSelection(text).catch(() => {});
+}
+
 function bindSelectionListeners() {
   document.addEventListener('mouseup', onSelectionEvent, true);
   document.addEventListener('pointerup', onSelectionEvent, true);
@@ -92,6 +107,11 @@ function bindSelectionListeners() {
 
   _copyHandler = onCopyWhileArmed;
   document.addEventListener('copy', _copyHandler, true);
+
+  if (isPdfViewerPage()) {
+    _pdfUnsub?.();
+    _pdfUnsub = subscribePdfClipboardCapture(onPdfClipboardCapture);
+  }
 }
 
 function unbindSelectionListeners() {
@@ -101,6 +121,10 @@ function unbindSelectionListeners() {
   if (_copyHandler) {
     document.removeEventListener('copy', _copyHandler, true);
     _copyHandler = null;
+  }
+  if (_pdfUnsub) {
+    _pdfUnsub();
+    _pdfUnsub = null;
   }
   clearTimeout(_checkTimer);
   _checkTimer = null;
@@ -133,10 +157,14 @@ export function armWidgetSpot() {
   bindSelectionListeners();
   _onModeChange?.('spot');
 
+  const onPdf = isPdfViewerPage();
+  const pdfHint = onPdf ? ` ${getPdfCaptureHint()}` : '';
   return {
     ok: true,
     armed: true,
-    message: 'Spot active — highlight text (or Ctrl+C) to save.',
+    message: onPdf
+      ? `Spot active (PDF).${pdfHint}`
+      : 'Spot active — highlight text (or Ctrl+C) to save.',
   };
 }
 

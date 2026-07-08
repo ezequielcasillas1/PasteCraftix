@@ -203,6 +203,10 @@ export const WIDGET_CORE_CSS = `
         height: auto;
         padding: 8px 4px;
         gap: 6px;
+        cursor: pointer;
+        pointer-events: auto;
+        position: relative;
+        z-index: 2;
       }
       
       .auto-copy-toggle {
@@ -217,6 +221,7 @@ export const WIDGET_CORE_CSS = `
         justify-content: center;
         transition: all 0.3s ease;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        pointer-events: auto;
       }
       
       .auto-copy-toggle:hover {

@@ -182,7 +182,7 @@ export function readPageSelectionInFrame() {
   return '';
 }
 
-/** Current frame first, then all frames via background scripting. */
+/** Current frame first, then all frames via background scripting, then PDF clipboard. */
 export async function getPageSelectionTextDeep() {
   const local = getPageSelectionText();
   if (local) return local;
@@ -191,6 +191,15 @@ export async function getPageSelectionTextDeep() {
     const response = await chrome.runtime.sendMessage({ action: 'pcGetPageSelection' });
     if (response?.success && response.text) {
       return String(response.text).trim();
+    }
+  } catch (_) {}
+
+  try {
+    const { isPdfViewerPage } = await import('../pdf/pdf.detect.js');
+    if (isPdfViewerPage()) {
+      const { readClipboardPlainText } = await import('../pdf/pdf.clipboard.js');
+      const clip = await readClipboardPlainText();
+      if (clip) return clip;
     }
   } catch (_) {}
 
