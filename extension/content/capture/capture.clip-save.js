@@ -61,20 +61,6 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
       }
     }
     const errText = response?.error || lastError || 'Save failed.';
-    // #region agent log
-    console.warn('[PasteCraft:debug:a58b3c]', {
-      runId: 'post-fix',
-      hypothesisId: 'H2',
-      location: 'capture.clip-save.js:saveClipFromContent',
-      message: `saveClip response success=${!!response?.success} err=${errText}`,
-      data: {
-        success: !!response?.success,
-        error: errText,
-        hasResponse: response != null,
-      },
-    });
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H2', location: 'capture.clip-save.js:saveClipFromContent', message: `saveClip response success=${!!response?.success} err=${errText}`, data: { success: !!response?.success, error: errText, hasResponse: response != null }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     if (response?.success) {
       const source = meta?.captureSource;
       if (source === 'spot' || source === 'image-picker') {
@@ -93,16 +79,6 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
       if (source === 'spot' || source === 'image-picker') {
         await incrementCaptureToolsStats(source);
       }
-      // #region agent log
-      console.warn('[PasteCraft:debug:a58b3c]', {
-        runId: 'post-fix',
-        hypothesisId: 'H2',
-        location: 'capture.clip-save.js:saveClipLocalFallback',
-        message: 'saveClip local fallback succeeded',
-        data: { textLen: body.length },
-      });
-      fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H2', location: 'capture.clip-save.js:saveClipLocalFallback', message: 'saveClip local fallback succeeded', data: { textLen: body.length }, timestamp: Date.now() }) }).catch(() => {});
-      // #endregion
       return { ok: true, fallback: true };
     }
 

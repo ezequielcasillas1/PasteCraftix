@@ -10,18 +10,6 @@ import {
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
 // =====================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // #region agent log
-  console.warn('[PasteCraft:debug:a58b3c]', {
-    runId: 'post-fix',
-    hypothesisId: 'H11',
-    location: 'messages-internal.js:onMessage:top',
-    message: `SW onMessage action=${message?.action || 'none'} senderId=${sender?.id === chrome.runtime.id ? 'self' : sender?.id || 'unknown'}`,
-    data: { action: message?.action, hasTab: !!sender?.tab, tabId: sender?.tab?.id },
-  });
-  try {
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H11', location: 'messages-internal.js:onMessage:top', message: `SW onMessage action=${message?.action || 'none'}`, data: { action: message?.action, hasTab: !!sender?.tab, tabId: sender?.tab?.id }, timestamp: Date.now() }) }).catch(() => {});
-  } catch (_) {}
-  // #endregion
 
   if (!sender || sender.id !== chrome.runtime.id) {
     sendResponse?.({ success: false, error: 'invalid_sender' });
@@ -40,68 +28,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('📨 Internal message received:', message.action);
 
   if (message.action === 'pcCaptureRegion') {
-    const senderTabId = sender.tab?.id;
     const senderWindowId = sender.tab?.windowId;
-    const senderUrl = sender.tab?.url || sender.url || '';
-    // #region agent log
-    let _manifestName = '?', _manifestHosts = [], _manifestOpt = [], _manifestPerms = [];
-    try {
-      const mf = chrome.runtime.getManifest();
-      _manifestName = mf?.name || '?';
-      _manifestHosts = Array.isArray(mf?.host_permissions) ? mf.host_permissions : [];
-      _manifestOpt = Array.isArray(mf?.optional_host_permissions) ? mf.optional_host_permissions : [];
-      _manifestPerms = Array.isArray(mf?.permissions) ? mf.permissions : [];
-    } catch (_) {}
-    console.warn('[PasteCraft:debug:a58b3c]', {
-      runId: 'post-fix',
-      hypothesisId: 'H13',
-      location: 'messages-internal.js:pcCaptureRegion:manifest',
-      message: `loaded manifest=${_manifestName}`,
-      data: { name: _manifestName, host_permissions: _manifestHosts, optional_host_permissions: _manifestOpt, permissions: _manifestPerms },
-    });
-    console.warn('[PasteCraft:debug:a58b3c]', {
-      runId: 'post-fix',
-      hypothesisId: 'H10',
-      location: 'messages-internal.js:pcCaptureRegion:entry',
-      message: `pcCaptureRegion entry windowId=${senderWindowId} tabId=${senderTabId} url=${senderUrl.slice(0, 60)}`,
-      data: { senderTabId, senderWindowId, senderUrl: senderUrl.slice(0, 200) },
-    });
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H13', location: 'messages-internal.js:pcCaptureRegion:manifest', message: `loaded manifest=${_manifestName}`, data: { name: _manifestName, host_permissions: _manifestHosts, optional_host_permissions: _manifestOpt, permissions: _manifestPerms }, timestamp: Date.now() }) }).catch(() => {});
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H10', location: 'messages-internal.js:pcCaptureRegion:entry', message: `pcCaptureRegion entry windowId=${senderWindowId} tabId=${senderTabId}`, data: { senderTabId, senderWindowId, senderUrl: senderUrl.slice(0, 200) }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
 
     (async () => {
       try {
-        const originPattern = (() => {
-          try { return new URL(senderUrl).origin + '/*'; } catch (_) { return null; }
-        })();
-        let hasHostPerm = null;
-        let hasAllUrls = null;
-        let grantedAll = null;
-        if (originPattern) {
-          try {
-            hasHostPerm = await chrome.permissions.contains({ origins: [originPattern] });
-          } catch (_) {
-            hasHostPerm = null;
-          }
-        }
-        try {
-          hasAllUrls = await chrome.permissions.contains({ origins: ['<all_urls>'] });
-        } catch (_) {}
-        try {
-          grantedAll = await chrome.permissions.getAll();
-        } catch (_) {}
-        // #region agent log
-        console.warn('[PasteCraft:debug:a58b3c]', {
-          runId: 'post-fix',
-          hypothesisId: 'H10',
-          location: 'messages-internal.js:pcCaptureRegion:perm',
-          message: `host perm for ${originPattern || 'unknown'} = ${hasHostPerm} | all_urls=${hasAllUrls}`,
-          data: { originPattern, hasHostPerm, hasAllUrls, grantedOrigins: grantedAll?.origins || [], grantedPermissions: grantedAll?.permissions || [] },
-        });
-        fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H10', location: 'messages-internal.js:pcCaptureRegion:perm', message: `host perm for ${originPattern || 'unknown'} = ${hasHostPerm} | all_urls=${hasAllUrls}`, data: { originPattern, hasHostPerm, hasAllUrls, grantedOrigins: grantedAll?.origins || [], grantedPermissions: grantedAll?.permissions || [] }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
-
         const captureTargetWindow = Number.isFinite(senderWindowId) ? senderWindowId : null;
 
         const captureOnce = () => new Promise((resolve) => {
@@ -125,16 +55,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         const result = await captureOnce();
-        // #region agent log
-        console.warn('[PasteCraft:debug:a58b3c]', {
-          runId: 'post-fix',
-          hypothesisId: 'H10',
-          location: 'messages-internal.js:pcCaptureRegion:result',
-          message: `captureVisibleTab ok=${result.ok} err=${result.error || 'none'} len=${result.dataUrl?.length || 0}`,
-          data: { ok: result.ok, error: result.error || null, dataUrlLen: result.dataUrl?.length || 0 },
-        });
-        fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H10', location: 'messages-internal.js:pcCaptureRegion:result', message: `captureVisibleTab ok=${result.ok} err=${result.error || 'none'}`, data: { ok: result.ok, error: result.error || null, dataUrlLen: result.dataUrl?.length || 0 }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
 
         if (result.ok) {
           sendResponse({ success: true, dataUrl: result.dataUrl });
@@ -142,16 +62,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ success: false, error: result.error || 'capture_failed' });
         }
       } catch (err) {
-        // #region agent log
-        console.warn('[PasteCraft:debug:a58b3c]', {
-          runId: 'post-fix',
-          hypothesisId: 'H10',
-          location: 'messages-internal.js:pcCaptureRegion:throw',
-          message: `pcCaptureRegion outer throw ${err?.message || 'unknown'}`,
-          data: { error: err?.message || String(err) },
-        });
-        fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'a58b3c' }, body: JSON.stringify({ sessionId: 'a58b3c', runId: 'post-fix', hypothesisId: 'H10', location: 'messages-internal.js:pcCaptureRegion:throw', message: `pcCaptureRegion outer throw ${err?.message || 'unknown'}`, data: { error: err?.message || String(err) }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
         sendResponse({ success: false, error: err?.message || 'capture_outer_throw' });
       }
     })();
@@ -344,16 +254,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === 'saveClip') {
     // Handle auto-copy save from content script
-    const preview = message.text ? String(message.text).slice(0, 40) : '';
-    // #region agent log
-    console.warn('[PasteCraft:debug:a58b3c]', {
-      runId: 'post-fix',
-      hypothesisId: 'H2',
-      location: 'messages-internal.js:saveClip',
-      message: 'saveClip received',
-      data: { textLen: String(message.text || '').length, preview },
-    });
-    // #endregion
     saveTextDirectly(
       message.text,
       message.category || 'Uncategorized',
@@ -361,28 +261,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       message.meta || null
     )
       .then(() => {
-        // #region agent log
-        console.warn('[PasteCraft:debug:a58b3c]', {
-          runId: 'post-fix',
-          hypothesisId: 'H2',
-          location: 'messages-internal.js:saveClip',
-          message: 'saveClip success',
-          data: { textLen: String(message.text || '').length },
-        });
-        // #endregion
         sendResponse({ success: true });
       })
       .catch((error) => {
         console.error('❌ Failed to save clip:', error);
-        // #region agent log
-        console.warn('[PasteCraft:debug:a58b3c]', {
-          runId: 'post-fix',
-          hypothesisId: 'H2',
-          location: 'messages-internal.js:saveClip',
-          message: 'saveClip failed',
-          data: { error: error?.message || String(error) },
-        });
-        // #endregion
         sendResponse({ success: false, error: error.message });
       });
     return true; // Keep message channel open for async response
