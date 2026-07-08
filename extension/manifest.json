@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "3.0.13",
+  "version": "3.0.17",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Break down text, summarize notes, and organize research clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -15,11 +15,13 @@
     "clipboardWrite"
   ],
   "host_permissions": [
+    "<all_urls>",
     "https://*.supabase.co/*",
     "https://*.blob.core.windows.net/*",
     "https://accounts.google.com/*",
     "https://pastecraft.com/*",
-    "https://*.pastecraft.com/*"
+    "https://*.pastecraft.com/*",
+    "http://127.0.0.1:7917/*"
   ],
   "oauth2": {
     "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",
@@ -29,7 +31,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com http://127.0.0.1:7917"
   },
   "content_scripts": [
     {
@@ -61,6 +63,7 @@
         "content/quick-paste/*.js",
         "content/widget/*.js",
         "content/safety/*.js",
+        "content/capture/*.js",
         "content/merchant/*.js",
         "styles.css",
         "styles/*.css",
