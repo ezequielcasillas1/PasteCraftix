@@ -39,14 +39,37 @@ export async function fetchRawData(app) {
 export async function injectDemoSeedIfNeeded(app, rawData) {
   let { clips, categories, searchOnlyClips } = rawData;
   let seeded = false;
+  const constants = app.syncFeature.constants;
+  const version = constants.DEMO_SEED_VERSION;
+  const stored = await chrome.storage.local.get(['pc_demo_seed_version']);
+  const currentVersion = stored.pc_demo_seed_version;
+  const needsSeed = currentVersion !== version;
 
-  if (clips.length === 0 && categories.length === 0) {
+  if (needsSeed) {
     const now = Date.now();
-    categories = app.syncFeature.constants.getDemoCategories(now);
-    clips = app.syncFeature.constants.getDemoClips(now);
-    await chrome.storage.local.set({ clips, categories, searchOnlyClips });
+    const demoClips = constants.getDemoClips(now);
+    const demoCategories = constants.getDemoCategories(now);
+    const empty = clips.length === 0 && categories.length === 0;
+
+    if (empty) {
+      clips = demoClips;
+      categories = demoCategories;
+    } else {
+      // Put marketing demos on page 0; keep real (non-demo_*) user clips after.
+      clips = constants.mergeDemoClips(clips, demoClips);
+      categories = constants.mergeDemoCategories(categories, demoCategories);
+    }
+
+    await chrome.storage.local.set({
+      clips,
+      categories,
+      searchOnlyClips,
+      pc_demo_seed_version: version,
+      pc_local_updatedAt: Date.now()
+    });
     seeded = true;
-    console.log('🌱 Seeded 8 preset categories + 8 example clips (PC 1.0)');
+    if (typeof app !== 'undefined' && app) app.currentPage = 0;
+    console.log(`🌱 Marketing demo seed v${version}: ${demoClips.length} clips on page 0 (${clips.length} total)`);
   }
 
   return { clips, categories, searchOnlyClips, seeded };
@@ -175,6 +198,9 @@ export async function loadStorageData(app) {
   const seededData = await injectDemoSeedIfNeeded(app, rawData);
   const normalizedData = normalizeClipData(app, seededData);
   await syncNormalizedState(app, normalizedData);
+  if (seededData.seeded) {
+    app.currentPage = 0;
+  }
 }
 
 export async function loadData(app) {
