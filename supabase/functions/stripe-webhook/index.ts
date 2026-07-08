@@ -26,11 +26,11 @@ function getTierFromPriceId(priceId: string): 'free' | 'basic' | 'premium' {
     'price_1SsbBDLOdeLTrjapHTq7yxng', // Basic Yearly
   ]
   
-  // Premium/Enhanced tier price IDs ($3.99/week, $4.99/month grandfathered, $49.99/year)
+  // Premium/Enhanced tier price IDs ($3.99/week, $9.99/month, $49.99/year)
   const PREMIUM_PRICE_IDS = [
     'price_1Tf3UoLOdeLTrjap4O8BGFvS', // Premium Weekly ($3.99/wk) — new checkouts
     'price_1SaMM0LOdeLTrjapKLTHBByC', // Premium Weekly ($1.99/wk) — legacy
-    'price_1SUYs3LOdeLTrjapCFFDe7td', // Premium Monthly ($4.99/mo) — grandfathered
+    'price_1SUYs3LOdeLTrjapCFFDe7td', // Premium Monthly ($9.99/mo)
     'price_1SaMNJLOdeLTrjapjJ8iCoP7', // Premium Yearly
   ]
   
@@ -74,7 +74,7 @@ function getTextCreditPolicyFromPriceId(priceId: string | null): { grant: number
     case 'price_1Tf3UoLOdeLTrjap4O8BGFvS': // Premium Weekly ($3.99/wk)
     case 'price_1SaMM0LOdeLTrjapKLTHBByC': // Premium Weekly ($1.99/wk)
       return { grant: 4_000, cap: 20_000 }
-    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($4.99/mo)
+    case 'price_1SUYs3LOdeLTrjapCFFDe7td': // Premium Monthly ($9.99/mo)
       return { grant: 35_000, cap: 35_000 }
     case 'price_1SaMNJLOdeLTrjapjJ8iCoP7': // Premium Yearly ($49.99/yr)
       return { grant: 500_000, cap: 500_000 }

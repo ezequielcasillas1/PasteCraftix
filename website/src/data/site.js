@@ -82,7 +82,7 @@ export const pricingPlans = [
     ],
     billing: {
       weekly: { amount: 3.99, suffix: '/week' },
-      monthly: { amount: 4.99, suffix: '/month' },
+      monthly: { amount: 9.99, suffix: '/month' },
       yearly: { amount: 49.99, suffix: '/year' },
     },
   },

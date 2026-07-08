@@ -5,7 +5,7 @@ export const BILLING_PRICE_IDS = Object.freeze({
   BASIC_YEARLY:   'price_1SsbBDLOdeLTrjapHTq7yxng',  // $9.99/yr
   // Enhanced plan intervals
   ENHANCED_WEEKLY: 'price_1Tf3UoLOdeLTrjap4O8BGFvS', // $3.99/wk
-  ENHANCED_MONTHLY: 'price_1SUYs3LOdeLTrjapCFFDe7td', // $4.99/mo
+  ENHANCED_MONTHLY: 'price_1SUYs3LOdeLTrjapCFFDe7td', // $9.99/mo
   ENHANCED_YEARLY: 'price_1SaMNJLOdeLTrjapjJ8iCoP7', // $49.99/yr
   // Aliases kept for backward compatibility
   BASIC:    'price_1SsbTZLOdeLTrjap9UnXhu0M',
