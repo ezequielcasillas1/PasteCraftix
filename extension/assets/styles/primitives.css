@@ -38,3 +38,19 @@
 #loadingOverlay {
   background: var(--pc-gradient-brand) !important;
 }
+
+/* Blue Dark Mode — Phase 2B primitive polish */
+[data-theme="blue"] .btn-primary,
+[data-theme="blue"] .btn-save,
+[data-theme="blue"] .btn-confirm {
+  box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] .tab-btn.active {
+  box-shadow: var(--pc-shadow-brand) !important;
+}
+
+[data-theme="blue"] .upgrade-banner,
+[data-theme="blue"] #loadingOverlay {
+  box-shadow: inset 0 0 40px var(--pc-glow);
+}

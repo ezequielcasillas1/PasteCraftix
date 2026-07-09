@@ -59,3 +59,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Blue Dark Mode — pale soft-sky title (not harsh #fff); subtext stays sky */
+[data-theme="blue"] .pc-clip-title,
+[data-theme="blue"] .viewer-attachment-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-clip-subtext,
+[data-theme="blue"] .viewer-attachment-subtext {
+  color: var(--pc-secondary-100);
+}

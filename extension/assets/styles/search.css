@@ -320,3 +320,28 @@
 .cloud-notice-icon {
   font-size: 16px;
 }
+
+/* ── Blue Dark Mode — Phase 2B (search) ──────────────────────────────── */
+
+[data-theme="blue"] .cloud-search-notice {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .cloud-notice-content {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .search-result-item {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .search-result-item:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow: 0 4px 16px var(--pc-glow);
+}
+
+[data-theme="blue"] .search-result-actions .btn-copy:hover {
+  color: var(--pc-secondary-300);
+}

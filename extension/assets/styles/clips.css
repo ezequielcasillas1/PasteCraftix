@@ -1123,3 +1123,45 @@ img.pc-icon {
   flex-shrink: 0;
   margin: 0;
 }
+
+/* ── Blue Dark Mode — Phase 2B (clips) ───────────────────────────────── */
+
+[data-theme="blue"] .clips-one-click-copy-bar .clips-one-click-copy-title {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .manual-input-textarea,
+[data-theme="blue"] .manual-input-category,
+[data-theme="blue"] .manual-input-markup {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .manual-input-textarea:focus,
+[data-theme="blue"] .manual-input-category:focus,
+[data-theme="blue"] .manual-input-markup:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+}
+
+[data-theme="blue"] .manual-input-clear-btn {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .chip {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="blue"] .chip:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.08),
+    0 4px 16px var(--pc-glow);
+}
