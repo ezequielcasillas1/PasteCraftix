@@ -8,6 +8,18 @@ import {
   detectQuickBadge,
   lightFormatPreview,
 } from './qp.helpers.js';
+import {
+  QP_STORAGE_KEYS,
+  QP_SETTINGS_LOAD_KEYS,
+  QP_DEFAULT_SETTINGS,
+  QP_DEFAULT_POSITION,
+  QP_HOST,
+  QP_CLASSES,
+  QP_ELEMENT_IDS,
+  QP_LIMITS,
+  QP_DEFAULTS,
+  QP_DELIMITER,
+} from './qp.constants.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -15,20 +27,10 @@ export class QuickPasteInterface {
     this.clips = [];
     this.container = null;
     this.settingsModal = null;
-    this.position = { x: 0, y: null }; // Default position - left side, CSS handles vertical centering
+    this.position = { ...QP_DEFAULT_POSITION }; // Default position - left side, CSS handles vertical centering
     this.settings = {
-      theme: 'light', // Inherited from global theme, not user-configurable in Quick Paste
-      autoHide: true,
-      showTimestamps: true,
-      maxClipsDisplay: 20,
-      delimiter: 'comma',
-      customDelimiter: ', ',
-      persistOpen: true,  // Stay open when clicking on page
-      options: {
-        deduplicate: false,
-        sort: false,
-        uppercase: false
-      }
+      ...QP_DEFAULT_SETTINGS,
+      options: { ...QP_DEFAULT_SETTINGS.options },
     };
     this.isDragging = false;
     this.dragOffset = { x: 0, y: 0 };
@@ -63,12 +65,13 @@ export class QuickPasteInterface {
   async loadClips() {
     try {
       console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
-      const result = await chrome.storage.local.get(['clips']);
+      const result = await chrome.storage.local.get([QP_STORAGE_KEYS.CLIPS]);
+      const storedClips = result[QP_STORAGE_KEYS.CLIPS];
       console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!result.clips);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', result.clips?.length || 0);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!storedClips);
+      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', storedClips?.length || 0);
       
-      const raw = Array.isArray(result.clips) ? result.clips : [];
+      const raw = Array.isArray(storedClips) ? storedClips : [];
       let changed = false;
 
       // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
@@ -77,7 +80,7 @@ export class QuickPasteInterface {
           const text = String(clip || '');
           const id = `legacy_${fnv1a36(`${text}|${i}`)}`;
           changed = true;
-          return { id, text, category: 'Uncategorized', timestamp: Date.now() };
+          return { id, text, category: QP_DEFAULTS.CATEGORY, timestamp: Date.now() };
         }
 
         if (clip.id == null) {
@@ -98,14 +101,17 @@ export class QuickPasteInterface {
       // Persist repaired ids so other UIs (popup/sync) stay consistent.
       if (changed) {
         try {
-          await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+          await chrome.storage.local.set({
+            [QP_STORAGE_KEYS.CLIPS]: this.clips,
+            [QP_STORAGE_KEYS.UPDATED_AT]: Date.now(),
+          });
         } catch (_) {}
       }
       
       if (this.clips.length > 0) {
         console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
           text: (clip.text || clip).substring(0, 30) + '...',
-          category: clip.category || 'Uncategorized',
+          category: clip.category || QP_DEFAULTS.CATEGORY,
           timestamp: clip.timestamp,
           fullClip: clip
         })));
@@ -123,30 +129,30 @@ export class QuickPasteInterface {
       this.container.remove();
     }
     if (!this.shadowMount) {
-      this.shadowMount = createClosedShadowHost('pc-quick-paste-host');
+      this.shadowMount = createClosedShadowHost(QP_HOST.SHADOW_HOST_ID);
       this.shadowMount.host.style.pointerEvents = 'auto';
     }
     const root = this.shadowMount.root;
 
     this.container = document.createElement('div');
-    this.container.className = 'pastecraft-quick-paste';
-    this.container.setAttribute('data-field', 'pastecraft-quick-paste');
+    this.container.className = QP_HOST.ROOT_CLASS;
+    this.container.setAttribute('data-field', QP_HOST.ROOT_FIELD);
     this.container.innerHTML = `
-      <div class="pastecraft-header">
-        <div class="pastecraft-logo">📋 PasteCraft</div>
-        <div class="pastecraft-controls">
-          <button class="pastecraft-btn pastecraft-settings" title="Settings">⚙️</button>
-          <button class="pastecraft-btn pastecraft-close" title="Close">×</button>
+      <div class="${QP_CLASSES.HEADER}">
+        <div class="${QP_CLASSES.LOGO}">📋 PasteCraft</div>
+        <div class="${QP_CLASSES.CONTROLS}">
+          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.SETTINGS}" title="Settings">⚙️</button>
+          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.CLOSE}" title="Close">×</button>
         </div>
       </div>
-      <div class="pastecraft-content">
-        <div class="pastecraft-clips-container">
+      <div class="${QP_CLASSES.CONTENT}">
+        <div class="${QP_CLASSES.CLIPS_CONTAINER}">
           ${this.renderClips()}
         </div>
-        <div class="pastecraft-footer">
-          <button class="pastecraft-btn pastecraft-refresh" title="Clear all clips">🗑️</button>
-          <span class="pastecraft-count">${this.clips.length} clips</span>
-          <button class="pastecraft-btn pastecraft-copy-multiple" id="pastecraft-copy-multiple" disabled title="Copy multiple selected clips">Copy Multiple Clips</button>
+        <div class="${QP_CLASSES.FOOTER}">
+          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.REFRESH}" title="Clear all clips">🗑️</button>
+          <span class="${QP_CLASSES.COUNT}">${this.clips.length} clips</span>
+          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.COPY_MULTIPLE}" id="${QP_ELEMENT_IDS.COPY_MULTIPLE}" disabled title="Copy multiple selected clips">Copy Multiple Clips</button>
         </div>
       </div>
     `;
@@ -162,8 +168,8 @@ export class QuickPasteInterface {
   renderClips() {
     if (this.clips.length === 0) {
       return `
-        <div class="pastecraft-empty">
-          <div class="pastecraft-empty-icon">✨</div>
+        <div class="${QP_CLASSES.EMPTY}">
+          <div class="${QP_CLASSES.EMPTY_ICON}">✨</div>
           <p>No clips saved yet</p>
           <small>Right-click selected text to save</small>
         </div>
@@ -172,25 +178,26 @@ export class QuickPasteInterface {
     
     return this.clips.slice(0, this.settings.maxClipsDisplay).map((clip, index) => {
       const text = clip.text || clip;
-      const displayText = text.length > 50 ? text.substring(0, 50) + '...' : text;
-      const category = clip.category || 'Uncategorized';
+      const previewLen = QP_LIMITS.PREVIEW_TEXT_CHARS;
+      const displayText = text.length > previewLen ? text.substring(0, previewLen) + '...' : text;
+      const category = clip.category || QP_DEFAULTS.CATEGORY;
       const timeAgo = this.settings.showTimestamps ? getTimeAgo(clip.timestamp) : '';
       const clipIdKeyValue = clipIdKey(clip?.id != null ? clip.id : index);
       const qpBadge = detectQuickBadge(text);
       const qpFormatted = lightFormatPreview(displayText);
       
       return `
-        <div class="pastecraft-clip" data-index="${index}" data-clip-id="${clipIdKeyValue}" title="${escapeHtml(text)}">
-          <div class="pastecraft-clip-content">
-            <div class="pastecraft-clip-text">${qpBadge}${qpFormatted}</div>
-            <div class="pastecraft-clip-meta">
-              <span class="pastecraft-category">${escapeHtml(category)}</span>
-              ${timeAgo ? `<span class="pastecraft-time">${timeAgo}</span>` : ''}
+        <div class="${QP_CLASSES.CLIP}" data-index="${index}" data-clip-id="${clipIdKeyValue}" title="${escapeHtml(text)}">
+          <div class="${QP_CLASSES.CLIP_CONTENT}">
+            <div class="${QP_CLASSES.CLIP_TEXT}">${qpBadge}${qpFormatted}</div>
+            <div class="${QP_CLASSES.CLIP_META}">
+              <span class="${QP_CLASSES.CATEGORY}">${escapeHtml(category)}</span>
+              ${timeAgo ? `<span class="${QP_CLASSES.TIME}">${timeAgo}</span>` : ''}
             </div>
           </div>
-          <div class="pastecraft-clip-actions">
-            <button class="pastecraft-btn pastecraft-paste" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Paste">📋</button>
-            <button class="pastecraft-btn pastecraft-delete" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Delete">×</button>
+          <div class="${QP_CLASSES.CLIP_ACTIONS}">
+            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.PASTE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Paste">📋</button>
+            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.DELETE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Delete">×</button>
           </div>
         </div>
       `;
@@ -199,7 +206,7 @@ export class QuickPasteInterface {
   
   addStyles(root = this.shadowMount?.root) {
     if (!root) return;
-    const styleField = 'pastecraft-quick-paste-styles';
+    const styleField = QP_HOST.STYLE_FIELD;
     const existingStyles = root.querySelector(`[data-field="${styleField}"]`);
     if (existingStyles) {
       existingStyles.remove();
@@ -1047,18 +1054,18 @@ export class QuickPasteInterface {
     if (!this.container) return;
     
     // Close button
-    this.container.querySelector('.pastecraft-close').addEventListener('click', () => {
+    this.container.querySelector(`.${QP_CLASSES.CLOSE}`).addEventListener('click', () => {
       this.hideInterface();
     });
     
     // Refresh button (now clear all clips)
-    this.container.querySelector('.pastecraft-refresh').addEventListener('click', async () => {
+    this.container.querySelector(`.${QP_CLASSES.REFRESH}`).addEventListener('click', async () => {
       console.log('🗑️ Clear all clips button clicked');
       this.showClearAllConfirmation();
     });
     
     // Settings button
-    const settingsBtn = this.container.querySelector('.pastecraft-settings');
+    const settingsBtn = this.container.querySelector(`.${QP_CLASSES.SETTINGS}`);
     console.log('🔍 Settings button found:', settingsBtn);
     if (settingsBtn) {
       settingsBtn.addEventListener('click', () => {
@@ -1076,7 +1083,7 @@ export class QuickPasteInterface {
     }
     
     // Dragging functionality
-    const header = this.container.querySelector('.pastecraft-header');
+    const header = this.container.querySelector(`.${QP_CLASSES.HEADER}`);
     header.style.cursor = 'move';
     
     header.addEventListener('mousedown', (e) => {
@@ -1126,10 +1133,10 @@ export class QuickPasteInterface {
 
     // Clip click handlers
     this.container.addEventListener('click', (e) => {
-      const clipElement = e.target.closest('.pastecraft-clip');
-      const pasteBtn = e.target.closest('.pastecraft-paste');
-      const deleteBtn = e.target.closest('.pastecraft-delete');
-      const copyMultipleBtn = e.target.closest('.pastecraft-copy-multiple');
+      const clipElement = e.target.closest(`.${QP_CLASSES.CLIP}`);
+      const pasteBtn = e.target.closest(`.${QP_CLASSES.PASTE}`);
+      const deleteBtn = e.target.closest(`.${QP_CLASSES.DELETE}`);
+      const copyMultipleBtn = e.target.closest(`.${QP_CLASSES.COPY_MULTIPLE}`);
       
       if (deleteBtn) {
         // Delete individual clip
@@ -1247,8 +1254,8 @@ export class QuickPasteInterface {
       let settingsChanged = false;
 
       // Quick paste specific settings
-      if (changes.quickPasteSettings) {
-        const next = changes.quickPasteSettings.newValue;
+      if (changes[QP_STORAGE_KEYS.SETTINGS]) {
+        const next = changes[QP_STORAGE_KEYS.SETTINGS].newValue;
         if (next && typeof next === 'object') {
           this.settings = { ...this.settings, ...next };
           settingsChanged = true;
@@ -1256,9 +1263,9 @@ export class QuickPasteInterface {
       }
 
       // Global theme (single source of truth)
-      if (changes.theme) {
-        const nextTheme = changes.theme.newValue;
-        if (nextTheme === 'dark' || nextTheme === 'light') {
+      if (changes[QP_STORAGE_KEYS.THEME]) {
+        const nextTheme = changes[QP_STORAGE_KEYS.THEME].newValue;
+        if (nextTheme === QP_DEFAULTS.THEME_DARK || nextTheme === QP_DEFAULTS.THEME_LIGHT) {
           this.settings.theme = nextTheme;
           settingsChanged = true;
         }
@@ -1341,7 +1348,7 @@ export class QuickPasteInterface {
     this.isVisible = true;
 
     // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
+    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
     if (clipsContainer) {
       clipsContainer.style.flex = '1';
       clipsContainer.style.overflowY = 'auto';
@@ -1362,8 +1369,8 @@ export class QuickPasteInterface {
   updateInterface() {
     if (!this.container) return;
     
-    const clipsContainer = this.container.querySelector('.pastecraft-clips-container');
-    const countElement = this.container.querySelector('.pastecraft-count');
+    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
+    const countElement = this.container.querySelector(`.${QP_CLASSES.COUNT}`);
     
     clipsContainer.innerHTML = this.renderClips();
     countElement.textContent = `${this.clips.length} clips`;
@@ -1372,9 +1379,9 @@ export class QuickPasteInterface {
     this.selectedClips.clear();
     
     // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
+    const selectedElements = this.container.querySelectorAll(`.${QP_CLASSES.CLIP}.${QP_CLASSES.SELECTED}`);
     selectedElements.forEach(el => {
-      el.classList.remove('selected');
+      el.classList.remove(QP_CLASSES.SELECTED);
       el.style.background = '';
       el.style.color = '';
       el.style.border = '';
@@ -1443,7 +1450,7 @@ export class QuickPasteInterface {
   }
   
   showToast(message, type = 'info') {
-    const TOAST_DURATION_MS = 3000;
+    const TOAST_DURATION_MS = QP_LIMITS.TOAST_DURATION_MS;
 
     // Single-instance toast (no stacking) + safe auto-dismiss.
     this._toastState = this._toastState || {
@@ -1458,7 +1465,7 @@ export class QuickPasteInterface {
     if (!msg) return;
 
     // Dedupe rapid repeats of the same message
-    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < 1200) {
+    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < QP_LIMITS.TOAST_DEDUPE_MS) {
       return;
     }
     this._toastState.lastMessage = msg;
@@ -1467,7 +1474,7 @@ export class QuickPasteInterface {
     let toast = this._toastState.el;
     if (!toast || !toast.isConnected) {
       toast = document.createElement('div');
-      toast.className = 'pastecraft-toast';
+      toast.className = QP_CLASSES.TOAST;
       this._toastState.el = toast;
       document.body.appendChild(toast);
     }
@@ -1502,25 +1509,26 @@ export class QuickPasteInterface {
       toast.style.animation = 'pastecraft-toast-out 0.3s ease forwards';
       setTimeout(() => {
         if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 300);
+      }, QP_LIMITS.TOAST_FADE_MS);
     }, TOAST_DURATION_MS);
   }
   
   // Settings Management
   async loadSettings() {
     try {
-      const result = await chrome.storage.local.get(['quickPasteSettings', 'quickPastePosition', 'theme']);
-      if (result.quickPasteSettings) {
-        this.settings = { ...this.settings, ...result.quickPasteSettings };
+      const result = await chrome.storage.local.get([...QP_SETTINGS_LOAD_KEYS]);
+      if (result[QP_STORAGE_KEYS.SETTINGS]) {
+        this.settings = { ...this.settings, ...result[QP_STORAGE_KEYS.SETTINGS] };
       }
       // Single source of truth: global theme (Quick Paste follows this)
-      if (result.theme === 'dark' || result.theme === 'light') {
-        this.settings.theme = result.theme;
-      } else if (this.settings.theme !== 'dark') {
-        this.settings.theme = 'light';
+      const theme = result[QP_STORAGE_KEYS.THEME];
+      if (theme === QP_DEFAULTS.THEME_DARK || theme === QP_DEFAULTS.THEME_LIGHT) {
+        this.settings.theme = theme;
+      } else if (this.settings.theme !== QP_DEFAULTS.THEME_DARK) {
+        this.settings.theme = QP_DEFAULTS.THEME_LIGHT;
       }
-      if (result.quickPastePosition) {
-        this.position = { ...this.position, ...result.quickPastePosition };
+      if (result[QP_STORAGE_KEYS.POSITION]) {
+        this.position = { ...this.position, ...result[QP_STORAGE_KEYS.POSITION] };
       }
       console.log('⚙️ Loaded settings:', this.settings);
       console.log('📍 Loaded position:', this.position);
@@ -1531,7 +1539,7 @@ export class QuickPasteInterface {
   
   async savePosition() {
     try {
-      await chrome.storage.local.set({ quickPastePosition: this.position });
+      await chrome.storage.local.set({ [QP_STORAGE_KEYS.POSITION]: this.position });
       console.log('📍 Position saved:', this.position);
     } catch (error) {
       console.error('Failed to save position:', error);
@@ -1542,7 +1550,7 @@ export class QuickPasteInterface {
     try {
       // Do not persist theme here (theme is global and controlled by the popup/profile).
       const { theme, ...rest } = this.settings || {};
-      await chrome.storage.local.set({ quickPasteSettings: rest });
+      await chrome.storage.local.set({ [QP_STORAGE_KEYS.SETTINGS]: rest });
       console.log('💾 Settings saved:', rest);
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -1558,89 +1566,91 @@ export class QuickPasteInterface {
     
     console.log('📝 Creating new settings modal');
     this.settingsModal = document.createElement('div');
-    this.settingsModal.className = 'pastecraft-settings-modal';
+    this.settingsModal.className = QP_CLASSES.SETTINGS_MODAL;
+    const d = QP_DELIMITER;
+    const active = QP_CLASSES.ACTIVE;
     this.settingsModal.innerHTML = `
-      <div class="pastecraft-modal-backdrop"></div>
-      <div class="pastecraft-modal-content">
+      <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
+      <div class="${QP_CLASSES.MODAL_CONTENT}">
         <div class="pastecraft-modal-header">
           <h3>⚙️ Quick Paste Settings</h3>
-          <div class="pastecraft-modal-actions">
-            <button class="pastecraft-help-btn" title="Help & Information">❓</button>
-            <button class="pastecraft-modal-close">×</button>
+          <div class="${QP_CLASSES.MODAL_ACTIONS}">
+            <button class="${QP_CLASSES.HELP_BTN}" title="Help & Information">❓</button>
+            <button class="${QP_CLASSES.MODAL_CLOSE}">×</button>
           </div>
         </div>
-        <div class="pastecraft-modal-body">
-          <div class="pastecraft-setting">
+        <div class="${QP_CLASSES.MODAL_BODY}">
+          <div class="${QP_CLASSES.SETTING}">
             <label>
-              <input type="checkbox" id="quickPasteAutoHide" ${this.settings.autoHide ? 'checked' : ''}>
+              <input type="checkbox" id="${QP_ELEMENT_IDS.AUTO_HIDE}" ${this.settings.autoHide ? 'checked' : ''}>
               Auto-hide after paste
             </label>
           </div>
-          <div class="pastecraft-setting">
+          <div class="${QP_CLASSES.SETTING}">
             <label>
-              <input type="checkbox" id="quickPasteShowTimestamps" ${this.settings.showTimestamps ? 'checked' : ''}>
+              <input type="checkbox" id="${QP_ELEMENT_IDS.SHOW_TIMESTAMPS}" ${this.settings.showTimestamps ? 'checked' : ''}>
               Show timestamps
             </label>
           </div>
-          <div class="pastecraft-setting">
+          <div class="${QP_CLASSES.SETTING}">
             <label>Max clips to display</label>
-            <input type="number" id="quickPasteMaxClips" value="${this.settings.maxClipsDisplay}" min="5" max="50">
+            <input type="number" id="${QP_ELEMENT_IDS.MAX_CLIPS}" value="${this.settings.maxClipsDisplay}" min="${QP_LIMITS.MAX_CLIPS_MIN}" max="${QP_LIMITS.MAX_CLIPS_MAX}">
           </div>
           
           <!-- Delimiter Settings -->
-          <div class="pastecraft-setting-group">
-            <label class="pastecraft-setting-label">Delimiter</label>
-            <div class="pastecraft-segmented-control" id="quickPasteDelimiterControl">
-              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'comma' ? 'active' : ''}" data-delimiter="comma">Comma</button>
-              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'newline' ? 'active' : ''}" data-delimiter="newline">Newline</button>
-              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'space' ? 'active' : ''}" data-delimiter="space">Space</button>
-              <button class="pastecraft-segment-btn ${this.settings.delimiter === 'custom' ? 'active' : ''}" data-delimiter="custom">Custom</button>
+          <div class="${QP_CLASSES.SETTING_GROUP}">
+            <label class="${QP_CLASSES.SETTING_LABEL}">Delimiter</label>
+            <div class="${QP_CLASSES.SEGMENTED_CONTROL}" id="${QP_ELEMENT_IDS.DELIMITER_CONTROL}">
+              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.COMMA ? active : ''}" data-delimiter="${d.COMMA}">Comma</button>
+              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.NEWLINE ? active : ''}" data-delimiter="${d.NEWLINE}">Newline</button>
+              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.SPACE ? active : ''}" data-delimiter="${d.SPACE}">Space</button>
+              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.CUSTOM ? active : ''}" data-delimiter="${d.CUSTOM}">Custom</button>
             </div>
-            <input type="text" id="quickPasteCustomDelimiter" value="${this.settings.customDelimiter}" 
-                   style="display: ${this.settings.delimiter === 'custom' ? 'block' : 'none'}; margin-top: 8px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" 
+            <input type="text" id="${QP_ELEMENT_IDS.CUSTOM_DELIMITER}" value="${this.settings.customDelimiter}" 
+                   style="display: ${this.settings.delimiter === d.CUSTOM ? 'block' : 'none'}; margin-top: 8px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" 
                    placeholder="Enter custom delimiter">
           </div>
           
           <!-- Options Settings -->
-          <div class="pastecraft-setting-group">
-            <label class="pastecraft-setting-label">Options</label>
+          <div class="${QP_CLASSES.SETTING_GROUP}">
+            <label class="${QP_CLASSES.SETTING_LABEL}">Options</label>
             <div class="pastecraft-toggles">
-              <label class="pastecraft-toggle">
-                <input type="checkbox" id="quickPasteDeduplicate" ${this.settings.options.deduplicate ? 'checked' : ''}>
-                <div class="pastecraft-toggle-switch"></div>
+              <label class="${QP_CLASSES.TOGGLE}">
+                <input type="checkbox" id="${QP_ELEMENT_IDS.DEDUPLICATE}" ${this.settings.options.deduplicate ? 'checked' : ''}>
+                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
                 <span>🔄 Deduplicate</span>
               </label>
-              <label class="pastecraft-toggle">
-                <input type="checkbox" id="quickPasteSort" ${this.settings.options.sort ? 'checked' : ''}>
-                <div class="pastecraft-toggle-switch"></div>
+              <label class="${QP_CLASSES.TOGGLE}">
+                <input type="checkbox" id="${QP_ELEMENT_IDS.SORT}" ${this.settings.options.sort ? 'checked' : ''}>
+                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
                 <span>⬆️ Sort A→Z</span>
               </label>
-              <label class="pastecraft-toggle">
-                <input type="checkbox" id="quickPasteUppercase" ${this.settings.options.uppercase ? 'checked' : ''}>
-                <div class="pastecraft-toggle-switch"></div>
+              <label class="${QP_CLASSES.TOGGLE}">
+                <input type="checkbox" id="${QP_ELEMENT_IDS.UPPERCASE}" ${this.settings.options.uppercase ? 'checked' : ''}>
+                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
                 <span>Aa UPPERCASE</span>
               </label>
             </div>
           </div>
         </div>
-        <div class="pastecraft-modal-actions">
-          <button class="pastecraft-btn-secondary" id="cancelQuickSettings">Cancel</button>
-          <button class="pastecraft-btn-primary" id="saveQuickSettings">Save</button>
+        <div class="${QP_CLASSES.MODAL_ACTIONS}">
+          <button class="${QP_CLASSES.BTN_SECONDARY}" id="${QP_ELEMENT_IDS.CANCEL_SETTINGS}">Cancel</button>
+          <button class="${QP_CLASSES.BTN_PRIMARY}" id="${QP_ELEMENT_IDS.SAVE_SETTINGS}">Save</button>
         </div>
       </div>
     `;
     
     // Create help page modal
     this.helpModal = document.createElement('div');
-    this.helpModal.className = 'pastecraft-help-modal';
+    this.helpModal.className = QP_CLASSES.HELP_MODAL;
     this.helpModal.innerHTML = `
-      <div class="pastecraft-modal-backdrop"></div>
-      <div class="pastecraft-modal-content">
+      <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
+      <div class="${QP_CLASSES.MODAL_CONTENT}">
         <div class="pastecraft-modal-header">
           <h3>❓ Quick Paste Help & Information</h3>
-          <div class="pastecraft-modal-actions">
-            <button class="pastecraft-back-btn" title="Back to Settings">←</button>
-            <button class="pastecraft-modal-close">×</button>
+          <div class="${QP_CLASSES.MODAL_ACTIONS}">
+            <button class="${QP_CLASSES.BACK_BTN}" title="Back to Settings">←</button>
+            <button class="${QP_CLASSES.MODAL_CLOSE}">×</button>
           </div>
         </div>
         <div class="pastecraft-modal-body help-content">
@@ -1696,7 +1706,7 @@ export class QuickPasteInterface {
           </div>
         </div>
         <div class="pastecraft-modal-actions">
-          <button class="pastecraft-btn-primary" id="backToSettings">← Back to Settings</button>
+          <button class="${QP_CLASSES.BTN_PRIMARY}" id="${QP_ELEMENT_IDS.BACK_TO_SETTINGS}">← Back to Settings</button>
         </div>
       </div>
     `;
@@ -1720,22 +1730,22 @@ export class QuickPasteInterface {
     if (!this.helpModal) return;
     
     // Close button
-    this.helpModal.querySelector('.pastecraft-modal-close').addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', () => {
       this.hideHelpModal();
     });
     
     // Back button
-    this.helpModal.querySelector('.pastecraft-back-btn').addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.BACK_BTN}`).addEventListener('click', () => {
       this.hideHelpModal();
     });
     
     // Back to settings button
-    this.helpModal.querySelector('#backToSettings').addEventListener('click', () => {
+    this.helpModal.querySelector(`#${QP_ELEMENT_IDS.BACK_TO_SETTINGS}`).addEventListener('click', () => {
       this.hideHelpModal();
     });
     
     // Backdrop click
-    this.helpModal.querySelector('.pastecraft-modal-backdrop').addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', () => {
       this.hideHelpModal();
     });
     
@@ -1763,7 +1773,7 @@ export class QuickPasteInterface {
     console.log('🎨 Forcing beautiful settings modal styles...');
     
     // Modal content
-    const modalContent = this.settingsModal.querySelector('.pastecraft-modal-content');
+    const modalContent = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CONTENT}`);
     if (modalContent) {
       modalContent.style.cssText = `
         background: white !important;
@@ -1777,7 +1787,7 @@ export class QuickPasteInterface {
     }
     
     // Modal body
-    const modalBody = this.settingsModal.querySelector('.pastecraft-modal-body');
+    const modalBody = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BODY}`);
     if (modalBody) {
       modalBody.style.cssText = `
         padding: 0 !important;
@@ -1787,7 +1797,7 @@ export class QuickPasteInterface {
     }
     
     // Settings
-    const settings = this.settingsModal.querySelectorAll('.pastecraft-setting');
+    const settings = this.settingsModal.querySelectorAll(`.${QP_CLASSES.SETTING}`);
     settings.forEach(setting => {
       setting.style.cssText = `
         padding: 20px 24px !important;
@@ -1850,7 +1860,7 @@ export class QuickPasteInterface {
     });
     
     // Setting groups
-    const settingGroups = this.settingsModal.querySelectorAll('.pastecraft-setting-group');
+    const settingGroups = this.settingsModal.querySelectorAll(`.${QP_CLASSES.SETTING_GROUP}`);
     settingGroups.forEach(group => {
       group.style.cssText = `
         margin: 0 !important;
@@ -1859,7 +1869,7 @@ export class QuickPasteInterface {
         background: white !important;
       `;
       
-      const label = group.querySelector('.pastecraft-setting-label');
+      const label = group.querySelector(`.${QP_CLASSES.SETTING_LABEL}`);
       if (label) {
         label.style.cssText = `
           display: block !important;
@@ -1872,7 +1882,7 @@ export class QuickPasteInterface {
       }
       
       // Segmented control
-      const segmentedControl = group.querySelector('.pastecraft-segmented-control');
+      const segmentedControl = group.querySelector(`.${QP_CLASSES.SEGMENTED_CONTROL}`);
       if (segmentedControl) {
         segmentedControl.style.cssText = `
           display: flex !important;
@@ -1882,7 +1892,7 @@ export class QuickPasteInterface {
           gap: 2px !important;
         `;
         
-        const buttons = segmentedControl.querySelectorAll('.pastecraft-segment-btn');
+        const buttons = segmentedControl.querySelectorAll(`.${QP_CLASSES.SEGMENT_BTN}`);
         buttons.forEach(btn => {
           btn.style.cssText = `
             flex: 1 !important;
@@ -1897,7 +1907,7 @@ export class QuickPasteInterface {
             transition: all 0.2s ease !important;
           `;
           
-          if (btn.classList.contains('active')) {
+          if (btn.classList.contains(QP_CLASSES.ACTIVE)) {
             btn.style.cssText += `
               background: white !important;
               color: #1f2937 !important;
@@ -1908,7 +1918,7 @@ export class QuickPasteInterface {
       }
       
       // Toggles
-      const toggles = group.querySelectorAll('.pastecraft-toggle');
+      const toggles = group.querySelectorAll(`.${QP_CLASSES.TOGGLE}`);
       toggles.forEach(toggle => {
         toggle.style.cssText = `
           display: flex !important;
@@ -1922,7 +1932,7 @@ export class QuickPasteInterface {
           margin-bottom: 16px !important;
         `;
         
-        const toggleSwitch = toggle.querySelector('.pastecraft-toggle-switch');
+        const toggleSwitch = toggle.querySelector(`.${QP_CLASSES.TOGGLE_SWITCH}`);
         if (toggleSwitch) {
           toggleSwitch.style.cssText = `
             width: 44px !important;
@@ -1952,7 +1962,7 @@ export class QuickPasteInterface {
     });
     
     // Modal actions
-    const modalActions = this.settingsModal.querySelector('.pastecraft-modal-actions');
+    const modalActions = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_ACTIONS}`);
     if (modalActions) {
       modalActions.style.cssText = `
         display: flex !important;
@@ -1963,7 +1973,7 @@ export class QuickPasteInterface {
         justify-content: flex-end !important;
       `;
       
-      const secondaryBtn = modalActions.querySelector('.pastecraft-btn-secondary');
+      const secondaryBtn = modalActions.querySelector(`.${QP_CLASSES.BTN_SECONDARY}`);
       if (secondaryBtn) {
         secondaryBtn.style.cssText = `
           background: white !important;
@@ -1977,7 +1987,7 @@ export class QuickPasteInterface {
         `;
       }
       
-      const primaryBtn = modalActions.querySelector('.pastecraft-btn-primary');
+      const primaryBtn = modalActions.querySelector(`.${QP_CLASSES.BTN_PRIMARY}`);
       if (primaryBtn) {
         primaryBtn.style.cssText = `
           background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
@@ -1994,7 +2004,7 @@ export class QuickPasteInterface {
     }
     
     // Custom delimiter input
-    const customDelimiter = this.settingsModal.querySelector('#quickPasteCustomDelimiter');
+    const customDelimiter = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`);
     if (customDelimiter) {
       customDelimiter.style.cssText = `
         margin-top: 12px !important;
@@ -2016,41 +2026,41 @@ export class QuickPasteInterface {
     if (!this.settingsModal) return;
     
     // Close button
-    this.settingsModal.querySelector('.pastecraft-modal-close').addEventListener('click', () => {
+    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', () => {
       this.hideSettingsModal();
     });
     
     // Help button
-    this.settingsModal.querySelector('.pastecraft-help-btn').addEventListener('click', () => {
+    this.settingsModal.querySelector(`.${QP_CLASSES.HELP_BTN}`).addEventListener('click', () => {
       this.showHelpModal();
     });
     
     // Backdrop click
-    this.settingsModal.querySelector('.pastecraft-modal-backdrop').addEventListener('click', () => {
+    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', () => {
       this.hideSettingsModal();
     });
     
     // Cancel button
-    this.settingsModal.querySelector('#cancelQuickSettings').addEventListener('click', () => {
+    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CANCEL_SETTINGS}`).addEventListener('click', () => {
       this.hideSettingsModal();
     });
     
     // Save button
-    this.settingsModal.querySelector('#saveQuickSettings').addEventListener('click', () => {
+    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SAVE_SETTINGS}`).addEventListener('click', () => {
       this.saveSettingsFromModal();
     });
     
     // Delimiter control
-    this.settingsModal.querySelector('#quickPasteDelimiterControl').addEventListener('click', (e) => {
-      if (e.target.classList.contains('pastecraft-segment-btn')) {
+    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.DELIMITER_CONTROL}`).addEventListener('click', (e) => {
+      if (e.target.classList.contains(QP_CLASSES.SEGMENT_BTN)) {
         // Remove active class from all buttons
-        this.settingsModal.querySelectorAll('.pastecraft-segment-btn').forEach(btn => btn.classList.remove('active'));
+        this.settingsModal.querySelectorAll(`.${QP_CLASSES.SEGMENT_BTN}`).forEach(btn => btn.classList.remove(QP_CLASSES.ACTIVE));
         // Add active class to clicked button
-        e.target.classList.add('active');
+        e.target.classList.add(QP_CLASSES.ACTIVE);
         
         // Show/hide custom delimiter input
-        const customInput = this.settingsModal.querySelector('#quickPasteCustomDelimiter');
-        if (e.target.dataset.delimiter === 'custom') {
+        const customInput = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`);
+        if (e.target.dataset.delimiter === QP_DELIMITER.CUSTOM) {
           customInput.style.display = 'block';
           customInput.focus();
         } else {
@@ -2060,7 +2070,7 @@ export class QuickPasteInterface {
     });
     
     // Options toggles
-    this.settingsModal.querySelectorAll('.pastecraft-toggle').forEach(toggle => {
+    this.settingsModal.querySelectorAll(`.${QP_CLASSES.TOGGLE}`).forEach(toggle => {
       toggle.addEventListener('click', (e) => {
         
         const checkbox = toggle.querySelector('input[type="checkbox"]');
@@ -2089,21 +2099,21 @@ export class QuickPasteInterface {
   async saveSettingsFromModal() {
     if (!this.settingsModal) return;
     
-    this.settings.autoHide = this.settingsModal.querySelector('#quickPasteAutoHide').checked;
-    this.settings.showTimestamps = this.settingsModal.querySelector('#quickPasteShowTimestamps').checked;
-    this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector('#quickPasteMaxClips').value);
+    this.settings.autoHide = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.AUTO_HIDE}`).checked;
+    this.settings.showTimestamps = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SHOW_TIMESTAMPS}`).checked;
+    this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.MAX_CLIPS}`).value);
     
     // Save delimiter settings
-    const activeDelimiterBtn = this.settingsModal.querySelector('.pastecraft-segment-btn.active');
+    const activeDelimiterBtn = this.settingsModal.querySelector(`.${QP_CLASSES.SEGMENT_BTN}.${QP_CLASSES.ACTIVE}`);
     if (activeDelimiterBtn) {
       this.settings.delimiter = activeDelimiterBtn.dataset.delimiter;
     }
-    this.settings.customDelimiter = this.settingsModal.querySelector('#quickPasteCustomDelimiter').value;
+    this.settings.customDelimiter = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`).value;
     
     // Save options settings
-    this.settings.options.deduplicate = this.settingsModal.querySelector('#quickPasteDeduplicate').checked;
-    this.settings.options.sort = this.settingsModal.querySelector('#quickPasteSort').checked;
-    this.settings.options.uppercase = this.settingsModal.querySelector('#quickPasteUppercase').checked;
+    this.settings.options.deduplicate = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.DEDUPLICATE}`).checked;
+    this.settings.options.sort = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SORT}`).checked;
+    this.settings.options.uppercase = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.UPPERCASE}`).checked;
     
     await this.saveSettings();
     this.applySettings();
@@ -2125,7 +2135,7 @@ export class QuickPasteInterface {
     if (!this.container) return;
     
     // Apply theme
-    this.container.className = `pastecraft-interface ${this.settings.theme}`;
+    this.container.className = `${QP_HOST.INTERFACE_CLASS} ${this.settings.theme}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
@@ -2135,20 +2145,20 @@ export class QuickPasteInterface {
   showClearAllConfirmation() {
     // Create confirmation modal
     const confirmModal = document.createElement('div');
-    confirmModal.className = 'pastecraft-confirm-modal';
+    confirmModal.className = QP_CLASSES.CONFIRM_MODAL;
     confirmModal.innerHTML = `
-      <div class="pastecraft-modal-backdrop"></div>
-      <div class="pastecraft-modal-content">
+      <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
+      <div class="${QP_CLASSES.MODAL_CONTENT}">
         <div class="pastecraft-modal-header">
           <h3>🗑️ Clear All Clips</h3>
         </div>
-        <div class="pastecraft-modal-body">
+        <div class="${QP_CLASSES.MODAL_BODY}">
           <p>Are you sure you want to delete all ${this.clips.length} clips?</p>
           <p><strong>This action cannot be undone.</strong></p>
         </div>
-        <div class="pastecraft-modal-actions">
-          <button class="pastecraft-btn-secondary" id="cancelClearAll">Cancel</button>
-          <button class="pastecraft-btn-danger" id="confirmClearAll">Delete All Clips</button>
+        <div class="${QP_CLASSES.MODAL_ACTIONS}">
+          <button class="${QP_CLASSES.BTN_SECONDARY}" id="${QP_ELEMENT_IDS.CANCEL_CLEAR_ALL}">Cancel</button>
+          <button class="pastecraft-btn-danger" id="${QP_ELEMENT_IDS.CONFIRM_CLEAR_ALL}">Delete All Clips</button>
         </div>
       </div>
     `;
@@ -2156,17 +2166,17 @@ export class QuickPasteInterface {
     document.body.appendChild(confirmModal);
     
     // Setup event listeners
-    confirmModal.querySelector('#cancelClearAll').addEventListener('click', () => {
+    confirmModal.querySelector(`#${QP_ELEMENT_IDS.CANCEL_CLEAR_ALL}`).addEventListener('click', () => {
       confirmModal.remove();
     });
     
-    confirmModal.querySelector('#confirmClearAll').addEventListener('click', async () => {
+    confirmModal.querySelector(`#${QP_ELEMENT_IDS.CONFIRM_CLEAR_ALL}`).addEventListener('click', async () => {
       await this.clearAllClips();
       confirmModal.remove();
     });
     
     // Close on backdrop click
-    confirmModal.querySelector('.pastecraft-modal-backdrop').addEventListener('click', () => {
+    confirmModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', () => {
       confirmModal.remove();
     });
   }
@@ -2177,9 +2187,9 @@ export class QuickPasteInterface {
       
       // Clear from storage
       await chrome.storage.local.set({ 
-        clips: [],
-        searchOnlyClips: [], // Also clear archived clips
-        pc_local_updatedAt: Date.now()
+        [QP_STORAGE_KEYS.CLIPS]: [],
+        [QP_STORAGE_KEYS.ARCHIVED]: [], // Also clear archived clips
+        [QP_STORAGE_KEYS.UPDATED_AT]: Date.now()
       });
       
       // Update local state
@@ -2225,7 +2235,7 @@ export class QuickPasteInterface {
     if (this.selectedClips.has(clipIdKey)) {
       // Deselect - remove inline styles
       this.selectedClips.delete(clipIdKey);
-      clipElement.classList.remove('selected');
+      clipElement.classList.remove(QP_CLASSES.SELECTED);
       clipElement.style.background = '';
       clipElement.style.color = '';
       clipElement.style.border = '';
@@ -2239,7 +2249,7 @@ export class QuickPasteInterface {
     } else {
       // Select - add class twice for nuclear specificity
       this.selectedClips.add(clipIdKey);
-      clipElement.classList.add('selected');
+      clipElement.classList.add(QP_CLASSES.SELECTED);
       // Force immediate style application
       clipElement.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
       clipElement.style.color = 'white';
@@ -2263,7 +2273,7 @@ export class QuickPasteInterface {
   }
   
   updateCopyMultipleButton() {
-    const button = this.container.querySelector('.pastecraft-copy-multiple');
+    const button = this.container.querySelector(`.${QP_CLASSES.COPY_MULTIPLE}`);
     if (!button) return;
     
     const selectedCount = this.selectedClips.size;
@@ -2288,7 +2298,7 @@ export class QuickPasteInterface {
     // Get selected clips text (preserve UI order)
     const selected = this.selectedClips;
     const orderedIds = [];
-    const domClips = this.container ? this.container.querySelectorAll('.pastecraft-clip') : [];
+    const domClips = this.container ? this.container.querySelectorAll(`.${QP_CLASSES.CLIP}`) : [];
     if (domClips && domClips.length > 0) {
       domClips.forEach(el => {
         const id = el?.dataset?.clipId;
@@ -2321,19 +2331,19 @@ export class QuickPasteInterface {
     }
     
     // Apply delimiter
-    let delimiter = '\n\n'; // Default
+    let delimiter = QP_DELIMITER.FALLBACK_JOIN; // Default
     switch (this.settings.delimiter) {
-      case 'comma':
-        delimiter = ', ';
+      case QP_DELIMITER.COMMA:
+        delimiter = QP_DELIMITER.VALUES.comma;
         break;
-      case 'newline':
-        delimiter = '\n';
+      case QP_DELIMITER.NEWLINE:
+        delimiter = QP_DELIMITER.VALUES.newline;
         break;
-      case 'space':
-        delimiter = ' ';
+      case QP_DELIMITER.SPACE:
+        delimiter = QP_DELIMITER.VALUES.space;
         break;
-      case 'custom':
-        delimiter = this.settings.customDelimiter || ', ';
+      case QP_DELIMITER.CUSTOM:
+        delimiter = this.settings.customDelimiter || QP_DELIMITER.VALUES.comma;
         break;
     }
     
@@ -2349,8 +2359,8 @@ export class QuickPasteInterface {
       this.selectedClips.clear();
       
       // Update UI
-      const selectedElements = this.container.querySelectorAll('.pastecraft-clip.selected');
-      selectedElements.forEach(el => el.classList.remove('selected'));
+      const selectedElements = this.container.querySelectorAll(`.${QP_CLASSES.CLIP}.${QP_CLASSES.SELECTED}`);
+      selectedElements.forEach(el => el.classList.remove(QP_CLASSES.SELECTED));
       this.updateCopyMultipleButton();
       
       console.log(`✅ Successfully copied ${this.selectedClips.size} clips`);
@@ -2388,7 +2398,10 @@ export class QuickPasteInterface {
       }
 
       // Persist once
-      await chrome.storage.local.set({ clips: this.clips, pc_local_updatedAt: Date.now() });
+      await chrome.storage.local.set({
+        [QP_STORAGE_KEYS.CLIPS]: this.clips,
+        [QP_STORAGE_KEYS.UPDATED_AT]: Date.now(),
+      });
 
       // Update UI
       this.updateInterface();
