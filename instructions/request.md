@@ -785,6 +785,33 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 ---
 
+#### 59. Blue Dark Mode UI Theme (Leonardo Catalog Look)
+**Priority:** High  
+**Status:** Not started — master plan ready  
+**Refs:** Leonardo AI mockups (navy glass + electric blue accents)  
+**Naming:**
+- `light` = current PasteCraft (default, unchanged)
+- `blue` = Blue Dark Mode (navy glass + electric blue) — this feature
+- `dark` = true gray dark mode — still coming-soon / deferred
+
+**Scope:** CSS tokens + surfaces only (no React)
+
+**Palette scrap (target):**
+- Midnight navy bg `#0a0e14` / `#0b1220`
+- Glass panels `rgba(10,14,26,0.72–0.88)` + thin blue borders `#1e3a8a` / `#3b82f6`
+- Accent electric blue `#2563eb`–`#3b82f6`; cyan glow accents
+- Text white / soft sky; tags keep semantic pops (DIAGRAM/CSV/TSV)
+
+**4 phases × 2 implementations each:**
+1. **Phase 1** — (A) `tokens-blue.css` + `[data-theme="blue"]` overrides; (B) theme toggle wiring (`blue` vs `light`; Settings/Profile sync; label “Blue Dark Mode”)
+2. **Phase 2** — (A) popup shell: header, tabs, clip cards, pagination, primary CTA; (B) primitives + clips/search CSS
+3. **Phase 3** — (A) AI Lab / Notes / Categories / Settings / Profile panels; (B) Clip Joiner + crafted output + modals
+4. **Phase 4** — (A) content widget + Quick Paste blue tokens; (B) Merchant strip/dock + optional glass transparency pass
+
+**Rules:** token-first (no hardcode hex sprawl); glass optional/tunable; ask SUCCESS before SuccessLog; implement on `main`
+
+---
+
 ## Product Lines & Roadmap
 
 See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md`.
@@ -806,7 +833,7 @@ See **#58** for full Merchant feature spec. **Architecture & Test Lab:** `docs/m
 
 ### Implementation order
 1. **Next:** Spot #29 + Image→Text #21 shared ~1cm top strip on web pages
-2. **Then:** UI color phases — leaner cohesive popup/module look (phased rollout)
+2. **Then:** **#59 Blue Dark Mode** — 4×2 CSS theme phases (popup → modules → widget/merchant); light stays default
 3. **Later:** Merchant billing + gating — after toolbar slice works
 - **#37 Tips bar** — removed from roadmap (already done)
 

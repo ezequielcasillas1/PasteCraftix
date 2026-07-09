@@ -85,7 +85,8 @@ function _applyThemeToggle(app, el, comingSoon) {
     el.disabled = true;
   } else {
     el.disabled = false;
-    el.checked = app.theme === 'dark';
+    el.removeAttribute('aria-disabled');
+    el.checked = app.theme === 'blue';
   }
 }
 

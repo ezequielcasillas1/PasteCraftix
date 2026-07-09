@@ -22,7 +22,16 @@ function _stripThemeKey(obj) {
 }
 
 function _normalizeTheme(raw) {
-  return raw === 'dark' ? 'dark' : 'light';
+  if (raw === 'blue' || raw === 'dark') return raw;
+  return 'light';
+}
+
+/** Apply popup root theme. Gray `dark` stays deferred — only `blue` gets data-theme. */
+export function applyDocumentTheme(theme) {
+  const resolved = _normalizeTheme(theme) === 'blue' ? 'blue' : 'light';
+  const root = document.documentElement;
+  if (root) root.setAttribute('data-theme', resolved);
+  if (document.body) document.body.setAttribute('data-theme', resolved);
 }
 
 function _normalizeAlbumMode(raw) {
@@ -57,10 +66,12 @@ export async function loadSettings(app) {
   const local = _extractLocalValues(localData);
 
   _applyBestSource(app, syncData, local, cloudSettings);
-  if (app.darkModeComingSoon) app.theme = 'light';
+  // Gray dark theme remains deferred; coerce legacy/stored `dark` to light until shipped.
+  if (app.theme === 'dark' || app.darkModeComingSoon) app.theme = 'light';
 
   await _persistMergedSettingsLocal(app);
   syncThemeToggles(app);
+  applyDocumentTheme(app.theme);
   _syncOneClickCopyToggle(app);
 }
 
@@ -332,7 +343,7 @@ function _readAndValidateFromUI() {
 
   return {
     autoDeletePeriod,
-    theme: darkModeEl.checked ? 'dark' : 'light',
+    theme: darkModeEl.checked ? 'blue' : 'light',
     autoHide: autoHideEl.checked,
     showTimestamps: showTimestampsEl.checked,
     maxClipsDisplay: parseInt(maxClipsEl.value) || 20,
@@ -422,11 +433,20 @@ function _notifyContentScripts(app) {
 export function syncThemeToggles(app) {
   app._themeSyncing = true;
   try {
-    const isDark = app.theme === 'dark';
+    const isBlue = app.theme === 'blue';
     const settingsToggle = getDarkModeToggleEl();
     const profileToggle = document.getElementById('profileDarkModeToggle');
-    if (settingsToggle) settingsToggle.checked = isDark;
-    if (profileToggle) profileToggle.checked = isDark;
+    if (settingsToggle) {
+      settingsToggle.checked = isBlue;
+      settingsToggle.disabled = false;
+      settingsToggle.removeAttribute('aria-disabled');
+    }
+    if (profileToggle) {
+      profileToggle.checked = isBlue;
+      profileToggle.disabled = false;
+      profileToggle.removeAttribute('aria-disabled');
+    }
+    applyDocumentTheme(app.theme);
   } finally {
     app._themeSyncing = false;
   }
@@ -441,6 +461,7 @@ export async function saveThemeOnly(app, nextTheme, silent = false) {
     stateSetter: async (newState) => {
       _applySettingsStateToApp(app, newState);
       syncThemeToggles(app);
+      applyDocumentTheme(newState.theme);
     },
     stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
     validator: () => ({ valid: true }),

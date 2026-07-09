@@ -40,9 +40,10 @@ class PasteCraftPopup {
     this.selectedCategoryForSave = 'Uncategorized';
     this.autoDeletePeriod = 'never';
     // Global theme (single source of truth). Quick Paste follows this.
-    this.theme = 'light'; // 'light' | 'dark'
-    // Dark mode is enabled (single source of truth: `theme`).
-    this.darkModeComingSoon = true;
+    // 'light' = default | 'blue' = Blue Dark Mode | 'dark' = gray dark (deferred)
+    this.theme = 'light';
+    // True gray dark theme remains deferred; Blue Dark Mode uses theme === 'blue'.
+    this.darkModeComingSoon = false;
     this._themeSyncing = false;
     this.searchOnlyClips = [];
     // These store stable clip id keys (String(clip.id)), not numbers.

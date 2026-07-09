@@ -123,7 +123,11 @@ export function showProfileModal(app) {
 
   try {
     const profileToggle = document.getElementById('profileDarkModeToggle');
-    if (profileToggle) profileToggle.checked = app.theme === 'dark';
+    if (profileToggle) {
+      profileToggle.checked = app.theme === 'blue';
+      profileToggle.disabled = false;
+      profileToggle.removeAttribute('aria-disabled');
+    }
   } catch (_) {}
 
   try {

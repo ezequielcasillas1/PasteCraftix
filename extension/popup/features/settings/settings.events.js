@@ -71,7 +71,7 @@ function _wireThemeToggles(app, triggerAutoSave) {
   if (profileDarkModeEl) {
     profileDarkModeEl.addEventListener('change', async () => {
       if (app._themeSyncing) return;
-      await saveThemeOnly(app, profileDarkModeEl.checked ? 'dark' : 'light', true);
+      await saveThemeOnly(app, profileDarkModeEl.checked ? 'blue' : 'light', true);
     });
   }
 }

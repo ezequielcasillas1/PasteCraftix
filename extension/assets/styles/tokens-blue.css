@@ -1,0 +1,73 @@
+/**
+ * PasteCraft Blue Dark Mode — Phase 1A
+ * Leonardo navy glass + electric blue. Applied via html[data-theme="blue"].
+ * Token-first: component restyles land in Phase 2+.
+ */
+[data-theme="blue"] {
+  /* PRIMARY — midnight navy */
+  --pc-primary-900: #05080f;
+  --pc-primary-800: #0a0e14;
+  --pc-primary-700: #0b1220;
+  --pc-primary-600: #1e3a8a;
+  --pc-primary-500: #1d4ed8;
+
+  /* SECONDARY — electric blue / sky */
+  --pc-secondary-500: #2563eb;
+  --pc-secondary-400: #3b82f6;
+  --pc-secondary-300: #60a5fa;
+  --pc-secondary-200: #93c5fd;
+  --pc-secondary-100: #bfdbfe;
+  --pc-secondary-50: #e0f2fe;
+
+  /* NEUTRALS — navy surfaces */
+  --pc-bg: #0a0e14;
+  --pc-surface: #0b1220;
+  --pc-surface-2: #111827;
+  --pc-border: #1e3a8a;
+  --pc-text: #f8fafc;
+  --pc-text-muted: #94a3b8;
+  --pc-text-soft: #64748b;
+
+  /* SEMANTIC — keep error readable on navy */
+  --pc-error: #ef4444;
+  --pc-error-dark: #dc2626;
+
+  /* GLASS / GLOW */
+  --pc-glass: rgba(10, 14, 26, 0.78);
+  --pc-glass-strong: rgba(10, 14, 26, 0.88);
+  --pc-glass-soft: rgba(10, 14, 26, 0.72);
+  --pc-glow: rgba(59, 130, 246, 0.35);
+  --pc-glow-cyan: rgba(34, 211, 238, 0.28);
+  --pc-border-glow: #3b82f6;
+
+  /* LEGACY ALIASES */
+  --primary: var(--pc-secondary-500);
+  --primary-hover: var(--pc-secondary-400);
+  --secondary: var(--pc-text-muted);
+  --background: var(--pc-bg);
+  --surface: var(--pc-surface);
+  --border: var(--pc-border);
+  --text: var(--pc-text);
+  --text-muted: var(--pc-text-muted);
+  --success: var(--pc-secondary-400);
+  --warning: var(--pc-secondary-300);
+  --error: var(--pc-error);
+
+  /* GRADIENTS */
+  --pc-gradient-brand: linear-gradient(135deg, var(--pc-secondary-500) 0%, var(--pc-primary-700) 100%);
+  --pc-gradient-brand-soft: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
+  --pc-gradient-surface: linear-gradient(135deg, var(--pc-bg) 0%, var(--pc-surface) 100%);
+  --pc-gradient-header: linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-primary-700) 50%, var(--pc-secondary-500) 100%);
+
+  /* SHADOWS */
+  --pc-shadow-brand: 0 4px 18px var(--pc-glow);
+  --pc-shadow-brand-lg: 0 10px 28px rgba(37, 99, 235, 0.4);
+  --pc-shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Minimal Phase 1 visibility — full component restyle is Phase 2+ */
+html[data-theme="blue"],
+html[data-theme="blue"] body {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
