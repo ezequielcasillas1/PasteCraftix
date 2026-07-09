@@ -254,3 +254,8 @@
 **Status:** SUCCESS
 **Files:** extension/content/merchant/merchant.tag-submit.js, extension/content/merchant/merchant.tag-queue.js
 **Result:** Etsy chip tag paste+Enter commit and queue auto-advance verified; debug probes removed before commit.
+
+### [Jul 9, 2026] - Blue Dark Mode Phase 3 (Remaining Surfaces)
+**Status:** SUCCESS
+**Files:** extension/assets/styles/theme-blue-phase2.css, extension/content/merchant/merchant.spot.js
+**Result:** Phase 3 completes blue dark mode across remaining surfaces — merchant spot, clip-title, primitives, and search styles. theme-blue-phase2.css ships all scoped variables and overrides.

@@ -380,3 +380,675 @@
 [data-theme="blue"] #searchTab .search-results::-webkit-scrollbar-track {
   background: var(--pc-surface);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PasteCraft Blue Dark Mode — Phase 3
+   Clip Joiner · Notes · Categories · AI Lab · Settings · Profile · Modals
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 3A: Clip Joiner / format controls ───────────────────────────────── */
+
+[data-theme="blue"] .format-controls {
+  background: var(--pc-surface);
+  border-top: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .control-label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .example-text {
+  color: var(--pc-text-muted);
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .segmented-control {
+  background: var(--pc-glass);
+  border: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .segment-btn {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .segment-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .segment-btn.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] #customDelimiter {
+  background: var(--pc-surface) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text) !important;
+}
+
+[data-theme="blue"] #customDelimiter:focus {
+  border-color: var(--pc-secondary-400) !important;
+  box-shadow: 0 0 0 3px var(--pc-glow) !important;
+}
+
+[data-theme="blue"] .preview-area {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] .preview-textarea {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .preview-textarea:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] .preview-textarea::placeholder {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] .copy-btn {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] .copy-btn:hover {
+  background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
+  box-shadow: var(--pc-shadow-brand-lg);
+  opacity: 1;
+}
+
+[data-theme="blue"] .copy-btn.success {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35);
+}
+
+/* ── 3A: Craft Clips FAB ─────────────────────────────────────────────── */
+
+[data-theme="blue"] .magic-wand.craft-clips-fab {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: var(--pc-shadow-brand);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="blue"] .magic-wand.craft-clips-fab:hover {
+  background: linear-gradient(135deg, var(--pc-secondary-300) 0%, var(--pc-secondary-400) 100%);
+  box-shadow: var(--pc-shadow-brand-lg);
+}
+
+/* ── 3B: Notes tab ───────────────────────────────────────────────────── */
+
+[data-theme="blue"] .notes-container,
+[data-theme="blue"] #notesTab > *:not(.notes-header):not(.notes-controls) {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .notes-ai-toggle {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .notes-ai-label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .note-card {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="blue"] .note-card:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.08),
+    0 4px 18px var(--pc-glow),
+    inset 0 1px 0 rgba(96, 165, 250, 0.12);
+  transform: translateY(-2px);
+}
+
+[data-theme="blue"] .note-card.album {
+  border-color: var(--pc-secondary-500);
+}
+
+[data-theme="blue"] .note-card.album:hover {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="blue"] .note-card-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .note-card-description {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .note-card-meta {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] .note-action-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .notes-page-btn {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .notes-page-btn:hover:not(:disabled) {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .notes-page-btn.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border-color: var(--pc-secondary-500);
+  box-shadow: var(--pc-shadow-brand);
+}
+
+/* ── 3C: Categories ──────────────────────────────────────────────────── */
+
+[data-theme="blue"] .category-item {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .category-item:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow: 0 2px 12px var(--pc-glow);
+}
+
+[data-theme="blue"] .category-item.expanded {
+  border-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .category-header:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="blue"] .category-dropdown {
+  border-top: 1px solid var(--pc-border);
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] .category-clip {
+  border-bottom: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .category-clip:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="blue"] .category-clip-text {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .category-clip-time {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .category-expand-icon {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .category-name {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .category-count {
+  color: var(--pc-text-muted);
+}
+
+/* ── 3D: AI Lab ──────────────────────────────────────────────────────── */
+
+[data-theme="blue"] .ai-lab-container {
+  background: var(--pc-bg);
+}
+
+[data-theme="blue"] .ai-lab-header {
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] .ai-lab-title h2,
+[data-theme="blue"] .ai-lab-title-main {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .ai-lab-announcement-banner {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-banner {
+  background: linear-gradient(135deg, var(--pc-surface) 0%, var(--pc-primary-700) 100%);
+  border-color: var(--pc-border);
+  border-left-color: var(--pc-secondary-400);
+  color: var(--pc-text);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-banner strong {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-btn {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-btn:hover {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 2px 12px var(--pc-glow);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-amount {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-credit-pack-price {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .ai-lab-credit-custom {
+  border-top-color: var(--pc-border);
+}
+
+[data-theme="blue"] .ai-lab-credit-custom label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-credit-custom-input {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .ai-lab-credit-custom-input:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+}
+
+/* AI section titles and cards */
+[data-theme="blue"] .ai-section-title {
+  color: var(--pc-secondary-200);
+  border-bottom-color: var(--pc-border);
+}
+
+/* AI History entries */
+[data-theme="blue"] .ai-history-header {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-history-entry {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .ai-history-entry:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow: 0 4px 16px var(--pc-glow);
+}
+
+[data-theme="blue"] .ai-history-entry-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .ai-history-entry-meta {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .ai-history-filter-chip {
+  background: var(--pc-glass) !important;
+  border-color: var(--pc-border) !important;
+  color: var(--pc-text-muted) !important;
+}
+
+[data-theme="blue"] .ai-history-filter-chip.active {
+  background: var(--pc-gradient-brand-soft) !important;
+  border-color: var(--pc-secondary-400) !important;
+  color: #fff !important;
+  box-shadow: var(--pc-shadow-brand) !important;
+}
+
+[data-theme="blue"] .ai-history-entry-delete:hover {
+  color: #ef4444;
+}
+
+/* ── 3E: Settings panel ──────────────────────────────────────────────── */
+
+[data-theme="blue"] .settings-section {
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] .settings-section h4 {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .settings-description {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .settings-select {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .settings-select:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+}
+
+[data-theme="blue"] .settings-note {
+  background: var(--pc-glass);
+  color: var(--pc-text-muted);
+  border-left: 3px solid var(--pc-secondary-500);
+}
+
+[data-theme="blue"] .note-icon {
+  color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .storage-item {
+  background: var(--pc-glass);
+  border: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .storage-label {
+  color: var(--pc-text-muted);
+}
+
+/* ── 3E: Profile panel ───────────────────────────────────────────────── */
+
+[data-theme="blue"] .profile-section {
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] .profile-section h4 {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .profile-section-header {
+  background: linear-gradient(135deg, var(--pc-surface) 0%, var(--pc-glass) 100%);
+  border: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .profile-section-header:hover {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-glass) 100%);
+  box-shadow: 0 2px 10px var(--pc-glow);
+}
+
+[data-theme="blue"] .section-toggle {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-300);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="blue"] .section-toggle:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] .workflow-instruction {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
+  border: 1px solid var(--pc-border);
+  color: var(--pc-secondary-100);
+}
+
+/* ── 3F: Modals ──────────────────────────────────────────────────────── */
+
+[data-theme="blue"] .modal-content {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="blue"] .modal-header {
+  border-bottom-color: var(--pc-border);
+  background: linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-surface) 100%);
+}
+
+[data-theme="blue"] .modal-header h3 {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .modal-close {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--pc-secondary-200);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="blue"] .modal-close:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .modal-body {
+  background: var(--pc-surface);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .modal-text {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .info-modal-content {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="blue"] .info-modal-body {
+  background: var(--pc-surface);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .info-example {
+  background: var(--pc-glass);
+  border-left-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .category-option {
+  background: var(--pc-glass);
+  border: 1px solid var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .category-option:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .category-option.selected {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border-color: var(--pc-secondary-400);
+}
+
+/* Craft Clips modal */
+[data-theme="blue"] .craft-clips-modal {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .craft-clips-settings {
+  background: var(--pc-glass);
+  border-top: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .craft-setting-row {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .craft-setting-label {
+  color: var(--pc-secondary-200);
+}
+
+/* ── 3F: Global input fields and textareas ───────────────────────────── */
+
+[data-theme="blue"] input[type="text"]:not([data-theme-skip]),
+[data-theme="blue"] input[type="email"]:not([data-theme-skip]),
+[data-theme="blue"] input[type="password"]:not([data-theme-skip]),
+[data-theme="blue"] input[type="number"]:not([data-theme-skip]),
+[data-theme="blue"] textarea:not([data-theme-skip]),
+[data-theme="blue"] select:not([data-theme-skip]) {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] input[type="text"]:focus:not([data-theme-skip]),
+[data-theme="blue"] input[type="email"]:focus:not([data-theme-skip]),
+[data-theme="blue"] input[type="password"]:focus:not([data-theme-skip]),
+[data-theme="blue"] input[type="number"]:focus:not([data-theme-skip]),
+[data-theme="blue"] textarea:focus:not([data-theme-skip]),
+[data-theme="blue"] select:focus:not([data-theme-skip]) {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+/* ── 3F: Tabs container (popup main area) ────────────────────────────── */
+
+[data-theme="blue"] .tabs-content,
+[data-theme="blue"] .tab-panel,
+[data-theme="blue"] #clipsTab,
+[data-theme="blue"] #searchTab,
+[data-theme="blue"] #categoriesTab,
+[data-theme="blue"] #aiLabTab,
+[data-theme="blue"] #notesTab,
+[data-theme="blue"] #aiHistoryTab,
+[data-theme="blue"] #activityTab {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
+
+/* ── 3F: AI History entry badges ─────────────────────────────────────── */
+
+[data-theme="blue"] .ai-history-entry-badge.summary {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-history-entry-badge.breakdown {
+  background: rgba(219, 39, 119, 0.22);
+  color: #f9a8d4;
+}
+
+[data-theme="blue"] .ai-history-entry-badge.refactorization {
+  background: rgba(139, 92, 246, 0.22);
+  color: #c4b5fd;
+}
+
+/* ── 3F: Activity log ────────────────────────────────────────────────── */
+
+[data-theme="blue"] .activity-entry {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .activity-entry:hover {
+  border-color: var(--pc-secondary-400);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="blue"] .activity-entry-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .activity-entry-meta {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .activity-entry-icon.insert {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="blue"] .activity-entry-icon.update {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="blue"] .activity-entry-icon.delete {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+[data-theme="blue"] .activity-entry-badge.clips {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .activity-entry-badge.categories {
+  background: rgba(217, 119, 6, 0.22);
+  color: #fcd34d;
+}
+
+[data-theme="blue"] .activity-entry-badge.notes {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .activity-entry-badge.settings {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--pc-secondary-100);
+}
+
+/* ── 3F: Support form ────────────────────────────────────────────────── */
+
+[data-theme="blue"] .support-form-info {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .support-form-field label {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .support-form-input,
+[data-theme="blue"] .support-form-textarea {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .support-form-input:focus,
+[data-theme="blue"] .support-form-textarea:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+/* ── Scrollbars (all tabs) ───────────────────────────────────────────── */
+
+[data-theme="blue"] *::-webkit-scrollbar-thumb {
+  background: var(--pc-secondary-500);
+  border-radius: 8px;
+}
+
+[data-theme="blue"] *::-webkit-scrollbar-track {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}

@@ -509,3 +509,8 @@
 **Status:** SUCCESS
 **Files:** merchant.tag-submit.js, merchant.tag-queue.js
 **Result:** Chip-style tag inputs sync paste events; trusted Enter commits via native flow; _committing blocks recursion; queue advances on commit success via onCommitSuccess.
+
+### Jul 9, 2026 - Blue Dark Mode Phase 3 (Remaining Surfaces)
+**Status:** SUCCESS
+**Files:** theme-blue-phase2.css, merchant.spot.js
+**Result:** Remaining surfaces (merchant spot, clip-title, primitives, search) themed under blue dark mode. theme-blue-phase2.css contains all scoped overrides.
