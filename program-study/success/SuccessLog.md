@@ -259,3 +259,8 @@
 **Status:** SUCCESS
 **Files:** extension/assets/styles/theme-blue-phase2.css, extension/content/merchant/merchant.spot.js
 **Result:** Phase 3 completes blue dark mode across remaining surfaces — merchant spot, clip-title, primitives, and search styles. theme-blue-phase2.css ships all scoped variables and overrides.
+
+### [Jul 9, 2026] - Restore feat/blue-dark-mode (white Clip Joiner)
+**Status:** SUCCESS
+**Files:** checkout feat/blue-dark-mode @ 492f8a1; discarded main WIP theme-blue-phase2.css
+**Result:** White bottom Clip Joiner/Settings fixed by restoring Phase 3 branch; incomplete main WIP removed.
