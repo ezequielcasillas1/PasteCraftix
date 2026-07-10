@@ -397,6 +397,22 @@
   color: var(--pc-secondary-200);
 }
 
+/* Clip Settings toggles — light hex from popup.html would stay unreadable on navy */
+[data-theme="blue"] .format-controls .toggle {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .format-controls .toggle:hover {
+  background: linear-gradient(135deg, var(--pc-primary-600) 0%, var(--pc-primary-700) 100%);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45), 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .format-controls .toggle:hover svg {
+  stroke: currentColor;
+  color: #fff;
+}
+
 [data-theme="blue"] .example-text {
   color: var(--pc-text-muted);
   background: var(--pc-glass);
