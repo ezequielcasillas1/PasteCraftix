@@ -6,7 +6,8 @@ Completed this run: Phase B (supabase), Phase C (content entry + 2 classes), Pha
 
 - Split `content/quick-paste/quick-paste.js` (~2493 lines) into `qp.*` submodules per roadmap (styles, storage, render, events, paste, settings-modal).
   - Done: `qp.helpers.js` (clipIdKey, fnv1a36, getTimeAgo, escapeHtml, detectQuickBadge, lightFormatPreview).
-  - Remaining: constants, styles, storage, render, events, paste, settings-modal, clips-actions, controller shell.
+  - Done: `qp.constants.js` (storage keys, host/DOM ids/classes, defaults, limits, delimiters).
+  - Remaining: styles, storage, render, events, paste, settings-modal, clips-actions, controller shell.
 - Split `content/widget/widget.js` (~3143 lines) into `widget.*` submodules (`loadQuickViewContent`, `setupAutoCopyListener` need Opus-level decomposition).
 - Background: one handler file per `message.action` (current split is external vs internal only).
 - Popup: remove ~300 thin `Feature.method.call(this)` delegates where `popup/events/*` can call feature modules directly (grep before delete).
