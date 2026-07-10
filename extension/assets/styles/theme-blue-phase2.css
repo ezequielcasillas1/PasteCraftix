@@ -1,5 +1,5 @@
 /**
- * PasteCraft Blue Dark Mode — Phase 2
+ * PasteCraft Blue Dark Mode â€” Phase 2
  * Shell + clips/search overrides. Loaded AFTER popup inline <style>
  * so hardcoded light hex loses to [data-theme="blue"].
  */
@@ -13,7 +13,7 @@
   color: var(--pc-text);
 }
 
-/* ── 2A: Top bar + header ───────────────────────────────────────────── */
+/* â”€â”€ 2A: Top bar + header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .top-bar {
   background: var(--pc-gradient-surface);
@@ -41,7 +41,7 @@
   background: rgba(59, 130, 246, 0.35);
 }
 
-/* ── 2A: Tab nav ────────────────────────────────────────────────────── */
+/* â”€â”€ 2A: Tab nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .tab-nav {
   background: var(--pc-glass);
@@ -64,7 +64,7 @@
   box-shadow: var(--pc-shadow-brand) !important;
 }
 
-/* ── 2A: Clip cards (chips) ─────────────────────────────────────────── */
+/* â”€â”€ 2A: Clip cards (chips) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .chip-area {
   background: var(--pc-surface);
@@ -134,7 +134,7 @@
   color: #fff;
 }
 
-/* Chip action Lucide icons: buttons don't inherit color — force soft sky stroke */
+/* Chip action Lucide icons: buttons don't inherit color â€” force soft sky stroke */
 [data-theme="blue"] .chip-actions > button:not(.chip-remove):not(.chip-google-search-btn),
 [data-theme="blue"] .search-result-actions > button:not(.chip-remove):not(.search-google-search-btn),
 [data-theme="blue"] .category-clip-actions > button:not(.chip-remove):not(.category-clip-google-search-btn),
@@ -213,7 +213,7 @@
   color: var(--pc-secondary-50);
 }
 
-/* ── 2A: Pagination ─────────────────────────────────────────────────── */
+/* â”€â”€ 2A: Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .pagination-btn,
 [data-theme="blue"] .pagination-number {
@@ -240,7 +240,7 @@
   color: var(--pc-text-soft);
 }
 
-/* ── 2A: Primary CTAs ───────────────────────────────────────────────── */
+/* â”€â”€ 2A: Primary CTAs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .btn-primary,
 [data-theme="blue"] .btn-save,
@@ -278,7 +278,7 @@
   box-shadow: none;
 }
 
-/* ── 2A: Toggles ────────────────────────────────────────────────────── */
+/* â”€â”€ 2A: Toggles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .toggle-switch {
   background: var(--pc-surface-2);
@@ -290,7 +290,7 @@
   border-color: var(--pc-secondary-400);
 }
 
-/* ── 2B: Manual input / Quick Save strip ────────────────────────────── */
+/* â”€â”€ 2B: Manual input / Quick Save strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .manual-input-section {
   background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
@@ -319,7 +319,7 @@
   color: var(--pc-text-muted);
 }
 
-/* ── 2B: Search surfaces ────────────────────────────────────────────── */
+/* â”€â”€ 2B: Search surfaces â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] #searchTab .search-bar input,
 [data-theme="blue"] #searchTab .category-filter,
@@ -368,7 +368,7 @@
   box-shadow: 0 0 0 3px var(--pc-glow);
 }
 
-/* ── Scrollbars (shell) ─────────────────────────────────────────────── */
+/* â”€â”€ Scrollbars (shell) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .chip-container::-webkit-scrollbar-thumb,
 [data-theme="blue"] #searchTab .search-results::-webkit-scrollbar-thumb {
@@ -381,12 +381,12 @@
   background: var(--pc-surface);
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   PasteCraft Blue Dark Mode — Phase 3
-   Clip Joiner · Notes · Categories · AI Lab · Settings · Profile · Modals
-   ══════════════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PasteCraft Blue Dark Mode â€” Phase 3
+   Clip Joiner Â· Notes Â· Categories Â· AI Lab Â· Settings Â· Profile Â· Modals
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── 3A: Clip Joiner / format controls ───────────────────────────────── */
+/* â”€â”€ 3A: Clip Joiner / format controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .format-controls {
   background: linear-gradient(180deg, rgba(11, 18, 32, 0.98) 0%, var(--pc-bg) 100%);
@@ -397,6 +397,23 @@
 [data-theme="blue"] .control-label {
   color: var(--pc-secondary-200);
   text-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+/* Clip Settings toggles â€” beat popup.html light hover tab */
+[data-theme="blue"] .format-controls .toggle {
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .format-controls .toggle:hover {
+  background: linear-gradient(135deg, var(--pc-primary-600) 0%, var(--pc-primary-700) 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45), 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .format-controls .toggle:hover span,
+[data-theme="blue"] .format-controls .toggle:hover svg {
+  color: #fff !important;
+  stroke: currentColor;
 }
 
 [data-theme="blue"] .info-icon {
@@ -488,7 +505,7 @@
   box-shadow: 0 4px 18px rgba(5, 150, 105, 0.35);
 }
 
-/* ── 3A: Craft Clips FAB ─────────────────────────────────────────────── */
+/* â”€â”€ 3A: Craft Clips FAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .magic-wand.craft-clips-fab {
   background: var(--pc-gradient-brand-soft);
@@ -502,7 +519,7 @@
   box-shadow: var(--pc-shadow-brand-lg);
 }
 
-/* ── 3B: Notes tab ───────────────────────────────────────────────────── */
+/* â”€â”€ 3B: Notes tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .notes-container,
 [data-theme="blue"] #notesTab > *:not(.notes-header):not(.notes-controls) {
@@ -579,7 +596,7 @@
   box-shadow: var(--pc-shadow-brand);
 }
 
-/* ── 3C: Categories (premium dark-blue grade + probing blue outlines) ── */
+/* â”€â”€ 3C: Categories (premium dark-blue grade + probing blue outlines) â”€â”€ */
 
 [data-theme="blue"] #categoriesTab {
   background:
@@ -723,33 +740,69 @@
   color: var(--pc-text-muted);
 }
 
-/* ── 3D: AI Lab ──────────────────────────────────────────────────────── */
+/* â”€â”€ 3D: AI Lab (premium dark-blue grade + white-on-navy contrast) â”€â”€â”€â”€â”€ */
+
+[data-theme="blue"] #aiLabTab {
+  background:
+    radial-gradient(ellipse 120% 55% at 50% -8%, rgba(37, 99, 235, 0.16), transparent 55%),
+    var(--pc-bg);
+}
 
 [data-theme="blue"] .ai-lab-container {
-  background: var(--pc-bg);
+  background: transparent;
 }
 
 [data-theme="blue"] .ai-lab-header {
-  border-bottom-color: var(--pc-border);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.28);
+  box-shadow: inset 0 -1px 0 rgba(96, 165, 250, 0.06);
 }
 
 [data-theme="blue"] .ai-lab-title h2,
 [data-theme="blue"] .ai-lab-title-main {
   color: var(--pc-secondary-50);
+  text-shadow: 0 0 18px rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .ai-lab-credits {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-50);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="blue"] .ai-lab-credits.is-muted {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-credits.is-low {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+}
+
+[data-theme="blue"] .ai-lab-credits.is-empty {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
 }
 
 [data-theme="blue"] .ai-lab-announcement-banner {
   background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
-  border-color: var(--pc-border);
+  border-color: rgba(59, 130, 246, 0.35);
   color: var(--pc-secondary-100);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.12);
 }
 
 [data-theme="blue"] .ai-lab-credit-pack-banner {
   background: linear-gradient(135deg, var(--pc-surface) 0%, var(--pc-primary-700) 100%);
-  border-color: var(--pc-border);
+  border-color: rgba(59, 130, 246, 0.35);
   border-left-color: var(--pc-secondary-400);
   color: var(--pc-text);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .ai-lab-credit-pack-banner strong {
@@ -757,14 +810,15 @@
 }
 
 [data-theme="blue"] .ai-lab-credit-pack-btn {
-  background: var(--pc-glass);
-  border-color: var(--pc-border);
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.95) 100%);
+  border-color: rgba(59, 130, 246, 0.4);
   color: var(--pc-text);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .ai-lab-credit-pack-btn:hover {
-  border-color: var(--pc-secondary-400);
-  box-shadow: 0 2px 12px var(--pc-glow);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.28);
 }
 
 [data-theme="blue"] .ai-lab-credit-pack-amount {
@@ -776,7 +830,7 @@
 }
 
 [data-theme="blue"] .ai-lab-credit-custom {
-  border-top-color: var(--pc-border);
+  border-top-color: rgba(59, 130, 246, 0.28);
 }
 
 [data-theme="blue"] .ai-lab-credit-custom label {
@@ -785,8 +839,8 @@
 
 [data-theme="blue"] .ai-lab-credit-custom-input {
   background: var(--pc-surface);
-  border-color: var(--pc-border);
-  color: var(--pc-text);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-50);
 }
 
 [data-theme="blue"] .ai-lab-credit-custom-input:focus {
@@ -794,10 +848,238 @@
   box-shadow: 0 0 0 3px var(--pc-glow);
 }
 
-/* AI section titles and cards */
+[data-theme="blue"] .ai-lab-credit-custom-preview {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-credit-custom-buy:disabled {
+  background: rgba(71, 85, 105, 0.55);
+  color: var(--pc-text-muted);
+}
+
+/* Tool tabs â€” beat light #fff / #f8fafc cards */
+[data-theme="blue"] .ai-lab-tabs {
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.98) 0%, rgba(17, 24, 39, 0.92) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .ai-lab-tab {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.88) 0%, rgba(11, 18, 32, 0.92) 100%) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.28) !important;
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .ai-lab-tab:hover {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.28) 0%, rgba(30, 58, 138, 0.35) 100%) !important;
+  border-color: rgba(96, 165, 250, 0.5) !important;
+  color: var(--pc-secondary-50) !important;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.22);
+}
+
+[data-theme="blue"] .ai-lab-tab.active {
+  background: var(--pc-gradient-brand-soft) !important;
+  color: #fff !important;
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.35),
+    0 4px 18px var(--pc-glow),
+    inset 0 1px 0 rgba(191, 219, 254, 0.25) !important;
+}
+
+[data-theme="blue"] .ai-lab-tab .tab-emoji svg {
+  stroke: currentColor;
+}
+
+[data-theme="blue"] .ai-lab-tab.active .tab-emoji svg {
+  stroke: #fff;
+}
+
+/* Feature launch cards (Refactorization / Breakdown) */
+[data-theme="blue"] .ai-refactorization-feature,
+[data-theme="blue"] .ai-breakdown-feature {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.94) 0%, rgba(11, 18, 32, 0.96) 100%) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.38) !important;
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.45),
+    0 2px 14px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="blue"] .ai-refactorization-feature:hover,
+[data-theme="blue"] .ai-breakdown-feature:hover {
+  background: var(--pc-gradient-brand-soft) !important;
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.4),
+    0 8px 28px var(--pc-glow),
+    inset 0 1px 0 rgba(191, 219, 254, 0.22);
+}
+
+[data-theme="blue"] .refactor-text strong,
+[data-theme="blue"] .breakdown-text strong {
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .refactor-text small,
+[data-theme="blue"] .breakdown-text small {
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .refactor-arrow,
+[data-theme="blue"] .breakdown-arrow {
+  color: var(--pc-secondary-300) !important;
+}
+
+[data-theme="blue"] .ai-refactorization-feature:hover .refactor-text strong,
+[data-theme="blue"] .ai-refactorization-feature:hover .refactor-text small,
+[data-theme="blue"] .ai-breakdown-feature:hover .breakdown-text strong,
+[data-theme="blue"] .ai-breakdown-feature:hover .breakdown-text small,
+[data-theme="blue"] .ai-refactorization-feature:hover .refactor-arrow,
+[data-theme="blue"] .ai-breakdown-feature:hover .breakdown-arrow {
+  color: #fff !important;
+}
+
+/* Summary / section chrome */
 [data-theme="blue"] .ai-section-title {
   color: var(--pc-secondary-200);
-  border-bottom-color: var(--pc-border);
+  border-bottom-color: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .ai-summary-description {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-input-section,
+[data-theme="blue"] .summary-questions-section {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    0 2px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .summary-label,
+[data-theme="blue"] .questions-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .questions-subtitle,
+[data-theme="blue"] .questions-loading {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-textarea {
+  background: rgba(11, 18, 32, 0.95) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.4) !important;
+  color: var(--pc-secondary-50) !important;
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .summary-textarea::placeholder {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-textarea:focus {
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow: 0 0 0 3px var(--pc-glow) !important;
+}
+
+[data-theme="blue"] .summary-clear-btn.btn-secondary,
+[data-theme="blue"] .summary-clear-btn {
+  background: linear-gradient(165deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clear-btn:hover {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.28);
+  color: #fff;
+}
+
+[data-theme="blue"] .summary-generate-btn {
+  background: var(--pc-gradient-brand-soft);
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.3),
+    0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .summary-generate-btn:disabled {
+  background: rgba(71, 85, 105, 0.55);
+  color: var(--pc-text-muted);
+  box-shadow: none;
+}
+
+[data-theme="blue"] .open-recent-conversation {
+  border-top-color: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .open-recent-header {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .open-recent-item {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  color: var(--pc-text);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .open-recent-item:hover {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="blue"] .open-recent-item-title {
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .open-recent-item-meta {
+  color: var(--pc-text-muted) !important;
+}
+
+[data-theme="blue"] .question-chip {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.32);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .question-chip:hover {
+  border-color: var(--pc-secondary-300);
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.22);
+}
+
+[data-theme="blue"] .ai-credit-empty-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+  border-left-color: #f59e0b;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="blue"] .ai-credit-empty-title {
+  color: #fcd34d;
+}
+
+[data-theme="blue"] .ai-credit-empty-text {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-credit-empty-btn-upgrade {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .ai-credit-empty-btn-upgrade:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: var(--pc-secondary-300);
+  color: #fff;
 }
 
 /* AI History entries */
@@ -806,14 +1088,19 @@
 }
 
 [data-theme="blue"] .ai-history-entry {
-  background: var(--pc-glass);
-  border-color: var(--pc-border);
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.95) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.32);
   color: var(--pc-text);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.06);
 }
 
 [data-theme="blue"] .ai-history-entry:hover {
   border-color: var(--pc-border-glow);
-  box-shadow: 0 4px 16px var(--pc-glow);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.4),
+    0 4px 16px var(--pc-glow);
 }
 
 [data-theme="blue"] .ai-history-entry-title {
@@ -826,8 +1113,8 @@
 
 [data-theme="blue"] .ai-history-filter-chip {
   background: var(--pc-glass) !important;
-  border-color: var(--pc-border) !important;
-  color: var(--pc-text-muted) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: var(--pc-secondary-200) !important;
 }
 
 [data-theme="blue"] .ai-history-filter-chip.active {
@@ -841,7 +1128,231 @@
   color: #ef4444;
 }
 
-/* ── 3E: Settings panel ──────────────────────────────────────────────── */
+/* Refactorization panel (rf-*) */
+[data-theme="blue"] .rf-hero-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .rf-desc,
+[data-theme="blue"] .rf-eligible-count,
+[data-theme="blue"] .rf-empty {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .rf-level-chip {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .rf-level-chip.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] .rf-level-info {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .rf-level-info-panel {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .rf-select-all-btn,
+[data-theme="blue"] .rf-craft-link-btn {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .rf-clip-row {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .rf-clip-row:hover {
+  border-color: var(--pc-secondary-300);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="blue"] .rf-clip-text {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .rf-clip-type {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .rf-run-btn {
+  background: var(--pc-gradient-brand-soft);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .rf-run-btn:disabled {
+  background: rgba(71, 85, 105, 0.55);
+  color: var(--pc-text-muted);
+  box-shadow: none;
+}
+
+[data-theme="blue"] .rf-premium-note {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+/* Breakdown panel (bd-*) â€” hero already navy/blue; deepen glow only */
+[data-theme="blue"] .bd-hero-card {
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.35),
+    0 8px 32px rgba(30, 64, 175, 0.45),
+    inset 0 1px 0 rgba(191, 219, 254, 0.18);
+}
+
+[data-theme="blue"] .bd-step {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.32);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .bd-step:focus-within {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35), 0 0 16px rgba(59, 130, 246, 0.18);
+}
+
+[data-theme="blue"] .bd-step-num {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="blue"] .bd-step-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .bd-char-count,
+[data-theme="blue"] .bd-step-hint {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .bd-textarea {
+  background: rgba(11, 18, 32, 0.95) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.4) !important;
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .bd-textarea::placeholder {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .bd-textarea:focus {
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow: 0 0 0 3px var(--pc-glow) !important;
+}
+
+[data-theme="blue"] .bd-clear-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .bd-clear-btn:hover {
+  border-color: var(--pc-secondary-300);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip:not(:disabled) {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: var(--pc-secondary-50);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip-content strong {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip-content small {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip:not(:disabled):hover {
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip.selected {
+  background: var(--pc-gradient-brand-soft) !important;
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow: 0 6px 20px var(--pc-glow) !important;
+}
+
+[data-theme="blue"] .bd-levels-grid .level-chip.selected .level-chip-content strong,
+[data-theme="blue"] .bd-levels-grid .level-chip.selected .level-chip-content small {
+  color: #fff;
+}
+
+[data-theme="blue"] .bd-analyze-btn {
+  background: var(--pc-gradient-brand-soft);
+  box-shadow: 0 4px 18px var(--pc-glow);
+}
+
+[data-theme="blue"] .bd-analyze-btn:disabled {
+  background: rgba(71, 85, 105, 0.55);
+  color: var(--pc-text-muted);
+  box-shadow: none;
+}
+
+[data-theme="blue"] .bd-quick-tip {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.32);
+}
+
+[data-theme="blue"] .bd-tip-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .bd-tip-desc {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .bd-tip-desc strong {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .bd-results-step,
+[data-theme="blue"] .bd-inline-result {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.32);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .bd-inline-tab {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .bd-inline-tab:hover {
+  border-color: var(--pc-secondary-300);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .bd-inline-tab.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border-color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .bd-inline-loading p,
+[data-theme="blue"] .bd-inline-loading small {
+  color: var(--pc-secondary-200);
+}
+
+/* â”€â”€ 3E: Settings panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .settings-section {
   border-bottom-color: var(--pc-border);
@@ -885,7 +1396,7 @@
   color: var(--pc-text-muted);
 }
 
-/* ── 3E: Profile panel ───────────────────────────────────────────────── */
+/* â”€â”€ 3E: Profile panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .profile-section {
   border-bottom-color: var(--pc-border);
@@ -921,7 +1432,7 @@
   color: var(--pc-secondary-100);
 }
 
-/* ── 3F: Modals ──────────────────────────────────────────────────────── */
+/* â”€â”€ 3F: Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .modal-content {
   background: var(--pc-surface);
@@ -1010,7 +1521,7 @@
   color: var(--pc-secondary-200);
 }
 
-/* ── 3F: Global input fields and textareas ───────────────────────────── */
+/* â”€â”€ 3F: Global input fields and textareas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] input[type="text"]:not([data-theme-skip]),
 [data-theme="blue"] input[type="email"]:not([data-theme-skip]),
@@ -1034,14 +1545,13 @@
   outline: none;
 }
 
-/* ── 3F: Tabs container (popup main area) ────────────────────────────── */
+/* â”€â”€ 3F: Tabs container (popup main area) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* #categoriesTab / #aiLabTab keep their premium radial gradients above */
 
 [data-theme="blue"] .tabs-content,
 [data-theme="blue"] .tab-panel,
 [data-theme="blue"] #clipsTab,
 [data-theme="blue"] #searchTab,
-[data-theme="blue"] #categoriesTab,
-[data-theme="blue"] #aiLabTab,
 [data-theme="blue"] #notesTab,
 [data-theme="blue"] #aiHistoryTab,
 [data-theme="blue"] #activityTab {
@@ -1049,7 +1559,12 @@
   color: var(--pc-text);
 }
 
-/* ── 3F: AI History entry badges ─────────────────────────────────────── */
+[data-theme="blue"] #categoriesTab,
+[data-theme="blue"] #aiLabTab {
+  color: var(--pc-text);
+}
+
+/* â”€â”€ 3F: AI History entry badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .ai-history-entry-badge.summary {
   background: rgba(37, 99, 235, 0.25);
@@ -1066,7 +1581,7 @@
   color: #c4b5fd;
 }
 
-/* ── 3F: Activity log ────────────────────────────────────────────────── */
+/* â”€â”€ 3F: Activity log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .activity-entry {
   background: var(--pc-glass);
@@ -1118,7 +1633,7 @@
   color: var(--pc-secondary-100);
 }
 
-/* ── 3F: Support form ────────────────────────────────────────────────── */
+/* â”€â”€ 3F: Support form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] .support-form-info {
   background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
@@ -1144,7 +1659,7 @@
   outline: none;
 }
 
-/* ── Scrollbars (all tabs) ───────────────────────────────────────────── */
+/* â”€â”€ Scrollbars (all tabs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 [data-theme="blue"] *::-webkit-scrollbar-thumb {
   background: var(--pc-secondary-500);
