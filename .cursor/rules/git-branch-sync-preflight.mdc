@@ -69,6 +69,33 @@ Only after sync: reload the unpacked extension and verify markers exist.
 
 ---
 
+## Safe loop (permanent work)
+
+**Pushed ≠ merged.** A task branch on GitHub is safe backup; **`main` merge is what makes work the shared baseline.**
+
+```
+1. Implement on main → user SUCCESS
+2. Task branch from fresh main → commit → push
+3. Open/merge PR into main          ← permanent
+4. git checkout main && git pull
+5. Next implementation from that updated main
+6. Before testing any older branch → Sync playbook (merge origin/main)
+```
+
+| State | Meaning | Risk if you skip merge |
+|---|---|---|
+| Pushed only | On remote task branch | New work from old `main` won’t include it; easy to “lose” on stale checkouts |
+| Merged to `main` | Shared baseline | Next branches stack on top — no overwrite race |
+
+**Two options for the next implementation (ask Ezequiel):**
+
+1. **Separate branch** from updated `main` — unrelated work; prior task branch stays until its PR merges.
+2. **Build on the open task branch** — same-slice follow-up; new commits add on top (never replace / force-push).
+
+Never treat a new push as replacing an unmerged prior branch. Sibling branches coexist until each merges.
+
+---
+
 ## Commit / push / merge orchestration
 
 1. **Implement on `main`** until SUCCESS (see `git-commit-branch-alignment.mdc`).
@@ -77,6 +104,7 @@ Only after sync: reload the unpacked extension and verify markers exist.
 4. After merge: `git checkout main && git pull origin main`.
 5. **Any older open branch** the user will test next → run Sync playbook so it inherits `main`.
 6. After `git commit all`: return to `main` (already required) **and** report if any open local task branches are still behind `origin/main`.
+7. After every commit/push report: list **unmerged** open task branches and ask whether to open/merge PRs before starting unrelated work.
 
 ---
 
@@ -86,6 +114,8 @@ Only after sync: reload the unpacked extension and verify markers exist.
 - Assuming “merged to main” means every local branch has the files.
 - Re-implementing a feature that already exists on `origin/main` because the current checkout is stale.
 - Leaving the user on a stale branch after a successful `main` merge without warning them.
+- Starting a new implementation from stale `main` while prior SUCCESS work is **pushed but unmerged** — without telling Ezequiel and choosing separate vs build-on.
+- Force-push / reset that drops commits from an open task branch that already has unique work.
 
 ---
 
