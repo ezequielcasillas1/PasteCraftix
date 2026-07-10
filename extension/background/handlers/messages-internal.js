@@ -229,21 +229,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
-        const url = `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`;
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': anonKey,
-            'Authorization': `Bearer ${anonKey}`,
-          },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
+        // Single-flight: coalesce concurrent refresh calls for the same token.
+        // Prevents "Invalid Refresh Token: Already Used" from parallel POSTs.
+        globalThis.__pcRefreshInflight = globalThis.__pcRefreshInflight || new Map();
+        const inflight = globalThis.__pcRefreshInflight;
+        if (inflight.has(refreshToken)) {
+          sendResponse(await inflight.get(refreshToken));
+          return;
+        }
 
-        const status = resp.status;
-        const ok = resp.ok;
-        const data = await resp.json().catch(() => ({}));
-        sendResponse({ success: true, ok, status, data });
+        const refreshPromise = (async () => {
+          const url = `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+          });
+
+          const status = resp.status;
+          const ok = resp.ok;
+          const data = await resp.json().catch(() => ({}));
+          return { success: true, ok, status, data };
+        })();
+
+        inflight.set(refreshToken, refreshPromise);
+        try {
+          sendResponse(await refreshPromise);
+        } finally {
+          inflight.delete(refreshToken);
+        }
       } catch (error) {
         sendResponse({ success: false, status: 0, error: error?.message || String(error) });
       }

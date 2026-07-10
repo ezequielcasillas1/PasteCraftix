@@ -34,6 +34,20 @@ async setCachedSubscription(userId, subscription) {
   }
 },
 
+async _clearStaleLocalAuthIfBridgePresent() {
+  // Prefer chrome.storage bridge over popup localStorage. A stale
+  // localStorage refresh_token races _recoverAndRefresh and causes
+  // "Invalid Refresh Token: Already Used" (token reuse detection).
+  try {
+    const bridgeKey = this._sessionBridgeKey || 'pc_supabase_session_v1';
+    const res = await chrome.storage.local.get([bridgeKey]);
+    const bridge = res?.[bridgeKey] || null;
+    if (bridge?.refresh_token && typeof this._clearSupabaseLocalStorage === 'function') {
+      this._clearSupabaseLocalStorage();
+    }
+  } catch (_) {}
+},
+
 async init() {
   try {
     if (typeof PASTECRAFT_CONFIG === 'undefined') {
@@ -54,11 +68,20 @@ async init() {
       this.initialized = true; // Still mark as initialized for OpenAI-only features
       return;
     }
-    
+
+    await this._clearStaleLocalAuthIfBridgePresent();
+
     // Initialize Supabase client
     this.client = supabase.createClient(
       PASTECRAFT_CONFIG.supabase.url,
-      PASTECRAFT_CONFIG.supabase.anonKey
+      PASTECRAFT_CONFIG.supabase.anonKey,
+      {
+        auth: {
+          detectSessionInUrl: false,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      }
     );
     
     this.initialized = true;

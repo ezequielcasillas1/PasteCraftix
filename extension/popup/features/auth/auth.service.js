@@ -140,15 +140,40 @@ async function _persistRefreshedBridge(refreshed, refreshToken, bridge) {
   } catch (_) {}
 }
 
-async function _resolveAccessToken(app, bridge, refreshToken) {
-  const initialAccess = String(bridge.access_token || '');
-  if (!_accessTokenNeedsRefresh(initialAccess, bridge.expires_at)) {
-    return initialAccess;
+function _pairTokens(accessToken, refreshToken) {
+  return {
+    access_token: String(accessToken || ''),
+    refresh_token: String(refreshToken || ''),
+  };
+}
+
+function _hasTokenPair(tokens) {
+  return !!(tokens && tokens.access_token && tokens.refresh_token);
+}
+
+async function _readBridgeTokenPair(app, excludeRefresh = '') {
+  const latest = await _getSessionBridgePayload(app);
+  const pair = _pairTokens(latest.access_token, latest.refresh_token);
+  if (!_hasTokenPair(pair)) return null;
+  if (excludeRefresh && pair.refresh_token === String(excludeRefresh || '')) return null;
+  return pair;
+}
+
+async function _resolveSessionTokens(app, bridge, refreshToken) {
+  const initial = _pairTokens(bridge.access_token, refreshToken);
+  if (!_accessTokenNeedsRefresh(initial.access_token, bridge.expires_at)) {
+    return initial;
   }
-  const refreshed = await _refreshSupabaseTokenViaBackground(app, refreshToken);
-  if (!refreshed || !refreshed.access_token) return initialAccess;
-  await _persistRefreshedBridge(refreshed, refreshToken, bridge);
-  return refreshed.access_token;
+
+  const refreshed = await _refreshSupabaseTokenViaBackground(app, initial.refresh_token);
+  if (refreshed && refreshed.access_token) {
+    await _persistRefreshedBridge(refreshed, initial.refresh_token, bridge);
+    return _pairTokens(refreshed.access_token, refreshed.refresh_token || initial.refresh_token);
+  }
+
+  // Another context may have already rotated the refresh token.
+  const rotated = await _readBridgeTokenPair(app, initial.refresh_token);
+  return rotated || initial;
 }
 
 function _setSession(accessToken, refreshToken) {
@@ -161,6 +186,25 @@ function _setSession(accessToken, refreshToken) {
   );
 }
 
+function _isAlreadyUsedRefreshError(error) {
+  const msg = String(error?.message || error || '').toLowerCase();
+  return msg.includes('already used') || msg.includes('invalid refresh token');
+}
+
+async function _setSessionOrRecoverRotatedBridge(app, tokens) {
+  // CRITICAL: always pass the *current* refresh_token (post-rotation).
+  // Using the pre-refresh RT after background rotation causes
+  // "Invalid Refresh Token: Already Used" on the next auto-refresh.
+  const result = await _setSession(tokens.access_token, tokens.refresh_token);
+  if (!(result && result.error)) return true;
+  if (!_isAlreadyUsedRefreshError(result.error)) return false;
+
+  const rotated = await _readBridgeTokenPair(app, tokens.refresh_token);
+  if (!rotated) return false;
+  const retry = await _setSession(rotated.access_token, rotated.refresh_token);
+  return !(retry && retry.error);
+}
+
 export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') {
   try {
     if (!_hasAuthClient()) return false;
@@ -169,13 +213,12 @@ export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') 
     const refreshToken = String(bridge.refresh_token || '');
     if (!refreshToken) return false;
 
-    if (await _hasExistingSession()) return true;
+    const needsRefresh = _accessTokenNeedsRefresh(bridge.access_token, bridge.expires_at);
+    if (!needsRefresh && (await _hasExistingSession())) return true;
 
-    const accessToken = await _resolveAccessToken(app, bridge, refreshToken);
-    if (!accessToken) return false;
-
-    const result = await _setSession(accessToken, refreshToken);
-    return !(result && result.error);
+    const tokens = await _resolveSessionTokens(app, bridge, refreshToken);
+    if (!_hasTokenPair(tokens)) return false;
+    return _setSessionOrRecoverRotatedBridge(app, tokens);
   } catch (_) {
     return false;
   }
