@@ -389,23 +389,40 @@
 /* ── 3A: Clip Joiner / format controls ───────────────────────────────── */
 
 [data-theme="blue"] .format-controls {
-  background: var(--pc-surface);
-  border-top: 1px solid var(--pc-border);
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.98) 0%, var(--pc-bg) 100%);
+  border-top: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .control-label {
   color: var(--pc-secondary-200);
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="blue"] .info-icon {
+  background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.45);
+}
+
+[data-theme="blue"] .info-icon:hover {
+  background: linear-gradient(135deg, var(--pc-secondary-300) 0%, var(--pc-secondary-400) 100%);
+  box-shadow: 0 0 14px rgba(96, 165, 250, 0.55);
 }
 
 [data-theme="blue"] .example-text {
-  color: var(--pc-text-muted);
+  color: var(--pc-secondary-200);
   background: var(--pc-glass);
-  border-color: var(--pc-border);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .segmented-control {
   background: var(--pc-glass);
-  border: 1px solid var(--pc-border);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .segment-btn {
@@ -562,38 +579,140 @@
   box-shadow: var(--pc-shadow-brand);
 }
 
-/* ── 3C: Categories ──────────────────────────────────────────────────── */
+/* ── 3C: Categories (premium dark-blue grade + probing blue outlines) ── */
+
+[data-theme="blue"] #categoriesTab {
+  background:
+    radial-gradient(ellipse 120% 60% at 50% -10%, rgba(37, 99, 235, 0.14), transparent 55%),
+    var(--pc-bg);
+}
+
+[data-theme="blue"] .categories-list {
+  scrollbar-color: var(--pc-secondary-500) var(--pc-surface);
+}
+
+[data-theme="blue"] .create-category-btn {
+  background: var(--pc-gradient-brand-soft);
+  border: 1px solid var(--pc-border-glow);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.2),
+    0 4px 18px var(--pc-glow),
+    inset 0 1px 0 rgba(147, 197, 253, 0.25);
+}
+
+[data-theme="blue"] .create-category-btn:hover {
+  border-color: var(--pc-secondary-300);
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.35),
+    0 8px 28px var(--pc-glow),
+    inset 0 1px 0 rgba(191, 219, 254, 0.3);
+}
+
+[data-theme="blue"] .empty-categories {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .empty-categories h3 {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .empty-categories p {
+  color: var(--pc-text-muted);
+}
 
 [data-theme="blue"] .category-item {
-  background: var(--pc-glass);
-  border-color: var(--pc-border);
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.95) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
   color: var(--pc-text);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.45),
+    0 2px 14px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
 }
 
 [data-theme="blue"] .category-item:hover {
   border-color: var(--pc-border-glow);
-  box-shadow: 0 2px 12px var(--pc-glow);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.45),
+    0 0 20px rgba(59, 130, 246, 0.22),
+    0 4px 18px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(147, 197, 253, 0.14);
 }
 
 [data-theme="blue"] .category-item.expanded {
-  border-color: var(--pc-secondary-400);
+  border-color: var(--pc-secondary-300);
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.5),
+    0 0 24px rgba(59, 130, 246, 0.28),
+    0 6px 22px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(191, 219, 254, 0.16);
 }
 
 [data-theme="blue"] .category-header:hover {
   background: rgba(59, 130, 246, 0.1);
 }
 
+[data-theme="blue"] .category-icon {
+  background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-primary-600) 100%);
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(147, 197, 253, 0.35),
+    0 2px 10px rgba(37, 99, 235, 0.4);
+}
+
+[data-theme="blue"] .category-details h4,
+[data-theme="blue"] .category-name {
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .category-details p,
+[data-theme="blue"] .category-count {
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .category-btn.edit-category {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-200);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.12);
+}
+
+[data-theme="blue"] .category-btn.edit-category:hover {
+  background: rgba(59, 130, 246, 0.32);
+  border-color: var(--pc-secondary-300);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="blue"] .category-btn.delete-category {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="blue"] .category-btn.delete-category:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+
+[data-theme="blue"] .category-expand-icon {
+  color: var(--pc-secondary-300);
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.45));
+}
+
 [data-theme="blue"] .category-dropdown {
-  border-top: 1px solid var(--pc-border);
-  background: var(--pc-surface);
+  border-top: 1px solid rgba(59, 130, 246, 0.28);
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.98) 0%, rgba(10, 14, 20, 0.98) 100%);
 }
 
 [data-theme="blue"] .category-clip {
-  border-bottom: 1px solid var(--pc-border);
+  border-bottom: 1px solid rgba(30, 58, 138, 0.55);
 }
 
 [data-theme="blue"] .category-clip:hover {
   background: rgba(59, 130, 246, 0.12);
+  box-shadow: inset 3px 0 0 var(--pc-secondary-400);
 }
 
 [data-theme="blue"] .category-clip-text {
@@ -601,18 +720,6 @@
 }
 
 [data-theme="blue"] .category-clip-time {
-  color: var(--pc-text-muted);
-}
-
-[data-theme="blue"] .category-expand-icon {
-  color: var(--pc-secondary-300);
-}
-
-[data-theme="blue"] .category-name {
-  color: var(--pc-secondary-50);
-}
-
-[data-theme="blue"] .category-count {
   color: var(--pc-text-muted);
 }
 
