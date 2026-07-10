@@ -269,3 +269,8 @@
 **Status:** SUCCESS
 **Files:** checkout feat/blue-dark-mode @ 492f8a1; discarded main WIP theme-blue-phase2.css
 **Result:** White bottom Clip Joiner/Settings fixed by restoring Phase 3 branch; incomplete main WIP removed.
+
+### [Jul 9, 2026] - Widgets Tab (Embed Gallery)
+**Status:** SUCCESS
+**Files:** extension/popup/features/widgets/*, popup.html, tab-nav.events.js, theme-blue-phase2.css, tests/widgets-parse.test.mjs
+**Result:** Embed gallery tab between Notes and AI History; iframe in-popup preview; script widgets open live via data URL; gallery Open live + panel blur; debug removed.

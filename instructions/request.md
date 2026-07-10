@@ -1,6 +1,6 @@
 # PasteCraft - Future Feature Requests
 
-**Last Updated:** June 22, 2026  
+**Last Updated:** July 9, 2026  
 **MVP Status:** ✅ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
@@ -809,6 +809,28 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 4. **Phase 4** — (A) content widget + Quick Paste blue tokens; (B) Merchant strip/dock + optional glass transparency pass
 
 **Rules:** token-first (no hardcode hex sprawl); glass optional/tunable; ask SUCCESS before SuccessLog; implement on `main`
+
+---
+
+#### 60. Widgets Tab (Embed Gallery — Notes ↔ AI History)
+**Priority:** Medium  
+**Status:** Completed (SUCCESS Jul 9, 2026)  
+**Placement:** New popup tab between **Notes** and **AI History** (`data-tab="widgets"`)  
+**Inspiration:** [Live Coin Watch Widgets](https://www.livecoinwatch.com/widgets) — copy-paste embed UX  
+
+**Requirements:**
+- Vertical slice: `extension/popup/features/widgets/` (controller, service, state, render, events, constants)
+- User pastes embed HTML / iframe / script snippets from any widget site → sandboxed preview + save to personal gallery
+- Multi-source (not LCW-only): crypto/markets + productivity/weather/clocks — curated “Get widgets” links
+- UX: Add Widget → paste/validate → name + size → grid/list gallery; edit/remove/reorder; empty state with source tips
+- Security: sandboxed iframes only; strip unsafe scripts; no eval of raw paste; store snippets in chrome.storage (+ sync later)
+
+**Widget source catalog (research):**
+- Markets: Live Coin Watch, CoinGecko, Vunelix, Arincen, NowPrice
+- Productivity / ambient: Indify, Blocs, Elfsight (weather/clock/countdown/calendar)
+- Accept any valid embed URL/iframe from other sites that fit the sandbox rules
+
+**Out of scope (v1):** hosting PasteCraft-owned widget CDN; Merchant/Spot coupling; auto-scraping third-party sites; cloud sync of gallery
 
 ---
 

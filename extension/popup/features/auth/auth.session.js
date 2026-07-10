@@ -21,6 +21,10 @@ const TAB_LOADERS = Object.freeze({
     await app._withTimeout(app.loadNotes(), 3000, undefined, 'loadNotes');
     app.renderNotes();
   },
+  widgets: async (app) => {
+    await app._withTimeout(app.widgetsFeature.service.loadWidgets(app), 3000, undefined, 'loadWidgets');
+    app.widgetsFeature.render.renderWidgetsGallery(app);
+  },
   activity: async (app) => {
     await app._withTimeout(app.activityFeature.service.loadActivityLog(app), 3000, undefined, 'loadActivityLog');
     app.activityFeature.render.renderActivityList(app);

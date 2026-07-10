@@ -1553,6 +1553,7 @@
 [data-theme="blue"] #clipsTab,
 [data-theme="blue"] #searchTab,
 [data-theme="blue"] #notesTab,
+[data-theme="blue"] #widgetsTab,
 [data-theme="blue"] #aiHistoryTab,
 [data-theme="blue"] #activityTab {
   background: var(--pc-bg);

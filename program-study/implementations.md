@@ -1,3 +1,8 @@
+### Jul 9, 2026 - Widgets Tab (Embed Gallery)
+**Status:** SUCCESS
+**Files:** popup/features/widgets/*, popup.html, tab-nav.events.js, popup.features.js, auth.session.js, popup.events.js, theme-blue-phase2.css, tests/widgets-parse.test.mjs
+**Result:** Widgets tab: embed gallery, external mode + data URL live open, CSP-safe script widgets, Open live UX, blur on panel close.
+
 ### Jun 2, 2026 - Quick Save category dropdown CRUD sync
 **Status:** PENDING USER VERIFY
 **Files:** categories.render.js, categories.service.js, sync.listener.js, tab-nav.events.js
