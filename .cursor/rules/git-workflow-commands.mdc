@@ -7,13 +7,48 @@ alwaysApply: true
 
 **Before any playbook below:** run [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc) (fetch + behind-main check + feature-marker spot-check). Sync stale branches with `origin/main` before commit/test so merged features do not “disappear.”
 
+**Model:** use Composer 2.5 Fast (`composer-2.5-fast`) for these git voice commands (cost-efficient).
+
 When the user says one of these phrases, follow the matching playbook. Do **not** ask which files to stage unless the command is ambiguous or secrets are present.
 
 | User says | Action |
 |---|---|
-| **`git commit all`** | Full playbook below: discover scopes → branch per scope → commit each → **push all** new/updated task branches → return to `main` → brief report |
+| **`git commit all`** | Work-loss review gate → discover scopes → branch per scope → commit each → **push all** new/updated task branches → return to `main` → brief report + unmerged branches |
 | **`git commit`** | Same as `git commit all`, but **push only if** the user also said push in the same message; otherwise commit locally and list branches/SHAs |
 | **`git workflow`** | Read-only audit + optional commit (see Workflow Audit) |
+
+---
+
+## Work-loss review gate (mandatory on every commit voice command)
+
+Run this **before** staging/committing whenever the user says `git commit`, `git commit all`, or `git commit` + push. Goal: never lose work under newer work, and never “overwrite” an unmerged SUCCESS with a sibling branch by accident.
+
+### 1. Assess (read-only)
+
+In parallel with preflight:
+
+- Open local + remote task branches ahead of / not in `origin/main`
+- `git stash list`
+- Recent parent `agent-transcripts/` for SUCCESS / branch names / uncommitted paths
+- Spot-check: would checking out the target branch drop files that exist on `origin/main` or on another unmerged SUCCESS branch?
+
+### 2. Ask Ezequiel (required — do not skip)
+
+Present a short review, then ask:
+
+> Ezequiel — work-loss review: unmerged branches `[list]`. Stashes `[n]`. Other-chat SUCCESS `[titles or none]`. For this commit: **separate branch from main** or **build on `<existing-branch>`**? Any PR to merge first so we don’t stack on stale main?
+
+Wait for the answer before creating branches / committing (unless the user already answered in the same message).
+
+### 3. Proceed only after choice
+
+| Choice | Action |
+|---|---|
+| Separate | Fresh `main` → new `fix/` / `feat/` / … (prior unmerged branches untouched) |
+| Build on | Checkout latest related task branch → merge `origin/main` if behind → commit on top |
+| Merge first | Help open/merge PR(s), pull `main`, then commit the new work |
+
+Pushed branches are **not** replaced by a new push elsewhere. Only merge (or explicit abandon) retires them.
 
 ---
 
@@ -136,12 +171,17 @@ Do not invent work that is not in git or transcripts.
 ### From other chats (if found)
 - [title](uuid) — topic — likely branch or files
 
+### Work-loss / safe-loop check
+- Pushed but unmerged: …
+- Risk of stale checkout overwrite: yes/no
+- Ask: separate vs build-on vs merge-first?
+
 ### Recommended next command
 - `git commit all` — if scopes are ready and verified
 - or: verify with user before commit
 ```
 
-If the user says **`git workflow` then commit**, run the audit first, then `git commit all` unless they only wanted the report.
+If the user says **`git workflow` then commit**, run the audit first (including work-loss ask), then `git commit all` unless they only wanted the report.
 
 ---
 
@@ -162,7 +202,8 @@ Never stage: `.env`, credentials, `node_modules`, duplicate path variants (`exte
 ## Quick reference (agent)
 
 ```
-git commit all  → split scopes → N branches → push each → main → report SHAs
-git commit      → same, push only if user said push
-git workflow    → audit (git + stashes + branches + transcripts + logs) → recommend next step
+git commit all  → work-loss ask → split scopes → N branches → push each → main → report SHAs + unmerged
+git commit      → work-loss ask → same, push only if user said push
+git workflow    → audit (git + stashes + branches + transcripts + logs + safe-loop) → recommend next step
+safe loop       → SUCCESS → task branch push → merge PR to main → pull main → next work
 ```
