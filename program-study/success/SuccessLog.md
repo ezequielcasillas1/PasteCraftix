@@ -1,4 +1,9 @@
 
+### Jul 9, 2026 - Cloud Activity History empty fix
+**Status:** SUCCESS
+**Files:** activity.service.js, activity.render.js, activity.events.js, activity.controller.js, activity.constants.js, tests/activity-service.test.mjs
+**Result:** Restore auth-bridge JWT before change_audit_log query; distinct auth/session/error vs empty states. User verified.
+
 ### Jul 9, 2026 - AI Lab Blue Dark Mode premium grade
 **Status:** SUCCESS
 **Files:** theme-blue-phase2.css, popup.html

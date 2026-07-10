@@ -1,3 +1,8 @@
+### Jul 9, 2026 - Cloud Activity History empty fix
+**Status:** SUCCESS
+**Files:** activity.service.js, activity.render.js, activity.events.js, activity.controller.js, activity.constants.js, tests/activity-service.test.mjs
+**Result:** Bridge session restore before audit RLS query; clearer empty/error states. User verified SUCCESS.
+
 ### Jun 24, 2026 - Merchant Test Lab website (all platform mocks)
 **Status:** PENDING USER TEST
 **Files:** website/public/merchant-test/*, website/src/pages/merchant-test/index.astro, website/src/data/site.js, netlify.toml, merchant-test-lab/*, merchant-test-lab/README.md, docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md

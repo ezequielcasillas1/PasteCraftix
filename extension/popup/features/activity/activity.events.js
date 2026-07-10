@@ -4,14 +4,15 @@ import { renderActivityList } from './activity.render.js';
 
 async function refreshActivity(app) {
   app.activityOffset = 0;
-  await fetchActivityPage(app);
+  const refreshed = await fetchActivityPage(app);
   renderActivityList(app);
+  return refreshed;
 }
 
 function bindRefreshBtn(app) {
   document.getElementById(ACTIVITY_SELECTORS.REFRESH_BTN)?.addEventListener('click', async () => {
-    await refreshActivity(app);
-    app.showToast?.('Activity refreshed');
+    const refreshed = await refreshActivity(app);
+    if (refreshed) app.showToast?.('Activity refreshed');
   });
 }
 
@@ -22,6 +23,7 @@ function bindFilterChips(app) {
       chip.classList.add('active');
       app.activityFilter = chip.dataset.filter;
       app.activityOffset = 0;
+      app.activityEntries = [];
       await fetchActivityPage(app);
       renderActivityList(app);
     });
@@ -31,6 +33,7 @@ function bindFilterChips(app) {
 function bindDateFilters(app) {
   const onDateChange = async () => {
     app.activityOffset = 0;
+    app.activityEntries = [];
     await fetchActivityPage(app);
     renderActivityList(app);
   };

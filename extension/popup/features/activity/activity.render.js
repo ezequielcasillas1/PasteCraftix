@@ -1,4 +1,10 @@
-import { ACTIVITY_OPERATION_ICONS, ACTIVITY_TABLE_BADGES, ACTIVITY_SELECTORS } from './activity.constants.js';
+import {
+  ACTIVITY_OPERATION_ICONS,
+  ACTIVITY_TABLE_BADGES,
+  ACTIVITY_SELECTORS,
+  ACTIVITY_STATUS,
+  ACTIVITY_STATUS_COPY,
+} from './activity.constants.js';
 
 export function getActivityIcon(operation) {
   return ACTIVITY_OPERATION_ICONS[operation] ?? ACTIVITY_OPERATION_ICONS.DEFAULT;
@@ -23,6 +29,21 @@ function resolveAction(operation) {
   return 'Modified';
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function toClassToken(value) {
+  return String(value || 'unknown')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-');
+}
+
 export function getActivitySummary(entry) {
   const action = resolveAction(entry.operation);
   const table = getTableBadge(entry.table_name).toLowerCase();
@@ -45,29 +66,34 @@ export function formatTimeAgo(date) {
 
 function buildEntryHTML(entry) {
   const icon = getActivityIcon(entry.operation);
-  const iconClass = entry.operation.toLowerCase();
+  const iconClass = toClassToken(entry.operation);
   const tableBadge = getTableBadge(entry.table_name);
   const summary = getActivitySummary(entry);
   const timeAgo = formatTimeAgo(new Date(entry.occurred_at));
+  const tableClass = toClassToken(entry.table_name);
 
   return `
-    <div class="activity-entry" data-id="${entry.id}">
-      <div class="activity-entry-icon ${iconClass}">${icon}</div>
+    <div class="activity-entry" data-id="${escapeHtml(entry.id)}">
+      <div class="activity-entry-icon ${iconClass}">${escapeHtml(icon)}</div>
       <div class="activity-entry-info">
-        <div class="activity-entry-title">${summary}</div>
-        <div class="activity-entry-meta">${timeAgo}</div>
+        <div class="activity-entry-title">${escapeHtml(summary)}</div>
+        <div class="activity-entry-meta">${escapeHtml(timeAgo)}</div>
       </div>
-      <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+      <span class="activity-entry-badge ${tableClass}">${escapeHtml(tableBadge)}</span>
     </div>
   `;
 }
 
-function renderEmptyState(container) {
+function renderStatusState(container, status) {
+  const type = status?.type || ACTIVITY_STATUS.EMPTY;
+  const copy = ACTIVITY_STATUS_COPY[type] || ACTIVITY_STATUS_COPY[ACTIVITY_STATUS.EMPTY];
+  const role = type === ACTIVITY_STATUS.EMPTY ? 'status' : 'alert';
+
   container.innerHTML = `
-    <div class="empty-state">
-      <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
-      <h3>No cloud activity yet</h3>
-      <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
+    <div class="empty-state" role="${role}">
+      <div class="empty-state-icon"><i data-lucide="${escapeHtml(copy.icon)}"></i></div>
+      <h3>${escapeHtml(copy.title)}</h3>
+      <p>${escapeHtml(copy.message)}</p>
     </div>
   `;
 }
@@ -78,7 +104,7 @@ export function renderActivityList(app) {
   if (!container) return;
 
   if (!app.activityEntries?.length) {
-    renderEmptyState(container);
+    renderStatusState(container, app.activityStatus);
     if (loadMoreBtn) loadMoreBtn.style.display = 'none';
     return;
   }
