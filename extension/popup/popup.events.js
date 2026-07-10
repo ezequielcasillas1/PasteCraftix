@@ -20,4 +20,5 @@ export function registerPopupEventListeners(app) {
   registerAiLabPageEvents(app);
 
   app.activityFeature.events.initActivityEventListeners(app);
+  app.widgetsFeature.events.initWidgetsEventListeners(app);
 }

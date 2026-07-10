@@ -2053,9 +2053,9 @@
         /* Tab Navigation */
         .tab-nav {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(12, 1fr);
             grid-template-rows: auto auto auto;
-            /* Row 1: 4 tabs, Row 2: Notes + AI History, Row 3: Activity */
+            /* Row 1: 4 tabs × span 3; Row 2: Notes + Widgets + AI History × span 4; Row 3: Activity */
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -2192,12 +2192,17 @@
         }
         
         .tab-btn-notes,
+        .tab-btn-widgets,
         .tab-btn-ai-history {
-            grid-column: span 2;
+            grid-column: span 4;
         }
         
         .tab-btn-activity {
-            grid-column: span 4;
+            grid-column: span 12;
+        }
+
+        .tab-nav > .tab-btn:not(.tab-btn-notes):not(.tab-btn-widgets):not(.tab-btn-ai-history):not(.tab-btn-activity) {
+            grid-column: span 3;
         }
         
         .tab-btn:hover {
@@ -8967,6 +8972,250 @@
             box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45);
         }
 
+        /* ── Widgets Tab ── */
+        .pc-widgets-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 4px 0 12px;
+            flex-wrap: wrap;
+        }
+        .pc-widgets-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .pc-widgets-subtitle {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .pc-widgets-header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .pc-widgets-sources-btn {
+            font-size: 12px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pc-widgets-panel {
+            margin-bottom: 14px;
+            padding: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+        .pc-widgets-panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .pc-widgets-panel-head h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .pc-widgets-panel-hint {
+            margin: 0 0 12px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .pc-widgets-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            margin: 10px 0 4px;
+        }
+        .pc-widgets-input,
+        .pc-widgets-textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            background: #fff;
+            color: #0f172a;
+        }
+        .pc-widgets-textarea {
+            resize: vertical;
+            min-height: 96px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            line-height: 1.4;
+        }
+        .pc-widgets-form-error {
+            margin: 8px 0 0;
+            font-size: 12px;
+            color: #b91c1c;
+        }
+        .pc-widgets-form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .pc-widgets-preview-wrap,
+        .pc-widget-frame-wrap {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .pc-widget-frame {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: transparent;
+        }
+        .pc-widgets-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .pc-widget-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            overflow: hidden;
+        }
+        .pc-widget-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #f8fafc;
+        }
+        .pc-widget-card-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .pc-widget-card-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .pc-widget-icon-btn {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pc-widget-icon-btn:hover {
+            background: #e2e8f0;
+            color: #334155;
+        }
+        .pc-widget-icon-btn--danger:hover {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+        .pc-widget-sources-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .pc-widget-source-card {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pc-widget-source-card:hover {
+            border-color: #93c5fd;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+        }
+        .pc-widget-source-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .pc-widget-source-cat {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #3b82f6;
+            font-weight: 700;
+        }
+        .pc-widget-source-blurb {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.35;
+        }
+        .pc-widget-external {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px 14px;
+            text-align: center;
+            background: linear-gradient(160deg, #0b1220 0%, #111827 100%);
+            color: #e2e8f0;
+            box-sizing: border-box;
+        }
+        .pc-widget-external-icon {
+            font-size: 22px;
+            color: #93c5fd;
+            line-height: 1;
+        }
+        .pc-widget-external-title {
+            margin: 0;
+            font-size: 13px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+        .pc-widget-external-blurb {
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #94a3b8;
+            max-width: 320px;
+        }
+        .pc-widget-open-btn {
+            margin-top: 4px;
+        }
+        .pc-widget-external-preview {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
         /* ── AI History Tab ── */
         .ai-history-header {
             display: flex;
@@ -10247,6 +10496,9 @@
             <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
                 <span class="tab-icon"><i data-lucide="notebook"></i></span> Notes
             </button>
+            <button class="tab-btn tab-btn-widgets" data-tab="widgets" title="Paste and save embed widgets from Live Coin Watch, CoinGecko, Indify, and more">
+                <span class="tab-icon"><i data-lucide="layout-dashboard"></i></span> Widgets
+            </button>
             <button class="tab-btn tab-btn-ai-history" data-tab="aiHistory" title="View past AI conversations">
                 <span class="tab-icon"><i data-lucide="scroll-text"></i></span> AI History
             </button>
@@ -10365,6 +10617,83 @@
             </div>
 
             <div class="notes-pagination" id="notesPagination" style="display: none;"></div>
+        </section>
+
+        <!-- Widgets Tab -->
+        <section class="tab-content" id="widgetsTab">
+            <div class="pc-widgets-header">
+                <div class="pc-widgets-header-text">
+                    <h3 class="pc-widgets-title"><i data-lucide="layout-dashboard"></i> Widgets</h3>
+                    <p class="pc-widgets-subtitle">Paste embeds from any widget site into your gallery.</p>
+                </div>
+                <div class="pc-widgets-header-actions">
+                    <button type="button" class="btn-secondary pc-widgets-sources-btn" id="widgetsSourcesBtn" title="Browse widget sources">
+                        <i data-lucide="external-link"></i> Sources
+                    </button>
+                    <button type="button" class="create-note-btn" id="widgetsAddBtn">
+                        <i data-lucide="plus" style="margin-right: 6px;"></i>
+                        <span>Add Widget</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pc-widgets-panel" id="widgetsSourcesPanel" hidden aria-hidden="true">
+                <div class="pc-widgets-panel-head">
+                    <h4>Get widgets</h4>
+                    <button type="button" class="modal-close" id="widgetsSourcesClose" aria-label="Close sources">✕</button>
+                </div>
+                <p class="pc-widgets-panel-hint">Open a site, customize a widget, copy the embed code, then paste it under Add Widget.</p>
+                <div class="pc-widget-sources-list" id="widgetsSourcesList"></div>
+            </div>
+
+            <div class="pc-widgets-panel" id="widgetsAddPanel" hidden aria-hidden="true">
+                <div class="pc-widgets-panel-head">
+                    <h4>Add / edit widget</h4>
+                    <button type="button" class="modal-close" id="widgetsAddPanelClose" aria-label="Close form">✕</button>
+                </div>
+                <input type="hidden" id="widgetsEditingId" value="" />
+                <label class="pc-widgets-label" for="widgetsTitleInput">Name</label>
+                <input type="text" id="widgetsTitleInput" class="pc-widgets-input" maxlength="80" placeholder="e.g. BTC marquee" />
+                <label class="pc-widgets-label" for="widgetsSizeSelect">Size</label>
+                <select id="widgetsSizeSelect" class="pc-widgets-input">
+                    <option value="sm">Compact</option>
+                    <option value="md" selected>Medium</option>
+                    <option value="lg">Tall</option>
+                </select>
+                <label class="pc-widgets-label" for="widgetsEmbedInput">Embed code or URL</label>
+                <textarea id="widgetsEmbedInput" class="pc-widgets-textarea" rows="5" placeholder="Paste &lt;iframe&gt;…&lt;/iframe&gt;, script embed, or https://… URL"></textarea>
+                <p class="pc-widgets-form-error" id="widgetsFormError" hidden></p>
+                <label class="pc-widgets-label">Preview</label>
+                <div class="pc-widget-frame-wrap pc-widgets-preview-wrap" id="widgetsPreviewWrap" style="height:220px;">
+                    <iframe
+                        id="widgetsPreviewFrame"
+                        class="pc-widget-frame"
+                        title="Widget preview"
+                        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox"
+                        referrerpolicy="no-referrer"
+                    ></iframe>
+                </div>
+                <div class="pc-widgets-form-actions">
+                    <button type="button" class="btn-secondary" id="widgetsCancelBtn">Cancel</button>
+                    <button type="button" class="create-note-btn" id="widgetsSaveBtn">
+                        <i data-lucide="check" style="margin-right: 6px;"></i>
+                        <span>Save Widget</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pc-widgets-gallery" id="widgetsGallery">
+                <div class="empty-state" id="widgetsEmptyState">
+                    <div class="empty-state-icon"><i data-lucide="layout-dashboard"></i></div>
+                    <h3>No widgets yet</h3>
+                    <p>Copy an embed from Live Coin Watch, CoinGecko, Indify, or any widget site — then paste it here.</p>
+                    <div class="demo-hint">
+                        <span class="demo-step">1 Copy embed</span>
+                        <span class="demo-step">2 Paste &amp; preview</span>
+                        <span class="demo-step">3 Save to gallery</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- AI History Tab -->

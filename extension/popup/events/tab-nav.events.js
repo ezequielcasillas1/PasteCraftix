@@ -43,6 +43,9 @@ export function registerTabNavEvents(app) {
           } else if (app.currentTab === 'notes') {
             await app.loadNotes();
             app.renderNotes();
+          } else if (app.currentTab === 'widgets') {
+            await app.widgetsFeature.service.loadWidgets(app);
+            app.widgetsFeature.render.renderWidgetsGallery(app);
           } else if (app.currentTab === 'aiHistory') {
             await app.loadAiHistory();
             app.resetAiHistoryListPagination();
