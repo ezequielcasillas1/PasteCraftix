@@ -1,5 +1,12 @@
 import { ACTIVITY_OPERATION_ICONS, ACTIVITY_TABLE_BADGES, ACTIVITY_SELECTORS } from './activity.constants.js';
 
+function escapeHtml(app, text) {
+  if (typeof app.escapeHtml === 'function') return app.escapeHtml(text);
+  const div = document.createElement('div');
+  div.textContent = String(text ?? '');
+  return div.innerHTML;
+}
+
 export function getActivityIcon(operation) {
   return ACTIVITY_OPERATION_ICONS[operation] ?? ACTIVITY_OPERATION_ICONS.DEFAULT;
 }
@@ -43,7 +50,7 @@ export function formatTimeAgo(date) {
   return 'Just now';
 }
 
-function buildEntryHTML(entry) {
+function buildEntryHTML(app, entry) {
   const icon = getActivityIcon(entry.operation);
   const iconClass = entry.operation.toLowerCase();
   const tableBadge = getTableBadge(entry.table_name);
@@ -51,18 +58,19 @@ function buildEntryHTML(entry) {
   const timeAgo = formatTimeAgo(new Date(entry.occurred_at));
 
   return `
-    <div class="activity-entry" data-id="${entry.id}">
+    <div class="activity-entry" data-id="${escapeHtml(app, entry.id)}">
       <div class="activity-entry-icon ${iconClass}">${icon}</div>
       <div class="activity-entry-info">
-        <div class="activity-entry-title">${summary}</div>
-        <div class="activity-entry-meta">${timeAgo}</div>
+        <div class="activity-entry-title">${escapeHtml(app, summary)}</div>
+        <div class="activity-entry-meta">${escapeHtml(app, timeAgo)}</div>
       </div>
-      <span class="activity-entry-badge ${entry.table_name}">${tableBadge}</span>
+      <span class="activity-entry-badge ${entry.table_name}">${escapeHtml(app, tableBadge)}</span>
     </div>
   `;
 }
 
 function renderEmptyState(container) {
+  container.removeAttribute('aria-busy');
   container.innerHTML = `
     <div class="empty-state">
       <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
@@ -83,7 +91,8 @@ export function renderActivityList(app) {
     return;
   }
 
-  container.innerHTML = app.activityEntries.map(buildEntryHTML).join('');
+  container.removeAttribute('aria-busy');
+  container.innerHTML = app.activityEntries.map((entry) => buildEntryHTML(app, entry)).join('');
   if (loadMoreBtn) {
     loadMoreBtn.style.display = app.activityHasMore ? 'block' : 'none';
   }
