@@ -453,13 +453,26 @@ state management.
 
 #### 38. PDF Text Extraction to Clips
 **Priority:** Medium  
-**Status:** Completed  
+**Status:** Completed (text-layer only)  
 **Requirements:**
 - Upload PDF via popup Quick Save section
 - Extract text using pdf.js (page-by-page)
 - Preview extracted text with page tabs
 - Save as single clip or one clip per page
 - Category selection + source:pdf meta tag
+- Scanned PDFs: notice + paste-to-preview until §38b OCR ships
+
+---
+
+#### 38b. PDF OCR for Scanned / Image-Only PDFs
+**Priority:** High  
+**Status:** Not started — do soon  
+**Requirements:**
+- Detect image-only pages (no text layer) and run OCR before save
+- Prefer local OCR (e.g. Tesseract) for selected page; optional AI/vision fallback
+- Support single page + batch (cap pages / show progress for large PDFs)
+- Reuse patterns from §21 Image-to-Text where possible
+- Save OCR text to clips with `source:pdf` + page meta
 
 ---
 

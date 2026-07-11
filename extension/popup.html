@@ -10634,13 +10634,13 @@
                         <option value="code">Code</option>
                     </select>
                     <div class="manual-input-toolbar">
-                        <button class="pdf-upload-btn" id="pdfUploadBtn" type="button" title="Extract text from PDF">
-                            <span><i data-lucide="file-text"></i></span>
-                            <span class="pdf-upload-btn-label">PDF</span>
-                        </button>
-                        <button class="manual-input-save-btn" id="manualInputSaveBtn" type="button" title="Save clip" aria-label="Save clip">
+                        <button class="pdf-upload-btn manual-input-save-btn--labeled" id="manualInputSaveBtn" type="button" title="Save clip" aria-label="Save clip">
                             <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
                             <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
+                            <span class="pdf-upload-btn-label" id="manualInputSaveLabel">Save</span>
+                        </button>
+                        <button class="manual-input-save-btn pdf-search-btn" id="pdfUploadBtn" type="button" title="PDF document searcher" aria-label="PDF document searcher">
+                            <span><i data-lucide="file-search"></i></span>
                         </button>
                         <button class="manual-input-clear-btn" id="manualInputClearBtn" type="button" title="Clear" aria-label="Clear">
                             <span><i data-lucide="trash-2"></i></span>
@@ -13663,6 +13663,9 @@ alice@email.com</div>
                     <span class="pdf-info-name" id="pdfFileName">—</span>
                     <span class="pdf-info-pages" id="pdfPageCount">0 pages</span>
                 </div>
+                <div class="pdf-scan-notice" id="pdfScanNotice" style="display: none;" role="status">
+                    This PDF is image-only (scanned) — no selectable text layer. PasteCraft cannot OCR yet. Paste or type text into the preview below, then Save.
+                </div>
                 <div class="pdf-extract-loading" id="pdfExtractLoading" style="display: none;">
                     <div class="pdf-loading-spinner"></div>
                     <span id="pdfLoadingText">Extracting text…</span>
@@ -13689,7 +13692,7 @@ alice@email.com</div>
                 </div>
                 <div class="pdf-extract-preview" id="pdfExtractPreview">
                     <div class="pdf-preview-tabs" id="pdfPreviewTabs"></div>
-                    <textarea class="pdf-preview-textarea" id="pdfPreviewTextarea" readonly placeholder="Extracted text will appear here..."></textarea>
+                    <textarea class="pdf-preview-textarea" id="pdfPreviewTextarea" placeholder="Extracted text will appear here. You can edit before saving."></textarea>
                 </div>
             </div>
             <div class="modal-actions pdf-extract-actions">

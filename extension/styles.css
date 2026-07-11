@@ -592,6 +592,17 @@
   padding: 3px 10px;
   border-radius: 12px;
 }
+.pdf-scan-notice {
+  padding: 10px 12px;
+  margin-top: 4px;
+  border-radius: 10px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+}
 .pdf-extract-loading {
   display: flex;
   align-items: center;

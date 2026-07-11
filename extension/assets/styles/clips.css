@@ -155,7 +155,8 @@
   margin-left: auto;
 }
 
-.pdf-upload-btn {
+.pdf-upload-btn,
+.manual-input-save-btn--labeled {
   padding: 8px 12px;
   background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
   color: #fff;
@@ -172,14 +173,34 @@
   flex-shrink: 0;
 }
 
-.pdf-upload-btn:hover {
+.manual-input-save-btn--labeled {
+  width: auto;
+  height: auto;
+  box-shadow: var(--pc-shadow-brand);
+}
+
+.manual-input-save-btn--labeled:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.pdf-upload-btn:hover,
+.manual-input-save-btn--labeled:hover {
   background: var(--pc-gradient-brand);
   transform: translateY(-1px);
   box-shadow: var(--pc-shadow-brand);
 }
 
-.pdf-upload-btn:active {
+.pdf-upload-btn:active,
+.manual-input-save-btn--labeled:active {
   transform: translateY(0);
+}
+
+.pdf-search-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: #fff;
 }
 
 .manual-input-save-btn {

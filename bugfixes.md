@@ -1,7 +1,24 @@
 
-### Jun 23, 2026 - Merchant Etsy Options preset row alignment
+### Jul 10, 2026 - PDF OCR for scanned docs
+**Status:** BOTTLENECK
+**Files:** clips.pdf.js
+**Result:** Scanned PDFs (e.g. Breuer dictionary) are image-only; pdf.js extracts 0 text. Full OCR deferred → request.md §38b. Instrumentation removed. UX: scan notice + paste-to-preview.
+
+### Jul 10, 2026 - PDF scanned image-only (Breuer dictionary)
 **Status:** PARTIAL
-**Files:** extension/content/merchant/merchant.listing-dock.js, merchant.dock-styles.js
+**Files:** clips.pdf.js, popup.html, styles.css
+**Result:** Confirmed PDF has no text layer (itemCount 0 + image ops). Save correctly blocked. Added scanned-PDF notice + paste-to-preview path; OCR not implemented.
+
+**Status:** PARTIAL
+**Files:** clips.pdf.js, popup.html
+**Result:** Save button was hard-disabled when pdf.js found no text. Fixed mode-aware enable state, editable preview, save uses preview edits, tab/mode changes re-enable save.
+
+### Jul 10, 2026 - PDF intake failed (upload/scan)
+**Status:** PARTIAL
+**Files:** extension/lib/pdf.min.js, extension/lib/pdf.worker.min.js, clips.pdf.js, scripts/prepare-extension-libs.mjs, package.json
+**Result:** Root cause: pdf.js libs were 0-byte placeholders (gitignored). Restored v3.11.174 assets, added npm run prepare:libs, clearer errors for missing libs and image-only scans.
+
+### Jun 23, 2026 - Merchant Etsy Options preset row alignment
 **Result:** Preset popover shows provider rows but columns misalign on Etsy Options UI; fix flex/grid in dock-styles + listing-dock markup.
 
 ### Jun 21, 2026 - AI Refactor Haiku primary / GPT-4o fallback

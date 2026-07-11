@@ -20,6 +20,7 @@ export function registerClipsShellEvents(app) {
     const manualInputClearBtn = document.getElementById('manualInputClearBtn');
     const manualInputSaveSpinner = document.getElementById('manualInputSaveSpinner');
     const manualInputSaveIcon = document.getElementById('manualInputSaveIcon');
+    const manualInputSaveLabel = document.getElementById('manualInputSaveLabel');
 
     const setManualInputSavingState = (isSaving) => {
       if (manualInputSaveBtn) {
@@ -29,6 +30,7 @@ export function registerClipsShellEvents(app) {
       }
       if (manualInputSaveSpinner) manualInputSaveSpinner.style.display = isSaving ? 'inline-block' : 'none';
       if (manualInputSaveIcon) manualInputSaveIcon.style.display = isSaving ? 'none' : '';
+      if (manualInputSaveLabel) manualInputSaveLabel.style.display = isSaving ? 'none' : '';
     };
 
     const manualInputMarkup = document.getElementById('manualInputMarkup');
