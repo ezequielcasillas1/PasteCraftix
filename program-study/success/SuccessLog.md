@@ -1,4 +1,9 @@
 
+### Jul 11, 2026 - Help/info premium blue polish
+**Status:** SUCCESS
+**Files:** theme-blue-phase2.css, settings.render.js
+**Result:** Settings help icon visible; Help & Clip Joiner/Settings example modals use navy glass instead of white cards. User verified.
+
 ### Jul 11, 2026 - Categories blue loader cascade (follow-up)
 **Status:** SUCCESS
 **Files:** theme-blue-phase2.css, popup.html, tab-loading.js, files.render.js

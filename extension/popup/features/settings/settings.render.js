@@ -45,6 +45,8 @@ export async function showSettingsModal(app) {
   _applyRestoreUI(app);
 
   document.getElementById('settingsModal').style.display = 'flex';
+  window.renderLucideIconsSync?.(document.getElementById('settingsModal'))
+    || window.renderLucideIcons?.(document.getElementById('settingsModal'));
 
   // Background refresh: update UI with fresh values without blocking modal open
   Promise.all([
@@ -101,7 +103,10 @@ export function hideSettingsModal() {
 
 export function showHelpModal() {
   const modal = document.getElementById('helpModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    window.renderLucideIconsSync?.(modal) || window.renderLucideIcons?.(modal);
+  }
 }
 
 export function hideHelpModal() {
