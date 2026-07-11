@@ -120,6 +120,8 @@ const TAB_REGISTRY = Object.freeze({
   liked: {
     render: renderLiked,
     hydrate: hydrateLiked,
+    // Re-read liked ids every visit so a heart click is never stuck behind readyOnce.
+    canRevalidate: true,
   },
   ai: { render: renderAi },
   notes: {
@@ -200,6 +202,10 @@ function paintTabActivation(app, lifecycle, tab) {
 export function activatePopupTab(app, tab, options = {}) {
   const lifecycle = getLifecycle(app);
   const activationId = ++lifecycle.activationId;
+  const definition = TAB_REGISTRY[tab];
+  // Tabs with canRevalidate (Liked, Activity, AI History) refresh on every visit.
+  const revalidate = options.revalidate === true
+    || (!!definition?.canRevalidate && options.revalidate !== false);
 
   markTabCachedActivationStart();
   window.__pcTabIconRendering = true;
@@ -209,7 +215,7 @@ export function activatePopupTab(app, tab, options = {}) {
   paintTabActivation(app, lifecycle, tab);
   markTabCachedActivationEnd();
 
-  const hydration = hydrateTab(app, lifecycle, tab, options);
+  const hydration = hydrateTab(app, lifecycle, tab, { ...options, revalidate });
   hydration
     .then(() => {
       if (isCurrentActivation(app, lifecycle, tab, activationId)) renderTab(app, tab);

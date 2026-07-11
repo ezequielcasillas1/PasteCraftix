@@ -4,7 +4,11 @@
  */
 import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 import { injectQuickViewStyles } from './widget.styles.js';
-import { getLikedClipIds, toggleClipLiked } from './widget.liked-clips.js';
+import {
+  getLikedClipIds,
+  normalizeLikedClipId,
+  toggleClipLiked,
+} from './widget.liked-clips.js';
 
 const DEBUG_QV = 'qv-sync-0711';
 const HEART_SVG =
@@ -264,7 +268,7 @@ function renderQuickViewList(widget) {
   if (!container) return;
 
   const visible = state.likedFilterOn
-    ? state.allClips.filter((c) => state.likedIdSet.has(String(c.id || '')))
+    ? state.allClips.filter((c) => state.likedIdSet.has(normalizeLikedClipId(c.id)))
     : state.allClips;
 
   if (counter) {
@@ -303,7 +307,7 @@ function createQuickViewClipRow(clip, index, likedIdSet) {
   const text = clip.text || '';
   const displayText = text.length > 60 ? `${text.substring(0, 60)}...` : text;
   const category = clip.category || 'Uncategorized';
-  const clipId = clip.id != null ? String(clip.id) : String(index);
+  const clipId = normalizeLikedClipId(clip.id) || String(index);
   const isArchived = !!(clip.archived === true || clip.source === 'archived');
   const isLiked = likedIdSet.has(clipId);
 
@@ -398,7 +402,18 @@ function onQuickViewDelegatedClick(widget, e) {
 
   if (action === 'toggle-like') {
     toggleClipLiked(clipId).then((result) => {
-      state.likedIdSet = new Set(result.ids);
+      state.likedIdSet = new Set(
+        (result.ids || []).map((id) => normalizeLikedClipId(id)).filter(Boolean)
+      );
+      // #region agent log
+      console.warn('[PasteCraft:debug:liked0711]', {
+        runId: 'post-fix',
+        hypothesisId: 'H3',
+        location: 'widget.quickview.js:toggle-like',
+        message: 'qv heart toggled',
+        data: { clipId, liked: !!result.liked, idCount: state.likedIdSet.size },
+      });
+      // #endregion
       renderQuickViewList(widget);
     });
     return;
