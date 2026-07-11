@@ -1,12 +1,15 @@
 /**
  * Liked / loved clips — shared chrome.storage CRUD.
  * ID-based only (never list index). Idempotent toggle.
+ * Uses getClipIdKey so float Date.now()+Math.random ids match Clips hearts.
  */
+
+import { getClipIdKey } from './clip-id.js';
 
 export const LIKED_CLIPS_STORAGE_KEY = 'likedClipIds';
 
 export function normalizeLikedClipId(clipId) {
-  return clipId != null && clipId !== '' ? String(clipId) : '';
+  return getClipIdKey(clipId);
 }
 
 function toIdList(raw) {
