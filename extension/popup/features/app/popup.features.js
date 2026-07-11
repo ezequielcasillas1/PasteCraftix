@@ -2,6 +2,7 @@
 
 const FEATURE_LOADERS = [
   ['clipsFeature', '../clips/clips.controller.js', 'initClipsFeature'],
+  ['likedFeature', '../liked/liked.controller.js', 'initLikedFeature'],
   ['categoriesFeature', '../categories/categories.controller.js', 'initCategoriesFeature'],
   ['filesFeature', '../files/files.controller.js', 'initFilesFeature'],
   ['notesFeature', '../notes/notes.controller.js', 'initNotesFeature'],

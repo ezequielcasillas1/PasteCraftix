@@ -4,6 +4,7 @@ export const CLIPS_STORAGE_KEYS = Object.freeze({
   UPDATED_AT: 'pc_local_updatedAt',
   DELETED_ACTIVE: 'pc_deleted_clips',
   DELETED_ARCHIVED: 'pc_deleted_archived_clips',
+  LIKED: 'likedClipIds',
 });
 
 export const CLIPS_SYNC_QUEUE_KEYS = Object.freeze({

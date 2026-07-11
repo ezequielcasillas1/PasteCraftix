@@ -2055,7 +2055,7 @@
             display: grid;
             grid-template-columns: repeat(12, 1fr);
             grid-template-rows: auto auto auto;
-            /* Row 1: 4 tabs × span 3; Row 2: Notes + Widgets + AI History × span 4; Row 3: Activity */
+            /* Row 1: 4 tabs × span 3; Row 2: Liked + Notes + Widgets + AI History × span 3; Row 3: Activity */
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -2191,17 +2191,18 @@
             height: 18px;
         }
         
+        .tab-btn-liked,
         .tab-btn-notes,
         .tab-btn-widgets,
         .tab-btn-ai-history {
-            grid-column: span 4;
+            grid-column: span 3;
         }
         
         .tab-btn-activity {
             grid-column: span 12;
         }
 
-        .tab-nav > .tab-btn:not(.tab-btn-notes):not(.tab-btn-widgets):not(.tab-btn-ai-history):not(.tab-btn-activity) {
+        .tab-nav > .tab-btn:not(.tab-btn-liked):not(.tab-btn-notes):not(.tab-btn-widgets):not(.tab-btn-ai-history):not(.tab-btn-activity) {
             grid-column: span 3;
         }
         
@@ -2362,6 +2363,154 @@
             color: var(--pc-text-muted);
         }
         
+        /* Liked Tab Styles */
+        .liked-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .liked-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--pc-primary-800, #0f172a);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .liked-subtitle {
+            margin: 4px 0 0;
+            font-size: 12px;
+            color: var(--pc-text-muted, #64748b);
+        }
+
+        .liked-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .liked-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.12);
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+
+        .liked-clips-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .liked-clip-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1.5px solid var(--pc-border, #e2e8f0);
+            border-radius: 14px;
+            background: var(--pc-surface, #fff);
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .liked-clip-row:hover {
+            border-color: rgba(239, 68, 68, 0.35);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.08);
+        }
+
+        .liked-unlike-btn {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #ef4444;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .liked-unlike-btn.liked svg {
+            fill: currentColor;
+        }
+
+        .liked-unlike-btn > svg,
+        .liked-unlike-btn > svg * {
+            pointer-events: none;
+        }
+
+        .liked-clip-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .liked-clip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--pc-text, #0f172a);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .liked-clip-preview {
+            font-size: 12px;
+            color: var(--pc-text-muted, #64748b);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+
+        .liked-clip-time {
+            flex-shrink: 0;
+            font-size: 11px;
+            color: var(--pc-text-muted, #94a3b8);
+        }
+
+        .liked-clip-actions {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .liked-clip-actions > button {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .liked-clip-actions > button:hover {
+            background: rgba(59, 130, 246, 0.12);
+            color: #2563eb;
+        }
+
+        .liked-clip-actions > button > svg,
+        .liked-clip-actions > button > svg * {
+            pointer-events: none;
+        }
+
         /* Notes Tab Styles */
         .notes-header {
             display: flex;
@@ -10493,6 +10642,9 @@
             <button class="tab-btn" data-tab="ai" title="AI tools: breakdown text and generate summaries">
                 <span class="tab-icon"><i data-lucide="bot"></i></span> AI Lab
             </button>
+            <button class="tab-btn tab-btn-liked" data-tab="liked" title="View your liked and loved clips">
+                <span class="tab-icon"><i data-lucide="heart"></i></span> Liked
+            </button>
             <button class="tab-btn tab-btn-notes" data-tab="notes" title="Create notes and albums to bundle clips, images, and URLs">
                 <span class="tab-icon"><i data-lucide="notebook"></i></span> Notes
             </button>
@@ -10558,6 +10710,32 @@
                     </button>
                 </div>
                 <div id="paginationControls"></div>
+            </div>
+        </section>
+
+        <!-- Liked Tab -->
+        <section class="tab-content" id="likedTab">
+            <div class="liked-header">
+                <div class="liked-header-text">
+                    <h3 class="liked-title"><i data-lucide="heart"></i> Liked</h3>
+                    <p class="liked-subtitle">Your favorite clips in one place.</p>
+                </div>
+                <div class="liked-header-actions">
+                    <span class="liked-count" id="likedClipsCount">0 liked</span>
+                    <button type="button" class="btn-secondary" id="likedCopyAllBtn" title="Copy all liked clips" disabled>
+                        <i data-lucide="clipboard"></i> Copy all
+                    </button>
+                    <button type="button" class="btn-secondary" id="likedClearAllBtn" title="Clear all liked" disabled>
+                        <i data-lucide="heart-off"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="liked-clips-container" id="likedClipsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i data-lucide="heart"></i></div>
+                    <h3>No liked clips yet</h3>
+                    <p>Tap the heart on any clip to save it here</p>
+                </div>
             </div>
         </section>
 

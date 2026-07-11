@@ -64,6 +64,35 @@
   box-shadow: var(--pc-shadow-brand) !important;
 }
 
+[data-theme="blue"] .liked-title {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .liked-subtitle,
+[data-theme="blue"] .liked-clip-preview,
+[data-theme="blue"] .liked-clip-time {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .liked-clip-row {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .liked-clip-title {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .liked-clip-actions > button {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .liked-clip-actions > button:hover {
+  color: var(--pc-secondary-50);
+  background: rgba(59, 130, 246, 0.2);
+}
+
 /* ── 2A: Clip cards (chips) ─────────────────────────────────────────── */
 
 [data-theme="blue"] .chip-area {
@@ -98,6 +127,25 @@
   color: #fff;
   border-color: var(--pc-secondary-400);
   box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] .chip-like-btn {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .chip-like-btn:hover,
+[data-theme="blue"] .chip-like-btn:focus-visible,
+[data-theme="blue"] .chip-like-btn.liked {
+  color: #f87171;
+}
+
+[data-theme="blue"] .chip.selected .chip-like-btn {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="blue"] .chip.selected .chip-like-btn.liked,
+[data-theme="blue"] .chip.selected .chip-like-btn:hover {
+  color: #fecaca;
 }
 
 /* Title/handle: pale soft-sky (not harsh #fff / --pc-text) */

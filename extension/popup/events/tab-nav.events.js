@@ -40,6 +40,10 @@ export function registerTabNavEvents(app) {
             app.updateSearchBulkActions();
           } else if (app.currentTab === 'ai') {
             app.updateAiCreditsPills('ai-tab');
+          } else if (app.currentTab === 'liked') {
+            await app.loadData();
+            await app.likedFeature?.render?.hydrateLikedTab?.(app);
+            app.likedFeature?.render?.renderLikedPage?.(app);
           } else if (app.currentTab === 'notes') {
             await app.loadNotes();
             app.renderNotes();
