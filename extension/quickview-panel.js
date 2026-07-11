@@ -78,18 +78,57 @@ async function toggleLiked(clipId) {
   render();
 }
 
+async function loadClipsFromLocalStorage() {
+  try {
+    const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+    const active = Array.isArray(result?.clips) ? result.clips : [];
+    const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+    return slimQuickViewClips([
+      ...active.map((clip) => ({ ...clip, source: clip?.source || 'active' })),
+      ...archived.map((clip) => ({ ...clip, archived: true, source: 'archived' })),
+    ]);
+  } catch (_) {
+    return [];
+  }
+}
+
 async function loadClips() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
-    const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let response = null;
+    try {
+      response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
+    } catch (err) {
+      response = { success: false, error: String(err?.message || err), clips: [] };
+    }
+
+    let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let source = 'background';
+    if (!response?.success || clips.length === 0) {
+      const localClips = await loadClipsFromLocalStorage();
+      if (localClips.length > 0) {
+        clips = localClips;
+        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
+      }
+    }
+
     allClips = slimQuickViewClips(clips);
     likedIdSet = new Set(await getLikedIds());
-    qvDebug('H5', 'panel self-load', { ok: !!response?.success, count: allClips.length });
+    qvDebug('H5', 'panel self-load', {
+      ok: !!response?.success || allClips.length > 0,
+      count: allClips.length,
+      source,
+      error: response?.error ? String(response.error).slice(0, 120) : '',
+    });
     render();
     postToParent({ type: 'quickview-clips-ack', count: allClips.length, totalCount: allClips.length });
   } catch (err) {
     qvDebug('H5', 'panel self-load failed', { error: String(err?.message || err) });
-    allClips = [];
+    try {
+      allClips = await loadClipsFromLocalStorage();
+      likedIdSet = new Set(await getLikedIds());
+    } catch (_) {
+      allClips = [];
+    }
     render();
   }
 }
