@@ -2321,3 +2321,415 @@
   outline: 2px solid var(--pc-secondary-300);
   outline-offset: 2px;
 }
+
+/* ── 3I: Custom Search + AI Breakdown ─────────────────────────────────── */
+
+/* Custom Search module — white shell → navy glass */
+[data-theme="blue"] .custom-search-module {
+  background:
+    linear-gradient(180deg, var(--pc-primary-800) 0%, var(--pc-surface) 42%);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .custom-search-module-header {
+  background: var(--pc-glass-strong);
+  border-bottom-color: var(--pc-border);
+  box-shadow: inset 0 -1px 0 rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="blue"] .custom-search-module-header h2,
+[data-theme="blue"] .custom-search-module-header h2 svg,
+[data-theme="blue"] .custom-search-module-header h2 [data-lucide] {
+  color: var(--pc-secondary-50);
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #customSearchModule .back-btn {
+  width: auto;
+  min-width: 36px;
+  height: 36px;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--pc-secondary-100);
+  box-shadow: none;
+}
+
+[data-theme="blue"] #customSearchModule .back-btn:hover {
+  background: rgba(59, 130, 246, 0.28);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+  transform: translateY(-1px);
+}
+
+[data-theme="blue"] .custom-search-module-body {
+  background: transparent;
+}
+
+[data-theme="blue"] .custom-search-field label {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .custom-search-clip-panel {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+  scrollbar-color: var(--pc-secondary-500) var(--pc-surface);
+}
+
+[data-theme="blue"] .custom-search-clip-panel::-webkit-scrollbar-track {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] .custom-search-clip-panel::-webkit-scrollbar-thumb {
+  background: var(--pc-secondary-500);
+}
+
+[data-theme="blue"] .custom-search-field-hint {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .custom-search-field input,
+[data-theme="blue"] .custom-search-field input[type="search"],
+[data-theme="blue"] #customSearchHighlightInput,
+[data-theme="blue"] #customSearchQuestionInput {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .custom-search-field input[readonly],
+[data-theme="blue"] #customSearchHighlightInput[readonly] {
+  background: rgba(30, 58, 138, 0.22);
+  color: var(--pc-secondary-100);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="blue"] .custom-search-field input:focus,
+[data-theme="blue"] .custom-search-field input[type="search"]:focus,
+[data-theme="blue"] #customSearchQuestionInput:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] .custom-search-field input::placeholder,
+[data-theme="blue"] #customSearchQuestionInput::placeholder {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] #customSearchModule .btn-primary:disabled,
+[data-theme="blue"] #customSearchSubmitBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+[data-theme="blue"] #customSearchModule :focus-visible {
+  outline: 2px solid var(--pc-secondary-300);
+  outline-offset: 2px;
+}
+
+/* AI Breakdown — restore tab layout (styles.css is unlinked) + blue colors */
+[data-theme="blue"] #breakdownModal .breakdown-modal-content {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.22), transparent 36%),
+    linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-surface) 100%);
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-header-subtitle {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-text {
+  background: rgba(30, 58, 138, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.08);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--pc-secondary-100);
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-title,
+[data-theme="blue"] #breakdownModal .breakdown-original-title svg,
+[data-theme="blue"] #breakdownModal .breakdown-original-title [data-lucide] {
+  color: var(--pc-secondary-50);
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-meta,
+[data-theme="blue"] #breakdownModal .breakdown-original-chevron,
+[data-theme="blue"] #breakdownModal .text-length {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-text-content {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+  scrollbar-color: var(--pc-secondary-500) var(--pc-surface);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-text-content::-webkit-scrollbar-track {
+  background: var(--pc-surface);
+  border-color: var(--pc-surface);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-original-text-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--pc-secondary-500) 0%, var(--pc-secondary-400) 100%);
+  border-color: var(--pc-surface);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-level-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+
+[data-theme="blue"] #breakdownModal .level-info-icon,
+[data-theme="blue"] #breakdownModal .level-info-icon svg,
+[data-theme="blue"] #breakdownModal .level-info-icon [data-lucide] {
+  color: var(--pc-secondary-300);
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+[data-theme="blue"] #breakdownModal .level-info-text {
+  color: var(--pc-secondary-100);
+  margin: 0;
+}
+
+[data-theme="blue"] #breakdownModal .level-info-text strong {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tabs-container {
+  margin-bottom: 12px;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tab {
+  flex: 1;
+  min-width: 105px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--pc-surface-2);
+  border: 1px solid var(--pc-border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pc-text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tab .tab-emoji {
+  font-size: 20px;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tab .tab-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: inherit;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tab:hover {
+  border-color: var(--pc-secondary-400);
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-100);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.18);
+  transform: translateY(-1px);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-tab.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 4px 14px var(--pc-glow);
+  transform: translateY(-1px);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-italics-btn {
+  flex: 1;
+  min-width: 105px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--pc-surface-2);
+  border: 1px solid var(--pc-border);
+  border-radius: 10px;
+  color: var(--pc-secondary-200);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-italics-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+  transform: translateY(-1px);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-italics-btn.active {
+  background: var(--pc-gradient-brand-soft);
+  border-color: var(--pc-secondary-400);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-content {
+  min-height: 200px;
+  background: var(--pc-glass-strong);
+  border: 1px solid var(--pc-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-loading {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-loading .loading-spinner {
+  border-color: rgba(59, 130, 246, 0.25);
+  border-top-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result h1,
+[data-theme="blue"] #breakdownModal .breakdown-result h2,
+[data-theme="blue"] #breakdownModal .breakdown-result h3,
+[data-theme="blue"] #breakdownModal .breakdown-result h4,
+[data-theme="blue"] #breakdownModal .breakdown-result h5,
+[data-theme="blue"] #breakdownModal .breakdown-result h6,
+[data-theme="blue"] #breakdownModal .breakdown-result strong {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result em {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result code {
+  background: rgba(30, 58, 138, 0.35);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result blockquote {
+  background: rgba(59, 130, 246, 0.12);
+  border-left-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result th {
+  background: rgba(30, 58, 138, 0.35);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result td {
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result tr:nth-child(even) td {
+  background: rgba(30, 58, 138, 0.14);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result hr {
+  border-top-color: var(--pc-border);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result a {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] #breakdownModal .breakdown-result .pc-mermaid-rendered {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] #breakdownModal .ai-followup-container {
+  background: rgba(30, 58, 138, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+[data-theme="blue"] #breakdownModal .followup-label,
+[data-theme="blue"] #breakdownModal .followup-level-label {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] #breakdownModal .followup-input {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] #breakdownModal .followup-input:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] #breakdownModal .followup-input::placeholder {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] #breakdownModal .followup-send-btn {
+  background: var(--pc-gradient-brand-soft);
+  border: 1px solid var(--pc-secondary-400);
+  color: #fff;
+}
+
+[data-theme="blue"] #breakdownModal .followup-send-btn:hover {
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #breakdownModal :focus-visible {
+  outline: 2px solid var(--pc-secondary-300);
+  outline-offset: 2px;
+}
