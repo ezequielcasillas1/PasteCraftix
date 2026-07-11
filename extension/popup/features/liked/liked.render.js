@@ -3,8 +3,9 @@ import {
   getLikedClipIds,
   setClipLiked,
 } from '../../../shared/liked-clips.js';
+import { showTabLoadingState } from '../../shared/tab-loading.js';
 import { getClipIdKey, getClipTitle, getClipFallbackTitle } from '../clips/clips.state.js';
-import { LIKED_SELECTORS } from './liked.constants.js';
+import { LIKED_SELECTORS, LIKED_TAB } from './liked.constants.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -49,14 +50,24 @@ function paintIcons(root) {
 }
 
 export async function hydrateLikedTab(app) {
-  const ids = await getLikedClipIds();
-  app.likedClipIds = new Set(ids);
-  return ids;
+  try {
+    const ids = await getLikedClipIds();
+    app.likedClipIds = new Set(ids);
+    return ids;
+  } catch (error) {
+    if (!(app.likedClipIds instanceof Set)) app.likedClipIds = new Set();
+    throw error;
+  }
 }
 
 export function renderLikedPage(app) {
   const { container, countEl, copyAllBtn, clearAllBtn } = getLikedElements();
   if (!container) return;
+
+  if (!(app.likedClipIds instanceof Set)) {
+    showTabLoadingState(LIKED_TAB);
+    return;
+  }
 
   const likedClips = getLikedClipsForApp(app);
   if (countEl) {

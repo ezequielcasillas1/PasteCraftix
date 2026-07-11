@@ -1054,6 +1054,89 @@
             margin: 10px;
             border: 2px dashed #cbd5e1;
         }
+
+        .tab-loading-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: #6b7280;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 12px;
+            margin: 10px;
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tab-loading-state--compact {
+            padding: 14px 18px;
+            margin: 0;
+            min-height: 64px;
+            width: 100%;
+            box-sizing: border-box;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px 12px;
+        }
+
+        .tab-loading-state--compact .tab-loading-icon svg.lucide,
+        .tab-loading-state--compact .tab-loading-icon [data-lucide] {
+            width: 22px;
+            height: 22px;
+        }
+
+        .tab-loading-state--compact .tab-loading-spinner {
+            width: 16px;
+            height: 16px;
+        }
+
+        .tab-loading-state--compact h3 {
+            font-size: 13px;
+            margin: 0;
+            width: 100%;
+        }
+
+        .tab-loading-state--compact p {
+            font-size: 11px;
+            width: 100%;
+        }
+
+        .tab-loading-icon {
+            font-size: 40px;
+            opacity: 0.85;
+            line-height: 1;
+        }
+
+        .tab-loading-icon svg.lucide,
+        .tab-loading-icon [data-lucide] {
+            width: 40px;
+            height: 40px;
+            stroke: #64748b;
+        }
+
+        .tab-loading-spinner {
+            width: 22px;
+            height: 22px;
+            border: 2.5px solid rgba(100, 116, 139, 0.25);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .tab-loading-state h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 4px 0 0;
+            color: #1f2937;
+        }
+
+        .tab-loading-state p {
+            margin: 0;
+            font-size: 13px;
+            color: #64748b;
+        }
         
         .empty-state-icon {
             font-size: 64px;
@@ -10509,7 +10592,6 @@
     <!-- Component base CSS loads before Blue Dark Mode decorators. -->
     <link rel="stylesheet" href="styles/clip-title.css">
     <link rel="stylesheet" href="styles/clip-viewer.css">
-    <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -10747,10 +10829,11 @@
                 </div>
             </div>
             <div class="liked-clips-container" id="likedClipsContainer">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i data-lucide="heart"></i></div>
-                    <h3>No liked clips yet</h3>
-                    <p>Tap the heart on any clip to save it here</p>
+                <div class="tab-loading-state" role="status" aria-busy="true">
+                    <div class="tab-loading-icon"><i data-lucide="heart"></i></div>
+                    <div class="tab-loading-spinner" aria-hidden="true"></div>
+                    <h3>Loading liked</h3>
+                    <p>Fetching your favorite clips…</p>
                 </div>
             </div>
         </section>
@@ -10798,15 +10881,11 @@
             </div>
             
             <div class="notes-container" id="notesContainer">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i data-lucide="notebook-pen"></i></div>
-                    <h3>No notes yet</h3>
-                    <p>Create a note or album to bundle your clips, images, and URLs</p>
-                    <div class="demo-hint">
-                        <span class="demo-step">📝 Take notes</span>
-                        <span class="demo-step">📚 Create albums</span>
-                        <span class="demo-step">📤 Export to PDF</span>
-                    </div>
+                <div class="tab-loading-state" role="status" aria-busy="true">
+                    <div class="tab-loading-icon"><i data-lucide="notebook-pen"></i></div>
+                    <div class="tab-loading-spinner" aria-hidden="true"></div>
+                    <h3>Loading notes</h3>
+                    <p>Reading your notes and albums…</p>
                 </div>
             </div>
 
@@ -10877,15 +10956,11 @@
             </div>
 
             <div class="pc-widgets-gallery" id="widgetsGallery">
-                <div class="empty-state" id="widgetsEmptyState">
-                    <div class="empty-state-icon"><i data-lucide="layout-dashboard"></i></div>
-                    <h3>No widgets yet</h3>
-                    <p>Copy an embed from Live Coin Watch, CoinGecko, Indify, or any widget site — then paste it here.</p>
-                    <div class="demo-hint">
-                        <span class="demo-step">1 Copy embed</span>
-                        <span class="demo-step">2 Paste &amp; preview</span>
-                        <span class="demo-step">3 Save to gallery</span>
-                    </div>
+                <div class="tab-loading-state" role="status" aria-busy="true">
+                    <div class="tab-loading-icon"><i data-lucide="layout-dashboard"></i></div>
+                    <div class="tab-loading-spinner" aria-hidden="true"></div>
+                    <h3>Loading widgets</h3>
+                    <p>Opening your widget gallery…</p>
                 </div>
             </div>
         </section>
@@ -10912,10 +10987,11 @@
             </div>
 
             <div class="ai-history-list" id="aiHistoryList">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
-                    <h3>No history yet</h3>
-                    <p>Your AI Summary and Breakdown conversations will appear here</p>
+                <div class="tab-loading-state" role="status" aria-busy="true">
+                    <div class="tab-loading-icon"><i data-lucide="scroll-text"></i></div>
+                    <div class="tab-loading-spinner" aria-hidden="true"></div>
+                    <h3>Loading history</h3>
+                    <p>Fetching AI conversations…</p>
                 </div>
             </div>
             <div class="notes-pagination ai-history-pagination" id="aiHistoryListPagination" style="display: none;"></div>
@@ -10946,10 +11022,11 @@
             </div>
 
             <div class="activity-list" id="activityList">
-                <div class="empty-state">
-                    <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
-                    <h3>No activity yet</h3>
-                    <p>Your clips, categories, and notes activity will appear here</p>
+                <div class="tab-loading-state" role="status" aria-busy="true">
+                    <div class="tab-loading-icon"><i data-lucide="bar-chart-3"></i></div>
+                    <div class="tab-loading-spinner" aria-hidden="true"></div>
+                    <h3>Loading activity</h3>
+                    <p>Fetching cloud activity…</p>
                 </div>
             </div>
 
@@ -13702,6 +13779,8 @@ alice@email.com</div>
     <!-- Markup Rendering Libraries -->
     <link rel="stylesheet" href="lib/highlight-github.min.css">
     <link rel="stylesheet" href="lib/katex.min.css">
+    <!-- Blue theme decorators load last so [data-theme="blue"] wins over popup inline light fallbacks -->
+    <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>
     <script src="lib/marked.min.js"></script>

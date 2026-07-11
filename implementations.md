@@ -1,3 +1,17 @@
+
+### Jul 11, 2026 - Categories blue loader cascade (follow-up)
+**Status:** SUCCESS
+**Files:** theme-blue-phase2.css, popup.html, tab-loading.js, files.render.js
+**Result:** Categories tab blue premium loader cascade; files.render hooks tab-loading. User verified.### Jul 11, 2026 - Popup tab loading screens
+**Status:** SUCCESS
+**Files:** tab-loading.js, popup.tab-lifecycle.js, liked.render.js, popup.html, theme-blue-phase2.css
+**Result:** First-visit loading states for hydrate tabs; Categories track preserved; blue premium compact files loader.
+
+### Jul 10, 2026 - Popup startup and tab performance pass
+**Status:** SUCCESS
+**Files:** popup.tab-lifecycle.js, popup.init.js, clips.render.js, sync.loader.js, resource-loader.js, popup-icons.js, package.json, tests/popup-*-performance.test.mjs
+**Result:** Tab lifecycle coordinator, split critical/deferred startup, hydration states, lazy heavy libs, performance instrumentation. Merged PR #129.
+
 ### Jul 10, 2026 - Premium Blue 3I (Custom Search + AI Breakdown)
 **Status:** PENDING USER VERIFY
 **Files:** theme-blue-phase2.css

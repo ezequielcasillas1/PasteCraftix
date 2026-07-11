@@ -5,6 +5,9 @@ export function renderFiles(app, searchQuery = '') {
   const backToListBtn = document.getElementById(FILES_ELEMENT_IDS.BACK_TO_LIST_BTN);
   if (!track) return;
 
+  track.classList.remove('files-carousel-track--tab-loading');
+  track.removeAttribute('aria-busy');
+
   // Show/hide back button based on selection
   if (backToListBtn) {
     backToListBtn.style.display = app.selectedFileId ? 'flex' : 'none';

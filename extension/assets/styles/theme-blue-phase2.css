@@ -107,6 +107,67 @@
     inset 0 1px 0 rgba(147, 197, 253, 0.16);
 }
 
+[data-theme="blue"] #likedTab .tab-loading-state,
+[data-theme="blue"] #notesTab .tab-loading-state,
+[data-theme="blue"] #widgetsTab .tab-loading-state,
+[data-theme="blue"] #aiHistoryTab .tab-loading-state,
+[data-theme="blue"] #activityTab .tab-loading-state,
+[data-theme="blue"] #categoriesTab .tab-loading-state {
+  background:
+    radial-gradient(ellipse 140% 90% at 50% -25%, rgba(59, 130, 246, 0.28), transparent 60%),
+    linear-gradient(160deg, rgba(37, 99, 235, 0.42) 0%, rgba(11, 18, 32, 0.96) 55%, rgba(5, 8, 15, 0.98) 100%);
+  border: 1.5px solid rgba(96, 165, 250, 0.5);
+  border-radius: var(--pc-radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.28),
+    0 12px 36px rgba(29, 78, 216, 0.45),
+    inset 0 1px 0 rgba(147, 197, 253, 0.2);
+}
+
+[data-theme="blue"] #categoriesTab .tab-loading-state.tab-loading-state--compact,
+[data-theme="blue"] #categoriesTab .tab-loading-state--categories {
+  color: var(--pc-secondary-100);
+  background:
+    radial-gradient(ellipse 120% 100% at 20% 0%, rgba(96, 165, 250, 0.35), transparent 55%),
+    linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-style: solid;
+  border-width: 1.5px;
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow:
+    0 0 20px rgba(37, 99, 235, 0.35),
+    inset 0 1px 0 rgba(191, 219, 254, 0.18);
+}
+
+[data-theme="blue"] .tab-loading-icon {
+  color: var(--pc-secondary-200);
+  filter: drop-shadow(0 0 14px rgba(59, 130, 246, 0.45));
+}
+
+[data-theme="blue"] .tab-loading-icon svg.lucide,
+[data-theme="blue"] .tab-loading-icon [data-lucide] {
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #likedTab .tab-loading-icon {
+  color: #fb7185;
+  filter: drop-shadow(0 0 16px rgba(244, 63, 94, 0.55));
+}
+
+[data-theme="blue"] .tab-loading-spinner {
+  border-color: rgba(147, 197, 253, 0.25);
+  border-top-color: #60a5fa;
+}
+
+[data-theme="blue"] .tab-loading-state h3 {
+  background: linear-gradient(135deg, #93c5fd 0%, var(--pc-secondary-200) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="blue"] .tab-loading-state p {
+  color: var(--pc-secondary-100);
+}
+
 [data-theme="blue"] #likedTab .empty-state-icon {
   color: #fb7185;
   filter: drop-shadow(0 0 16px rgba(244, 63, 94, 0.55));
@@ -689,6 +750,71 @@
   background:
     radial-gradient(ellipse 120% 60% at 50% -10%, rgba(37, 99, 235, 0.14), transparent 55%),
     var(--pc-bg);
+}
+
+/* Files carousel loading — high-specificity so popup.html light dashed fallback never wins */
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories,
+html[data-theme="blue"] #categoriesTab .tab-loading-state.tab-loading-state--compact,
+body[data-theme="blue"] #categoriesTab .tab-loading-state.tab-loading-state--compact {
+  color: var(--pc-secondary-100);
+  background:
+    radial-gradient(ellipse 120% 100% at 20% 0%, rgba(96, 165, 250, 0.35), transparent 55%),
+    linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-style: solid;
+  border-width: 1.5px;
+  border-color: rgba(96, 165, 250, 0.55);
+  border-radius: var(--pc-radius-lg);
+  box-shadow:
+    0 0 20px rgba(37, 99, 235, 0.35),
+    inset 0 1px 0 rgba(191, 219, 254, 0.18);
+}
+
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon {
+  color: var(--pc-secondary-200);
+  filter: drop-shadow(0 0 14px rgba(59, 130, 246, 0.45));
+}
+
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon svg.lucide,
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon [data-lucide],
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon svg.lucide,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-icon [data-lucide],
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon svg.lucide,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon [data-lucide],
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon svg.lucide,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-icon [data-lucide] {
+  stroke: currentColor;
+}
+
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-spinner,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state .tab-loading-spinner,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-spinner,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories .tab-loading-spinner {
+  border-color: rgba(147, 197, 253, 0.25);
+  border-top-color: #60a5fa;
+}
+
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state h3,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state h3,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories h3,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories h3 {
+  background: linear-gradient(135deg, #93c5fd 0%, var(--pc-secondary-200) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state p,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state p,
+html[data-theme="blue"] #categoriesTab .tab-loading-state--categories p,
+body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
+  color: var(--pc-secondary-100);
 }
 
 [data-theme="blue"] .categories-list {
@@ -2994,4 +3120,15 @@
   color: var(--pc-text);
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Cascade anchor — categories files loading must stay premium on blue theme */
+html[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state.tab-loading-state--categories,
+body[data-theme="blue"] #categoriesTab #filesCarouselTrack .tab-loading-state.tab-loading-state--categories {
+  background:
+    radial-gradient(ellipse 120% 100% at 20% 0%, rgba(96, 165, 250, 0.35), transparent 55%),
+    linear-gradient(135deg, rgba(30, 64, 175, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+  border: 1.5px solid rgba(96, 165, 250, 0.55) !important;
+  border-style: solid !important;
+  color: var(--pc-secondary-100);
 }

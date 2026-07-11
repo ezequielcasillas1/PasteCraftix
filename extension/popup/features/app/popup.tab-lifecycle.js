@@ -1,5 +1,6 @@
 /** Coordinates cached popup tab painting and first-use hydration. */
 
+import { showTabLoadingState } from '../../shared/tab-loading.js';
 import {
   markTabCachedActivationEnd,
   markTabCachedActivationStart,
@@ -21,9 +22,16 @@ function getLifecycle(app) {
 
 function getTabState(lifecycle, tab) {
   if (!lifecycle.tabs.has(tab)) {
-    lifecycle.tabs.set(tab, { status: 'idle', promise: null });
+    lifecycle.tabs.set(tab, { status: 'idle', promise: null, readyOnce: false });
   }
   return lifecycle.tabs.get(tab);
+}
+
+/** First visit / never succeeded — avoid empty-state flash before hydrate. */
+function shouldShowTabLoading(state, definition) {
+  if (!definition?.hydrate) return false;
+  if (state.readyOnce || state.status === 'hydrated') return false;
+  return true;
 }
 
 function activateTabDom(app, tab) {
@@ -105,6 +113,8 @@ const TAB_REGISTRY = Object.freeze({
   categories: {
     render: renderCategories,
     hydrate: hydrateCategories,
+    // Categories list is already in memory; only files hydrate async.
+    renderWhileHydrating: true,
   },
   search: { render: renderSearch },
   liked: {
@@ -163,6 +173,7 @@ function hydrateTab(app, lifecycle, tab, { revalidate = false } = {}) {
   state.promise = state.promise.then(
     (result) => {
       state.status = 'hydrated';
+      state.readyOnce = true;
       state.promise = null;
       return result;
     },
@@ -175,6 +186,17 @@ function hydrateTab(app, lifecycle, tab, { revalidate = false } = {}) {
   return state.promise;
 }
 
+function paintTabActivation(app, lifecycle, tab) {
+  const definition = TAB_REGISTRY[tab];
+  const state = getTabState(lifecycle, tab);
+  if (shouldShowTabLoading(state, definition)) {
+    showTabLoadingState(tab);
+    if (definition.renderWhileHydrating) renderTab(app, tab);
+    return;
+  }
+  renderTab(app, tab);
+}
+
 export function activatePopupTab(app, tab, options = {}) {
   const lifecycle = getLifecycle(app);
   const activationId = ++lifecycle.activationId;
@@ -184,7 +206,7 @@ export function activatePopupTab(app, tab, options = {}) {
   activateTabDom(app, tab);
   app._saveActiveTabState?.();
   app.updateHeaderClipCount?.();
-  renderTab(app, tab);
+  paintTabActivation(app, lifecycle, tab);
   markTabCachedActivationEnd();
 
   const hydration = hydrateTab(app, lifecycle, tab, options);
@@ -192,7 +214,9 @@ export function activatePopupTab(app, tab, options = {}) {
     .then(() => {
       if (isCurrentActivation(app, lifecycle, tab, activationId)) renderTab(app, tab);
     })
-    .catch(() => {})
+    .catch(() => {
+      if (isCurrentActivation(app, lifecycle, tab, activationId)) renderTab(app, tab);
+    })
     .finally(() => {
       window.__pcTabIconRendering = false;
       renderActiveTabIcons(app, tab, options.source || 'tab-activation');
