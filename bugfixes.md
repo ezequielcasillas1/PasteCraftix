@@ -1,4 +1,8 @@
 
+### Jul 11, 2026 - Quick View empty (CSP / iframe)
+**Status:** SUCCESS
+**Files:** extension/content/widget/widget.quickview.js, widget.styles.js, widget.events.js, extension/shared/quickview-clips.js
+**Result:** DOM-rendered Quick View panel fixes empty sync when host CSP blocked srcdoc and extension iframes.
 ### Jul 10, 2026 - PDF OCR for scanned docs
 **Status:** BOTTLENECK
 **Files:** clips.pdf.js

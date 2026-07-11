@@ -1,6 +1,8 @@
 import { safeRuntimeSendMessage } from '../shared.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
 import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
+import { pushQuickViewClipsToIframe } from './widget.quickview.js';
+import { LIKED_CLIPS_STORAGE_KEY } from './widget.liked-clips.js';
 
 export function setupWidgetStorageSync(widget) {
   if (widget._storageSyncListener) return;
@@ -33,20 +35,11 @@ export function setupWidgetStorageSync(widget) {
       try { widget.applyWidgetIcon(); } catch (_) {}
     }
 
-    if ((changes.clips || changes.searchOnlyClips) && widget.openStates.quickView) {
-      const quickViewIframe = document.querySelector('.pastecraft-quickview-iframe');
-      if (quickViewIframe?.contentWindow) {
-        safeRuntimeSendMessage({ action: 'pcGetQuickViewClips' })
-          .then((response) => {
-            const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-            if (quickViewIframe.contentWindow) {
-              quickViewIframe.contentWindow.postMessage(
-                { type: 'quickview-clips-data', clips },
-                '*'
-              );
-            }
-          })
-          .catch(() => {});
+    if ((changes.clips || changes.searchOnlyClips || changes[LIKED_CLIPS_STORAGE_KEY]) && widget.openStates.quickView) {
+      if (typeof widget._refreshQuickViewClips === 'function') {
+        widget._refreshQuickViewClips();
+      } else if (document.getElementById('pastecraft-quickview-panel')) {
+        pushQuickViewClipsToIframe().catch(() => {});
       }
     }
 

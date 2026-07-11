@@ -298,3 +298,8 @@
 **Status:** SUCCESS
 **Files:** activity.render.js
 **Result:** Escape clip text in activity rows so feed no longer nests/breaks.
+
+### [2026-07-11] - Quick View DOM sync
+**Status:** SUCCESS
+**Files:** widget.quickview.js, widget.styles.js, widget.events.js, quickview-clips.js, background/shared.js, manifest.json
+**Result:** Quick View renders in content-script DOM instead of iframe/srcdoc so clips sync and display under strict host CSP.
