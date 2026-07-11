@@ -556,3 +556,8 @@
 **Status:** SUCCESS
 **Files:** feat/blue-dark-mode @ 492f8a1
 **Result:** Restored Phase 3 checkout; discarded broken main WIP that left Clip Joiner white.
+
+### Jul 11, 2026 - Activity History HTML escape
+**Status:** SUCCESS
+**Files:** activity.render.js
+**Result:** Escape clip text in activity rows so feed no longer nests/breaks.

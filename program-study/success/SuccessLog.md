@@ -288,3 +288,8 @@
 **Status:** SUCCESS
 **Files:** extension/popup/features/widgets/*, popup.html, tab-nav.events.js, theme-blue-phase2.css, tests/widgets-parse.test.mjs
 **Result:** Embed gallery tab between Notes and AI History; iframe in-popup preview; script widgets open live via data URL; gallery Open live + panel blur; debug removed.
+
+### [Jul 11, 2026] - Activity History HTML escape
+**Status:** SUCCESS
+**Files:** activity.render.js
+**Result:** Escape clip text in activity rows so feed no longer nests/breaks.
