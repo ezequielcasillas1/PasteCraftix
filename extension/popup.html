@@ -7257,7 +7257,21 @@
             color: #1e293b;
             padding: 4px;
             transition: font-style 0.3s ease, font-family 0.3s ease;
-            overflow-x: auto;
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .breakdown-result pre,
+        .breakdown-result .pc-plain-text,
+        .summary-result-content pre,
+        .summary-result-content .pc-plain-text {
+            max-width: 100%;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            overflow-x: hidden;
         }
 
         .breakdown-result.italics {
@@ -7335,10 +7349,15 @@
             color: #e2e8f0;
             padding: 14px 16px;
             border-radius: 8px;
-            overflow-x: auto;
+            max-width: 100%;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-word;
             margin: 10px 0;
             font-size: 13px;
             line-height: 1.5;
+            box-sizing: border-box;
         }
 
         .breakdown-result pre code,
@@ -7895,7 +7914,10 @@
             font-size: 14px;
             line-height: 1.7;
             color: #1e293b;
-            overflow-x: auto;
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         .summary-result-actions {
