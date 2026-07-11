@@ -9,37 +9,54 @@ function getUniqueClipCategories(app) {
   return [...new Set(getAllClips(app).map(c => c.category))];
 }
 
+export function indexClipsByCategory(clips) {
+  const clipsByCategory = new Map();
+  (clips || []).forEach((clip) => {
+    const category = clip?.category;
+    if (!clipsByCategory.has(category)) clipsByCategory.set(category, []);
+    clipsByCategory.get(category).push(clip);
+  });
+  return clipsByCategory;
+}
+
+function normalizeCategoryName(name) {
+  return String(name || '').trim();
+}
+
+function addUniqueCategoryName(names, seen, name) {
+  const normalized = normalizeCategoryName(name);
+  if (!normalized) return;
+  const key = normalized.toLowerCase();
+  if (seen.has(key)) return;
+  seen.add(key);
+  names.push(normalized);
+}
+
+function getCategoryRecency(category) {
+  return Number(
+    category?.updatedAt
+    ?? category?.createdAt
+    ?? category?.created
+    ?? category?.id
+    ?? 0
+  );
+}
+
+function getSortedActiveCategories(app) {
+  const categories = Array.isArray(app.categories) ? app.categories : [];
+  return [...categories]
+    .filter((category) => category && !Number.isFinite(category?.deletedAt))
+    .sort((a, b) => getCategoryRecency(b) - getCategoryRecency(a));
+}
+
 /** Names from CRUD `app.categories` (newest first), always includes Uncategorized. */
 function getActiveCategoryNames(app) {
   const names = [];
   const seen = new Set();
-
-  const addName = (name) => {
-    const trimmed = String(name || '').trim();
-    if (!trimmed) return;
-    const key = trimmed.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    names.push(trimmed);
-  };
-
-  addName(CATEGORIES_DEFAULTS.UNCATEGORIZED);
-
-  const categories = Array.isArray(app.categories) ? app.categories : [];
-  const sorted = [...categories]
-    .filter((cat) => cat && !Number.isFinite(cat?.deletedAt))
-    .sort((a, b) => {
-      const aTs = Number(a?.updatedAt ?? a?.createdAt ?? a?.created ?? a?.id ?? 0);
-      const bTs = Number(b?.updatedAt ?? b?.createdAt ?? b?.created ?? b?.id ?? 0);
-      return bTs - aTs;
-    });
-
-  sorted.forEach((cat) => {
-    if (cat.name && cat.name !== CATEGORIES_DEFAULTS.UNCATEGORIZED) {
-      addName(cat.name);
-    }
+  addUniqueCategoryName(names, seen, CATEGORIES_DEFAULTS.UNCATEGORIZED);
+  getSortedActiveCategories(app).forEach((category) => {
+    addUniqueCategoryName(names, seen, category.name);
   });
-
   return names;
 }
 
@@ -53,62 +70,72 @@ function buildSelectOptions(select, categories, defaultFirst = null) {
   });
 }
 
-export function renderCategories(app) {
-  const { categoriesList: container } = getCategoryListElements();
-  if (!container) return;
+function getCategoriesForSelectedFile(app) {
+  const categories = app.categories || [];
+  if (!app.selectedFileId) return categories;
+  const categoryIds = new Set((app.fileCategories || [])
+    .filter((mapping) => mapping.fileId === app.selectedFileId)
+    .map((mapping) => String(mapping.categoryId)));
+  return categories.filter((category) => categoryIds.has(String(category.id)));
+}
 
-  let categoriesToRender = app.categories || [];
-
-  if (app.selectedFileId) {
-    const fileCatIds = new Set((app.fileCategories || [])
-      .filter(fc => fc.fileId === app.selectedFileId)
-      .map(fc => String(fc.categoryId)));
-    categoriesToRender = categoriesToRender.filter(cat => fileCatIds.has(String(cat.id)));
-  }
-
-  if (categoriesToRender.length === 0) {
-    if (app.selectedFileId) {
-      container.innerHTML = `
-        <div class="empty-categories">
-          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
-          <h3>No categories in this file</h3>
-          <p>Click "Manage Categories" on the file to add some</p>
-        </div>
-      `;
-    } else {
-      container.innerHTML = `
-        <div class="empty-categories">
-          <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
-          <h3>No categories yet</h3>
-          <p>Create your first category to organize clips</p>
-        </div>
-      `;
-    }
+function renderEmptyCategories(container, selectedFileId) {
+  if (selectedFileId) {
+    container.innerHTML = `
+      <div class="empty-categories">
+        <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
+        <h3>No categories in this file</h3>
+        <p>Click "Manage Categories" on the file to add some</p>
+      </div>
+    `;
     return;
   }
+  container.innerHTML = `
+    <div class="empty-categories">
+      <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
+      <h3>No categories yet</h3>
+      <p>Create your first category to organize clips</p>
+    </div>
+  `;
+}
 
-  container.innerHTML = '';
-  const categoriesSorted = [...categoriesToRender].sort((a, b) => {
+function sortCategoriesForRender(categories) {
+  return [...categories].sort((a, b) => {
     const aTs = Number(a?.created ?? a?.id ?? 0);
     const bTs = Number(b?.created ?? b?.id ?? 0);
     return bTs - aTs;
   });
-
-  categoriesSorted.forEach(category => {
-    const categoryItem = createCategoryItem(app, category);
-    container.appendChild(categoryItem);
-  });
 }
 
-export function createCategoryItem(app, category) {
+function buildCategoryFragment(app, categories, clipsByCategory) {
+  const fragment = document.createDocumentFragment();
+  sortCategoriesForRender(categories).forEach((category) => {
+    fragment.appendChild(createCategoryItem(app, category, clipsByCategory));
+  });
+  return fragment;
+}
+
+export function renderCategories(app) {
+  const { categoriesList: container } = getCategoryListElements();
+  if (!container) return;
+  const categories = getCategoriesForSelectedFile(app);
+  if (categories.length === 0) {
+    renderEmptyCategories(container, app.selectedFileId);
+    return;
+  }
+  const clipsByCategory = indexClipsByCategory(getAllClips(app));
+  container.replaceChildren(buildCategoryFragment(app, categories, clipsByCategory));
+}
+
+export function createCategoryItem(app, category, clipsByCategory = null) {
   const item = document.createElement('div');
   const categoryIdKey = app._categoryIdKey(category);
   const isExpanded = app.expandedCategoryIds?.has(categoryIdKey);
   item.className = `category-item${isExpanded ? ' expanded' : ''}`;
   item.dataset.categoryId = categoryIdKey;
 
-  const allClips = getAllClips(app);
-  const clipsInCategory = allClips.filter(clip => clip.category === category.name);
+  const clipIndex = clipsByCategory || indexClipsByCategory(getAllClips(app));
+  const clipsInCategory = clipIndex.get(category.name) || [];
   const clipCount = clipsInCategory.length;
 
   item.innerHTML = `
@@ -150,30 +177,38 @@ export function createCategoryItem(app, category) {
   return item;
 }
 
+function collapseOtherCategoryItems(app, categoryItem) {
+  document.querySelectorAll('.category-item.expanded').forEach(item => {
+    if (item === categoryItem) return;
+    item.classList.remove('expanded');
+    item.querySelector('.category-dropdown').classList.remove('expanded');
+    const otherId = item.dataset.categoryId ? String(item.dataset.categoryId) : '';
+    if (otherId) app.expandedCategoryIds.delete(otherId);
+  });
+}
+
+function collapseCategory(app, categoryItem, dropdown, categoryIdKey) {
+  categoryItem.classList.remove('expanded');
+  dropdown.classList.remove('expanded');
+  app.expandedCategoryIds.delete(categoryIdKey);
+}
+
+function expandCategory(app, categoryItem, { dropdown, category, categoryIdKey }) {
+  categoryItem.classList.add('expanded');
+  dropdown.classList.add('expanded');
+  if (categoryIdKey) app.expandedCategoryIds.add(categoryIdKey);
+  app.attachClipHandlers(dropdown, category);
+}
+
 export function toggleCategoryDropdown(app, categoryItem, category) {
   const dropdown = categoryItem.querySelector('.category-dropdown');
-  const isExpanded = categoryItem.classList.contains('expanded');
   const categoryIdKey = app._categoryIdKey(category);
-
-  document.querySelectorAll('.category-item.expanded').forEach(item => {
-    if (item !== categoryItem) {
-      item.classList.remove('expanded');
-      item.querySelector('.category-dropdown').classList.remove('expanded');
-      const otherId = item.dataset.categoryId ? String(item.dataset.categoryId) : '';
-      if (otherId) app.expandedCategoryIds.delete(otherId);
-    }
-  });
-
-  if (isExpanded) {
-    categoryItem.classList.remove('expanded');
-    dropdown.classList.remove('expanded');
-    app.expandedCategoryIds.delete(categoryIdKey);
-  } else {
-    categoryItem.classList.add('expanded');
-    dropdown.classList.add('expanded');
-    if (categoryIdKey) app.expandedCategoryIds.add(categoryIdKey);
-    app.attachClipHandlers(dropdown, category);
+  collapseOtherCategoryItems(app, categoryItem);
+  if (categoryItem.classList.contains('expanded')) {
+    collapseCategory(app, categoryItem, dropdown, categoryIdKey);
+    return;
   }
+  expandCategory(app, categoryItem, { dropdown, category, categoryIdKey });
 }
 
 export function updateCategoryFilter(app) {
@@ -221,7 +256,8 @@ export function populateCategoryOptions(app) {
   if (!container) return;
 
   const allClips = getAllClips(app);
-  const uncategorizedCount = allClips.filter(c => c.category === CATEGORIES_DEFAULTS.UNCATEGORIZED).length;
+  const clipsByCategory = indexClipsByCategory(allClips);
+  const uncategorizedCount = clipsByCategory.get(CATEGORIES_DEFAULTS.UNCATEGORIZED)?.length || 0;
 
   container.innerHTML = `
     <div class="category-option" data-category="${CATEGORIES_DEFAULTS.UNCATEGORIZED}">
@@ -232,7 +268,7 @@ export function populateCategoryOptions(app) {
   `;
 
   app.categories.forEach(category => {
-    const clipsInCategory = allClips.filter(c => c.category === category.name).length;
+    const clipsInCategory = clipsByCategory.get(category.name)?.length || 0;
     const isFull = clipsInCategory >= CATEGORIES_DEFAULTS.MAX_CLIPS_PER_CATEGORY;
 
     const option = document.createElement('div');

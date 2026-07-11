@@ -16,6 +16,10 @@ import {
 } from './clips.state.js';
 import { isClipLikedInApp, toggleClipLike } from './clips.liked.js';
 
+const markupByClip = new WeakMap();
+const markupFallback = new Map();
+const MAX_MARKUP_FALLBACK_ENTRIES = 200;
+
 function _paintClipLucideIcons(container) {
   if (!container) return;
   window.renderLucideIconsSync?.(container);
@@ -120,12 +124,66 @@ function getObjectMeta(value) {
   return value && typeof value === 'object' ? value : null;
 }
 
-function getMarkupBadge(text, meta) {
-  return window.PCMarkup ? window.PCMarkup.getMarkupBadgeForClip(text, meta) : '';
+function getMarkupSignature(text, meta) {
+  let metaSignature = '';
+  try {
+    metaSignature = meta ? JSON.stringify(meta) : '';
+  } catch (_) {
+    metaSignature = String(meta || '');
+  }
+  const rendererState = typeof window !== 'undefined' && window.PCMarkup ? 'markup' : 'plain';
+  return `${rendererState}\u0000${text}\u0000${metaSignature}`;
 }
 
-function getMarkupPreview(text, meta, maxLength) {
-  return window.PCMarkup ? window.PCMarkup.renderMarkupPreview(text, meta, maxLength) : '';
+function createMarkupCacheEntry(text, meta, signature) {
+  const markup = window.PCMarkup;
+  const type = markup?.detectMarkupType?.(text, meta) || 'text';
+  return {
+    signature,
+    badge: markup?.getMarkupBadge?.(type) || '',
+    previews: new Map(),
+    type,
+  };
+}
+
+function getFallbackMarkupEntry(text, meta, signature) {
+  let entry = markupFallback.get(signature);
+  if (!entry) {
+    entry = createMarkupCacheEntry(text, meta, signature);
+    markupFallback.set(signature, entry);
+    if (markupFallback.size > MAX_MARKUP_FALLBACK_ENTRIES) {
+      markupFallback.delete(markupFallback.keys().next().value);
+    }
+  }
+  return entry;
+}
+
+function getMarkupEntry(clip, text, meta) {
+  const signature = getMarkupSignature(text, meta);
+  if (!clip || typeof clip !== 'object') {
+    return getFallbackMarkupEntry(text, meta, signature);
+  }
+
+  let entry = markupByClip.get(clip);
+  if (!entry || entry.signature !== signature) {
+    entry = createMarkupCacheEntry(text, meta, signature);
+    markupByClip.set(clip, entry);
+  }
+  return entry;
+}
+
+function getMarkupPresentation(clip, maxLength) {
+  const text = getClipPreviewText(clip);
+  const meta = getObjectMeta(clip?.meta);
+  const entry = getMarkupEntry(clip, text, meta);
+  if (!entry.previews.has(maxLength)) {
+    const preview = window.PCMarkup?.renderMarkupPreview?.(text, meta, maxLength, entry.type) || '';
+    entry.previews.set(maxLength, preview);
+  }
+  return {
+    badge: entry.badge,
+    preview: entry.previews.get(maxLength),
+  };
 }
 
 function getRefactorBadgeHtml(clip) {
@@ -134,11 +192,10 @@ function getRefactorBadgeHtml(clip) {
   return `<span class="pc-refactor-badge" title="AI refactored copy; original clip kept separately">Refactored copy${level}</span>`;
 }
 
-function getChipTextContent(app, clip, meta) {
+function getChipTextContent(app, clip, markupPreview) {
   const previewText = getClipPreviewText(clip);
-  const preview = getMarkupPreview(previewText, meta, 80);
   const badge = getRefactorBadgeHtml(clip);
-  if (preview) return `${badge}<span class="pc-chip-preview">${preview}</span>`;
+  if (markupPreview) return `${badge}<span class="pc-chip-preview">${markupPreview}</span>`;
 
   const plainText = previewText.length > 30 ? previewText.substring(0, 30) + '...' : previewText;
   return `${badge}${app.escapeHtml(plainText)}`;
@@ -147,7 +204,7 @@ function getChipTextContent(app, clip, meta) {
 function getChipViewModel(app, clip, index) {
   const clipIdKey = getClipIdKey(clip?.id != null ? clip.id : index);
   const clipTitle = getClipTitle(clip);
-  const clipMeta = getObjectMeta(clip.meta);
+  const markup = getMarkupPresentation(clip, 80);
 
   return {
     clipIdKey,
@@ -155,8 +212,8 @@ function getChipViewModel(app, clip, index) {
     isSelected: app.selectedChips.has(clipIdKey),
     timeAgo: app.getTimeAgo(clip.timestamp),
     displayTitle: clipTitle || getClipFallbackTitle(clip, 42),
-    markupBadge: getMarkupBadge(clip.text, clipMeta),
-    chipTextContent: getChipTextContent(app, clip, clipMeta),
+    markupBadge: markup.badge,
+    chipTextContent: getChipTextContent(app, clip, markup.preview),
   };
 }
 
@@ -184,8 +241,8 @@ function setBulkSelectionBar({ bar, countEl, copyBtnId, visible, count }) {
 function getSearchResultViewModel(app, clip) {
   const truncatedText = clip.text.length > 100 ? clip.text.substring(0, 100) + '...' : clip.text;
   const clipTitle = getClipTitle(clip);
-  const sMeta = getObjectMeta(clip.meta);
-  const sPreview = getMarkupPreview(clip.text, sMeta, 200);
+  const markup = getMarkupPresentation(clip, 200);
+  const sPreview = markup.preview;
   const searchTextContent = sPreview
     ? `<div class="pc-search-preview" title="${app.escapeHtml(clip.text)}">${sPreview}</div>`
     : `<div title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</div>`;
@@ -194,7 +251,7 @@ function getSearchResultViewModel(app, clip) {
     isSelected: app.selectedSearchClips.has(getClipIdKey(clip.id)),
     timeAgo: app.getTimeAgo(clip.timestamp),
     displayTitle: clipTitle || getClipFallbackTitle(clip, 64),
-    sBadge: getMarkupBadge(clip.text, sMeta),
+    sBadge: markup.badge,
     searchTextContent,
   };
 }
@@ -202,8 +259,8 @@ function getSearchResultViewModel(app, clip) {
 function getCategoryClipViewModel(app, clip) {
   const truncatedText = clip.text.length > 60 ? clip.text.substring(0, 60) + '...' : clip.text;
   const clipTitle = getClipTitle(clip);
-  const cMeta = getObjectMeta(clip.meta);
-  const cPreview = getMarkupPreview(clip.text, cMeta, 120);
+  const markup = getMarkupPresentation(clip, 120);
+  const cPreview = markup.preview;
   const catTextContent = cPreview
     ? `<div class="pc-cat-preview" title="${app.escapeHtml(clip.text)}">${cPreview}</div>`
     : `<span title="${app.escapeHtml(clip.text)}">${app.escapeHtml(truncatedText)}</span>`;
@@ -212,7 +269,7 @@ function getCategoryClipViewModel(app, clip) {
     timeAgo: app.getTimeAgo(clip.timestamp),
     isSelected: app.selectedCategoryClips.has(getClipIdKey(clip.id)),
     displayTitle: clipTitle || getClipFallbackTitle(clip, 46),
-    cBadge: getMarkupBadge(clip.text, cMeta),
+    cBadge: markup.badge,
     catTextContent,
   };
 }
@@ -256,6 +313,74 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
   }
 }
 
+function renderClipStatus(container, { busy, heading, message }) {
+  container.setAttribute('aria-busy', busy ? 'true' : 'false');
+  container.innerHTML = `
+    <div class="clip-hydration-status" role="status">
+      <h3>${heading}</h3>
+      <p>${message}</p>
+    </div>
+  `;
+}
+
+function renderEmptyClipState(container) {
+  container.setAttribute('aria-busy', 'false');
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-state-icon">✨</div>
+      <h3>No clips yet</h3>
+      <p>Right-click selected text to save it here</p>
+      <div class="demo-hint">
+        <span class="demo-step">1️⃣ Select text</span>
+        <span class="demo-step">2️⃣ Right-click</span>
+        <span class="demo-step">3️⃣ Save to PasteCraft</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderZeroClipsState(app, container) {
+  if (app._coreHydrationState === 'failed') {
+    renderClipStatus(container, {
+      busy: false,
+      heading: 'Clips unavailable',
+      message: 'Local clips could not be loaded. Reopen PasteCraft to try again.',
+    });
+    return;
+  }
+  if (app._coreHydrationState !== 'ready') {
+    renderClipStatus(container, {
+      busy: true,
+      heading: 'Loading clips',
+      message: 'Reading your saved clips…',
+    });
+    return;
+  }
+  const cloudPending = !!app.currentUser
+    && !app._isFreemiumGuest
+    && app._coreCloudHydrationState !== 'ready'
+    && app._coreCloudHydrationState !== 'failed';
+  if (cloudPending) {
+    renderClipStatus(container, {
+      busy: true,
+      heading: 'Syncing clips',
+      message: 'Checking for saved clips…',
+    });
+    return;
+  }
+  renderEmptyClipState(container);
+  app.renderPagination();
+}
+
+function replaceClipPage(app, container, pageClips, startIndex) {
+  const fragment = document.createDocumentFragment();
+  pageClips.forEach((clip, pageIndex) => {
+    fragment.appendChild(createChip(app, clip, startIndex + pageIndex));
+  });
+  container.setAttribute('aria-busy', 'false');
+  container.replaceChildren(fragment);
+}
+
 export function renderChips(app) {
   const { chipContainer: container } = getClipElements();
   if (!container) return;
@@ -265,18 +390,7 @@ export function renderChips(app) {
   const totalClips = Math.max(app.totalClipsCount || 0, app.clips.length);
 
   if (totalClips === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">✨</div>
-        <h3>No clips yet</h3>
-        <p>Right-click selected text to save it here</p>
-        <div class="demo-hint">
-          <span class="demo-step">1️⃣ Select text</span>
-          <span class="demo-step">2️⃣ Right-click</span>
-          <span class="demo-step">3️⃣ Save to PasteCraft</span>
-        </div>
-      </div>
-    `;
+    renderZeroClipsState(app, container);
     return;
   }
 
@@ -290,12 +404,7 @@ export function renderChips(app) {
 
   const pageClips = app.clips.slice(startIndex, Math.min(endIndex, app.clips.length));
 
-  container.innerHTML = '';
-  pageClips.forEach((clip, pageIndex) => {
-    const actualIndex = startIndex + pageIndex;
-    const chip = createChip(app, clip, actualIndex);
-    container.appendChild(chip);
-  });
+  replaceClipPage(app, container, pageClips, startIndex);
 
   app.renderPagination();
   app.updateQuickCopyButton();
@@ -333,12 +442,7 @@ export async function lazyLoadClipsPage(app, startIndex, pageSize, container) {
       const remoteClips = await pasteCraftSupabase.fetchClipsPage(startIndex, pageSize);
 
       if (remoteClips && remoteClips.length > 0) {
-        container.innerHTML = '';
-        remoteClips.forEach((clip, pageIndex) => {
-          const actualIndex = startIndex + pageIndex;
-          const chip = createChip(app, clip, actualIndex);
-          container.appendChild(chip);
-        });
+        replaceClipPage(app, container, remoteClips, startIndex);
       } else {
         container.innerHTML = `
           <div class="empty-state">
@@ -420,7 +524,7 @@ export function renderPagination(app) {
 
 export function createChip(app, clip, index) {
   const chip = document.createElement('div');
-  chip.className = 'chip animate-slide-in';
+  chip.className = 'chip';
   chip.dataset.index = index;
   const {
     clipIdKey,

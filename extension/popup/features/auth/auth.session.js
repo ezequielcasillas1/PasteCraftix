@@ -4,36 +4,7 @@ import {
   LOCAL_CHANGE_DEBOUNCE_MS,
   LOCAL_CHANGE_FLUSH_MS,
 } from './auth.constants.js';
-
-const TAB_LOADERS = Object.freeze({
-  categories: (app) => {
-    app.renderCategories();
-    app.updateCategoryBulkActions();
-  },
-  search: (app) => {
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
-  },
-  ai: (app) => {
-    app.updateAiCreditsPills('ai-tab');
-  },
-  notes: async (app) => {
-    await app._withTimeout(app.loadNotes(), 3000, undefined, 'loadNotes');
-    app.renderNotes();
-  },
-  widgets: async (app) => {
-    await app._withTimeout(app.widgetsFeature.service.loadWidgets(app), 3000, undefined, 'loadWidgets');
-    app.widgetsFeature.render.renderWidgetsGallery(app);
-  },
-  activity: async (app) => {
-    await app._withTimeout(app.activityFeature.service.loadActivityLog(app), 3000, undefined, 'loadActivityLog');
-    app.activityFeature.render.renderActivityList(app);
-  },
-  aiHistory: async (app) => {
-    await app._withTimeout(app.loadAiHistory(), 3000, undefined, 'loadAiHistory');
-    app.renderAiHistoryList();
-  },
-});
+import { restorePopupTab } from '../app/popup.tab-lifecycle.js';
 
 const AI_SUBTAB_SECTIONS = Object.freeze({
   summary: 'aiSummarySection',
@@ -41,37 +12,10 @@ const AI_SUBTAB_SECTIONS = Object.freeze({
   breakdown: 'aiBreakdownSection',
 });
 
-async function _dispatchTabLoad(app, savedTab) {
-  const loader = TAB_LOADERS[savedTab];
-  if (loader) await loader(app);
-}
-
-function _activateMainTab(app, savedTab, tabBtn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  tabBtn.classList.add('active');
-  app.currentTab = savedTab;
-  const tabEl = document.getElementById(savedTab + 'Tab');
-  if (tabEl) tabEl.classList.add('active');
-}
-
 async function _restoreActiveTab(app, stored) {
   const savedTab = stored.pc_activeTab_v1;
-  if (!savedTab || savedTab === 'clips') return savedTab;
-
-  const tabBtn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
-  if (!tabBtn) return savedTab;
-
-  _activateMainTab(app, savedTab, tabBtn);
-  window.__pcTabIconRendering = true;
-  try {
-    await _dispatchTabLoad(app, savedTab);
-  } finally {
-    if (!window.__pcPopupLucideBooting) {
-      window.renderLucideIconsForActiveTab?.(savedTab, 'session-restore-tab', { immediate: true });
-    }
-  }
-  return savedTab;
+  restorePopupTab(app, savedTab).catch(() => {});
+  return app.currentTab;
 }
 
 function _activateAiSubTabSection(savedAiSubTab) {
@@ -284,6 +228,7 @@ export async function _restoreSessionState(app) {
     _logSessionRestore(stored);
   } catch (err) {
     console.warn('⚠️ Failed to restore session state:', err);
+    restorePopupTab(app, 'clips').catch(() => {});
   }
 }
 
@@ -325,6 +270,13 @@ function _shouldProcessChange(app, now) {
   if (app._handlingLocalChange) return false;
   if (document.visibilityState !== 'visible') return false;
   return (now - app._lastLocalChangeAt) >= LOCAL_CHANGE_DEBOUNCE_MS;
+}
+
+function _markPopupFreshness(app, classification) {
+  if (classification.clipsChanged || classification.categoriesChanged) {
+    app._popupDataStale = true;
+  }
+  if (classification.profileChanged) app._popupProfileStale = true;
 }
 
 async function _refreshDataStores(app, classification) {
@@ -423,6 +375,13 @@ function _refreshProfileIdentity(app, classification) {
   app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
 }
 
+function _clearHandledFreshness(app, classification) {
+  if (classification.clipsChanged || classification.categoriesChanged) {
+    app._popupDataStale = false;
+  }
+  if (classification.profileChanged) app._popupProfileStale = false;
+}
+
 async function _handleStorageChange(app, changes, classification) {
   if (app._handlingLocalChange) return;
   app._handlingLocalChange = true;
@@ -435,6 +394,7 @@ async function _handleStorageChange(app, changes, classification) {
     }
     _refreshSettingsModalIfOpen(app, classification);
     _refreshProfileIdentity(app, classification);
+    _clearHandledFreshness(app, classification);
   } finally {
     app._handlingLocalChange = false;
   }
@@ -449,6 +409,7 @@ export function setupLocalStorageListener(app) {
 
       const classification = _classifyStorageChanges(changes);
       if (!classification.relevant) return;
+      _markPopupFreshness(app, classification);
 
       const now = Date.now();
       if (!_shouldProcessChange(app, now)) return;

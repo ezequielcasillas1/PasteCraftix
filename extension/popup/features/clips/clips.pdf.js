@@ -1,9 +1,29 @@
 import { createClips } from './clips.service.js';
 
 function assertPdfLibraryLoaded() {
-  if (typeof pdfjsLib === 'undefined') {
+  if (!globalThis.pdfjsLib) {
     throw new Error('PDF library not loaded. Run npm run prepare:libs to restore extension/lib assets.');
   }
+}
+
+async function ensurePdfLibraryLoaded() {
+  if (!globalThis.pdfjsLib) {
+    const loader = globalThis.PasteCraftResourceLoader;
+    if (!loader?.loadScript) {
+      throw new Error('PDF library not loaded. Run npm run prepare:libs to restore extension/lib assets.');
+    }
+    try {
+      await loader.loadScript('pdf');
+    } catch (error) {
+      throw new Error(
+        'PDF library not loaded. Run npm run prepare:libs to restore extension/lib assets.',
+        { cause: error },
+      );
+    }
+  }
+  assertPdfLibraryLoaded();
+  globalThis.pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
+  return globalThis.pdfjsLib;
 }
 
 function getPdfPreviewTextarea() {
@@ -202,10 +222,9 @@ export async function openPdfExtractModal(app, file) {
 }
 
 export async function extractPdfText(arrayBuffer) {
-  assertPdfLibraryLoaded();
-  pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
+  const pdfLibrary = await ensurePdfLibraryLoaded();
 
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfLibrary.getDocument({ data: arrayBuffer }).promise;
   const pages = [];
   let imageOnlySampleCount = 0;
   let itemsWithText = 0;

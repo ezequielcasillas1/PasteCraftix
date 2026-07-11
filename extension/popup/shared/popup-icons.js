@@ -28,32 +28,74 @@ function prunePendingNodes(pendingNodes) {
   }
 }
 
-function runLucideOnRoot(root) {
-  const lucide = window.lucide;
-  if (!lucide?.createIcons || !root?.nodeType) return;
-  if (!collectUnrenderedPlaceholders(root).length) return;
-  lucide.createIcons({
-    attrs: LUCIDE_ATTRS,
-    root,
+function maskDisallowedPlaceholders(allowed) {
+  const masked = [];
+  document.querySelectorAll?.('[data-lucide]')?.forEach((element) => {
+    if (!isUnrenderedPlaceholder(element) || allowed.has(element)) return;
+    masked.push([element, element.getAttribute('data-lucide')]);
+    element.removeAttribute('data-lucide');
   });
-  // Lucide UMD ignores `root` and scans all [data-lucide]; rendered SVGs keep the attr → full rescan lag on tab switch.
+  return masked;
+}
+
+function restoreMaskedPlaceholders(masked) {
+  masked.forEach(([element, iconName]) => {
+    if (element.isConnected && !element.hasAttribute('data-lucide')) {
+      element.setAttribute('data-lucide', iconName);
+    }
+  });
+}
+
+function removeRenderedLucideMarkers() {
   document.querySelectorAll?.('svg[data-lucide]')?.forEach((el) => el.removeAttribute('data-lucide'));
 }
 
-function runLucideCreateIcons(nodes) {
+function runLucideOnPlaceholders(placeholders) {
   const lucide = window.lucide;
-  if (!lucide?.createIcons || !nodes.length) return;
-
-  const roots = new Set();
-  for (const node of nodes) {
-    const root = node?.parentElement || node;
-    if (root?.nodeType === 1) roots.add(root);
+  if (!lucide?.createIcons || !placeholders.length) return;
+  const allowed = new Set(placeholders.filter(isUnrenderedPlaceholder));
+  if (!allowed.size) return;
+  const masked = maskDisallowedPlaceholders(allowed);
+  try {
+    lucide.createIcons({ attrs: LUCIDE_ATTRS });
+  } finally {
+    restoreMaskedPlaceholders(masked);
   }
-  if (!roots.size) return;
+  removeRenderedLucideMarkers();
+}
 
-  for (const root of roots) {
-    runLucideOnRoot(root);
-  }
+function runLucideOnRoot(root) {
+  if (!root?.nodeType) return;
+  const placeholders = collectUnrenderedPlaceholders(root)
+    .filter((element) => !isInsideInactiveTab(element));
+  runLucideOnPlaceholders(placeholders);
+}
+
+function runLucideCreateIcons(nodes) {
+  runLucideOnPlaceholders(nodes);
+}
+
+const BOOT_SHELL_SELECTORS = [
+  '#topBar',
+  '.header',
+  '#upgradeBanner',
+  '#manualInputSection',
+  '.tab-nav',
+];
+
+function collectBootPlaceholders(activeTabRoot) {
+  const placeholders = new Set();
+  BOOT_SHELL_SELECTORS.forEach((selector) => {
+    const root = document.querySelector?.(selector);
+    collectUnrenderedPlaceholders(root || {}).forEach((element) => placeholders.add(element));
+  });
+  collectUnrenderedPlaceholders(activeTabRoot || {}).forEach((element) => placeholders.add(element));
+  return [...placeholders];
+}
+
+function isInsideInactiveTab(element) {
+  const tabRoot = element?.closest?.('.tab-content');
+  return !!tabRoot && !tabRoot.classList.contains('active');
 }
 
 function scheduleIconWork(task, urgent = false) {
@@ -119,10 +161,8 @@ function scheduleIconWork(task, urgent = false) {
     observerPaused = true;
     window.__pcTabIconRendering = true;
     try {
-      const body = document.body;
-      if (body?.isConnected && collectUnrenderedPlaceholders(body).length) {
-        runLucideOnRoot(body);
-      }
+      const activeRoot = window.getActiveTabContentRoot();
+      runLucideOnPlaceholders(collectBootPlaceholders(activeRoot));
     } catch (e) {
       console.warn('Lucide boot render failed:', e);
     } finally {
@@ -133,22 +173,14 @@ function scheduleIconWork(task, urgent = false) {
     }
   };
 
-  window.renderLucideIconsForActiveTab = function renderLucideIconsForActiveTab(tabName, _source, options = {}) {
-    if (window.__pcPopupLucideBooting) return;
-    const immediate = options.immediate === true;
-    const tab = tabName || window.pasteCraftPopup?.currentTab || '';
-    tabIconFlushTab = tab;
+  const cancelScheduledTabIconFlush = () => {
+    if (!tabIconFlushScheduled || !tabIconFlushRafId) return;
+    cancelAnimationFrame(tabIconFlushRafId);
+    tabIconFlushScheduled = false;
+    tabIconFlushRafId = 0;
+  };
 
-    if (immediate) {
-      if (tabIconFlushScheduled && tabIconFlushRafId) {
-        cancelAnimationFrame(tabIconFlushRafId);
-        tabIconFlushScheduled = false;
-        tabIconFlushRafId = 0;
-      }
-      runTabIconFlush();
-      return;
-    }
-
+  const scheduleTabIconFlush = () => {
     if (tabIconFlushScheduled) return;
     tabIconFlushScheduled = true;
     tabIconFlushRafId = requestAnimationFrame(() => {
@@ -158,15 +190,26 @@ function scheduleIconWork(task, urgent = false) {
     });
   };
 
-  const processSyncFlush = (preferredRoot) => {
+  window.renderLucideIconsForActiveTab = function renderLucideIconsForActiveTab(tabName, _source, options = {}) {
+    if (window.__pcPopupLucideBooting) return;
+    tabIconFlushTab = tabName || window.pasteCraftPopup?.currentTab || '';
+    if (options.immediate === true) {
+      cancelScheduledTabIconFlush();
+      runTabIconFlush();
+      return;
+    }
+    scheduleTabIconFlush();
+  };
+
+  const processSyncFlush = () => {
     prunePendingNodes(pendingNodes);
     if (pendingNodes.size === 0) return;
 
+    const nodes = [...pendingNodes];
     pendingNodes.clear();
-    const root = preferredRoot instanceof Element ? preferredRoot : document.body;
     observerPaused = true;
     try {
-      runLucideOnRoot(root);
+      runLucideCreateIcons(nodes);
     } catch (e) {
       console.warn('Lucide render failed:', e);
     } finally {
@@ -183,7 +226,7 @@ function scheduleIconWork(task, urgent = false) {
       prunePendingNodes(pendingNodes);
       if (pendingNodes.size === 0) return;
       if (pendingNodes.size <= ICON_SYNC_THRESHOLD) {
-        processSyncFlush(preferredRoot);
+        processSyncFlush();
         return;
       }
       processBatch(preferredRoot);
@@ -195,6 +238,7 @@ function scheduleIconWork(task, urgent = false) {
   const enqueueFromNode = (node) => {
     if (!node) return;
     for (const el of collectUnrenderedPlaceholders(node)) {
+      if (isInsideInactiveTab(el)) continue;
       pendingNodes.add(el);
     }
     scheduleFlush(node instanceof Element ? node : null);
@@ -217,32 +261,26 @@ function scheduleIconWork(task, urgent = false) {
     });
   };
 
-  const processBatch = (preferredRoot) => {
-    if (pendingNodes.size === 0) return;
+  const shouldStopBatchScan = (batchLength, scanned, frameDeadline) => (
+    batchLength >= ICON_BATCH_SIZE
+    || scanned >= ICON_MAX_SCAN_PER_FRAME
+    || performance.now() >= frameDeadline
+  );
 
+  const takeIconBatch = () => {
     const batch = [];
     const frameDeadline = performance.now() + ICON_FRAME_BUDGET_MS;
     let scanned = 0;
     for (const node of pendingNodes) {
       scanned += 1;
-      if (!node.isConnected || !isUnrenderedPlaceholder(node)) {
-        pendingNodes.delete(node);
-      } else {
-        batch.push(node);
-        pendingNodes.delete(node);
-      }
-      if (
-        batch.length >= ICON_BATCH_SIZE ||
-        scanned >= ICON_MAX_SCAN_PER_FRAME ||
-        performance.now() >= frameDeadline
-      ) break;
+      pendingNodes.delete(node);
+      if (node.isConnected && isUnrenderedPlaceholder(node)) batch.push(node);
+      if (shouldStopBatchScan(batch.length, scanned, frameDeadline)) break;
     }
+    return batch;
+  };
 
-    if (!batch.length) {
-      if (pendingNodes.size > 0) scheduleFlush(preferredRoot);
-      return;
-    }
-
+  const renderIconBatch = (batch) => {
     observerPaused = true;
     try {
       runLucideCreateIcons(batch);
@@ -251,22 +289,32 @@ function scheduleIconWork(task, urgent = false) {
     } finally {
       observerPaused = false;
     }
-
-    if (pendingNodes.size > 0) {
-      if (pendingNodes.size <= ICON_SYNC_THRESHOLD) {
-        processSyncFlush(preferredRoot);
-        return;
-      }
-      scheduleFlush(preferredRoot);
-    }
   };
 
-  window.renderLucideIconsSync = function renderLucideIconsSync(scope) {
-    if (window.__pcPopupLucideBooting) return;
-    if (window.__pcTabIconRendering && !(scope instanceof Element)) return;
-    const root = scope instanceof Element ? scope : document.body;
-    if (!root?.isConnected) return;
-    if (!collectUnrenderedPlaceholders(root).length) return;
+  const scheduleRemainingIconWork = (preferredRoot) => {
+    if (pendingNodes.size === 0) return;
+    if (pendingNodes.size <= ICON_SYNC_THRESHOLD) processSyncFlush();
+    else scheduleFlush(preferredRoot);
+  };
+
+  const processBatch = (preferredRoot) => {
+    if (pendingNodes.size === 0) return;
+    const batch = takeIconBatch();
+    if (batch.length) renderIconBatch(batch);
+    scheduleRemainingIconWork(preferredRoot);
+  };
+
+  const getIconRenderRoot = (scope) => (
+    scope instanceof Element ? scope : document.body
+  );
+
+  const canRenderIconRoot = (root) => {
+    if (!root?.isConnected) return false;
+    if (isInsideInactiveTab(root)) return false;
+    return collectUnrenderedPlaceholders(root).length > 0;
+  };
+
+  const runSynchronousIconRender = (root) => {
     observerPaused = true;
     try {
       runLucideOnRoot(root);
@@ -275,18 +323,34 @@ function scheduleIconWork(task, urgent = false) {
     }
   };
 
+  window.renderLucideIconsSync = function renderLucideIconsSync(scope) {
+    if (window.__pcPopupLucideBooting) return;
+    if (window.__pcTabIconRendering && !(scope instanceof Element)) return;
+    const root = getIconRenderRoot(scope);
+    if (!canRenderIconRoot(root)) return;
+    runSynchronousIconRender(root);
+  };
+
+  const enqueueIconArray = (nodes) => {
+    nodes.forEach((node) => {
+      if (isUnrenderedPlaceholder(node)) pendingNodes.add(node);
+    });
+    scheduleFlush(null);
+  };
+
+  const shouldBlockGeneralIconRender = (scope) => (
+    window.__pcTabIconRendering
+    || (window.__pcPopupLucideBooting && !scope)
+  );
+
   window.renderLucideIcons = function renderLucideIcons(scope) {
-    if (window.__pcTabIconRendering) return;
-    if (window.__pcPopupLucideBooting && !scope) return;
+    if (shouldBlockGeneralIconRender(scope)) return;
     if (scope instanceof Element) {
       enqueueFromNode(scope);
       return;
     }
     if (Array.isArray(scope) && scope.length) {
-      for (const node of scope) {
-        if (isUnrenderedPlaceholder(node)) pendingNodes.add(node);
-      }
-      scheduleFlush(null);
+      enqueueIconArray(scope);
       return;
     }
     queueFullDocumentScan();
@@ -306,7 +370,9 @@ function scheduleIconWork(task, urgent = false) {
         if (node.nodeType !== 1) continue;
         const placeholders = collectUnrenderedPlaceholders(node);
         if (!placeholders.length) continue;
-        for (const el of placeholders) pendingNodes.add(el);
+        for (const el of placeholders) {
+          if (!isInsideInactiveTab(el)) pendingNodes.add(el);
+        }
         if (!scopeRoot) scopeRoot = node;
         queued = true;
       }

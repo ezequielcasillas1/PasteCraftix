@@ -1,9 +1,15 @@
 /** Popup startup: freemium gate, auth path, feature init orchestration. */
 
 import { initializeAllPopupFeatures } from './popup.features.js';
+import { hydratePopupTabInBackground } from './popup.tab-lifecycle.js';
+import {
+  markPopupBootStart,
+  markPopupContentReady,
+} from './popup.performance.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 let popupRevealScheduled = false;
+const DEFERRED_IDLE_TIMEOUT_MS = 500;
 
 function revealPopupWithIcons(context = 'unknown') {
   if (typeof window.finishBootLucideIcons === 'function') {
@@ -19,167 +25,288 @@ async function finishPopupReveal(app, context = 'popup-ready') {
   popupRevealScheduled = true;
   revealPopupWithIcons(context);
   app.hideLoadingOverlay();
+  markPopupContentReady();
 }
 
-export async function runPopupInit(app) {
+function beginPopupBoot() {
+  markPopupBootStart();
   window.__pcPopupLucideBooting = true;
   popupRevealScheduled = false;
+}
 
-  await initializeAllPopupFeatures(app);
-
+function setupStartupEvents(app) {
   app.setupAuthModalEvents();
   app._setupSupportFormEvents();
+}
 
-  let isLocalGuest = false;
+async function isLocalGuestMode() {
   try {
     const { pc_freemium_guest } = await chrome.storage.local.get('pc_freemium_guest');
-    isLocalGuest = !!pc_freemium_guest;
-  } catch (_) {}
-
-  if (isLocalGuest) {
-    try { await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']); } catch (_) {}
-    try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
-    app._isFreemiumGuest = true;
-    app.currentUser = null;
-    app.userSubscription = null;
-    document.getElementById('topBar').style.display = 'flex';
-    await Promise.all([app.loadData(), app.loadSettings()]);
-    app.updateTopBarIdentity();
-    await app.setupEventListeners();
-    app.renderChips();
-    app.updateLastCapture();
-    app.updatePreview();
-    app.renderCategories();
-    app.updateCategoryFilter();
-    await finishPopupReveal(app, 'guest-init');
-    app.setupVisibilityListener();
-    Promise.resolve().then(() => app.cleanupOldClips()).catch(() => {});
-    return;
+    return !!pc_freemium_guest;
+  } catch (_) {
+    return false;
   }
+}
 
-  const resetCallback = await app.checkPasswordResetCallback();
-  if (resetCallback) {
-    window.__pcPopupLucideBooting = false;
-    revealPopupWithIcons('password-reset-callback');
-    app.hideLoadingOverlay();
-    document.getElementById('newPasswordModal').style.display = 'flex';
-    return;
-  }
+function showTopBar() {
+  const topBar = document.getElementById('topBar');
+  if (topBar) topBar.style.display = 'flex';
+}
 
+function updateCoreMetadata(app) {
+  app.updateLastCapture();
+  app.updatePreview();
+  app.updateCategoryFilter();
+}
+
+function renderGuestActiveTab(app) {
+  updateCoreMetadata(app);
+  if (app.currentTab === 'categories') app.renderCategories();
+  else app.renderChips();
+}
+
+function revealPasswordReset(app, context) {
+  window.__pcPopupLucideBooting = false;
+  revealPopupWithIcons(context);
+  app.hideLoadingOverlay();
+  document.getElementById('newPasswordModal').style.display = 'flex';
+}
+
+function readRecoveryTokens() {
   const urlParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const requested = urlParams.get('reset') === 'true'
+    || hashParams.get('type') === 'recovery'
+    || !!hashParams.get('reset');
+  if (!requested) return null;
+  return {
+    accessToken: hashParams.get('access_token') || hashParams.get('reset'),
+    refreshToken: hashParams.get('refresh_token'),
+  };
+}
 
-  if (urlParams.get('reset') === 'true' || hashParams.get('type') === 'recovery' || hashParams.get('reset')) {
-    const accessToken = hashParams.get('access_token') || hashParams.get('reset');
-    const refreshToken = hashParams.get('refresh_token');
-    if (accessToken) {
-      await app.setPasswordResetSession(accessToken, refreshToken);
-    }
-    window.__pcPopupLucideBooting = false;
-    revealPopupWithIcons('password-reset-hash');
-    app.hideLoadingOverlay();
-    document.getElementById('newPasswordModal').style.display = 'flex';
-    return;
+async function handlePasswordRecovery(app) {
+  if (await app.checkPasswordResetCallback()) {
+    revealPasswordReset(app, 'password-reset-callback');
+    return true;
   }
 
-  await app.checkOAuthCallback();
+  const recovery = readRecoveryTokens();
+  if (!recovery) return false;
+  if (recovery.accessToken) {
+    await app.setPasswordResetSession(recovery.accessToken, recovery.refreshToken);
+  }
+  revealPasswordReset(app, 'password-reset-hash');
+  return true;
+}
 
+async function resolveAuthenticatedUser(app) {
+  await app.checkOAuthCallback();
   try {
     await app.clearLegacyAuthPrefs();
     await app.restoreSupabaseSessionFromBridge('startup');
   } catch (_) {}
+  return pasteCraftSupabase.getCurrentUser();
+}
 
-  const currentUser = await pasteCraftSupabase.getCurrentUser();
+async function loadCachedSubscription(userId) {
+  try {
+    return await pasteCraftSupabase.getCachedSubscription(userId);
+  } catch (_) {
+    return null;
+  }
+}
 
+function startSafeLocalPreparation(app) {
+  const settingsReady = Promise.resolve().then(() => app.loadSettings());
+  const storageReady = Promise.resolve().then(() => app._ensureIndexedDbReadyAndMigrate());
+  settingsReady.catch(() => {});
+  storageReady.catch(() => {});
+  return { settingsReady, storageReady };
+}
+
+async function loadAuthenticatedCriticalState(app, currentUser, localPreparation) {
+  app.setupLocalStorageListener();
+  const [, , , , subscription] = await Promise.all([
+    app.loadData(),
+    localPreparation.settingsReady,
+    localPreparation.storageReady,
+    app.loadUserProfile(),
+    loadCachedSubscription(currentUser.id),
+  ]);
+  app.userSubscription = subscription;
+  app.updateAiCreditsPills('cached');
+  app.updateUpgradeUI();
+}
+
+async function restoreActiveUiState(app) {
+  try {
+    await app._restoreSessionState();
+  } catch (error) {
+    console.warn('Session restore failed:', error);
+  }
+
+  if (app.currentTab === 'ai') {
+    await Promise.all([app.loadAiWorkflow(), app.loadAnalysisHistory()]);
+  }
+}
+
+async function paintAuthenticatedPopup(app) {
+  showTopBar();
+  app.updateTopBarIdentity();
+  if (app.userProfile?.profileImageUrl) {
+    app.displayImageTopLeft(app.userProfile.profileImageUrl);
+  }
+  await app.setupEventListeners();
+  updateCoreMetadata(app);
+  await restoreActiveUiState(app);
+}
+
+function isSameAuthenticatedUser(app, currentUser) {
+  return !!currentUser?.id && app.currentUser?.id === currentUser.id;
+}
+
+function runDeferredTask(app, currentUser, task, label) {
+  Promise.resolve()
+    .then(() => {
+      if (!isSameAuthenticatedUser(app, currentUser)) return undefined;
+      return task();
+    })
+    .catch((error) => console.warn(`${label} skipped:`, error));
+}
+
+function hasCachedProfileIdentity(app) {
+  const profile = app.userProfile;
+  return !!profile?.userName || !!profile?.aiGeneratedName || !!profile?.profileImageUrl;
+}
+
+async function refreshRemoteProfile(app, currentUser) {
+  if (hasCachedProfileIdentity(app)) return;
+  const remoteProfile = await pasteCraftSupabase.syncUserProfileFromSupabase();
+  if (!remoteProfile) return;
+  if (!isSameAuthenticatedUser(app, currentUser)) return;
+  app.userProfile = { ...(app.userProfile || {}), ...remoteProfile };
+  await chrome.storage.local.set({ userProfile: app.userProfile });
+}
+
+function scheduleAuthenticatedDeferredWork(app, currentUser, defer) {
+  defer(() => {
+    if (!isSameAuthenticatedUser(app, currentUser)) return;
+    app.setupVisibilityListener();
+    app.setupRealtimeListeners();
+    app.setupSyncStatusListeners();
+
+    if (app.currentTab !== 'ai') {
+      runDeferredTask(app, currentUser, () => app.loadAiWorkflow(), 'AI workflow load');
+      runDeferredTask(app, currentUser, () => app.loadAnalysisHistory(), 'Analysis history load');
+    }
+    runDeferredTask(
+      app,
+      currentUser,
+      () => hydratePopupTabInBackground(app, 'aiHistory'),
+      'AI history load',
+    );
+    runDeferredTask(app, currentUser, async () => {
+      await refreshRemoteProfile(app, currentUser);
+      app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+    }, 'Remote profile refresh');
+    runDeferredTask(app, currentUser, async () => {
+      await app.maybeCreateDailyRestorePoint('startup');
+      await app.cleanupOldClips();
+      await app._initializeTieredStorage();
+      await app._maybeMigrateTieredStorage();
+      await app.performBackgroundSync();
+    }, 'Deferred storage and sync work');
+    runDeferredTask(app, currentUser, async () => {
+      const subscription = await pasteCraftSupabase.getUserSubscription(currentUser.id);
+      if (!isSameAuthenticatedUser(app, currentUser)) return;
+      app.userSubscription = subscription;
+      app.updateAiCreditsPills('fresh');
+      app.updateUpgradeUI();
+    }, 'Subscription refresh');
+  });
+}
+
+function scheduleGuestDeferredWork(app, defer) {
+  defer(() => {
+    app.setupVisibilityListener();
+    Promise.resolve(app._initializeTieredStorage?.()).catch(() => {});
+    Promise.resolve(app.cleanupOldClips()).catch(() => {});
+  });
+}
+
+async function runGuestStartup(app, defer) {
+  try {
+    await chrome.storage.local.remove(['pc_supabase_session_v1', 'oauth_callback', 'password_reset_callback']);
+  } catch (_) {}
+  try { pasteCraftSupabase.signOutFast().catch(() => {}); } catch (_) {}
+
+  app._isFreemiumGuest = true;
+  app.currentUser = null;
+  app.userSubscription = null;
+  showTopBar();
+  await Promise.all([app.loadData(), app.loadSettings()]);
+  app.updateTopBarIdentity();
+  await app.setupEventListeners();
+  renderGuestActiveTab(app);
+  await finishPopupReveal(app, 'guest-init');
+  scheduleGuestDeferredWork(app, defer);
+}
+
+async function runAuthenticatedStartup(app, currentUser, localPreparation, defer) {
+  app.currentUser = currentUser;
+  rememberVerifiedEmailsFromSession(currentUser.email ? [currentUser.email] : []).catch(() => {});
+  await loadAuthenticatedCriticalState(app, currentUser, localPreparation);
+  await paintAuthenticatedPopup(app);
+  await finishPopupReveal(app, 'popup-ready');
+  scheduleAuthenticatedDeferredWork(app, currentUser, defer);
+}
+
+function scheduleAfterAnimationFrame(callback) {
+  const scheduleMacrotask = () => setTimeout(callback, 0);
+  if (typeof window.requestAnimationFrame !== 'function') {
+    scheduleMacrotask();
+    return;
+  }
+  try {
+    window.requestAnimationFrame(scheduleMacrotask);
+  } catch (_) {
+    scheduleMacrotask();
+  }
+}
+
+function defaultDefer(callback) {
+  if (typeof window.requestIdleCallback === 'function') {
+    try {
+      window.requestIdleCallback(callback, { timeout: DEFERRED_IDLE_TIMEOUT_MS });
+      return;
+    } catch (_) {}
+  }
+  scheduleAfterAnimationFrame(callback);
+}
+
+export async function runPopupInit(app, dependencies = {}) {
+  const initializeFeatures = dependencies.initializeFeatures || initializeAllPopupFeatures;
+  const defer = dependencies.defer || defaultDefer;
+
+  beginPopupBoot();
+  const featureInitialization = initializeFeatures(app);
+  const guestModeCheck = isLocalGuestMode();
+  await featureInitialization;
+  setupStartupEvents(app);
+
+  if (await guestModeCheck) {
+    await runGuestStartup(app, defer);
+    return;
+  }
+
+  if (await handlePasswordRecovery(app)) return;
+  const localPreparation = startSafeLocalPreparation(app);
+  const currentUser = await resolveAuthenticatedUser(app);
   if (!currentUser) {
     window.__pcPopupLucideBooting = false;
     app.showAuthModal();
     return;
   }
-
-  app.currentUser = currentUser;
-  rememberVerifiedEmailsFromSession(currentUser.email ? [currentUser.email] : []).catch(() => {});
-
-  try {
-    app.userSubscription = await pasteCraftSupabase.getCachedSubscription(currentUser.id);
-  } catch (_) {
-    app.userSubscription = null;
-  }
-  app.updateAiCreditsPills('cached');
-  app.updateUpgradeUI();
-
-  pasteCraftSupabase.getUserSubscription(currentUser.id).then((sub) => {
-    app.userSubscription = sub;
-    app.updateAiCreditsPills('fresh');
-    app.updateUpgradeUI();
-  }).catch(() => {});
-
-  document.getElementById('topBar').style.display = 'flex';
-
-  app.setupLocalStorageListener();
-  await app._ensureIndexedDbReadyAndMigrate();
-
-  const coreBatch = Promise.all([
-    app.loadData(),
-    app.loadSettings(),
-    app.loadAiWorkflow(),
-  ]);
-  const profileBatch = Promise.all([
-    app.loadUserProfile(),
-    app.loadAnalysisHistory(),
-    app.loadAiHistory(),
-  ]);
-  await Promise.all([coreBatch, profileBatch]);
-
-  if (!app.userProfile?.userName && !app.userProfile?.aiGeneratedName && !app.userProfile?.profileImageUrl) {
-    try {
-      const remoteProfile = await Promise.race([
-        pasteCraftSupabase.syncUserProfileFromSupabase(),
-        new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
-      ]);
-      if (remoteProfile) {
-        app.userProfile = { ...(app.userProfile || {}), ...remoteProfile };
-        await chrome.storage.local.set({ userProfile: app.userProfile });
-      }
-    } catch (_) {}
-  }
-
-  app.updateTopBarIdentity();
-
-  if (app.userProfile?.profileImageUrl) {
-    app.displayImageTopLeft(app.userProfile.profileImageUrl);
-  }
-
-  await app.setupEventListeners();
-  app.renderChips();
-  app.updateLastCapture();
-  app.updatePreview();
-  app.renderCategories();
-  app.updateCategoryFilter();
-
-  try {
-    await app._restoreSessionState();
-  } catch (e) {
-    console.warn('Session restore failed:', e);
-  }
-
-  await finishPopupReveal(app, 'popup-ready');
-
-  Promise.resolve()
-    .then(() => app.maybeCreateDailyRestorePoint('startup'))
-    .catch(() => {});
-
-  Promise.resolve()
-    .then(() => app.cleanupOldClips())
-    .catch(() => {});
-
-  app.performBackgroundSync();
-
-  Promise.resolve()
-    .then(() => app._maybeMigrateTieredStorage())
-    .catch((e) => console.warn('Tiered storage migration skipped:', e));
-
-  app.setupVisibilityListener();
-  app.setupRealtimeListeners();
-  app.setupSyncStatusListeners();
+  await runAuthenticatedStartup(app, currentUser, localPreparation, defer);
 }

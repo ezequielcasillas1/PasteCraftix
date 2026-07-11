@@ -1,6 +1,22 @@
 import { mergeActiveClipsSources } from '../../../shared/clips-local-merge.js';
 import { mergeActiveCategoriesSources } from '../../../shared/categories-local-merge.js';
 
+const loadDataPromises = new WeakMap();
+const cloudResolutionTimers = new WeakMap();
+const CLOUD_RESOLUTION_TIMEOUT_MS = 5000;
+
+export const CORE_HYDRATION_STATES = Object.freeze({
+  LOADING: 'loading',
+  READY: 'ready',
+  FAILED: 'failed',
+});
+
+export const CORE_CLOUD_STATES = Object.freeze({
+  PENDING: 'pending',
+  READY: 'ready',
+  FAILED: 'failed',
+});
+
 function isExtensionContextValid() {
   try {
     return Boolean(chrome?.runtime?.id);
@@ -177,20 +193,79 @@ export async function loadStorageData(app) {
   await syncNormalizedState(app, normalizedData);
 }
 
-export async function loadData(app) {
-  if (!isExtensionContextValid()) return;
-  await loadStorageData(app);
+function beginCoreHydration(app) {
+  app._coreHydrationState = CORE_HYDRATION_STATES.LOADING;
+  if (app._isFreemiumGuest) {
+    app._coreCloudHydrationState = CORE_CLOUD_STATES.READY;
+    return;
+  }
+  if (app.currentUser && !app._coreCloudHydrationState) {
+    app._coreCloudHydrationState = CORE_CLOUD_STATES.PENDING;
+  }
+}
 
-  // Settings/profile are orchestrated by popup.init.js startup batches.
-  // Avoid duplicate calls here so loadData remains focused on clip/category state.
-  if (typeof app._initializeTieredStorage === 'function') {
-    app._initializeTieredStorage().catch(e => {
-      console.warn('Tiered storage initialization failed (will use local only):', e);
-    });
+function hasLocalClips(app) {
+  return (app.clips?.length || 0) > 0;
+}
+
+function shouldAwaitCloudHydration(app) {
+  if (!app.currentUser) return false;
+  if (hasLocalClips(app)) return false;
+  return app._coreCloudHydrationState === CORE_CLOUD_STATES.PENDING;
+}
+
+function scheduleCloudResolutionFallback(app) {
+  if (cloudResolutionTimers.has(app)) return;
+  const timerId = setTimeout(() => {
+    cloudResolutionTimers.delete(app);
+    finalizeCoreCloudHydration(app, CORE_CLOUD_STATES.FAILED);
+  }, CLOUD_RESOLUTION_TIMEOUT_MS);
+  cloudResolutionTimers.set(app, timerId);
+}
+
+function completeCoreHydration(app) {
+  app._coreHydrationState = CORE_HYDRATION_STATES.READY;
+  if (app._isFreemiumGuest) {
+    app._coreCloudHydrationState = CORE_CLOUD_STATES.READY;
+    return;
   }
-  if (typeof app._maybeMigrateTieredStorage === 'function') {
-    app._maybeMigrateTieredStorage().catch(e => {
-      console.warn('Tiered storage migration skipped:', e);
-    });
+  if (shouldAwaitCloudHydration(app)) scheduleCloudResolutionFallback(app);
+}
+
+function failCoreHydration(app) {
+  app._coreHydrationState = CORE_HYDRATION_STATES.FAILED;
+}
+
+export function finalizeCoreCloudHydration(app, outcome = CORE_CLOUD_STATES.READY) {
+  const timerId = cloudResolutionTimers.get(app);
+  if (timerId) clearTimeout(timerId);
+  cloudResolutionTimers.delete(app);
+  app._coreCloudHydrationState = outcome === CORE_CLOUD_STATES.FAILED
+    ? CORE_CLOUD_STATES.FAILED
+    : CORE_CLOUD_STATES.READY;
+  if (app.currentTab === 'clips') app.renderChips?.();
+}
+
+export function loadData(app) {
+  if (!isExtensionContextValid()) {
+    failCoreHydration(app);
+    return Promise.resolve();
   }
+  if (loadDataPromises.has(app)) return loadDataPromises.get(app);
+
+  beginCoreHydration(app);
+  const loadPromise = loadStorageData(app)
+    .then((result) => {
+      completeCoreHydration(app);
+      return result;
+    })
+    .catch((error) => {
+      failCoreHydration(app);
+      throw error;
+    })
+    .finally(() => {
+      if (loadDataPromises.get(app) === loadPromise) loadDataPromises.delete(app);
+    });
+  loadDataPromises.set(app, loadPromise);
+  return loadPromise;
 }
