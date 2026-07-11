@@ -2,6 +2,7 @@
  * Quick View panel — extension-page iframe (not srcdoc).
  * Self-loads clips via background so host-page CSP cannot block the UI script.
  */
+import { getClipIdKey } from './shared/clip-id.js';
 import { slimQuickViewClips } from './shared/quickview-clips.js';
 
 const LIKED_KEY = 'likedClipIds';
@@ -45,18 +46,30 @@ function showToast(message, isError = false) {
   }, 2000);
 }
 
+function toLikedIdList(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    const id = getClipIdKey(item);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 async function getLikedIds() {
   try {
     const result = await chrome.storage.local.get([LIKED_KEY]);
-    const list = Array.isArray(result?.[LIKED_KEY]) ? result[LIKED_KEY] : [];
-    return list.map(String);
+    return toLikedIdList(result?.[LIKED_KEY]);
   } catch (_) {
     return [];
   }
 }
 
 async function toggleLiked(clipId) {
-  const id = String(clipId || '');
+  const id = getClipIdKey(clipId);
   if (!id) return;
   const current = await getLikedIds();
   const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
@@ -87,7 +100,7 @@ function render() {
   if (!container) return;
 
   const visible = likedFilterOn
-    ? allClips.filter((c) => likedIdSet.has(String(c.id || '')))
+    ? allClips.filter((c) => likedIdSet.has(getClipIdKey(c.id)))
     : allClips;
 
   if (counter) {
@@ -108,7 +121,7 @@ function render() {
       const text = clip.text || '';
       const displayText = text.length > 60 ? `${text.substring(0, 60)}...` : text;
       const category = clip.category || 'Uncategorized';
-      const clipId = clip.id != null ? String(clip.id) : String(index);
+      const clipId = getClipIdKey(clip.id) || String(index);
       const isArchived = !!(clip.archived === true || clip.source === 'archived');
       const isLiked = likedIdSet.has(clipId);
       const likeClass = isLiked ? ' liked' : '';
