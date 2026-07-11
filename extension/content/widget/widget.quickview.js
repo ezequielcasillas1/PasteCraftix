@@ -1,5 +1,12 @@
 import { safeRuntimeSendMessage } from '../shared.js';
 import { injectQuickViewStyles } from './widget.styles.js';
+import {
+  LIKED_CLIPS_STORAGE_KEY,
+  getLikedClipIds,
+  toggleClipLiked,
+} from './widget.liked-clips.js';
+
+const QV_HEART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
 export function openQuickViewPanel(widget) {
     try {
@@ -172,9 +179,49 @@ export function loadQuickViewIframeContent(widget, iframe) {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
           }
+          .quickview-btn.active {
+            background: rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+          }
+          .quickview-btn.liked-active {
+            color: #fecaca;
+            background: rgba(239, 68, 68, 0.35);
+          }
+          .quickview-btn.liked-active svg {
+            fill: currentColor;
+          }
           .quickview-btn svg,
           .quickview-btn svg *,
           .quickview-btn span {
+            pointer-events: none;
+          }
+          .clip-like-btn {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease;
+          }
+          .clip-like-btn:hover {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+          }
+          .clip-like-btn.liked {
+            color: #ef4444;
+          }
+          .clip-like-btn.liked svg {
+            fill: currentColor;
+          }
+          .clip-like-btn svg,
+          .clip-like-btn svg * {
             pointer-events: none;
           }
           .quickview-content {
@@ -277,6 +324,7 @@ export function loadQuickViewIframeContent(widget, iframe) {
             <span class="clip-count" id="clip-count">0 clips</span>
           </div>
           <div class="quickview-controls">
+            <button class="quickview-btn" id="liked-filter-btn" onclick="toggleLikedFilter()" title="Liked clips" aria-label="Show liked clips" aria-pressed="false">${QV_HEART_SVG}</button>
             <button class="quickview-btn" onclick="openMiniWindow()" title="Open mini Quick View (window)" aria-label="Open mini Quick View window"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg></button>
             <button class="quickview-btn" onclick="dockMiniBottomRight()" title="Open mini Quick View (bottom-right)" aria-label="Dock mini Quick View to bottom-right"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 13V19H13"/><path d="M5 5L19 19"/></svg></button>
             <button class="quickview-btn" onclick="refreshClips()" title="Refresh">🔄</button>
@@ -318,6 +366,27 @@ export function loadQuickViewIframeContent(widget, iframe) {
 
           function dockMiniBottomRight() {
             postToParent({ type: 'quickview-open-mini', mode: 'corner' });
+          }
+
+          let likedFilterOn = false;
+          let allClipsCache = [];
+          let likedIdSet = new Set();
+
+          function toggleLikedFilter() {
+            likedFilterOn = !likedFilterOn;
+            const btn = document.getElementById('liked-filter-btn');
+            if (btn) {
+              btn.classList.toggle('liked-active', likedFilterOn);
+              btn.classList.toggle('active', likedFilterOn);
+              btn.setAttribute('aria-pressed', likedFilterOn ? 'true' : 'false');
+              btn.title = likedFilterOn ? 'Show all clips' : 'Liked clips';
+              btn.setAttribute('aria-label', likedFilterOn ? 'Show all clips' : 'Show liked clips');
+            }
+            renderClips(allClipsCache, likedIdSet);
+          }
+
+          function toggleLike(clipId) {
+            postToParent({ type: 'quickview-toggle-like', clipId: String(clipId || '') });
           }
 
           function isFromExtension(e) {
@@ -364,21 +433,42 @@ export function loadQuickViewIframeContent(widget, iframe) {
             if (!e || !e.data) return;
             if (e.source !== window.parent) return;
             if (e.data.type === 'quickview-clips-data') {
-              renderClips(e.data.clips);
+              allClipsCache = Array.isArray(e.data.clips) ? e.data.clips : [];
+              likedIdSet = new Set(
+                Array.isArray(e.data.likedIds) ? e.data.likedIds.map(String) : []
+              );
+              renderClips(allClipsCache, likedIdSet);
             }
           });
           
-          function renderClips(clips) {
+          function renderClips(clips, likedIds) {
             const container = document.getElementById('quickview-content');
             const counter = document.getElementById('clip-count');
+            const likedSet = likedIds instanceof Set
+              ? likedIds
+              : new Set(Array.isArray(likedIds) ? likedIds.map(String) : []);
+
+            const visible = likedFilterOn
+              ? (clips || []).filter((clip) => likedSet.has(String(clip && clip.id != null ? clip.id : '')))
+              : (clips || []);
             
             // Update counter
             if (counter) {
-              counter.textContent = \`\${clips.length} clip\${clips.length !== 1 ? 's' : ''}\`;
+              if (likedFilterOn) {
+                counter.textContent = \`\${visible.length} liked\`;
+              } else {
+                counter.textContent = \`\${visible.length} clip\${visible.length !== 1 ? 's' : ''}\`;
+              }
             }
             
-            if (!clips || clips.length === 0) {
-              container.innerHTML = \`
+            if (!visible || visible.length === 0) {
+              container.innerHTML = likedFilterOn ? \`
+                <div class="empty-state">
+                  <div class="empty-icon">♡</div>
+                  <div class="empty-text">No liked clips yet</div>
+                  <div class="empty-hint">Tap the heart on a clip to add it here</div>
+                </div>
+              \` : \`
                 <div class="empty-state">
                   <div class="empty-icon">✨</div>
                   <div class="empty-text">No clips saved yet</div>
@@ -388,7 +478,7 @@ export function loadQuickViewIframeContent(widget, iframe) {
               return;
             }
             
-            container.innerHTML = clips.map((clip, index) => {
+            container.innerHTML = visible.map((clip, index) => {
               const text = clip.text || clip;
               const displayText = text.length > 60 ? text.substring(0, 60) + '...' : text;
               const category = clip.category || 'Uncategorized';
@@ -397,9 +487,15 @@ export function loadQuickViewIframeContent(widget, iframe) {
               const clipIdArg = JSON.stringify(clipId);
               const isArchived = !!(clip && (clip.archived === true || clip.source === 'archived'));
               const archivedArg = isArchived ? 'true' : 'false';
+              const isLiked = likedSet.has(clipId);
+              const likeClass = isLiked ? ' liked' : '';
+              const likeTitle = isLiked ? 'Remove from liked' : 'Add to liked';
+              const likeLabel = isLiked ? 'Unlike clip' : 'Like clip';
+              const heartSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
               
               return \`
                 <div class="clip-item">
+                  <button class="clip-like-btn\${likeClass}" onclick="toggleLike(\${clipIdArg})" title="\${likeTitle}" aria-label="\${likeLabel}" aria-pressed="\${isLiked ? 'true' : 'false'}">\${heartSvg}</button>
                   <div class="clip-content">
                     <div class="clip-text" title="\${escapeHtml(text)}">\${escapeHtml(displayText)}</div>
                     <div class="clip-meta">
@@ -490,16 +586,21 @@ export function loadQuickViewIframeContent(widget, iframe) {
       return merged.slice(0, 200);
     };
 
+    const postClipsToIframe = async (clips) => {
+      if (!iframe.contentWindow) return;
+      const likedIds = await getLikedClipIds().catch(() => []);
+      iframe.contentWindow.postMessage(
+        { type: 'quickview-clips-data', clips: Array.isArray(clips) ? clips : [], likedIds },
+        quickViewTargetOrigin
+      );
+    };
+
     // Listen for storage changes to auto-refresh clips
     const storageListener = (changes, area) => {
       if (area !== 'local' || !iframe.contentWindow) return;
-      if (!changes.clips && !changes.searchOnlyClips) return;
+      if (!changes.clips && !changes.searchOnlyClips && !changes[LIKED_CLIPS_STORAGE_KEY]) return;
       getQuickViewClips()
-        .then((clips) => {
-          if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
-          }
-        })
+        .then((clips) => postClipsToIframe(clips))
         .catch(() => {});
     };
     chrome.storage.onChanged.addListener(storageListener);
@@ -513,11 +614,16 @@ export function loadQuickViewIframeContent(widget, iframe) {
       if (iframe.contentWindow && e.source !== iframe.contentWindow) return;
 
       if (e.data.type === 'quickview-get-clips') {
-        getQuickViewClips().then((clips) => {
-          if (iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
-          }
-        }).catch(() => {});
+        getQuickViewClips()
+          .then((clips) => postClipsToIframe(clips))
+          .catch(() => {});
+      } else if (e.data.type === 'quickview-toggle-like') {
+        const clipId = String(e.data.clipId || '');
+        if (!clipId) return;
+        toggleClipLiked(clipId)
+          .then(() => getQuickViewClips())
+          .then((clips) => postClipsToIframe(clips))
+          .catch(() => {});
       } else if (e.data.type === 'quickview-delete-clip') {
         safeRuntimeSendMessage({
           action: 'pcDeleteQuickViewClip',
@@ -527,9 +633,9 @@ export function loadQuickViewIframeContent(widget, iframe) {
         })
           .then((response) => {
             const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-            if (iframe.contentWindow) {
-              iframe.contentWindow.postMessage({ type: 'quickview-clips-data', clips }, quickViewTargetOrigin);
-            }
+            return postClipsToIframe(clips).then(() => response);
+          })
+          .then((response) => {
             if (response?.success) {
               chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
             }

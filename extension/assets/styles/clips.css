@@ -365,6 +365,51 @@
   width: 100%;
 }
 
+.chip-like-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.chip-like-btn:hover,
+.chip-like-btn:focus-visible {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  outline: none;
+}
+
+.chip-like-btn.liked {
+  color: #ef4444;
+}
+
+.chip-like-btn.liked svg {
+  fill: currentColor;
+}
+
+.chip-like-btn > svg,
+.chip-like-btn > svg * {
+  pointer-events: none;
+}
+
+.chip.selected .chip-like-btn {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.chip.selected .chip-like-btn.liked,
+.chip.selected .chip-like-btn:hover {
+  color: #fecaca;
+}
+
 .chip::before {
   content: '';
   position: absolute;

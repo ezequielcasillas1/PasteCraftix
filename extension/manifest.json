@@ -64,6 +64,7 @@
         "content/safety/*.js",
         "content/capture/*.js",
         "content/merchant/*.js",
+        "shared/*.js",
         "styles.css",
         "styles/*.css",
         "assets/styles/*.css",

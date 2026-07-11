@@ -14,6 +14,7 @@ import {
   getClipTitle,
   getSelectedSearchClipIdsInUiOrder,
 } from './clips.state.js';
+import { isClipLikedInApp, toggleClipLike } from './clips.liked.js';
 
 function _paintClipLucideIcons(container) {
   if (!container) return;
@@ -218,6 +219,14 @@ function getCategoryClipViewModel(app, clip) {
 
 async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
   const actionHandlers = [
+    ['.chip-like-btn', async (anchor) => {
+      const liked = await toggleClipLike(app, clipIdKey);
+      if (!anchor) return;
+      anchor.classList.toggle('liked', liked);
+      anchor.setAttribute('aria-pressed', liked ? 'true' : 'false');
+      anchor.title = liked ? 'Remove from liked' : 'Add to liked';
+      anchor.setAttribute('aria-label', liked ? 'Unlike clip' : 'Like clip');
+    }],
     ['.chip-remove', () => app.removeChip(clipIdKey)],
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],
     [CLIP_ORG_BUNDLE_SELECTOR, (anchor) => openOrgBundleMenu(app, { anchor, clip, clipIdKey, context: 'clips' })],
@@ -424,8 +433,17 @@ export function createChip(app, clip, index) {
   } = getChipViewModel(app, clip, index);
   chip.dataset.clipId = clipIdKey;
 
+  const isLiked = isClipLikedInApp(app, clipIdKey);
+
   chip.innerHTML = `
     <input type="checkbox" class="chip-checkbox" ${isSelected ? 'checked' : ''}>
+    <button
+      class="chip-like-btn${isLiked ? ' liked' : ''}"
+      type="button"
+      title="${isLiked ? 'Remove from liked' : 'Add to liked'}"
+      aria-label="${isLiked ? 'Unlike clip' : 'Like clip'}"
+      aria-pressed="${isLiked ? 'true' : 'false'}"
+    ><i data-lucide="heart"></i></button>
     ${markupBadge}
     <span class="chip-text pc-clip-stack" title="${app.escapeHtml(getClipPreviewText(clip))}">
       <span class="pc-clip-title" title="${app.escapeHtml(displayTitle)}">${app.escapeHtml(displayTitle)}</span>
