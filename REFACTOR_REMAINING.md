@@ -4,7 +4,7 @@ Completed prior runs: Phase A (popup orchestrator ~1581→shell), Phase B (supab
 
 ## Next slice (daily automation)
 
-**`qp.render.js`** — extract `createInterface`, `renderClips`, `updateInterface`, `showInterface`, `hideInterface`, `applySettings` from `content/quick-paste/quick-paste.js`. Low–medium risk; same-area chain after `qp.storage.js`.
+**`qp.events.js`** — extract `setupEventListeners`, `setupMessageListener`, `setupStorageSync` from `content/quick-paste/quick-paste.js`. Medium risk; same-area chain after `qp.render.js`.
 
 ---
 
@@ -13,9 +13,9 @@ Completed prior runs: Phase A (popup orchestrator ~1581→shell), Phase B (supab
 Priority order for daily automation — pick next incomplete item:
 
 1. **quick-paste** `quick-paste.js` → `qp.*` submodules
-   - Done: `qp.helpers.js`, `qp.constants.js`, `qp.styles.js`, `qp.storage.js`
-   - Next: `qp.render.js` ← **start here**
-   - Then: `qp.events.js`, `qp.paste.js`, `qp.settings-modal.js`, `qp.clips-actions.js`, `qp.controller.js` shell
+   - Done: `qp.helpers.js`, `qp.constants.js`, `qp.styles.js`, `qp.storage.js`, `qp.render.js`
+   - Next: `qp.events.js` ← **start here**
+   - Then: `qp.paste.js`, `qp.settings-modal.js`, `qp.clips-actions.js`, `qp.controller.js` shell
 2. **widget** — remaining high-risk extractions in existing `widget.*` modules (`loadQuickViewContent`, `setupAutoCopyListener` — Opus-level; max-1 slice)
 3. **background** — one handler file per `message.action` (current split is external vs internal only)
 4. **popup** — remove ~300 thin `Feature.method.call(this)` delegates where `popup/events/*` can call feature modules directly (grep before delete); `popup.js` ~1389 lines
