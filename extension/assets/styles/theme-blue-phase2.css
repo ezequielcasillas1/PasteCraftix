@@ -1675,3 +1675,601 @@
   width: 6px;
   height: 6px;
 }
+
+/* ── 3G: Shared chrome + Notes view + Widgets + Activity filters ─────── */
+/* Gaps after Phase 3A–3F: white cards / light gray toggles still visible */
+
+/* Sign-out + close (top bar) */
+[data-theme="blue"] .btn-signout,
+[data-theme="blue"] .btn-close-app {
+  background: var(--pc-glass);
+  border: 1.5px solid var(--pc-border);
+  color: var(--pc-secondary-200);
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .btn-signout:hover,
+[data-theme="blue"] .btn-close-app:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+/* Loading overlay exit — navy glass, danger hover */
+[data-theme="blue"] .loading-exit-btn {
+  background: var(--pc-glass-strong);
+  border: 1.5px solid var(--pc-border);
+  color: var(--pc-secondary-100);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="blue"] .loading-exit-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+  border-color: var(--pc-error);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+[data-theme="blue"] .loading-text {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .loading-hint {
+  color: var(--pc-text-soft);
+}
+
+/* Modal / device-register close */
+[data-theme="blue"] .device-register-header .close-btn,
+[data-theme="blue"] .modal-close,
+[data-theme="blue"] .close-btn {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .device-register-header .close-btn:hover,
+[data-theme="blue"] .modal-close:hover,
+[data-theme="blue"] .close-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+}
+
+/* Notes — grid/list view toggle */
+[data-theme="blue"] .notes-view-toggle {
+  background: var(--pc-surface-2);
+  border: 1px solid var(--pc-border);
+  box-shadow: inset 0 1px 0 rgba(59, 130, 246, 0.1);
+}
+
+[data-theme="blue"] .view-toggle-btn {
+  color: var(--pc-text-muted);
+  background: transparent;
+}
+
+[data-theme="blue"] .view-toggle-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .view-toggle-btn.active {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: var(--pc-shadow-brand);
+}
+
+/* Notes — create CTAs (retune purple album shadow → premium blue) */
+[data-theme="blue"] .create-note-btn {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] .create-note-btn:hover {
+  box-shadow: var(--pc-shadow-brand-lg);
+}
+
+[data-theme="blue"] .create-album-btn {
+  background: var(--pc-gradient-brand);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="blue"] .create-album-btn:hover {
+  box-shadow: var(--pc-shadow-brand-lg);
+}
+
+[data-theme="blue"] .view-albums-btn {
+  background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-primary-600) 100%);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] .view-albums-btn:hover,
+[data-theme="blue"] .view-albums-btn.active {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), var(--pc-shadow-brand);
+}
+
+/* Notes list-view cards — same glass language as grid */
+[data-theme="blue"] .notes-container.list-view .note-card {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .notes-container.list-view .note-card:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.1),
+    0 4px 14px var(--pc-glow);
+}
+
+/* ── Widgets tab (white cards → navy glass + electric blue) ──────────── */
+
+[data-theme="blue"] #widgetsTab {
+  background:
+    radial-gradient(ellipse 120% 55% at 50% -8%, rgba(37, 99, 235, 0.12), transparent 55%),
+    var(--pc-bg);
+}
+
+[data-theme="blue"] .pc-widgets-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-widgets-subtitle {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .pc-widgets-sources-btn {
+  background: var(--pc-glass) !important;
+  border: 1.5px solid var(--pc-border) !important;
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .pc-widgets-sources-btn:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: var(--pc-secondary-400) !important;
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .pc-widgets-panel {
+  background: var(--pc-glass);
+  border: 1.5px solid var(--pc-border);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .pc-widgets-panel-head h4 {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-widgets-panel-hint {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .pc-widgets-label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .pc-widgets-input,
+[data-theme="blue"] .pc-widgets-textarea {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .pc-widgets-input:focus,
+[data-theme="blue"] .pc-widgets-textarea:focus {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] .pc-widget-card {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .pc-widget-card:hover {
+  border-color: var(--pc-border-glow);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.45),
+    0 6px 20px var(--pc-glow),
+    inset 0 1px 0 rgba(96, 165, 250, 0.12);
+}
+
+[data-theme="blue"] .pc-widget-card-head {
+  background: rgba(11, 18, 32, 0.92);
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] .pc-widget-card-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-widget-icon-btn {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .pc-widget-icon-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .pc-widget-icon-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+[data-theme="blue"] .pc-widget-source-card {
+  background: var(--pc-glass);
+  border: 1.5px solid var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .pc-widget-source-card:hover {
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .pc-widget-source-name {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-widget-source-cat {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .pc-widget-source-blurb {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .pc-widget-external {
+  background: linear-gradient(160deg, var(--pc-primary-800) 0%, var(--pc-surface-2) 100%);
+  color: var(--pc-text);
+  border-top: 1px solid var(--pc-border);
+}
+
+[data-theme="blue"] .pc-widget-external-icon {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .pc-widget-external-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .pc-widget-external-blurb {
+  color: var(--pc-text-muted);
+}
+
+/* ── Activity filters (beat inline light hex on chips) ───────────────── */
+
+[data-theme="blue"] .activity-header {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .activity-filter-chip {
+  background: var(--pc-glass) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.35) !important;
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] .activity-filter-chip:hover {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: var(--pc-secondary-400) !important;
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .activity-filter-chip.active {
+  background: var(--pc-gradient-brand-soft) !important;
+  border-color: var(--pc-secondary-400) !important;
+  color: #fff !important;
+  box-shadow: var(--pc-shadow-brand) !important;
+}
+
+[data-theme="blue"] .activity-date-filter input,
+[data-theme="blue"] .activity-date-filter select,
+[data-theme="blue"] #activityDateFrom,
+[data-theme="blue"] #activityDateTo {
+  background: var(--pc-surface) !important;
+  border: 1px solid var(--pc-border) !important;
+  color: var(--pc-text) !important;
+  color-scheme: dark;
+}
+
+[data-theme="blue"] .activity-date-filter label,
+[data-theme="blue"] #activityTab > p {
+  color: var(--pc-text-muted) !important;
+}
+
+[data-theme="blue"] #loadMoreActivityBtn {
+  background: var(--pc-glass) !important;
+  border: 1.5px solid var(--pc-border) !important;
+  color: var(--pc-secondary-200) !important;
+}
+
+[data-theme="blue"] #loadMoreActivityBtn:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: var(--pc-secondary-400) !important;
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] #activityTab .empty-state h3,
+[data-theme="blue"] #widgetsTab .empty-state h3,
+[data-theme="blue"] #notesTab .empty-state h3,
+[data-theme="blue"] #aiHistoryTab .empty-state h3 {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #activityTab .empty-state p,
+[data-theme="blue"] #widgetsTab .empty-state p,
+[data-theme="blue"] #notesTab .empty-state p,
+[data-theme="blue"] #aiHistoryTab .empty-state p {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #activityTab .empty-state-icon,
+[data-theme="blue"] #widgetsTab .empty-state-icon,
+[data-theme="blue"] #notesTab .empty-state-icon,
+[data-theme="blue"] #aiHistoryTab .empty-state-icon {
+  color: var(--pc-secondary-300);
+}
+
+/* ── 3H: Clip viewer + Send to Note/Album ────────────────────────────── */
+
+/* Clip Viewer — keep user-rendered HTML untouched; style only its chrome. */
+[data-theme="blue"] .clip-viewer-content {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(59, 130, 246, 0.14);
+}
+
+[data-theme="blue"] .clip-viewer-content .modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 34%),
+    linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-surface) 100%);
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] .clip-viewer-content .modal-header h3,
+[data-theme="blue"] .clip-viewer-content .modal-header h3 svg,
+[data-theme="blue"] .clip-viewer-content .modal-header h3 [data-lucide] {
+  color: var(--pc-secondary-50);
+  stroke: currentColor;
+}
+
+[data-theme="blue"] .clip-viewer-content .modal-body {
+  background:
+    linear-gradient(180deg, var(--pc-primary-800) 0%, var(--pc-surface) 44%);
+}
+
+[data-theme="blue"] .clip-viewer-meta {
+  background: rgba(30, 58, 138, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-100);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.08);
+}
+
+[data-theme="blue"] .clip-viewer-body,
+[data-theme="blue"] .clip-viewer-details {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] .clip-viewer-message {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .clip-viewer-message p {
+  border-left-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .clip-viewer-link-card {
+  background: rgba(30, 58, 138, 0.18);
+  border-color: rgba(59, 130, 246, 0.42);
+}
+
+[data-theme="blue"] .clip-viewer-section-label,
+[data-theme="blue"] .clip-viewer-details summary {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .clip-viewer-link-card a {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .clip-viewer-link-card a:hover {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .clip-viewer-image {
+  border-color: var(--pc-border);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+}
+
+[data-theme="blue"] .clip-viewer-note,
+[data-theme="blue"] .clip-viewer-empty {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .clip-viewer-pre {
+  background: var(--pc-primary-900);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .clip-viewer-footer {
+  background: var(--pc-primary-800);
+  border-top-color: var(--pc-border);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] .clip-viewer-toolbar .pc-ai-icon-btn {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .clip-viewer-toolbar .pc-ai-icon-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+  box-shadow: 0 4px 12px var(--pc-glow);
+}
+
+[data-theme="blue"] .clip-viewer-toolbar .pc-ai-icon-btn:disabled {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-border);
+  color: var(--pc-text-soft);
+  opacity: 0.6;
+}
+
+[data-theme="blue"] .clip-viewer-toolbar .pc-ai-icon-btn--done,
+[data-theme="blue"] .clip-viewer-toolbar .pc-ai-icon-btn--done:hover {
+  background: var(--pc-gradient-brand-soft);
+  border-color: var(--pc-secondary-400);
+  color: #fff;
+}
+
+/* Send to Note/Album — scoped to avoid changing other modal variants. */
+[data-theme="blue"] #albumPickerModal .album-picker-content {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] #albumPickerModal .modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 38%),
+    linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-surface) 100%);
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] #albumPickerModal .modal-header h3,
+[data-theme="blue"] #albumPickerModal .modal-header h3 svg,
+[data-theme="blue"] #albumPickerModal .modal-header h3 [data-lucide] {
+  color: var(--pc-secondary-50);
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #albumPickerModal .modal-body {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-item {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-item:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-item.album {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.28) 0%, var(--pc-glass) 100%);
+  border-color: rgba(59, 130, 246, 0.52);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-item.album:hover {
+  border-color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-icon,
+[data-theme="blue"] .note-card-type,
+[data-theme="blue"] .category-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid rgba(59, 130, 246, 0.38);
+  border-radius: 8px;
+  background: rgba(30, 58, 138, 0.3);
+  color: var(--pc-secondary-300);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.1);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-icon svg,
+[data-theme="blue"] #albumPickerModal .album-picker-icon [data-lucide],
+[data-theme="blue"] .note-card-type svg,
+[data-theme="blue"] .note-card-type [data-lucide],
+[data-theme="blue"] .category-option-icon svg,
+[data-theme="blue"] .category-option-icon [data-lucide] {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-meta {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #albumPickerModal .create-new-from-picker {
+  background: var(--pc-glass);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #albumPickerModal .create-new-from-picker:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .note-action-btn {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .note-action-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .note-action-btn svg,
+[data-theme="blue"] .note-action-btn [data-lucide] {
+  color: currentColor;
+  stroke: currentColor;
+}
+
+[data-theme="blue"] .category-option.selected .category-option-icon {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-list {
+  scrollbar-color: var(--pc-secondary-500) var(--pc-surface);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-list::-webkit-scrollbar-track {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] #albumPickerModal .album-picker-list::-webkit-scrollbar-thumb {
+  background: var(--pc-secondary-500);
+}
+
+[data-theme="blue"] .clip-viewer-content :focus-visible,
+[data-theme="blue"] #albumPickerModal :focus-visible,
+[data-theme="blue"] .note-action-btn:focus-visible,
+[data-theme="blue"] .category-option:focus-visible {
+  outline: 2px solid var(--pc-secondary-300);
+  outline-offset: 2px;
+}

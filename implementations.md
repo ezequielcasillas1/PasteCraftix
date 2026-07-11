@@ -1,3 +1,8 @@
+### Jul 10, 2026 - Premium Blue Phase 3G + clip viewer cascade
+**Status:** PENDING USER VERIFY
+**Files:** theme-blue-phase2.css, popup.html, instructions/request.md
+**Result:** Blue Dark Mode overrides for sign-out/close/exit, Notes grid/list + CTAs, Widgets cards, Activity filters, clip viewer + Send to Note/Album; theme CSS loads after clip-viewer.css.
+
 ### Jun 24, 2026 - Merchant Test Lab website (all platform mocks)
 **Status:** PENDING USER TEST
 **Files:** website/public/merchant-test/*, website/src/pages/merchant-test/index.astro, website/src/data/site.js, netlify.toml, merchant-test-lab/*, merchant-test-lab/README.md, docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md
