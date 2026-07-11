@@ -3,34 +3,51 @@
  * Handles background sync orchestration and UI listener logic
  */
 
-export async function performBackgroundSync(app, { force = false, reason = 'background-sync' } = {}) {
+async function shouldSkipCloudSync(app, force, reason) {
+  if (force) return false;
   try {
-    if (!force) {
-      try {
-        const res = await chrome.storage.local.get([app._lastRestoreAtKey]);
-        const lastRestoreAt = typeof res?.[app._lastRestoreAtKey] === 'number' ? res[app._lastRestoreAtKey] : 0;
-        if (lastRestoreAt && (Date.now() - lastRestoreAt) < app._restoreSkipCloudSyncWindowMs) {
-          console.log('⏸️ Skipping background sync (recent restore):', { reason, lastRestoreAt });
-          return;
-        }
-      } catch (_) {}
-    }
+    const res = await chrome.storage.local.get([app._lastRestoreAtKey]);
+    const lastRestoreAt = typeof res?.[app._lastRestoreAtKey] === 'number' ? res[app._lastRestoreAtKey] : 0;
+    const isRecent = lastRestoreAt && (Date.now() - lastRestoreAt) < app._restoreSkipCloudSyncWindowMs;
+    if (!isRecent) return false;
+    console.log('⏸️ Skipping background sync (recent restore):', { reason, lastRestoreAt });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
-    console.log('🔄 Starting background sync with database...', { reason, force });
-    const syncResult = await pasteCraftSupabase.performFullSync();
-    
-    if (syncResult.success) {
-      console.log('✅ Background sync complete:', syncResult.stats);
-    } else {
-      const msg = String(syncResult?.message || '');
-      if (msg.includes('Cloud sync requires Basic or Enhanced subscription')) {
-        console.info('ℹ️ Background sync skipped for free tier:', msg);
-      } else {
-        console.warn('⚠️ Background sync failed:', msg || 'Unknown sync error');
-      }
-    }
+function handleCloudSyncFailure(syncResult) {
+  const message = String(syncResult?.message || '');
+  const isSubscriptionSkip = message.includes('Cloud sync requires Basic or Enhanced subscription');
+  if (isSubscriptionSkip) {
+    console.info('ℹ️ Background sync skipped for free tier:', message);
+    return 'ready';
+  }
+  console.warn('⚠️ Background sync failed:', message || 'Unknown sync error');
+  return 'failed';
+}
+
+async function runCloudSync(app, force, reason) {
+  console.log('🔄 Starting background sync with database...', { reason, force });
+  const syncResult = await pasteCraftSupabase.performFullSync();
+  if (!syncResult.success) return handleCloudSyncFailure(syncResult);
+  console.log('✅ Background sync complete:', syncResult.stats);
+  await app.loadData();
+  return 'ready';
+}
+
+export async function performBackgroundSync(app, { force = false, reason = 'background-sync' } = {}) {
+  let cloudResolution = 'failed';
+  try {
+    const skipCloudSync = await shouldSkipCloudSync(app, force, reason);
+    cloudResolution = skipCloudSync
+      ? 'ready'
+      : await runCloudSync(app, force, reason);
   } catch (error) {
     console.error('❌ Background sync error:', error);
+  } finally {
+    app.syncFeature?.loader?.finalizeCoreCloudHydration?.(app, cloudResolution);
   }
 }
 
@@ -97,29 +114,47 @@ export async function runSyncAutoRefreshTick(app) {
   }
 }
 
+async function refreshRealtimeClips(app) {
+  await app.loadData();
+  app.renderChips();
+  app.updateLastCapture();
+  app.renderSearchResults();
+  app.maybeRefreshRefactorizationPanel?.();
+}
+
+async function refreshRealtimeCategories(app) {
+  await app.loadData();
+  app.renderCategories();
+  app.updateCategoryFilter();
+  app.updateManualInputCategories();
+}
+
+async function refreshRealtimeSettings(app) {
+  await app.loadSettings();
+}
+
+async function refreshRealtimeProfile(app) {
+  await app.loadUserProfile();
+  app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+}
+
+const REALTIME_REFRESHERS = Object.freeze({
+  clips: refreshRealtimeClips,
+  archivedClips: refreshRealtimeClips,
+  categories: refreshRealtimeCategories,
+  settings: refreshRealtimeSettings,
+  profile: refreshRealtimeProfile,
+});
+
+async function handleRealtimeDataChange(app, event) {
+  const { type } = event.detail;
+  console.log(`🔔 Realtime change detected: ${type}`);
+  const refresh = REALTIME_REFRESHERS[type];
+  if (refresh) await refresh(app);
+}
+
 export function setupRealtimeListeners(app) {
-  window.addEventListener('dataChanged', async (event) => {
-    const { type } = event.detail;
-    console.log(`🔔 Realtime change detected: ${type}`);
-    
-    if (type === 'clips' || type === 'archivedClips') {
-      await app.loadData();
-      app.renderChips();
-      app.updateLastCapture();
-      app.renderSearchResults();
-      app.maybeRefreshRefactorizationPanel?.();
-    } else if (type === 'categories') {
-      await app.loadData();
-      app.renderCategories();
-      app.updateCategoryFilter();
-      app.updateManualInputCategories();
-    } else if (type === 'settings') {
-      await app.loadSettings();
-    } else if (type === 'profile') {
-      await app.loadUserProfile();
-      app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
-    }
-  });
+  window.addEventListener('dataChanged', (event) => handleRealtimeDataChange(app, event));
 }
 
 export function updateSyncIndicator(app, status, queueLength = 0) {
@@ -151,22 +186,46 @@ export function updateSyncIndicator(app, status, queueLength = 0) {
   }
 }
 
+function shouldShowSyncProgress(current, total) {
+  if (total <= 100) return false;
+  return current < total;
+}
+
+function showSyncProgress(app, elements, progress) {
+  const { progressContainer, progressFill, progressText } = elements;
+  const { current, total, percentage } = progress;
+  progressContainer.classList.add('is-visible');
+  progressFill.style.width = `${percentage}%`;
+  progressText.textContent = `${current} / ${total} (${percentage}%)`;
+  scheduleSyncAutoRefreshTick(app);
+}
+
+function hideSyncProgress(app, elements) {
+  const { progressContainer, progressFill, progressText } = elements;
+  progressContainer.classList.remove('is-visible');
+  progressFill.style.width = '0%';
+  progressText.textContent = '0 / 0 (0%)';
+  clearSyncAutoRefresh(app);
+}
+
+function hasSyncProgressElements(elements) {
+  if (!elements.progressContainer) return false;
+  if (!elements.progressFill) return false;
+  return !!elements.progressText;
+}
+
 export function updateSyncProgress(app, current, total, percentage) {
-  const progressContainer = document.getElementById('syncProgressContainer');
-  const progressFill = document.getElementById('syncProgressFill');
-  const progressText = document.getElementById('syncProgressText');
+  const elements = {
+    progressContainer: document.getElementById('syncProgressContainer'),
+    progressFill: document.getElementById('syncProgressFill'),
+    progressText: document.getElementById('syncProgressText'),
+  };
   
-  if (!progressContainer || !progressFill || !progressText) return;
+  if (!hasSyncProgressElements(elements)) return;
   
-  if (total > 100 && current < total) {
-    progressContainer.classList.add('is-visible');
-    progressFill.style.width = `${percentage}%`;
-    progressText.textContent = `${current} / ${total} (${percentage}%)`;
-    scheduleSyncAutoRefreshTick(app);
-  } else {
-    progressContainer.classList.remove('is-visible');
-    progressFill.style.width = '0%';
-    progressText.textContent = '0 / 0 (0%)';
-    clearSyncAutoRefresh(app);
+  if (shouldShowSyncProgress(current, total)) {
+    showSyncProgress(app, elements, { current, total, percentage });
+    return;
   }
+  hideSyncProgress(app, elements);
 }

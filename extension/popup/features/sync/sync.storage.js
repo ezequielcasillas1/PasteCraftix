@@ -1,12 +1,24 @@
-export async function ensureIndexedDbReadyAndMigrate(app) {
-  if (!app.idb || app._idbReady) return;
+const indexedDbInitializationPromises = new WeakMap();
+const tieredStorageInitializationPromises = new WeakMap();
+const tieredStorageMigrationPromises = new WeakMap();
+
+function getOrCreatePromise(cache, app, task) {
+  if (!cache.has(app)) cache.set(app, task());
+  return cache.get(app);
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+async function initializeIndexedDb(app) {
   try {
     await app.idb.open();
     const seedData = await chrome.storage.local.get(['clips', 'categories', 'notes']);
     await app.idb.importIfNeededFromStorage({
-      clips: Array.isArray(seedData?.clips) ? seedData.clips : [],
-      categories: Array.isArray(seedData?.categories) ? seedData.categories : [],
-      notes: Array.isArray(seedData?.notes) ? seedData.notes : []
+      clips: asArray(seedData?.clips),
+      categories: asArray(seedData?.categories),
+      notes: asArray(seedData?.notes),
     });
     app._idbReady = true;
   } catch (error) {
@@ -15,176 +27,218 @@ export async function ensureIndexedDbReadyAndMigrate(app) {
   }
 }
 
+export function ensureIndexedDbReadyAndMigrate(app) {
+  if (!app.idb || app._idbReady) return Promise.resolve();
+  return getOrCreatePromise(
+    indexedDbInitializationPromises,
+    app,
+    () => initializeIndexedDb(app),
+  );
+}
+
+function canMirrorLocalState(app, changes) {
+  return !!app._idbReady && !!app.idb && !!changes;
+}
+
+async function syncChangedEntity(app, changes, changeKey, storeName) {
+  const change = changes[changeKey];
+  if (!change) return;
+  await app.idb.syncEntityFromLocalStorage(storeName, asArray(change.newValue));
+}
+
 export async function mirrorChangedLocalStateToIndexedDb(app, changes) {
-  if (!app._idbReady || !app.idb || !changes) return;
+  if (!canMirrorLocalState(app, changes)) return;
   try {
-    if (changes.clips) {
-      await app.idb.syncEntityFromLocalStorage('clips', Array.isArray(changes.clips.newValue) ? changes.clips.newValue : []);
-    }
-    if (changes.categories) {
-      await app.idb.syncEntityFromLocalStorage('categories', Array.isArray(changes.categories.newValue) ? changes.categories.newValue : []);
-    }
-    if (changes.notes) {
-      await app.idb.syncEntityFromLocalStorage('notes', Array.isArray(changes.notes.newValue) ? changes.notes.newValue : []);
-    }
+    await syncChangedEntity(app, changes, 'clips', 'clips');
+    await syncChangedEntity(app, changes, 'categories', 'categories');
+    await syncChangedEntity(app, changes, 'notes', 'notes');
   } catch (error) {
     console.warn('?? Failed mirroring local entities to IndexedDB:', error?.message || error);
   }
 }
 
-export async function initializeTieredStorage(app) {
-  // Only initialize if StorageMeter and TieredStorage are available
-  if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') {
-    return;
-  }
+function isTieredStorageAvailable() {
+  return typeof StorageMeter !== 'undefined' && typeof tieredStorageManager !== 'undefined';
+}
 
+function setLocalTieredCounts(app) {
+  app.totalClipsCount = app.clips.length;
+  app.totalArchivedCount = app.searchOnlyClips.length;
+}
+
+async function initializeTieredStores(app) {
+  app.tieredClipsStore = tieredStorageManager.getStore('clips', {
+    pageSize: app.clipsPerPage,
+    localStorageKey: 'clips',
+    supabaseTable: 'clips',
+    timestampField: 'timestamp'
+  });
+  await app.tieredClipsStore.initialize();
+  app.tieredClipsStore.localCount = app.clips.length;
+
+  app.tieredArchivedStore = tieredStorageManager.getStore('archived', {
+    pageSize: 20,
+    localStorageKey: 'searchOnlyClips',
+    supabaseTable: 'archived_clips',
+    timestampField: 'timestamp'
+  });
+  await app.tieredArchivedStore.initialize();
+  app.tieredArchivedStore.localCount = app.searchOnlyClips.length;
+}
+
+function canLoadRemoteCounts() {
+  return typeof pasteCraftSupabase !== 'undefined'
+    && !!pasteCraftSupabase.isAuthenticated?.();
+}
+
+async function loadRemoteTieredCounts(app) {
+  const [clipsResult, archivedResult] = await Promise.allSettled([
+    pasteCraftSupabase.getClipsCount(),
+    pasteCraftSupabase.getArchivedClipsCount()
+  ]);
+  const clipsCount = clipsResult.status === 'fulfilled' ? clipsResult.value : 0;
+  const archivedCount = archivedResult.status === 'fulfilled' ? archivedResult.value : 0;
+  app.totalClipsCount = Math.max(clipsCount, app.clips.length);
+  app.totalArchivedCount = Math.max(archivedCount, app.searchOnlyClips.length);
+  app.tieredClipsStore.totalCount = app.totalClipsCount;
+  app.tieredArchivedStore.totalCount = app.totalArchivedCount;
+  return clipsResult.status === 'fulfilled' && archivedResult.status === 'fulfilled';
+}
+
+function finalizeCoreCloudHydration(app, outcome) {
+  app.syncFeature?.loader?.finalizeCoreCloudHydration?.(app, outcome);
+}
+
+async function runTieredStorageInitialization(app) {
+  if (!isTieredStorageAvailable()) return;
   try {
-    // Initialize clips tiered storage
-    app.tieredClipsStore = tieredStorageManager.getStore('clips', {
-      pageSize: app.clipsPerPage,
-      localStorageKey: 'clips',
-      supabaseTable: 'clips',
-      timestampField: 'timestamp'
-    });
-    await app.tieredClipsStore.initialize();
-    app.tieredClipsStore.localCount = app.clips.length;
-
-    // Initialize archived clips tiered storage
-    app.tieredArchivedStore = tieredStorageManager.getStore('archived', {
-      pageSize: 20,
-      localStorageKey: 'searchOnlyClips',
-      supabaseTable: 'archived_clips',
-      timestampField: 'timestamp'
-    });
-    await app.tieredArchivedStore.initialize();
-    app.tieredArchivedStore.localCount = app.searchOnlyClips.length;
-
-    // Get remote counts if authenticated (for accurate pagination)
-    if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.isAuthenticated?.()) {
-      const [clipsCount, archivedCount] = await Promise.all([
-        pasteCraftSupabase.getClipsCount().catch(() => 0),
-        pasteCraftSupabase.getArchivedClipsCount().catch(() => 0)
-      ]);
-      
-      app.totalClipsCount = Math.max(clipsCount, app.clips.length);
-      app.totalArchivedCount = Math.max(archivedCount, app.searchOnlyClips.length);
-      
-      app.tieredClipsStore.totalCount = app.totalClipsCount;
-      app.tieredArchivedStore.totalCount = app.totalArchivedCount;
+    await initializeTieredStores(app);
+    if (canLoadRemoteCounts()) {
+      const resolved = await loadRemoteTieredCounts(app);
+      finalizeCoreCloudHydration(app, resolved ? 'ready' : 'failed');
     } else {
-      // No Supabase - use local counts
-      app.totalClipsCount = app.clips.length;
-      app.totalArchivedCount = app.searchOnlyClips.length;
+      setLocalTieredCounts(app);
+      if (app._isFreemiumGuest) finalizeCoreCloudHydration(app, 'ready');
     }
     app.updateHeaderClipCount?.();
-  } catch (e) {
-    console.warn('Failed to initialize tiered storage:', e);
-    app.totalClipsCount = app.clips.length;
-    app.totalArchivedCount = app.searchOnlyClips.length;
+  } catch (error) {
+    console.warn('Failed to initialize tiered storage:', error);
+    setLocalTieredCounts(app);
+    finalizeCoreCloudHydration(app, 'failed');
     app.updateHeaderClipCount?.();
   }
 }
 
-export async function maybeMigrateTieredStorage(app) {
-  // Check if StorageMeter is available
-  if (typeof StorageMeter === 'undefined') {
-    return;
-  }
+export function initializeTieredStorage(app) {
+  return getOrCreatePromise(
+    tieredStorageInitializationPromises,
+    app,
+    () => runTieredStorageInitialization(app),
+  );
+}
 
-  // Check if already migrated
+async function hasCompletedTieredMigration() {
   const { pc_tiered_storage_migrated_v1 } = await chrome.storage.local.get(['pc_tiered_storage_migrated_v1']);
-  if (pc_tiered_storage_migrated_v1) {
-    return;
-  }
+  return !!pc_tiered_storage_migrated_v1;
+}
 
-  // Check if user is authenticated (needed to push to cloud)
-  if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.isAuthenticated?.()) {
-    return;
+function canMigrateTieredStorage() {
+  return typeof pasteCraftSupabase !== 'undefined'
+    && !!pasteCraftSupabase.isAuthenticated?.();
+}
+
+function markTieredMigrationComplete() {
+  return chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
+}
+
+async function syncMigratedClipsToIndexedDb(app) {
+  if (app._idbReady && app.idb) {
+    await app.idb.syncEntityFromLocalStorage('clips', app.clips);
   }
+}
+
+async function migrateExcessClips(app, budget) {
+  if (app.clips.length <= budget) return 0;
+  try {
+    const excess = app.clips.slice(budget);
+    await pasteCraftSupabase.syncClipsToSupabase(excess);
+    app.clips = app.clips.slice(0, budget);
+    await chrome.storage.local.set({ clips: app.clips });
+    await syncMigratedClipsToIndexedDb(app);
+    return excess.length;
+  } catch (error) {
+    console.warn('Failed to migrate clips:', error);
+    return 0;
+  }
+}
+
+async function migrateExcessNotes(app, budget) {
+  if (app.notes.length <= budget) return 0;
+  try {
+    const excess = app.notes.slice(budget);
+    await pasteCraftSupabase.syncNotesToSupabase(excess);
+    app.notes = app.notes.slice(0, budget);
+    await app.saveNotes();
+    return excess.length;
+  } catch (error) {
+    console.warn('Failed to migrate notes:', error);
+    return 0;
+  }
+}
+
+async function migrateExcessArchivedClips(app, budget) {
+  if (app.searchOnlyClips.length <= budget) return 0;
+  try {
+    const excess = app.searchOnlyClips.slice(budget);
+    await pasteCraftSupabase.syncArchivedClipsToSupabase(excess);
+    app.searchOnlyClips = app.searchOnlyClips.slice(0, budget);
+    await chrome.storage.local.set({ searchOnlyClips: app.searchOnlyClips });
+    return excess.length;
+  } catch (error) {
+    console.warn('Failed to migrate archived clips:', error);
+    return 0;
+  }
+}
+
+async function migrateOverBudgetData(app, budgets) {
+  const clips = await migrateExcessClips(app, budgets.clips);
+  const notes = await migrateExcessNotes(app, budgets.notes);
+  const archived = await migrateExcessArchivedClips(app, budgets.archived);
+  return { clips, notes, archived };
+}
+
+function applyMigratedCounts(app, migrated) {
+  const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
+  if (totalMigrated === 0) return;
+  app.totalClipsCount = app.clips.length + migrated.clips;
+  app.totalNotesCount = app.notes.length + migrated.notes;
+  app.totalArchivedCount = app.searchOnlyClips.length + migrated.archived;
+  app.renderChips();
+}
+
+async function runTieredStorageMigration(app) {
+  if (typeof StorageMeter === 'undefined') return;
+  if (await hasCompletedTieredMigration()) return;
+  if (!canMigrateTieredStorage()) return;
 
   try {
-    // Get storage report
     const report = await StorageMeter.getStorageReport();
-    
-    // Only migrate if storage is at 70%+ capacity
     if (report.total.percentage < 0.7) {
-      // Mark as migrated (no migration needed)
-      await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
+      await markTieredMigrationComplete();
       return;
     }
-
-    // Calculate budgets
-    const budgets = report.budgets;
-    let migrated = { clips: 0, notes: 0, archived: 0 };
-
-    // Migrate clips if over budget
-    if (app.clips.length > budgets.clips) {
-      const excessClips = app.clips.slice(budgets.clips);
-      
-      // Push excess to Supabase
-      try {
-        await pasteCraftSupabase.syncClipsToSupabase(excessClips);
-        migrated.clips = excessClips.length;
-        
-        // Keep only budget amount locally
-        app.clips = app.clips.slice(0, budgets.clips);
-        await chrome.storage.local.set({ clips: app.clips });
-        if (app._idbReady && app.idb) {
-          await app.idb.syncEntityFromLocalStorage('clips', app.clips);
-        }
-      } catch (e) {
-        console.warn('Failed to migrate clips:', e);
-      }
-    }
-
-    // Migrate notes if over budget
-    if (app.notes.length > budgets.notes) {
-      const excessNotes = app.notes.slice(budgets.notes);
-      
-      try {
-        await pasteCraftSupabase.syncNotesToSupabase(excessNotes);
-        migrated.notes = excessNotes.length;
-        
-        // Keep only budget amount locally
-        app.notes = app.notes.slice(0, budgets.notes);
-        await app.saveNotes();
-      } catch (e) {
-        console.warn('Failed to migrate notes:', e);
-      }
-    }
-
-    // Migrate archived clips if over budget
-    if (app.searchOnlyClips.length > budgets.archived) {
-      const excessArchived = app.searchOnlyClips.slice(budgets.archived);
-      
-      try {
-        await pasteCraftSupabase.syncArchivedClipsToSupabase(excessArchived);
-        migrated.archived = excessArchived.length;
-        
-        // Keep only budget amount locally
-        app.searchOnlyClips = app.searchOnlyClips.slice(0, budgets.archived);
-        await chrome.storage.local.set({ searchOnlyClips: app.searchOnlyClips });
-      } catch (e) {
-        console.warn('Failed to migrate archived clips:', e);
-      }
-    }
-
-    // Mark migration as complete
-    await chrome.storage.local.set({ pc_tiered_storage_migrated_v1: Date.now() });
-
-    // Log results
-    const totalMigrated = migrated.clips + migrated.notes + migrated.archived;
-    if (totalMigrated > 0) {
-      // Update total counts
-      app.totalClipsCount = app.clips.length + migrated.clips;
-      app.totalNotesCount = app.notes.length + migrated.notes;
-      app.totalArchivedCount = app.searchOnlyClips.length + migrated.archived;
-      
-      // Re-render to show updated pagination
-      app.renderChips();
-    }
-
-  } catch (e) {
-    console.error('Tiered storage migration failed:', e);
+    const migrated = await migrateOverBudgetData(app, report.budgets);
+    await markTieredMigrationComplete();
+    applyMigratedCounts(app, migrated);
+  } catch (error) {
+    console.error('Tiered storage migration failed:', error);
   }
+}
+
+export function maybeMigrateTieredStorage(app) {
+  return getOrCreatePromise(
+    tieredStorageMigrationPromises,
+    app,
+    () => runTieredStorageMigration(app),
+  );
 }

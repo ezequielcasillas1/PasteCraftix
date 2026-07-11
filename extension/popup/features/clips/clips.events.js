@@ -8,6 +8,8 @@ import {
 } from './clips.action-menu.js';
 import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
 
+const SEARCH_INPUT_DEBOUNCE_MS = 80;
+
 function getAllClipCandidates(app) {
   return [...app.clips, ...app.searchOnlyClips];
 }
@@ -22,6 +24,27 @@ function isCategoryCheckbox(event) {
 
 function isCategoryActionArea(event) {
   return Boolean(event.target.closest('.category-clip-actions'));
+}
+
+function clearPendingSearchRender(app) {
+  if (!app._searchRenderTimerId) return;
+  clearTimeout(app._searchRenderTimerId);
+  app._searchRenderTimerId = null;
+}
+
+function renderSearchNow(app) {
+  clearPendingSearchRender(app);
+  app.renderSearchResults();
+  app.updateSearchBulkActions();
+}
+
+function scheduleSearchRender(app) {
+  clearPendingSearchRender(app);
+  app._searchRenderTimerId = setTimeout(() => {
+    app._searchRenderTimerId = null;
+    app.renderSearchResults();
+    app.updateSearchBulkActions();
+  }, SEARCH_INPUT_DEBOUNCE_MS);
 }
 
 function toggleCategoryRow(app, clipIdKey, row, event) {
@@ -67,27 +90,24 @@ export function registerClipSearchEvents(app) {
 
   searchInput?.addEventListener('input', (e) => {
     app.searchQuery = e.target.value;
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
+    if (!app.searchQuery) renderSearchNow(app);
+    else scheduleSearchRender(app);
   });
 
   clearSearch?.addEventListener('click', () => {
     if (searchInput) searchInput.value = '';
     app.searchQuery = '';
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
+    renderSearchNow(app);
   });
 
   categoryFilter?.addEventListener('change', (e) => {
     app.selectedCategory = e.target.value;
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
+    renderSearchNow(app);
   });
 
   dateFilter?.addEventListener('change', (e) => {
     app.selectedDateFilter = e.target.value;
-    app.renderSearchResults();
-    app.updateSearchBulkActions();
+    renderSearchNow(app);
   });
 }
 

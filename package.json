@@ -5,7 +5,7 @@
   "author": "Ezequiel Casillas",
   "license": "MIT",
   "scripts": {
-    "test": "node tests/extension-smoke.test.js && node --test tests/popup-events-smoke.test.mjs",
+    "test": "node tests/extension-smoke.test.js && node --test tests/popup-events-smoke.test.mjs tests/popup-tab-lifecycle.test.mjs tests/popup-startup-performance.test.mjs tests/popup-render-performance.test.mjs tests/popup-local-resources.test.mjs tests/sync-listener.test.mjs",
     "test:popup-events": "node --test tests/popup-events-smoke.test.mjs",
     "test:rate-limit": "node tests/extension-smoke.test.js",
     "test:browsers": "node tests/chromium-browser-test.js list",

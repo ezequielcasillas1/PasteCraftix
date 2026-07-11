@@ -1,13 +1,10 @@
 (function initPasteCraftPopupUi(globalScope) {
   function hideLoadingOverlay() {
     const overlay = document.getElementById('loadingOverlay');
-    if (overlay) {
-      overlay.style.opacity = '0';
-      overlay.style.transition = 'opacity 0.3s ease';
-      setTimeout(() => {
-        overlay.style.display = 'none';
-      }, 300);
-    }
+    if (!overlay) return;
+    overlay.style.transition = 'none';
+    overlay.style.opacity = '1';
+    overlay.style.display = 'none';
   }
 
   function escapeHtml(text) {

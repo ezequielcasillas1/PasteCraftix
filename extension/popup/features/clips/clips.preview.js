@@ -14,38 +14,37 @@ function getClipPoolForPreview(app) {
   return [...active, ...archived];
 }
 
-export function updatePreview(app) {
-  const previewArea = document.getElementById('previewArea');
-  if (!previewArea) return;
+export function buildClipTextIndex(app) {
+  const textById = new Map();
+  getClipPoolForPreview(app).forEach((clip) => {
+    const id = app._clipIdKey(clip?.id);
+    if (id && !textById.has(id)) textById.set(id, clip?.text);
+  });
+  return textById;
+}
 
-  const clipPool = getClipPoolForPreview(app);
-  const orderedIds = app.getSelectedClipIdsInUiOrder();
-  const selectedTexts = orderedIds
-    .map(id => clipPool.find(c => app._clipIdKey(c?.id) === id)?.text)
+export function getSelectedPreviewTexts(app) {
+  const textById = buildClipTextIndex(app);
+  return app.getSelectedClipIdsInUiOrder()
+    .map((id) => textById.get(id))
     .filter(Boolean);
+}
 
-  if (selectedTexts.length === 0) {
-    if (!app.previewIsManual && app.previewLastAutoValue) {
-      previewArea.value = '';
-      app.previewLastAutoValue = '';
-    }
-    return;
-  }
+function clearGeneratedPreview(app, previewArea) {
+  if (app.previewIsManual || !app.previewLastAutoValue) return;
+  previewArea.value = '';
+  app.previewLastAutoValue = '';
+}
 
-  let processedTexts = [...selectedTexts];
+function applyPreviewTransforms(texts, options) {
+  let result = [...texts];
+  if (options.deduplicate) result = [...new Set(result)];
+  if (options.sort) result.sort();
+  if (options.uppercase) result = result.map((text) => text.toUpperCase());
+  return result;
+}
 
-  if (app.options.deduplicate) {
-    processedTexts = [...new Set(processedTexts)];
-  }
-
-  if (app.options.sort) {
-    processedTexts.sort();
-  }
-
-  if (app.options.uppercase) {
-    processedTexts = processedTexts.map(t => t.toUpperCase());
-  }
-
+function getPreviewDelimiter(app) {
   const delimiters = {
     comma: ', ',
     newline: '\n',
@@ -53,13 +52,27 @@ export function updatePreview(app) {
     pipe: ' | ',
     custom: document.getElementById('customDelimiter')?.value || ', '
   };
+  return delimiters[app.delimiter] || ', ';
+}
 
-  const output = processedTexts.join(delimiters[app.delimiter] || ', ');
+function writeGeneratedPreview(app, previewArea, output) {
   previewArea.value = output;
   app.previewIsManual = false;
   app.previewLastAutoValue = output;
-
   app.updateQuickCopyButton();
+}
+
+export function updatePreview(app) {
+  const previewArea = document.getElementById('previewArea');
+  if (!previewArea) return;
+
+  const selectedTexts = getSelectedPreviewTexts(app);
+  if (selectedTexts.length === 0) {
+    clearGeneratedPreview(app, previewArea);
+    return;
+  }
+  const processedTexts = applyPreviewTransforms(selectedTexts, app.options);
+  writeGeneratedPreview(app, previewArea, processedTexts.join(getPreviewDelimiter(app)));
 }
 
 export function updateDelimiterExample(app) {
