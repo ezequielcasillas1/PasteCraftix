@@ -238,23 +238,62 @@ function buildQuickViewChrome(widget) {
   return root;
 }
 
+async function loadClipsFromLocalStorage() {
+  try {
+    const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+    const active = Array.isArray(result?.clips) ? result.clips : [];
+    const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+    return slimQuickViewClips([
+      ...active.map((clip) => ({ ...clip, source: clip?.source || 'active' })),
+      ...archived.map((clip) => ({ ...clip, archived: true, source: 'archived' })),
+    ]);
+  } catch (_) {
+    return [];
+  }
+}
+
 async function loadQuickViewClips(widget) {
   const state = ensureQvState(widget);
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
-    const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let response = null;
+    try {
+      response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
+    } catch (err) {
+      response = { success: false, error: String(err?.message || err), clips: [] };
+    }
+
+    let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let source = 'background';
+
+    // Background miss / SW failure → read chrome.storage.local in-content.
+    if (!response?.success || clips.length === 0) {
+      const localClips = await loadClipsFromLocalStorage();
+      if (localClips.length > 0) {
+        clips = localClips;
+        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
+      }
+    }
+
     state.allClips = slimQuickViewClips(clips);
     state.likedIdSet = new Set(await getLikedClipIds());
     qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path loaded', {
-      ok: !!response?.success,
+      ok: !!response?.success || state.allClips.length > 0,
       count: state.allClips.length,
+      source,
+      error: response?.error ? String(response.error).slice(0, 120) : '',
+      bgCount: Array.isArray(response?.clips) ? response.clips.length : -1,
     });
     renderQuickViewList(widget);
   } catch (err) {
     qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path failed', {
       error: String(err?.message || err),
     });
-    state.allClips = [];
+    try {
+      state.allClips = await loadClipsFromLocalStorage();
+      state.likedIdSet = new Set(await getLikedClipIds());
+    } catch (_) {
+      state.allClips = [];
+    }
     renderQuickViewList(widget);
   }
 }

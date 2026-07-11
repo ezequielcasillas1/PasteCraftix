@@ -11,7 +11,7 @@ import {
 // =====================================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
-  if (!sender || sender.id !== chrome.runtime.id) {
+  if (!sender || (sender.id && sender.id !== chrome.runtime.id)) {
     sendResponse?.({ success: false, error: 'invalid_sender' });
     return false;
   }
@@ -295,6 +295,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })
       .catch((error) => {
         console.error('❌ Failed to get Quick View clips:', error);
+        // #region agent log
+        console.warn('[PasteCraft:debug:liked0711]', {
+          runId: 'post-fix',
+          hypothesisId: 'H7',
+          location: 'messages-internal.js:pcGetQuickViewClips',
+          message: 'qv get failed',
+          data: { error: String(error?.message || error) },
+        });
+        // #endregion
         sendResponse({ success: false, error: error?.message || String(error), clips: [] });
       });
     return true;
