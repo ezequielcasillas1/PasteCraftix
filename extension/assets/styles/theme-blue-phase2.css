@@ -2733,3 +2733,226 @@
   outline: 2px solid var(--pc-secondary-300);
   outline-offset: 2px;
 }
+
+/* ── AI result wrap + history/refactor contrast (styles.css unlinked) ── */
+
+[data-theme="blue"] .summary-result-section {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .summary-result-content,
+[data-theme="blue"] .breakdown-result,
+[data-theme="blue"] #aiHistoryResultContent {
+  color: var(--pc-text) !important;
+  background: transparent;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+[data-theme="blue"] .summary-result-content {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .summary-result-content h1,
+[data-theme="blue"] .summary-result-content h2,
+[data-theme="blue"] .summary-result-content h3,
+[data-theme="blue"] .summary-result-content h4,
+[data-theme="blue"] .summary-result-content h5,
+[data-theme="blue"] .summary-result-content h6,
+[data-theme="blue"] .summary-result-content strong,
+[data-theme="blue"] .breakdown-result h1,
+[data-theme="blue"] .breakdown-result h2,
+[data-theme="blue"] .breakdown-result h3,
+[data-theme="blue"] .breakdown-result h4,
+[data-theme="blue"] .breakdown-result h5,
+[data-theme="blue"] .breakdown-result h6,
+[data-theme="blue"] .breakdown-result strong,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h1,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h2,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h3,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h4,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h5,
+[data-theme="blue"] #aiHistoryModal .breakdown-result h6,
+[data-theme="blue"] #aiHistoryModal .breakdown-result strong {
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .summary-result-content em,
+[data-theme="blue"] .breakdown-result em,
+[data-theme="blue"] #aiHistoryModal .breakdown-result em {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-result-content code,
+[data-theme="blue"] .breakdown-result code,
+[data-theme="blue"] #aiHistoryModal .breakdown-result code {
+  background: rgba(30, 58, 138, 0.35);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .summary-result-content pre,
+[data-theme="blue"] .breakdown-result pre,
+[data-theme="blue"] #aiHistoryModal .breakdown-result pre,
+[data-theme="blue"] .pc-plain-text {
+  max-width: 100%;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden;
+  color: var(--pc-text);
+  background: rgba(15, 23, 42, 0.55);
+  box-sizing: border-box;
+}
+
+[data-theme="blue"] #aiHistoryModal .breakdown-modal-content {
+  background: var(--pc-surface);
+  border-color: var(--pc-border);
+  width: min(650px, 94vw);
+  max-width: 94vw;
+}
+
+[data-theme="blue"] #aiHistoryModal .breakdown-modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.22), transparent 36%),
+    linear-gradient(135deg, var(--pc-primary-800) 0%, var(--pc-surface) 100%);
+  border-bottom-color: var(--pc-border);
+}
+
+[data-theme="blue"] #aiHistoryModal .breakdown-header-subtitle {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #aiHistoryModal .breakdown-content {
+  min-height: 200px;
+  max-width: 100%;
+  background: var(--pc-glass-strong);
+  border: 1px solid var(--pc-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 14px;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+[data-theme="blue"] #aiHistoryModal .modal-body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Refactorization history compare (was only in unlinked styles.css) */
+[data-theme="blue"] .refactor-history-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 100%;
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .refactor-history-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+[data-theme="blue"] .refactor-history-level,
+[data-theme="blue"] .refactor-history-outcome {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+[data-theme="blue"] .refactor-history-level {
+  background: rgba(59, 130, 246, 0.22);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .refactor-history-outcome {
+  background: rgba(16, 185, 129, 0.18);
+  color: #a7f3d0;
+}
+
+[data-theme="blue"] .refactor-history-outcome.outcome-unchanged,
+[data-theme="blue"] .refactor-history-outcome.outcome-partial,
+[data-theme="blue"] .refactor-history-outcome.outcome-failed {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d;
+}
+
+[data-theme="blue"] .refactor-history-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 100%;
+}
+
+[data-theme="blue"] .refactor-history-pane {
+  background: rgba(17, 24, 39, 0.92);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 12px;
+  padding: 16px 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+[data-theme="blue"] .refactor-history-pane.after {
+  background: rgba(30, 58, 138, 0.28);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+[data-theme="blue"] .refactor-history-pane h4,
+[data-theme="blue"] .refactor-history-synthesis h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pc-secondary-200);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[data-theme="blue"] .refactor-history-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--pc-text) !important;
+  min-height: 80px;
+  max-height: 280px;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+[data-theme="blue"] .refactor-history-pane.after .refactor-history-text {
+  color: var(--pc-secondary-50) !important;
+}
+
+[data-theme="blue"] .refactor-history-synthesis {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--pc-text);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+[data-theme="blue"] .refactor-history-synthesis p,
+[data-theme="blue"] .refactor-history-synthesis li {
+  color: var(--pc-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

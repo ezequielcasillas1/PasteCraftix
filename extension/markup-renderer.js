@@ -242,7 +242,7 @@
      ────────────────────────────────────────────── */
 
   function renderMarkdown(text) {
-    if (typeof marked === 'undefined') return `<pre>${escapeHtml(text)}</pre>`;
+    if (typeof marked === 'undefined') return `<pre class="pc-plain-text">${escapeHtml(text)}</pre>`;
     const html = marked.parse(text, { gfm: true, breaks: true });
     return sanitize(html);
   }

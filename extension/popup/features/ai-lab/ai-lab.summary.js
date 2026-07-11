@@ -435,7 +435,6 @@ function _pushLatex(latexBlocks, expr, display) {
 }
 
 function _renderLatexBlocks(html, latexBlocks) {
-  if (typeof katex === 'undefined') return html;
   let output = html;
   for (let i = 0; i < latexBlocks.length; i++) {
     output = _replaceLatexBlock(output, latexBlocks[i], i);
@@ -446,6 +445,10 @@ function _renderLatexBlocks(html, latexBlocks) {
 function _replaceLatexBlock(html, block, index) {
   const displayPlaceholder = `%%LATEX_DISPLAY_${index}%%`;
   const inlinePlaceholder = `%%LATEX_INLINE_${index}%%`;
+  const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
+  if (typeof katex === 'undefined') {
+    return html.replace(displayPlaceholder, fallback).replace(inlinePlaceholder, fallback);
+  }
   try {
     const rendered = katex.renderToString(block.expr, {
       displayMode: block.display,
@@ -453,7 +456,6 @@ function _replaceLatexBlock(html, block, index) {
     });
     return html.replace(displayPlaceholder, rendered).replace(inlinePlaceholder, rendered);
   } catch (_) {
-    const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
     return html.replace(displayPlaceholder, fallback).replace(inlinePlaceholder, fallback);
   }
 }
