@@ -38,13 +38,16 @@ const TAB_LOADING = Object.freeze({
     heading: 'Loading files',
     message: 'Preparing your files…',
     compact: true,
+    variantClass: 'tab-loading-state--categories',
+    hostLoadingClass: 'files-carousel-track--tab-loading',
   },
 });
 
-function loadingMarkup({ icon, heading, message, compact }) {
+function loadingMarkup({ icon, heading, message, compact, variantClass = '' }) {
   const compactClass = compact ? ' tab-loading-state--compact' : '';
+  const variant = variantClass ? ` ${variantClass}` : '';
   return `
-    <div class="tab-loading-state${compactClass}" role="status" aria-live="polite" aria-busy="true">
+    <div class="tab-loading-state${compactClass}${variant}" role="status" aria-live="polite" aria-busy="true">
       <div class="tab-loading-icon"><i data-lucide="${icon}"></i></div>
       <div class="tab-loading-spinner" aria-hidden="true"></div>
       <h3>${heading}</h3>
@@ -59,6 +62,10 @@ export function showTabLoadingState(tab) {
 
   const container = document.getElementById(config.containerId);
   if (!container) return false;
+
+  if (config.hostLoadingClass) {
+    container.classList.add(config.hostLoadingClass);
+  }
 
   container.setAttribute('aria-busy', 'true');
   container.innerHTML = loadingMarkup(config);

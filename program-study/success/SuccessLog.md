@@ -1,4 +1,8 @@
 
+### Jul 11, 2026 - Categories blue loader cascade (follow-up)
+**Status:** SUCCESS
+**Files:** theme-blue-phase2.css, popup.html, tab-loading.js, files.render.js
+**Result:** Blue premium loading cascade on Categories; files track clears correctly. User verified SUCCESS.
 ### Jul 11, 2026 - Popup tab loading screens
 **Status:** SUCCESS
 **Files:** tab-loading.js, popup.tab-lifecycle.js, liked.render.js, popup.html, theme-blue-phase2.css

@@ -10592,7 +10592,6 @@
     <!-- Component base CSS loads before Blue Dark Mode decorators. -->
     <link rel="stylesheet" href="styles/clip-title.css">
     <link rel="stylesheet" href="styles/clip-viewer.css">
-    <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -13780,6 +13779,8 @@ alice@email.com</div>
     <!-- Markup Rendering Libraries -->
     <link rel="stylesheet" href="lib/highlight-github.min.css">
     <link rel="stylesheet" href="lib/katex.min.css">
+    <!-- Blue theme decorators load last so [data-theme="blue"] wins over popup inline light fallbacks -->
+    <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>
     <script src="lib/marked.min.js"></script>
