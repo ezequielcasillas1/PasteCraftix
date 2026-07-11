@@ -834,13 +834,199 @@ export const WIDGET_QUICKVIEW_CSS = `
         transform: translateX(0);
       }
       
-      /* Quick View Iframe */
-      .pastecraft-quickview-iframe {
+      /* In-panel Quick View chrome (no iframe) */
+      .pastecraft-qv-chrome {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
         width: 100%;
-        height: 100%;
-        border: none;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: white;
+        overflow: hidden;
       }
+
+      .pastecraft-qv-close {
+        display: flex !important;
+        position: absolute;
+        top: 12px;
+        left: -44px;
+        z-index: 1;
+      }
+
+      .pastecraft-qv-header {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+        color: white;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        flex-shrink: 0;
+      }
+
+      .pastecraft-qv-title {
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .pastecraft-qv-count {
+        font-size: 13px;
+        font-weight: 500;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 10px;
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .pastecraft-qv-controls { display: flex; gap: 8px; }
+
+      .pastecraft-qv-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 6px;
+        padding: 6px 10px;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+      }
+
+      .pastecraft-qv-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+      }
+
+      .pastecraft-qv-btn.active {
+        background: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+      }
+
+      .pastecraft-qv-btn.liked-active {
+        color: #fecaca;
+        background: rgba(239, 68, 68, 0.35);
+      }
+
+      .pastecraft-qv-btn.liked-active svg { fill: currentColor; }
+      .pastecraft-qv-btn svg,
+      .pastecraft-qv-btn svg *,
+      .pastecraft-qv-btn span { pointer-events: none; }
+
+      .pastecraft-qv-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        min-height: 0;
+      }
+
+      .pastecraft-qv-clip {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .pastecraft-qv-clip-body { flex: 1; min-width: 0; }
+
+      .pastecraft-qv-clip-text {
+        font-size: 14px;
+        color: #0f172a;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .pastecraft-qv-clip-meta { margin-top: 6px; }
+
+      .pastecraft-qv-clip-category {
+        font-size: 11px;
+        color: #64748b;
+        background: #e2e8f0;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      .pastecraft-qv-clip-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+      .pastecraft-qv-clip-btn {
+        border: none;
+        background: #e2e8f0;
+        border-radius: 6px;
+        padding: 6px 8px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+
+      .pastecraft-qv-clip-btn:hover { background: #cbd5e1; }
+      .pastecraft-qv-clip-btn.delete { color: #b91c1c; }
+
+      .pastecraft-qv-like {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+      }
+
+      .pastecraft-qv-like:hover {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+      }
+
+      .pastecraft-qv-like.liked { color: #ef4444; }
+      .pastecraft-qv-like.liked svg { fill: currentColor; }
+      .pastecraft-qv-like svg,
+      .pastecraft-qv-like svg * { pointer-events: none; }
+
+      .pastecraft-qv-empty {
+        text-align: center;
+        padding: 48px 20px;
+        color: #64748b;
+      }
+
+      .pastecraft-qv-empty-icon { font-size: 32px; margin-bottom: 12px; }
+      .pastecraft-qv-empty-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 6px;
+      }
+      .pastecraft-qv-empty-hint { font-size: 13px; }
+
+      .pastecraft-qv-toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #2563eb;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 8px;
+        z-index: 2147483647;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: opacity 0.3s ease;
+      }
+
+      .pastecraft-qv-toast.is-error { background: #ef4444; }
+      .pastecraft-qv-toast.fade { opacity: 0; }
       
       /* Responsive - Full width on mobile */
       @media (max-width: 480px) {
@@ -1000,9 +1186,11 @@ export function injectSettingsStyles(shadowRoot) {
 }
 
 export function injectQuickViewStyles() {
-  if (document.getElementById('pastecraft-quickview-styles')) return;
-  const styles = document.createElement('style');
-  styles.id = 'pastecraft-quickview-styles';
+  let styles = document.getElementById('pastecraft-quickview-styles');
+  if (!styles) {
+    styles = document.createElement('style');
+    styles.id = 'pastecraft-quickview-styles';
+    document.head.appendChild(styles);
+  }
   styles.textContent = WIDGET_QUICKVIEW_CSS;
-  document.head.appendChild(styles);
 }

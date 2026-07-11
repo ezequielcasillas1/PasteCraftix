@@ -56,6 +56,8 @@
       "resources": [
         "popup.html",
         "popup.js",
+        "quickview-panel.html",
+        "quickview-panel.js",
         "config.js",
         "clip-title.js",
         "content/*.js",

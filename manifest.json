@@ -50,7 +50,10 @@
       "resources": [
         "extension/popup.html",
         "extension/popup.js",
+        "extension/quickview-panel.html",
+        "extension/quickview-panel.js",
         "extension/content/*.js",
+        "extension/shared/*.js",
         "extension/content/quick-paste/*.js",
         "extension/content/widget/*.js",
         "extension/content/safety/*.js",

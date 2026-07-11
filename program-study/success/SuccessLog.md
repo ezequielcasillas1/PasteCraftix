@@ -1,4 +1,9 @@
 
+### Jul 11, 2026 - Help/info premium blue polish
+**Status:** SUCCESS
+**Files:** theme-blue-phase2.css, settings.render.js
+**Result:** Settings help icon visible; Help & Clip Joiner/Settings example modals use navy glass instead of white cards. User verified.
+
 ### Jul 11, 2026 - Categories blue loader cascade (follow-up)
 **Status:** SUCCESS
 **Files:** theme-blue-phase2.css, popup.html, tab-loading.js, files.render.js
@@ -293,3 +298,8 @@
 **Status:** SUCCESS
 **Files:** activity.render.js
 **Result:** Escape clip text in activity rows so feed no longer nests/breaks.
+
+### [2026-07-11] - Quick View DOM sync
+**Status:** SUCCESS
+**Files:** widget.quickview.js, widget.styles.js, widget.events.js, quickview-clips.js, background/shared.js, manifest.json
+**Result:** Quick View renders in content-script DOM instead of iframe/srcdoc so clips sync and display under strict host CSP.

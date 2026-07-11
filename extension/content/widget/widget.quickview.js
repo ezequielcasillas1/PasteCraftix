@@ -1,904 +1,709 @@
-import { safeRuntimeSendMessage } from '../shared.js';
+/**
+ * Quick View — DOM panel in the content-script page (no iframe / srcdoc).
+ * Avoids host CSP and Comet blocking chrome-extension:// iframes.
+ */
+import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 import { injectQuickViewStyles } from './widget.styles.js';
-import {
-  LIKED_CLIPS_STORAGE_KEY,
-  getLikedClipIds,
-  toggleClipLiked,
-} from './widget.liked-clips.js';
+import { getLikedClipIds, toggleClipLiked } from './widget.liked-clips.js';
 
-const QV_HEART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
+const DEBUG_QV = 'qv-sync-0711';
+const HEART_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
+
+function qvDebug(hypothesisId, location, message, data) {
+  // #region agent log
+  console.warn(
+    `[PasteCraft:debug:${DEBUG_QV}] ${hypothesisId} ${message} | ${JSON.stringify(data || {})}`,
+    { runId: 'post-fix', hypothesisId, location, message, data }
+  );
+  // #endregion
+}
+
+function ensureQvState(widget) {
+  if (!widget._qvState) {
+    widget._qvState = {
+      allClips: [],
+      likedIdSet: new Set(),
+      likedFilterOn: false,
+    };
+  }
+  return widget._qvState;
+}
+
+function showQvToast(message, isError = false) {
+  const toast = document.createElement('div');
+  toast.className = 'pastecraft-qv-toast';
+  toast.textContent = message;
+  if (isError) toast.classList.add('is-error');
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('fade');
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
+/** Refresh alias — kept name for widget.events.js callers. */
+export async function pushQuickViewClipsToIframe(_ignored) {
+  const panel = document.getElementById('pastecraft-quickview-panel');
+  if (!panel) return;
+  const widget = panel._pastecraftWidget;
+  if (!widget) return;
+  await loadQuickViewClips(widget);
+}
 
 export function openQuickViewPanel(widget) {
-    try {
-      console.log('👁️ ===== OPENING QUICK VIEW =====');
-      console.log('👁️ Opening Quick View (slide-in panel from right)');
-      console.log('👁️ Current open states:', widget.openStates);
-      
-      // Check if panel already exists
-      if (document.getElementById('pastecraft-quickview-panel')) {
-        console.log('⚠️ Quick View panel already exists');
-        return;
+  try {
+    const existing = document.getElementById('pastecraft-quickview-panel');
+    if (existing) {
+      if (typeof widget._refreshQuickViewClips === 'function') {
+        widget._refreshQuickViewClips();
+      } else {
+        pushQuickViewClipsToIframe().catch(() => {});
       }
-      
-      console.log('👁️ Creating Quick View panel elements...');
-      
-      // Set open state
-      widget.openStates.quickView = true;
-      
-      // Slide widget to the left (attached to panel)
-      widget.widget.classList.add('panel-open');
-
-      // Push the website content left (docked mode)
-      widget.syncPageDocking();
-      
-      // Add active class to quick view button
-      const quickViewButton = widget.widget.querySelector('.quick-view-button');
-      if (quickViewButton) {
-        quickViewButton.classList.add('active');
-      }
-      
-      // Create backdrop
-      const backdrop = document.createElement('div');
-      backdrop.id = 'pastecraft-quickview-backdrop';
-      backdrop.className = 'pastecraft-quickview-backdrop';
-      
-      // Create panel
-      const panel = document.createElement('div');
-      panel.id = 'pastecraft-quickview-panel';
-      panel.className = 'pastecraft-quickview-panel';
-      
-      // Create close button
-      const closeButton = document.createElement('button');
-      closeButton.className = 'pastecraft-overlay-close';
-      closeButton.innerHTML = '×';
-      closeButton.setAttribute('aria-label', 'Close');
-      
-      // Create iframe to load the Quick Paste interface
-      const iframe = document.createElement('iframe');
-      iframe.className = 'pastecraft-quickview-iframe';
-      iframe.setAttribute('allowtransparency', 'true');
-      
-      // Assemble panel
-      panel.appendChild(closeButton);
-      panel.appendChild(iframe);
-      document.body.appendChild(backdrop);
-      document.body.appendChild(panel);
-      
-      // Add styles
-      injectQuickViewStyles();
-      
-      // Load Quick Paste content into iframe
-      loadQuickViewIframeContent(widget, iframe);
-      
-      // Setup close handlers
-      closeButton.addEventListener('click', () => closeQuickViewPanel(widget));
-      // Close on outside click (without blocking page interaction) if setting allows
-      if (widget._quickViewOutsidePointerDown) {
-        document.removeEventListener('pointerdown', widget._quickViewOutsidePointerDown, true);
-        widget._quickViewOutsidePointerDown = null;
-      }
-      if (!widget.settings.keepQuickViewOpen) {
-        widget._quickViewOutsidePointerDown = (e) => {
-          const currentPanel = document.getElementById('pastecraft-quickview-panel');
-          if (!currentPanel) return;
-          const target = e.target;
-          if (currentPanel.contains(target)) return;
-          if (widget.widget && widget.widget.contains(target)) return;
-          closeQuickViewPanel(widget);
-        };
-        document.addEventListener('pointerdown', widget._quickViewOutsidePointerDown, true);
-      }
-      
-      // ESC key to close
-      const escHandler = (e) => {
-        if (e.key === 'Escape') {
-          closeQuickViewPanel(widget);
-          document.removeEventListener('keydown', escHandler);
-        }
-      };
-      document.addEventListener('keydown', escHandler);
-    
-      // Animate in
-      setTimeout(() => {
-        backdrop.classList.add('visible');
-        panel.classList.add('visible');
-        // Recompute width once visible (responsive cases)
-        widget.syncPageDocking();
-      }, 10);
-      
-      console.log('✅ Quick View panel opened');
-    } catch (error) {
-      console.error('❌ Error opening Quick View:', error);
-      console.error('❌ Error stack:', error.stack);
-      alert('Error opening Quick View. Check console for details.');
+      return;
     }
-}
 
-export function loadQuickViewIframeContent(widget, iframe) {
-    // srcdoc iframe has opaque ("null") origin — postMessage targetOrigin must be '*'.
-    // Sender/receiver validate via e.source identity checks instead of origin.
-    const quickViewTargetOrigin = '*';
-    // Create a custom HTML content for the Quick View
-    const content = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: white;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-          }
-          .quickview-header {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
-            color: white;
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          }
-          .quickview-title {
-            font-size: 18px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-          .clip-count {
-            font-size: 13px;
-            font-weight: 500;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 4px 10px;
-            border-radius: 12px;
-            color: rgba(255, 255, 255, 0.9);
-          }
-          .quickview-controls {
-            display: flex;
-            gap: 8px;
-          }
-          .quickview-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-          }
-          .quickview-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-          }
-          .quickview-btn.active {
-            background: rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
-          }
-          .quickview-btn.liked-active {
-            color: #fecaca;
-            background: rgba(239, 68, 68, 0.35);
-          }
-          .quickview-btn.liked-active svg {
-            fill: currentColor;
-          }
-          .quickview-btn svg,
-          .quickview-btn svg *,
-          .quickview-btn span {
-            pointer-events: none;
-          }
-          .clip-like-btn {
-            flex-shrink: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            padding: 0;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
-            color: #94a3b8;
-            cursor: pointer;
-            transition: color 0.15s ease, background 0.15s ease;
-          }
-          .clip-like-btn:hover {
-            color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
-          }
-          .clip-like-btn.liked {
-            color: #ef4444;
-          }
-          .clip-like-btn.liked svg {
-            fill: currentColor;
-          }
-          .clip-like-btn svg,
-          .clip-like-btn svg * {
-            pointer-events: none;
-          }
-          .quickview-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-          }
-          .clip-item {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 8px;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-          }
-          .clip-item:hover {
-            background: #e0f2fe;
-            border-color: #3b82f6;
-            transform: translateX(-4px);
-          }
-          .clip-content {
-            flex: 1;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-          }
-          .clip-text {
-            font-size: 14px;
-            color: #1f2937;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            line-height: 1.5;
-          }
-          .clip-meta {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-          .clip-category {
-            font-size: 11px;
-            color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 500;
-          }
-          .clip-actions {
-            display: flex;
-            gap: 4px;
-          }
-          .clip-btn {
-            background: #3b82f6;
-            border: none;
-            border-radius: 4px;
-            padding: 4px 8px;
-            color: white;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-          }
-          .clip-btn:hover {
-            background: #2563eb;
-          }
-          .clip-btn.delete {
-            background: #ef4444;
-          }
-          .clip-btn.delete:hover {
-            background: #dc2626;
-          }
-          .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #64748b;
-          }
-          .empty-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-          }
-          .empty-text {
-            font-size: 16px;
-            margin-bottom: 8px;
-          }
-          .empty-hint {
-            font-size: 14px;
-            color: #94a3b8;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="quickview-header">
-          <div class="quickview-title">
-            <span><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-0.2em"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
-            <span>Quick View</span>
-            <span class="clip-count" id="clip-count">0 clips</span>
-          </div>
-          <div class="quickview-controls">
-            <button class="quickview-btn" id="liked-filter-btn" onclick="toggleLikedFilter()" title="Liked clips" aria-label="Show liked clips" aria-pressed="false">${QV_HEART_SVG}</button>
-            <button class="quickview-btn" onclick="openMiniWindow()" title="Open mini Quick View (window)" aria-label="Open mini Quick View window"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg></button>
-            <button class="quickview-btn" onclick="dockMiniBottomRight()" title="Open mini Quick View (bottom-right)" aria-label="Dock mini Quick View to bottom-right"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 13V19H13"/><path d="M5 5L19 19"/></svg></button>
-            <button class="quickview-btn" onclick="refreshClips()" title="Refresh">🔄</button>
-            <button class="quickview-btn" onclick="openSettings()" title="Settings">⚙️</button>
-          </div>
-        </div>
-        <div class="quickview-content" id="quickview-content">
-          <div class="empty-state">
-            <div class="empty-icon">✨</div>
-            <div class="empty-text">No clips saved yet</div>
-            <div class="empty-hint">Right-click selected text to save clips</div>
-          </div>
-        </div>
-        <script>
-          // srcdoc iframe origin is the opaque string "null"; window.location.origin is invalid as targetOrigin.
-          function postToParent(msg) {
-            try {
-              window.parent.postMessage(msg, '*');
-            } catch (err) {
-              console.warn('[PasteCraft quick view] postMessage failed:', err);
-            }
-          }
+    widget.openStates.quickView = true;
+    widget.widget.classList.add('panel-open');
+    widget.syncPageDocking();
 
-          function loadClips() {
-            postToParent({ type: 'quickview-get-clips' });
-          }
+    const quickViewButton = widget.widget.querySelector('.quick-view-button');
+    if (quickViewButton) quickViewButton.classList.add('active');
 
-          function refreshClips() {
-            loadClips();
-          }
+    ensureQvState(widget);
 
-          function openSettings() {
-            postToParent({ type: 'quickview-open-settings' });
-          }
+    const backdrop = document.createElement('div');
+    backdrop.id = 'pastecraft-quickview-backdrop';
+    backdrop.className = 'pastecraft-quickview-backdrop';
 
-          function openMiniWindow() {
-            postToParent({ type: 'quickview-open-mini', mode: 'window' });
-          }
+    const panel = document.createElement('div');
+    panel.id = 'pastecraft-quickview-panel';
+    panel.className = 'pastecraft-quickview-panel';
+    panel._pastecraftWidget = widget;
 
-          function dockMiniBottomRight() {
-            postToParent({ type: 'quickview-open-mini', mode: 'corner' });
-          }
+    const closeButton = document.createElement('button');
+    closeButton.className = 'pastecraft-overlay-close pastecraft-qv-close';
+    closeButton.type = 'button';
+    closeButton.textContent = '×';
+    closeButton.setAttribute('aria-label', 'Close');
 
-          let likedFilterOn = false;
-          let allClipsCache = [];
-          let likedIdSet = new Set();
+    const qvChrome = buildQuickViewChrome(widget);
+    panel.appendChild(closeButton);
+    panel.appendChild(qvChrome);
+    document.body.appendChild(backdrop);
+    document.body.appendChild(panel);
 
-          function toggleLikedFilter() {
-            likedFilterOn = !likedFilterOn;
-            const btn = document.getElementById('liked-filter-btn');
-            if (btn) {
-              btn.classList.toggle('liked-active', likedFilterOn);
-              btn.classList.toggle('active', likedFilterOn);
-              btn.setAttribute('aria-pressed', likedFilterOn ? 'true' : 'false');
-              btn.title = likedFilterOn ? 'Show all clips' : 'Liked clips';
-              btn.setAttribute('aria-label', likedFilterOn ? 'Show all clips' : 'Show liked clips');
-            }
-            renderClips(allClipsCache, likedIdSet);
-          }
+    injectQuickViewStyles();
 
-          function toggleLike(clipId) {
-            postToParent({ type: 'quickview-toggle-like', clipId: String(clipId || '') });
-          }
+    widget._refreshQuickViewClips = () => loadQuickViewClips(widget);
 
-          function isFromExtension(e) {
-            return e && e.data && e.source === window.parent;
-          }
-          
-          function copyClip(text, index) {
-            // Decode HTML entities
-            const textarea = document.createElement('textarea');
-            textarea.innerHTML = text;
-            const decodedText = textarea.value;
-            
-            navigator.clipboard.writeText(decodedText).then(() => {
-              showToast('✓ Copied to clipboard!');
-            }).catch(err => {
-              console.error('Copy failed:', err);
-              showToast('❌ Copy failed', true);
-            });
-          }
-          
-          function deleteClip(clipId, index, archived) {
-            if (confirm('Delete this clip?')) {
-              postToParent({ type: 'quickview-delete-clip', clipId: String(clipId), index: index, archived: !!archived });
-            }
-          }
-          
-          function showToast(message, isError = false) {
-            // Simple toast notification
-            const toast = document.createElement('div');
-            toast.textContent = message;
-            const bgColor = isError ? '#ef4444' : '#2563eb';
-            toast.style.cssText = \`position:fixed;top:20px;left:50%;transform:translateX(-50%);background:\${bgColor};color:white;padding:10px 20px;border-radius:8px;z-index:9999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:slideDown 0.3s ease\`;
-            document.body.appendChild(toast);
-            setTimeout(() => {
-              toast.style.opacity = '0';
-              toast.style.transform = 'translateX(-50%) translateY(-10px)';
-              toast.style.transition = 'all 0.3s ease';
-              setTimeout(() => toast.remove(), 300);
-            }, 2000);
-          }
-          
-          // Listen for clip data from parent
-          window.addEventListener('message', (e) => {
-            if (!e || !e.data) return;
-            if (e.source !== window.parent) return;
-            if (e.data.type === 'quickview-clips-data') {
-              allClipsCache = Array.isArray(e.data.clips) ? e.data.clips : [];
-              likedIdSet = new Set(
-                Array.isArray(e.data.likedIds) ? e.data.likedIds.map(String) : []
-              );
-              renderClips(allClipsCache, likedIdSet);
-            }
-          });
-          
-          function renderClips(clips, likedIds) {
-            const container = document.getElementById('quickview-content');
-            const counter = document.getElementById('clip-count');
-            const likedSet = likedIds instanceof Set
-              ? likedIds
-              : new Set(Array.isArray(likedIds) ? likedIds.map(String) : []);
+    const onPanelClick = (e) => onQuickViewDelegatedClick(widget, e);
+    panel.addEventListener('click', onPanelClick);
+    widget._quickViewPanelClick = onPanelClick;
 
-            const visible = likedFilterOn
-              ? (clips || []).filter((clip) => likedSet.has(String(clip && clip.id != null ? clip.id : '')))
-              : (clips || []);
-            
-            // Update counter
-            if (counter) {
-              if (likedFilterOn) {
-                counter.textContent = \`\${visible.length} liked\`;
-              } else {
-                counter.textContent = \`\${visible.length} clip\${visible.length !== 1 ? 's' : ''}\`;
-              }
-            }
-            
-            if (!visible || visible.length === 0) {
-              container.innerHTML = likedFilterOn ? \`
-                <div class="empty-state">
-                  <div class="empty-icon">♡</div>
-                  <div class="empty-text">No liked clips yet</div>
-                  <div class="empty-hint">Tap the heart on a clip to add it here</div>
-                </div>
-              \` : \`
-                <div class="empty-state">
-                  <div class="empty-icon">✨</div>
-                  <div class="empty-text">No clips saved yet</div>
-                  <div class="empty-hint">Right-click selected text to save clips</div>
-                </div>
-              \`;
-              return;
-            }
-            
-            container.innerHTML = visible.map((clip, index) => {
-              const text = clip.text || clip;
-              const displayText = text.length > 60 ? text.substring(0, 60) + '...' : text;
-              const category = clip.category || 'Uncategorized';
-              const escapedText = escapeHtml(text).replace(/'/g, '&apos;');
-              const clipId = (clip && clip.id != null) ? String(clip.id) : String(index);
-              const clipIdArg = JSON.stringify(clipId);
-              const isArchived = !!(clip && (clip.archived === true || clip.source === 'archived'));
-              const archivedArg = isArchived ? 'true' : 'false';
-              const isLiked = likedSet.has(clipId);
-              const likeClass = isLiked ? ' liked' : '';
-              const likeTitle = isLiked ? 'Remove from liked' : 'Add to liked';
-              const likeLabel = isLiked ? 'Unlike clip' : 'Like clip';
-              const heartSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
-              
-              return \`
-                <div class="clip-item">
-                  <button class="clip-like-btn\${likeClass}" onclick="toggleLike(\${clipIdArg})" title="\${likeTitle}" aria-label="\${likeLabel}" aria-pressed="\${isLiked ? 'true' : 'false'}">\${heartSvg}</button>
-                  <div class="clip-content">
-                    <div class="clip-text" title="\${escapeHtml(text)}">\${escapeHtml(displayText)}</div>
-                    <div class="clip-meta">
-                      <span class="clip-category">\${escapeHtml(category)}</span>
-                    </div>
-                  </div>
-                  <div class="clip-actions">
-                    <button class="clip-btn" onclick="copyClip('\${escapedText}', \${index})" title="Copy">📋</button>
-                    <button class="clip-btn delete" onclick="deleteClip(\${clipIdArg}, \${index}, \${archivedArg})" title="Delete">×</button>
-                  </div>
-                </div>
-              \`;
-            }).join('');
-          }
-          
-          function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-          }
-          
-          // Load clips on startup
-          try { loadClips(); } catch (err) { console.warn('[PasteCraft quick view] initial loadClips failed:', err); }
-        </script>
-      </body>
-      </html>
-    `;
-    
-    iframe.srcdoc = content;
-    
-    const hashText = (s) => {
-      const str = String(s || '');
-      let h = 2166136261;
-      for (let i = 0; i < str.length; i++) {
-        h ^= str.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-      }
-      return (h >>> 0).toString(36);
-    };
-
-    const normalizeClip = (clip, index, source) => {
-      if (typeof clip === 'string') {
-        const ts = Date.now();
-        return {
-          id: `${ts}_${hashText(clip)}_${index}`,
-          text: clip,
-          category: 'Uncategorized',
-          timestamp: ts,
-          source
-        };
-      }
-      if (!clip || typeof clip !== 'object') return null;
-      const text = clip.text ?? clip;
-      if (!text) return null;
-      const ts = (typeof clip.timestamp === 'number') ? clip.timestamp : Date.now();
-      const id = clip.id ?? clip.clip_id ?? clip.clipId ?? `${ts}_${hashText(text)}_${index}`;
-      return {
-        ...clip,
-        id: String(id),
-        text: String(text),
-        category: clip.category || 'Uncategorized',
-        timestamp: ts,
-        source
-      };
-    };
-
-    const getQuickViewClips = async () => {
-      try {
-        const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
-        if (response?.success && Array.isArray(response.clips)) {
-          return response.clips;
-        }
-      } catch (_) {}
-
-      const result = await new Promise((resolve) => chrome.storage.local.get(['clips', 'searchOnlyClips'], resolve));
-      const active = Array.isArray(result?.clips) ? result.clips : [];
-      const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
-
-      const merged = [
-        ...active.map((c, i) => normalizeClip(c, i, 'active')).filter(Boolean),
-        ...archived.map((c, i) => normalizeClip(c, i, 'archived')).filter(Boolean).map(c => ({ ...c, archived: true }))
-      ];
-
-      // Newest-first, stable fallback (id) for tie-break.
-      merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
-
-      // Keep panel fast: Quick View is for “recent”, not infinite scroll.
-      return merged.slice(0, 200);
-    };
-
-    const postClipsToIframe = async (clips) => {
-      if (!iframe.contentWindow) return;
-      const likedIds = await getLikedClipIds().catch(() => []);
-      iframe.contentWindow.postMessage(
-        { type: 'quickview-clips-data', clips: Array.isArray(clips) ? clips : [], likedIds },
-        quickViewTargetOrigin
-      );
-    };
-
-    // Listen for storage changes to auto-refresh clips
     const storageListener = (changes, area) => {
-      if (area !== 'local' || !iframe.contentWindow) return;
-      if (!changes.clips && !changes.searchOnlyClips && !changes[LIKED_CLIPS_STORAGE_KEY]) return;
-      getQuickViewClips()
-        .then((clips) => postClipsToIframe(clips))
-        .catch(() => {});
+      if (area !== 'local') return;
+      if (!changes.clips && !changes.searchOnlyClips && !changes.likedClipIds) return;
+      if (!document.getElementById('pastecraft-quickview-panel')) return;
+      loadQuickViewClips(widget).catch(() => {});
     };
     chrome.storage.onChanged.addListener(storageListener);
-    
-    // Store listener reference for cleanup
     widget._quickViewStorageListener = storageListener;
-    
-    // Listen for messages from iframe
-    const messageHandler = (e) => {
-      if (!e || !e.data) return;
-      if (iframe.contentWindow && e.source !== iframe.contentWindow) return;
 
-      if (e.data.type === 'quickview-get-clips') {
-        getQuickViewClips()
-          .then((clips) => postClipsToIframe(clips))
-          .catch(() => {});
-      } else if (e.data.type === 'quickview-toggle-like') {
-        const clipId = String(e.data.clipId || '');
-        if (!clipId) return;
-        toggleClipLiked(clipId)
-          .then(() => getQuickViewClips())
-          .then((clips) => postClipsToIframe(clips))
-          .catch(() => {});
-      } else if (e.data.type === 'quickview-delete-clip') {
-        safeRuntimeSendMessage({
-          action: 'pcDeleteQuickViewClip',
-          clipId: String(e.data.clipId || ''),
-          archived: e.data.archived === true,
-          index: e.data.index,
-        })
-          .then((response) => {
-            const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-            return postClipsToIframe(clips).then(() => response);
-          })
-          .then((response) => {
-            if (response?.success) {
-              chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
-            }
-          })
-          .catch(() => {});
-      } else if (e.data.type === 'quickview-open-settings') {
-        // Open settings from quick view
-        closeQuickViewPanel(widget);
-        setTimeout(() => widget.openSettings(), 100);
-      } else if (e.data.type === 'quickview-open-mini') {
-        const mode = String(e.data.mode || 'window');
-        openMiniQuickViewPanel(widget, mode === 'corner' ? 'corner' : 'window');
+    const runtimeListener = (message) => {
+      if (message?.action === 'clipsUpdated' || message?.action === 'clipSaved') {
+        loadQuickViewClips(widget).catch(() => {});
       }
     };
-    
-    window.addEventListener('message', messageHandler);
-    // Store reference for cleanup
-    widget._quickViewMessageHandler = messageHandler;
-}
+    chrome.runtime.onMessage.addListener(runtimeListener);
+    widget._quickViewRuntimeListener = runtimeListener;
 
-export function closeQuickViewPanel(widget) {
-    const backdrop = document.getElementById('pastecraft-quickview-backdrop');
-    const panel = document.getElementById('pastecraft-quickview-panel');
-    
+    closeButton.addEventListener('click', () => closeQuickViewPanel(widget));
+
     if (widget._quickViewOutsidePointerDown) {
       document.removeEventListener('pointerdown', widget._quickViewOutsidePointerDown, true);
       widget._quickViewOutsidePointerDown = null;
     }
-    
-    if (backdrop) backdrop.classList.remove('visible');
-    if (panel) panel.classList.remove('visible');
-    
-    if (backdrop || panel) {
-      // Remove after animation
-      setTimeout(() => {
-        if (backdrop) backdrop.remove();
-        if (panel) panel.remove();
-      }, 300);
-      
-      // Update open state
-      widget.openStates.quickView = false;
-      
-      // Slide widget back to right edge (if no other panels open)
-      if (!widget.openStates.popup && !widget.openStates.settings) {
-        widget.widget.classList.remove('panel-open');
-      }
-      
-      // Remove active class from quick view button
-      const quickViewButton = widget.widget.querySelector('.quick-view-button');
-      if (quickViewButton) {
-        quickViewButton.classList.remove('active');
-      }
-      
-      // Clean up storage listener
-      if (widget._quickViewStorageListener) {
-        chrome.storage.onChanged.removeListener(widget._quickViewStorageListener);
-        widget._quickViewStorageListener = null;
-      }
-      
-      // Clean up message handler
-      if (widget._quickViewMessageHandler) {
-        window.removeEventListener('message', widget._quickViewMessageHandler);
-        widget._quickViewMessageHandler = null;
-      }
-
-      // Update docked page push based on remaining panels
-      widget.syncPageDocking();
-      
-      console.log('✅ Quick View panel closed');
+    if (!widget.settings.keepQuickViewOpen) {
+      widget._quickViewOutsidePointerDown = (e) => {
+        const currentPanel = document.getElementById('pastecraft-quickview-panel');
+        if (!currentPanel) return;
+        const target = e.target;
+        if (currentPanel.contains(target)) return;
+        if (widget.widget && widget.widget.contains(target)) return;
+        closeQuickViewPanel(widget);
+      };
+      document.addEventListener('pointerdown', widget._quickViewOutsidePointerDown, true);
     }
+
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeQuickViewPanel(widget);
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+    widget._quickViewEscHandler = escHandler;
+
+    setTimeout(() => {
+      backdrop.classList.add('visible');
+      panel.classList.add('visible');
+      widget.syncPageDocking();
+    }, 10);
+
+    loadQuickViewClips(widget).catch(() => {});
+    qvDebug('H7', 'widget.quickview.js:openQuickViewPanel', 'opened DOM Quick View', {});
+  } catch (error) {
+    console.error('❌ Error opening Quick View:', error);
+    alert('Error opening Quick View. Check console for details.');
+  }
+}
+
+function buildQuickViewChrome(widget) {
+  const root = document.createElement('div');
+  root.className = 'pastecraft-qv-chrome';
+
+  const header = document.createElement('div');
+  header.className = 'pastecraft-qv-header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'pastecraft-qv-title';
+  const titleText = document.createElement('span');
+  titleText.textContent = '👁 Quick View';
+  const count = document.createElement('span');
+  count.className = 'pastecraft-qv-count';
+  count.setAttribute('data-field', 'qv-count');
+  count.textContent = '…';
+  titleWrap.appendChild(titleText);
+  titleWrap.appendChild(count);
+
+  const controls = document.createElement('div');
+  controls.className = 'pastecraft-qv-controls';
+
+  const likedBtn = document.createElement('button');
+  likedBtn.type = 'button';
+  likedBtn.className = 'pastecraft-qv-btn';
+  likedBtn.setAttribute('data-action', 'toggle-liked');
+  likedBtn.title = 'Liked clips';
+  likedBtn.setAttribute('aria-label', 'Show liked clips');
+  likedBtn.setAttribute('aria-pressed', 'false');
+  likedBtn.innerHTML = HEART_SVG;
+
+  const miniWin = document.createElement('button');
+  miniWin.type = 'button';
+  miniWin.className = 'pastecraft-qv-btn';
+  miniWin.setAttribute('data-action', 'open-mini-window');
+  miniWin.title = 'Open mini Quick View (window)';
+  miniWin.setAttribute('aria-label', 'Open mini Quick View window');
+  miniWin.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg>';
+
+  const miniCorner = document.createElement('button');
+  miniCorner.type = 'button';
+  miniCorner.className = 'pastecraft-qv-btn';
+  miniCorner.setAttribute('data-action', 'open-mini-corner');
+  miniCorner.title = 'Open mini Quick View (bottom-right)';
+  miniCorner.setAttribute('aria-label', 'Dock mini Quick View to bottom-right');
+  miniCorner.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 13V19H13"/><path d="M5 5L19 19"/></svg>';
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.type = 'button';
+  refreshBtn.className = 'pastecraft-qv-btn';
+  refreshBtn.setAttribute('data-action', 'refresh');
+  refreshBtn.title = 'Refresh';
+  refreshBtn.textContent = '🔄';
+
+  const settingsBtn = document.createElement('button');
+  settingsBtn.type = 'button';
+  settingsBtn.className = 'pastecraft-qv-btn';
+  settingsBtn.setAttribute('data-action', 'open-settings');
+  settingsBtn.title = 'Settings';
+  settingsBtn.textContent = '⚙️';
+
+  controls.append(likedBtn, miniWin, miniCorner, refreshBtn, settingsBtn);
+  header.append(titleWrap, controls);
+
+  const content = document.createElement('div');
+  content.className = 'pastecraft-qv-content';
+  content.setAttribute('data-field', 'qv-content');
+  content.innerHTML =
+    '<div class="pastecraft-qv-empty"><div class="pastecraft-qv-empty-icon">✨</div><div class="pastecraft-qv-empty-text">Loading clips…</div><div class="pastecraft-qv-empty-hint">Fetching from PasteCraft storage</div></div>';
+
+  root.append(header, content);
+  return root;
+}
+
+async function loadQuickViewClips(widget) {
+  const state = ensureQvState(widget);
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
+    const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    state.allClips = slimQuickViewClips(clips);
+    state.likedIdSet = new Set(await getLikedClipIds());
+    qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path loaded', {
+      ok: !!response?.success,
+      count: state.allClips.length,
+    });
+    renderQuickViewList(widget);
+  } catch (err) {
+    qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path failed', {
+      error: String(err?.message || err),
+    });
+    state.allClips = [];
+    renderQuickViewList(widget);
+  }
+}
+
+function renderQuickViewList(widget) {
+  const panel = document.getElementById('pastecraft-quickview-panel');
+  if (!panel) return;
+  const state = ensureQvState(widget);
+  const container = panel.querySelector('[data-field="qv-content"]');
+  const counter = panel.querySelector('[data-field="qv-count"]');
+  if (!container) return;
+
+  const visible = state.likedFilterOn
+    ? state.allClips.filter((c) => state.likedIdSet.has(String(c.id || '')))
+    : state.allClips;
+
+  if (counter) {
+    counter.textContent = state.likedFilterOn
+      ? `${visible.length} liked`
+      : `${visible.length} clip${visible.length !== 1 ? 's' : ''}`;
+  }
+
+  container.textContent = '';
+
+  if (visible.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'pastecraft-qv-empty';
+    const icon = document.createElement('div');
+    icon.className = 'pastecraft-qv-empty-icon';
+    icon.textContent = state.likedFilterOn ? '♡' : '✨';
+    const text = document.createElement('div');
+    text.className = 'pastecraft-qv-empty-text';
+    text.textContent = state.likedFilterOn ? 'No liked clips yet' : 'No clips saved yet';
+    const hint = document.createElement('div');
+    hint.className = 'pastecraft-qv-empty-hint';
+    hint.textContent = state.likedFilterOn
+      ? 'Tap the heart on a clip to add it here'
+      : 'Right-click selected text to save clips';
+    empty.append(icon, text, hint);
+    container.appendChild(empty);
+    return;
+  }
+
+  visible.forEach((clip, index) => {
+    container.appendChild(createQuickViewClipRow(clip, index, state.likedIdSet));
+  });
+}
+
+function createQuickViewClipRow(clip, index, likedIdSet) {
+  const text = clip.text || '';
+  const displayText = text.length > 60 ? `${text.substring(0, 60)}...` : text;
+  const category = clip.category || 'Uncategorized';
+  const clipId = clip.id != null ? String(clip.id) : String(index);
+  const isArchived = !!(clip.archived === true || clip.source === 'archived');
+  const isLiked = likedIdSet.has(clipId);
+
+  const row = document.createElement('div');
+  row.className = 'pastecraft-qv-clip';
+  row.setAttribute('data-clip-id', clipId);
+  row.setAttribute('data-index', String(index));
+  row.setAttribute('data-archived', isArchived ? '1' : '0');
+
+  const likeBtn = document.createElement('button');
+  likeBtn.type = 'button';
+  likeBtn.className = `pastecraft-qv-like${isLiked ? ' liked' : ''}`;
+  likeBtn.setAttribute('data-action', 'toggle-like');
+  likeBtn.title = isLiked ? 'Remove from liked' : 'Add to liked';
+  likeBtn.setAttribute('aria-label', likeBtn.title);
+  likeBtn.setAttribute('aria-pressed', isLiked ? 'true' : 'false');
+  likeBtn.innerHTML = HEART_SVG;
+
+  const body = document.createElement('div');
+  body.className = 'pastecraft-qv-clip-body';
+  const txt = document.createElement('div');
+  txt.className = 'pastecraft-qv-clip-text';
+  txt.title = text;
+  txt.textContent = displayText;
+  const meta = document.createElement('div');
+  meta.className = 'pastecraft-qv-clip-meta';
+  const cat = document.createElement('span');
+  cat.className = 'pastecraft-qv-clip-category';
+  cat.textContent = category;
+  meta.appendChild(cat);
+  body.append(txt, meta);
+
+  const actions = document.createElement('div');
+  actions.className = 'pastecraft-qv-clip-actions';
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'pastecraft-qv-clip-btn';
+  copyBtn.setAttribute('data-action', 'copy');
+  copyBtn.title = 'Copy';
+  copyBtn.textContent = '📋';
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'pastecraft-qv-clip-btn delete';
+  delBtn.setAttribute('data-action', 'delete');
+  delBtn.title = 'Delete';
+  delBtn.textContent = '×';
+  actions.append(copyBtn, delBtn);
+
+  row.append(likeBtn, body, actions);
+  return row;
+}
+
+function onQuickViewDelegatedClick(widget, e) {
+  const actionEl = e.target?.closest?.('[data-action]');
+  if (!actionEl || !document.getElementById('pastecraft-quickview-panel')?.contains(actionEl)) {
+    return;
+  }
+  const action = actionEl.getAttribute('data-action');
+  const state = ensureQvState(widget);
+
+  if (action === 'toggle-liked') {
+    state.likedFilterOn = !state.likedFilterOn;
+    actionEl.classList.toggle('liked-active', state.likedFilterOn);
+    actionEl.classList.toggle('active', state.likedFilterOn);
+    actionEl.setAttribute('aria-pressed', state.likedFilterOn ? 'true' : 'false');
+    renderQuickViewList(widget);
+    return;
+  }
+  if (action === 'refresh') {
+    loadQuickViewClips(widget).catch(() => {});
+    return;
+  }
+  if (action === 'open-settings') {
+    closeQuickViewPanel(widget);
+    setTimeout(() => widget.openSettings(), 100);
+    return;
+  }
+  if (action === 'open-mini-window') {
+    openMiniQuickViewPanel(widget, 'window');
+    return;
+  }
+  if (action === 'open-mini-corner') {
+    openMiniQuickViewPanel(widget, 'corner');
+    return;
+  }
+
+  const row = actionEl.closest('.pastecraft-qv-clip');
+  if (!row) return;
+  const clipId = row.getAttribute('data-clip-id') || '';
+  const index = Number(row.getAttribute('data-index'));
+  const archived = row.getAttribute('data-archived') === '1';
+
+  if (action === 'toggle-like') {
+    toggleClipLiked(clipId).then((result) => {
+      state.likedIdSet = new Set(result.ids);
+      renderQuickViewList(widget);
+    });
+    return;
+  }
+  if (action === 'copy') {
+    copyQuickViewClip(widget, clipId);
+    return;
+  }
+  if (action === 'delete') {
+    deleteQuickViewClip(widget, clipId, index, archived);
+  }
+}
+
+async function copyQuickViewClip(widget, clipId) {
+  const state = ensureQvState(widget);
+  const clip = state.allClips.find((c) => String(c.id || '') === String(clipId));
+  const text = clip?.text ? String(clip.text) : '';
+  if (!text) {
+    showQvToast('❌ Copy failed', true);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showQvToast('✓ Copied to clipboard!');
+  } catch (_) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      showQvToast('✓ Copied to clipboard!');
+    } catch (_) {
+      showQvToast('❌ Copy failed', true);
+    }
+  }
+}
+
+async function deleteQuickViewClip(widget, clipId, index, archived) {
+  if (!confirm('Delete this clip?')) return;
+  const state = ensureQvState(widget);
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'pcDeleteQuickViewClip',
+      clipId: String(clipId || ''),
+      archived: archived === true,
+      index,
+    });
+    if (response?.success && Array.isArray(response.clips)) {
+      state.allClips = slimQuickViewClips(response.clips);
+      renderQuickViewList(widget);
+      chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
+    } else {
+      await loadQuickViewClips(widget);
+    }
+  } catch (_) {
+    await loadQuickViewClips(widget);
+  }
+}
+
+export function closeQuickViewPanel(widget) {
+  const backdrop = document.getElementById('pastecraft-quickview-backdrop');
+  const panel = document.getElementById('pastecraft-quickview-panel');
+
+  if (widget._quickViewOutsidePointerDown) {
+    document.removeEventListener('pointerdown', widget._quickViewOutsidePointerDown, true);
+    widget._quickViewOutsidePointerDown = null;
+  }
+
+  if (widget._quickViewEscHandler) {
+    document.removeEventListener('keydown', widget._quickViewEscHandler);
+    widget._quickViewEscHandler = null;
+  }
+
+  if (backdrop) backdrop.classList.remove('visible');
+  if (panel) panel.classList.remove('visible');
+
+  if (backdrop || panel) {
+    setTimeout(() => {
+      if (backdrop) backdrop.remove();
+      if (panel) panel.remove();
+    }, 300);
+
+    widget.openStates.quickView = false;
+
+    if (!widget.openStates.popup && !widget.openStates.settings) {
+      widget.widget.classList.remove('panel-open');
+    }
+
+    const quickViewButton = widget.widget.querySelector('.quick-view-button');
+    if (quickViewButton) quickViewButton.classList.remove('active');
+
+    if (widget._quickViewStorageListener) {
+      chrome.storage.onChanged.removeListener(widget._quickViewStorageListener);
+      widget._quickViewStorageListener = null;
+    }
+
+    if (widget._quickViewPanelClick && panel) {
+      panel.removeEventListener('click', widget._quickViewPanelClick);
+      widget._quickViewPanelClick = null;
+    }
+
+    if (widget._quickViewRuntimeListener) {
+      try {
+        chrome.runtime.onMessage.removeListener(widget._quickViewRuntimeListener);
+      } catch (_) {}
+      widget._quickViewRuntimeListener = null;
+    }
+
+    widget._refreshQuickViewClips = null;
+    widget._qvState = null;
+    widget.syncPageDocking();
+  }
 }
 
 export function openMiniQuickViewPanel(widget, mode = 'window') {
-    try {
-      // Ensure base styles exist
-      injectQuickViewStyles();
+  try {
+    injectQuickViewStyles();
 
-      const existing = document.getElementById('pastecraft-mini-quickview');
-      if (existing) {
-        existing.classList.toggle('docked', mode === 'corner');
-        // Bring to front
-        existing.style.zIndex = '2147483647';
-        return;
-      }
-
-      const el = document.createElement('div');
-      el.id = 'pastecraft-mini-quickview';
-      el.className = `pastecraft-mini-quickview${mode === 'corner' ? ' docked' : ''}`;
-
-      const header = document.createElement('div');
-      header.className = 'pastecraft-mini-quickview-header';
-
-      const title = document.createElement('div');
-      title.className = 'pastecraft-mini-quickview-title';
-      title.textContent = 'Quick View (Mini)';
-
-      const controls = document.createElement('div');
-      controls.className = 'pastecraft-mini-quickview-controls';
-
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'pastecraft-mini-quickview-btn';
-      closeBtn.type = 'button';
-      closeBtn.title = 'Close';
-      closeBtn.textContent = '×';
-
-      controls.appendChild(closeBtn);
-      header.appendChild(title);
-      header.appendChild(controls);
-
-      const body = document.createElement('div');
-      body.className = 'pastecraft-mini-quickview-body';
-      el.appendChild(header);
-      el.appendChild(body);
-      document.body.appendChild(el);
-
-      populateMiniQuickViewBody(body);
-
-      const storageListener = (changes, area) => {
-        if (area !== 'local') return;
-        if (!changes.clips && !changes.searchOnlyClips) return;
-        if (!document.body.contains(el)) return;
-        populateMiniQuickViewBody(body);
-      };
-      chrome.storage.onChanged.addListener(storageListener);
-
-      const closeMini = () => {
-        try { chrome.storage.onChanged.removeListener(storageListener); } catch (_) {}
-        el.remove();
-      };
-      closeBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        closeMini();
-      });
-
-      // Initial position (window mode): place it slightly left of the Quick View panel.
-      if (mode !== 'corner') {
-        const w = el.getBoundingClientRect().width || 360;
-        const viewportW = Math.max(320, window.innerWidth || 0);
-        const left = Math.max(12, viewportW - 476 - w - 16);
-        el.style.left = `${left}px`;
-        el.style.top = '90px';
-      }
-
-      // Draggable header
-      const dragState = { dragging: false, dx: 0, dy: 0 };
-      const onPointerMove = (e) => {
-        if (!dragState.dragging) return;
-        const nextLeft = Math.max(0, (e.clientX - dragState.dx));
-        const nextTop = Math.max(0, (e.clientY - dragState.dy));
-        el.style.left = `${nextLeft}px`;
-        el.style.top = `${nextTop}px`;
-      };
-      const onPointerUp = () => {
-        dragState.dragging = false;
-        try { header.releasePointerCapture?.(dragState.pointerId); } catch (_) {}
-        window.removeEventListener('pointermove', onPointerMove, true);
-        window.removeEventListener('pointerup', onPointerUp, true);
-      };
-
-      header.addEventListener('pointerdown', (e) => {
-        if (!e || e.button !== 0) return;
-        if (e.target?.closest?.('.pastecraft-mini-quickview-btn')) return;
-        const rect = el.getBoundingClientRect();
-        el.classList.remove('docked');
-        el.style.right = '';
-        el.style.bottom = '';
-        el.style.left = `${rect.left}px`;
-        el.style.top = `${rect.top}px`;
-
-        dragState.dragging = true;
-        dragState.pointerId = e.pointerId;
-        dragState.dx = e.clientX - rect.left;
-        dragState.dy = e.clientY - rect.top;
-        try { header.setPointerCapture?.(e.pointerId); } catch (_) {}
-        window.addEventListener('pointermove', onPointerMove, true);
-        window.addEventListener('pointerup', onPointerUp, true);
-      });
-    } catch (err) {
-      console.error('❌ Error opening mini Quick View:', err);
-    }
-}
-
-export async function populateMiniQuickViewBody(body) {
-    if (!body) return;
-    body.textContent = '';
-
-    let active = [];
-    let archived = [];
-    try {
-      const res = await new Promise((resolve) => chrome.storage.local.get(['clips', 'searchOnlyClips'], resolve));
-      active = Array.isArray(res?.clips) ? res.clips : [];
-      archived = Array.isArray(res?.searchOnlyClips) ? res.searchOnlyClips : [];
-    } catch (_) {
-      // ignore — render empty state below
-    }
-
-    const merged = [...active, ...archived]
-      .filter((c) => c && typeof c === 'object')
-      .sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0))
-      .slice(0, 100);
-
-    if (merged.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'pastecraft-mini-quickview-empty';
-      empty.textContent = 'No clips yet. Right-click selected text to save your first clip.';
-      body.appendChild(empty);
+    const existing = document.getElementById('pastecraft-mini-quickview');
+    if (existing) {
+      existing.classList.toggle('docked', mode === 'corner');
+      existing.style.zIndex = '2147483647';
       return;
     }
 
-    merged.forEach((clip) => {
-      const card = document.createElement('div');
-      card.className = 'pastecraft-mini-quickview-clip';
-      card.title = 'Click to copy';
+    const el = document.createElement('div');
+    el.id = 'pastecraft-mini-quickview';
+    el.className = `pastecraft-mini-quickview${mode === 'corner' ? ' docked' : ''}`;
 
-      const text = String(clip.text ?? '').trim() || '(empty)';
-      const category = String(clip.category ?? '').trim();
+    const header = document.createElement('div');
+    header.className = 'pastecraft-mini-quickview-header';
 
-      if (category) {
-        const cat = document.createElement('div');
-        cat.className = 'pastecraft-mini-quickview-clip-category';
-        cat.textContent = category;
-        card.appendChild(cat);
-      }
+    const title = document.createElement('div');
+    title.className = 'pastecraft-mini-quickview-title';
+    title.textContent = 'Quick View (Mini)';
 
-      const txt = document.createElement('div');
-      txt.className = 'pastecraft-mini-quickview-clip-text';
-      txt.textContent = text;
-      card.appendChild(txt);
+    const controls = document.createElement('div');
+    controls.className = 'pastecraft-mini-quickview-controls';
 
-      const flashCopied = () => {
-        const original = txt.textContent;
-        const originalColor = card.style.borderColor;
-        txt.textContent = '✓ Copied!';
-        card.style.borderColor = '#2563eb';
-        setTimeout(() => {
-          txt.textContent = original;
-          card.style.borderColor = originalColor;
-        }, 800);
-        try { window.pasteCraftQuickPaste?.showToast?.('Copied!', 'success'); } catch (_) {}
-      };
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'pastecraft-mini-quickview-btn';
+    closeBtn.type = 'button';
+    closeBtn.title = 'Close';
+    closeBtn.textContent = '×';
 
-      card.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          flashCopied();
-        } catch (_) {
-          try {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            ta.remove();
-            flashCopied();
-          } catch (e) {
-            try { window.pasteCraftQuickPaste?.showToast?.('Copy failed', 'error'); } catch (_) {}
-          }
-        }
-      });
+    controls.appendChild(closeBtn);
+    header.appendChild(title);
+    header.appendChild(controls);
 
-      body.appendChild(card);
+    const body = document.createElement('div');
+    body.className = 'pastecraft-mini-quickview-body';
+    el.appendChild(header);
+    el.appendChild(body);
+    document.body.appendChild(el);
+
+    populateMiniQuickViewBody(body);
+
+    const storageListener = (changes, area) => {
+      if (area !== 'local') return;
+      if (!changes.clips && !changes.searchOnlyClips) return;
+      if (!document.body.contains(el)) return;
+      populateMiniQuickViewBody(body);
+    };
+    chrome.storage.onChanged.addListener(storageListener);
+
+    const closeMini = () => {
+      try {
+        chrome.storage.onChanged.removeListener(storageListener);
+      } catch (_) {}
+      el.remove();
+    };
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMini();
     });
+
+    if (mode !== 'corner') {
+      const w = el.getBoundingClientRect().width || 360;
+      const viewportW = Math.max(320, window.innerWidth || 0);
+      const left = Math.max(12, viewportW - 476 - w - 16);
+      el.style.left = `${left}px`;
+      el.style.top = '90px';
+    }
+
+    const dragState = { dragging: false, dx: 0, dy: 0 };
+    const onPointerMove = (e) => {
+      if (!dragState.dragging) return;
+      el.style.left = `${Math.max(0, e.clientX - dragState.dx)}px`;
+      el.style.top = `${Math.max(0, e.clientY - dragState.dy)}px`;
+    };
+    const onPointerUp = () => {
+      dragState.dragging = false;
+      try {
+        header.releasePointerCapture?.(dragState.pointerId);
+      } catch (_) {}
+      window.removeEventListener('pointermove', onPointerMove, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+    };
+
+    header.addEventListener('pointerdown', (e) => {
+      if (!e || e.button !== 0) return;
+      if (e.target?.closest?.('.pastecraft-mini-quickview-btn')) return;
+      const rect = el.getBoundingClientRect();
+      el.classList.remove('docked');
+      el.style.right = '';
+      el.style.bottom = '';
+      el.style.left = `${rect.left}px`;
+      el.style.top = `${rect.top}px`;
+
+      dragState.dragging = true;
+      dragState.pointerId = e.pointerId;
+      dragState.dx = e.clientX - rect.left;
+      dragState.dy = e.clientY - rect.top;
+      try {
+        header.setPointerCapture?.(e.pointerId);
+      } catch (_) {}
+      window.addEventListener('pointermove', onPointerMove, true);
+      window.addEventListener('pointerup', onPointerUp, true);
+    });
+  } catch (err) {
+    console.error('❌ Error opening mini Quick View:', err);
+  }
+}
+
+export async function populateMiniQuickViewBody(body) {
+  if (!body) return;
+  body.textContent = '';
+
+  let active = [];
+  let archived = [];
+  try {
+    const res = await new Promise((resolve) =>
+      chrome.storage.local.get(['clips', 'searchOnlyClips'], resolve)
+    );
+    active = Array.isArray(res?.clips) ? res.clips : [];
+    archived = Array.isArray(res?.searchOnlyClips) ? res.searchOnlyClips : [];
+  } catch (_) {}
+
+  const merged = [...active, ...archived]
+    .filter((c) => c && typeof c === 'object')
+    .sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0))
+    .slice(0, 100);
+
+  if (merged.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'pastecraft-mini-quickview-empty';
+    empty.textContent = 'No clips yet. Right-click selected text to save your first clip.';
+    body.appendChild(empty);
+    return;
+  }
+
+  merged.forEach((clip) => {
+    const card = document.createElement('div');
+    card.className = 'pastecraft-mini-quickview-clip';
+    card.title = 'Click to copy';
+
+    const text = String(clip.text ?? '').trim() || '(empty)';
+    const category = String(clip.category ?? '').trim();
+
+    if (category) {
+      const cat = document.createElement('div');
+      cat.className = 'pastecraft-mini-quickview-clip-category';
+      cat.textContent = category;
+      card.appendChild(cat);
+    }
+
+    const txt = document.createElement('div');
+    txt.className = 'pastecraft-mini-quickview-clip-text';
+    txt.textContent = text;
+    card.appendChild(txt);
+
+    const flashCopied = () => {
+      const original = txt.textContent;
+      const originalColor = card.style.borderColor;
+      txt.textContent = '✓ Copied!';
+      card.style.borderColor = '#2563eb';
+      setTimeout(() => {
+        txt.textContent = original;
+        card.style.borderColor = originalColor;
+      }, 800);
+    };
+
+    card.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        flashCopied();
+      } catch (_) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          flashCopied();
+        } catch (_) {}
+      }
+    });
+
+    body.appendChild(card);
+  });
 }

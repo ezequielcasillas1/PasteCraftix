@@ -156,3 +156,7 @@ profileImageUrl: 'https://oaidalleapiprodscus.blob.core.windows.net/...' (TEMPOR
 **Last Updated:** November 9, 2025
 
 
+
+### Jul 11, 2026 - Quick View empty (CSP)
+**Fix:** DOM-rendered Quick View in content script (no iframe/srcdoc).
+**Files:** extension/content/widget/widget.quickview.js, widget.styles.js, quickview-clips.js
