@@ -1,6 +1,7 @@
 // PasteCraft Background Script
 
 import { mergeActiveClipsSources } from '../shared/clips-local-merge.js';
+import { slimQuickViewClips } from '../shared/quickview-clips.js';
 
 export function isRepoLoaderBuild() {
   try {
@@ -292,7 +293,8 @@ export async function getQuickViewClips() {
   ];
 
   merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
-  return merged.slice(0, 200);
+  // Strip image dataUrls before messaging — large payloads break Quick View postMessage/sendResponse
+  return slimQuickViewClips(merged.slice(0, 200));
 }
 
 const QUICKVIEW_CLIP_ID = (clip) => String(clip?.id ?? clip?.clip_id ?? clip?.clipId ?? '');

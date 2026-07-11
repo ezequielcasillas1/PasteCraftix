@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PasteCraft Quick View</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .quickview-header {
+      background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 50%, #1d4ed8 100%);
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .quickview-title {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .clip-count {
+      font-size: 13px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .quickview-controls { display: flex; gap: 8px; }
+    .quickview-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .quickview-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+    .quickview-btn.active {
+      background: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+    }
+    .quickview-btn.liked-active {
+      color: #fecaca;
+      background: rgba(239, 68, 68, 0.35);
+    }
+    .quickview-btn.liked-active svg { fill: currentColor; }
+    .quickview-btn svg,
+    .quickview-btn svg *,
+    .quickview-btn span { pointer-events: none; }
+    .quickview-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .clip-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .clip-content { flex: 1; min-width: 0; }
+    .clip-text {
+      font-size: 14px;
+      color: #0f172a;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .clip-meta { margin-top: 6px; }
+    .clip-category {
+      font-size: 11px;
+      color: #64748b;
+      background: #e2e8f0;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .clip-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .clip-btn {
+      border: none;
+      background: #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .clip-btn:hover { background: #cbd5e1; }
+    .clip-btn.delete { color: #b91c1c; }
+    .clip-like-btn {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .clip-like-btn:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .clip-like-btn.liked { color: #ef4444; }
+    .clip-like-btn.liked svg { fill: currentColor; }
+    .clip-like-btn svg,
+    .clip-like-btn svg * { pointer-events: none; }
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: #64748b;
+    }
+    .empty-icon { font-size: 32px; margin-bottom: 12px; }
+    .empty-text { font-size: 16px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+    .empty-hint { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="quickview-header">
+    <div class="quickview-title">
+      <span>👁 Quick View</span>
+      <span class="clip-count" id="clip-count">…</span>
+    </div>
+    <div class="quickview-controls">
+      <button type="button" class="quickview-btn" id="liked-filter-btn" data-action="toggle-liked" title="Liked clips" aria-label="Show liked clips" aria-pressed="false">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+      </button>
+      <button type="button" class="quickview-btn" data-action="open-mini-window" title="Open mini Quick View (window)" aria-label="Open mini Quick View window">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg>
+      </button>
+      <button type="button" class="quickview-btn" data-action="open-mini-corner" title="Open mini Quick View (bottom-right)" aria-label="Dock mini Quick View to bottom-right">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 13V19H13"/><path d="M5 5L19 19"/></svg>
+      </button>
+      <button type="button" class="quickview-btn" data-action="refresh" title="Refresh">🔄</button>
+      <button type="button" class="quickview-btn" data-action="open-settings" title="Settings">⚙️</button>
+    </div>
+  </div>
+  <div class="quickview-content" id="quickview-content">
+    <div class="empty-state">
+      <div class="empty-icon">✨</div>
+      <div class="empty-text">Loading clips…</div>
+      <div class="empty-hint">Fetching from PasteCraft storage</div>
+    </div>
+  </div>
+  <script type="module" src="quickview-panel.js"></script>
+</body>
+</html>
