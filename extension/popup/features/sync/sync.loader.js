@@ -36,6 +36,7 @@ export async function fetchRawData(app) {
   }
   const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
+  let cameFromIdb = false;
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
@@ -44,16 +45,17 @@ export async function fetchRawData(app) {
     ]);
     if (Array.isArray(idbClips) && idbClips.length > 0) {
       clips = mergeActiveClipsSources(clips, idbClips);
+      cameFromIdb = true;
     }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) {
       categories = mergeActiveCategoriesSources(categories, idbCategories);
     }
   }
-  return { clips, categories, searchOnlyClips };
+  return { clips, categories, searchOnlyClips, cameFromIdb };
 }
 
 export async function injectDemoSeedIfNeeded(app, rawData) {
-  let { clips, categories, searchOnlyClips } = rawData;
+  let { clips, categories, searchOnlyClips, cameFromIdb } = rawData;
   let seeded = false;
 
   if (clips.length === 0 && categories.length === 0) {
@@ -62,10 +64,11 @@ export async function injectDemoSeedIfNeeded(app, rawData) {
     clips = app.syncFeature.constants.getDemoClips(now);
     await chrome.storage.local.set({ clips, categories, searchOnlyClips });
     seeded = true;
+    cameFromIdb = false;
     console.log('🌱 Seeded 8 preset categories + 8 example clips (PC 1.0)');
   }
 
-  return { clips, categories, searchOnlyClips, seeded };
+  return { clips, categories, searchOnlyClips, seeded, cameFromIdb };
 }
 
 function hashText(t) {
@@ -140,7 +143,7 @@ function normalizeSingleClip(app, clip, setChanged) {
 }
 
 export function normalizeClipData(app, rawData) {
-  let { clips, categories, searchOnlyClips, seeded } = rawData;
+  let { clips, categories, searchOnlyClips, seeded, cameFromIdb } = rawData;
   let normalizedChanged = false;
   const setChanged = () => { normalizedChanged = true; };
 
@@ -157,12 +160,35 @@ export function normalizeClipData(app, rawData) {
     clips: normalizedClips,
     categories,
     searchOnlyClips: normalizedSearchOnlyClips,
-    normalizedChanged
+    normalizedChanged,
+    cameFromIdb,
+    seeded,
   };
 }
 
+function scheduleIdbBackfill(app) {
+  Promise.resolve()
+    .then(() => app.idb.syncEntityFromLocalStorage('clips', app.clips))
+    .then(() => app.idb.syncEntityFromLocalStorage('categories', app.categories))
+    .catch((error) => {
+      console.warn('IDB backfill skipped:', error);
+    });
+}
+
+function shouldBackfillIndexedDb({ normalizedChanged, cameFromIdb, seeded }) {
+  if (normalizedChanged) return true;
+  if (seeded) return true;
+  return !cameFromIdb;
+}
+
+function canScheduleIdbBackfill(app, flags) {
+  if (!app._idbReady) return false;
+  if (!app.idb) return false;
+  return shouldBackfillIndexedDb(flags);
+}
+
 export async function syncNormalizedState(app, normalizedData) {
-  const { clips, categories, searchOnlyClips, normalizedChanged } = normalizedData;
+  const { clips, categories, searchOnlyClips, normalizedChanged, cameFromIdb, seeded } = normalizedData;
 
   app.clips = clips;
   app.categories = categories;
@@ -175,9 +201,11 @@ export async function syncNormalizedState(app, normalizedData) {
     });
   }
 
-  if (app._idbReady && app.idb) {
-    await app.idb.syncEntityFromLocalStorage('clips', app.clips);
-    await app.idb.syncEntityFromLocalStorage('categories', app.categories);
+  // Skip full IDB wipe+rewrite when data already came from IDB and was not reshaped.
+  // When a backfill is needed, schedule it off the init critical path so large
+  // libraries (400+ clips) cannot trip the 10s offline-mode watchdog.
+  if (canScheduleIdbBackfill(app, { normalizedChanged, cameFromIdb, seeded })) {
+    scheduleIdbBackfill(app);
   }
 
   if (typeof app.enforceClipLimit === 'function') {

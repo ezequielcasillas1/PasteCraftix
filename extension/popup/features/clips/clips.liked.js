@@ -30,20 +30,7 @@ export async function toggleClipLike(app, clipId) {
 
   const { liked, ids } = await toggleClipLiked(key);
   app.likedClipIds = new Set(ids);
-  // #region agent log
-  console.warn('[PasteCraft:debug:liked0711]', {
-    runId: 'post-fix',
-    hypothesisId: 'H3',
-    location: 'clips.liked.js:toggleClipLike',
-    message: 'clip heart toggled',
-    data: {
-      liked,
-      key,
-      idCount: ids.length,
-      currentTab: app.currentTab || '',
-    },
-  });
-  // #endregion
+
   if (app.currentTab === 'liked' && typeof app.likedFeature?.render?.renderLikedPage === 'function') {
     app.likedFeature.render.renderLikedPage(app);
   }

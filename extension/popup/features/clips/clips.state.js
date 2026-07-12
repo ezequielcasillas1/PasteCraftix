@@ -1,5 +1,7 @@
-/** Stable string key for clip IDs — re-export shared normalizer. */
-export { getClipIdKey } from '../../../shared/clip-id.js';
+/** Stable string key for clip IDs — shared normalizer (must import for local use). */
+import { getClipIdKey } from '../../../shared/clip-id.js';
+
+export { getClipIdKey };
 
 export function getClipTitle(clip) {
   return window.PCClipTitle ? window.PCClipTitle.getTitle(clip) : String(clip?.title || '').trim();

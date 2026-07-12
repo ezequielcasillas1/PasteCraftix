@@ -1,4 +1,9 @@
 
+### Jul 12, 2026 - Offline mode banner (getClipIdKey)
+**Status:** SUCCESS
+**Files:** clips.state.js, popup.js, popup.init.js, sync.loader.js
+**Result:** Popup init threw ReferenceError (export-only getClipIdKey); fixed import+export. Offline banner gone; clips load. User verified.
+
 ### Jul 11, 2026 - Help/info premium blue polish
 **Status:** SUCCESS
 **Files:** theme-blue-phase2.css, settings.render.js

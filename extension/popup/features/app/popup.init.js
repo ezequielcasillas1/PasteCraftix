@@ -160,6 +160,11 @@ async function paintAuthenticatedPopup(app) {
   await app.setupEventListeners();
   updateCoreMetadata(app);
   await restoreActiveUiState(app);
+  // Safety net: session restore fire-and-forgets tab paint; ensure Clips
+  // never stay on the HTML "Loading clips" placeholder after hydration.
+  if (!app.currentTab || app.currentTab === 'clips') {
+    app.renderChips?.();
+  }
 }
 
 function isSameAuthenticatedUser(app, currentUser) {

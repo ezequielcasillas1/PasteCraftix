@@ -7,8 +7,6 @@ import { showTabLoadingState } from '../../shared/tab-loading.js';
 import { getClipIdKey, getClipTitle, getClipFallbackTitle } from '../clips/clips.state.js';
 import { LIKED_SELECTORS, LIKED_TAB } from './liked.constants.js';
 
-const DEBUG_SESSION = 'liked0711';
-
 function byId(id) {
   return document.getElementById(id);
 }
@@ -48,20 +46,6 @@ export async function resolveLikedClipsForApp(app) {
       ...(Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : []),
     ];
     matched = filterLikedClips(stored, likedIds);
-    // #region agent log
-    console.warn(`[PasteCraft:debug:${DEBUG_SESSION}]`, {
-      runId: 'post-fix',
-      hypothesisId: 'H2',
-      location: 'liked.render.js:resolveLikedClipsForApp',
-      message: 'storage fallback join',
-      data: {
-        likedIdCount: likedIds.length,
-        memoryCandidates: collectCandidateClips(app).length,
-        storedCandidates: stored.length,
-        matched: matched.length,
-      },
-    });
-    // #endregion
   } catch (_) {
     /* keep memory result */
   }
@@ -90,19 +74,6 @@ export async function hydrateLikedTab(app) {
     const existing = app.likedClipIds instanceof Set ? app.likedClipIds : new Set();
     // Merge so an in-flight like is not wiped by a stale hydrate read.
     app.likedClipIds = new Set([...existing, ...ids]);
-    // #region agent log
-    console.warn(`[PasteCraft:debug:${DEBUG_SESSION}]`, {
-      runId: 'post-fix',
-      hypothesisId: 'H1',
-      location: 'liked.render.js:hydrateLikedTab',
-      message: 'hydrated liked ids',
-      data: {
-        storageCount: ids.length,
-        mergedCount: app.likedClipIds.size,
-        sample: [...app.likedClipIds].slice(0, 3),
-      },
-    });
-    // #endregion
     return [...app.likedClipIds];
   } catch (error) {
     if (!(app.likedClipIds instanceof Set)) app.likedClipIds = new Set();
@@ -207,21 +178,6 @@ export function renderLikedPage(app) {
 
   const likedIdCount = app.likedClipIds.size;
   const likedClips = getLikedClipsForApp(app);
-  // #region agent log
-  console.warn(`[PasteCraft:debug:${DEBUG_SESSION}]`, {
-    runId: 'post-fix',
-    hypothesisId: 'H2',
-    location: 'liked.render.js:renderLikedPage',
-    message: 'render liked page',
-    data: {
-      likedIdCount,
-      memoryMatched: likedClips.length,
-      candidateCount: collectCandidateClips(app).length,
-      currentTab: app.currentTab || '',
-      sampleIds: [...app.likedClipIds].slice(0, 3),
-    },
-  });
-  // #endregion
 
   if (countEl) {
     countEl.textContent = `${likedClips.length} liked`;
