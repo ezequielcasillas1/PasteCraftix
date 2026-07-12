@@ -33,6 +33,25 @@ export function getLikedClipsForApp(app) {
   return filterLikedClips(collectCandidateClips(app), likedIds);
 }
 
+/** When memory join misses, re-read clips from chrome.storage.local. */
+export async function resolveLikedClipsForApp(app) {
+  const likedIds = app.likedClipIds instanceof Set ? [...app.likedClipIds] : [];
+  let matched = filterLikedClips(collectCandidateClips(app), likedIds);
+  if (matched.length > 0 || likedIds.length === 0) return matched;
+
+  try {
+    const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+    const stored = [
+      ...(Array.isArray(result?.clips) ? result.clips : []),
+      ...(Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : []),
+    ];
+    matched = filterLikedClips(stored, likedIds);
+  } catch (_) {
+    /* keep memory result */
+  }
+  return matched;
+}
+
 function escapeHtml(app, text) {
   if (typeof app.escapeHtml === 'function') return app.escapeHtml(text);
   const div = document.createElement('div');
@@ -52,31 +71,26 @@ function paintIcons(root) {
 export async function hydrateLikedTab(app) {
   try {
     const ids = await getLikedClipIds();
-    app.likedClipIds = new Set(ids);
-    return ids;
+    const existing = app.likedClipIds instanceof Set ? app.likedClipIds : new Set();
+    // Merge so an in-flight like is not wiped by a stale hydrate read.
+    app.likedClipIds = new Set([...existing, ...ids]);
+    return [...app.likedClipIds];
   } catch (error) {
     if (!(app.likedClipIds instanceof Set)) app.likedClipIds = new Set();
     throw error;
   }
 }
 
-export function renderLikedPage(app) {
-  const { container, countEl, copyAllBtn, clearAllBtn } = getLikedElements();
-  if (!container) return;
-
-  if (!(app.likedClipIds instanceof Set)) {
-    showTabLoadingState(LIKED_TAB);
-    return;
-  }
-
-  const likedClips = getLikedClipsForApp(app);
-  if (countEl) {
-    countEl.textContent = `${likedClips.length} liked`;
-  }
-  if (copyAllBtn) copyAllBtn.disabled = likedClips.length === 0;
-  if (clearAllBtn) clearAllBtn.disabled = likedClips.length === 0;
-
-  if (likedClips.length === 0) {
+function paintLikedEmpty(container, { orphanCount = 0 } = {}) {
+  if (orphanCount > 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon"><i data-lucide="heart"></i></div>
+        <h3>${orphanCount} liked id${orphanCount === 1 ? '' : 's'} not in local clips</h3>
+        <p>Hearts were saved, but those clips are not loaded in this popup yet. Open Clips/Search or sync, then reopen Liked.</p>
+      </div>
+    `;
+  } else {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon"><i data-lucide="heart"></i></div>
@@ -89,10 +103,11 @@ export function renderLikedPage(app) {
         </div>
       </div>
     `;
-    paintIcons(container);
-    return;
   }
+  paintIcons(container);
+}
 
+function paintLikedRows(app, container, likedClips) {
   container.innerHTML = '';
   likedClips.forEach((clip) => {
     const clipIdKey = getClipIdKey(clip?.id);
@@ -123,7 +138,7 @@ export function renderLikedPage(app) {
       e.stopPropagation();
       await setClipLiked(clipIdKey, false);
       if (app.likedClipIds instanceof Set) app.likedClipIds.delete(clipIdKey);
-      renderLikedPage(app);
+      void renderLikedPage(app);
       if (typeof app.renderChips === 'function') app.renderChips();
     });
 
@@ -152,8 +167,47 @@ export function renderLikedPage(app) {
   paintIcons(container);
 }
 
-export async function copyAllLiked(app) {
+export function renderLikedPage(app) {
+  const { container, countEl, copyAllBtn, clearAllBtn } = getLikedElements();
+  if (!container) return;
+
+  if (!(app.likedClipIds instanceof Set)) {
+    showTabLoadingState(LIKED_TAB);
+    return;
+  }
+
+  const likedIdCount = app.likedClipIds.size;
   const likedClips = getLikedClipsForApp(app);
+
+  if (countEl) {
+    countEl.textContent = `${likedClips.length} liked`;
+  }
+  if (copyAllBtn) copyAllBtn.disabled = likedClips.length === 0;
+  if (clearAllBtn) clearAllBtn.disabled = likedClips.length === 0;
+
+  if (likedClips.length === 0) {
+    paintLikedEmpty(container, { orphanCount: likedIdCount });
+    if (likedIdCount > 0) {
+      void resolveLikedClipsForApp(app).then((resolved) => {
+        if (app.currentTab !== 'liked') return;
+        if (!Array.isArray(resolved) || resolved.length === 0) return;
+        if (countEl) countEl.textContent = `${resolved.length} liked`;
+        if (copyAllBtn) copyAllBtn.disabled = false;
+        if (clearAllBtn) clearAllBtn.disabled = false;
+        paintLikedRows(app, container, resolved);
+      });
+    }
+    return;
+  }
+
+  paintLikedRows(app, container, likedClips);
+}
+
+export async function copyAllLiked(app) {
+  let likedClips = getLikedClipsForApp(app);
+  if (likedClips.length === 0) {
+    likedClips = await resolveLikedClipsForApp(app);
+  }
   if (likedClips.length === 0) return false;
   const delimiter = app.quickPasteSettings?.delimiter || '\n\n';
   const text = likedClips.map((c) => c?.text || '').filter(Boolean).join(delimiter);
@@ -166,17 +220,15 @@ export async function copyAllLiked(app) {
 }
 
 export async function clearAllLiked(app) {
-  const likedClips = getLikedClipsForApp(app);
-  if (likedClips.length === 0) return 0;
-  for (const clip of likedClips) {
-    const id = getClipIdKey(clip?.id);
-    if (!id) continue;
+  const likedIds = app.likedClipIds instanceof Set ? [...app.likedClipIds] : [];
+  if (likedIds.length === 0) return 0;
+  for (const id of likedIds) {
     await setClipLiked(id, false);
   }
   app.likedClipIds = new Set();
   renderLikedPage(app);
   if (typeof app.renderChips === 'function') app.renderChips();
-  return likedClips.length;
+  return likedIds.length;
 }
 
 export function setupLikedPageEvents(app) {

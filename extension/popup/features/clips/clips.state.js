@@ -1,25 +1,7 @@
-/** Stable string key for clip IDs — normalizes legacy float ids (Date.now()+Math.random). */
-export function getClipIdKey(id) {
-  if (id == null || id === '') return '';
-  if (typeof id === 'number') {
-    if (Number.isInteger(id)) return String(id);
-    if (id >= 1e12 && id < 1e16) return _normalizeFloatClipIdKey(id);
-    return String(id);
-  }
-  const raw = String(id).trim();
-  if (!raw) return '';
-  const num = Number(raw);
-  if (raw.includes('.') && Number.isFinite(num) && num >= 1e12 && num < 1e16) {
-    return _normalizeFloatClipIdKey(num);
-  }
-  return raw;
-}
+/** Stable string key for clip IDs — shared normalizer (must import for local use). */
+import { getClipIdKey } from '../../../shared/clip-id.js';
 
-function _normalizeFloatClipIdKey(num) {
-  const rounded = Math.round(num * 10000) / 10000;
-  if (Number.isInteger(rounded)) return String(rounded);
-  return rounded.toFixed(4).replace(/\.?0+$/, '');
-}
+export { getClipIdKey };
 
 export function getClipTitle(clip) {
   return window.PCClipTitle ? window.PCClipTitle.getTitle(clip) : String(clip?.title || '').trim();

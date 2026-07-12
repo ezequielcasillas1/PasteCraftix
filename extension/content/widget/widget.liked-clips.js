@@ -1,12 +1,31 @@
 /**
  * Liked clips storage for content/widget (same key as extension/shared/liked-clips.js).
  * Kept local so content module graph does not depend on shared/ WAR imports.
+ * Float-id normalize must match extension/shared/clip-id.js getClipIdKey.
  */
 
 export const LIKED_CLIPS_STORAGE_KEY = 'likedClipIds';
 
+function normalizeFloatClipIdKey(num) {
+  const rounded = Math.round(num * 10000) / 10000;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(4).replace(/\.?0+$/, '');
+}
+
 export function normalizeLikedClipId(clipId) {
-  return clipId != null && clipId !== '' ? String(clipId) : '';
+  if (clipId == null || clipId === '') return '';
+  if (typeof clipId === 'number') {
+    if (Number.isInteger(clipId)) return String(clipId);
+    if (clipId >= 1e12 && clipId < 1e16) return normalizeFloatClipIdKey(clipId);
+    return String(clipId);
+  }
+  const raw = String(clipId).trim();
+  if (!raw) return '';
+  const num = Number(raw);
+  if (raw.includes('.') && Number.isFinite(num) && num >= 1e12 && num < 1e16) {
+    return normalizeFloatClipIdKey(num);
+  }
+  return raw;
 }
 
 function toIdList(raw) {

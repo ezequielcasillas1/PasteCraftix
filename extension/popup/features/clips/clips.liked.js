@@ -30,6 +30,10 @@ export async function toggleClipLike(app, clipId) {
 
   const { liked, ids } = await toggleClipLiked(key);
   app.likedClipIds = new Set(ids);
+
+  if (app.currentTab === 'liked' && typeof app.likedFeature?.render?.renderLikedPage === 'function') {
+    app.likedFeature.render.renderLikedPage(app);
+  }
   return liked;
 }
 
@@ -40,7 +44,7 @@ export function setupLikedStorageListener(app) {
     if (area !== 'local' || !changes[LIKED_CLIPS_STORAGE_KEY]) return;
     const next = changes[LIKED_CLIPS_STORAGE_KEY].newValue;
     app.likedClipIds = new Set(
-      Array.isArray(next) ? next.map((id) => String(id)).filter(Boolean) : []
+      Array.isArray(next) ? next.map((id) => getClipIdKey(id)).filter(Boolean) : []
     );
     if (typeof app.renderChips === 'function') {
       app.renderChips();

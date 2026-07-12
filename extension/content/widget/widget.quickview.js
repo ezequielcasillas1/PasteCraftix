@@ -4,7 +4,11 @@
  */
 import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 import { injectQuickViewStyles } from './widget.styles.js';
-import { getLikedClipIds, toggleClipLiked } from './widget.liked-clips.js';
+import {
+  getLikedClipIds,
+  normalizeLikedClipId,
+  toggleClipLiked,
+} from './widget.liked-clips.js';
 
 const DEBUG_QV = 'qv-sync-0711';
 const HEART_SVG =
@@ -234,23 +238,62 @@ function buildQuickViewChrome(widget) {
   return root;
 }
 
+async function loadClipsFromLocalStorage() {
+  try {
+    const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+    const active = Array.isArray(result?.clips) ? result.clips : [];
+    const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+    return slimQuickViewClips([
+      ...active.map((clip) => ({ ...clip, source: clip?.source || 'active' })),
+      ...archived.map((clip) => ({ ...clip, archived: true, source: 'archived' })),
+    ]);
+  } catch (_) {
+    return [];
+  }
+}
+
 async function loadQuickViewClips(widget) {
   const state = ensureQvState(widget);
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
-    const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let response = null;
+    try {
+      response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
+    } catch (err) {
+      response = { success: false, error: String(err?.message || err), clips: [] };
+    }
+
+    let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let source = 'background';
+
+    // Background miss / SW failure → read chrome.storage.local in-content.
+    if (!response?.success || clips.length === 0) {
+      const localClips = await loadClipsFromLocalStorage();
+      if (localClips.length > 0) {
+        clips = localClips;
+        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
+      }
+    }
+
     state.allClips = slimQuickViewClips(clips);
     state.likedIdSet = new Set(await getLikedClipIds());
     qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path loaded', {
-      ok: !!response?.success,
+      ok: !!response?.success || state.allClips.length > 0,
       count: state.allClips.length,
+      source,
+      error: response?.error ? String(response.error).slice(0, 120) : '',
+      bgCount: Array.isArray(response?.clips) ? response.clips.length : -1,
     });
     renderQuickViewList(widget);
   } catch (err) {
     qvDebug('H7', 'widget.quickview.js:loadQuickViewClips', 'DOM path failed', {
       error: String(err?.message || err),
     });
-    state.allClips = [];
+    try {
+      state.allClips = await loadClipsFromLocalStorage();
+      state.likedIdSet = new Set(await getLikedClipIds());
+    } catch (_) {
+      state.allClips = [];
+    }
     renderQuickViewList(widget);
   }
 }
@@ -264,7 +307,7 @@ function renderQuickViewList(widget) {
   if (!container) return;
 
   const visible = state.likedFilterOn
-    ? state.allClips.filter((c) => state.likedIdSet.has(String(c.id || '')))
+    ? state.allClips.filter((c) => state.likedIdSet.has(normalizeLikedClipId(c.id)))
     : state.allClips;
 
   if (counter) {
@@ -303,7 +346,7 @@ function createQuickViewClipRow(clip, index, likedIdSet) {
   const text = clip.text || '';
   const displayText = text.length > 60 ? `${text.substring(0, 60)}...` : text;
   const category = clip.category || 'Uncategorized';
-  const clipId = clip.id != null ? String(clip.id) : String(index);
+  const clipId = normalizeLikedClipId(clip.id) || String(index);
   const isArchived = !!(clip.archived === true || clip.source === 'archived');
   const isLiked = likedIdSet.has(clipId);
 
@@ -398,7 +441,18 @@ function onQuickViewDelegatedClick(widget, e) {
 
   if (action === 'toggle-like') {
     toggleClipLiked(clipId).then((result) => {
-      state.likedIdSet = new Set(result.ids);
+      state.likedIdSet = new Set(
+        (result.ids || []).map((id) => normalizeLikedClipId(id)).filter(Boolean)
+      );
+      // #region agent log
+      console.warn('[PasteCraft:debug:liked0711]', {
+        runId: 'post-fix',
+        hypothesisId: 'H3',
+        location: 'widget.quickview.js:toggle-like',
+        message: 'qv heart toggled',
+        data: { clipId, liked: !!result.liked, idCount: state.likedIdSet.size },
+      });
+      // #endregion
       renderQuickViewList(widget);
     });
     return;

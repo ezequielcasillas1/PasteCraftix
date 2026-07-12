@@ -90,21 +90,40 @@ export function normalizeQuickViewClip(clip, index, source) {
 export async function readIndexedDbPayloads(storeName) {
   if (typeof indexedDB === 'undefined') return [];
 
+  // Must open at current schema version (3). Opening at v1 against a v3 DB
+  // throws VersionError and previously swallowed into [] — Quick View looked empty.
+  const IDB_READ_VERSION = 3;
+
   return new Promise((resolve) => {
-    const request = indexedDB.open('pastecraft_local_v1', 1);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    let request;
+    try {
+      request = indexedDB.open('pastecraft_local_v1', IDB_READ_VERSION);
+    } catch (_) {
+      finish([]);
+      return;
+    }
+
     request.onerror = () => {
-      resolve([]);
+      finish([]);
     };
     request.onupgradeneeded = () => {
+      // Read path must not create/upgrade schema — abort and treat as empty.
       try { request.transaction.abort(); } catch (_) {}
-      resolve([]);
+      finish([]);
     };
     request.onsuccess = () => {
       const db = request.result;
       try {
         if (!db.objectStoreNames.contains(storeName)) {
           db.close();
-          resolve([]);
+          finish([]);
           return;
         }
 
@@ -114,15 +133,15 @@ export async function readIndexedDbPayloads(storeName) {
         getAll.onsuccess = () => {
           const records = Array.isArray(getAll.result) ? getAll.result : [];
           db.close();
-          resolve(records.map((record) => record && record.payload).filter(Boolean));
+          finish(records.map((record) => record && record.payload).filter(Boolean));
         };
         getAll.onerror = () => {
           db.close();
-          resolve([]);
+          finish([]);
         };
       } catch (_) {
         try { db.close(); } catch (_) {}
-        resolve([]);
+        finish([]);
       }
     };
   });
@@ -294,7 +313,23 @@ export async function getQuickViewClips() {
 
   merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
   // Strip image dataUrls before messaging — large payloads break Quick View postMessage/sendResponse
-  return slimQuickViewClips(merged.slice(0, 200));
+  const slimmed = slimQuickViewClips(merged.slice(0, 200));
+  // #region agent log
+  console.warn('[PasteCraft:debug:liked0711]', {
+    runId: 'post-fix',
+    hypothesisId: 'H7',
+    location: 'background/shared.js:getQuickViewClips',
+    message: 'qv clips assembled',
+    data: {
+      localActive: localActive.length,
+      idbClips: Array.isArray(idbClips) ? idbClips.length : -1,
+      archived: archived.length,
+      merged: merged.length,
+      slimmed: slimmed.length,
+    },
+  });
+  // #endregion
+  return slimmed;
 }
 
 const QUICKVIEW_CLIP_ID = (clip) => String(clip?.id ?? clip?.clip_id ?? clip?.clipId ?? '');

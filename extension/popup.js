@@ -284,7 +284,7 @@ class PasteCraftPopup {
     // throw, hang, or network stall can't freeze the popup in a loading state.
     const watchdog = setTimeout(() => {
       try {
-        console.warn('? init() watchdog fired at 10s � force-hiding overlay');
+        console.warn('[PasteCraft] init() watchdog fired at 10s — force-hiding overlay');
         this.hideLoadingOverlay();
         this._showOfflineModeBanner();
       } catch (_) {}
@@ -292,8 +292,9 @@ class PasteCraftPopup {
 
     try {
       await this._initImpl();
+      this._clearOfflineModeBanner();
     } catch (e) {
-      console.error('? init() failed:', e);
+      console.error('[PasteCraft] init() failed:', e);
       try { this._showOfflineModeBanner(); } catch (_) {}
     } finally {
       clearTimeout(watchdog);
@@ -306,9 +307,15 @@ class PasteCraftPopup {
     const banner = document.createElement('div');
     banner.id = 'pcOfflineModeBanner';
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
-    banner.textContent = 'Loaded in offline mode � click to retry';
+    banner.textContent = 'Loaded in offline mode \u2014 click to retry';
     banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
     (document.body || document.documentElement).appendChild(banner);
+  }
+
+  _clearOfflineModeBanner() {
+    try {
+      document.getElementById('pcOfflineModeBanner')?.remove();
+    } catch (_) {}
   }
 
   async _initImpl() {

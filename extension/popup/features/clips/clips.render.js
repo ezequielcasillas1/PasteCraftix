@@ -283,6 +283,9 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
       anchor.setAttribute('aria-pressed', liked ? 'true' : 'false');
       anchor.title = liked ? 'Remove from liked' : 'Add to liked';
       anchor.setAttribute('aria-label', liked ? 'Unlike clip' : 'Like clip');
+      if (liked && typeof app.showToast === 'function') {
+        app.showToast('Added to Liked', 'success');
+      }
     }],
     ['.chip-remove', () => app.removeChip(clipIdKey)],
     ['.chip-title-btn', () => app.promptEditClipTitle(clipIdKey)],

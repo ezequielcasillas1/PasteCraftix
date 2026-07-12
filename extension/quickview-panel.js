@@ -2,6 +2,7 @@
  * Quick View panel — extension-page iframe (not srcdoc).
  * Self-loads clips via background so host-page CSP cannot block the UI script.
  */
+import { getClipIdKey } from './shared/clip-id.js';
 import { slimQuickViewClips } from './shared/quickview-clips.js';
 
 const LIKED_KEY = 'likedClipIds';
@@ -45,18 +46,30 @@ function showToast(message, isError = false) {
   }, 2000);
 }
 
+function toLikedIdList(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    const id = getClipIdKey(item);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 async function getLikedIds() {
   try {
     const result = await chrome.storage.local.get([LIKED_KEY]);
-    const list = Array.isArray(result?.[LIKED_KEY]) ? result[LIKED_KEY] : [];
-    return list.map(String);
+    return toLikedIdList(result?.[LIKED_KEY]);
   } catch (_) {
     return [];
   }
 }
 
 async function toggleLiked(clipId) {
-  const id = String(clipId || '');
+  const id = getClipIdKey(clipId);
   if (!id) return;
   const current = await getLikedIds();
   const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
@@ -65,18 +78,57 @@ async function toggleLiked(clipId) {
   render();
 }
 
+async function loadClipsFromLocalStorage() {
+  try {
+    const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
+    const active = Array.isArray(result?.clips) ? result.clips : [];
+    const archived = Array.isArray(result?.searchOnlyClips) ? result.searchOnlyClips : [];
+    return slimQuickViewClips([
+      ...active.map((clip) => ({ ...clip, source: clip?.source || 'active' })),
+      ...archived.map((clip) => ({ ...clip, archived: true, source: 'archived' })),
+    ]);
+  } catch (_) {
+    return [];
+  }
+}
+
 async function loadClips() {
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
-    const clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let response = null;
+    try {
+      response = await chrome.runtime.sendMessage({ action: 'pcGetQuickViewClips' });
+    } catch (err) {
+      response = { success: false, error: String(err?.message || err), clips: [] };
+    }
+
+    let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
+    let source = 'background';
+    if (!response?.success || clips.length === 0) {
+      const localClips = await loadClipsFromLocalStorage();
+      if (localClips.length > 0) {
+        clips = localClips;
+        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
+      }
+    }
+
     allClips = slimQuickViewClips(clips);
     likedIdSet = new Set(await getLikedIds());
-    qvDebug('H5', 'panel self-load', { ok: !!response?.success, count: allClips.length });
+    qvDebug('H5', 'panel self-load', {
+      ok: !!response?.success || allClips.length > 0,
+      count: allClips.length,
+      source,
+      error: response?.error ? String(response.error).slice(0, 120) : '',
+    });
     render();
     postToParent({ type: 'quickview-clips-ack', count: allClips.length, totalCount: allClips.length });
   } catch (err) {
     qvDebug('H5', 'panel self-load failed', { error: String(err?.message || err) });
-    allClips = [];
+    try {
+      allClips = await loadClipsFromLocalStorage();
+      likedIdSet = new Set(await getLikedIds());
+    } catch (_) {
+      allClips = [];
+    }
     render();
   }
 }
@@ -87,7 +139,7 @@ function render() {
   if (!container) return;
 
   const visible = likedFilterOn
-    ? allClips.filter((c) => likedIdSet.has(String(c.id || '')))
+    ? allClips.filter((c) => likedIdSet.has(getClipIdKey(c.id)))
     : allClips;
 
   if (counter) {
@@ -108,7 +160,7 @@ function render() {
       const text = clip.text || '';
       const displayText = text.length > 60 ? `${text.substring(0, 60)}...` : text;
       const category = clip.category || 'Uncategorized';
-      const clipId = clip.id != null ? String(clip.id) : String(index);
+      const clipId = getClipIdKey(clip.id) || String(index);
       const isArchived = !!(clip.archived === true || clip.source === 'archived');
       const isLiked = likedIdSet.has(clipId);
       const likeClass = isLiked ? ' liked' : '';
