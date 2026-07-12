@@ -75,16 +75,16 @@ const { label = 'PasteCraft 3D extension preview' } = Astro.props;
   .preview-3d {
     position: relative;
     isolation: isolate;
-    width: 100%;
-    min-height: 360px;
-    aspect-ratio: 5 / 4;
+    width: min(100%, 420px);
+    margin-inline: auto;
+    aspect-ratio: 9 / 16;
     border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid rgba(56, 189, 248, 0.35);
     background:
-      radial-gradient(ellipse 70% 55% at 50% 42%, rgba(14, 165, 233, 0.38) 0%, transparent 62%),
-      radial-gradient(ellipse 55% 45% at 78% 18%, rgba(96, 165, 250, 0.28) 0%, transparent 55%),
-      radial-gradient(ellipse 50% 40% at 18% 78%, rgba(37, 99, 235, 0.32) 0%, transparent 50%),
+      radial-gradient(ellipse 80% 55% at 50% 42%, rgba(14, 165, 233, 0.38) 0%, transparent 62%),
+      radial-gradient(ellipse 55% 40% at 78% 18%, rgba(96, 165, 250, 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 35% at 18% 78%, rgba(37, 99, 235, 0.32) 0%, transparent 50%),
       linear-gradient(160deg, #04102a 0%, #0a1a4a 42%, #061228 100%);
     box-shadow:
       0 32px 80px rgba(8, 12, 42, 0.65),
@@ -165,7 +165,7 @@ const { label = 'PasteCraft 3D extension preview' } = Astro.props;
 
   @media (max-width: 640px) {
     .preview-3d {
-      min-height: 280px;
+      width: min(100%, 320px);
     }
   }
 </style>

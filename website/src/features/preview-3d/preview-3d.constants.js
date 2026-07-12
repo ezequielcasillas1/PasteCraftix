@@ -7,6 +7,9 @@ export const PREVIEW_3D = {
   videoSelector: '[data-preview-3d-video]',
   fallbackSelector: '[data-preview-3d-fallback]',
   maxDpr: 1.75,
-  planeWidth: 3.2,
-  planeHeight: 2.35,
+  /** Native source: 720×1280 (9:16 portrait) */
+  videoWidth: 720,
+  videoHeight: 1280,
+  /** World units — height drives portrait scale */
+  planeHeight: 3.85,
 };
