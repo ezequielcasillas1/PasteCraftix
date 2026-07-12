@@ -4,6 +4,7 @@ import Hero from '../components/Hero.astro';
 import SectionShell from '../components/SectionShell.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingCard from '../components/PricingCard.astro';
+import Preview3D from '../components/Preview3D.astro';
 import { pricingPlans, trustPills } from '../data/site.js';
 
 const featureItems = [
@@ -138,35 +139,7 @@ const counterStats = [
             <a class="ghost-button" href="/about">Learn more</a>
           </div>
         </div>
-        <div class="mockup-frame surface-card">
-          <div class="mockup-topbar">
-            <span class="mockup-dot red"></span>
-            <span class="mockup-dot yellow"></span>
-            <span class="mockup-dot green"></span>
-            <span class="mockup-title">PasteCraft</span>
-          </div>
-          <div class="mockup-body">
-            <div class="mockup-search">
-              <span class="mockup-search-icon">🔍</span>
-              <span class="mockup-search-placeholder">Search clips...</span>
-            </div>
-            <div class="mockup-clip">
-              <span class="mockup-clip-tag">Code</span>
-              <p>const result = await fetch('/api/clips')...</p>
-              <span class="mockup-clip-time">2 min ago</span>
-            </div>
-            <div class="mockup-clip">
-              <span class="mockup-clip-tag">Research</span>
-              <p>PasteCraft helps you keep every clip readable and organized...</p>
-              <span class="mockup-clip-time">15 min ago</span>
-            </div>
-            <div class="mockup-clip">
-              <span class="mockup-clip-tag">Notes</span>
-              <p>Meeting notes: Q3 roadmap includes AI summarization...</p>
-              <span class="mockup-clip-time">1 hr ago</span>
-            </div>
-          </div>
-        </div>
+        <Preview3D />
       </div>
     </div>
   </section>
@@ -452,91 +425,6 @@ const counterStats = [
       grid-template-columns: 1fr 1fr;
       gap: 3rem;
       align-items: center;
-    }
-
-    .mockup-frame {
-      border: 1px solid rgba(37, 99, 235, 0.35);
-      padding: 0;
-      overflow: hidden;
-      box-shadow: 0 32px 80px rgba(8, 12, 42, 0.6), 0 0 40px rgba(37, 99, 235, 0.1);
-    }
-
-    .mockup-topbar {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      padding: 0.85rem 1rem;
-      background: rgba(8, 12, 42, 0.8);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .mockup-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
-
-    .mockup-dot.red { background: #ff5f57; }
-    .mockup-dot.yellow { background: #febc2e; }
-    .mockup-dot.green { background: #28c840; }
-
-    .mockup-title {
-      margin-left: 0.5rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .mockup-body {
-      padding: 1rem;
-      display: grid;
-      gap: 0.65rem;
-    }
-
-    .mockup-search {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.65rem 0.9rem;
-      border-radius: var(--radius-sm);
-      background: rgba(8, 12, 42, 0.5);
-      border: 1px solid var(--border);
-    }
-
-    .mockup-search-placeholder {
-      color: var(--text-muted);
-      font-size: 0.88rem;
-    }
-
-    .mockup-clip {
-      padding: 0.85rem 1rem;
-      border-radius: var(--radius-sm);
-      background: rgba(37, 99, 235, 0.06);
-      border: 1px solid rgba(37, 99, 235, 0.18);
-      display: grid;
-      gap: 0.35rem;
-    }
-
-    .mockup-clip p {
-      margin: 0;
-      font-size: 0.83rem;
-      color: var(--text-soft);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .mockup-clip-tag {
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--gold);
-    }
-
-    .mockup-clip-time {
-      font-size: 0.72rem;
-      color: var(--text-muted);
     }
 
     .testimonials-section {

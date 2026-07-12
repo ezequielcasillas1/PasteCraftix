@@ -1,0 +1,171 @@
+---
+/** @forward-slice website preview-3d */
+import { PREVIEW_3D } from '../features/preview-3d/preview-3d.constants.js';
+
+interface Props {
+  label?: string;
+}
+
+const { label = 'PasteCraft 3D extension preview' } = Astro.props;
+---
+
+<div
+  class="preview-3d"
+  data-preview-3d
+  role="img"
+  aria-label={label}
+>
+  <div class="preview-3d__glow" aria-hidden="true"></div>
+  <div class="preview-3d__grid" aria-hidden="true"></div>
+
+  <canvas class="preview-3d__canvas" data-preview-3d-canvas></canvas>
+
+  <video
+    class="preview-3d__source"
+    data-preview-3d-video
+    src={PREVIEW_3D.videoSrc}
+    muted
+    loop
+    playsinline
+    preload="metadata"
+    aria-hidden="true"
+  ></video>
+
+  <div class="preview-3d__fallback" data-preview-3d-fallback hidden>
+    <video
+      class="preview-3d__fallback-video"
+      src={PREVIEW_3D.videoSrc}
+      muted
+      loop
+      playsinline
+      autoplay
+      preload="metadata"
+    ></video>
+  </div>
+</div>
+
+<script>
+  import { PREVIEW_3D } from '../features/preview-3d/preview-3d.constants.js';
+
+  const roots = document.querySelectorAll(PREVIEW_3D.mountSelector);
+
+  async function bindPreview(root) {
+    if (!(root instanceof HTMLElement) || root.dataset.previewBound === '1') return;
+    root.dataset.previewBound = '1';
+    const { createPreviewScene } = await import('../features/preview-3d/create-preview-scene.js');
+    createPreviewScene(root);
+  }
+
+  roots.forEach((root) => {
+    if (!(root instanceof HTMLElement)) return;
+    if (!('IntersectionObserver' in window)) {
+      void bindPreview(root);
+      return;
+    }
+    const boot = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      boot.disconnect();
+      void bindPreview(root);
+    }, { rootMargin: '200px 0px', threshold: 0.05 });
+    boot.observe(root);
+  });
+</script>
+
+<style>
+  .preview-3d {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    min-height: 360px;
+    aspect-ratio: 5 / 4;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 42%, rgba(14, 165, 233, 0.38) 0%, transparent 62%),
+      radial-gradient(ellipse 55% 45% at 78% 18%, rgba(96, 165, 250, 0.28) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 18% 78%, rgba(37, 99, 235, 0.32) 0%, transparent 50%),
+      linear-gradient(160deg, #04102a 0%, #0a1a4a 42%, #061228 100%);
+    box-shadow:
+      0 32px 80px rgba(8, 12, 42, 0.65),
+      0 0 48px rgba(14, 165, 233, 0.22),
+      inset 0 1px 0 rgba(186, 230, 253, 0.18);
+  }
+
+  .preview-3d__glow {
+    position: absolute;
+    inset: -20% -10%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.2), transparent 58%);
+    pointer-events: none;
+    z-index: 0;
+    animation: preview-glow 5.5s ease-in-out infinite;
+  }
+
+  .preview-3d__grid {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.22;
+    background-image:
+      linear-gradient(rgba(125, 211, 252, 0.14) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(125, 211, 252, 0.14) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, #000 20%, transparent 75%);
+    pointer-events: none;
+  }
+
+  .preview-3d__canvas {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .preview-3d__source {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .preview-3d__fallback {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+  }
+
+  .preview-3d__fallback[hidden] {
+    display: none;
+  }
+
+  .preview-3d__fallback-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    box-shadow: 0 18px 48px rgba(2, 12, 36, 0.55);
+  }
+
+  @keyframes preview-glow {
+    0%, 100% { opacity: 0.75; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.04); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .preview-3d__glow {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .preview-3d {
+      min-height: 280px;
+    }
+  }
+</style>

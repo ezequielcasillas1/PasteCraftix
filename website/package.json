@@ -16,7 +16,8 @@
   "author": "Ezequiel Casillas",
   "license": "MIT",
   "dependencies": {
-    "astro": "^6.4.6"
+    "astro": "^6.4.6",
+    "three": "^0.178.0"
   },
   "overrides": {
     "js-yaml": "^4.2.0",
