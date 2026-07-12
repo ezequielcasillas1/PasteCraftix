@@ -6,8 +6,8 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function createBackdropMesh() {
-  const geo = new THREE.CircleGeometry(2.8, 64);
+function createBackdropMesh(radius = 3.4) {
+  const geo = new THREE.CircleGeometry(radius, 64);
   const mat = new THREE.MeshBasicMaterial({
     color: new THREE.Color('#1d4ed8'),
     transparent: true,
@@ -17,6 +17,14 @@ function createBackdropMesh() {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.z = -0.85;
   return mesh;
+}
+
+function resolvePlaneSize(video) {
+  const vw = video.videoWidth || PREVIEW_3D.videoWidth;
+  const vh = video.videoHeight || PREVIEW_3D.videoHeight;
+  const aspect = vw > 0 && vh > 0 ? vw / vh : PREVIEW_3D.videoWidth / PREVIEW_3D.videoHeight;
+  const h = PREVIEW_3D.planeHeight;
+  return { w: h * aspect, h };
 }
 
 function createFrameMesh(width, height) {
@@ -107,8 +115,8 @@ export function createPreviewScene(root) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PREVIEW_3D.maxDpr));
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 40);
-  camera.position.set(0, 0.12, 5.1);
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 40);
+  camera.position.set(0, 0, 6.2);
 
   const key = new THREE.DirectionalLight(0x93c5fd, 1.35);
   key.position.set(2.4, 2.2, 3.2);
@@ -117,7 +125,7 @@ export function createPreviewScene(root) {
   const rim = new THREE.PointLight(0x60a5fa, 1.8, 12);
   rim.position.set(0, -0.4, 2.4);
   const ambient = new THREE.AmbientLight(0xa5b4fc, 0.45);
-  scene.add(key, fill, rim, ambient, createBackdropMesh());
+  scene.add(key, fill, rim, ambient);
 
   video.muted = true;
   video.playsInline = true;
@@ -129,15 +137,27 @@ export function createPreviewScene(root) {
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
 
-  const { planeWidth: w, planeHeight: h } = PREVIEW_3D;
+  const { w, h } = resolvePlaneSize(video);
   const panel = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map: texture }),
   );
   const frame = createFrameMesh(w, h);
+  const backdrop = createBackdropMesh(Math.max(w, h) * 0.95);
   const group = new THREE.Group();
-  group.add(frame, panel);
+  group.add(backdrop, frame, panel);
   scene.add(group);
+
+  const fitCamera = () => {
+    const { clientWidth, clientHeight } = root;
+    if (!clientWidth || !clientHeight) return;
+    camera.aspect = clientWidth / clientHeight;
+    const vFov = (camera.fov * Math.PI) / 180;
+    const fitH = (h * 0.58) / Math.tan(vFov / 2);
+    const fitW = ((w * 0.58) / Math.tan(vFov / 2)) / camera.aspect;
+    camera.position.z = Math.max(fitH, fitW, 4.8);
+    camera.updateProjectionMatrix();
+  };
 
   let raf = 0;
   let running = false;
@@ -147,16 +167,15 @@ export function createPreviewScene(root) {
     const { clientWidth, clientHeight } = root;
     if (!clientWidth || !clientHeight) return;
     renderer.setSize(clientWidth, clientHeight, false);
-    camera.aspect = clientWidth / clientHeight;
-    camera.updateProjectionMatrix();
+    fitCamera();
   };
 
   const tick = (t) => {
     if (!running || disposed) return;
     const time = t * 0.001;
-    group.rotation.y = Math.sin(time * 0.55) * 0.18;
-    group.rotation.x = Math.sin(time * 0.4) * 0.06 + 0.04;
-    group.position.y = Math.sin(time * 0.9) * 0.06;
+    group.rotation.y = Math.sin(time * 0.45) * 0.12;
+    group.rotation.x = Math.sin(time * 0.35) * 0.04 + 0.02;
+    group.position.y = Math.sin(time * 0.85) * 0.05;
     rim.intensity = 1.5 + Math.sin(time * 1.4) * 0.35;
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
@@ -207,6 +226,8 @@ export function createPreviewScene(root) {
     panel.material.dispose();
     frame.geometry.dispose();
     frame.material.dispose();
+    backdrop.geometry.dispose();
+    backdrop.material.dispose();
     renderer.dispose();
   };
 }
