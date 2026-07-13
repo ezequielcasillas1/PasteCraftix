@@ -35,6 +35,11 @@ import {
   setupQuickPasteMessageListener,
   setupQuickPasteStorageSync,
 } from './qp.events.js';
+import {
+  pasteQuickPasteClip,
+  pasteQuickPasteClipById,
+  showQuickPasteToast,
+} from './qp.paste.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -157,120 +162,19 @@ export class QuickPasteInterface {
   }
   
   async pasteClip(index) {
-    const clip = this.clips[index];
-    if (!clip) return;
-    
-    const text = clip.text || clip;
-    
-    try {
-      // Find the active element (input field, textarea, etc.)
-      const activeElement = document.activeElement;
-      
-      if (activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' || 
-        activeElement.contentEditable === 'true'
-      )) {
-        // Paste into the active element
-        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') {
-          const start = activeElement.selectionStart;
-          const end = activeElement.selectionEnd;
-          const currentValue = activeElement.value;
-          
-          activeElement.value = currentValue.substring(0, start) + text + currentValue.substring(end);
-          activeElement.selectionStart = activeElement.selectionEnd = start + text.length;
-          
-          // Trigger input event
-          activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-        } else if (activeElement.contentEditable === 'true') {
-          // For contentEditable elements
-          document.execCommand('insertText', false, text);
-        }
-        
-        this.showPasteSuccess();
-        this.hideInterface();
-      } else {
-        // Copy to clipboard as fallback
-        await navigator.clipboard.writeText(text);
-        this.showPasteSuccess('Copied to clipboard');
-      }
-      
-    } catch (error) {
-      console.error('Paste failed:', error);
-      this.showPasteError();
-    }
+    await pasteQuickPasteClip(this, index);
   }
-  
+
   showPasteSuccess(message = 'Pasted successfully') {
     this.showToast(message, 'success');
   }
-  
+
   showPasteError() {
     this.showToast('Paste failed', 'error');
   }
-  
+
   showToast(message, type = 'info') {
-    const TOAST_DURATION_MS = QP_LIMITS.TOAST_DURATION_MS;
-
-    // Single-instance toast (no stacking) + safe auto-dismiss.
-    this._toastState = this._toastState || {
-      el: null,
-      timerId: null,
-      lastMessage: null,
-      lastShownAt: 0
-    };
-
-    const now = Date.now();
-    const msg = String(message ?? '');
-    if (!msg) return;
-
-    // Dedupe rapid repeats of the same message
-    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < QP_LIMITS.TOAST_DEDUPE_MS) {
-      return;
-    }
-    this._toastState.lastMessage = msg;
-    this._toastState.lastShownAt = now;
-
-    let toast = this._toastState.el;
-    if (!toast || !toast.isConnected) {
-      toast = document.createElement('div');
-      toast.className = QP_CLASSES.TOAST;
-      this._toastState.el = toast;
-      document.body.appendChild(toast);
-    }
-
-    toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: ${type === 'success' ? '#2563eb' : type === 'error' ? '#ef4444' : '#3b82f6'};
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 1000003;
-      animation: pastecraft-toast-in 0.3s ease;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      white-space: nowrap;
-      max-width: 90vw;
-    `;
-    
-    toast.textContent = msg;
-
-    if (this._toastState.timerId) {
-      clearTimeout(this._toastState.timerId);
-      this._toastState.timerId = null;
-    }
-
-    this._toastState.timerId = setTimeout(() => {
-      toast.style.animation = 'pastecraft-toast-out 0.3s ease forwards';
-      setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, QP_LIMITS.TOAST_FADE_MS);
-    }, TOAST_DURATION_MS);
+    showQuickPasteToast(this, message, type);
   }
   
   // Settings Management
@@ -1145,12 +1049,7 @@ export class QuickPasteInterface {
   }
 
   async pasteClipById(rawClipId) {
-    const id = String(rawClipId || '');
-    if (!id) return;
-    const clip = this.clips.find(c => clipIdKey(c?.id) === id);
-    if (!clip) return;
-    const index = this.clips.indexOf(clip);
-    if (index >= 0) return this.pasteClip(index);
+    return pasteQuickPasteClipById(this, rawClipId);
   }
 }
 
