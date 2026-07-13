@@ -2,15 +2,9 @@ import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 import {
   clipIdKey,
-  fnv1a36,
-  getTimeAgo,
-  escapeHtml,
-  detectQuickBadge,
-  lightFormatPreview,
 } from './qp.helpers.js';
 import {
   QP_STORAGE_KEYS,
-  QP_SETTINGS_LOAD_KEYS,
   QP_DEFAULT_SETTINGS,
   QP_DEFAULT_POSITION,
   QP_HOST,
@@ -21,6 +15,22 @@ import {
   QP_DELIMITER,
 } from './qp.constants.js';
 import { addQuickPasteStyles } from './qp.styles.js';
+import {
+  loadQuickPasteClips,
+  loadQuickPasteSettings,
+  saveQuickPastePosition,
+  saveQuickPasteSettings,
+} from './qp.storage.js';
+import {
+  renderQuickPasteClips,
+  buildQuickPasteShellHtml,
+  clampQuickPastePosition,
+  applyQuickPastePositionStyles,
+  ensureClipsContainerScroll,
+  clearQuickPasteSelectionStyles,
+  refreshQuickPasteClipsDom,
+  applyQuickPasteTheme,
+} from './qp.render.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -64,65 +74,7 @@ export class QuickPasteInterface {
   }
   
   async loadClips() {
-    try {
-      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
-      const result = await chrome.storage.local.get([QP_STORAGE_KEYS.CLIPS]);
-      const storedClips = result[QP_STORAGE_KEYS.CLIPS];
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!storedClips);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', storedClips?.length || 0);
-      
-      const raw = Array.isArray(storedClips) ? storedClips : [];
-      let changed = false;
-
-      // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
-      const normalized = raw.map((clip, i) => {
-        if (!clip || typeof clip !== 'object') {
-          const text = String(clip || '');
-          const id = `legacy_${fnv1a36(`${text}|${i}`)}`;
-          changed = true;
-          return { id, text, category: QP_DEFAULTS.CATEGORY, timestamp: Date.now() };
-        }
-
-        if (clip.id == null) {
-          const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
-          const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-          const bucket = Math.floor(ts / 3000);
-          const id = `legacy_${fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
-          changed = true;
-          return { ...clip, id };
-        }
-
-        return clip;
-      });
-
-      this.clips = normalized;
-      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
-
-      // Persist repaired ids so other UIs (popup/sync) stay consistent.
-      if (changed) {
-        try {
-          await chrome.storage.local.set({
-            [QP_STORAGE_KEYS.CLIPS]: this.clips,
-            [QP_STORAGE_KEYS.UPDATED_AT]: Date.now(),
-          });
-        } catch (_) {}
-      }
-      
-      if (this.clips.length > 0) {
-        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
-          text: (clip.text || clip).substring(0, 30) + '...',
-          category: clip.category || QP_DEFAULTS.CATEGORY,
-          timestamp: clip.timestamp,
-          fullClip: clip
-        })));
-      } else {
-        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
-      }
-    } catch (error) {
-      console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
-      this.clips = [];
-    }
+    this.clips = await loadQuickPasteClips();
   }
   
   createInterface() {
@@ -138,25 +90,10 @@ export class QuickPasteInterface {
     this.container = document.createElement('div');
     this.container.className = QP_HOST.ROOT_CLASS;
     this.container.setAttribute('data-field', QP_HOST.ROOT_FIELD);
-    this.container.innerHTML = `
-      <div class="${QP_CLASSES.HEADER}">
-        <div class="${QP_CLASSES.LOGO}">📋 PasteCraft</div>
-        <div class="${QP_CLASSES.CONTROLS}">
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.SETTINGS}" title="Settings">⚙️</button>
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.CLOSE}" title="Close">×</button>
-        </div>
-      </div>
-      <div class="${QP_CLASSES.CONTENT}">
-        <div class="${QP_CLASSES.CLIPS_CONTAINER}">
-          ${this.renderClips()}
-        </div>
-        <div class="${QP_CLASSES.FOOTER}">
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.REFRESH}" title="Clear all clips">🗑️</button>
-          <span class="${QP_CLASSES.COUNT}">${this.clips.length} clips</span>
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.COPY_MULTIPLE}" id="${QP_ELEMENT_IDS.COPY_MULTIPLE}" disabled title="Copy multiple selected clips">Copy Multiple Clips</button>
-        </div>
-      </div>
-    `;
+    this.container.innerHTML = buildQuickPasteShellHtml(
+      this.renderClips(),
+      this.clips.length,
+    );
     
     this.addStyles(root);
     
@@ -167,42 +104,7 @@ export class QuickPasteInterface {
   }
   
   renderClips() {
-    if (this.clips.length === 0) {
-      return `
-        <div class="${QP_CLASSES.EMPTY}">
-          <div class="${QP_CLASSES.EMPTY_ICON}">✨</div>
-          <p>No clips saved yet</p>
-          <small>Right-click selected text to save</small>
-        </div>
-      `;
-    }
-    
-    return this.clips.slice(0, this.settings.maxClipsDisplay).map((clip, index) => {
-      const text = clip.text || clip;
-      const previewLen = QP_LIMITS.PREVIEW_TEXT_CHARS;
-      const displayText = text.length > previewLen ? text.substring(0, previewLen) + '...' : text;
-      const category = clip.category || QP_DEFAULTS.CATEGORY;
-      const timeAgo = this.settings.showTimestamps ? getTimeAgo(clip.timestamp) : '';
-      const clipIdKeyValue = clipIdKey(clip?.id != null ? clip.id : index);
-      const qpBadge = detectQuickBadge(text);
-      const qpFormatted = lightFormatPreview(displayText);
-      
-      return `
-        <div class="${QP_CLASSES.CLIP}" data-index="${index}" data-clip-id="${clipIdKeyValue}" title="${escapeHtml(text)}">
-          <div class="${QP_CLASSES.CLIP_CONTENT}">
-            <div class="${QP_CLASSES.CLIP_TEXT}">${qpBadge}${qpFormatted}</div>
-            <div class="${QP_CLASSES.CLIP_META}">
-              <span class="${QP_CLASSES.CATEGORY}">${escapeHtml(category)}</span>
-              ${timeAgo ? `<span class="${QP_CLASSES.TIME}">${timeAgo}</span>` : ''}
-            </div>
-          </div>
-          <div class="${QP_CLASSES.CLIP_ACTIONS}">
-            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.PASTE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Paste">📋</button>
-            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.DELETE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Delete">×</button>
-          </div>
-        </div>
-      `;
-    }).join('');
+    return renderQuickPasteClips(this.clips, this.settings);
   }
   
   addStyles(root = this.shadowMount?.root) {
@@ -480,40 +382,13 @@ export class QuickPasteInterface {
   
   showInterface(x, y) {
     if (!this.container) return;
-    
-    if (x && y) {
-      // Position near cursor, but ensure it stays on screen
-      const maxX = window.innerWidth - 340; // 320px width + 20px margin
-      const maxY = window.innerHeight - 520; // 500px max height + 20px margin
-      
-      this.position.x = Math.min(x, maxX);
-      this.position.y = Math.min(y, maxY);
-    }
-    
-    // Apply saved/calculated position (don't override CSS positioning)
-    // CSS handles left: 0 and vertical centering via transform
-    // Only apply custom position if dragged by user
-    if (this.position.x !== 0 && this.position.x !== null) {
-      this.container.style.left = this.position.x + 'px';
-      this.container.style.right = 'auto';
-    }
-    if (this.position.y !== null && typeof this.position.y === 'number') {
-      this.container.style.top = this.position.y + 'px';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-    }
-    
+
+    clampQuickPastePosition(this.position, x, y);
+    applyQuickPastePositionStyles(this.container, this.position);
+
     this.container.style.display = 'block';
     this.isVisible = true;
-
-    // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
-    if (clipsContainer) {
-      clipsContainer.style.flex = '1';
-      clipsContainer.style.overflowY = 'auto';
-      clipsContainer.style.minHeight = '0';
-      clipsContainer.style.paddingBottom = '8px';
-    }
+    ensureClipsContainerScroll(this.container);
   }
   
   hideInterface() {
@@ -527,31 +402,10 @@ export class QuickPasteInterface {
   
   updateInterface() {
     if (!this.container) return;
-    
-    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
-    const countElement = this.container.querySelector(`.${QP_CLASSES.COUNT}`);
-    
-    clipsContainer.innerHTML = this.renderClips();
-    countElement.textContent = `${this.clips.length} clips`;
-    
-    // Reset selections and update button state
+
+    refreshQuickPasteClipsDom(this.container, this.renderClips(), this.clips.length);
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll(`.${QP_CLASSES.CLIP}.${QP_CLASSES.SELECTED}`);
-    selectedElements.forEach(el => {
-      el.classList.remove(QP_CLASSES.SELECTED);
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
+    clearQuickPasteSelectionStyles(this.container);
     this.updateCopyMultipleButton();
   }
   
@@ -674,46 +528,17 @@ export class QuickPasteInterface {
   
   // Settings Management
   async loadSettings() {
-    try {
-      const result = await chrome.storage.local.get([...QP_SETTINGS_LOAD_KEYS]);
-      if (result[QP_STORAGE_KEYS.SETTINGS]) {
-        this.settings = { ...this.settings, ...result[QP_STORAGE_KEYS.SETTINGS] };
-      }
-      // Single source of truth: global theme (Quick Paste follows this)
-      const theme = result[QP_STORAGE_KEYS.THEME];
-      if (theme === QP_DEFAULTS.THEME_DARK || theme === QP_DEFAULTS.THEME_LIGHT) {
-        this.settings.theme = theme;
-      } else if (this.settings.theme !== QP_DEFAULTS.THEME_DARK) {
-        this.settings.theme = QP_DEFAULTS.THEME_LIGHT;
-      }
-      if (result[QP_STORAGE_KEYS.POSITION]) {
-        this.position = { ...this.position, ...result[QP_STORAGE_KEYS.POSITION] };
-      }
-      console.log('⚙️ Loaded settings:', this.settings);
-      console.log('📍 Loaded position:', this.position);
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
+    const { settings, position } = await loadQuickPasteSettings(this.settings, this.position);
+    this.settings = settings;
+    this.position = position;
   }
   
   async savePosition() {
-    try {
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.POSITION]: this.position });
-      console.log('📍 Position saved:', this.position);
-    } catch (error) {
-      console.error('Failed to save position:', error);
-    }
+    await saveQuickPastePosition(this.position);
   }
   
   async saveSettings() {
-    try {
-      // Do not persist theme here (theme is global and controlled by the popup/profile).
-      const { theme, ...rest } = this.settings || {};
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.SETTINGS]: rest });
-      console.log('💾 Settings saved:', rest);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    }
+    await saveQuickPasteSettings(this.settings);
   }
   
   showSettingsModal() {
@@ -1292,13 +1117,7 @@ export class QuickPasteInterface {
   
   applySettings() {
     if (!this.container) return;
-    
-    // Apply theme
-    this.container.className = `${QP_HOST.INTERFACE_CLASS} ${this.settings.theme}`;
-    
-    // Ensure container is positioned properly for dragging
-    this.container.style.position = 'fixed';
-    this.container.style.zIndex = '1000000';
+    applyQuickPasteTheme(this.container, this.settings.theme);
   }
   
   showClearAllConfirmation() {
