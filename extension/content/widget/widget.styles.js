@@ -387,28 +387,7 @@ export const WIDGET_CORE_CSS = `
         opacity: 1 !important;
       }
 
-      /* Capture Tools tooltip — above hexagon so it never covers the Spot/Image menu */
-      .capture-tools-wrap[data-tooltip]::before {
-        right: auto !important;
-        top: auto !important;
-        bottom: calc(100% + 10px) !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        z-index: 1 !important;
-      }
-
-      .capture-tools-wrap[data-tooltip]::after {
-        right: auto !important;
-        top: auto !important;
-        bottom: calc(100% + 4px) !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        border-left-color: transparent !important;
-        border-bottom-color: rgba(15, 23, 42, 0.92) !important;
-        z-index: 1 !important;
-      }
-
-      /* Hide tooltip while the capture menu is open */
+      /* Hide Capture Tools tooltip while Spot / Image Picker menu is open */
       .capture-tools-wrap.is-open:hover[data-tooltip]::before,
       .capture-tools-wrap.is-open:hover[data-tooltip]::after {
         opacity: 0 !important;

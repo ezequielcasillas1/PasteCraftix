@@ -122,7 +122,16 @@ export const QP_DEFAULTS = Object.freeze({
   CATEGORY: 'Uncategorized',
   THEME_LIGHT: 'light',
   THEME_DARK: 'dark',
+  THEME_BLUE: 'blue',
 });
+
+/** Resolve global theme for Quick Paste (gray dark → blue dark mode). */
+export function resolveQuickPasteTheme(raw) {
+  if (raw === QP_DEFAULTS.THEME_BLUE || raw === QP_DEFAULTS.THEME_DARK) {
+    return QP_DEFAULTS.THEME_BLUE;
+  }
+  return QP_DEFAULTS.THEME_LIGHT;
+}
 
 export const QP_DELIMITER = Object.freeze({
   COMMA: 'comma',

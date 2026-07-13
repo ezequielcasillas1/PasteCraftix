@@ -19,6 +19,7 @@ import {
   QP_LIMITS,
   QP_DEFAULTS,
   QP_DELIMITER,
+  resolveQuickPasteTheme,
 } from './qp.constants.js';
 import { addQuickPasteStyles } from './qp.styles.js';
 
@@ -223,29 +224,26 @@ export class QuickPasteInterface {
       this.showClearAllConfirmation();
     });
     
-    // Settings button
+    // Settings button — stopPropagation so document outside-click cannot steal the open
     const settingsBtn = this.container.querySelector(`.${QP_CLASSES.SETTINGS}`);
-    console.log('🔍 Settings button found:', settingsBtn);
     if (settingsBtn) {
-      settingsBtn.addEventListener('click', () => {
-        console.log('🔧 Settings button clicked');
+      settingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         try {
           this.showSettingsModal();
-          console.log('✅ Settings modal should be visible');
         } catch (error) {
           console.error('❌ Error showing settings modal:', error);
         }
       });
-      console.log('✅ Settings button event listener added');
-    } else {
-      console.error('❌ Settings button not found!');
     }
     
-    // Dragging functionality
+    // Dragging functionality (ignore control buttons)
     const header = this.container.querySelector(`.${QP_CLASSES.HEADER}`);
     header.style.cursor = 'move';
     
     header.addEventListener('mousedown', (e) => {
+      if (e.target.closest(`.${QP_CLASSES.BTN}`)) return;
       this.isDragging = true;
       const rect = this.container.getBoundingClientRect();
       this.dragOffset.x = e.clientX - rect.left;
@@ -329,17 +327,30 @@ export class QuickPasteInterface {
       }
     });
     
-    // Hide when clicking outside
+    // Hide when clicking outside (composedPath sees shadow targets; ignore settings/help modals)
     document.addEventListener('click', (e) => {
-      // Only hide on outside click if persistOpen is disabled
-      if (this.isVisible && !this.container.contains(e.target) && !this.settings.persistOpen) {
+      if (!this.isVisible || this.settings.persistOpen) return;
+      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+      const insidePanel = path.includes(this.container) || this.container.contains(e.target);
+      const insideSettings = this.settingsModal && path.includes(this.settingsModal);
+      const insideHelp = this.helpModal && path.includes(this.helpModal);
+      if (!insidePanel && !insideSettings && !insideHelp) {
         this.hideInterface();
       }
     });
     
-    // Hide on escape key
+    // Hide on escape key — close help first, then settings, then panel
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
+      if (e.key !== 'Escape') return;
+      if (this.helpModal?.classList.contains('is-open')) {
+        this.hideHelpModal();
+        return;
+      }
+      if (this.settingsModal) {
+        this.hideSettingsModal();
+        return;
+      }
+      if (this.isVisible) {
         this.hideInterface();
       }
     });
@@ -421,10 +432,10 @@ export class QuickPasteInterface {
         }
       }
 
-      // Global theme (single source of truth)
+      // Global theme (single source of truth) — blue dark mode + light
       if (changes[QP_STORAGE_KEYS.THEME]) {
-        const nextTheme = changes[QP_STORAGE_KEYS.THEME].newValue;
-        if (nextTheme === QP_DEFAULTS.THEME_DARK || nextTheme === QP_DEFAULTS.THEME_LIGHT) {
+        const nextTheme = resolveQuickPasteTheme(changes[QP_STORAGE_KEYS.THEME].newValue);
+        if (nextTheme !== this.settings.theme) {
           this.settings.theme = nextTheme;
           settingsChanged = true;
         }
@@ -679,13 +690,8 @@ export class QuickPasteInterface {
       if (result[QP_STORAGE_KEYS.SETTINGS]) {
         this.settings = { ...this.settings, ...result[QP_STORAGE_KEYS.SETTINGS] };
       }
-      // Single source of truth: global theme (Quick Paste follows this)
-      const theme = result[QP_STORAGE_KEYS.THEME];
-      if (theme === QP_DEFAULTS.THEME_DARK || theme === QP_DEFAULTS.THEME_LIGHT) {
-        this.settings.theme = theme;
-      } else if (this.settings.theme !== QP_DEFAULTS.THEME_DARK) {
-        this.settings.theme = QP_DEFAULTS.THEME_LIGHT;
-      }
+      // Single source of truth: global theme (Quick Paste follows popup; dark → blue)
+      this.settings.theme = resolveQuickPasteTheme(result[QP_STORAGE_KEYS.THEME]);
       if (result[QP_STORAGE_KEYS.POSITION]) {
         this.position = { ...this.position, ...result[QP_STORAGE_KEYS.POSITION] };
       }
@@ -717,15 +723,13 @@ export class QuickPasteInterface {
   }
   
   showSettingsModal() {
-    console.log('🔧 showSettingsModal called');
     if (this.settingsModal) {
-      console.log('🗑️ Removing existing settings modal');
       this.settingsModal.remove();
     }
     
-    console.log('📝 Creating new settings modal');
     this.settingsModal = document.createElement('div');
-    this.settingsModal.className = QP_CLASSES.SETTINGS_MODAL;
+    const themeClass = resolveQuickPasteTheme(this.settings.theme);
+    this.settingsModal.className = `${QP_CLASSES.SETTINGS_MODAL} ${themeClass}`;
     const d = QP_DELIMITER;
     const active = QP_CLASSES.ACTIVE;
     this.settingsModal.innerHTML = `
@@ -734,8 +738,8 @@ export class QuickPasteInterface {
         <div class="pastecraft-modal-header">
           <h3>⚙️ Quick Paste Settings</h3>
           <div class="${QP_CLASSES.MODAL_ACTIONS}">
-            <button class="${QP_CLASSES.HELP_BTN}" title="Help & Information">❓</button>
-            <button class="${QP_CLASSES.MODAL_CLOSE}">×</button>
+            <button class="${QP_CLASSES.HELP_BTN}" type="button" title="Help & Information" aria-label="Help and information"><span class="pastecraft-help-btn-glyph">?</span></button>
+            <button class="${QP_CLASSES.MODAL_CLOSE}" type="button" aria-label="Close settings">×</button>
           </div>
         </div>
         <div class="${QP_CLASSES.MODAL_BODY}">
@@ -801,7 +805,7 @@ export class QuickPasteInterface {
     
     // Create help page modal
     this.helpModal = document.createElement('div');
-    this.helpModal.className = QP_CLASSES.HELP_MODAL;
+    this.helpModal.className = `${QP_CLASSES.HELP_MODAL} ${themeClass}`;
     this.helpModal.innerHTML = `
       <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
       <div class="${QP_CLASSES.MODAL_CONTENT}">
@@ -870,332 +874,129 @@ export class QuickPasteInterface {
       </div>
     `;
     
-    document.body.appendChild(this.settingsModal);
-    document.body.appendChild(this.helpModal);
-    console.log('✅ Settings and help modals added to DOM');
+    // Must mount inside closed Shadow root — qp.styles.js only applies there
+    const root = this.shadowMount?.root;
+    if (!root) {
+      console.error('❌ Quick Paste shadow root missing; cannot open settings');
+      return;
+    }
+    root.appendChild(this.settingsModal);
+    root.appendChild(this.helpModal);
     
-    // 🎨 FORCE BEAUTIFUL STYLES WITH INLINE CSS
-    console.log('🎨 Applying beautiful inline styles...');
-    this.applyBeautifulSettingsStyles();
-    
+    this.applySettingsModalShellStyles();
     this.setupSettingsModalEvents();
-    console.log('✅ Settings modal events setup complete');
-    
-    // Setup help modal events
     this.setupHelpModalEvents();
   }
   
   setupHelpModalEvents() {
     if (!this.helpModal) return;
     
-    // Close button
-    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideHelpModal();
     });
     
-    // Back button
-    this.helpModal.querySelector(`.${QP_CLASSES.BACK_BTN}`).addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.BACK_BTN}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideHelpModal();
     });
     
-    // Back to settings button
-    this.helpModal.querySelector(`#${QP_ELEMENT_IDS.BACK_TO_SETTINGS}`).addEventListener('click', () => {
+    this.helpModal.querySelector(`#${QP_ELEMENT_IDS.BACK_TO_SETTINGS}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideHelpModal();
     });
     
-    // Backdrop click
-    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', () => {
+    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideHelpModal();
     });
-    
-    console.log('✅ Help modal events setup complete');
   }
   
   showHelpModal() {
-    console.log('🔍 Help modal requested');
-    if (this.helpModal) {
-      this.helpModal.style.display = 'flex';
-      console.log('✅ Help modal shown');
+    if (!this.helpModal) return;
+    const root = this.shadowMount?.root;
+    if (root && this.helpModal.parentNode === root) {
+      root.appendChild(this.helpModal); // ensure last sibling = on top
+    }
+    this.helpModal.style.cssText = `
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 1000003 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    `;
+    this.helpModal.classList.add('is-open');
+    // Keep settings open underneath but non-interactive while help is up
+    if (this.settingsModal) {
+      this.settingsModal.style.pointerEvents = 'none';
+      this.settingsModal.classList.add('help-open');
+    }
+    const helpBtn = this.settingsModal?.querySelector(`.${QP_CLASSES.HELP_BTN}`);
+    if (helpBtn) {
+      helpBtn.classList.add(QP_CLASSES.ACTIVE);
+      helpBtn.setAttribute('aria-expanded', 'true');
     }
   }
   
   hideHelpModal() {
-    console.log('🙈 Help modal hidden');
-    if (this.helpModal) {
-      this.helpModal.style.display = 'none';
+    if (!this.helpModal) return;
+    this.helpModal.style.display = 'none';
+    this.helpModal.classList.remove('is-open');
+    if (this.settingsModal) {
+      this.settingsModal.style.pointerEvents = '';
+      this.settingsModal.classList.remove('help-open');
+    }
+    const helpBtn = this.settingsModal?.querySelector(`.${QP_CLASSES.HELP_BTN}`);
+    if (helpBtn) {
+      helpBtn.classList.remove(QP_CLASSES.ACTIVE);
+      helpBtn.setAttribute('aria-expanded', 'false');
     }
   }
   
-  applyBeautifulSettingsStyles() {
+  /** Layout-only shell — colors live in qp.styles.js (theme class on modal). */
+  applySettingsModalShellStyles() {
     if (!this.settingsModal) return;
-    
-    console.log('🎨 Forcing beautiful settings modal styles...');
-    
-    // Modal content
-    const modalContent = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CONTENT}`);
-    if (modalContent) {
-      modalContent.style.cssText = `
-        background: white !important;
-        border-radius: 12px !important;
-        width: 450px !important;
-        max-width: 90vw !important;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        overflow: hidden !important;
-      `;
-    }
-    
-    // Modal body
-    const modalBody = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BODY}`);
-    if (modalBody) {
-      modalBody.style.cssText = `
-        padding: 0 !important;
-        max-height: 60vh !important;
-        overflow-y: auto !important;
-      `;
-    }
-    
-    // Settings
-    const settings = this.settingsModal.querySelectorAll(`.${QP_CLASSES.SETTING}`);
-    settings.forEach(setting => {
-      setting.style.cssText = `
-        padding: 20px 24px !important;
-        border-bottom: 1px solid #f3f4f6 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        min-height: 60px !important;
-        margin: 0 !important;
-      `;
-      
-      const label = setting.querySelector('label');
-      if (label) {
-        label.style.cssText = `
-          font-weight: 500 !important;
-          color: #374151 !important;
-          font-size: 14px !important;
-          margin: 0 !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 8px !important;
-        `;
-      }
-      
-      const select = setting.querySelector('select');
-      if (select) {
-        select.style.cssText = `
-          padding: 8px 12px !important;
-          border: 1.5px solid #d1d5db !important;
-          border-radius: 8px !important;
-          font-size: 14px !important;
-          background: white !important;
-          color: #374151 !important;
-          min-width: 120px !important;
-        `;
-      }
-      
-      const numberInput = setting.querySelector('input[type="number"]');
-      if (numberInput) {
-        numberInput.style.cssText = `
-          padding: 8px 12px !important;
-          border: 1.5px solid #d1d5db !important;
-          border-radius: 8px !important;
-          font-size: 14px !important;
-          background: white !important;
-          color: #374151 !important;
-          min-width: 120px !important;
-        `;
-      }
-      
-      const checkbox = setting.querySelector('input[type="checkbox"]');
-      if (checkbox) {
-        checkbox.style.cssText = `
-          width: 18px !important;
-          height: 18px !important;
-          accent-color: #3b82f6 !important;
-          cursor: pointer !important;
-        `;
-      }
-    });
-    
-    // Setting groups
-    const settingGroups = this.settingsModal.querySelectorAll(`.${QP_CLASSES.SETTING_GROUP}`);
-    settingGroups.forEach(group => {
-      group.style.cssText = `
-        margin: 0 !important;
-        padding: 24px !important;
-        border-bottom: 1px solid #f3f4f6 !important;
-        background: white !important;
-      `;
-      
-      const label = group.querySelector(`.${QP_CLASSES.SETTING_LABEL}`);
-      if (label) {
-        label.style.cssText = `
-          display: block !important;
-          font-weight: 600 !important;
-          margin-bottom: 16px !important;
-          color: #1f2937 !important;
-          font-size: 15px !important;
-          letter-spacing: -0.025em !important;
-        `;
-      }
-      
-      // Segmented control
-      const segmentedControl = group.querySelector(`.${QP_CLASSES.SEGMENTED_CONTROL}`);
-      if (segmentedControl) {
-        segmentedControl.style.cssText = `
-          display: flex !important;
-          background: #f3f4f6 !important;
-          border-radius: 10px !important;
-          padding: 4px !important;
-          gap: 2px !important;
-        `;
-        
-        const buttons = segmentedControl.querySelectorAll(`.${QP_CLASSES.SEGMENT_BTN}`);
-        buttons.forEach(btn => {
-          btn.style.cssText = `
-            flex: 1 !important;
-            padding: 10px 16px !important;
-            border: none !important;
-            background: transparent !important;
-            color: #6b7280 !important;
-            cursor: pointer !important;
-            font-size: 13px !important;
-            font-weight: 500 !important;
-            border-radius: 6px !important;
-            transition: all 0.2s ease !important;
-          `;
-          
-          if (btn.classList.contains(QP_CLASSES.ACTIVE)) {
-            btn.style.cssText += `
-              background: white !important;
-              color: #1f2937 !important;
-              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
-            `;
-          }
-        });
-      }
-      
-      // Toggles
-      const toggles = group.querySelectorAll(`.${QP_CLASSES.TOGGLE}`);
-      toggles.forEach(toggle => {
-        toggle.style.cssText = `
-          display: flex !important;
-          align-items: center !important;
-          justify-content: space-between !important;
-          cursor: pointer !important;
-          padding: 12px 16px !important;
-          background: #f8fafc !important;
-          border-radius: 10px !important;
-          border: 1px solid #e2e8f0 !important;
-          margin-bottom: 16px !important;
-        `;
-        
-        const toggleSwitch = toggle.querySelector(`.${QP_CLASSES.TOGGLE_SWITCH}`);
-        if (toggleSwitch) {
-          toggleSwitch.style.cssText = `
-            width: 44px !important;
-            height: 24px !important;
-            background: #cbd5e1 !important;
-            border-radius: 12px !important;
-            position: relative !important;
-            transition: all 0.3s ease !important;
-            flex-shrink: 0 !important;
-          `;
-          
-          const checkbox = toggle.querySelector('input[type="checkbox"]');
-          if (checkbox && checkbox.checked) {
-            toggleSwitch.style.background = '#3b82f6 !important';
-          }
-        }
-        
-        const span = toggle.querySelector('span');
-        if (span) {
-          span.style.cssText = `
-            font-weight: 500 !important;
-            color: #374151 !important;
-            font-size: 14px !important;
-          `;
-        }
-      });
-    });
-    
-    // Modal actions
-    const modalActions = this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_ACTIONS}`);
-    if (modalActions) {
-      modalActions.style.cssText = `
-        display: flex !important;
-        gap: 12px !important;
-        padding: 24px !important;
-        background: #f8fafc !important;
-        border-top: 1px solid #f1f5f9 !important;
-        justify-content: flex-end !important;
-      `;
-      
-      const secondaryBtn = modalActions.querySelector(`.${QP_CLASSES.BTN_SECONDARY}`);
-      if (secondaryBtn) {
-        secondaryBtn.style.cssText = `
-          background: white !important;
-          color: #6b7280 !important;
-          border: 1.5px solid #d1d5db !important;
-          border-radius: 8px !important;
-          padding: 12px 20px !important;
-          cursor: pointer !important;
-          font-size: 14px !important;
-          font-weight: 500 !important;
-        `;
-      }
-      
-      const primaryBtn = modalActions.querySelector(`.${QP_CLASSES.BTN_PRIMARY}`);
-      if (primaryBtn) {
-        primaryBtn.style.cssText = `
-          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-          color: white !important;
-          border: none !important;
-          border-radius: 8px !important;
-          padding: 12px 24px !important;
-          cursor: pointer !important;
-          font-size: 14px !important;
-          font-weight: 600 !important;
-          box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
-        `;
-      }
-    }
-    
-    // Custom delimiter input
-    const customDelimiter = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`);
-    if (customDelimiter) {
-      customDelimiter.style.cssText = `
-        margin-top: 12px !important;
-        padding: 10px 14px !important;
-        border: 1.5px solid #d1d5db !important;
-        border-radius: 8px !important;
-        font-size: 14px !important;
-        background: white !important;
-        color: #374151 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-      `;
-    }
-    
-    console.log('✅ Beautiful styles applied with inline CSS!');
+    this.settingsModal.style.cssText = `
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 1000001 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    `;
   }
   
   setupSettingsModalEvents() {
     if (!this.settingsModal) return;
     
     // Close button
-    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', () => {
+    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.hideSettingsModal();
     });
     
-    // Help button
-    this.settingsModal.querySelector(`.${QP_CLASSES.HELP_BTN}`).addEventListener('click', () => {
+    // Help button — open help above settings; do not close settings
+    this.settingsModal.querySelector(`.${QP_CLASSES.HELP_BTN}`).addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.showHelpModal();
     });
     
-    // Backdrop click
-    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', () => {
+    // Backdrop click — ignore while help is covering
+    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', (e) => {
+      if (this.helpModal?.classList.contains('is-open')) return;
+      e.preventDefault();
+      e.stopPropagation();
       this.hideSettingsModal();
     });
     
@@ -1284,6 +1085,12 @@ export class QuickPasteInterface {
   }
   
   hideSettingsModal() {
+    // Close help first if open — does not remove settings until this call
+    this.hideHelpModal();
+    if (this.helpModal) {
+      this.helpModal.remove();
+      this.helpModal = null;
+    }
     if (this.settingsModal) {
       this.settingsModal.remove();
       this.settingsModal = null;
@@ -1293,8 +1100,10 @@ export class QuickPasteInterface {
   applySettings() {
     if (!this.container) return;
     
-    // Apply theme
-    this.container.className = `${QP_HOST.INTERFACE_CLASS} ${this.settings.theme}`;
+    // Keep ROOT_CLASS so Shadow DOM token vars + shell styles stay attached
+    const themeClass = resolveQuickPasteTheme(this.settings.theme);
+    this.settings.theme = themeClass;
+    this.container.className = `${QP_HOST.ROOT_CLASS} ${QP_HOST.INTERFACE_CLASS} ${themeClass}`;
     
     // Ensure container is positioned properly for dragging
     this.container.style.position = 'fixed';
@@ -1304,7 +1113,8 @@ export class QuickPasteInterface {
   showClearAllConfirmation() {
     // Create confirmation modal
     const confirmModal = document.createElement('div');
-    confirmModal.className = QP_CLASSES.CONFIRM_MODAL;
+    const themeClass = resolveQuickPasteTheme(this.settings.theme);
+    confirmModal.className = `${QP_CLASSES.CONFIRM_MODAL} ${themeClass}`;
     confirmModal.innerHTML = `
       <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
       <div class="${QP_CLASSES.MODAL_CONTENT}">
@@ -1322,7 +1132,8 @@ export class QuickPasteInterface {
       </div>
     `;
     
-    document.body.appendChild(confirmModal);
+    const root = this.shadowMount?.root || document.body;
+    root.appendChild(confirmModal);
     
     // Setup event listeners
     confirmModal.querySelector(`#${QP_ELEMENT_IDS.CANCEL_CLEAR_ALL}`).addEventListener('click', () => {

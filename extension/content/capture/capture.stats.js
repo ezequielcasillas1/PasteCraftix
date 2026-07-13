@@ -65,6 +65,6 @@ export function formatCaptureToolsTooltip(stats) {
   const spot = stats?.spotCount || 0;
   const image = stats?.imageCount || 0;
   const total = stats?.count || 0;
-  if (total === 0) return 'Capture Tools — Spot & Image Picker';
-  return `Capture Tools — ${total} saved today (${spot} spot · ${image} image)`;
+  if (total === 0) return 'Capture Tools: Spot & Image Picker';
+  return `Capture Tools: ${total} saved today (${spot} spot · ${image} image)`;
 }

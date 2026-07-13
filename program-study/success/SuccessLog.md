@@ -1,4 +1,9 @@
 
+### Jul 13, 2026 - Capture Tools tooltip left + no em dash
+**Status:** SUCCESS
+**Files:** widget.styles.js, capture.stats.js
+**Result:** Tooltip left-aligned like other widget tips; hides when Spot/Image menu open; copy uses colon not em dash. User verified.
+
 ### Jul 12, 2026 - Offline mode banner (getClipIdKey)
 **Status:** SUCCESS
 **Files:** clips.state.js, popup.js, popup.init.js, sync.loader.js

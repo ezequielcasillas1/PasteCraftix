@@ -13,6 +13,31 @@ export function addQuickPasteStyles(root) {
   const styles = document.createElement('style');
   styles.setAttribute('data-field', styleField);
   styles.textContent = `
+    /* Premium blue tokens (mirror assets/styles/tokens.css — Shadow DOM safe) */
+    .pastecraft-quick-paste,
+    .pastecraft-interface {
+      --qp-primary-900: #05080f;
+      --qp-primary-800: #0a0e14;
+      --qp-primary-700: #0b1220;
+      --qp-primary-600: #1e3a8a;
+      --qp-primary-500: #1d4ed8;
+      --qp-secondary-500: #2563eb;
+      --qp-secondary-400: #3b82f6;
+      --qp-secondary-300: #60a5fa;
+      --qp-secondary-200: #93c5fd;
+      --qp-secondary-100: #dbeafe;
+      --qp-secondary-50: #eff6ff;
+      --qp-surface: #f8fafc;
+      --qp-surface-2: #f1f5f9;
+      --qp-border: #e2e8f0;
+      --qp-text: #1f2937;
+      --qp-text-muted: #64748b;
+      --qp-gradient-header: linear-gradient(135deg, #0d1240 0%, #1a1f5e 48%, #2563eb 100%);
+      --qp-gradient-accent: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      --qp-shadow-brand: 0 4px 18px rgba(37, 99, 235, 0.28);
+      --qp-shadow-panel: 4px 0 48px rgba(13, 18, 64, 0.28);
+    }
+
     .pastecraft-quick-paste {
       position: fixed;
       top: 50%;
@@ -20,17 +45,17 @@ export function addQuickPasteStyles(root) {
       transform: translateY(-50%);
       width: 320px;
       max-height: 600px;
-      background: white;
+      background: #ffffff;
       border-radius: 0 12px 12px 0;
-      box-shadow: 4px 0 60px rgba(0, 0, 0, 0.3);
-      border: 1px solid #e2e8f0;
-      border-left: none;
+      box-shadow: var(--qp-shadow-panel);
+      border: 1px solid var(--qp-border);
+      border-left: 3px solid var(--qp-secondary-500);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       z-index: 999999;
       overflow: hidden;
       overflow-x: hidden;
-      backdrop-filter: blur(10px);
       animation: pastecraft-slide-in 0.3s ease;
+      opacity: 1;
     }
     
     @keyframes pastecraft-slide-in {
@@ -43,16 +68,20 @@ export function addQuickPasteStyles(root) {
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px;
-      background: #5797EF;
+      background: var(--qp-gradient-header);
       color: white;
       font-size: 14px;
       font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow: 0 2px 12px rgba(13, 18, 64, 0.22);
+      border-bottom: 1px solid rgba(147, 197, 253, 0.25);
     }
     
     .pastecraft-logo {
       display: flex;
       align-items: center;
       gap: 6px;
+      text-shadow: 0 1px 2px rgba(8, 12, 42, 0.35);
     }
     
     .pastecraft-controls {
@@ -61,18 +90,20 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-btn {
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 6px;
       padding: 4px 8px;
       color: white;
       cursor: pointer;
       font-size: 12px;
-      transition: background 0.2s;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
     }
     
     .pastecraft-btn:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.28);
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35);
     }
     
     .pastecraft-content {
@@ -81,6 +112,7 @@ export function addQuickPasteStyles(root) {
       display: flex;
       flex-direction: column;
       position: relative;
+      background: #ffffff;
     }
     
     .pastecraft-clips-container {
@@ -94,16 +126,17 @@ export function addQuickPasteStyles(root) {
       align-items: center;
       padding: 10px;
       margin: 4px 0;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: var(--qp-surface);
+      border: 1px solid var(--qp-border);
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.2s ease;
     }
     
     .pastecraft-clip:hover {
-      background: #f1f5f9;
-      border-color: #3b82f6;
+      background: var(--qp-secondary-50);
+      border-color: var(--qp-secondary-400);
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.12);
       transform: translateX(2px);
     }
     
@@ -114,7 +147,7 @@ export function addQuickPasteStyles(root) {
     
     .pastecraft-clip-text {
       font-size: 13px;
-      color: #1f2937;
+      color: var(--qp-text);
       margin-bottom: 4px;
       word-break: break-word;
     }
@@ -123,12 +156,12 @@ export function addQuickPasteStyles(root) {
       display: flex;
       justify-content: space-between;
       font-size: 11px;
-      color: #6b7280;
+      color: var(--qp-text-muted);
     }
     
     .pastecraft-category {
-      background: #e0e7ff;
-      color: #3730a3;
+      background: var(--qp-secondary-100);
+      color: var(--qp-primary-600);
       padding: 2px 6px;
       border-radius: 4px;
       font-weight: 500;
@@ -150,14 +183,17 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-paste {
-      background: #2563eb !important;
+      background: var(--qp-gradient-accent) !important;
       color: white !important;
       padding: 6px !important;
       border-radius: 6px !important;
+      border: 1px solid var(--qp-primary-700) !important;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
     }
     
     .pastecraft-paste:hover {
-      background: #1d4ed8 !important;
+      background: linear-gradient(135deg, var(--qp-secondary-500) 0%, var(--qp-primary-500) 100%) !important;
+      box-shadow: 0 3px 10px rgba(37, 99, 235, 0.42) !important;
     }
     
     .pastecraft-empty {
@@ -201,7 +237,8 @@ export function addQuickPasteStyles(root) {
       max-width: 90vw;
       max-height: 80vh;
       overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      border: 1px solid #dbeafe;
+      box-shadow: 0 20px 60px rgba(13, 18, 64, 0.28), 0 0 0 1px rgba(37, 99, 235, 0.08);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
@@ -210,29 +247,32 @@ export function addQuickPasteStyles(root) {
       align-items: center;
       justify-content: space-between;
       padding: 20px 24px;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #dbeafe;
+      background: linear-gradient(135deg, #0d1240 0%, #1a1f5e 48%, #2563eb 100%);
+      color: #fff;
     }
     
     .pastecraft-modal-header h3 {
       margin: 0;
       font-size: 18px;
       font-weight: 600;
-      color: #1f2937;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(8, 12, 42, 0.35);
     }
     
     .pastecraft-modal-close {
-      background: none;
-      border: none;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       font-size: 20px;
       cursor: pointer;
-      color: #6b7280;
-      padding: 4px;
-      border-radius: 4px;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
     }
     
     .pastecraft-modal-close:hover {
-      background: #f3f4f6;
-      color: #374151;
+      background: rgba(255, 255, 255, 0.28);
+      color: #fff;
     }
     
     /* Help Modal Styles - Force proper centering */
@@ -243,7 +283,7 @@ export function addQuickPasteStyles(root) {
       left: 0 !important;
       width: 100% !important;
       height: 100% !important;
-      z-index: 10000 !important;
+      z-index: 1000002 !important;
       justify-content: center !important;
       align-items: center !important;
       background: rgba(0, 0, 0, 0.5) !important;
@@ -279,24 +319,48 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-help-btn, .pastecraft-back-btn {
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font-size: 14px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: #fff;
+      border: 1px solid #1a1f5e;
+      border-radius: 8px;
+      padding: 0;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1;
       cursor: pointer;
       transition: all 0.2s ease;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
+      width: 36px;
       min-width: 36px;
       height: 36px;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+    }
+
+    .pastecraft-help-btn-glyph {
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      pointer-events: none;
+      text-shadow: 0 1px 1px rgba(8, 12, 42, 0.35);
     }
     
     .pastecraft-help-btn:hover, .pastecraft-back-btn:hover {
-      background: #2563eb;
+      background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
       transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
+    }
+
+    .pastecraft-help-btn.active,
+    .pastecraft-help-btn[aria-expanded="true"] {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1a1f5e 100%);
+      box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.55), 0 4px 12px rgba(37, 99, 235, 0.45);
+    }
+
+    .pastecraft-help-modal.is-open {
+      z-index: 1000003 !important;
     }
     
     .help-content {
@@ -322,7 +386,7 @@ export function addQuickPasteStyles(root) {
       padding: 12px;
       background: #f8fafc;
       border-radius: 8px;
-      border-left: 4px solid #3b82f6;
+      border-left: 4px solid #2563eb;
       line-height: 1.5;
       color: #374151 !important;
     }
@@ -386,14 +450,14 @@ export function addQuickPasteStyles(root) {
     .pastecraft-setting select:focus,
     .pastecraft-setting input[type="number"]:focus {
       outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
     
     .pastecraft-setting input[type="checkbox"] {
       width: 18px;
       height: 18px;
-      accent-color: #3b82f6;
+      accent-color: #2563eb;
       cursor: pointer;
     }
     
@@ -426,22 +490,22 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-btn-primary {
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1a1f5e 100%);
       color: white;
-      border: none;
+      border: 1px solid #1a1f5e;
       border-radius: 8px;
       padding: 12px 24px;
       cursor: pointer;
       font-size: 14px;
       font-weight: 600;
       transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
     }
     
     .pastecraft-btn-primary:hover {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #0d1240 100%);
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 4px 12px rgba(26, 31, 94, 0.35);
     }
     
     .pastecraft-btn-danger {
@@ -563,7 +627,8 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-toggle input:checked + .pastecraft-toggle-switch {
-      background: #3b82f6;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     }
     
     .pastecraft-toggle input:checked + .pastecraft-toggle-switch::after {
@@ -592,8 +657,8 @@ export function addQuickPasteStyles(root) {
     
     #quickPasteCustomDelimiter:focus {
       outline: none !important;
-      border-color: #3b82f6 !important;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
     }
     
     #quickPasteCustomDelimiter::placeholder {
@@ -602,23 +667,28 @@ export function addQuickPasteStyles(root) {
     }
     
     
-    .pastecraft-interface.dark .pastecraft-setting-group {
-      background: #374151;
-      border-color: #4b5563;
+    .pastecraft-interface.dark .pastecraft-setting-group,
+    .pastecraft-interface.blue .pastecraft-setting-group {
+      background: #111827;
+      border-color: #1e3a8a;
     }
     
-    .pastecraft-interface.dark .pastecraft-setting-label {
-      color: #f9fafb;
+    .pastecraft-interface.dark .pastecraft-setting-label,
+    .pastecraft-interface.blue .pastecraft-setting-label {
+      color: #f8fafc;
     }
     
-    .pastecraft-interface.dark .pastecraft-segment-btn {
-      background: #4b5563;
-      color: #d1d5db;
-      border-color: #6b7280;
+    .pastecraft-interface.dark .pastecraft-segment-btn,
+    .pastecraft-interface.blue .pastecraft-segment-btn {
+      background: #0b1220;
+      color: #94a3b8;
+      border-color: #1e3a8a;
     }
     
-    .pastecraft-interface.dark .pastecraft-segment-btn:hover:not(.active) {
-      background: #6b7280;
+    .pastecraft-interface.dark .pastecraft-segment-btn:hover:not(.active),
+    .pastecraft-interface.blue .pastecraft-segment-btn:hover:not(.active) {
+      background: #1e3a8a;
+      color: #e0f2fe;
     }
     
     /* Confirmation modal uses same styles as settings modal */
@@ -634,35 +704,366 @@ export function addQuickPasteStyles(root) {
       justify-content: center;
     }
     
-    /* Dark theme support */
+    /* Blue Dark Mode (popup parity) — opaque navy glass, no page bleed-through */
+    .pastecraft-interface.blue,
     .pastecraft-interface.dark {
-      background: #1f2937;
-      border-color: #374151;
-      color: #f9fafb;
+      --qp-surface: #0b1220;
+      --qp-surface-2: #111827;
+      --qp-border: #1e3a8a;
+      --qp-text: #f8fafc;
+      --qp-text-muted: #94a3b8;
+      --qp-secondary-100: rgba(59, 130, 246, 0.22);
+      --qp-secondary-50: #111827;
+      --qp-gradient-header: linear-gradient(135deg, #05080f 0%, #0b1220 42%, #1e3a8a 78%, #2563eb 100%);
+      --qp-shadow-panel: 4px 0 40px rgba(37, 99, 235, 0.35);
+      background: #0a0e14 !important;
+      border-color: #1e3a8a !important;
+      border-left-color: #3b82f6 !important;
+      color: #f8fafc !important;
+      opacity: 1 !important;
+      box-shadow: var(--qp-shadow-panel) !important;
     }
-    
+
+    .pastecraft-interface.blue .pastecraft-header,
     .pastecraft-interface.dark .pastecraft-header {
-      background: #111827;
-      border-color: #374151;
+      background: var(--qp-gradient-header) !important;
+      border-bottom: 1px solid rgba(59, 130, 246, 0.45) !important;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.35) !important;
+      color: #fff !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-btn,
+    .pastecraft-interface.dark .pastecraft-btn {
+      background: rgba(59, 130, 246, 0.18) !important;
+      border: 1px solid rgba(59, 130, 246, 0.4) !important;
+      color: #fff !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-btn:hover,
+    .pastecraft-interface.dark .pastecraft-btn:hover {
+      background: rgba(59, 130, 246, 0.35) !important;
+      border-color: #60a5fa !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-content,
+    .pastecraft-interface.dark .pastecraft-content,
+    .pastecraft-interface.blue .pastecraft-clips-container,
+    .pastecraft-interface.dark .pastecraft-clips-container {
+      background: #0a0e14 !important;
+      opacity: 1 !important;
     }
     
+    .pastecraft-interface.blue .pastecraft-clip,
     .pastecraft-interface.dark .pastecraft-clip {
-      background: #374151;
-      border-color: #4b5563;
+      background: #0b1220 !important;
+      border: 1px solid #1e3a8a !important;
+      color: #f8fafc !important;
+      opacity: 1 !important;
     }
     
+    .pastecraft-interface.blue .pastecraft-clip:hover,
     .pastecraft-interface.dark .pastecraft-clip:hover {
-      background: #4b5563;
+      background: #111827 !important;
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 4px 14px rgba(37, 99, 235, 0.25) !important;
     }
     
+    .pastecraft-interface.blue .pastecraft-clip-text,
     .pastecraft-interface.dark .pastecraft-clip-text {
-      color: #f9fafb;
+      color: #f8fafc !important;
     }
     
-    .pastecraft-interface.dark .pastecraft-clip-meta {
-      color: #9ca3af;
+    .pastecraft-interface.blue .pastecraft-clip-meta,
+    .pastecraft-interface.dark .pastecraft-clip-meta,
+    .pastecraft-interface.blue .pastecraft-time,
+    .pastecraft-interface.dark .pastecraft-time,
+    .pastecraft-interface.blue .pastecraft-count,
+    .pastecraft-interface.dark .pastecraft-count,
+    .pastecraft-interface.blue .pastecraft-empty,
+    .pastecraft-interface.dark .pastecraft-empty {
+      color: #94a3b8 !important;
     }
-    
+
+    .pastecraft-interface.blue .pastecraft-category,
+    .pastecraft-interface.dark .pastecraft-category {
+      background: rgba(37, 99, 235, 0.25) !important;
+      color: #93c5fd !important;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    .pastecraft-interface.blue .pastecraft-footer,
+    .pastecraft-interface.dark .pastecraft-footer {
+      background: #0b1220 !important;
+      border-top: 2px solid #1e3a8a !important;
+      color: #94a3b8 !important;
+      box-shadow: 0 -8px 24px rgba(5, 8, 15, 0.65) !important;
+      backdrop-filter: none !important;
+      opacity: 1 !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-content::-webkit-scrollbar-track,
+    .pastecraft-interface.dark .pastecraft-content::-webkit-scrollbar-track {
+      background: #0b1220;
+    }
+
+    .pastecraft-interface.blue .pastecraft-content::-webkit-scrollbar-thumb,
+    .pastecraft-interface.dark .pastecraft-content::-webkit-scrollbar-thumb {
+      background: #1e3a8a;
+    }
+
+    .pastecraft-interface.blue .pastecraft-content::-webkit-scrollbar-thumb:hover,
+    .pastecraft-interface.dark .pastecraft-content::-webkit-scrollbar-thumb:hover {
+      background: #3b82f6;
+    }
+
+    .pastecraft-interface.blue .pastecraft-paste,
+    .pastecraft-interface.dark .pastecraft-paste {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      border-color: #1e3a8a !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-copy-multiple:not(:disabled),
+    .pastecraft-interface.dark .pastecraft-copy-multiple:not(:disabled) {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1a1f5e 100%) !important;
+      border-color: #3b82f6 !important;
+      color: #fff !important;
+    }
+
+    .pastecraft-interface.blue .pastecraft-copy-multiple:disabled,
+    .pastecraft-interface.dark .pastecraft-copy-multiple:disabled {
+      background: #111827 !important;
+      color: #64748b !important;
+      border-color: #1e3a8a !important;
+    }
+
+    /* Settings / Help / Confirm — Blue Dark Mode (popup modal parity) */
+    .pastecraft-settings-modal.blue,
+    .pastecraft-help-modal.blue,
+    .pastecraft-confirm-modal.blue {
+      --qp-surface: #0b1220;
+      --qp-border: #1e3a8a;
+      --qp-text: #f8fafc;
+      --qp-text-muted: #94a3b8;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-backdrop,
+    .pastecraft-help-modal.blue .pastecraft-modal-backdrop,
+    .pastecraft-confirm-modal.blue .pastecraft-modal-backdrop {
+      background: rgba(5, 8, 15, 0.82) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-content,
+    .pastecraft-help-modal.blue .pastecraft-modal-content,
+    .pastecraft-confirm-modal.blue .pastecraft-modal-content {
+      background:
+        radial-gradient(ellipse 110% 60% at 50% -20%, rgba(37, 99, 235, 0.18), transparent 55%),
+        #0b1220 !important;
+      border: 1px solid rgba(59, 130, 246, 0.4) !important;
+      color: #f8fafc !important;
+      box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(30, 58, 138, 0.45),
+        inset 0 1px 0 rgba(96, 165, 250, 0.08) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-header,
+    .pastecraft-help-modal.blue .pastecraft-modal-header,
+    .pastecraft-confirm-modal.blue .pastecraft-modal-header {
+      background: linear-gradient(135deg, #05080f 0%, #0b1220 42%, #1e3a8a 78%, #2563eb 100%) !important;
+      border-bottom: 1px solid rgba(59, 130, 246, 0.35) !important;
+      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.35) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-header h3,
+    .pastecraft-help-modal.blue .pastecraft-modal-header h3,
+    .pastecraft-confirm-modal.blue .pastecraft-modal-header h3 {
+      color: #fff !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-close,
+    .pastecraft-help-modal.blue .pastecraft-modal-close {
+      background: rgba(59, 130, 246, 0.18) !important;
+      border: 1px solid rgba(59, 130, 246, 0.4) !important;
+      color: #e0f2fe !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-close:hover,
+    .pastecraft-help-modal.blue .pastecraft-modal-close:hover {
+      background: rgba(59, 130, 246, 0.35) !important;
+      color: #fff !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-body,
+    .pastecraft-help-modal.blue .help-content {
+      background: transparent !important;
+      color: #f8fafc !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting {
+      border-bottom-color: #1e3a8a !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting label {
+      color: #e2e8f0 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting select,
+    .pastecraft-settings-modal.blue .pastecraft-setting input[type="number"],
+    .pastecraft-settings-modal.blue #quickPasteCustomDelimiter {
+      background: #111827 !important;
+      border: 1.5px solid #1e3a8a !important;
+      color: #f8fafc !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting select:focus,
+    .pastecraft-settings-modal.blue .pastecraft-setting input[type="number"]:focus,
+    .pastecraft-settings-modal.blue #quickPasteCustomDelimiter:focus {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting input[type="checkbox"] {
+      accent-color: #3b82f6 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting-group {
+      background: transparent !important;
+      border-bottom-color: #1e3a8a !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-setting-label {
+      color: #93c5fd !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-segmented-control {
+      background: #111827 !important;
+      border: 1px solid #1e3a8a;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-segment-btn {
+      color: #94a3b8 !important;
+      background: transparent !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-segment-btn:hover:not(.active) {
+      background: rgba(59, 130, 246, 0.15) !important;
+      color: #e0f2fe !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-segment-btn.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-toggle {
+      background: #111827 !important;
+      border: 1px solid #1e3a8a !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-toggle:hover {
+      background: #0b1220 !important;
+      border-color: #3b82f6 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-toggle span {
+      color: #e2e8f0 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-toggle-switch {
+      background: #334155 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-toggle input:checked + .pastecraft-toggle-switch {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-content > .pastecraft-modal-actions,
+    .pastecraft-help-modal.blue .pastecraft-modal-content > .pastecraft-modal-actions,
+    .pastecraft-confirm-modal.blue .pastecraft-modal-content > .pastecraft-modal-actions {
+      background: #0a0e14 !important;
+      border-top: 1px solid #1e3a8a !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-modal-header .pastecraft-modal-actions,
+    .pastecraft-help-modal.blue .pastecraft-modal-header .pastecraft-modal-actions {
+      background: transparent !important;
+      border-top: none !important;
+      padding: 0 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-btn-secondary,
+    .pastecraft-confirm-modal.blue .pastecraft-btn-secondary {
+      background: #111827 !important;
+      color: #94a3b8 !important;
+      border: 1.5px solid #1e3a8a !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-btn-secondary:hover,
+    .pastecraft-confirm-modal.blue .pastecraft-btn-secondary:hover {
+      background: #0b1220 !important;
+      border-color: #3b82f6 !important;
+      color: #e0f2fe !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-btn-primary,
+    .pastecraft-help-modal.blue .pastecraft-btn-primary,
+    .pastecraft-confirm-modal.blue .pastecraft-btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1a1f5e 100%) !important;
+      border: 1px solid #3b82f6 !important;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4) !important;
+    }
+
+    .pastecraft-help-modal.blue {
+      background: rgba(5, 8, 15, 0.82) !important;
+      z-index: 1000003 !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-help-btn {
+      background: rgba(59, 130, 246, 0.22) !important;
+      border: 1px solid rgba(147, 197, 253, 0.55) !important;
+      color: #fff !important;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25), 0 2px 8px rgba(37, 99, 235, 0.35) !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-help-btn:hover,
+    .pastecraft-settings-modal.blue .pastecraft-help-btn.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      border-color: #93c5fd !important;
+    }
+
+    .pastecraft-settings-modal.blue .pastecraft-help-btn-glyph {
+      color: #fff !important;
+    }
+
+    .pastecraft-help-modal.blue .help-section h4 {
+      color: #93c5fd !important;
+      border-bottom-color: #1e3a8a !important;
+    }
+
+    .pastecraft-help-modal.blue .help-item {
+      background: #111827 !important;
+      border-left-color: #3b82f6 !important;
+      color: #e2e8f0 !important;
+    }
+
+    .pastecraft-help-modal.blue .help-item strong,
+    .pastecraft-help-modal.blue .help-item ul,
+    .pastecraft-help-modal.blue .help-item li {
+      color: #f8fafc !important;
+    }
+
+    .pastecraft-confirm-modal.blue .pastecraft-modal-body {
+      color: #e2e8f0 !important;
+      background: #0b1220 !important;
+      padding: 20px 24px;
+    }
+
+    .pastecraft-confirm-modal.blue .pastecraft-modal-body strong {
+      color: #fca5a5 !important;
+    }
+
     .pastecraft-footer {
       position: sticky !important;
       bottom: 0 !important;
@@ -671,12 +1072,11 @@ export function addQuickPasteStyles(root) {
       justify-content: space-between !important;
       align-items: center !important;
       padding: 12px 16px !important;
-      background: rgba(248, 250, 252, 0.98) !important;
-      backdrop-filter: blur(12px) !important;
-      border-top: 2px solid #e2e8f0 !important;
+      background: #f8fafc !important;
+      border-top: 2px solid #dbeafe !important;
       font-size: 12px !important;
-      color: #6b7280 !important;
-      box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.15) !important;
+      color: #64748b !important;
+      box-shadow: 0 -6px 20px rgba(13, 18, 64, 0.1) !important;
       flex-wrap: nowrap !important;
       gap: 12px !important;
       margin: 0 !important;
@@ -700,16 +1100,16 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-content::-webkit-scrollbar-track {
-      background: #f1f5f9;
+      background: #eff6ff;
     }
     
     .pastecraft-content::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
+      background: #93c5fd;
       border-radius: 3px;
     }
     
     .pastecraft-content::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
+      background: #60a5fa;
     }
     
     /* Delete button styling */
@@ -773,22 +1173,23 @@ export function addQuickPasteStyles(root) {
       border: 2px solid rgba(255, 255, 255, 0.8) !important;
     }
     
-    /* Dark theme override for selection */
-    .pastecraft-interface.dark.pastecraft-interface .pastecraft-clip.selected.selected {
+    /* Dark / blue theme override for selection */
+    .pastecraft-interface.dark.pastecraft-interface .pastecraft-clip.selected.selected,
+    .pastecraft-interface.blue.pastecraft-interface .pastecraft-clip.selected.selected {
       background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%) !important;
       border-color: #ff6b35 !important;
     }
     
     /* Copy Multiple button styling */
     .pastecraft-copy-multiple {
-      background: #2563eb !important;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 55%, #1a1f5e 100%) !important;
       color: white !important;
       font-weight: 600 !important;
       padding: 6px 12px !important;
       border-radius: 6px !important;
       font-size: 12px !important;
       border: 1px solid #1a1f5e !important;
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3) !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35) !important;
       flex: none !important;
       min-width: auto !important;
       max-width: 140px !important;
@@ -800,9 +1201,9 @@ export function addQuickPasteStyles(root) {
     }
     
     .pastecraft-copy-multiple:hover:not(:disabled) {
-      background: #1a1f5e !important;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #0d1240 100%) !important;
       transform: translateY(-1px) !important;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.5) !important;
+      box-shadow: 0 4px 14px rgba(26, 31, 94, 0.45) !important;
     }
     
     .pastecraft-copy-multiple:disabled {
@@ -814,9 +1215,10 @@ export function addQuickPasteStyles(root) {
       border-color: #d1d5db !important;
     }
     
-    .pastecraft-interface.dark .pastecraft-footer {
-      background: rgba(31, 41, 55, 0.98) !important;
-      border-top-color: #374151 !important;
+    .pastecraft-interface.dark .pastecraft-footer,
+    .pastecraft-interface.blue .pastecraft-footer {
+      background: #0b1220 !important;
+      border-top-color: #1e3a8a !important;
     }
     
     /* NUCLEAR STICKY FOOTER FIX */
