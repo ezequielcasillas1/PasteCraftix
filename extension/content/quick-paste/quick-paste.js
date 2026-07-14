@@ -10,7 +10,6 @@ import {
   QP_HOST,
   QP_CLASSES,
   QP_ELEMENT_IDS,
-  QP_LIMITS,
   QP_DELIMITER,
   resolveQuickPasteTheme,
 } from './qp.constants.js';
@@ -40,6 +39,16 @@ import {
   pasteQuickPasteClipById,
   showQuickPasteToast,
 } from './qp.paste.js';
+import {
+  showQuickPasteSettingsModal,
+  setupQuickPasteHelpModalEvents,
+  showQuickPasteHelpModal,
+  hideQuickPasteHelpModal,
+  applyQuickPasteSettingsModalShellStyles,
+  setupQuickPasteSettingsModalEvents,
+  saveQuickPasteSettingsFromModal,
+  hideQuickPasteSettingsModal,
+} from './qp.settings-modal.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -193,380 +202,37 @@ export class QuickPasteInterface {
   }
 
   showSettingsModal() {
-    if (this.settingsModal) {
-      this.settingsModal.remove();
-    }
-    
-    this.settingsModal = document.createElement('div');
-    const themeClass = resolveQuickPasteTheme(this.settings.theme);
-    this.settingsModal.className = `${QP_CLASSES.SETTINGS_MODAL} ${themeClass}`;
-    const d = QP_DELIMITER;
-    const active = QP_CLASSES.ACTIVE;
-    this.settingsModal.innerHTML = `
-      <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
-      <div class="${QP_CLASSES.MODAL_CONTENT}">
-        <div class="pastecraft-modal-header">
-          <h3>⚙️ Quick Paste Settings</h3>
-          <div class="${QP_CLASSES.MODAL_ACTIONS}">
-            <button class="${QP_CLASSES.HELP_BTN}" type="button" title="Help & Information" aria-label="Help and information"><span class="pastecraft-help-btn-glyph">?</span></button>
-            <button class="${QP_CLASSES.MODAL_CLOSE}" type="button" aria-label="Close settings">×</button>
-          </div>
-        </div>
-        <div class="${QP_CLASSES.MODAL_BODY}">
-          <div class="${QP_CLASSES.SETTING}">
-            <label>
-              <input type="checkbox" id="${QP_ELEMENT_IDS.AUTO_HIDE}" ${this.settings.autoHide ? 'checked' : ''}>
-              Auto-hide after paste
-            </label>
-          </div>
-          <div class="${QP_CLASSES.SETTING}">
-            <label>
-              <input type="checkbox" id="${QP_ELEMENT_IDS.SHOW_TIMESTAMPS}" ${this.settings.showTimestamps ? 'checked' : ''}>
-              Show timestamps
-            </label>
-          </div>
-          <div class="${QP_CLASSES.SETTING}">
-            <label>Max clips to display</label>
-            <input type="number" id="${QP_ELEMENT_IDS.MAX_CLIPS}" value="${this.settings.maxClipsDisplay}" min="${QP_LIMITS.MAX_CLIPS_MIN}" max="${QP_LIMITS.MAX_CLIPS_MAX}">
-          </div>
-          
-          <!-- Delimiter Settings -->
-          <div class="${QP_CLASSES.SETTING_GROUP}">
-            <label class="${QP_CLASSES.SETTING_LABEL}">Delimiter</label>
-            <div class="${QP_CLASSES.SEGMENTED_CONTROL}" id="${QP_ELEMENT_IDS.DELIMITER_CONTROL}">
-              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.COMMA ? active : ''}" data-delimiter="${d.COMMA}">Comma</button>
-              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.NEWLINE ? active : ''}" data-delimiter="${d.NEWLINE}">Newline</button>
-              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.SPACE ? active : ''}" data-delimiter="${d.SPACE}">Space</button>
-              <button class="${QP_CLASSES.SEGMENT_BTN} ${this.settings.delimiter === d.CUSTOM ? active : ''}" data-delimiter="${d.CUSTOM}">Custom</button>
-            </div>
-            <input type="text" id="${QP_ELEMENT_IDS.CUSTOM_DELIMITER}" value="${this.settings.customDelimiter}" 
-                   style="display: ${this.settings.delimiter === d.CUSTOM ? 'block' : 'none'}; margin-top: 8px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;" 
-                   placeholder="Enter custom delimiter">
-          </div>
-          
-          <!-- Options Settings -->
-          <div class="${QP_CLASSES.SETTING_GROUP}">
-            <label class="${QP_CLASSES.SETTING_LABEL}">Options</label>
-            <div class="pastecraft-toggles">
-              <label class="${QP_CLASSES.TOGGLE}">
-                <input type="checkbox" id="${QP_ELEMENT_IDS.DEDUPLICATE}" ${this.settings.options.deduplicate ? 'checked' : ''}>
-                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
-                <span>🔄 Deduplicate</span>
-              </label>
-              <label class="${QP_CLASSES.TOGGLE}">
-                <input type="checkbox" id="${QP_ELEMENT_IDS.SORT}" ${this.settings.options.sort ? 'checked' : ''}>
-                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
-                <span>⬆️ Sort A→Z</span>
-              </label>
-              <label class="${QP_CLASSES.TOGGLE}">
-                <input type="checkbox" id="${QP_ELEMENT_IDS.UPPERCASE}" ${this.settings.options.uppercase ? 'checked' : ''}>
-                <div class="${QP_CLASSES.TOGGLE_SWITCH}"></div>
-                <span>Aa UPPERCASE</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="${QP_CLASSES.MODAL_ACTIONS}">
-          <button class="${QP_CLASSES.BTN_SECONDARY}" id="${QP_ELEMENT_IDS.CANCEL_SETTINGS}">Cancel</button>
-          <button class="${QP_CLASSES.BTN_PRIMARY}" id="${QP_ELEMENT_IDS.SAVE_SETTINGS}">Save</button>
-        </div>
-      </div>
-    `;
-    
-    // Create help page modal
-    this.helpModal = document.createElement('div');
-    this.helpModal.className = `${QP_CLASSES.HELP_MODAL} ${themeClass}`;
-    this.helpModal.innerHTML = `
-      <div class="${QP_CLASSES.MODAL_BACKDROP}"></div>
-      <div class="${QP_CLASSES.MODAL_CONTENT}">
-        <div class="pastecraft-modal-header">
-          <h3>❓ Quick Paste Help & Information</h3>
-          <div class="${QP_CLASSES.MODAL_ACTIONS}">
-            <button class="${QP_CLASSES.BACK_BTN}" title="Back to Settings">←</button>
-            <button class="${QP_CLASSES.MODAL_CLOSE}">×</button>
-          </div>
-        </div>
-        <div class="pastecraft-modal-body help-content">
-          <div class="help-section">
-            <h4>⚡ Interface Behavior</h4>
-            <div class="help-item">
-              <strong>Auto-hide after paste:</strong> Automatically closes the Quick Paste interface after pasting a clip, keeping your screen clean
-            </div>
-            <div class="help-item">
-              <strong>Show timestamps:</strong> Displays how long ago each clip was saved (e.g., '2m ago', '1h ago') for better organization
-            </div>
-            <div class="help-item">
-              <strong>Max clips to display:</strong> Controls how many clips appear in the interface (5-50). Fewer clips = faster loading
-            </div>
-          </div>
-          
-          <div class="help-section">
-            <h4>📝 Text Processing Options</h4>
-            <div class="help-item">
-              <strong>Delimiter:</strong> Choose how to separate multiple clips when copying them together:
-              <ul>
-                <li><strong>Comma:</strong> "clip1, clip2, clip3"</li>
-                <li><strong>Newline:</strong> Each clip on a new line</li>
-                <li><strong>Space:</strong> "clip1 clip2 clip3"</li>
-                <li><strong>Custom:</strong> Define your own separator</li>
-              </ul>
-            </div>
-            <div class="help-item">
-              <strong>🔄 Deduplicate:</strong> Automatically removes duplicate clips when copying multiple selections, preventing repetition
-            </div>
-            <div class="help-item">
-              <strong>⬆️ Sort A→Z:</strong> Alphabetically sorts clips when copying multiple selections for consistent organization
-            </div>
-            <div class="help-item">
-              <strong>Aa UPPERCASE:</strong> Converts all text to uppercase when copying multiple selections for emphasis
-            </div>
-          </div>
-          
-          <div class="help-section">
-            <h4>💡 Pro Tips</h4>
-            <div class="help-item">
-              • Drag the interface header to move it anywhere on the page
-            </div>
-            <div class="help-item">
-              • Use keyboard shortcuts for faster access (configure in main settings)
-            </div>
-            <div class="help-item">
-              • Organize clips into categories for better management
-            </div>
-            <div class="help-item">
-              • Enable auto-hide to keep your workflow uninterrupted
-            </div>
-          </div>
-        </div>
-        <div class="pastecraft-modal-actions">
-          <button class="${QP_CLASSES.BTN_PRIMARY}" id="${QP_ELEMENT_IDS.BACK_TO_SETTINGS}">← Back to Settings</button>
-        </div>
-      </div>
-    `;
-    
-    // Must mount inside closed Shadow root — qp.styles.js only applies there
-    const root = this.shadowMount?.root;
-    if (!root) {
-      console.error('❌ Quick Paste shadow root missing; cannot open settings');
-      return;
-    }
-    root.appendChild(this.settingsModal);
-    root.appendChild(this.helpModal);
-    
-    this.applySettingsModalShellStyles();
-    this.setupSettingsModalEvents();
-    this.setupHelpModalEvents();
+    showQuickPasteSettingsModal(this);
   }
-  
+
   setupHelpModalEvents() {
-    if (!this.helpModal) return;
-    
-    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideHelpModal();
-    });
-    
-    this.helpModal.querySelector(`.${QP_CLASSES.BACK_BTN}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideHelpModal();
-    });
-    
-    this.helpModal.querySelector(`#${QP_ELEMENT_IDS.BACK_TO_SETTINGS}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideHelpModal();
-    });
-    
-    this.helpModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideHelpModal();
-    });
+    setupQuickPasteHelpModalEvents(this);
   }
-  
+
   showHelpModal() {
-    if (!this.helpModal) return;
-    const root = this.shadowMount?.root;
-    if (root && this.helpModal.parentNode === root) {
-      root.appendChild(this.helpModal); // ensure last sibling = on top
-    }
-    this.helpModal.style.cssText = `
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 1000003 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    `;
-    this.helpModal.classList.add('is-open');
-    // Keep settings open underneath but non-interactive while help is up
-    if (this.settingsModal) {
-      this.settingsModal.style.pointerEvents = 'none';
-      this.settingsModal.classList.add('help-open');
-    }
-    const helpBtn = this.settingsModal?.querySelector(`.${QP_CLASSES.HELP_BTN}`);
-    if (helpBtn) {
-      helpBtn.classList.add(QP_CLASSES.ACTIVE);
-      helpBtn.setAttribute('aria-expanded', 'true');
-    }
+    showQuickPasteHelpModal(this);
   }
-  
+
   hideHelpModal() {
-    if (!this.helpModal) return;
-    this.helpModal.style.display = 'none';
-    this.helpModal.classList.remove('is-open');
-    if (this.settingsModal) {
-      this.settingsModal.style.pointerEvents = '';
-      this.settingsModal.classList.remove('help-open');
-    }
-    const helpBtn = this.settingsModal?.querySelector(`.${QP_CLASSES.HELP_BTN}`);
-    if (helpBtn) {
-      helpBtn.classList.remove(QP_CLASSES.ACTIVE);
-      helpBtn.setAttribute('aria-expanded', 'false');
-    }
+    hideQuickPasteHelpModal(this);
   }
-  
-  /** Layout-only shell — colors live in qp.styles.js (theme class on modal). */
+
   applySettingsModalShellStyles() {
-    if (!this.settingsModal) return;
-    this.settingsModal.style.cssText = `
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 1000001 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    `;
+    applyQuickPasteSettingsModalShellStyles(this);
   }
-  
+
   setupSettingsModalEvents() {
-    if (!this.settingsModal) return;
-    
-    // Close button
-    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_CLOSE}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideSettingsModal();
-    });
-    
-    // Help button — open help above settings; do not close settings
-    this.settingsModal.querySelector(`.${QP_CLASSES.HELP_BTN}`).addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.showHelpModal();
-    });
-    
-    // Backdrop click — ignore while help is covering
-    this.settingsModal.querySelector(`.${QP_CLASSES.MODAL_BACKDROP}`).addEventListener('click', (e) => {
-      if (this.helpModal?.classList.contains('is-open')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      this.hideSettingsModal();
-    });
-    
-    // Cancel button
-    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CANCEL_SETTINGS}`).addEventListener('click', () => {
-      this.hideSettingsModal();
-    });
-    
-    // Save button
-    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SAVE_SETTINGS}`).addEventListener('click', () => {
-      this.saveSettingsFromModal();
-    });
-    
-    // Delimiter control
-    this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.DELIMITER_CONTROL}`).addEventListener('click', (e) => {
-      if (e.target.classList.contains(QP_CLASSES.SEGMENT_BTN)) {
-        // Remove active class from all buttons
-        this.settingsModal.querySelectorAll(`.${QP_CLASSES.SEGMENT_BTN}`).forEach(btn => btn.classList.remove(QP_CLASSES.ACTIVE));
-        // Add active class to clicked button
-        e.target.classList.add(QP_CLASSES.ACTIVE);
-        
-        // Show/hide custom delimiter input
-        const customInput = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`);
-        if (e.target.dataset.delimiter === QP_DELIMITER.CUSTOM) {
-          customInput.style.display = 'block';
-          customInput.focus();
-        } else {
-          customInput.style.display = 'none';
-        }
-      }
-    });
-    
-    // Options toggles
-    this.settingsModal.querySelectorAll(`.${QP_CLASSES.TOGGLE}`).forEach(toggle => {
-      toggle.addEventListener('click', (e) => {
-        
-        const checkbox = toggle.querySelector('input[type="checkbox"]');
-        if (e.target !== checkbox) {
-          checkbox.checked = !checkbox.checked;
-          
-          // Trigger change event to update visual state
-          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-          
-          console.log(`🔄 Toggle clicked: ${checkbox.id} = ${checkbox.checked}`);
-        }
-      });
-      
-      // Also handle direct checkbox clicks
-      const checkbox = toggle.querySelector('input[type="checkbox"]');
-      if (checkbox) {
-        checkbox.addEventListener('change', (e) => {
-          console.log(`✅ Checkbox changed: ${e.target.id} = ${e.target.checked}`);
-        });
-      }
-    });
-    
+    setupQuickPasteSettingsModalEvents(this);
   }
-  
-  
+
   async saveSettingsFromModal() {
-    if (!this.settingsModal) return;
-    
-    this.settings.autoHide = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.AUTO_HIDE}`).checked;
-    this.settings.showTimestamps = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SHOW_TIMESTAMPS}`).checked;
-    this.settings.maxClipsDisplay = parseInt(this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.MAX_CLIPS}`).value);
-    
-    // Save delimiter settings
-    const activeDelimiterBtn = this.settingsModal.querySelector(`.${QP_CLASSES.SEGMENT_BTN}.${QP_CLASSES.ACTIVE}`);
-    if (activeDelimiterBtn) {
-      this.settings.delimiter = activeDelimiterBtn.dataset.delimiter;
-    }
-    this.settings.customDelimiter = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.CUSTOM_DELIMITER}`).value;
-    
-    // Save options settings
-    this.settings.options.deduplicate = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.DEDUPLICATE}`).checked;
-    this.settings.options.sort = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.SORT}`).checked;
-    this.settings.options.uppercase = this.settingsModal.querySelector(`#${QP_ELEMENT_IDS.UPPERCASE}`).checked;
-    
-    await this.saveSettings();
-    this.applySettings();
-    this.updateInterface();
-    this.hideSettingsModal();
-    
-    // Show success feedback
-    this.showToast('Settings saved!', 'success');
+    await saveQuickPasteSettingsFromModal(this);
   }
-  
+
   hideSettingsModal() {
-    // Close help first if open — does not remove settings until this call
-    this.hideHelpModal();
-    if (this.helpModal) {
-      this.helpModal.remove();
-      this.helpModal = null;
-    }
-    if (this.settingsModal) {
-      this.settingsModal.remove();
-      this.settingsModal = null;
-    }
+    hideQuickPasteSettingsModal(this);
   }
-  
+
   applySettings() {
     if (!this.container) return;
     
