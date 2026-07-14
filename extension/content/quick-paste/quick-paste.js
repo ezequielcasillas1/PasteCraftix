@@ -2,26 +2,44 @@ import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 import {
   clipIdKey,
-  fnv1a36,
-  getTimeAgo,
-  escapeHtml,
-  detectQuickBadge,
-  lightFormatPreview,
 } from './qp.helpers.js';
 import {
   QP_STORAGE_KEYS,
-  QP_SETTINGS_LOAD_KEYS,
   QP_DEFAULT_SETTINGS,
   QP_DEFAULT_POSITION,
   QP_HOST,
   QP_CLASSES,
   QP_ELEMENT_IDS,
   QP_LIMITS,
-  QP_DEFAULTS,
   QP_DELIMITER,
   resolveQuickPasteTheme,
 } from './qp.constants.js';
 import { addQuickPasteStyles } from './qp.styles.js';
+import {
+  loadQuickPasteClips,
+  loadQuickPasteSettings,
+  saveQuickPastePosition,
+  saveQuickPasteSettings,
+} from './qp.storage.js';
+import {
+  renderQuickPasteClips,
+  buildQuickPasteShellHtml,
+  clampQuickPastePosition,
+  applyQuickPastePositionStyles,
+  ensureClipsContainerScroll,
+  clearQuickPasteSelectionStyles,
+  refreshQuickPasteClipsDom,
+} from './qp.render.js';
+import {
+  setupQuickPasteEventListeners,
+  setupQuickPasteMessageListener,
+  setupQuickPasteStorageSync,
+} from './qp.events.js';
+import {
+  pasteQuickPasteClip,
+  pasteQuickPasteClipById,
+  showQuickPasteToast,
+} from './qp.paste.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -65,65 +83,7 @@ export class QuickPasteInterface {
   }
   
   async loadClips() {
-    try {
-      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
-      const result = await chrome.storage.local.get([QP_STORAGE_KEYS.CLIPS]);
-      const storedClips = result[QP_STORAGE_KEYS.CLIPS];
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!storedClips);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', storedClips?.length || 0);
-      
-      const raw = Array.isArray(storedClips) ? storedClips : [];
-      let changed = false;
-
-      // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
-      const normalized = raw.map((clip, i) => {
-        if (!clip || typeof clip !== 'object') {
-          const text = String(clip || '');
-          const id = `legacy_${fnv1a36(`${text}|${i}`)}`;
-          changed = true;
-          return { id, text, category: QP_DEFAULTS.CATEGORY, timestamp: Date.now() };
-        }
-
-        if (clip.id == null) {
-          const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
-          const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-          const bucket = Math.floor(ts / 3000);
-          const id = `legacy_${fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
-          changed = true;
-          return { ...clip, id };
-        }
-
-        return clip;
-      });
-
-      this.clips = normalized;
-      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
-
-      // Persist repaired ids so other UIs (popup/sync) stay consistent.
-      if (changed) {
-        try {
-          await chrome.storage.local.set({
-            [QP_STORAGE_KEYS.CLIPS]: this.clips,
-            [QP_STORAGE_KEYS.UPDATED_AT]: Date.now(),
-          });
-        } catch (_) {}
-      }
-      
-      if (this.clips.length > 0) {
-        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
-          text: (clip.text || clip).substring(0, 30) + '...',
-          category: clip.category || QP_DEFAULTS.CATEGORY,
-          timestamp: clip.timestamp,
-          fullClip: clip
-        })));
-      } else {
-        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
-      }
-    } catch (error) {
-      console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
-      this.clips = [];
-    }
+    this.clips = await loadQuickPasteClips();
   }
   
   createInterface() {
@@ -139,25 +99,10 @@ export class QuickPasteInterface {
     this.container = document.createElement('div');
     this.container.className = QP_HOST.ROOT_CLASS;
     this.container.setAttribute('data-field', QP_HOST.ROOT_FIELD);
-    this.container.innerHTML = `
-      <div class="${QP_CLASSES.HEADER}">
-        <div class="${QP_CLASSES.LOGO}">📋 PasteCraft</div>
-        <div class="${QP_CLASSES.CONTROLS}">
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.SETTINGS}" title="Settings">⚙️</button>
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.CLOSE}" title="Close">×</button>
-        </div>
-      </div>
-      <div class="${QP_CLASSES.CONTENT}">
-        <div class="${QP_CLASSES.CLIPS_CONTAINER}">
-          ${this.renderClips()}
-        </div>
-        <div class="${QP_CLASSES.FOOTER}">
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.REFRESH}" title="Clear all clips">🗑️</button>
-          <span class="${QP_CLASSES.COUNT}">${this.clips.length} clips</span>
-          <button class="${QP_CLASSES.BTN} ${QP_CLASSES.COPY_MULTIPLE}" id="${QP_ELEMENT_IDS.COPY_MULTIPLE}" disabled title="Copy multiple selected clips">Copy Multiple Clips</button>
-        </div>
-      </div>
-    `;
+    this.container.innerHTML = buildQuickPasteShellHtml(
+      this.renderClips(),
+      this.clips.length,
+    );
     
     this.addStyles(root);
     
@@ -168,42 +113,7 @@ export class QuickPasteInterface {
   }
   
   renderClips() {
-    if (this.clips.length === 0) {
-      return `
-        <div class="${QP_CLASSES.EMPTY}">
-          <div class="${QP_CLASSES.EMPTY_ICON}">✨</div>
-          <p>No clips saved yet</p>
-          <small>Right-click selected text to save</small>
-        </div>
-      `;
-    }
-    
-    return this.clips.slice(0, this.settings.maxClipsDisplay).map((clip, index) => {
-      const text = clip.text || clip;
-      const previewLen = QP_LIMITS.PREVIEW_TEXT_CHARS;
-      const displayText = text.length > previewLen ? text.substring(0, previewLen) + '...' : text;
-      const category = clip.category || QP_DEFAULTS.CATEGORY;
-      const timeAgo = this.settings.showTimestamps ? getTimeAgo(clip.timestamp) : '';
-      const clipIdKeyValue = clipIdKey(clip?.id != null ? clip.id : index);
-      const qpBadge = detectQuickBadge(text);
-      const qpFormatted = lightFormatPreview(displayText);
-      
-      return `
-        <div class="${QP_CLASSES.CLIP}" data-index="${index}" data-clip-id="${clipIdKeyValue}" title="${escapeHtml(text)}">
-          <div class="${QP_CLASSES.CLIP_CONTENT}">
-            <div class="${QP_CLASSES.CLIP_TEXT}">${qpBadge}${qpFormatted}</div>
-            <div class="${QP_CLASSES.CLIP_META}">
-              <span class="${QP_CLASSES.CATEGORY}">${escapeHtml(category)}</span>
-              ${timeAgo ? `<span class="${QP_CLASSES.TIME}">${timeAgo}</span>` : ''}
-            </div>
-          </div>
-          <div class="${QP_CLASSES.CLIP_ACTIONS}">
-            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.PASTE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Paste">📋</button>
-            <button class="${QP_CLASSES.BTN} ${QP_CLASSES.DELETE}" data-clip-id="${clipIdKeyValue}" data-index="${index}" title="Delete">×</button>
-          </div>
-        </div>
-      `;
-    }).join('');
+    return renderQuickPasteClips(this.clips, this.settings);
   }
   
   addStyles(root = this.shadowMount?.root) {
@@ -211,320 +121,26 @@ export class QuickPasteInterface {
   }
   
   setupEventListeners() {
-    if (!this.container) return;
-    
-    // Close button
-    this.container.querySelector(`.${QP_CLASSES.CLOSE}`).addEventListener('click', () => {
-      this.hideInterface();
-    });
-    
-    // Refresh button (now clear all clips)
-    this.container.querySelector(`.${QP_CLASSES.REFRESH}`).addEventListener('click', async () => {
-      console.log('🗑️ Clear all clips button clicked');
-      this.showClearAllConfirmation();
-    });
-    
-    // Settings button — stopPropagation so document outside-click cannot steal the open
-    const settingsBtn = this.container.querySelector(`.${QP_CLASSES.SETTINGS}`);
-    if (settingsBtn) {
-      settingsBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          this.showSettingsModal();
-        } catch (error) {
-          console.error('❌ Error showing settings modal:', error);
-        }
-      });
-    }
-    
-    // Dragging functionality (ignore control buttons)
-    const header = this.container.querySelector(`.${QP_CLASSES.HEADER}`);
-    header.style.cursor = 'move';
-    
-    header.addEventListener('mousedown', (e) => {
-      if (e.target.closest(`.${QP_CLASSES.BTN}`)) return;
-      this.isDragging = true;
-      const rect = this.container.getBoundingClientRect();
-      this.dragOffset.x = e.clientX - rect.left;
-      this.dragOffset.y = e.clientY - rect.top;
-      
-      // Prevent text selection while dragging
-      e.preventDefault();
-      document.body.style.userSelect = 'none';
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (!this.isDragging) return;
-      
-      const newX = e.clientX - this.dragOffset.x;
-      const newY = e.clientY - this.dragOffset.y;
-      
-      // Keep interface within screen bounds
-      const maxX = window.innerWidth - this.container.offsetWidth;
-      const maxY = window.innerHeight - this.container.offsetHeight;
-      
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
-      
-      this.container.style.left = clampedX + 'px';
-      this.container.style.top = clampedY + 'px';
-      this.container.style.right = 'auto';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-      
-      // Save position
-      this.position.x = clampedX;
-      this.position.y = clampedY;
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (this.isDragging) {
-        this.isDragging = false;
-        document.body.style.userSelect = '';
-        
-        // Save position to storage
-        this.savePosition();
-      }
-    });
-
-    // Clip click handlers
-    this.container.addEventListener('click', (e) => {
-      const clipElement = e.target.closest(`.${QP_CLASSES.CLIP}`);
-      const pasteBtn = e.target.closest(`.${QP_CLASSES.PASTE}`);
-      const deleteBtn = e.target.closest(`.${QP_CLASSES.DELETE}`);
-      const copyMultipleBtn = e.target.closest(`.${QP_CLASSES.COPY_MULTIPLE}`);
-      
-      if (deleteBtn) {
-        // Delete individual clip
-        e.stopPropagation();
-        const clipId = deleteBtn.dataset.clipId;
-        if (clipId) {
-          this.deleteClipById(clipId);
-        } else {
-          const index = parseInt(deleteBtn.dataset.index);
-          this.deleteClip(index);
-        }
-      } else if (pasteBtn) {
-        // Paste individual clip
-        e.stopPropagation();
-        const clipId = pasteBtn.dataset.clipId;
-        if (clipId) {
-          this.pasteClipById(clipId);
-        } else {
-          const index = parseInt(pasteBtn.dataset.index);
-          this.pasteClip(index);
-        }
-      } else if (copyMultipleBtn) {
-        // Copy multiple selected clips
-        e.stopPropagation();
-        this.copyMultipleClips();
-      } else if (clipElement) {
-        // Toggle selection (NEW: multi-select functionality)
-        e.stopPropagation();
-        const clipId = clipElement.dataset.clipId;
-        if (clipId) this.toggleClipSelection(clipId, clipElement);
-      }
-    });
-    
-    // Hide when clicking outside (composedPath sees shadow targets; ignore settings/help modals)
-    document.addEventListener('click', (e) => {
-      if (!this.isVisible || this.settings.persistOpen) return;
-      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
-      const insidePanel = path.includes(this.container) || this.container.contains(e.target);
-      const insideSettings = this.settingsModal && path.includes(this.settingsModal);
-      const insideHelp = this.helpModal && path.includes(this.helpModal);
-      if (!insidePanel && !insideSettings && !insideHelp) {
-        this.hideInterface();
-      }
-    });
-    
-    // Hide on escape key — close help first, then settings, then panel
-    document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      if (this.helpModal?.classList.contains('is-open')) {
-        this.hideHelpModal();
-        return;
-      }
-      if (this.settingsModal) {
-        this.hideSettingsModal();
-        return;
-      }
-      if (this.isVisible) {
-        this.hideInterface();
-      }
-    });
+    setupQuickPasteEventListeners(this);
   }
-  
+
   setupMessageListener() {
-    chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-      const action = message && typeof message.action === 'string' ? message.action : '';
-      let handled = false;
-      if (message.action === 'clipSaved') {
-        handled = true;
-        console.log('📨 Received clipSaved message:', message.clip);
-        console.log('👁️ AutoShow flag:', message.autoShow);
-        this.loadClips().then(() => {
-          console.log('🔄 Auto-refreshed clips after new clip saved');
-          this.updateInterface();
-          // Only auto-show if autoShow flag is true (default behavior)
-          if (message.autoShow !== false && !this.isVisible && this.clips.length > 0) {
-            this.showInterface();
-          }
-        });
-        } else if (message.action === 'showQuickPaste') {
-        handled = true;
-        // Load latest clips before showing
-        await this.loadClips();
-        this.updateInterface();
-        this.showInterface(message.x, message.y);
-      } else if (message.action === 'settingsUpdated') {
-        handled = true;
-        // Update settings from popup
-        this.settings = { ...this.settings, ...message.settings };
-        this.applySettings();
-        this.updateInterface();
-        console.log('⚙️ Settings updated from popup:', this.settings);
-      } else if (message.action === 'clipsUpdated') {
-        handled = true;
-        // Another tab updated clips (delete/move/etc) - refresh our interface
-        console.log('🔄 Received clipsUpdated - refreshing clips');
-        await this.loadClips();
-        if (this.isVisible) {
-          this.updateInterface();
-        }
-      } else if (message.action === 'clipsCleared') {
-        handled = true;
-        // Another tab cleared all clips - refresh our interface
-        console.log('🗑️ Received clipsCleared message - refreshing interface');
-        await this.loadClips();
-        this.updateInterface();
-      } else if (message.action === 'openPopupPanel') {
-        handled = true;
-        // Extension icon clicked - open the slide-in panel
-        console.log('🎨 Received openPopupPanel message');
-        if (window.pasteCraftFloatingWidget) {
-          window.pasteCraftFloatingWidget.openPopupOverlay();
-        } else {
-          console.error('❌ Floating widget not initialized');
-        }
-      }
-      if (handled) sendResponse(true);
-      return handled;
-    });
+    setupQuickPasteMessageListener(this);
   }
 
   setupStorageSync() {
-    // Keep settings/position in sync across all open tabs
-    if (this._storageSyncListener) return;
-
-    this._storageSyncListener = (changes, area) => {
-      if (area !== 'local') return;
-
-      let settingsChanged = false;
-
-      // Quick paste specific settings
-      if (changes[QP_STORAGE_KEYS.SETTINGS]) {
-        const next = changes[QP_STORAGE_KEYS.SETTINGS].newValue;
-        if (next && typeof next === 'object') {
-          this.settings = { ...this.settings, ...next };
-          settingsChanged = true;
-        }
-      }
-
-      // Global theme (single source of truth) — blue dark mode + light
-      if (changes[QP_STORAGE_KEYS.THEME]) {
-        const nextTheme = resolveQuickPasteTheme(changes[QP_STORAGE_KEYS.THEME].newValue);
-        if (nextTheme !== this.settings.theme) {
-          this.settings.theme = nextTheme;
-          settingsChanged = true;
-        }
-      }
-
-      // General PasteCraft settings (autoDeletePeriod, albumAttachmentOpenMode)
-      // These affect the quick paste interface behavior
-      if (changes.autoDeletePeriod || changes.albumAttachmentOpenMode) {
-        settingsChanged = true;
-        // Reload settings to get latest values
-        this.loadSettings().catch(() => {});
-      }
-
-      if (changes.quickPastePosition) {
-        const nextPos = changes.quickPastePosition.newValue;
-        if (nextPos && typeof nextPos === 'object') {
-          this.position = { ...this.position, ...nextPos };
-
-          // Apply new position if UI exists
-          if (this.container) {
-            if (this.position.x && this.position.x !== 0) {
-              this.container.style.left = this.position.x + 'px';
-              this.container.style.right = 'auto';
-            } else {
-              this.container.style.left = '';
-              this.container.style.right = '';
-            }
-
-            if (typeof this.position.y === 'number') {
-              this.container.style.top = this.position.y + 'px';
-              this.container.style.bottom = 'auto';
-              this.container.style.transform = 'translateY(0)';
-            } else {
-              this.container.style.top = '';
-              this.container.style.bottom = '';
-              this.container.style.transform = '';
-            }
-          }
-        }
-      }
-
-      if (settingsChanged) {
-        this.applySettings();
-        // Avoid heavy rerenders unless UI is open/visible
-        if (this.isVisible) {
-          this.updateInterface();
-        }
-      }
-    };
-
-    chrome.storage.onChanged.addListener(this._storageSyncListener);
+    setupQuickPasteStorageSync(this);
   }
   
   showInterface(x, y) {
     if (!this.container) return;
-    
-    if (x && y) {
-      // Position near cursor, but ensure it stays on screen
-      const maxX = window.innerWidth - 340; // 320px width + 20px margin
-      const maxY = window.innerHeight - 520; // 500px max height + 20px margin
-      
-      this.position.x = Math.min(x, maxX);
-      this.position.y = Math.min(y, maxY);
-    }
-    
-    // Apply saved/calculated position (don't override CSS positioning)
-    // CSS handles left: 0 and vertical centering via transform
-    // Only apply custom position if dragged by user
-    if (this.position.x !== 0 && this.position.x !== null) {
-      this.container.style.left = this.position.x + 'px';
-      this.container.style.right = 'auto';
-    }
-    if (this.position.y !== null && typeof this.position.y === 'number') {
-      this.container.style.top = this.position.y + 'px';
-      this.container.style.bottom = 'auto';
-      this.container.style.transform = 'translateY(0)';
-    }
-    
+
+    clampQuickPastePosition(this.position, x, y);
+    applyQuickPastePositionStyles(this.container, this.position);
+
     this.container.style.display = 'block';
     this.isVisible = true;
-
-    // Ensure clips container remains scrollable
-    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
-    if (clipsContainer) {
-      clipsContainer.style.flex = '1';
-      clipsContainer.style.overflowY = 'auto';
-      clipsContainer.style.minHeight = '0';
-      clipsContainer.style.paddingBottom = '8px';
-    }
+    ensureClipsContainerScroll(this.container);
   }
   
   hideInterface() {
@@ -538,190 +154,44 @@ export class QuickPasteInterface {
   
   updateInterface() {
     if (!this.container) return;
-    
-    const clipsContainer = this.container.querySelector(`.${QP_CLASSES.CLIPS_CONTAINER}`);
-    const countElement = this.container.querySelector(`.${QP_CLASSES.COUNT}`);
-    
-    clipsContainer.innerHTML = this.renderClips();
-    countElement.textContent = `${this.clips.length} clips`;
-    
-    // Reset selections and update button state
+
+    refreshQuickPasteClipsDom(this.container, this.renderClips(), this.clips.length);
     this.selectedClips.clear();
-    
-    // Clear any inline selection styles
-    const selectedElements = this.container.querySelectorAll(`.${QP_CLASSES.CLIP}.${QP_CLASSES.SELECTED}`);
-    selectedElements.forEach(el => {
-      el.classList.remove(QP_CLASSES.SELECTED);
-      el.style.background = '';
-      el.style.color = '';
-      el.style.border = '';
-      el.style.transform = '';
-      el.style.boxShadow = '';
-      el.style.outline = '';
-      el.style.outlineOffset = '';
-      el.style.zIndex = '';
-      el.style.position = '';
-    });
-    
+    clearQuickPasteSelectionStyles(this.container);
     this.updateCopyMultipleButton();
   }
   
   async pasteClip(index) {
-    const clip = this.clips[index];
-    if (!clip) return;
-    
-    const text = clip.text || clip;
-    
-    try {
-      // Find the active element (input field, textarea, etc.)
-      const activeElement = document.activeElement;
-      
-      if (activeElement && (
-        activeElement.tagName === 'INPUT' || 
-        activeElement.tagName === 'TEXTAREA' || 
-        activeElement.contentEditable === 'true'
-      )) {
-        // Paste into the active element
-        if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') {
-          const start = activeElement.selectionStart;
-          const end = activeElement.selectionEnd;
-          const currentValue = activeElement.value;
-          
-          activeElement.value = currentValue.substring(0, start) + text + currentValue.substring(end);
-          activeElement.selectionStart = activeElement.selectionEnd = start + text.length;
-          
-          // Trigger input event
-          activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-        } else if (activeElement.contentEditable === 'true') {
-          // For contentEditable elements
-          document.execCommand('insertText', false, text);
-        }
-        
-        this.showPasteSuccess();
-        this.hideInterface();
-      } else {
-        // Copy to clipboard as fallback
-        await navigator.clipboard.writeText(text);
-        this.showPasteSuccess('Copied to clipboard');
-      }
-      
-    } catch (error) {
-      console.error('Paste failed:', error);
-      this.showPasteError();
-    }
+    await pasteQuickPasteClip(this, index);
   }
-  
+
   showPasteSuccess(message = 'Pasted successfully') {
     this.showToast(message, 'success');
   }
-  
+
   showPasteError() {
     this.showToast('Paste failed', 'error');
   }
-  
+
   showToast(message, type = 'info') {
-    const TOAST_DURATION_MS = QP_LIMITS.TOAST_DURATION_MS;
-
-    // Single-instance toast (no stacking) + safe auto-dismiss.
-    this._toastState = this._toastState || {
-      el: null,
-      timerId: null,
-      lastMessage: null,
-      lastShownAt: 0
-    };
-
-    const now = Date.now();
-    const msg = String(message ?? '');
-    if (!msg) return;
-
-    // Dedupe rapid repeats of the same message
-    if (this._toastState.lastMessage === msg && (now - this._toastState.lastShownAt) < QP_LIMITS.TOAST_DEDUPE_MS) {
-      return;
-    }
-    this._toastState.lastMessage = msg;
-    this._toastState.lastShownAt = now;
-
-    let toast = this._toastState.el;
-    if (!toast || !toast.isConnected) {
-      toast = document.createElement('div');
-      toast.className = QP_CLASSES.TOAST;
-      this._toastState.el = toast;
-      document.body.appendChild(toast);
-    }
-
-    toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: ${type === 'success' ? '#2563eb' : type === 'error' ? '#ef4444' : '#3b82f6'};
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 1000003;
-      animation: pastecraft-toast-in 0.3s ease;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      white-space: nowrap;
-      max-width: 90vw;
-    `;
-    
-    toast.textContent = msg;
-
-    if (this._toastState.timerId) {
-      clearTimeout(this._toastState.timerId);
-      this._toastState.timerId = null;
-    }
-
-    this._toastState.timerId = setTimeout(() => {
-      toast.style.animation = 'pastecraft-toast-out 0.3s ease forwards';
-      setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, QP_LIMITS.TOAST_FADE_MS);
-    }, TOAST_DURATION_MS);
+    showQuickPasteToast(this, message, type);
   }
   
   // Settings Management
   async loadSettings() {
-    try {
-      const result = await chrome.storage.local.get([...QP_SETTINGS_LOAD_KEYS]);
-      if (result[QP_STORAGE_KEYS.SETTINGS]) {
-        this.settings = { ...this.settings, ...result[QP_STORAGE_KEYS.SETTINGS] };
-      }
-      // Single source of truth: global theme (Quick Paste follows popup; dark → blue)
-      this.settings.theme = resolveQuickPasteTheme(result[QP_STORAGE_KEYS.THEME]);
-      if (result[QP_STORAGE_KEYS.POSITION]) {
-        this.position = { ...this.position, ...result[QP_STORAGE_KEYS.POSITION] };
-      }
-      console.log('⚙️ Loaded settings:', this.settings);
-      console.log('📍 Loaded position:', this.position);
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
+    const { settings, position } = await loadQuickPasteSettings(this.settings, this.position);
+    this.settings = settings;
+    this.position = position;
   }
   
   async savePosition() {
-    try {
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.POSITION]: this.position });
-      console.log('📍 Position saved:', this.position);
-    } catch (error) {
-      console.error('Failed to save position:', error);
-    }
+    await saveQuickPastePosition(this.position);
   }
   
   async saveSettings() {
-    try {
-      // Do not persist theme here (theme is global and controlled by the popup/profile).
-      const { theme, ...rest } = this.settings || {};
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.SETTINGS]: rest });
-      console.log('💾 Settings saved:', rest);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    }
+    await saveQuickPasteSettings(this.settings);
   }
-  
+
   showSettingsModal() {
     if (this.settingsModal) {
       this.settingsModal.remove();
