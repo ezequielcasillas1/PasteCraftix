@@ -1,6 +1,7 @@
 # Architecture docs
 
 - **[FORWARD-ARCHITECTURE.md](./FORWARD-ARCHITECTURE.md)** — Canonical cutoff (2026-07-05): Modular Vertical Slices + Legacy Facades, bridge rules, strangler migration, Arkitect intake.
+- **[engineering-readiness-roadmap.md](./engineering-readiness-roadmap.md)** — Platform compliance, store readiness, Supabase key/ES256 phased plan, discussion tracks A/B/C.
 - **Related:** `.cursor/rules/forward-architecture.mdc`, `.cursor/rules/vertical-slice-modularity.mdc`, `docs/refactoring/refactor-plan-composer-first.md`.
 
 ## Persistence note
