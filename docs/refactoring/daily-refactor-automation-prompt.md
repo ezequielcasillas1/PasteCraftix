@@ -1,6 +1,6 @@
 # Daily Refactor Automation Prompt (Source of Truth)
 
-**Version:** 2.1 — extension-only daily queue (2026-07-10)
+**Version:** 2.2 — no-duplicate / already-applied gate (2026-07-15)
 
 > **Operators:** This file is the canonical prompt for the PasteCraft **Daily Refactor** Cursor Automation. Paste or sync the **Agent prompt** section below into the Automations editor whenever the policy changes. Do not edit the live automation without updating this file first.
 
@@ -49,11 +49,26 @@ Each slice must run the **full pipeline** (Phases 1–4) before starting the nex
 1. Read `REFACTOR_REMAINING.md` — authoritative "where we left off".
 2. Read `docs/refactoring/master-refactor-roadmap.md` — slice specs, model hints, gates.
 3. Read `.cursor/rules/vertical-slice-modularity.mdc` and `forward-architecture.mdc` — structure rules.
-4. Check open/merged PRs and recent `refactor/*` branches so you do not redo completed work.
+4. Run the **No-duplicate / already-applied gate** below before picking any slice.
 
-**Slice budget for this run:** After resume, decide `sliceBudget` (1, 2, or 3) using the hard caps above. Default to **2** only when the next items in `REFACTOR_REMAINING.md` are related, low-risk extractions in the same feature area. Use **1** when any high-risk marker applies. Use **3** only for helpers/constants/styles in the same submodule chain.
+### No-duplicate / already-applied gate (mandatory — before coding)
 
-**Branch:** Create one branch for the run: `refactor/daily-YYYY-MM-DD-<primary-area>` from `main`. All slices in the run share this branch.
+**Missing a human manual test does NOT mean redo the slice.** Only `origin/main` + open PRs decide what is already done.
+
+For the candidate next slice (and every later slice in the same run):
+
+1. **On `origin/main` already?** If the target module file exists (e.g. `qp.storage.js`, `qp.render.js`) **or** `REFACTOR_REMAINING.md` on `origin/main` already marks that slice **Done** → **skip**. Do not re-extract. Advance the pointer to the next incomplete item (update working-tree `REFACTOR_REMAINING.md` only if main’s pointer is stale).
+2. **Open PR already covers it?** If any open PR adds that same module / slice → **do not open a parallel “lean” duplicate PR**. Outcomes:
+   - Under diff budget on that open branch → **build on that branch** (same-slice follow-up only), **or**
+   - Over budget / unrelated → **stop with Partial**: PR body or final report **"Blocked on open PR #N — awaiting merge; no duplicate extraction"**. No new overlapping PR.
+3. **Never re-create** a `qp.*` / feature module that already exists on `origin/main`.
+4. **Never** “re-foundation” storage/render/events/etc. just because a later slice is blocked on diff budget — wait for merge, then continue from updated `main`.
+
+If every queued item is already on main or only waiting on an open PR → **Failure/Partial outcome with no code PR** (or a docs-only pointer fix). Prefer idle over duplicates.
+
+**Slice budget for this run:** After the gate passes, decide `sliceBudget` (1, 2, or 3) using the hard caps above. Default to **2** only when the next items in `REFACTOR_REMAINING.md` are related, low-risk extractions in the same feature area. Use **1** when any high-risk marker applies. Use **3** only for helpers/constants/styles in the same submodule chain.
+
+**Branch:** Create one branch for the run: `refactor/daily-YYYY-MM-DD-<primary-area>` from **fresh** `origin/main` (after `git fetch` + pull). All slices in the run share this branch. Do not fork a duplicate foundation of an open refactor PR.
 
 ---
 
@@ -69,9 +84,9 @@ Use the **arkitect-mcp** server:
 - `analyze_refactoring_opportunities` on the target area from `REFACTOR_REMAINING.md`
 - `recommend_patterns` for the chosen extraction
 
-Pick the **next smallest safe slice** not already done. **Skip anything in Out of scope** — use the **Next slice** pointer in `REFACTOR_REMAINING.md` first, then follow priority order:
+Pick the **next smallest safe slice** not already done **and not blocked by the no-duplicate gate**. **Skip anything in Out of scope** — use the **Next slice** pointer in `REFACTOR_REMAINING.md` on `origin/main` first, then follow priority order:
 
-1. `content/quick-paste/quick-paste.js` → `qp.*` submodules (`qp.storage.js` is current next)
+1. `content/quick-paste/quick-paste.js` → `qp.*` submodules (see `REFACTOR_REMAINING.md` for current next — do not hardcode)
 2. `widget.*` — remaining extractions (`loadQuickViewContent`, `setupAutoCopyListener` = max-1, Opus-level)
 3. Background: one handler per `message.action`
 4. Popup: remove thin `Feature.method` delegates (`popup.js` ~1389 lines)
@@ -160,6 +175,9 @@ After all completed slices (or after stop condition with partial work):
 - Exposing secrets
 - Skipping Arkitect research or CodeScene gates for any slice
 - Starting slice 2+ without passing Phase 4 gates for the prior slice
+- **Re-extracting / duplicating a slice already on `origin/main` or already covered by an open PR** (including “lean foundation” rewrites of prior `qp.*` modules)
+- Opening a new PR that overlaps an open daily-refactor PR’s files just to stay under the diff budget
+- Treating a missed human manual test as a reason to redo a slice
 
 ---
 
