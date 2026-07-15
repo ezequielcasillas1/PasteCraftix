@@ -1,3 +1,8 @@
+### 2026-07-15 - Stripe webhook Basil period readiness
+**Status:** DEPLOYED
+**Files:** supabase/functions/stripe-webhook/index.ts, _shared/credit_packs.ts, credit_pricing.ts
+**Result:** Deployed stripe-webhook (Basil period end + invoice id harden). verify_jwt=false. API version still 2023-10-16.
+
 ### 2026-07-15 - Settings Privacy & Data disclosure
 **Status:** PENDING VERIFY
 **Files:** extension/popup/features/privacy/*, popup.features.js, settings.render.js, popup.html
