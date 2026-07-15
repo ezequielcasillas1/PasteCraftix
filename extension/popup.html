@@ -4380,6 +4380,43 @@
             color: #475569;
             line-height: 1.4;
         }
+
+        .privacy-disclosure-list {
+            margin: 0 0 12px 18px;
+            padding: 0;
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .privacy-disclosure-list li {
+            margin-bottom: 8px;
+        }
+
+        .privacy-change-notice {
+            margin: 0 0 12px 0;
+            padding: 12px;
+            border-radius: 8px;
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            color: #9a3412;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .privacy-links-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .privacy-links-row a {
+            color: #2563eb;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: underline;
+        }
         
         .note-icon {
             color: #3b82f6;
@@ -11683,6 +11720,26 @@ Multiple clips are separated by:
                             </div>
                         </div>
                     </div>
+                    <div class="settings-section" id="privacyDisclosureSection">
+                        <h4><i data-lucide="shield"></i> Privacy &amp; Data</h4>
+                        <p class="settings-description">What PasteCraft collects and why. Full details stay on our website policy.</p>
+                        <div class="privacy-change-notice" id="privacyChangeNotice" hidden>
+                            <strong>Data practices update</strong> (notice v<span data-field="privacy-notice-version">1</span>).
+                            Review the summary below. Practices may change after install; we show this notice when they do.
+                        </div>
+                        <ul class="privacy-disclosure-list" data-field="privacy-disclosure-list"></ul>
+                        <div class="settings-note">
+                            <span class="note-icon"><i data-lucide="info"></i></span>
+                            <span>Cloud sync uses Supabase. Billing is processed by Stripe. AI content is sent only when you use AI features.</span>
+                        </div>
+                        <div class="privacy-links-row">
+                            <a id="privacyPolicyLinkSettings" href="https://pastecraft.com/privacy">Privacy Policy</a>
+                            <a id="privacyTermsLinkSettings" href="https://pastecraft.com/terms">Terms of Use</a>
+                        </div>
+                        <div class="modal-actions" style="justify-content: flex-start; gap: 10px; padding: 12px 0 0 0;">
+                            <button class="btn-secondary" id="privacyAckBtn" type="button" hidden>Got it</button>
+                        </div>
+                    </div>
                     <div class="settings-section">
                         <h4><i data-lucide="clock"></i> Restore Clips</h4>
                         <p class="settings-description">Restore your local clips from a previous point in time. Cloud data is not changed unless you click “Sync restored data to cloud”.</p>
@@ -13433,7 +13490,7 @@ Multiple clips are separated by:
                         <input type="checkbox" id="agreeTerms" required>
                         <span class="checkbox-mark"></span>
                         <span class="checkbox-text">
-                            I agree to the <a href="#" target="_blank">Terms</a> and <a href="#" target="_blank">Privacy Policy</a>
+                            I agree to the <a href="https://pastecraft.com/terms" data-privacy-link="terms" target="_blank" rel="noopener noreferrer">Terms</a> and <a href="https://pastecraft.com/privacy" data-privacy-link="policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
                         </span>
                     </label>
                     

@@ -43,6 +43,10 @@ export async function showSettingsModal(app) {
   _applyBasicSettingsToUI(app);
   Promise.resolve().then(() => app.applyAuthPrefsToUi()).catch(() => {});
   _applyRestoreUI(app);
+  try {
+    app.privacyFeature?.render?.ensureDisclosureListRendered?.();
+    Promise.resolve().then(() => app.privacyFeature?.render?.refresh?.()).catch(() => {});
+  } catch (_) {}
 
   document.getElementById('settingsModal').style.display = 'flex';
   window.renderLucideIconsSync?.(document.getElementById('settingsModal'))

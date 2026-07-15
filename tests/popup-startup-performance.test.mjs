@@ -96,7 +96,7 @@ test('feature imports start together and initialize in registry order once', asy
   const second = initializeAllPopupFeatures(app, { importModule });
 
   assert.equal(first, second);
-  assert.equal(imports.length, 13);
+  assert.equal(imports.length, 14);
   assert.deepEqual(initOrder, []);
 
   pending.slice().reverse().forEach(({ gate, module }) => gate.resolve(module));
@@ -111,6 +111,7 @@ test('feature imports start together and initialize in registry order once', asy
     'initWidgetsFeature',
     'initAiLabFeature',
     'initSettingsFeature',
+    'initPrivacyFeature',
     'initActivityFeature',
     'initAuthFeature',
     'initProfileFeature',
