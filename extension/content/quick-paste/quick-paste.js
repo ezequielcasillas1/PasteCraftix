@@ -2,7 +2,6 @@ import { safeRuntimeSendMessage, pastecraftGetURL, PASTECRAFT_PAGE_ORIGIN } from
 import { createClosedShadowHost } from '../safety/shadow-host.js';
 import {
   clipIdKey,
-  fnv1a36,
   getTimeAgo,
   escapeHtml,
   detectQuickBadge,
@@ -10,7 +9,6 @@ import {
 } from './qp.helpers.js';
 import {
   QP_STORAGE_KEYS,
-  QP_SETTINGS_LOAD_KEYS,
   QP_DEFAULT_SETTINGS,
   QP_DEFAULT_POSITION,
   QP_HOST,
@@ -22,6 +20,12 @@ import {
   resolveQuickPasteTheme,
 } from './qp.constants.js';
 import { addQuickPasteStyles } from './qp.styles.js';
+import {
+  loadQuickPasteClips,
+  loadQuickPasteSettings,
+  saveQuickPastePosition,
+  saveQuickPasteSettings,
+} from './qp.storage.js';
 
 export class QuickPasteInterface {
   constructor() {
@@ -65,65 +69,7 @@ export class QuickPasteInterface {
   }
   
   async loadClips() {
-    try {
-      console.log('🚀 DIAGNOSTIC [Quick Paste]: loadClips() called at', new Date().toISOString());
-      const result = await chrome.storage.local.get([QP_STORAGE_KEYS.CLIPS]);
-      const storedClips = result[QP_STORAGE_KEYS.CLIPS];
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: RAW storage result:', result);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips array exists?', !!storedClips);
-      console.log('🔍 DIAGNOSTIC [Quick Paste]: Clips length:', storedClips?.length || 0);
-      
-      const raw = Array.isArray(storedClips) ? storedClips : [];
-      let changed = false;
-
-      // Normalize clip shape + ensure stable ids (avoid index-based bugs in selection/deletion)
-      const normalized = raw.map((clip, i) => {
-        if (!clip || typeof clip !== 'object') {
-          const text = String(clip || '');
-          const id = `legacy_${fnv1a36(`${text}|${i}`)}`;
-          changed = true;
-          return { id, text, category: QP_DEFAULTS.CATEGORY, timestamp: Date.now() };
-        }
-
-        if (clip.id == null) {
-          const text = typeof clip.text === 'string' ? clip.text : String(clip.text || '');
-          const ts = typeof clip.timestamp === 'number' ? clip.timestamp : 0;
-          const bucket = Math.floor(ts / 3000);
-          const id = `legacy_${fnv1a36(`${text}|${bucket}|${clip.category || ''}`)}`;
-          changed = true;
-          return { ...clip, id };
-        }
-
-        return clip;
-      });
-
-      this.clips = normalized;
-      console.log('✅ DIAGNOSTIC [Quick Paste]: Loaded clips count:', this.clips.length);
-
-      // Persist repaired ids so other UIs (popup/sync) stay consistent.
-      if (changed) {
-        try {
-          await chrome.storage.local.set({
-            [QP_STORAGE_KEYS.CLIPS]: this.clips,
-            [QP_STORAGE_KEYS.UPDATED_AT]: Date.now(),
-          });
-        } catch (_) {}
-      }
-      
-      if (this.clips.length > 0) {
-        console.log('📋 First 3 clips:', this.clips.slice(0, 3).map(clip => ({
-          text: (clip.text || clip).substring(0, 30) + '...',
-          category: clip.category || QP_DEFAULTS.CATEGORY,
-          timestamp: clip.timestamp,
-          fullClip: clip
-        })));
-      } else {
-        console.log('⚠️ DIAGNOSTIC [Quick Paste]: NO CLIPS FOUND IN STORAGE!');
-      }
-    } catch (error) {
-      console.error('❌ DIAGNOSTIC [Quick Paste]: Failed to load clips:', error);
-      this.clips = [];
-    }
+    this.clips = await loadQuickPasteClips();
   }
   
   createInterface() {
@@ -685,41 +631,17 @@ export class QuickPasteInterface {
   
   // Settings Management
   async loadSettings() {
-    try {
-      const result = await chrome.storage.local.get([...QP_SETTINGS_LOAD_KEYS]);
-      if (result[QP_STORAGE_KEYS.SETTINGS]) {
-        this.settings = { ...this.settings, ...result[QP_STORAGE_KEYS.SETTINGS] };
-      }
-      // Single source of truth: global theme (Quick Paste follows popup; dark → blue)
-      this.settings.theme = resolveQuickPasteTheme(result[QP_STORAGE_KEYS.THEME]);
-      if (result[QP_STORAGE_KEYS.POSITION]) {
-        this.position = { ...this.position, ...result[QP_STORAGE_KEYS.POSITION] };
-      }
-      console.log('⚙️ Loaded settings:', this.settings);
-      console.log('📍 Loaded position:', this.position);
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    }
+    const { settings, position } = await loadQuickPasteSettings(this.settings, this.position);
+    this.settings = settings;
+    this.position = position;
   }
   
   async savePosition() {
-    try {
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.POSITION]: this.position });
-      console.log('📍 Position saved:', this.position);
-    } catch (error) {
-      console.error('Failed to save position:', error);
-    }
+    await saveQuickPastePosition(this.position);
   }
   
   async saveSettings() {
-    try {
-      // Do not persist theme here (theme is global and controlled by the popup/profile).
-      const { theme, ...rest } = this.settings || {};
-      await chrome.storage.local.set({ [QP_STORAGE_KEYS.SETTINGS]: rest });
-      console.log('💾 Settings saved:', rest);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-    }
+    await saveQuickPasteSettings(this.settings);
   }
   
   showSettingsModal() {
