@@ -1,6 +1,6 @@
 # PasteCraft - Future Feature Requests
 
-**Last Updated:** July 9, 2026  
+**Last Updated:** July 13, 2026  
 **MVP Status:** ✅ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
@@ -51,7 +51,7 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 #### 4. Home Page SEO Target / Landing Page Adjustments
 **Priority:** HIGH  
-**Status:** Coming soon  
+**Status:** In progress (UX writing pass Jul 16, 2026 — Sitecore copywriter MCP)
 
 **Requirements:**
 - Improve homepage SEO (meta/title/description/keywords + schema)
@@ -844,6 +844,18 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Accept any valid embed URL/iframe from other sites that fit the sandbox rules
 
 **Out of scope (v1):** hosting PasteCraft-owned widget CDN; Merchant/Spot coupling; auto-scraping third-party sites; cloud sync of gallery
+
+---
+
+#### 61. Edge-First Metrics / Analytics
+**Priority:** Medium  
+**Status:** Future (Edge published first; Chrome still under review)  
+
+**Requirements:**
+- Publish Edge Add-ons first; Chrome still under review
+- Source of truth: Microsoft Partner Center → listing → Analytics (installs, weekly users, impressions, CSV)
+- Chrome Developer Dashboard / listing GA wait until Chrome is live
+- Optional later: anonymous first-party install/active pings (Supabase) for cross-store totals
 
 ---
 

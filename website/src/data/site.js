@@ -31,7 +31,7 @@ export const pricingPlans = [
     name: 'Freemium',
     price: '$0',
     cadence: '/forever',
-    note: 'Unlimited clips, notes, and categories stored locally.',
+    note: 'Unlimited clips, notes, and categories stored on your device.',
     popular: false,
     tier: 'Free',
     features: [
@@ -47,7 +47,7 @@ export const pricingPlans = [
     name: 'Basic',
     price: '$1.99',
     cadence: '/month',
-    note: 'Cloud sync and database-backed storage for your workflow.',
+    note: 'Cloud sync and database-backed storage across devices.',
     popular: true,
     tier: 'Basic',
     features: [
@@ -68,7 +68,7 @@ export const pricingPlans = [
     name: 'Enhanced',
     price: '$3.99',
     cadence: '/week',
-    note: 'Premium text AI tools layered on top of the full synced experience.',
+    note: 'Text AI tools on top of full cloud sync.',
     popular: false,
     tier: 'Enhanced',
     features: [
@@ -89,8 +89,8 @@ export const pricingPlans = [
 ];
 
 export const trustPills = [
-  'Chromium-friendly browser extension',
-  'Cloud-backed sync',
-  'Stripe-powered billing',
-  'AI features when you want them',
+  'Chromium browser extension',
+  'Cloud sync',
+  'Stripe billing',
+  'Optional AI tools',
 ];

@@ -8,15 +8,15 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 ---
 
 <BaseLayout
-  title="PasteCraft Pricing"
-  description="Compare Freemium, Basic, and Enhanced PasteCraft plans with text-only AI credits and flexible billing intervals."
+  title="PasteCraft pricing"
+  description="Compare Freemium, Basic, and Enhanced plans. Start free with local storage, add cloud sync, or unlock text AI credits. Subscribe inside the extension after install."
   currentPath="/pricing"
 >
   <div class="page-shell">
     <SectionShell
       eyebrow="Pricing"
-      title="Simple plans, clearer tradeoffs"
-      copy="Choose local-only simplicity, synced storage, or the full enhanced text AI workflow. Subscription starts from inside the extension after install."
+      title="Simple plans with clear tradeoffs"
+      copy="Choose local storage, cloud sync, or Enhanced text AI. Subscribe inside the extension after you install."
     >
       <div class="card-grid three">
         <PricingCard
@@ -29,12 +29,12 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
           features={freemiumPlan.features}
         >
           <div class="stack">
-            <p class="store-copy">Get the free extension first.</p>
+            <p class="store-copy">Install the free extension first.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="ghost-button btn-store" data-store="chrome">Chrome</a>
               <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
             </div>
-            <span class="muted">Clips stay on your device.</span>
+            <span class="muted">Clips stay on your device</span>
           </div>
         </PricingCard>
 
@@ -51,12 +51,12 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
           dataPlan="basic"
         >
           <div class="stack">
-            <p class="store-copy">Subscribe within the extension after install.</p>
+            <p class="store-copy">Subscribe inside the extension after install.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
               <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
             </div>
-            <span class="muted" id="note-basic">Cloud sync with database storage.</span>
+            <span class="muted" id="note-basic">Cloud sync with database storage</span>
           </div>
         </PricingCard>
 
@@ -72,12 +72,12 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
           dataPlan="enhanced"
         >
           <div class="stack">
-            <p class="store-copy">Subscribe within the extension after install.</p>
+            <p class="store-copy">Subscribe inside the extension after install.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
               <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
             </div>
-            <span class="muted" id="note-enhanced">Enhanced AI access plus sync.</span>
+            <span class="muted" id="note-enhanced">Text AI tools plus sync</span>
           </div>
         </PricingCard>
       </div>
@@ -85,8 +85,8 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 
     <SectionShell
       eyebrow="Questions"
-      title="Frequently asked before upgrading"
-      copy="The pricing experience is designed to set expectations clearly before you ever hit checkout."
+      title="Common questions before you upgrade"
+      copy="Clear answers before checkout so you know what each plan includes."
     >
       <div class="card-grid two">
         <article class="surface-card panel stack">
@@ -94,16 +94,16 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
           <p class="section-copy">Yes. Your access continues until the current billing period ends.</p>
         </article>
         <article class="surface-card panel stack">
-          <h3>Where do subscriptions happen?</h3>
-          <p class="section-copy">The current flow is designed to begin from the extension after install, keeping billing aligned with your signed-in account.</p>
+          <h3>Where do I subscribe?</h3>
+          <p class="section-copy">Subscriptions start inside the extension after install, so billing stays tied to your signed-in account.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>What does Basic unlock?</h3>
-          <p class="section-copy">Basic adds cloud sync and storage-backed continuity without enabling premium text AI tools.</p>
+          <p class="section-copy">Basic adds cloud sync and storage-backed continuity. It does not include premium text AI tools.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>What does Enhanced unlock?</h3>
-          <p class="section-copy">Enhanced includes text-based AI tools and higher text-credit allowances on top of the full synced experience.</p>
+          <p class="section-copy">Enhanced adds text AI tools and higher text-credit allowances on top of full sync.</p>
         </article>
       </div>
     </SectionShell>

@@ -10,18 +10,18 @@ import { pricingPlans, trustPills } from '../data/site.js';
 const featureItems = [
   {
     icon: '🧭',
-    title: 'Clarity-first organization',
-    copy: 'Turn messy clipboard chaos into clean categories, searchable notes, and a workspace that feels intentional.',
+    title: 'Organize with clarity',
+    copy: 'Sort clips into categories and searchable notes so you can find them later.',
   },
   {
     icon: '☁️',
-    title: 'Cloud sync when you need it',
-    copy: 'Start local, then move up to synced storage across devices without changing the way you already work.',
+    title: 'Sync across devices',
+    copy: 'Start on one device. Add cloud sync when you work across browsers.',
   },
   {
     icon: '✨',
-    title: 'Readable AI assistance',
-    copy: 'Use summaries, breakdowns, and image tools only when they help, with a product experience that stays calm and usable.',
+    title: 'Optional AI tools',
+    copy: 'Use summaries and breakdowns when they help, without cluttering the core workflow.',
   },
 ];
 
@@ -30,19 +30,19 @@ const testimonials = [
     name: 'Sarah M.',
     role: 'UX Researcher',
     avatar: 'https://i.pravatar.cc/64?img=1',
-    quote: 'PasteCraft completely replaced my old clipboard workflow. The categories and cloud sync are exactly what I needed for cross-device research.',
+    quote: 'PasteCraft replaced my old clipboard workflow. Categories and cloud sync are what I needed for cross-device research.',
   },
   {
     name: 'James K.',
     role: 'Software Engineer',
     avatar: 'https://i.pravatar.cc/64?img=3',
-    quote: 'The AI breakdown feature saves me so much time parsing docs and code snippets. Clean UI, no friction — it just works.',
+    quote: 'AI breakdown saves time when I parse docs and code snippets. Clean UI with little friction.',
   },
   {
     name: 'Priya L.',
     role: 'Content Strategist',
     avatar: 'https://i.pravatar.cc/64?img=5',
-    quote: 'I copy a LOT of stuff every day. PasteCraft makes it all findable and usable. The free plan alone is already better than anything else I tried.',
+    quote: 'I copy a lot every day. PasteCraft makes it findable and usable. The free plan alone is better than tools I tried before.',
   },
 ];
 
@@ -55,42 +55,42 @@ const counterStats = [
 ---
 
 <BaseLayout
-  title="PasteCraft | Best Clipboard Manager & History Extension for Chrome & Edge"
-  description="PasteCraft is the best clipboard manager and history tool for Chrome and Edge. Save unlimited clips, organize with categories, sync across devices, and unlock AI-powered features. Free to start."
+  title="PasteCraft | Clipboard manager and history for Edge and Chrome"
+  description="PasteCraft saves what you copy, organizes clips into categories and notes, syncs across devices, and adds optional AI tools. Free to start on Edge. Chrome coming soon."
   keywords="clipboard manager, clipboard history, chrome extension, edge extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, AI clipboard, productivity tool, best clipboard manager"
   currentPath="/"
 >
   <Hero
-    eyebrow="Designed from the PasteCraft mark"
-    title="A clipboard manager that finally feels premium."
-    description="PasteCraft helps you keep every clip readable, organized, and ready to reuse. Save locally, sync across devices, and unlock AI-powered assistance only when it actually improves your flow."
+    eyebrow="Browser clipboard manager"
+    title="Keep every copy ready to reuse"
+    description="PasteCraft saves what you copy, organizes it into categories and notes, and syncs across devices when you need it. Use AI summaries and breakdowns only when they help."
     primaryHref="/pricing"
-    primaryLabel="Explore pricing"
+    primaryLabel="View pricing"
     secondaryHref="/about"
-    secondaryLabel="Why PasteCraft"
+    secondaryLabel="About PasteCraft"
   >
     <div class="hero-stack">
       <div class="hero-matrix">
         <div class="hero-panel surface-card panel">
           <span class="hero-label">Quick capture</span>
-          <strong>Save everything you copy.</strong>
-          <p>Keep plain text, notes, snippets, and research in a single polished system.</p>
+          <strong>Save everything you copy</strong>
+          <p>Keep text, notes, snippets, and research in one place.</p>
         </div>
         <div class="hero-panel surface-card panel accent">
-          <span class="hero-label">Readable design</span>
-          <strong>Built around the PasteCraft palette.</strong>
-          <p>Deep navy, rich gold, and soft glass surfaces make dense information easier to scan.</p>
+          <span class="hero-label">Easy to scan</span>
+          <strong>Built for dense content</strong>
+          <p>Navy and gold surfaces keep clips, settings, and plans easy to read.</p>
         </div>
       </div>
 
       <div class="browser-pills">
         <span class="pill pill-live">
           <span class="pill-dot"></span>
-          Edge — Live Now
+          Edge — Live
         </span>
         <span class="pill pill-soon">
           <span class="pill-dot"></span>
-          Chrome — Coming Soon
+          Chrome — Coming soon
         </span>
       </div>
     </div>
@@ -120,9 +120,9 @@ const counterStats = [
   </section>
 
   <SectionShell
-    eyebrow="What changes"
-    title="The upgrade from copy-and-paste to pastecrafting"
-    copy="The product is designed to work for students, researchers, coders, and busy operators who need more from copied information than a temporary clipboard can offer."
+    eyebrow="Features"
+    title="From temporary clipboard to lasting workspace"
+    copy="PasteCraft helps students, researchers, developers, and busy teams keep copied information useful after the copy moment ends."
   >
     <FeatureGrid items={featureItems} />
   </SectionShell>
@@ -132,10 +132,10 @@ const counterStats = [
       <div class="mockup-shell">
         <div class="mockup-text stack">
           <span class="eyebrow">Extension preview</span>
-          <h2 class="section-title">See it in action</h2>
-          <p class="section-copy">A focused panel right in your browser. Copy something, open PasteCraft, and it's already there — organized, searchable, and ready.</p>
+          <h2 class="section-title">See PasteCraft in your browser</h2>
+          <p class="section-copy">Copy text, open the extension, and find it saved, searchable, and ready to paste.</p>
           <div class="button-row">
-            <a class="button" href="/pricing">Get started free</a>
+            <a class="button" href="/pricing">Start free</a>
             <a class="ghost-button" href="/about">Learn more</a>
           </div>
         </div>
@@ -145,26 +145,26 @@ const counterStats = [
   </section>
 
   <SectionShell
-    eyebrow="Why it reads better"
-    title="Made to reduce friction, not add spectacle."
-    copy="The new visual system uses the logo's own tones to create a calmer reading surface for dense content, settings, pricing, and support flows."
+    eyebrow="Design"
+    title="Built to reduce friction"
+    copy="Typography, spacing, and contrast follow the PasteCraft palette so dense content stays easy to read."
   >
     <div class="split">
       <article class="surface-card panel stack">
         <h3>Readable by default</h3>
         <ul class="list-clean">
-          <li>Clearer typography scale with less visual noise.</li>
-          <li>Better spacing rhythm between actions, labels, and explanations.</li>
-          <li>Stronger contrast across navigation, cards, and legal content.</li>
+          <li>Clear typography with less visual noise.</li>
+          <li>Consistent spacing between actions, labels, and help text.</li>
+          <li>Strong contrast across navigation, cards, and legal pages.</li>
         </ul>
       </article>
 
       <article class="surface-card panel stack">
         <h3>Built for reliability</h3>
         <ul class="list-clean">
-          <li>Static-first marketing pages for fast delivery and easy maintenance.</li>
-          <li>Preserved pricing, upgrade, and account flows where behavior matters.</li>
-          <li>Cleaner shared components instead of page-by-page style duplication.</li>
+          <li>Static marketing pages for fast loads and simple updates.</li>
+          <li>Pricing, upgrade, and account flows stay aligned with the extension.</li>
+          <li>Shared components instead of one-off page styles.</li>
         </ul>
       </article>
     </div>
@@ -196,8 +196,8 @@ const counterStats = [
 
   <SectionShell
     eyebrow="Plans"
-    title="Choose the level that fits your workflow"
-    copy="Start free, move to synced storage, or unlock the full AI-assisted experience when your workload grows."
+    title="Choose a plan that fits"
+    copy="Start free, add cloud sync, or unlock AI tools when you need them."
   >
     <div class="card-grid three">
       {pricingPlans.map((plan) => (
@@ -211,7 +211,7 @@ const counterStats = [
           features={plan.features}
           popular={plan.popular}
         >
-          <a class={plan.popular ? 'button' : 'ghost-button'} href="/pricing">View details</a>
+          <a class={plan.popular ? 'button' : 'ghost-button'} href="/pricing">View pricing</a>
         </PricingCard>
       ))}
     </div>
@@ -271,18 +271,18 @@ const counterStats = [
   </script>
 
   <SectionShell
-    eyebrow="Ready when you are"
-    title="Bring better structure to every copied idea"
-    copy="Whether you stay on the free plan or subscribe inside the extension, PasteCraft is built to keep your clipboard history more useful, more legible, and more durable."
+    eyebrow="Get started"
+    title="Ready to organize your clipboard"
+    copy="Compare plans on the pricing page. Subscribe from inside the extension after you install."
   >
     <div class="surface-card panel cta-band">
       <div class="stack">
-        <h3>See the plans, compare the tiers, and subscribe when it fits.</h3>
-        <p class="section-copy">You can explore everything from the pricing page and finish subscription flows inside the extension experience.</p>
+        <h3>Compare plans and subscribe when you are ready</h3>
+        <p class="section-copy">Review tiers on the pricing page. Finish checkout inside the extension after install.</p>
       </div>
       <div class="button-row">
-        <a class="button" href="/pricing">Open pricing</a>
-        <a class="ghost-button" href="/account">Go to account</a>
+        <a class="button" href="/pricing">View pricing</a>
+        <a class="ghost-button" href="/account">Open account</a>
       </div>
     </div>
   </SectionShell>

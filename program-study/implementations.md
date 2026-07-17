@@ -1,3 +1,8 @@
+### Jul 16, 2026 - Website UX writing (Sitecore copywriter MCP)
+**Status:** PENDING USER VERIFY
+**Files:** website/src/pages/index.astro, pricing.astro, about.astro, contact.astro, upgrade.astro, Header.astro, Footer.astro, data/site.js
+**Result:** Applied Sitecore UX writing rules via copywriter MCP — sentence case, short CTAs, no invented words, less fluff; hero/pricing/about/contact/upgrade + shared chrome updated.
+
 ### Jul 9, 2026 - Widgets Tab (Embed Gallery)
 **Status:** SUCCESS
 **Files:** popup/features/widgets/*, popup.html, tab-nav.events.js, popup.features.js, auth.session.js, popup.events.js, theme-blue-phase2.css, tests/widgets-parse.test.mjs

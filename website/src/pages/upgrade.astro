@@ -8,46 +8,46 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
 ---
 
 <BaseLayout
-  title="Upgrade to Premium | PasteCraft"
-  description="Unlock synced storage and text-powered PasteCraft features with a cleaner, more readable upgrade page."
+  title="Upgrade | PasteCraft"
+  description="Unlock cloud sync and text AI tools in PasteCraft. Subscribe inside the extension after install."
   currentPath="/upgrade"
 >
   <div class="page-shell">
     <SectionShell
-      eyebrow="Premium access"
-      title="You found a feature worth upgrading for."
-      copy="PasteCraft keeps the core workflow light, then layers premium capabilities on top when you want more sync, more power, or more text AI assistance."
+      eyebrow="Upgrade"
+      title="You found a feature that needs a higher plan"
+      copy="PasteCraft keeps the core workflow light. Upgrade when you need cloud sync or text AI tools."
     >
       <div class="stack">
         <div class="feature-attempted surface-card panel" id="featureAttempted" style="display:none;">
           <span class="feature-icon" id="featureIcon">✨</span>
           <div>
             <strong>Feature preview</strong>
-            <p id="featureName" class="section-copy">Premium Feature</p>
+            <p id="featureName" class="section-copy">Premium feature</p>
           </div>
         </div>
 
         <div class="card-grid three">
           <article class="surface-card panel stack">
             <h3>AI breakdowns</h3>
-            <p class="section-copy">Translate dense text into clearer explanations across different comprehension levels.</p>
+            <p class="section-copy">Turn dense text into clearer explanations at different comprehension levels.</p>
           </article>
           <article class="surface-card panel stack">
             <h3>AI summaries</h3>
-            <p class="section-copy">Condense clipboard content quickly when you need the key points, not the full wall of text.</p>
+            <p class="section-copy">Pull key points from clipboard content when you do not need the full text.</p>
           </article>
           <article class="surface-card panel stack">
             <h3>Profile image uploads</h3>
-            <p class="section-copy">Keep your own uploaded images in the gallery for profile and widget use without adding AI image generation cost.</p>
+            <p class="section-copy">Keep uploaded images in the gallery for profile and widget use.</p>
           </article>
         </div>
       </div>
     </SectionShell>
 
     <SectionShell
-      eyebrow="Choose your tier"
+      eyebrow="Choose your plan"
       title="Subscribe inside the extension after install"
-      copy="The current upgrade flow is designed to begin from your signed-in PasteCraft extension so the subscription stays tied to the correct account."
+      copy="Start checkout from your signed-in PasteCraft extension so the subscription stays on the correct account."
     >
       <div class="card-grid two">
         <PricingCard
@@ -65,7 +65,7 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
             <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
             <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
           </div>
-          <span class="muted">Subscribe within the extension.</span>
+          <span class="muted">Subscribe inside the extension</span>
         </PricingCard>
 
         <PricingCard
@@ -84,13 +84,13 @@ const [, basicPlan, enhancedPlan] = pricingPlans;
             <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
             <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
           </div>
-          <span class="muted">Unlock text AI and sync together.</span>
+          <span class="muted">Text AI tools plus sync</span>
         </PricingCard>
       </div>
 
       <article class="surface-card panel notice">
         <h3>Already have the extension?</h3>
-        <p class="section-copy">Close this page, open PasteCraft from your browser toolbar, and use the upgrade action from your profile to continue.</p>
+        <p class="section-copy">Close this page, open PasteCraft from your browser toolbar, and use Upgrade in your profile to continue.</p>
       </article>
     </SectionShell>
   </div>
