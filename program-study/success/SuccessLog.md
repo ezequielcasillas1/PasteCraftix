@@ -1,4 +1,9 @@
 
+### Jul 17, 2026 - Restore AI markup vendor libs
+**Status:** SUCCESS
+**Files:** scripts/prepare-extension-libs.mjs, extension/lib/* (local via prepare:libs)
+**Result:** Extended prepare:libs for marked/purify/highlight/katex/mermaid; AI chat no longer falls back to monospace pre. User verified.
+
 ### Jul 13, 2026 - Capture Tools tooltip left + no em dash
 **Status:** SUCCESS
 **Files:** widget.styles.js, capture.stats.js

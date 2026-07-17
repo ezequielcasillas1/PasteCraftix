@@ -1,3 +1,8 @@
+### Jul 17, 2026 - Restore AI markup vendor libs
+**Status:** SUCCESS
+**Files:** scripts/prepare-extension-libs.mjs, extension/lib/* (gitignored; npm run prepare:libs)
+**Result:** prepare:libs now restores markdown/sanitize/highlight/katex/mermaid so AI Lab rich output works again. User verified.
+
 ### Jul 16, 2026 - Website UX writing (Sitecore copywriter MCP)
 **Status:** PENDING USER VERIFY
 **Files:** website/src/pages/index.astro, pricing.astro, about.astro, contact.astro, upgrade.astro, Header.astro, Footer.astro, data/site.js
