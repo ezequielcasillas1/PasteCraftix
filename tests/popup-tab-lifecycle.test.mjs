@@ -161,20 +161,23 @@ test('rapid activation shares one tab hydration promise', async () => {
 });
 
 test('measures cached tab rendering before hydration completes', async () => {
+  // Categories uses renderWhileHydrating — paints cached UI before async files hydrate.
   installDom();
   const order = [];
   const performanceApi = installPerformanceRecorder(order);
-  let resolveNotes;
+  let resolveFiles;
   let hydrationCompleted = false;
   const app = createApp({
-    renderNotes() { order.push('cached-render'); },
-    loadNotes() {
-      order.push('hydrate-start');
-      return new Promise((resolve) => { resolveNotes = resolve; });
+    renderCategories() { order.push('cached-render'); },
+    filesFeature: {
+      initialize() {
+        order.push('hydrate-start');
+        return new Promise((resolve) => { resolveFiles = resolve; });
+      },
     },
   });
 
-  const hydration = activatePopupTab(app, 'notes');
+  const hydration = activatePopupTab(app, 'categories');
   hydration.then(() => {
     hydrationCompleted = true;
     order.push('hydrate-end');
@@ -194,7 +197,7 @@ test('measures cached tab rendering before hydration completes', async () => {
   await Promise.resolve();
   assert.equal(order.includes('hydrate-start'), true);
   assert.equal(hydrationCompleted, false);
-  resolveNotes([]);
+  resolveFiles();
   await hydration;
   assert.equal(hydrationCompleted, true);
 
@@ -203,6 +206,7 @@ test('measures cached tab rendering before hydration completes', async () => {
 });
 
 test('stale hydration completion cannot repaint a newer tab', async () => {
+  // Notes shows loading (no paint) until hydrate; leaving before settle must not paint.
   installDom();
   let resolveNotes;
   let notesRenderCount = 0;
@@ -215,14 +219,14 @@ test('stale hydration completion cannot repaint a newer tab', async () => {
 
   const notesHydration = activatePopupTab(app, 'notes');
   await Promise.resolve();
+  assert.equal(notesRenderCount, 0, 'first visit shows loading, not a notes paint');
   await activatePopupTab(app, 'categories');
   resolveNotes([]);
   await notesHydration;
 
   assert.equal(app.currentTab, 'categories');
-  assert.equal(notesRenderCount, 1);
+  assert.equal(notesRenderCount, 0, 'stale notes hydrate must not paint after tab change');
 });
-
 test('session restore defaults invalid saved tabs to Clips only', async () => {
   installDom();
   let clipsRenderCount = 0;
