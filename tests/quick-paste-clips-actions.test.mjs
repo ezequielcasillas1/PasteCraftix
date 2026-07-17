@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { test, before, describe } from 'node:test';
+import { test, before, after, describe } from 'node:test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -286,12 +286,23 @@ function createQpFixture(overrides = {}) {
 }
 
 let actions;
+const originalDocument = globalThis.document;
+const originalChrome = globalThis.chrome;
+const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 
 before(async () => {
   installBrowserMocks();
   actions = await import(
     pathToFileURL(path.join(qpDir, 'qp.clips-actions.js')).href
   );
+});
+
+after(() => {
+  globalThis.document = originalDocument;
+  globalThis.chrome = originalChrome;
+  if (originalNavigatorDescriptor) {
+    Object.defineProperty(globalThis, 'navigator', originalNavigatorDescriptor);
+  }
 });
 
 describe('PR145 module graph (known smoke expansion)', () => {
