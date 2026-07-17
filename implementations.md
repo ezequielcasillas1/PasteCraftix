@@ -1,3 +1,7 @@
+### Jul 17, 2026 - Restore AI markup vendor libs
+**Status:** SUCCESS
+**Files:** scripts/prepare-extension-libs.mjs, extension/lib/* (via prepare:libs)
+**Result:** Restored marked/purify/highlight/katex/mermaid download path; AI chat rich formatting works. User verified.
 
 ### Jul 11, 2026 - Categories blue loader cascade (follow-up)
 **Status:** SUCCESS
