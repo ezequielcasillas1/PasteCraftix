@@ -2771,6 +2771,400 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   outline-offset: 2px;
 }
 
+/* ── 3H+: Note/Album editor + viewer modals (blue premium) ───────────── */
+
+[data-theme="blue"] #noteEditorModal .note-editor-content,
+[data-theme="blue"] #albumInterlayingEditorModal .note-editor-content,
+[data-theme="blue"] #noteViewerModal .note-viewer-content,
+[data-theme="blue"] #albumAttachmentViewerModal .note-viewer-content,
+[data-theme="blue"] #albumSourceNoteModal .note-viewer-content {
+  background:
+    radial-gradient(ellipse 110% 55% at 50% -18%, rgba(37, 99, 235, 0.2), transparent 55%),
+    var(--pc-surface);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(30, 58, 138, 0.45),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] #noteEditorModal .modal-header,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-header,
+[data-theme="blue"] #noteViewerModal .modal-header,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-header,
+[data-theme="blue"] #albumSourceNoteModal .modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.22), transparent 38%),
+    var(--pc-gradient-header);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 18px var(--pc-glow);
+}
+
+[data-theme="blue"] #noteEditorModal .modal-header h3,
+[data-theme="blue"] #noteEditorModal .modal-header h3 svg,
+[data-theme="blue"] #noteEditorModal .modal-header h3 [data-lucide],
+[data-theme="blue"] #albumInterlayingEditorModal .modal-header h3,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-header h3 svg,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-header h3 [data-lucide],
+[data-theme="blue"] #noteViewerModal .modal-header h3,
+[data-theme="blue"] #noteViewerModal .modal-header h3 svg,
+[data-theme="blue"] #noteViewerModal .modal-header h3 [data-lucide],
+[data-theme="blue"] #albumAttachmentViewerModal .modal-header h3,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-header h3 svg,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-header h3 [data-lucide],
+[data-theme="blue"] #albumSourceNoteModal .modal-header h3,
+[data-theme="blue"] #albumSourceNoteModal .modal-header h3 svg,
+[data-theme="blue"] #albumSourceNoteModal .modal-header h3 [data-lucide] {
+  color: #fff;
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #noteEditorModal .modal-body,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-body,
+[data-theme="blue"] #noteViewerModal .modal-body,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-body,
+[data-theme="blue"] #albumSourceNoteModal .modal-body {
+  background: transparent;
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] #noteEditorModal .modal-footer,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-footer,
+[data-theme="blue"] #noteViewerModal .modal-footer,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-footer,
+[data-theme="blue"] #albumSourceNoteModal .modal-footer {
+  background: var(--pc-glass-strong);
+  border-top: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] #noteEditorModal .modal-footer .btn-primary,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-footer .btn-primary,
+[data-theme="blue"] #noteViewerModal .modal-footer .btn-primary,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-footer .btn-primary,
+[data-theme="blue"] #albumSourceNoteModal .modal-footer .btn-primary {
+  background: var(--pc-gradient-brand-soft);
+  color: #fff;
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  box-shadow: var(--pc-shadow-brand);
+}
+
+[data-theme="blue"] #noteEditorModal .modal-footer .btn-secondary,
+[data-theme="blue"] #albumInterlayingEditorModal .modal-footer .btn-secondary,
+[data-theme="blue"] #noteViewerModal .modal-footer .btn-secondary,
+[data-theme="blue"] #albumAttachmentViewerModal .modal-footer .btn-secondary,
+[data-theme="blue"] #albumSourceNoteModal .modal-footer .btn-secondary {
+  background: var(--pc-surface-2);
+  color: var(--pc-secondary-50);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+}
+
+/* Editor — AI assistant card + fields */
+[data-theme="blue"] #noteEditorModal .note-ai-toggle-container,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-toggle-container {
+  background:
+    radial-gradient(ellipse 120% 80% at 10% 0%, rgba(96, 165, 250, 0.22), transparent 55%),
+    linear-gradient(160deg, rgba(30, 64, 175, 0.35) 0%, rgba(15, 23, 42, 0.92) 100%);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(147, 197, 253, 0.12);
+}
+
+[data-theme="blue"] #noteEditorModal .note-ai-toggle-container .notes-ai-toggle,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-toggle-container .notes-ai-toggle {
+  background: rgba(11, 18, 32, 0.85);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="blue"] #noteEditorModal .note-ai-toggle-container .notes-ai-label,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-toggle-container .notes-ai-label {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] #noteEditorModal .note-ai-hint,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-hint {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #noteEditorModal .form-group label,
+[data-theme="blue"] #albumInterlayingEditorModal .form-group label,
+[data-theme="blue"] #noteEditorModal .note-attachments-section h4,
+[data-theme="blue"] #albumInterlayingEditorModal .note-attachments-section h4 {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #noteEditorModal .field-hint,
+[data-theme="blue"] #albumInterlayingEditorModal .field-hint {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] #noteEditorModal .note-input-field,
+[data-theme="blue"] #noteEditorModal .note-textarea-field,
+[data-theme="blue"] #albumInterlayingEditorModal .note-input-field,
+[data-theme="blue"] #albumInterlayingEditorModal .note-textarea-field {
+  background: var(--pc-surface-2);
+  border: 1.5px solid rgba(59, 130, 246, 0.55);
+  color: var(--pc-secondary-50);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] #noteEditorModal .note-input-field::placeholder,
+[data-theme="blue"] #noteEditorModal .note-textarea-field::placeholder,
+[data-theme="blue"] #albumInterlayingEditorModal .note-input-field::placeholder,
+[data-theme="blue"] #albumInterlayingEditorModal .note-textarea-field::placeholder {
+  color: var(--pc-text-soft);
+}
+
+[data-theme="blue"] #noteEditorModal .note-input-field:focus,
+[data-theme="blue"] #noteEditorModal .note-textarea-field:focus,
+[data-theme="blue"] #albumInterlayingEditorModal .note-input-field:focus,
+[data-theme="blue"] #albumInterlayingEditorModal .note-textarea-field:focus {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] #noteEditorModal .note-ai-btn,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-btn {
+  background: var(--pc-glass);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #noteEditorModal .note-ai-btn:hover,
+[data-theme="blue"] #albumInterlayingEditorModal .note-ai-btn:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-btn,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-btn {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.96) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-100);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.08);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-btn:hover,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-btn:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: var(--pc-secondary-300);
+  color: var(--pc-secondary-50);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-item,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-item {
+  background: var(--pc-glass);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-text,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-text {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-date,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-date {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #noteEditorModal .attachment-remove:hover,
+[data-theme="blue"] #albumInterlayingEditorModal .attachment-remove:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+[data-theme="blue"] #noteEditorModal .attachments-list,
+[data-theme="blue"] #albumInterlayingEditorModal .attachments-list {
+  scrollbar-color: var(--pc-secondary-500) var(--pc-surface);
+}
+
+/* Viewer — description / content / attachments */
+[data-theme="blue"] #noteViewerModal .note-viewer-section,
+[data-theme="blue"] #albumAttachmentViewerModal .note-viewer-section,
+[data-theme="blue"] #albumSourceNoteModal .note-viewer-section {
+  border-bottom-color: rgba(59, 130, 246, 0.22);
+}
+
+[data-theme="blue"] #noteViewerModal .note-viewer-section-title,
+[data-theme="blue"] #albumAttachmentViewerModal .note-viewer-section-title,
+[data-theme="blue"] #albumSourceNoteModal .note-viewer-section-title {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #noteViewerModal #noteViewerDesc,
+[data-theme="blue"] #albumSourceNoteModal #albumSourceNoteDesc,
+[data-theme="blue"] #noteViewerModal .note-viewer-section > p,
+[data-theme="blue"] #albumAttachmentViewerModal .note-viewer-section > p,
+[data-theme="blue"] #albumSourceNoteModal .note-viewer-section > p {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #noteViewerModal .note-viewer-text,
+[data-theme="blue"] #albumAttachmentViewerModal .note-viewer-text,
+[data-theme="blue"] #albumSourceNoteModal .note-viewer-text {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.96) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--pc-secondary-50);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(147, 197, 253, 0.08);
+}
+
+[data-theme="blue"] #noteViewerModal .btn-copy-viewer,
+[data-theme="blue"] #albumSourceNoteModal .btn-copy-viewer {
+  background: var(--pc-glass);
+  color: var(--pc-secondary-200);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.1);
+}
+
+[data-theme="blue"] #noteViewerModal .btn-copy-viewer:hover,
+[data-theme="blue"] #albumSourceNoteModal .btn-copy-viewer:hover {
+  background: rgba(59, 130, 246, 0.22);
+  color: var(--pc-secondary-50);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 4px 12px var(--pc-glow);
+}
+
+[data-theme="blue"] #noteViewerModal .viewer-attachment-item,
+[data-theme="blue"] #albumSourceNoteModal .viewer-attachment-item {
+  background: var(--pc-glass);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
+}
+
+[data-theme="blue"] #noteViewerModal .viewer-attachment-item:hover,
+[data-theme="blue"] #albumSourceNoteModal .viewer-attachment-item:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #noteViewerModal .viewer-attachment-text,
+[data-theme="blue"] #albumSourceNoteModal .viewer-attachment-text {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #noteViewerModal .btn-copy-attachment,
+[data-theme="blue"] #albumSourceNoteModal .btn-copy-attachment {
+  background: var(--pc-surface-2);
+  color: var(--pc-secondary-200);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+}
+
+[data-theme="blue"] #noteViewerModal .btn-copy-attachment:hover,
+[data-theme="blue"] #albumSourceNoteModal .btn-copy-attachment:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--pc-secondary-50);
+  border-color: var(--pc-secondary-300);
+}
+
+/* Clip picker (Add Clip from note editor) */
+[data-theme="blue"] #clipPickerModal .clip-picker-content {
+  background:
+    radial-gradient(ellipse 110% 55% at 50% -18%, rgba(37, 99, 235, 0.18), transparent 55%),
+    var(--pc-surface);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(30, 58, 138, 0.45),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] #clipPickerModal .modal-header {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 38%),
+    var(--pc-gradient-header);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 18px var(--pc-glow);
+}
+
+[data-theme="blue"] #clipPickerModal .modal-header h3 {
+  color: #fff;
+}
+
+[data-theme="blue"] #clipPickerModal .modal-body {
+  background: transparent;
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-tabs {
+  border-bottom-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-tab {
+  color: var(--pc-text-muted);
+  background: transparent;
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-tab:hover {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-tab.active {
+  color: var(--pc-secondary-50);
+  border-bottom-color: var(--pc-secondary-400);
+  background: rgba(59, 130, 246, 0.14);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-item {
+  background: var(--pc-glass);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-item:hover {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-footer {
+  background: var(--pc-glass-strong);
+  border-top: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="blue"] #clipPickerModal .clip-picker-selection-count {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] #albumPickerModal .note-input-field {
+  background: var(--pc-surface-2);
+  border: 1.5px solid rgba(59, 130, 246, 0.5);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #albumPickerModal .note-input-field:focus {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] #clipPickerModal .note-input-field {
+  background: var(--pc-surface-2);
+  border: 1.5px solid rgba(59, 130, 246, 0.5);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] #clipPickerModal .note-input-field:focus {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+  outline: none;
+}
+
+[data-theme="blue"] #noteEditorModal :focus-visible,
+[data-theme="blue"] #albumInterlayingEditorModal :focus-visible,
+[data-theme="blue"] #noteViewerModal :focus-visible,
+[data-theme="blue"] #albumAttachmentViewerModal :focus-visible,
+[data-theme="blue"] #albumSourceNoteModal :focus-visible,
+[data-theme="blue"] #clipPickerModal :focus-visible {
+  outline: 2px solid var(--pc-secondary-300);
+  outline-offset: 2px;
+}
+
 /* ── 3I: Custom Search + AI Breakdown ─────────────────────────────────── */
 
 /* Custom Search module — white shell → navy glass */
