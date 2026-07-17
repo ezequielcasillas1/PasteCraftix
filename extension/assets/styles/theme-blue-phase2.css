@@ -1645,6 +1645,217 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   color: var(--pc-secondary-100);
 }
 
+/* ── 3E: Profile premium cards (account, names, AI funky name) ──────── */
+
+[data-theme="blue"] .account-info-card,
+[data-theme="blue"] .account-info-guest,
+[data-theme="blue"] .profile-name-block,
+[data-theme="blue"] .profile-setting-item {
+  background: var(--pc-glass);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: var(--pc-radius-md);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.45),
+    0 4px 14px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+  color: var(--pc-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+[data-theme="blue"] .account-info-card:hover,
+[data-theme="blue"] .profile-name-block:hover,
+[data-theme="blue"] .profile-setting-item:hover {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.35),
+    0 6px 20px rgba(37, 99, 235, 0.25),
+    inset 0 1px 0 rgba(96, 165, 250, 0.12);
+}
+
+[data-theme="blue"] .account-info-guest {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--pc-glass) 100%);
+}
+
+[data-theme="blue"] .account-info-guest p,
+[data-theme="blue"] .account-info-guest strong {
+  color: #fcd34d;
+}
+
+[data-theme="blue"] .account-info-row {
+  border-bottom-color: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="blue"] .account-info-label {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .account-info-value {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .account-info-value.account-info-email {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .account-info-badge.is-verified {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="blue"] .account-info-badge.is-pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="blue"] .account-info-note,
+[data-theme="blue"] .profile-name-block-hint,
+[data-theme="blue"] .profile-note {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .btn-account-action {
+  background: var(--pc-glass);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .btn-account-action:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--pc-secondary-400);
+  color: #fff;
+  box-shadow: 0 0 12px var(--pc-glow);
+}
+
+[data-theme="blue"] .btn-account-action.btn-account-primary {
+  background: var(--pc-gradient-brand-soft);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+[data-theme="blue"] .btn-account-action.btn-account-primary:hover {
+  background: var(--pc-gradient-brand);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
+}
+
+[data-theme="blue"] .profile-name-block--ai {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, var(--pc-glass) 100%);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.3),
+    0 4px 16px rgba(37, 99, 235, 0.25),
+    inset 0 1px 0 rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="blue"] .profile-name-block-title,
+[data-theme="blue"] .profile-name-block-head {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .profile-name-block-badge {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .profile-name-block-badge--ai {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: rgba(34, 211, 238, 0.25);
+  color: #22d3ee;
+}
+
+[data-theme="blue"] .ai-name-display {
+  background: var(--pc-glass);
+  border: 1.5px solid var(--pc-secondary-400);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.25),
+    0 6px 20px rgba(37, 99, 235, 0.2),
+    inset 0 1px 0 rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="blue"] .ai-name-label {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .profile-setting-label {
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .profile-setting-status {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="blue"] .profile-image-container.scrolled {
+  background: var(--pc-glass-strong);
+  border-bottom: 1px solid var(--pc-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* ── 3E: Profile picture workflow + account danger ───────────────────── */
+
+[data-theme="blue"] .profile-image-container {
+  background: var(--pc-surface);
+}
+
+[data-theme="blue"] .workflow-step {
+  color: var(--pc-secondary-200);
+  background: var(--pc-glass);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 10px var(--pc-glow);
+}
+
+[data-theme="blue"] .workflow-note {
+  background: var(--pc-glass);
+  border: 1px solid var(--pc-border);
+  border-left: 4px solid #f59e0b;
+  color: var(--pc-text-muted);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="blue"] .profile-image-placeholder {
+  background: linear-gradient(135deg, var(--pc-primary-700) 0%, var(--pc-surface) 100%);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="blue"] .profile-placeholder-icon {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .profile-image-loading {
+  background: rgba(10, 18, 40, 0.92);
+}
+
+[data-theme="blue"] .loading-spinner {
+  border-color: var(--pc-border);
+  border-top-color: var(--pc-secondary-400);
+}
+
+[data-theme="blue"] .loading-text,
+[data-theme="blue"] .loading-hint {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .btn-danger.btn-block {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, var(--pc-glass) 100%);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.2),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="blue"] .btn-danger.btn-block:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
 /* ── 3F: Modals ──────────────────────────────────────────────────────── */
 
 [data-theme="blue"] .modal-content {
@@ -2250,22 +2461,57 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   color: var(--pc-secondary-50) !important;
 }
 
+/* Widgets empty — premium blue card (match tab-loading shell) */
+[data-theme="blue"] #widgetsTab .empty-state {
+  background:
+    radial-gradient(ellipse 140% 90% at 50% -25%, rgba(59, 130, 246, 0.28), transparent 60%),
+    linear-gradient(160deg, rgba(37, 99, 235, 0.42) 0%, rgba(11, 18, 32, 0.96) 55%, rgba(5, 8, 15, 0.98) 100%);
+  border: 1.5px solid rgba(96, 165, 250, 0.5);
+  border-radius: var(--pc-radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(59, 130, 246, 0.28),
+    0 12px 36px rgba(29, 78, 216, 0.45),
+    inset 0 1px 0 rgba(147, 197, 253, 0.2);
+}
+
+[data-theme="blue"] #widgetsTab .empty-state h3 {
+  background: linear-gradient(135deg, #93c5fd 0%, var(--pc-secondary-200) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="blue"] #widgetsTab .empty-state p {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] #widgetsTab .empty-state-icon {
+  color: var(--pc-secondary-200);
+  filter: drop-shadow(0 0 14px rgba(59, 130, 246, 0.45));
+}
+
+[data-theme="blue"] #widgetsTab .empty-state-icon svg.lucide,
+[data-theme="blue"] #widgetsTab .empty-state-icon [data-lucide] {
+  stroke: currentColor;
+}
+
+[data-theme="blue"] #widgetsTab .demo-step {
+  background: linear-gradient(135deg, var(--pc-secondary-400) 0%, var(--pc-secondary-500) 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
 [data-theme="blue"] #activityTab .empty-state h3,
-[data-theme="blue"] #widgetsTab .empty-state h3,
 [data-theme="blue"] #notesTab .empty-state h3,
 [data-theme="blue"] #aiHistoryTab .empty-state h3 {
   color: var(--pc-secondary-50);
 }
 
 [data-theme="blue"] #activityTab .empty-state p,
-[data-theme="blue"] #widgetsTab .empty-state p,
 [data-theme="blue"] #notesTab .empty-state p,
 [data-theme="blue"] #aiHistoryTab .empty-state p {
   color: var(--pc-text-muted);
 }
 
 [data-theme="blue"] #activityTab .empty-state-icon,
-[data-theme="blue"] #widgetsTab .empty-state-icon,
 [data-theme="blue"] #notesTab .empty-state-icon,
 [data-theme="blue"] #aiHistoryTab .empty-state-icon {
   color: var(--pc-secondary-300);
