@@ -111,6 +111,7 @@ export function showBreakdownModal(app, text) {
   setBreakdownOriginalText(text, { sourceMode: 'fresh', collapsed: false });
 
   breakdownModal.style.display = 'flex';
+  window.renderLucideIcons?.(breakdownModal);
 
   const breakdownResult = document.getElementById('breakdownResult');
   if (breakdownResult) breakdownResult.innerHTML = '';

@@ -11972,7 +11972,10 @@ Multiple clips are separated by:
             <div class="modal-content breakdown-modal-content">
                 <div class="modal-header breakdown-modal-header">
                     <div class="breakdown-header-content">
-                        <h3 id="aiHistoryModalTitle" class="ai-history-modal-title-display"><i data-lucide="scroll-text"></i> Conversation</h3>
+                        <div class="ai-history-title-row">
+                            <h3 id="aiHistoryModalTitle" class="ai-history-modal-title-display">Conversation</h3>
+                            <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title" aria-label="Edit title"><i data-lucide="pencil-line"></i></button>
+                        </div>
                         <div id="aiHistoryTitleEditContainer" class="ai-history-title-edit-container" style="display:none;">
                             <input type="text" id="aiHistoryTitleInput" class="ai-history-title-input" maxlength="60" placeholder="Enter title..." />
                             <button class="ai-history-title-save-btn" id="aiHistoryTitleSaveBtn" title="Save">✓</button>
@@ -11981,7 +11984,6 @@ Multiple clips are separated by:
                         <p class="breakdown-header-subtitle" id="aiHistoryModalSubtitle"></p>
                     </div>
                     <div class="breakdown-header-actions">
-                        <button class="ai-history-edit-title-btn" id="editAiHistoryTitleBtn" title="Edit title"><i data-lucide="pencil-line"></i></button>
                         <button class="modal-close" id="closeAiHistoryModal">✕</button>
                     </div>
                 </div>

@@ -283,6 +283,7 @@ export async function openAiHistoryModal(entry) {
   _toggleRefactorModalUi(entry);
   _renderHistoryModalHeader(entry, titleEl, subtitleEl);
   modal.style.display = 'flex';
+  window.renderLucideIcons?.(modal);
   await _renderCurrentHistoryThread(this, entry, resultEl);
   _emitHistoryFromLatestThread(this, entry, { fromModalOpen: true, threadIndex: 0 });
   this._renderHistoryPagination();
@@ -840,7 +841,9 @@ function _serializeBreakdownThreads(threads) {
 
 function _openBreakdownModal() {
   const modal = document.getElementById('breakdownModal');
-  if (modal) modal.style.display = 'flex';
+  if (!modal) return;
+  modal.style.display = 'flex';
+  window.renderLucideIcons?.(modal);
 }
 
 function _populateBreakdownOriginalText(app) {

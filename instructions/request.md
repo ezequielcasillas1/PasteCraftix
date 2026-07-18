@@ -800,7 +800,7 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 
 #### 59. Blue Dark Mode UI Theme (Leonardo Catalog Look)
 **Priority:** High  
-**Status:** Phase 1 ✅; Phase 2 ✅; Phase 3 mostly done (3G chrome; 3H Clip Viewer/Album; 3I Custom Search + AI Breakdown pending verify); Batch 3 Craft Clips + Settings/Profile polish + Phase 4 content widget remaining  
+**Status:** Phase 1 ✅; Phase 2 ✅; Phase 3 mostly done (3G chrome; 3H Clip Viewer/Album; 3I Custom Search + AI Breakdown; Batch 3 Craft Clips pending verify); Settings/Profile polish + Phase 4 content widget remaining  
 **Refs:** `docs/design/blue-dark-mode-refs/` (Leonardo catalog PNGs + README)  
 **Naming:**
 - `light` = current PasteCraft (default, unchanged)
