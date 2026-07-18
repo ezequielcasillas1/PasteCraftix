@@ -40,7 +40,10 @@ export async function magicFormat() {
   app._updateMagicSelectedCount();
 
   const modal = document.getElementById('magicPreviewModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    window.renderLucideIcons?.(modal);
+  }
 }
 
 function _animateMagicWand() {
@@ -1661,6 +1664,7 @@ export function _showMagicResults(stats) {
   _populateMagicResultsModal(app, stats);
   _emitCraftArtifact(app, stats);
   modal.style.display = 'flex';
+  window.renderLucideIcons?.(modal);
 }
 
 function _showMagicResultsToastFallback(app, stats) {

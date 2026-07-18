@@ -92,7 +92,10 @@ export function registerCraftToolbarEvents(app) {
     // Magic info button � opens info modal
     const magicInfoBtn = document.getElementById('magicInfoBtn');
     if (magicInfoBtn) magicInfoBtn.addEventListener('click', () => {
-      document.getElementById('magicInfoModal').style.display = 'flex';
+      const infoModal = document.getElementById('magicInfoModal');
+      if (!infoModal) return;
+      infoModal.style.display = 'flex';
+      window.renderLucideIcons?.(infoModal);
     });
     const closeMagicInfo = document.getElementById('closeMagicInfo');
     if (closeMagicInfo) closeMagicInfo.addEventListener('click', () => {
