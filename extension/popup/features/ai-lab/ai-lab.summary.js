@@ -130,7 +130,10 @@ export function showSummarySection(section) {
 
   if (section === 'input' && inputSection) inputSection.style.display = 'block';
   if (section === 'questions' && questionsSection) questionsSection.style.display = 'block';
-  if (section === 'result' && resultSection) resultSection.style.display = 'block';
+  if (section === 'result' && resultSection) {
+    resultSection.style.display = 'block';
+    window.renderLucideIcons?.(resultSection);
+  }
 }
 
 export async function generateSummaryQuestions(text) {

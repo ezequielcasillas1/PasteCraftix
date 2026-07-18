@@ -81,6 +81,7 @@ const BOOT_SHELL_SELECTORS = [
   '#upgradeBanner',
   '#manualInputSection',
   '.tab-nav',
+  '#magicWand',
 ];
 
 function collectBootPlaceholders(activeTabRoot) {
