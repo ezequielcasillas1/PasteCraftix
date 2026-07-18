@@ -1,12 +1,14 @@
 # Vertical slice refactor — remainder
 
-Completed prior runs: Phase A (popup orchestrator ~1581→shell), Phase B (supabase shim), Phase C (content entry + 2 classes), Phase D (background handler split external/internal), widget shell → `widget.controller.js`, quick-paste `qp.*` chain complete.
+Completed prior runs: Phase A (popup orchestrator ~1581→shell), Phase B (supabase shim), Phase C (content entry + 2 classes), Phase D (background handler split external/internal), widget shell → `widget.controller.js`, quick-paste `qp.*` chain complete, background capture + window/clips handler families.
 
 ## Next slice (daily automation)
 
-**background remainder** — extract remaining `message.action` handlers from `messages-internal.js` into per-family handler files (`window`, `quickview`, `clips-broadcast`; defer `pcRefreshSupabaseToken` / `pcCreateCheckout` to human-led if touching auth/billing write paths). Messaging foundation + capture cluster done 2026-07-17.
+**popup thin delegates** — remove ~300 thin `Feature.method.call(this)` delegates where `popup/events/*` can call feature modules directly; `popup.js` ~1389 lines.
 
 Alternate: **widget high-risk** — `loadQuickViewContent` / `setupAutoCopyListener` (Opus-level; max-1). Escalate to human-led Opus.
+
+Background auth/billing remainder (not daily): `pcRefreshSupabaseToken`, `pcCreateCheckout` still in `messages-internal.js` — human-led if extracted.
 
 ---
 
@@ -18,9 +20,10 @@ Priority order for daily automation — pick next incomplete item:
    - Done: `qp.helpers.js`, `qp.constants.js`, `qp.styles.js`, `qp.storage.js`, `qp.render.js`, `qp.events.js`, `qp.paste.js`, `qp.settings-modal.js`, `qp.clips-actions.js`, `qp.controller.js`
    - Quick-paste qp.* chain complete
 2. **widget** — remaining high-risk extractions in existing `widget.*` modules (`loadQuickViewContent`, `setupAutoCopyListener` — Opus-level; max-1 slice)
-3. **background** — one handler file per `message.action` (current: external + internal + **capture cluster** via `messaging/` router)
+3. **background** — one handler file per `message.action` via `messaging/` router
    - Done (2026-07-17): `messaging/message-types.js`, `messaging/router.js`, `handlers/capture.handler.js` (`pcCaptureRegion`, `pcGetPageSelection`, `pcCopyText`)
-   - Remainder: `pcOpenPopupWindow`, Quick View get/delete, `refreshClips`/`clipsUpdated`, `saveClip`; defer auth/checkout unless dedicated run
+   - Done (2026-07-18): `handlers/window.handler.js` (`pcOpenPopupWindow`), `handlers/clips.handler.js` (`saveClip`, Quick View get/delete, `refreshClips`/`clipsUpdated`)
+   - Deferred (human-led): `pcRefreshSupabaseToken`, `pcCreateCheckout` remain in `messages-internal.js`
 4. **popup** — remove ~300 thin `Feature.method.call(this)` delegates where `popup/events/*` can call feature modules directly (grep before delete); `popup.js` ~1389 lines
 5. **Phase E** (optional) — `notes.album.js`, `ai-lab.magic.js`, `clips.render.js` after content/widget sub-slices stable
 
@@ -34,6 +37,7 @@ Do **not** queue for daily automation. Escalate to human-led Opus run with expli
 - **Edge Functions**, migrations, RLS policies
 - **Storage schema** changes, storage key renames, `SCHEMA_VERSION` / `onInstalled` migrations
 - **manifest.json** edits (Section G / publish only)
+- **Background auth/billing handlers** — `pcRefreshSupabaseToken`, `pcCreateCheckout`
 
 Supabase filename churn (`clips-sync.js` vs `sync-clips.js`) — defer unless worth churn during a dedicated human-led slice.
 

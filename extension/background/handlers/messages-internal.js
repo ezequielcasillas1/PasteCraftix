@@ -1,29 +1,30 @@
-import {
-  normalizeArray,
-  safeTabsSendMessage,
-  getExtensionPageUrl,
-  saveTextDirectly,
-  getQuickViewClips,
-  deleteQuickViewClip,
-} from '../shared.js';
 import { createInternalMessageRouter } from '../messaging/router.js';
-import { createCaptureHandlerMap } from './capture.handler.js';
 import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
+import { createCaptureHandlerMap } from './capture.handler.js';
+import { createWindowHandlerMap } from './window.handler.js';
+import { createClipsHandlerMap } from './clips.handler.js';
 
-const routeCaptureMessage = createInternalMessageRouter(createCaptureHandlerMap());
+const routedHandlers = {
+  ...createCaptureHandlerMap(),
+  ...createWindowHandlerMap(),
+  ...createClipsHandlerMap(),
+};
+
+const routeRoutedMessage = createInternalMessageRouter(routedHandlers);
+
+function isRoutedAction(action) {
+  return Object.prototype.hasOwnProperty.call(routedHandlers, action);
+}
 
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
 // =====================================================
+// Routed families: capture, window, clips/quickview/broadcast.
+// Deferred in-file: pcRefreshSupabaseToken, pcCreateCheckout (auth/billing).
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const action = message && typeof message.action === 'string' ? message.action : '';
 
-  // Capture Tools family — routed via messaging/router + capture.handler
-  if (
-    action === A.PC_CAPTURE_REGION ||
-    action === A.PC_GET_PAGE_SELECTION ||
-    action === A.PC_COPY_TEXT
-  ) {
-    return routeCaptureMessage(message, sender, sendResponse);
+  if (isRoutedAction(action)) {
+    return routeRoutedMessage(message, sender, sendResponse);
   }
 
   if (!sender || (sender.id && sender.id !== chrome.runtime.id)) {
@@ -41,41 +42,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   })();
 
   console.log('📨 Internal message received:', action);
-
-  if (action === A.PC_OPEN_POPUP_WINDOW) {
-    try {
-      const rawUrl = message && typeof message.url === 'string' ? message.url : '';
-      const page = message && typeof message.page === 'string' ? message.page : '';
-      const width = Number.isFinite(message?.width) ? Math.max(200, Math.round(message.width)) : 980;
-      const height = Number.isFinite(message?.height) ? Math.max(200, Math.round(message.height)) : 720;
-
-      const extensionOrigin = chrome.runtime.getURL('');
-      const finalUrl = rawUrl || (page ? getExtensionPageUrl(page) : '');
-
-      if (!finalUrl) {
-        sendResponse({ success: false, error: 'missing_url' });
-        return false;
-      }
-
-      if (!finalUrl.startsWith(extensionOrigin)) {
-        sendResponse({ success: false, error: 'disallowed_url' });
-        return false;
-      }
-
-      chrome.windows.create({ url: finalUrl, type: 'popup', width, height, focused: true }, () => {
-        const err = chrome.runtime.lastError;
-        if (err) {
-          sendResponse({ success: false, error: err.message || String(err) });
-        } else {
-          sendResponse({ success: true });
-        }
-      });
-      return true; // async sendResponse
-    } catch (e) {
-      sendResponse({ success: false, error: e?.message || String(e) });
-      return false;
-    }
-  }
 
   if (action === A.PC_REFRESH_SUPABASE_TOKEN) {
     if (!isExtensionPage) {
@@ -136,75 +102,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
 
     return true;
-  }
-
-  if (action === A.SAVE_CLIP) {
-    // Handle auto-copy save from content script
-    saveTextDirectly(
-      message.text,
-      message.category || 'Uncategorized',
-      message.autoShow !== false,
-      message.meta || null
-    )
-      .then(() => {
-        sendResponse({ success: true });
-      })
-      .catch((error) => {
-        console.error('❌ Failed to save clip:', error);
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Keep message channel open for async response
-  }
-
-  if (action === A.PC_GET_QUICK_VIEW_CLIPS) {
-    getQuickViewClips()
-      .then((clips) => {
-        sendResponse({ success: true, clips });
-      })
-      .catch((error) => {
-        console.error('❌ Failed to get Quick View clips:', error);
-        // #region agent log
-        console.warn('[PasteCraft:debug:liked0711]', {
-          runId: 'post-fix',
-          hypothesisId: 'H7',
-          location: 'messages-internal.js:pcGetQuickViewClips',
-          message: 'qv get failed',
-          data: { error: String(error?.message || error) },
-        });
-        // #endregion
-        sendResponse({ success: false, error: error?.message || String(error), clips: [] });
-      });
-    return true;
-  }
-
-  if (action === A.PC_DELETE_QUICK_VIEW_CLIP) {
-    deleteQuickViewClip({
-      clipId: message.clipId,
-      archived: message.archived === true,
-      index: message.index,
-    })
-      .then((clips) => {
-        chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
-        sendResponse({ success: true, clips });
-      })
-      .catch((error) => {
-        console.error('❌ Failed to delete Quick View clip:', error);
-        sendResponse({ success: false, error: error?.message || String(error), clips: [] });
-      });
-    return true;
-  }
-
-  if (action === A.REFRESH_CLIPS || action === A.CLIPS_UPDATED) {
-    // Broadcast to all tabs that clips were updated
-    chrome.tabs.query({}, (tabs) => {
-      normalizeArray(tabs).forEach(tab => {
-        const tabId = tab && Number.isFinite(tab.id) ? tab.id : null;
-        if (tabId == null) return;
-        safeTabsSendMessage(tabId, { action: 'clipsUpdated' }).catch(() => {});
-      });
-    });
-    sendResponse({ success: true });
-    return false;
   }
 
   if (action === A.PC_CREATE_CHECKOUT) {
