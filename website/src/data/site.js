@@ -23,7 +23,7 @@ export const socialLinks = [
 
 export const storeLinks = {
   chrome: '#chrome-store-coming-soon',
-  edge: '#edge-store-coming-soon',
+  edge: 'https://microsoftedge.microsoft.com/addons/detail/pastecraft/fblihhfoojjhmhnhilhhejdcigjmmncc',
 };
 
 export const pricingPlans = [
@@ -32,7 +32,7 @@ export const pricingPlans = [
     name: 'Freemium',
     price: '$0',
     cadence: '/forever',
-    note: 'Unlimited clips, notes, and categories stored on your device.',
+    note: 'Unlimited clips, notes, and categories on your device for fast study and work capture.',
     popular: false,
     tier: 'Free',
     features: [
@@ -69,13 +69,13 @@ export const pricingPlans = [
     name: 'Enhanced',
     price: '$3.99',
     cadence: '/week',
-    note: 'Text AI tools on top of full cloud sync.',
+    note: 'AI Lab text tools on top of full cloud sync.',
     popular: false,
     tier: 'Enhanced',
     features: [
       'Everything in Basic',
-      'AI breakdowns',
-      'AI summaries',
+      'AI Lab breakdowns',
+      'AI Lab summaries',
       '4,000 weekly text credits with rollover up to 20,000',
       '35,000 monthly text credits',
       '500,000 yearly text credits',
@@ -90,8 +90,8 @@ export const pricingPlans = [
 ];
 
 export const trustPills = [
-  'Chromium browser extension',
-  'Cloud sync',
-  'Stripe billing',
-  'Optional AI tools',
+  'Built for productivity',
+  'Built for studying',
+  'Categories and notes',
+  'AI Lab',
 ];
