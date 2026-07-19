@@ -683,12 +683,18 @@
         // Store links configuration (ready for future URLs)
         const STORE_LINKS = {
             chrome: '#chrome-store-coming-soon',
-            edge: '#edge-store-coming-soon'
+            edge: 'https://microsoftedge.microsoft.com/addons/detail/pastecraft/fblihhfoojjhmhnhilhhejdcigjmmncc'
         };
 
         document.querySelectorAll('.btn-store').forEach(btn => {
+            const store = btn.getAttribute('data-store');
+            const link = store && STORE_LINKS[store];
+            if (link && !link.startsWith('#')) {
+                btn.setAttribute('href', link);
+                btn.setAttribute('target', '_blank');
+                btn.setAttribute('rel', 'noopener noreferrer');
+            }
             btn.addEventListener('click', (e) => {
-                const store = btn.getAttribute('data-store');
                 if (STORE_LINKS[store] && STORE_LINKS[store].startsWith('#')) {
                     e.preventDefault();
                     alert(`${store.charAt(0).toUpperCase() + store.slice(1)} Web Store link coming soon!\n\nSubscription is available within the PasteCraft extension after install.`);

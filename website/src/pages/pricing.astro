@@ -9,14 +9,14 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 
 <BaseLayout
   title="PasteCraft pricing"
-  description="Compare Freemium, Basic, and Enhanced plans. Start free with local storage, add cloud sync, or unlock text AI credits. Subscribe inside the extension after install."
+  description="Compare Freemium, Basic, and Enhanced plans. Start free for fast local capture, add cloud sync, or unlock AI Lab for study and productivity help. Subscribe inside the extension after install."
   currentPath="/pricing"
 >
   <div class="page-shell">
     <SectionShell
       eyebrow="Pricing"
-      title="Simple plans with clear tradeoffs"
-      copy="Choose local storage, cloud sync, or Enhanced text AI. Subscribe inside the extension after you install."
+      title="Plans for study and productivity habits"
+      copy="Start free for fast local capture. Add cloud sync for continuity, or unlock AI Lab when dense material needs clearer help. Subscribe inside the extension after you install."
     >
       <div class="card-grid three">
         <PricingCard
@@ -32,7 +32,7 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
             <p class="store-copy">Install the free extension first.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="ghost-button btn-store" data-store="chrome">Chrome</a>
-              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge" target="_blank" rel="noopener noreferrer">Edge</a>
             </div>
             <span class="muted">Clips stay on your device</span>
           </div>
@@ -54,7 +54,7 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
             <p class="store-copy">Subscribe inside the extension after install.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
-              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge" target="_blank" rel="noopener noreferrer">Edge</a>
             </div>
             <span class="muted" id="note-basic">Cloud sync with database storage</span>
           </div>
@@ -75,9 +75,9 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
             <p class="store-copy">Subscribe inside the extension after install.</p>
             <div class="button-row">
               <a href={storeLinks.chrome} class="button btn-store" data-store="chrome">Chrome</a>
-              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge">Edge</a>
+              <a href={storeLinks.edge} class="ghost-button btn-store" data-store="edge" target="_blank" rel="noopener noreferrer">Edge</a>
             </div>
-            <span class="muted" id="note-enhanced">Text AI tools plus sync</span>
+            <span class="muted" id="note-enhanced">AI Lab plus sync</span>
           </div>
         </PricingCard>
       </div>

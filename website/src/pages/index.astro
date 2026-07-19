@@ -5,44 +5,44 @@ import SectionShell from '../components/SectionShell.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingCard from '../components/PricingCard.astro';
 import Preview3D from '../components/Preview3D.astro';
-import { pricingPlans, trustPills } from '../data/site.js';
+import { pricingPlans, storeLinks, trustPills } from '../data/site.js';
 
 const featureItems = [
   {
-    icon: '🧭',
-    title: 'Organize with clarity',
-    copy: 'Sort clips into categories and searchable notes so you can find them later.',
+    icon: '⚡',
+    title: 'Copy fast, save what matters',
+    copy: 'Capture valuable text in seconds—study material, research, and notes you need again—then paste it back without hunting through tabs.',
   },
   {
-    icon: '☁️',
-    title: 'Sync across devices',
-    copy: 'Start on one device. Add cloud sync when you work across browsers.',
+    icon: '🧭',
+    title: 'Categories and notes in one flow',
+    copy: 'Move through clips, categories, and notes so productive study sessions stay organized instead of scattered.',
   },
   {
     icon: '✨',
-    title: 'Optional AI tools',
-    copy: 'Use summaries and breakdowns when they help, without cluttering the core workflow.',
+    title: 'AI Lab for real situations',
+    copy: 'Use AI Lab for summaries, breakdowns, and study-ready help when a dense page, lecture note, or work draft needs clarity.',
   },
 ];
 
 const testimonials = [
   {
     name: 'Sarah M.',
-    role: 'UX Researcher',
+    role: 'Graduate student',
     avatar: 'https://i.pravatar.cc/64?img=1',
-    quote: 'PasteCraft replaced my old clipboard workflow. Categories and cloud sync are what I needed for cross-device research.',
+    quote: 'I copy research all day. PasteCraft saves what I need for exams, keeps it in categories, and makes review much faster.',
   },
   {
     name: 'James K.',
-    role: 'Software Engineer',
+    role: 'Software engineer',
     avatar: 'https://i.pravatar.cc/64?img=3',
-    quote: 'AI breakdown saves time when I parse docs and code snippets. Clean UI with little friction.',
+    quote: 'AI Lab helps when docs get dense. I save snippets fast, organize them, and get back to shipping with less friction.',
   },
   {
     name: 'Priya L.',
-    role: 'Content Strategist',
+    role: 'Productivity coach',
     avatar: 'https://i.pravatar.cc/64?img=5',
-    quote: 'I copy a lot every day. PasteCraft makes it findable and usable. The free plan alone is better than tools I tried before.',
+    quote: 'PasteCraft fits study and work habits. Fast copy, clear notes, and categories that keep valuable information ready to reuse.',
   },
 ];
 
@@ -55,39 +55,39 @@ const counterStats = [
 ---
 
 <BaseLayout
-  title="PasteCraft | Clipboard manager and history for Edge and Chrome"
-  description="PasteCraft saves what you copy, organizes clips into categories and notes, syncs across devices, and adds optional AI tools. Free to start on Edge. Chrome coming soon."
-  keywords="clipboard manager, clipboard history, chrome extension, edge extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, AI clipboard, productivity tool, best clipboard manager"
+  title="PasteCraft | Productivity and study clipboard for Edge and Chrome"
+  description="PasteCraft is a productivity and study tool that helps you copy fast, save valuable information, organize categories and notes, and use AI Lab when you need clarity. Free to start on Edge. Chrome coming soon."
+  keywords="clipboard manager, study tool, productivity extension, clipboard history, chrome extension, edge extension, study notes, categories, AI Lab, copy paste tool, text snippets, cloud sync clipboard"
   currentPath="/"
 >
   <Hero
-    eyebrow="Browser clipboard manager"
-    title="Keep every copy ready to reuse"
-    description="PasteCraft saves what you copy, organizes it into categories and notes, and syncs across devices when you need it. Use AI summaries and breakdowns only when they help."
-    primaryHref="/pricing"
-    primaryLabel="View pricing"
-    secondaryHref="/about"
-    secondaryLabel="About PasteCraft"
+    eyebrow="Productivity and study tool"
+    title="Copy fast, save what matters"
+    description="PasteCraft helps you save the information you need most—valuable notes, research, and study material—so you can copy quickly and get back to work. Organize clips into categories and notes, then use AI Lab when a situation calls for it."
+    primaryHref={storeLinks.edge}
+    primaryLabel="Install for Edge"
+    secondaryHref="/pricing"
+    secondaryLabel="View pricing"
   >
     <div class="hero-stack">
       <div class="hero-matrix">
         <div class="hero-panel surface-card panel">
-          <span class="hero-label">Quick capture</span>
-          <strong>Save everything you copy</strong>
-          <p>Keep text, notes, snippets, and research in one place.</p>
+          <span class="hero-label">Fast capture</span>
+          <strong>Save valuable information quickly</strong>
+          <p>Keep study material, research, and work notes ready to paste when you need them.</p>
         </div>
         <div class="hero-panel surface-card panel accent">
-          <span class="hero-label">Easy to scan</span>
-          <strong>Built for dense content</strong>
-          <p>Navy and gold surfaces keep clips, settings, and plans easy to read.</p>
+          <span class="hero-label">Study-wise flow</span>
+          <strong>Categories, notes, and AI Lab</strong>
+          <p>Orchestrate copying, saving, and review—then open AI Lab for almost any situation.</p>
         </div>
       </div>
 
       <div class="browser-pills">
-        <span class="pill pill-live">
+        <a class="pill pill-live" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">
           <span class="pill-dot"></span>
           Edge — Live
-        </span>
+        </a>
         <span class="pill pill-soon">
           <span class="pill-dot"></span>
           Chrome — Coming soon
@@ -121,8 +121,8 @@ const counterStats = [
 
   <SectionShell
     eyebrow="Features"
-    title="From temporary clipboard to lasting workspace"
-    copy="PasteCraft helps students, researchers, developers, and busy teams keep copied information useful after the copy moment ends."
+    title="Built for productivity and studying habits"
+    copy="PasteCraft turns fast copying into a lasting workflow. Save what matters, organize it, and reuse it when you study or work."
   >
     <FeatureGrid items={featureItems} />
   </SectionShell>
@@ -132,11 +132,11 @@ const counterStats = [
       <div class="mockup-shell">
         <div class="mockup-text stack">
           <span class="eyebrow">Extension preview</span>
-          <h2 class="section-title">See PasteCraft in your browser</h2>
-          <p class="section-copy">Copy text, open the extension, and find it saved, searchable, and ready to paste.</p>
+          <h2 class="section-title">See the study and work flow in your browser</h2>
+          <p class="section-copy">Copy text, open PasteCraft, and find it saved, organized, and ready to paste into your next study session or productivity sprint.</p>
           <div class="button-row">
-            <a class="button" href="/pricing">Start free</a>
-            <a class="ghost-button" href="/about">Learn more</a>
+            <a class="button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
+            <a class="ghost-button" href="/pricing">View pricing</a>
           </div>
         </div>
         <Preview3D />
@@ -145,26 +145,26 @@ const counterStats = [
   </section>
 
   <SectionShell
-    eyebrow="Design"
-    title="Built to reduce friction"
-    copy="Typography, spacing, and contrast follow the PasteCraft palette so dense content stays easy to read."
+    eyebrow="Workflow"
+    title="Orchestrate copy, save, and review"
+    copy="PasteCraft keeps the moves that matter close together so you spend less time hunting and more time learning or shipping."
   >
     <div class="split">
       <article class="surface-card panel stack">
-        <h3>Readable by default</h3>
+        <h3>Save the information you need</h3>
         <ul class="list-clean">
-          <li>Clear typography with less visual noise.</li>
-          <li>Consistent spacing between actions, labels, and help text.</li>
-          <li>Strong contrast across navigation, cards, and legal pages.</li>
+          <li>Capture study material, research, and work notes the moment you copy them.</li>
+          <li>Keep valuable information ready instead of losing it to a temporary clipboard.</li>
+          <li>Paste quickly when a deadline, lecture, or task needs the right detail.</li>
         </ul>
       </article>
 
       <article class="surface-card panel stack">
-        <h3>Built for reliability</h3>
+        <h3>Move with categories, notes, and AI Lab</h3>
         <ul class="list-clean">
-          <li>Static marketing pages for fast loads and simple updates.</li>
-          <li>Pricing, upgrade, and account flows stay aligned with the extension.</li>
-          <li>Shared components instead of one-off page styles.</li>
+          <li>Sort clips into categories so review stays structured.</li>
+          <li>Use notes to keep context next to the content that matters.</li>
+          <li>Open AI Lab for summaries and breakdowns in almost any situation.</li>
         </ul>
       </article>
     </div>
@@ -174,7 +174,7 @@ const counterStats = [
     <div class="container">
       <div class="section-header stack">
         <span class="eyebrow">What users say</span>
-        <h2 class="section-title">Built for people who copy a lot</h2>
+        <h2 class="section-title">Built for people who study and ship</h2>
       </div>
       <div class="testimonials-grid">
         {testimonials.map((t) => (
@@ -196,8 +196,8 @@ const counterStats = [
 
   <SectionShell
     eyebrow="Plans"
-    title="Choose a plan that fits"
-    copy="Start free, add cloud sync, or unlock AI tools when you need them."
+    title="Choose a plan that fits your habits"
+    copy="Start free for fast local capture. Add cloud sync for continuity, or unlock AI Lab when study and work need deeper help."
   >
     <div class="card-grid three">
       {pricingPlans.map((plan) => (
@@ -272,17 +272,17 @@ const counterStats = [
 
   <SectionShell
     eyebrow="Get started"
-    title="Ready to organize your clipboard"
-    copy="Compare plans on the pricing page. Subscribe from inside the extension after you install."
+    title="Ready to copy fast and study with clarity"
+    copy="Install PasteCraft on Edge now. Chrome is still in review. Subscribe from inside the extension after you install."
   >
     <div class="surface-card panel cta-band">
       <div class="stack">
-        <h3>Compare plans and subscribe when you are ready</h3>
-        <p class="section-copy">Review tiers on the pricing page. Finish checkout inside the extension after install.</p>
+        <h3>Start free, then grow into sync and AI Lab</h3>
+        <p class="section-copy">Get the Edge Add-ons listing, then finish checkout inside the extension after install.</p>
       </div>
       <div class="button-row">
-        <a class="button" href="/pricing">View pricing</a>
-        <a class="ghost-button" href="/account">Open account</a>
+        <a class="button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
+        <a class="ghost-button" href="/pricing">View pricing</a>
       </div>
     </div>
   </SectionShell>
@@ -352,6 +352,12 @@ const counterStats = [
       background: rgba(37, 99, 235, 0.12);
       border: 1px solid rgba(37, 99, 235, 0.4);
       color: #93c5fd;
+      text-decoration: none;
+    }
+
+    .pill-live:hover {
+      border-color: rgba(37, 99, 235, 0.7);
+      color: #bfdbfe;
     }
 
     .pill-live .pill-dot {

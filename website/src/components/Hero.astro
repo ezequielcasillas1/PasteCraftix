@@ -8,6 +8,10 @@ const {
   secondaryHref,
   secondaryLabel,
 } = Astro.props;
+
+const isExternal = (href) => typeof href === 'string' && /^https?:\/\//i.test(href);
+const primaryExternal = isExternal(primaryHref);
+const secondaryExternal = isExternal(secondaryHref);
 ---
 
 <section class="hero section">
@@ -22,8 +26,26 @@ const {
       <h1>{title}</h1>
       <p>{description}</p>
       <div class="button-row">
-        {primaryHref && primaryLabel && <a class="button" href={primaryHref}>{primaryLabel}</a>}
-        {secondaryHref && secondaryLabel && <a class="ghost-button" href={secondaryHref}>{secondaryLabel}</a>}
+        {primaryHref && primaryLabel && (
+          <a
+            class="button"
+            href={primaryHref}
+            target={primaryExternal ? '_blank' : undefined}
+            rel={primaryExternal ? 'noopener noreferrer' : undefined}
+          >
+            {primaryLabel}
+          </a>
+        )}
+        {secondaryHref && secondaryLabel && (
+          <a
+            class="ghost-button"
+            href={secondaryHref}
+            target={secondaryExternal ? '_blank' : undefined}
+            rel={secondaryExternal ? 'noopener noreferrer' : undefined}
+          >
+            {secondaryLabel}
+          </a>
+        )}
       </div>
       <slot name="meta" />
     </div>
@@ -109,7 +131,7 @@ const {
     font-size: clamp(3rem, 7vw, 5.5rem);
     line-height: 0.96;
     letter-spacing: -0.04em;
-    max-width: 11ch;
+    max-width: 14ch;
     background: linear-gradient(135deg, #f0f4ff 0%, #93c5fd 50%, var(--gold-light, #fde68a) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

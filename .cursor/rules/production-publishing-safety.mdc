@@ -17,7 +17,7 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 3. Never change the Supabase project URL or anon key in a way that re-scopes `user_id`.
 4. Published extension IDs (fill after first publish):
    - Chrome Web Store ID: `TBD_CHROME_ID`
-   - Edge Add-ons ID: `TBD_EDGE_ID`
+   - Edge Add-ons ID: `fblihhfoojjhmhnhilhhejdcigjmmncc`
 
 ---
 
