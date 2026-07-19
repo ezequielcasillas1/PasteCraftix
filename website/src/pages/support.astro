@@ -1,0 +1,90 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+---
+
+<BaseLayout
+  title="PasteCraft Support"
+  description="Get help with PasteCraft: install, sync, billing, AI tools, and account questions. Contact support@pastecraft.com."
+  currentPath="/support"
+>
+  <div class="page-shell">
+    <SectionShell
+      eyebrow="Support"
+      title="How can we help?"
+      copy="PasteCraft support covers the browser extension, cloud sync, billing, and optional AI tools. Start with the common answers below, or email us directly."
+    >
+      <div class="card-grid three">
+        <article class="surface-card panel stack">
+          <h3>Email support</h3>
+          <p class="section-copy">Questions about the extension, pricing, sync, premium access, or bugs.</p>
+          <a class="ghost-button" href="mailto:support@pastecraft.com">support@pastecraft.com</a>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Privacy requests</h3>
+          <p class="section-copy">Data access, export, deletion, or privacy policy questions.</p>
+          <a class="ghost-button" href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Contact page</h3>
+          <p class="section-copy">Support, privacy, and legal inboxes in one place.</p>
+          <a class="ghost-button" href="/contact">Open contact</a>
+        </article>
+      </div>
+    </SectionShell>
+
+    <SectionShell
+      eyebrow="Quick answers"
+      title="Common questions"
+      copy="These cover most install, sync, and billing issues."
+    >
+      <div class="card-grid two">
+        <article class="surface-card panel stack">
+          <h3>Clips not saving</h3>
+          <p class="section-copy">Confirm PasteCraft is enabled for the site, refresh the page, then copy text again. If it still fails, note your browser and OS in your email.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Cloud sync</h3>
+          <p class="section-copy">Sign in from the extension, check your plan includes sync, then wait a moment and reopen PasteCraft. Sync needs a signed-in Basic or Enhanced account.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Billing & plans</h3>
+          <p class="section-copy">Manage upgrades from the extension or <a href="/account">Account</a>. For receipt or subscription issues, email support with the account email you used at checkout.</p>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>AI tools</h3>
+          <p class="section-copy">Summary, breakdown, refactor, and AI Formatted need an Enhanced plan with available credits. If a run fails, include the feature name and a short description of what you tried.</p>
+        </article>
+      </div>
+    </SectionShell>
+
+    <SectionShell
+      eyebrow="Faster help"
+      title="What to include in your message"
+      copy="A clear report helps us respond accurately."
+    >
+      <div class="split">
+        <article class="surface-card panel">
+          <ul class="list-clean">
+            <li>Your browser and version if known.</li>
+            <li>Whether you are on Freemium, Basic, or Enhanced.</li>
+            <li>What page or feature you were using.</li>
+            <li>A screenshot or short description of the issue.</li>
+            <li>The account email used for sign-in or billing, if relevant.</li>
+          </ul>
+        </article>
+
+        <article class="surface-card panel stack">
+          <h3>Policies & community</h3>
+          <p class="section-copy">Review product terms and privacy, or follow updates on official channels.</p>
+          <div class="button-row">
+            <a class="ghost-button" href="/privacy">Privacy</a>
+            <a class="ghost-button" href="/terms">Terms</a>
+            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener">Facebook</a>
+            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener">Reddit</a>
+          </div>
+        </article>
+      </div>
+    </SectionShell>
+  </div>
+</BaseLayout>
