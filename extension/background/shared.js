@@ -1,7 +1,18 @@
 // PasteCraft Background Script
 
 import { mergeActiveClipsSources } from '../shared/clips-local-merge.js';
+import { getClipIdKey } from '../shared/clip-id.js';
 import { slimQuickViewClips } from '../shared/quickview-clips.js';
+
+async function loadDeletedClipIdSet() {
+  try {
+    const res = await chrome.storage.local.get(['pc_deleted_clips']);
+    const tombs = Array.isArray(res?.pc_deleted_clips) ? res.pc_deleted_clips : [];
+    return new Set(tombs.map((t) => getClipIdKey(t?.id)).filter(Boolean));
+  } catch (_) {
+    return new Set();
+  }
+}
 
 export function isRepoLoaderBuild() {
   try {
@@ -282,8 +293,8 @@ async function enqueueDeleteSyncOperation(tombstones, isArchived) {
   }
 }
 
-function buildQuickViewMergedList(activeClips, archivedClips, idbClips) {
-  const active = mergeActiveClipsSources(activeClips, idbClips);
+function buildQuickViewMergedList(activeClips, archivedClips, idbClips, deletedIds = null) {
+  const active = mergeActiveClipsSources(activeClips, idbClips, deletedIds);
   return [
     ...active.map((clip, index) => normalizeQuickViewClip(clip, index, 'active')).filter(Boolean),
     ...archivedClips
@@ -294,13 +305,14 @@ function buildQuickViewMergedList(activeClips, archivedClips, idbClips) {
 }
 
 export async function getQuickViewClips() {
-  const [storage, idbClips] = await Promise.all([
+  const [storage, idbClips, deletedIds] = await Promise.all([
     chrome.storage.local.get(['clips', 'searchOnlyClips']),
-    readIndexedDbPayloads('clips')
+    readIndexedDbPayloads('clips'),
+    loadDeletedClipIdSet(),
   ]);
 
   const localActive = Array.isArray(storage?.clips) ? storage.clips : [];
-  const active = mergeActiveClipsSources(localActive, idbClips);
+  const active = mergeActiveClipsSources(localActive, idbClips, deletedIds);
   const archived = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
 
   const merged = [
@@ -332,7 +344,7 @@ export async function getQuickViewClips() {
   return slimmed;
 }
 
-const QUICKVIEW_CLIP_ID = (clip) => String(clip?.id ?? clip?.clip_id ?? clip?.clipId ?? '');
+const QUICKVIEW_CLIP_ID = (clip) => getClipIdKey(clip?.id ?? clip?.clip_id ?? clip?.clipId ?? '');
 
 async function appendQuickViewTombstone(tombstoneKey, clip, source) {
   const id = QUICKVIEW_CLIP_ID(clip);
@@ -340,7 +352,7 @@ async function appendQuickViewTombstone(tombstoneKey, clip, source) {
   const deletedAt = Date.now();
   const existing = await chrome.storage.local.get([tombstoneKey]);
   const prev = Array.isArray(existing?.[tombstoneKey]) ? existing[tombstoneKey] : [];
-  if (prev.some((item) => String(item?.id ?? '') === id)) return;
+  if (prev.some((item) => getClipIdKey(item?.id) === id)) return;
   await chrome.storage.local.set({
     [tombstoneKey]: [
       ...prev,
@@ -356,7 +368,7 @@ async function appendQuickViewTombstone(tombstoneKey, clip, source) {
 }
 
 export async function deleteQuickViewClip({ clipId, archived = false, index } = {}) {
-  const clipIdKey = String(clipId || '');
+  const clipIdKey = getClipIdKey(clipId) || String(clipId || '');
   const isArchived = archived === true;
   const [storage, idbClips] = await Promise.all([
     chrome.storage.local.get([
@@ -370,6 +382,11 @@ export async function deleteQuickViewClip({ clipId, archived = false, index } = 
 
   let clips = Array.isArray(storage?.clips) ? storage.clips : [];
   let archivedClips = Array.isArray(storage?.searchOnlyClips) ? storage.searchOnlyClips : [];
+  const deletedIds = new Set(
+    (Array.isArray(storage?.pc_deleted_clips) ? storage.pc_deleted_clips : [])
+      .map((t) => getClipIdKey(t?.id))
+      .filter(Boolean)
+  );
   const filterOutById = (arr) => arr.filter((clip) => QUICKVIEW_CLIP_ID(clip) !== clipIdKey);
   const findById = (arr) => arr.find((clip) => QUICKVIEW_CLIP_ID(clip) === clipIdKey);
 
@@ -394,9 +411,9 @@ export async function deleteQuickViewClip({ clipId, archived = false, index } = 
   if (!idDeleteWorked && Number.isFinite(index)) {
     const idx = parseInt(index, 10);
     if (!Number.isNaN(idx) && idx >= 0) {
-      const merged = buildQuickViewMergedList(clips, archivedClips, idbClips);
+      const merged = buildQuickViewMergedList(clips, archivedClips, idbClips, deletedIds);
       const target = merged[idx];
-      const targetId = target?.id != null ? String(target.id) : '';
+      const targetId = target?.id != null ? getClipIdKey(target.id) : '';
       if (target?.source === 'archived' && targetId) {
         deletedEntity = archivedClips.find((clip) => QUICKVIEW_CLIP_ID(clip) === targetId);
         nextArchived = archivedClips.filter((clip) => QUICKVIEW_CLIP_ID(clip) !== targetId);

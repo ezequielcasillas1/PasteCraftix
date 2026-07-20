@@ -298,6 +298,7 @@ export async function deleteClipsByIdKeys(app, idKeys, {
     const beforeEntities = resolveDeletedClipEntities(app, ids, includeArchived, Date.now());
     const activeDeletedIds = new Set(beforeEntities.filter((entity) => entity.source === 'active').map((entity) => String(entity.id)));
 
+
     const result = await window.PasteCraftCRUD.deleteManyOperation({
       entityIds: ids,
       entityType: 'clip',
@@ -330,7 +331,10 @@ export async function deleteClipsByIdKeys(app, idKeys, {
       writeTombstones: async (entities, deletedAt) => {
         await writeClipTombstones(entities, deletedAt);
       },
-      verifier: async (entityIds) => verifyDeletedClipIds(new Set(entityIds), includeArchived, activeDeletedIds),
+      verifier: async (entityIds) => {
+        const ok = await verifyDeletedClipIds(new Set(entityIds), includeArchived, activeDeletedIds);
+        return ok;
+      },
       uiUpdater: () => {
         if (clearSelection) clearDeletedClipSelections(app, ids);
         if (closeCategoryModal) app.hideCategoryModal();
@@ -340,12 +344,16 @@ export async function deleteClipsByIdKeys(app, idKeys, {
         const activeDeleted = entities.filter((entity) => entity.source === 'active');
         const archivedDeleted = entities.filter((entity) => entity.source === 'archived');
 
+
         if (app.idb && typeof app.idb.saveDeletedItem === 'function') {
           await Promise.all(activeDeleted.map((clip) => app.idb.saveDeletedItem(clip, 'clips').catch(() => {})));
         }
 
         if (activeDeleted.length > 0) {
-          await pasteCraftSupabase.syncWithQueue('syncDeletedClips', activeDeleted, pasteCraftSupabase.syncDeletedClipsToSupabase);
+          try {
+            const cloudOk = await pasteCraftSupabase.syncWithQueue('syncDeletedClips', activeDeleted, pasteCraftSupabase.syncDeletedClipsToSupabase);
+          } catch (cloudErr) {
+          }
         }
         if (archivedDeleted.length > 0) {
           await pasteCraftSupabase.syncWithQueue('syncDeletedArchivedClips', archivedDeleted, pasteCraftSupabase.syncDeletedArchivedClipsToSupabase);
@@ -359,6 +367,7 @@ export async function deleteClipsByIdKeys(app, idKeys, {
         if (msg) app.showToast(msg, type);
       },
     });
+
 
     if (!result.success) {
       return { requested: ids.length, deleted: 0, missing: ids.length, reason };

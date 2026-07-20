@@ -1,5 +1,8 @@
 import { mergeActiveClipsSources } from '../../../shared/clips-local-merge.js';
 import { mergeActiveCategoriesSources } from '../../../shared/categories-local-merge.js';
+import { getClipIdKey } from '../../../shared/clip-id.js';
+
+const DELETED_CLIPS_STORAGE_KEY = 'pc_deleted_clips';
 
 const loadDataPromises = new WeakMap();
 const cloudResolutionTimers = new WeakMap();
@@ -34,9 +37,20 @@ export async function fetchRawData(app) {
   if (!isExtensionContextValid()) {
     throw new Error('Extension context invalidated');
   }
-  const result = await chrome.storage.local.get(['clips', 'categories', 'searchOnlyClips']);
+  const result = await chrome.storage.local.get([
+    'clips',
+    'categories',
+    'searchOnlyClips',
+    DELETED_CLIPS_STORAGE_KEY,
+  ]);
   let { clips = [], categories = [], searchOnlyClips = [] } = result;
   let cameFromIdb = false;
+
+  const deletedIds = new Set(
+    (Array.isArray(result?.[DELETED_CLIPS_STORAGE_KEY]) ? result[DELETED_CLIPS_STORAGE_KEY] : [])
+      .map((t) => getClipIdKey(t?.id))
+      .filter(Boolean)
+  );
 
   if (app._idbReady && app.idb) {
     const [idbClips, idbCategories] = await Promise.all([
@@ -44,13 +58,20 @@ export async function fetchRawData(app) {
       app.idb.getAllPayloads('categories')
     ]);
     if (Array.isArray(idbClips) && idbClips.length > 0) {
-      clips = mergeActiveClipsSources(clips, idbClips);
+      // Tombstones must win on every surface rehydrate (Clips/Categories/Search/etc).
+      clips = mergeActiveClipsSources(clips, idbClips, deletedIds);
       cameFromIdb = true;
+    } else if (deletedIds.size > 0) {
+      clips = mergeActiveClipsSources(clips, [], deletedIds);
     }
     if (Array.isArray(idbCategories) && idbCategories.length > 0) {
       categories = mergeActiveCategoriesSources(categories, idbCategories);
     }
+  } else if (deletedIds.size > 0) {
+    clips = mergeActiveClipsSources(clips, [], deletedIds);
   }
+
+
   return { clips, categories, searchOnlyClips, cameFromIdb };
 }
 

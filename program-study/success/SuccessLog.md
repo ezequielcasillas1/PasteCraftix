@@ -1,4 +1,8 @@
 
+### Jul 20, 2026 - Clips delete cross-page tombstone keys
+**Status:** SUCCESS
+**Files:** clips.service.js, pastecraft-crud.js, sync.loader.js, sync-clips.js, background/shared.js
+**Result:** getClipIdKey tombstones on load, merge, and Quick View; deletes no longer resurrect from IDB or full sync. User verified.
 ### Jul 20, 2026 - Categories sync soft-delete name unique
 **Status:** SUCCESS
 **Files:** sync-categories.js

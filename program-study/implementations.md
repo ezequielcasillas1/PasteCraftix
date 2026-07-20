@@ -1,4 +1,8 @@
 
+### Jul 20, 2026 - Clips delete cross-page tombstone keys
+**Status:** SUCCESS
+**Files:** clips.service.js, pastecraft-crud.js, sync.loader.js, sync-clips.js, background/shared.js
+**Result:** Normalized clip IDs and honor pc_deleted_clips on popup load, sync merge, and Quick View. User verified.
 ### Jul 20, 2026 - Categories sync soft-delete name unique
 **Status:** SUCCESS
 **Files:** sync-categories.js

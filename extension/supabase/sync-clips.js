@@ -1,4 +1,27 @@
 /** Vertical slice: sync-clips.js */
+import { getClipIdKey } from '../shared/clip-id.js';
+
+function rememberDeletedClipId(deletedById, id, when) {
+  const key = getClipIdKey(id);
+  const raw = id != null ? String(id) : '';
+  if (key) {
+    const prev = deletedById.get(key) || 0;
+    if (when > prev) deletedById.set(key, when);
+  }
+  if (raw && raw !== key) {
+    const prev = deletedById.get(raw) || 0;
+    if (when > prev) deletedById.set(raw, when);
+  }
+}
+
+function lookupDeletedClipAt(deletedById, id) {
+  const key = getClipIdKey(id);
+  const raw = id != null ? String(id) : '';
+  if (key && deletedById.has(key)) return deletedById.get(key);
+  if (raw && deletedById.has(raw)) return deletedById.get(raw);
+  return null;
+}
+
 export const syncClipsMixin = {
 // CLIPS SYNC METHODS
 // =====================================================
@@ -139,7 +162,7 @@ buildDbClipsForUpsert(localClips, userId, deviceId) {
       `legacy_${hash(text)}_${Number.isFinite(ts) ? ts : 0}`;
     if (!(typeof clip === 'object' && clip && (clip.id ?? clip.clip_id ?? clip.clipId))) inferredIds++;
 
-    const baseId = String(rawId);
+    const baseId = getClipIdKey(rawId) || String(rawId);
     const count = (dupCounter.get(baseId) || 0) + 1;
     dupCounter.set(baseId, count);
     const clipId = count === 1 ? baseId : `${baseId}__dup${count}`;
@@ -675,23 +698,21 @@ async mergeClips(localClips, remoteClips) {
   const deletedById = new Map();
 
   remoteClips.forEach(clip => {
-    const id = clip?.id != null ? String(clip.id) : '';
-    if (!id || !clip?.deletedAt) return;
-    deletedById.set(id, clip.deletedAt);
+    if (clip?.id == null || !clip?.deletedAt) return;
+    rememberDeletedClipId(deletedById, clip.id, clip.deletedAt);
   });
 
   // Honor local tombstones so remote stale-alive rows cannot resurrect.
+  // Use getClipIdKey so float ids (.223 vs .2229) still match across pages/sync.
   try {
     const local = await new Promise((resolve) => {
       chrome.storage.local.get(['pc_deleted_clips'], (res) => resolve(res || {}));
     });
     const localTombs = Array.isArray(local?.pc_deleted_clips) ? local.pc_deleted_clips : [];
     localTombs.forEach((t) => {
-      const id = t?.id != null ? String(t.id) : '';
-      if (!id) return;
+      if (t?.id == null || t?.id === '') return;
       const when = Number.isFinite(t?.deletedAt) ? t.deletedAt : Date.now();
-      const prev = deletedById.get(id) || 0;
-      if (when > prev) deletedById.set(id, when);
+      rememberDeletedClipId(deletedById, t.id, when);
     });
   } catch (_) { /* non-fatal */ }
 
@@ -713,8 +734,7 @@ async mergeClips(localClips, remoteClips) {
 
   const add = (clip) => {
     if (!clip || !clip.text) return;
-    const id = clip?.id != null ? String(clip.id) : '';
-    const deletedAt = id ? deletedById.get(id) : null;
+    const deletedAt = lookupDeletedClipAt(deletedById, clip?.id);
     const clipUpdatedAt = Number.isFinite(clip?.updatedAt) ? clip.updatedAt : (clip?.timestamp || 0);
     if (deletedAt && deletedAt >= clipUpdatedAt) {
       return;
@@ -729,6 +749,7 @@ async mergeClips(localClips, remoteClips) {
 
   localClips.forEach(add);
   remoteClips.forEach(add);
+
 
   return Array.from(contentMerged.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 },
