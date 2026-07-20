@@ -47,7 +47,11 @@ async getSyncUserId() {
   let authUserId = null;
   if (this.client) {
     try {
-      const { data: { session } } = await this.client.auth.getSession();
+      let { data: { session } } = await this.client.auth.getSession();
+      if (!session?.access_token && typeof this.hydrateClientSessionFromBridge === 'function') {
+        await this.hydrateClientSessionFromBridge();
+        ({ data: { session } } = await this.client.auth.getSession());
+      }
       authUserId = session?.user?.id || null;
     } catch (_) {}
   }
@@ -81,7 +85,8 @@ async getSyncUserId() {
     return authUserId;
   }
 
-  // Not authenticated: fall back to any stored accountUserId (sync) or legacy local chromeUserId
+  // Not authenticated: fall back to stored ids for local/legacy keys only.
+  // Never upsert user_profiles without a JWT — RLS rejects it (42501 / 401).
   let syncStoredId = null;
   try {
     const syncResult = await new Promise((resolve) => chrome.storage.sync.get(['accountUserId'], resolve));
@@ -89,13 +94,10 @@ async getSyncUserId() {
   } catch (_) {}
 
   if (syncStoredId) {
-    await this.ensureUserProfileRow(syncStoredId);
     return syncStoredId;
   }
 
-  const chromeUserId = await this.getChromeUserId();
-  await this.ensureUserProfileRow(chromeUserId);
-  return chromeUserId;
+  return this.getChromeUserId();
 },
 
 async ensureUserProfileRow(userId) {
@@ -105,9 +107,17 @@ async ensureUserProfileRow(userId) {
   }
   try {
     await this.setUserContext(userId);
-    await this.client
+    let { data: { session } } = await this.client.auth.getSession();
+    if (!session?.access_token && typeof this.hydrateClientSessionFromBridge === 'function') {
+      await this.hydrateClientSessionFromBridge();
+      ({ data: { session } } = await this.client.auth.getSession());
+    }
+    // Never upsert without a JWT — RLS rejects anonymous user_profiles writes.
+    if (!session?.access_token) return;
+    const { error } = await this.client
       .from('user_profiles')
       .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+    if (error) throw error;
     this._profileRowEnsured = true;
     this._profileRowEnsuredUserId = userId;
   } catch (_) {

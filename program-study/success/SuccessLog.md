@@ -1,4 +1,9 @@
 
+### Jul 20, 2026 - Auth bridge hydrate before sync
+**Status:** SUCCESS
+**Files:** auth-bridge.js, identity.js, subscription.js
+**Result:** Hydrate supabase-js from chrome.storage bridge after localStorage clear; stops user_profiles RLS 401 and restores batch clip sync. User verified.
+
 ### Jul 20, 2026 - Clips delete cross-page tombstone keys
 **Status:** SUCCESS
 **Files:** clips.service.js, pastecraft-crud.js, sync.loader.js, sync-clips.js, background/shared.js

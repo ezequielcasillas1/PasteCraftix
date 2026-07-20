@@ -87,6 +87,12 @@ async init() {
     this.initialized = true;
     console.log('✅ Supabase client initialized');
 
+    // Bridge is durable; localStorage was cleared above. Restore JWT before any
+    // sync/profile call so RLS does not see an anonymous upsert.
+    if (typeof this.hydrateClientSessionFromBridge === 'function') {
+      await this.hydrateClientSessionFromBridge();
+    }
+
     // Persist auth session into chrome.storage so content-script can use it for
     // authenticated Edge Function calls (e.g., premium AI tips in-page).
     this.setupAuthSessionBridge();

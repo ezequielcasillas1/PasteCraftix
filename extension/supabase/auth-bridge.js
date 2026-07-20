@@ -59,6 +59,47 @@ async getStoredAccessToken() {
   } catch (_) {
     return '';
   }
+},
+
+/**
+ * After init clears stale localStorage, supabase-js has no JWT until popup auth
+ * restores. Hydrate from chrome.storage bridge so early sync/profile calls
+ * are authenticated (avoids RLS 401 on user_profiles).
+ */
+async hydrateClientSessionFromBridge() {
+  if (!this.client?.auth) return false;
+  if (this._hydrateBridgePromise) return this._hydrateBridgePromise;
+
+  this._hydrateBridgePromise = (async () => {
+    try {
+      const { data: { session } } = await this.client.auth.getSession();
+      if (session?.access_token) return true;
+
+      const bridgeKey = this._sessionBridgeKey || 'pc_supabase_session_v1';
+      const res = await chrome.storage.local.get([bridgeKey]);
+      const bridge = res?.[bridgeKey] || null;
+      const access_token = bridge?.access_token ? String(bridge.access_token) : '';
+      const refresh_token = bridge?.refresh_token ? String(bridge.refresh_token) : '';
+      if (!access_token || !refresh_token) return false;
+
+      let { error } = await this.client.auth.setSession({ access_token, refresh_token });
+      // Transient network blips show as Failed to fetch; one retry is enough.
+      if (error && String(error.message || error).includes('Failed to fetch')) {
+        ({ error } = await this.client.auth.setSession({ access_token, refresh_token }));
+      }
+      if (error) {
+        console.warn('[hydrateClientSessionFromBridge]', error.message || error);
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  })().finally(() => {
+    this._hydrateBridgePromise = null;
+  });
+
+  return this._hydrateBridgePromise;
 }
 
 // =====================================================
