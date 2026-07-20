@@ -3,32 +3,32 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
 
 const principles = [
-  'Readable interfaces beat crowded dashboards.',
-  'Clipboard history should stay useful after you copy.',
-  'AI should help when it helps, not take over the workflow.',
-  'Free users should get a strong product, not a limited demo.',
+  'Fast copy and save should feel effortless in study and work habits.',
+  'Valuable information deserves a durable place after the copy moment ends.',
+  'Categories and notes should help you orchestrate review, not add clutter.',
+  'AI Lab should help in almost any situation without taking over the core flow.',
 ];
 ---
 
 <BaseLayout
   title="About PasteCraft"
-  description="Learn why PasteCraft exists and how it approaches clipboard management, sync, and optional AI tools with a readability-first mindset."
+  description="PasteCraft is a productivity and study tool that helps you copy fast, save valuable information, organize categories and notes, and use AI Lab when you need clarity."
   currentPath="/about"
 >
   <div class="page-shell">
     <SectionShell
       eyebrow="About PasteCraft"
-      title="Built for people who copy a lot and hate losing context"
-      copy="PasteCraft makes copied information durable. Instead of a temporary scratchpad, you get a place to organize, revisit, and reuse what you copy."
+      title="Built for productivity and studying excellence"
+      copy="PasteCraft helps you make the most of every copy. Save valuable information quickly, keep study material ready, and move through categories and notes with a clear workflow."
     >
       <div class="split">
         <article class="surface-card panel stack">
           <h3>Our story</h3>
-          <p class="section-copy">Too many useful snippets vanish right after you copy them. Research notes, code fragments, messages, and study material deserve a cleaner place to land.</p>
+          <p class="section-copy">Useful snippets vanish too easily after you copy them. Research notes, lecture points, messages, and work details deserve a place that stays ready for the next study session or productivity sprint.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>Our mission</h3>
-          <p class="section-copy">Make clipboard management calm, capable, and readable across free, synced, and AI-assisted workflows.</p>
+          <p class="section-copy">Help people copy fast, save what matters, and study with clarity—using categories, notes, and AI Lab as a coordinated productivity practice.</p>
         </article>
       </div>
     </SectionShell>
@@ -36,7 +36,7 @@ const principles = [
     <SectionShell
       eyebrow="Principles"
       title="How we shape the product"
-      copy="A few product rules keep PasteCraft focused."
+      copy="A few product rules keep PasteCraft focused on study-wise and productivity habits."
     >
       <div class="card-grid two">
         {principles.map((principle) => (
@@ -49,21 +49,21 @@ const principles = [
 
     <SectionShell
       eyebrow="What makes it different"
-      title="A middle ground between simple history and bloated workspaces"
-      copy="PasteCraft stays light on day one, then grows into sync, categories, notes, and premium tools when you need them."
+      title="From fast copy to lasting study and work flow"
+      copy="PasteCraft stays light on day one, then grows into sync, categories, notes, and AI Lab when your habits need more range."
     >
       <div class="card-grid three">
         <article class="surface-card panel stack">
           <h3>Useful at every tier</h3>
-          <p class="section-copy">The free experience is strong enough for daily use.</p>
+          <p class="section-copy">The free experience is strong enough for daily study and productivity capture.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>Sync when it matters</h3>
           <p class="section-copy">Cloud-backed workflows stay available when you need continuity across devices.</p>
         </article>
         <article class="surface-card panel stack">
-          <h3>AI as an upgrade</h3>
-          <p class="section-copy">Breakdowns, summaries, and image tools sit on top of the core workflow instead of replacing it.</p>
+          <h3>AI Lab as an upgrade</h3>
+          <p class="section-copy">Summaries, breakdowns, and study-ready help sit on top of the core workflow instead of replacing it.</p>
         </article>
       </div>
     </SectionShell>
