@@ -1,9 +1,11 @@
 /** Merge chrome.storage clips with IndexedDB payloads — never let stale IDB shadow fresh local writes. */
 
+import { getClipIdKey } from './clip-id.js';
+
 export function getClipMergeKey(clip) {
   if (clip == null) return '';
   const id = clip.id ?? clip.clip_id ?? clip.clipId;
-  return id != null ? String(id) : '';
+  return id != null ? getClipIdKey(id) : '';
 }
 
 export function getClipSortTime(clip) {
@@ -14,12 +16,21 @@ export function getClipSortTime(clip) {
   return Number.isFinite(ts) ? ts : 0;
 }
 
+export function filterTombstonedClips(clips, deletedIds) {
+  if (!deletedIds?.size) return Array.isArray(clips) ? clips : [];
+  return (Array.isArray(clips) ? clips : []).filter((clip) => {
+    const key = getClipMergeKey(clip);
+    return key && !deletedIds.has(key);
+  });
+}
+
 /**
  * Union active clips by id; when both sources have the same id, keep the newer record.
+ * Tombstoned ids are excluded so IDB-only rows cannot resurrect a local delete.
  */
-export function mergeActiveClipsSources(localClips, idbClips) {
-  const local = Array.isArray(localClips) ? localClips : [];
-  const idb = Array.isArray(idbClips) ? idbClips : [];
+export function mergeActiveClipsSources(localClips, idbClips, deletedIds = null) {
+  const local = filterTombstonedClips(localClips, deletedIds);
+  const idb = filterTombstonedClips(idbClips, deletedIds);
 
   if (idb.length === 0) return [...local];
   if (local.length === 0) return [...idb];
