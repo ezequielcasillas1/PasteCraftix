@@ -212,6 +212,16 @@ function onOpenPopupPanelMessage() {
   console.error('❌ Floating widget not initialized');
 }
 
+/** Actions this content listener owns. All others must return false sync (no Promise). */
+const QP_RUNTIME_ACTIONS = new Set([
+  'clipSaved',
+  'showQuickPaste',
+  'settingsUpdated',
+  'clipsUpdated',
+  'clipsCleared',
+  'openPopupPanel',
+]);
+
 async function dispatchQuickPasteMessage(qp, message) {
   const action = message && typeof message.action === 'string' ? message.action : '';
   if (action === 'clipSaved') {
@@ -241,12 +251,26 @@ async function dispatchQuickPasteMessage(qp, message) {
   return false;
 }
 
-/** chrome.runtime.onMessage listener for Quick Paste actions. */
+/**
+ * chrome.runtime.onMessage for Quick Paste only.
+ * Must NOT use an async listener: a Promise that resolves to false still
+ * becomes the sendMessage reply and races/steals pcCaptureRegion (null/unusable).
+ */
 export function setupQuickPasteMessageListener(qp) {
-  chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-    const handled = await dispatchQuickPasteMessage(qp, message);
-    if (handled) sendResponse(true);
-    return handled;
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    const action = message && typeof message.action === 'string' ? message.action : '';
+    if (!QP_RUNTIME_ACTIONS.has(action)) {
+      return false;
+    }
+    (async () => {
+      try {
+        const handled = await dispatchQuickPasteMessage(qp, message);
+        sendResponse(!!handled);
+      } catch (_) {
+        sendResponse(false);
+      }
+    })();
+    return true;
   });
 }
 

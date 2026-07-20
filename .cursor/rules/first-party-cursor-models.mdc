@@ -1,0 +1,45 @@
+---
+description: Default to first-party Cursor models only — Grok 4.5 for coding, Composer 2.5 Fast for git plumbing.
+alwaysApply: true
+---
+
+# First-Party Cursor Models (PasteCraft Default)
+
+**Overrides** third-party model ladders (`deepseek-v4-model-selection.mdc`, `refactor-model-switching-workflow.mdc`, etc.) for day-to-day work unless Ezequiel **explicitly** names another model in the message.
+
+## Defaults
+
+| Work | Model | Slug |
+|---|---|---|
+| Coding, debugging, implementation, investigation | **Cursor Grok 4.5** | `cursor-grok-4.5-high-fast` |
+| Git voice commands / commit-push-branch-PR plumbing | **Composer 2.5 Fast** | `composer-2.5-fast` |
+
+Git triggers: `git commit`, `git commit all`, `git workflow`, branch create/checkout for commits, PR create when mostly `git`/`gh` — see [git-workflow-commands.mdc](git-workflow-commands.mdc).
+
+## Forbidden (unless Ezequiel explicitly asks)
+
+Do **not** recommend, switch to, or spawn subagents with third-party models:
+
+Claude (Sonnet, Opus), GPT, Gemini, DeepSeek, GLM, etc.
+
+Explicit opt-in examples: *"use Opus 4.7"*, *"switch to DeepSeek v4-Pro"*, *"run this with Sonnet"*.
+
+## Task / subagent `model` param
+
+| Agent role | `model` slug |
+|---|---|
+| Coding, debug, explore, refactor, implementation | `cursor-grok-4.5-high-fast` |
+| Git / commit / branch / PR plumbing | `composer-2.5-fast` |
+
+Only set a different slug when Ezequiel names that model in the same message.
+
+## Future exception
+
+**Kimi K3** — allowed only when Cursor makes it available again (expected later July 2026) **and** Ezequiel asks or this rule is updated to allow it by default.
+
+## Agent checklist
+
+1. Default session work → Grok 4.5; do not propose third-party alternatives unprompted.
+2. Git voice command → Composer 2.5 Fast.
+3. Refactor model tables / cost ladders → ignore third-party rows unless user opted in.
+4. Subagent launch → match table above; never Opus/Sonnet/GPT/DeepSeek by default.

@@ -1,6 +1,6 @@
 /**
  * Mediator-style router for chrome.runtime.onMessage internal actions.
- * Handlers return the same boolean as chrome.runtime.onMessage (true = async sendResponse).
+ * Handlers may return true (async sendResponse) or a Promise (payload reply).
  */
 export function createInternalMessageRouter(handlers) {
   const routeMap = handlers && typeof handlers === 'object' ? handlers : {};
@@ -19,13 +19,11 @@ export function createInternalMessageRouter(handlers) {
 
     console.log('📨 Internal message received:', action);
 
-    const context = {
+    return handler(message, {
       sender,
       sendResponse,
       isExtensionPage: isExtensionPageSender(sender),
-    };
-
-    return handler(message, context);
+    });
   };
 }
 

@@ -1,4 +1,9 @@
 
+### Jul 20, 2026 - Image Picker capture channel + Scholar Merchant gate
+**Status:** SUCCESS
+**Files:** capture.handler.js, capture.region.js, capture.constants.js, popup.boot.js, qp.events.js, product-line-gate.js, content.js, widget.image-to-text.js, merchant.controller.js, first-party-cursor-models.mdc
+**Result:** Image Picker preview works again; popup no longer steals pcCaptureRegion; Scholar defaults Merchant off. User verified.
+
 ### Jul 17, 2026 - Restore AI markup vendor libs
 **Status:** SUCCESS
 **Files:** scripts/prepare-extension-libs.mjs, extension/lib/* (local via prepare:libs)

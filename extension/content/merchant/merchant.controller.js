@@ -1,20 +1,14 @@
+import { readMerchantLayerEnabled } from '../safety/product-line-gate.js';
 import { MERCHANT_STORAGE_KEYS } from './merchant.constants.js';
 import { MerchantTopStrip } from './merchant.top-strip.js';
 import { MerchantListingDock } from './merchant.listing-dock.js';
 import { refreshMerchantPulse } from './merchant.pulse.js';
 import { initMerchantSnippets } from './merchant.snippets.js';
 import { initMerchantTagQueue, refreshTagQueueTags } from './merchant.tag-queue.js';
+import { disarmImageToText } from './merchant.image-to-text.js';
 
 async function isStripEnabled() {
-  try {
-    const stored = await chrome.storage.local.get([MERCHANT_STORAGE_KEYS.STRIP_ENABLED]);
-    if (stored[MERCHANT_STORAGE_KEYS.STRIP_ENABLED] === undefined) {
-      return true;
-    }
-    return stored[MERCHANT_STORAGE_KEYS.STRIP_ENABLED] !== false;
-  } catch (_) {
-    return true;
-  }
+  return readMerchantLayerEnabled();
 }
 
 function bindStoragePulseRefresh(stripEl) {
@@ -35,7 +29,7 @@ function bindStoragePulseRefresh(stripEl) {
 
 /**
  * Initialize Merchant content layer (Phase 2 — listing dock + pulse).
- * Billing/gating deferred; strip defaults to enabled for user testing.
+ * Scholar default: off unless pc_merchant_strip_enabled_v1 === true.
  */
 function clearStaleMerchantLayer() {
   const layer = window.__pasteCraftMerchant;
@@ -67,6 +61,7 @@ export async function initMerchantLayer() {
     dock,
     tagQueue: null,
     snippets: null,
+    disarmImageToText,
     isMounted() {
       return strip.isMounted();
     },

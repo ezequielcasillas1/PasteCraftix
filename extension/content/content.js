@@ -1,4 +1,5 @@
 import { isSiteAllowed } from './safety/site-guard.js';
+import { shouldInitMerchantLayer } from './safety/product-line-gate.js';
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
 
@@ -24,8 +25,20 @@ function pastecraftInitContent() {
     console.error('[PasteCraft] Widget init failed:', err);
   }
 
-  import('./merchant/merchant.controller.js')
-    .then(({ initMerchantLayer }) => initMerchantLayer())
+  shouldInitMerchantLayer()
+    .then((enabled) => {
+      // Tear down stale Merchant if Scholar gate is off (no merchant↔widget import).
+      if (!enabled && window.__pasteCraftMerchant) {
+        try {
+          window.__pasteCraftMerchant.dock?.unmount?.();
+          window.__pasteCraftMerchant.strip?.unmount?.();
+        } catch (_) {}
+        window.__pasteCraftMerchant = null;
+      }
+      if (!enabled) return null;
+      return import('./merchant/merchant.controller.js')
+        .then(({ initMerchantLayer }) => initMerchantLayer());
+    })
     .catch((err) => {
       console.warn('[PasteCraft] merchant layer skipped:', err);
     });

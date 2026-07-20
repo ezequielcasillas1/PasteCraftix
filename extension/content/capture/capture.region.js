@@ -1,6 +1,11 @@
 /** @forward-slice Snipping-tool region capture overlay. */
 
-import { CAPTURE_MAX_REGION_PX } from './capture.constants.js';
+import {
+  CAPTURE_LAYER_Z,
+  CAPTURE_MAX_REGION_PX,
+  awaitCapturePaint,
+  mountCaptureLayer,
+} from './capture.constants.js';
 
 let _activeSession = null;
 
@@ -55,26 +60,116 @@ function cropDataUrl(dataUrl, rect) {
   });
 }
 
-async function captureVisibleTabScreenshot() {
+function isCaptureResponseOk(response) {
+  if (!response || typeof response !== 'object') return false;
+  if (response.success === true || response.ok === true) {
+    return !!(response.dataUrl || response.storageKey);
+  }
+  return false;
+}
+
+/** Surface real handler errors; distinguish stolen/null replies from capture API failures. */
+function describeCaptureFailure(response) {
+  if (response == null) {
+    return 'No response from pcCaptureRegion (background did not reply).';
+  }
+  if (typeof response !== 'object') {
+    return `Unexpected pcCaptureRegion reply (${String(response)}). Another listener may have stolen the channel.`;
+  }
+  if (response.__transportError) return String(response.__transportError);
+  if (response.error) return String(response.error);
+  if (response.success === false || response.ok === false) {
+    return 'Screenshot capture failed.';
+  }
+  if (!response.dataUrl && !response.storageKey) {
+    return 'pcCaptureRegion returned no image data.';
+  }
+  return 'No usable response from pcCaptureRegion.';
+}
+
+/** Callback-based sendMessage so chrome.runtime.lastError is never dropped. */
+function sendCaptureMessage(payload) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage(payload, (response) => {
+        const lastErr = chrome.runtime.lastError;
+        if (lastErr) {
+          resolve({
+            success: false,
+            ok: false,
+            error: lastErr.message || 'message_port_error',
+            __transportError: lastErr.message || 'message_port_error',
+          });
+          return;
+        }
+        resolve(response == null ? null : response);
+      });
+    } catch (err) {
+      resolve({
+        success: false,
+        ok: false,
+        error: err?.message || 'sendMessage_throw',
+        __transportError: err?.message || 'sendMessage_throw',
+      });
+    }
+  });
+}
+
+async function resolveCaptureDataUrl(response) {
+  if (response?.dataUrl) return response.dataUrl;
+  const key = response?.storageKey;
+  if (!key || typeof chrome.storage?.session?.get !== 'function') return null;
+  const bag = await chrome.storage.session.get(key);
+  const dataUrl = bag?.[key];
+  try { await chrome.storage.session.remove(key); } catch (_) {}
+  return typeof dataUrl === 'string' && dataUrl ? dataUrl : null;
+}
+
+async function requestCaptureRegionOnce(rect) {
+  const response = await sendCaptureMessage({
+    action: 'pcCaptureRegion',
+    rect: rect || null,
+    dpr: window.devicePixelRatio || 1,
+  });
+  if (!isCaptureResponseOk(response)) {
+    return { ok: false, response, error: describeCaptureFailure(response) };
+  }
+  const dataUrl = await resolveCaptureDataUrl(response);
+  if (!dataUrl) {
+    return {
+      ok: false,
+      response,
+      error: response.storageKey ? 'storage_key_empty' : describeCaptureFailure(response),
+    };
+  }
+  return {
+    ok: true,
+    dataUrl,
+    cropped: response.cropped === true,
+    response,
+  };
+}
+
+async function captureVisibleTabScreenshot(rect) {
   let response = null;
   let lastError = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      response = await chrome.runtime.sendMessage({ action: 'pcCaptureRegion' });
-      if (response != null) break;
-      lastError = 'No response from pcCaptureRegion.';
-    } catch (err) {
-      lastError = err?.message || 'Screenshot capture failed.';
-      if (attempt === 0) {
-        await new Promise((resolve) => setTimeout(resolve, 80));
-      }
+  let attempt = 0;
+  // Chrome limits captureVisibleTab to ~2 calls/sec — keep retries sparse.
+  for (attempt = 1; attempt <= 2; attempt += 1) {
+    const result = await requestCaptureRegionOnce(rect);
+    response = result.response;
+    if (result.ok) {
+      return { dataUrl: result.dataUrl, cropped: result.cropped };
+    }
+    lastError = result.error;
+    if (attempt === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 550));
     }
   }
-  const errText = response?.error || lastError || 'capture_failed';
-  if (!response?.success || !response?.dataUrl) {
-    throw new Error(errText);
-  }
-  return response.dataUrl;
+  const errText = (response && typeof response === 'object' && response.error)
+    || lastError
+    || 'capture_failed';
+  throw new Error(errText);
 }
 
 export function isRegionCaptureActive() {
@@ -96,7 +191,7 @@ export function capturePageRegion() {
 
     const overlay = document.createElement('div');
     overlay.setAttribute('data-field', 'pc-capture-region-overlay');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483646;cursor:crosshair;touch-action:none;background:rgba(0,0,0,0.2);';
+    overlay.style.cssText = `position:fixed;inset:0;z-index:${CAPTURE_LAYER_Z.REGION_OVERLAY};cursor:crosshair;touch-action:none;background:rgba(0,0,0,0.2);`;
 
     const box = document.createElement('div');
     box.style.cssText = 'position:fixed;border:2px solid #60a5fa;background:rgba(96,165,250,0.12);pointer-events:none;display:none;';
@@ -107,11 +202,18 @@ export function capturePageRegion() {
 
     overlay.appendChild(box);
     overlay.appendChild(hint);
-    document.documentElement.appendChild(overlay);
+    mountCaptureLayer(overlay, CAPTURE_LAYER_Z.REGION_OVERLAY);
 
     let startX = 0;
     let startY = 0;
     let dragging = false;
+    let settled = false;
+
+    const settle = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
 
     const cleanup = () => {
       overlay.removeEventListener('pointerdown', onDown);
@@ -123,17 +225,25 @@ export function capturePageRegion() {
     };
 
     const finish = async (rect) => {
+      overlay.style.background = 'transparent';
+      box.style.display = 'none';
+      hint.style.display = 'none';
+      document.body.style.cursor = prevCursor;
+      await awaitCapturePaint();
       cleanup();
+
       if (!rect || rect.width < 6 || rect.height < 6) {
-        resolve({ ok: false, error: 'Selection too small.' });
+        settle({ ok: false, error: 'Selection too small.' });
         return;
       }
       try {
-        const fullShot = await captureVisibleTabScreenshot();
-        const dataUrl = await cropDataUrl(fullShot, rect);
-        resolve({ ok: true, rect, dataUrl });
+        const shot = await captureVisibleTabScreenshot(rect);
+        const dataUrl = shot.cropped
+          ? shot.dataUrl
+          : await cropDataUrl(shot.dataUrl, rect);
+        settle({ ok: true, rect, dataUrl });
       } catch (err) {
-        resolve({ ok: false, error: err?.message || 'Capture failed.' });
+        settle({ ok: false, error: err?.message || 'Capture failed.' });
       }
     };
 
@@ -141,7 +251,7 @@ export function capturePageRegion() {
       if (event.key === 'Escape') {
         event.preventDefault();
         cleanup();
-        resolve({ ok: false, error: 'Capture cancelled.' });
+        settle({ ok: false, error: 'Capture cancelled.' });
       }
     };
 
@@ -171,8 +281,11 @@ export function capturePageRegion() {
     };
 
     const onUp = (event) => {
-      if (!dragging) return;
+      if (!dragging || event.button !== 0) return;
       dragging = false;
+      try { overlay.releasePointerCapture(event.pointerId); } catch (_) {}
+      event.preventDefault();
+      event.stopPropagation();
       finish(clampRect({
         x: Math.min(startX, event.clientX),
         y: Math.min(startY, event.clientY),

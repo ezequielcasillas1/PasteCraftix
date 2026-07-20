@@ -5,45 +5,162 @@ import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
  * Keep each handler CC ≤ 9 via small helpers.
  */
 
-function captureVisibleTabOnce(windowId) {
-  return new Promise((resolve) => {
-    try {
-      const cb = (dataUrl) => {
-        const lastErr = chrome.runtime.lastError;
-        if (lastErr || !dataUrl) {
-          resolve({ ok: false, error: lastErr?.message || 'capture_failed_no_data' });
-          return;
-        }
-        resolve({ ok: true, dataUrl });
-      };
-      if (windowId != null) {
-        chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, cb);
-      } else {
-        chrome.tabs.captureVisibleTab({ format: 'png' }, cb);
-      }
-    } catch (err) {
-      resolve({ ok: false, error: err?.message || 'capture_throw' });
-    }
-  });
+const CAPTURE_OPTIONS = { format: 'png' };
+const CAPTURE_JPEG_FALLBACK = { format: 'jpeg', quality: 92 };
+/** Above this, return a session storage key instead of inline dataUrl (MV3 message size). */
+const INLINE_DATAURL_MAX = 450000;
+const CAPTURE_STORAGE_PREFIX = 'pc_capture_shot_';
+
+async function captureVisibleTabOnce(windowId, options = CAPTURE_OPTIONS) {
+  try {
+    const dataUrl = Number.isFinite(windowId)
+      ? await chrome.tabs.captureVisibleTab(windowId, options)
+      : await chrome.tabs.captureVisibleTab(options);
+    if (!dataUrl) return { ok: false, error: 'capture_failed_no_data' };
+    return { ok: true, dataUrl };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'capture_throw' };
+  }
 }
 
-export function handlePcCaptureRegion(_message, { sender, sendResponse }) {
-  const senderWindowId = sender.tab?.windowId;
-  const captureTargetWindow = Number.isFinite(senderWindowId) ? senderWindowId : null;
+async function captureSenderScreenshot(windowId) {
+  const primary = await captureVisibleTabOnce(
+    Number.isFinite(windowId) ? windowId : null,
+    CAPTURE_OPTIONS,
+  );
+  if (primary.ok) return primary;
 
-  (async () => {
+  // Second attempt: jpeg (smaller) + optional null windowId fallback.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const jpeg = await captureVisibleTabOnce(
+    Number.isFinite(windowId) ? windowId : null,
+    CAPTURE_JPEG_FALLBACK,
+  );
+  if (jpeg.ok) return jpeg;
+
+  if (Number.isFinite(windowId)) {
+    const anyWindow = await captureVisibleTabOnce(null, CAPTURE_OPTIONS);
+    if (anyWindow.ok) return anyWindow;
+    return {
+      ok: false,
+      error: [primary.error, jpeg.error, anyWindow.error].filter(Boolean).join(' | ') || 'capture_failed',
+    };
+  }
+
+  return {
+    ok: false,
+    error: [primary.error, jpeg.error].filter(Boolean).join(' | ') || 'capture_failed',
+  };
+}
+
+function normalizeCropRect(rect) {
+  if (!rect || typeof rect !== 'object') return null;
+  const x = Number(rect.x);
+  const y = Number(rect.y);
+  const width = Number(rect.width);
+  const height = Number(rect.height);
+  if (![x, y, width, height].every(Number.isFinite)) return null;
+  if (width < 1 || height < 1) return null;
+  return { x, y, width, height };
+}
+
+async function blobToDataUrl(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const slice = bytes.subarray(i, i + chunk);
+    binary += String.fromCharCode.apply(null, slice);
+  }
+  return `data:${blob.type || 'image/png'};base64,${btoa(binary)}`;
+}
+
+async function cropDataUrlInWorker(dataUrl, rect, dpr) {
+  const scale = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  const bitmap = await createImageBitmap(blob);
+  const width = Math.max(1, Math.round(rect.width * scale));
+  const height = Math.max(1, Math.round(rect.height * scale));
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('OffscreenCanvas unavailable');
+  ctx.drawImage(
+    bitmap,
+    Math.round(rect.x * scale),
+    Math.round(rect.y * scale),
+    width,
+    height,
+    0,
+    0,
+    width,
+    height,
+  );
+  bitmap.close?.();
+  const outBlob = await canvas.convertToBlob({ type: 'image/png' });
+  return blobToDataUrl(outBlob);
+}
+
+async function stashCaptureDataUrl(dataUrl) {
+  const key = `${CAPTURE_STORAGE_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await chrome.storage.session.set({ [key]: dataUrl });
+  return key;
+}
+
+async function buildCaptureSuccessPayload(dataUrl) {
+  if (typeof dataUrl === 'string' && dataUrl.length <= INLINE_DATAURL_MAX) {
+    return { success: true, ok: true, dataUrl };
+  }
+  try {
+    const storageKey = await stashCaptureDataUrl(dataUrl);
+    return { success: true, ok: true, storageKey };
+  } catch (err) {
+    // Last resort: try inline anyway (may fail on channel size).
+    return { success: true, ok: true, dataUrl, stashError: err?.message || 'stash_failed' };
+  }
+}
+
+async function maybeCropShot(dataUrl, cropRect, dpr) {
+  if (!cropRect || typeof OffscreenCanvas !== 'function') {
+    return { dataUrl, cropped: false };
+  }
+  try {
+    return { dataUrl: await cropDataUrlInWorker(dataUrl, cropRect, dpr), cropped: true };
+  } catch (_) {
+    return { dataUrl, cropped: false };
+  }
+}
+
+async function buildDeliverableCapturePayload(outUrl, cropped) {
+  const payload = await buildCaptureSuccessPayload(outUrl);
+  payload.cropped = cropped;
+  return payload;
+}
+
+async function runPcCaptureRegion(message, sender) {
+  const windowId = sender.tab?.windowId;
+  const cropRect = normalizeCropRect(message?.rect);
+  const dpr = Number(message?.dpr);
+
+  const shot = await captureSenderScreenshot(windowId);
+  if (!shot.ok) {
+    return { success: false, ok: false, error: shot.error || 'capture_failed' };
+  }
+
+  const croppedShot = await maybeCropShot(shot.dataUrl, cropRect, dpr);
+  return buildDeliverableCapturePayload(croppedShot.dataUrl, croppedShot.cropped);
+}
+
+/** Promise payload reply — avoids return-true + sendResponse races with other listeners. */
+export function handlePcCaptureRegion(message, { sender }) {
+  return (async () => {
     try {
-      const result = await captureVisibleTabOnce(captureTargetWindow);
-      if (result.ok) {
-        sendResponse({ success: true, dataUrl: result.dataUrl });
-      } else {
-        sendResponse({ success: false, error: result.error || 'capture_failed' });
-      }
+      return await runPcCaptureRegion(message, sender);
     } catch (err) {
-      sendResponse({ success: false, error: err?.message || 'capture_outer_throw' });
+      return { success: false, ok: false, error: err?.message || 'capture_outer_throw' };
     }
   })();
-  return true;
 }
 
 /**

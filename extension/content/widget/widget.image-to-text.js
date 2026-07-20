@@ -1,5 +1,6 @@
 /** Scholar Image Picker — region snip + preview + clip save. */
 
+import { CAPTURE_LAYER_Z, mountCaptureLayer } from '../capture/capture.constants.js';
 import { capturePageRegion, cancelRegionCapture, isRegionCaptureActive } from '../capture/capture.region.js';
 import { extractTextFromImageDataUrl } from '../capture/capture.ocr.js';
 import { saveImageTextClipFromContent } from '../capture/capture.clip-save.js';
@@ -26,7 +27,7 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
 
   const host = document.createElement('div');
   host.setAttribute('data-field', 'pc-widget-image-preview-host');
-  host.style.cssText = 'position:fixed;inset:0;z-index:2147483645;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.55);padding:16px;';
+  host.style.cssText = 'inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.55);padding:16px;';
 
   const panel = document.createElement('div');
   panel.style.cssText = 'width:min(420px,92vw);max-height:90vh;overflow:auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,0.35);font:14px system-ui,sans-serif;color:#0f172a;';
@@ -79,9 +80,32 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
   actions.append(cancelBtn, saveBtn);
   panel.appendChild(actions);
   host.appendChild(panel);
-  document.documentElement.appendChild(host);
+  mountCaptureLayer(host, CAPTURE_LAYER_Z.PREVIEW);
   _previewHost = host;
-  textarea.focus();
+  requestAnimationFrame(() => {
+    if (!host.isConnected) {
+      mountCaptureLayer(host, CAPTURE_LAYER_Z.PREVIEW);
+    }
+    textarea.focus();
+  });
+}
+
+async function clearStaleMerchantForScholarCapture() {
+  let merchantStorageEnabled = false;
+  try {
+    const bag = await chrome.storage.local.get(['pc_merchant_strip_enabled_v1']);
+    merchantStorageEnabled = bag?.pc_merchant_strip_enabled_v1 === true;
+  } catch (_) {
+    merchantStorageEnabled = false;
+  }
+  const layer = window.__pasteCraftMerchant;
+  if (!layer || merchantStorageEnabled) return;
+  try {
+    layer.disarmImageToText?.();
+    layer.dock?.unmount?.();
+    layer.strip?.unmount?.();
+  } catch (_) {}
+  window.__pasteCraftMerchant = null;
 }
 
 export async function runWidgetImagePickerAction(showToast) {
@@ -89,13 +113,17 @@ export async function runWidgetImagePickerAction(showToast) {
     return { ok: false, message: 'Capture already in progress.' };
   }
 
+  await clearStaleMerchantForScholarCapture();
+
   _onModeChange?.('image');
   showToast?.('Drag a region on the page…');
 
   const capture = await capturePageRegion();
   if (!capture.ok) {
+    const message = capture.error || 'Capture cancelled.';
+    showToast?.(message);
     _onModeChange?.('idle');
-    return { ok: false, message: capture.error || 'Capture cancelled.' };
+    return { ok: false, message };
   }
 
   const ocr = await extractTextFromImageDataUrl(capture.dataUrl);

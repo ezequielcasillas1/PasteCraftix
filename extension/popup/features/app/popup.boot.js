@@ -30,6 +30,9 @@ async function startPopup(PasteCraftPopupClass) {
   }
 }
 
+/** Popup-owned runtime actions only — never claim unrelated replies (e.g. pcCaptureRegion). */
+const POPUP_RUNTIME_ACTIONS = new Set(['showCategoryModal', 'clipsUpdated', 'clipSaved']);
+
 export function bootPopupPage(PasteCraftPopupClass) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => startPopup(PasteCraftPopupClass), { once: true });
@@ -37,9 +40,12 @@ export function bootPopupPage(PasteCraftPopupClass) {
     startPopup(PasteCraftPopupClass);
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Never call sendResponse — broadcasts are fire-and-forget. sendResponse(true)
+  // races/steals pcCaptureRegion when the warmed popup iframe is alive.
+  chrome.runtime.onMessage.addListener((message) => {
+    const action = message && typeof message.action === 'string' ? message.action : '';
+    if (!POPUP_RUNTIME_ACTIONS.has(action)) return;
     PasteCraftPopupClass.handleMessage(message);
-    sendResponse(true);
   });
 }
 
