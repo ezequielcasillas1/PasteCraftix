@@ -20,33 +20,51 @@ async syncCategoriesToSupabase(localCategories) {
 
     let healedLocalCategories = Array.isArray(localCategories) ? localCategories.slice() : [];
     try {
+      // Include soft-deleted rows: UNIQUE(user_id, name) still holds them, so local
+      // categories with new IDs but the same name must adopt the remote category_id
+      // (tombstone guard then skips revive instead of INSERT → 23505).
       const { data: remoteCategoryRows, error: remoteCategoriesError } = await this.client
         .from('categories')
         .select('category_id,name,icon,updated_at,deleted_at,device_id')
-        .eq('user_id', userId)
-        .is('deleted_at', null);
+        .eq('user_id', userId);
       if (remoteCategoriesError) throw remoteCategoriesError;
 
       const remoteByName = new Map();
       (Array.isArray(remoteCategoryRows) ? remoteCategoryRows : []).forEach((row) => {
         const key = normalizeName(row?.name);
         if (!key) return;
-        remoteByName.set(key, {
+        const candidate = {
           id: row.category_id,
           name: row.name,
           icon: row.icon,
           updatedAt: row.updated_at ? Date.parse(row.updated_at) : 0,
-          deviceId: row.device_id || null
-        });
+          deviceId: row.device_id || null,
+          deleted: !!row.deleted_at
+        };
+        const prev = remoteByName.get(key);
+        // Prefer active rows; among same deleted-state, keep newest.
+        if (!prev) {
+          remoteByName.set(key, candidate);
+          return;
+        }
+        if (prev.deleted && !candidate.deleted) {
+          remoteByName.set(key, candidate);
+          return;
+        }
+        if (prev.deleted === candidate.deleted && candidate.updatedAt >= prev.updatedAt) {
+          remoteByName.set(key, candidate);
+        }
       });
 
       let reconciledCount = 0;
+      let reconciledSoftDeletedCount = 0;
       healedLocalCategories = healedLocalCategories.map((cat) => {
         const key = normalizeName(cat?.name);
         const remote = remoteByName.get(key);
         if (!remote) return cat;
         if (String(remote.id) === String(cat?.id)) return cat;
         reconciledCount += 1;
+        if (remote.deleted) reconciledSoftDeletedCount += 1;
         return {
           ...cat,
           id: remote.id,
@@ -60,7 +78,7 @@ async syncCategoriesToSupabase(localCategories) {
           categories: healedLocalCategories,
           pc_local_updatedAt: Date.now()
         });
-        console.log(`♻️ Reconciled ${reconciledCount} local category id${reconciledCount === 1 ? '' : 's'} from remote name matches`);
+        console.log(`♻️ Reconciled ${reconciledCount} local category id${reconciledCount === 1 ? '' : 's'} from remote name matches (${reconciledSoftDeletedCount} soft-deleted)`);
       }
     } catch (reconcileError) {
       console.warn('⚠️ Category ID reconciliation skipped:', reconcileError?.message || reconcileError);
@@ -78,7 +96,7 @@ async syncCategoriesToSupabase(localCategories) {
       const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : null;
       return {
         user_id: userId,
-        category_id: cat.id,
+        category_id: String(cat.id),
         name: cat.name,
         icon: cat.icon || '📁',
         updated_at: new Date(updatedAtMs).toISOString(),

@@ -1,4 +1,9 @@
 
+### Jul 20, 2026 - Categories sync soft-delete name unique
+**Status:** SUCCESS
+**Files:** sync-categories.js
+**Result:** Reconcile category IDs against soft-deleted remote names so upsert no longer hits 23505 on categories_user_id_name_key. User verified.
+
 ### Jul 20, 2026 - Clips delete IDB verify recovery
 **Status:** SUCCESS
 **Files:** clips.service.js, pastecraft-crud.js

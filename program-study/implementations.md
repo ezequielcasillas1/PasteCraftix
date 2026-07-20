@@ -1,4 +1,14 @@
 
+### Jul 20, 2026 - Categories sync soft-delete name unique
+**Status:** SUCCESS
+**Files:** sync-categories.js
+**Result:** Name reconcile includes soft-deleted remotes; avoids 23505 duplicate name on category upsert. User verified.
+
+### Jul 20, 2026 - Clips delete IDB verify recovery
+**Status:** SUCCESS
+**Files:** clips.service.js, pastecraft-crud.js
+**Result:** Recovered stranded delete verify + null-id filter onto main @ 58a9ef1. User verified.
+
 ### Jul 17, 2026 - Premium Blue Craft Clips Batch 3 + AI modal Lucide icons
 **Status:** SUCCESS
 **Files:** theme-blue-phase2.css, popup-icons.js, ai-lab.magic.js, ai-lab.history.js, ai-lab.summary.js, ai-lab.breakdown.js, craft-toolbar.events.js, popup.html, AiLucideStyles.css, request.md
