@@ -1,0 +1,337 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SectionShell from '../components/SectionShell.astro';
+import {
+  productLines,
+  comparisonRows,
+  useCaseCategories,
+  merchantUseCases,
+  chooseGuide,
+} from '../data/scholar-vs-merchant.js';
+
+const { scholar, merchant } = productLines;
+---
+
+<BaseLayout
+  title="PasteCraft Scholar vs PasteCraft Merchant | Use Cases & Differences"
+  description="Detailed PasteCraft Scholar use cases for vibe coding, software engineering, study, and productivity — and how Scholar differs from PasteCraft Merchant for marketplace sellers."
+  keywords="PasteCraft Scholar, PasteCraft Merchant, clipboard manager use cases, vibe coding clipboard, study notes clipboard, Etsy listing paste, seller tag queue, clipboard productivity"
+  currentPath="/scholar-vs-merchant"
+>
+  <div class="page-shell svm">
+    <section class="page-header svm-hero">
+      <div class="container stack">
+        <span class="eyebrow">Product lines</span>
+        <h1 class="section-title">PasteCraft Scholar vs PasteCraft Merchant</h1>
+        <p class="section-copy hero-lead">
+          Same extension brand. Two service layers. <strong>Scholar</strong> is the durable clipboard brain for builders, students, and knowledge workers.
+          <strong>Merchant</strong> is the ephemeral listing cockpit for marketplace sellers. Pick one — or bundle both when you live in both worlds.
+        </p>
+        <div class="button-row">
+          <a class="button" href="#scholar-use-cases">Explore Scholar use cases</a>
+          <a class="ghost-button" href="#how-they-differ">See how they differ</a>
+          <a class="ghost-button" href="/merchant-test.html">Merchant Test Lab</a>
+        </div>
+        <nav class="svm-jump" aria-label="On this page">
+          <a href="#scholar">Scholar</a>
+          <a href="#merchant">Merchant</a>
+          <a href="#how-they-differ">Compare</a>
+          <a href="#scholar-use-cases">Use cases</a>
+          <a href="#merchant-use-cases">Seller flows</a>
+          <a href="#choose">Which to choose</a>
+        </nav>
+      </div>
+    </section>
+
+    <SectionShell
+      eyebrow="At a glance"
+      title="Two jobs. One PasteCraft."
+      copy="The extension stays named PasteCraft. Scholar and Merchant are gated service layers with different storage models, UI surfaces, and success criteria."
+    >
+      <div class="split svm-pair">
+        <article id="scholar" class="surface-card panel stack line-scholar">
+          <span class="line-badge scholar-badge">Scholar</span>
+          <h2>{scholar.name}</h2>
+          <p class="section-copy">{scholar.tagline}</p>
+          <p class="muted"><strong>Audience:</strong> {scholar.audience}</p>
+          <p class="muted"><strong>Storage:</strong> {scholar.storageModel}</p>
+          <h3 class="subhead">Signature tools</h3>
+          <ul class="list-clean">
+            {scholar.signatureTools.map((item) => <li>{item}</li>)}
+          </ul>
+        </article>
+
+        <article id="merchant" class="surface-card panel stack line-merchant">
+          <span class="line-badge merchant-badge">Merchant</span>
+          <h2>{merchant.name}</h2>
+          <p class="section-copy">{merchant.tagline}</p>
+          <p class="muted"><strong>Audience:</strong> {merchant.audience}</p>
+          <p class="muted"><strong>Storage:</strong> {merchant.storageModel}</p>
+          <h3 class="subhead">Signature tools</h3>
+          <ul class="list-clean">
+            {merchant.signatureTools.map((item) => <li>{item}</li>)}
+          </ul>
+        </article>
+      </div>
+    </SectionShell>
+
+    <div id="how-they-differ">
+      <SectionShell
+        eyebrow="Differences"
+        title="How Scholar differs from Merchant"
+        copy="If you only remember one distinction: Scholar keeps knowledge. Merchant stages a listing, then throws the staging away."
+      >
+        <div class="compare-table-wrap surface-card">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th scope="col">Dimension</th>
+                <th scope="col">PasteCraft Scholar</th>
+                <th scope="col">PasteCraft Merchant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr>
+                  <th scope="row">{row.dimension}</th>
+                  <td>{row.scholar}</td>
+                  <td>{row.merchant}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </SectionShell>
+    </div>
+
+    <div id="scholar-use-cases">
+      <SectionShell
+        eyebrow="PasteCraft Scholar"
+        title="A big list of Scholar use cases"
+        copy="Scholar is for anyone whose browser clipboard is a second brain. Below: vibe coding, software engineering, study, and everyday productivity — written as concrete workflows, not vague feature bullets."
+      >
+        <div class="stack svm-categories">
+          {useCaseCategories.map((category) => (
+            <section class="surface-card panel stack category-block" id={category.id}>
+              <div class="category-head">
+                <span class="eyebrow">{category.eyebrow}</span>
+                <h3>{category.title}</h3>
+                <p class="section-copy">{category.intro}</p>
+              </div>
+              <div class="card-grid two use-case-grid">
+                {category.cases.map((item) => (
+                  <article class="use-case stack">
+                    <h4>{item.title}</h4>
+                    <p class="section-copy">{item.detail}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </SectionShell>
+    </div>
+
+    <div id="merchant-use-cases">
+      <SectionShell
+        eyebrow="PasteCraft Merchant"
+        title="Where Merchant shines (and Scholar does not)"
+        copy="Merchant is not “Scholar but for sellers.” It is a different product layer: temporary listing staging, tag queues, and Seal & Ship cleanup on marketplace forms."
+      >
+        <div class="card-grid two">
+          {merchantUseCases.map((item) => (
+            <article class="surface-card panel stack use-case merchant-case">
+              <h3>{item.title}</h3>
+              <p class="section-copy">{item.detail}</p>
+            </article>
+          ))}
+        </div>
+      </SectionShell>
+    </div>
+
+    <div id="choose">
+      <SectionShell
+        eyebrow="Decision guide"
+        title="Which layer should you use?"
+        copy="You can subscribe to Scholar only, Merchant only, or a future bundle. The extension name stays PasteCraft either way."
+      >
+        <div class="card-grid three">
+          {chooseGuide.map((guide) => (
+            <article class="surface-card panel stack">
+              <h3>{guide.title}</h3>
+              <ul class="list-clean">
+                {guide.points.map((point) => <li>{point}</li>)}
+              </ul>
+            </article>
+          ))}
+        </div>
+        <div class="button-row svm-cta">
+          <a class="button" href="/pricing">View Scholar pricing</a>
+          <a class="ghost-button" href="/merchant-test.html">Try Merchant Test Lab</a>
+          <a class="ghost-button" href="/contact">Ask which plan fits</a>
+        </div>
+      </SectionShell>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .svm-hero {
+    padding-bottom: 1rem;
+  }
+
+  .hero-lead {
+    max-width: 68ch;
+    font-size: 1.12rem;
+  }
+
+  .hero-lead strong {
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  .svm-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.5rem;
+  }
+
+  .svm-jump a {
+    text-decoration: none;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text-soft);
+    font-size: 0.88rem;
+    background: rgba(37, 99, 235, 0.06);
+    transition: border-color 180ms ease, color 180ms ease, background 180ms ease;
+  }
+
+  .svm-jump a:hover,
+  .svm-jump a:focus-visible {
+    color: var(--gold);
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.06);
+  }
+
+  .svm-pair {
+    align-items: stretch;
+  }
+
+  .line-scholar {
+    border-color: rgba(251, 191, 36, 0.28);
+  }
+
+  .line-merchant {
+    border-color: rgba(96, 165, 250, 0.35);
+  }
+
+  .line-badge {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .scholar-badge {
+    color: var(--gold);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(251, 191, 36, 0.1);
+  }
+
+  .merchant-badge {
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    background: rgba(37, 99, 235, 0.16);
+  }
+
+  .subhead {
+    margin: 0.25rem 0 0;
+    font-size: 1rem;
+    color: var(--brand-soft);
+  }
+
+  .compare-table-wrap {
+    overflow-x: auto;
+    padding: 0.35rem;
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 640px;
+  }
+
+  .compare-table th,
+  .compare-table td {
+    padding: 1rem 1.1rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-soft);
+    line-height: 1.55;
+    font-size: 0.98rem;
+  }
+
+  .compare-table thead th {
+    color: var(--gold);
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: rgba(251, 191, 36, 0.05);
+  }
+
+  .compare-table tbody th {
+    color: var(--text);
+    font-weight: 700;
+    width: 18%;
+  }
+
+  .compare-table tbody tr:last-child th,
+  .compare-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .svm-categories {
+    gap: 1.75rem;
+  }
+
+  .category-head h3 {
+    margin: 0.35rem 0 0;
+    font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+  }
+
+  .use-case {
+    padding: 1.15rem 1.2rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: rgba(37, 99, 235, 0.05);
+  }
+
+  .use-case h4,
+  .merchant-case h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--text);
+  }
+
+  .use-case .section-copy,
+  .merchant-case .section-copy {
+    font-size: 0.98rem;
+  }
+
+  .svm-cta {
+    margin-top: 1.75rem;
+  }
+
+  @media (max-width: 980px) {
+    .svm-pair {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

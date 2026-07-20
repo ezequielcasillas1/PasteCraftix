@@ -1,5 +1,6 @@
 export const navItems = [
   { href: '/', label: 'Home' },
+  { href: '/scholar-vs-merchant', label: 'PasteCraft Scholar vs Merchant' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
@@ -11,6 +12,7 @@ export const footerLinks = [
   { href: '/contact', label: 'Contact' },
   { href: '/support', label: 'Support' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/scholar-vs-merchant', label: 'PasteCraft Scholar vs Merchant' },
   { href: '/merchant-test.html', label: 'Merchant Test Lab' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
