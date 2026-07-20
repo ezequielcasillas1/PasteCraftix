@@ -43,13 +43,14 @@ function buildLimitedClipState(activeClips, archivedClips, maxClips) {
 }
 
 async function persistClipState(data) {
+  const nextActive = Array.isArray(data?.clips) ? data.clips : [];
   await chrome.storage.local.set({
-    [CLIPS_STORAGE_KEYS.ACTIVE]: Array.isArray(data?.clips) ? data.clips : [],
+    [CLIPS_STORAGE_KEYS.ACTIVE]: nextActive,
     [CLIPS_STORAGE_KEYS.ARCHIVED]: Array.isArray(data?.searchOnlyClips) ? data.searchOnlyClips : [],
     [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
   });
   if (typeof window !== 'undefined' && window.pasteCraftIndexedDB?.syncEntityFromLocalStorage) {
-    await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(CLIPS_STORAGE_KEYS.ACTIVE, Array.isArray(data?.clips) ? data.clips : []);
+    await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(CLIPS_STORAGE_KEYS.ACTIVE, nextActive);
   }
 }
 
@@ -59,17 +60,15 @@ async function verifyDeletedClipIds(idSet, includeArchived, activeIdSet = idSet)
     ...(verification[CLIPS_STORAGE_KEYS.ACTIVE] || []),
     ...(includeArchived ? (verification[CLIPS_STORAGE_KEYS.ARCHIVED] || []) : []),
   ];
-  if (verifiedClips.some(c => idSet.has(getClipIdKey(c?.id)))) return false;
-
+  const storageHit = verifiedClips.some(c => idSet.has(getClipIdKey(c?.id)));
+  let idbHit = false;
   if (activeIdSet?.size && typeof window !== 'undefined' && window.pasteCraftIndexedDB?.getAllPayloads) {
     try {
       const idbClips = await window.pasteCraftIndexedDB.getAllPayloads('clips');
-      if (Array.isArray(idbClips) && idbClips.some((clip) => activeIdSet.has(getClipIdKey(clip?.id)))) {
-        return false;
-      }
+      idbHit = Array.isArray(idbClips) && idbClips.some((clip) => activeIdSet.has(getClipIdKey(clip?.id)));
     } catch (_) {}
   }
-
+  if (storageHit || idbHit) return false;
   return true;
 }
 

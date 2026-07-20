@@ -1,4 +1,10 @@
 
+### Jul 20, 2026 - Clips delete IDB verify recovery
+**Status:** SUCCESS
+**Files:** clips.service.js, pastecraft-crud.js
+**Commits:** fix/clips-delete-idb-verify (recover f937d80 + 02a3e70 onto main)
+**Result:** Restored stranded delete verify + null-id filter; clips delete persists. User verified.
+
 ### Jul 20, 2026 - Image Picker capture channel + Scholar Merchant gate
 **Status:** SUCCESS
 **Files:** capture.handler.js, capture.region.js, capture.constants.js, popup.boot.js, qp.events.js, product-line-gate.js, content.js, widget.image-to-text.js, merchant.controller.js, first-party-cursor-models.mdc
