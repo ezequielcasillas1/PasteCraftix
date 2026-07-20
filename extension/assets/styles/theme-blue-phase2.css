@@ -2598,6 +2598,45 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.06);
 }
 
+/* Original / Refactored dual cards — navy glass, not white sheets */
+[data-theme="blue"] .clip-viewer-refactor-dual {
+  gap: 14px;
+}
+
+[data-theme="blue"] .clip-viewer-refactor-section {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 42%),
+    linear-gradient(165deg, var(--pc-surface-2) 0%, var(--pc-glass-strong) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.38);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(147, 197, 253, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="blue"] .clip-viewer-refactor-section .clip-viewer-section-label {
+  padding: 10px 14px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(10, 14, 26, 0.55) 100%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.32);
+  color: var(--pc-secondary-100);
+  letter-spacing: 0.1em;
+}
+
+[data-theme="blue"] .clip-viewer-refactor-section-body {
+  background: transparent;
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .clip-viewer-refactor-section .clip-viewer-message {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .clip-viewer-refactor-section .clip-viewer-message p {
+  border-left-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+}
+
 [data-theme="blue"] .clip-viewer-message {
   color: var(--pc-text);
 }
