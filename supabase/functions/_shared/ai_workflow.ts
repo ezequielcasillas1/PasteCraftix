@@ -236,8 +236,12 @@ function toOpenAiChatResponse(anthropicData: any) {
       .join('')
     : '';
 
+  // Map Anthropic stop_reason → OpenAI-style finish_reason for callers.
+  const stop = String(anthropicData?.stop_reason || '');
+  const finish_reason = stop === 'max_tokens' ? 'length' : (stop || 'stop');
+
   return {
-    choices: [{ message: { role: 'assistant', content: text } }],
+    choices: [{ message: { role: 'assistant', content: text }, finish_reason }],
   };
 }
 

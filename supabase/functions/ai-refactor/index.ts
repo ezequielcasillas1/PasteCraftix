@@ -7,11 +7,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Per-clip safety ceiling for prompt assembly (was 500 — truncated real clips). */
+const MAX_CLIP_CHARS = 8000
+/** Matches Anthropic clamp in fetchClaudeChat. */
+const MAX_OUTPUT_TOKENS = 4096
+
+/**
+ * Strategy: scale output token budget from total input size + batch length.
+ * Enough room for a full rewrite of every clip plus JSON wrapper.
+ */
+function computeRefactorMaxTokens(totalInputChars: number, batchLen: number): number {
+  const n = Math.max(1, batchLen)
+  const chars = Math.max(0, totalInputChars)
+  // ~3.5 chars/token; rewrite ≈ input length with headroom for JSON array
+  const inputTokensApprox = Math.ceil(chars / 3.5)
+  const jsonOverhead = 120 + n * 40
+  const needed = Math.ceil(inputTokensApprox * 1.5) + jsonOverhead
+  const floor = Math.max(512, n * 200)
+  return Math.min(MAX_OUTPUT_TOKENS, Math.max(floor, needed))
+}
+
 const rewriteRules =
   'Rules:\n' +
   '- REWRITE every snippet in the requested style/register — do NOT explain it\n' +
   '- You MUST change wording and sentence structure visibly; never echo the input verbatim\n' +
   '- Preserve facts, meaning, and intent; do not invent new claims\n' +
+  '- Rewrite must be COMPLETE: cover every point in the input; never stop mid-sentence or mid-thought\n' +
   '- Keep the same language as the input unless translation is implied\n' +
   '- Preserve code blocks, URLs, emails, phones, and structured data unchanged\n' +
   '- Do not add markdown lesson headings unless the input already uses them\n' +
@@ -141,18 +162,32 @@ async function callRefactorModel(
   batchLen: number,
   temperature: number,
   forceOpenAi = false,
+  totalInputChars = 0,
 ) {
-  const payload = {
+  let maxTokens = computeRefactorMaxTokens(totalInputChars, batchLen)
+  const buildPayload = (tokens: number) => ({
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    max_tokens: Math.min(2500, batchLen * 120 + 150),
+    max_tokens: tokens,
     temperature,
+  })
+
+  let { data } = await fetchRefactorChatCompletions(buildPayload(maxTokens), { forceOpenAi })
+  let finishReason = String(data?.choices?.[0]?.finish_reason || '')
+  // One retry if provider hit the output cap (incomplete rewrite / JSON).
+  if (finishReason === 'length' || finishReason === 'max_tokens') {
+    const higher = Math.min(MAX_OUTPUT_TOKENS, Math.ceil(maxTokens * 1.75))
+    if (higher > maxTokens) {
+      maxTokens = higher
+      ;({ data } = await fetchRefactorChatCompletions(buildPayload(maxTokens), { forceOpenAi }))
+      finishReason = String(data?.choices?.[0]?.finish_reason || '')
+    }
   }
-  const { data } = await fetchRefactorChatCompletions(payload, { forceOpenAi })
+
   const raw = String(data?.choices?.[0]?.message?.content || '').trim()
-  return { raw, ...parseRefactoredJson(raw) }
+  return { raw, finishReason, ...parseRefactoredJson(raw) }
 }
 
 serve(async (req) => {
@@ -179,15 +214,26 @@ serve(async (req) => {
       preset: 'default',
     }
 
-    const clipTexts = batch.map((c: { text?: string }, i: number) => {
-      const text = String(c.text || '').trim().slice(0, 500)
-      return `[${i}]\n${text}\n[/${i}]`
-    }).join('\n')
+    const preparedTexts = batch.map((c: { text?: string }) =>
+      String(c.text || '').trim().slice(0, MAX_CLIP_CHARS),
+    )
+    const totalInputChars = preparedTexts.reduce((sum, t) => sum + t.length, 0)
+    const clipTexts = preparedTexts
+      .map((text, i) => `[${i}]\n${text}\n[/${i}]`)
+      .join('\n')
 
     const systemPrompt = levelPrompts[edgeLevel]
-    const userPrompt = `Rewrite these ${batch.length} clipboard snippets. Each output MUST use different wording from its input:\n${clipTexts}`
+    const userPrompt =
+      `Rewrite these ${batch.length} clipboard snippets. Each output MUST use different wording from its input and MUST be a complete rewrite (cover all points; do not end mid-sentence):\n${clipTexts}`
 
-    const firstPass = await callRefactorModel(systemPrompt, userPrompt, batch.length, 0.65)
+    const firstPass = await callRefactorModel(
+      systemPrompt,
+      userPrompt,
+      batch.length,
+      0.65,
+      false,
+      totalInputChars,
+    )
     const parseOk = firstPass.parseOk
     const aiCount = firstPass.refactored.length
 
@@ -199,16 +245,18 @@ serve(async (req) => {
 
     for (let i = 0; i < batch.length; i++) {
       const original = String(batch[i]?.text || '').trim()
+      const promptText = preparedTexts[i] || original
       const out = refactored[i] || original
       if (original === out && !isPreservedContent(original)) {
         const retryPrompt =
-          `Rewrite this snippet at ${edgeLevel} level. Use completely different words and sentence structure while keeping the same meaning. Do NOT copy the original:\n[0]\n${original}\n[/0]`
+          `Rewrite this snippet at ${edgeLevel} level. Use completely different words and sentence structure while keeping the same meaning. Produce a COMPLETE rewrite — do not stop mid-sentence. Do NOT copy the original:\n[0]\n${promptText}\n[/0]`
         const retry = await callRefactorModel(
           systemPrompt + '\n- RETRY: prior output matched input — you must produce a visibly different rewrite.',
           retryPrompt,
           1,
           0.85,
           true,
+          promptText.length,
         )
         if (retry.refactored[0] && retry.refactored[0] !== original) {
           refactored[i] = retry.refactored[0]
