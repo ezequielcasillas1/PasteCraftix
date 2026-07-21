@@ -6,7 +6,17 @@ This index helps you navigate all the documentation and resources created for pu
 
 ---
 
-## 🚀 Quick Start (3 Easy Steps)
+## 🔄 Production updates (Chrome + Edge)
+
+**Use this for every store update after the listing is live:**
+
+→ **[`EXTENSION_UPDATE_PROTOCOL.md`](EXTENSION_UPDATE_PROTOCOL.md)** — version bump, package, Section G smoke, dual upload, What’s new copy for the current release.
+
+Current release packet: **v3.0.22** (2026-07-20).
+
+---
+
+## 🚀 Quick Start (3 Easy Steps) — first publish / assets
 
 1. **Read:** `PUBLISHING_READY.md` (overview)
 2. **Generate Assets:** Follow `RECRAFT_AI_SETUP.md`
@@ -18,7 +28,12 @@ This index helps you navigate all the documentation and resources created for pu
 
 ## 📚 Documentation Files
 
-### 1. **PUBLISHING_READY.md** ⭐ START HERE
+### 0. **EXTENSION_UPDATE_PROTOCOL.md** ⭐ UPDATES
+**Purpose:** Production update protocol for Chrome Web Store + Edge Add-ons  
+**Contents:** Preflight, package script, full smoke checklist, dual upload, What’s new text, rollback  
+**When to use:** Every time you ship a new extension version to the live listings
+
+### 1. **PUBLISHING_READY.md** ⭐ FIRST PUBLISH / ASSETS
 **Purpose:** Complete overview and summary  
 **Contents:**
 - What's been created
