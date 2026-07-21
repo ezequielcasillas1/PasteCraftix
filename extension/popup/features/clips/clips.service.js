@@ -297,6 +297,10 @@ export async function deleteClipsByIdKeys(app, idKeys, {
   return queueClipOp(app, async () => {
     const beforeEntities = resolveDeletedClipEntities(app, ids, includeArchived, Date.now());
     const activeDeletedIds = new Set(beforeEntities.filter((entity) => entity.source === 'active').map((entity) => String(entity.id)));
+    try {
+      const { removeClipImages } = await import('../../../shared/clip-images.js');
+      await removeClipImages(ids);
+    } catch (_) {}
 
 
     const result = await window.PasteCraftCRUD.deleteManyOperation({

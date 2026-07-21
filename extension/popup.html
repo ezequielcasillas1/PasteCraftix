@@ -10629,6 +10629,8 @@
     <!-- Component base CSS loads before Blue Dark Mode decorators. -->
     <link rel="stylesheet" href="styles/clip-title.css">
     <link rel="stylesheet" href="styles/clip-viewer.css">
+    <link rel="stylesheet" href="styles/clip-image-annotate.css">
+    <link rel="stylesheet" href="styles/notes-image-picker.css">
 </head>
 <body>
     <!-- Loading Overlay -->
@@ -13075,6 +13077,51 @@ Multiple clips are separated by:
         </div>
     </div>
 
+    <!-- Notes Image Picker Modal -->
+    <div class="modal-overlay" id="imagePickerModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="imagePickerTitle">
+        <div class="modal-content clip-picker-content image-picker-content">
+            <div class="modal-header">
+                <h3 id="imagePickerTitle">🖼️ Select Images to Add</h3>
+                <button class="modal-close" type="button" data-action="close-image-picker" aria-label="Close image picker">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="clip-picker-tabs image-picker-tabs" role="tablist">
+                    <button type="button" class="clip-picker-tab image-picker-tab active" data-action="image-picker-tab" data-picker-tab="captures" role="tab" aria-selected="true">Captures</button>
+                    <button type="button" class="clip-picker-tab image-picker-tab" data-action="image-picker-tab" data-picker-tab="notes" role="tab" aria-selected="false">From Notes</button>
+                    <button type="button" class="clip-picker-tab image-picker-tab" data-action="image-picker-tab" data-picker-tab="upload" role="tab" aria-selected="false">Upload / URL</button>
+                </div>
+                <div class="clip-picker-tab-content image-picker-tab-content active" id="imagePickerCapturesTab" role="tabpanel">
+                    <p class="image-picker-hint">Image Picker, Spot, and other image clips</p>
+                    <div id="imagePickerCapturesList"></div>
+                </div>
+                <div class="clip-picker-tab-content image-picker-tab-content" id="imagePickerNotesTab" role="tabpanel">
+                    <p class="image-picker-hint">Images already attached to other notes</p>
+                    <div id="imagePickerNotesList"></div>
+                </div>
+                <div class="clip-picker-tab-content image-picker-tab-content" id="imagePickerUploadTab" role="tabpanel">
+                    <div class="image-picker-upload-panel">
+                        <label class="image-picker-upload-btn" for="imagePickerFileInput">
+                            <span>Choose image file</span>
+                        </label>
+                        <input type="file" id="imagePickerFileInput" accept="image/*" hidden />
+                        <div class="image-picker-url-row">
+                            <input type="url" id="imagePickerUrlInput" class="note-input-field" placeholder="https://… image URL" aria-label="Image URL" />
+                            <button type="button" class="btn-primary" data-action="add-image-url">Add URL</button>
+                        </div>
+                        <p class="image-picker-hint">Upload max 4MB · http(s) or data:image URLs</p>
+                    </div>
+                </div>
+            </div>
+            <div class="clip-picker-footer">
+                <div class="clip-picker-selection-count" id="imagePickerSelectionCount">0 selected</div>
+                <div class="image-picker-footer-actions">
+                    <button type="button" class="btn-secondary clip-picker-add-btn" id="imagePickerEditAddBtn" data-action="edit-add-selected-image" disabled title="Draw / text annotate, then attach">Edit &amp; Add</button>
+                    <button type="button" class="btn-primary clip-picker-add-btn" id="imagePickerAddBtn" data-action="add-selected-images" disabled>Add Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Album Picker Modal -->
     <div class="modal-overlay" id="clipPickerModal" style="display: none;">
         <div class="modal-content clip-picker-content">
@@ -13259,6 +13306,10 @@ Multiple clips are separated by:
                     <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentSendNotesBtn" type="button" aria-label="Send to note">
                         <i data-lucide="folder-plus"></i>
                         <span class="pc-tip" role="tooltip">Send to Note</span>
+                    </button>
+                    <button class="pc-ai-icon-btn pc-delay-tip" id="albumAttachmentAnnotateBtn" type="button" data-action="album-attachment-annotate" aria-label="Annotate" title="Draw &amp; text" style="display: none;">
+                        <i data-lucide="pencil-line"></i>
+                        <span class="pc-tip" role="tooltip">Annotate · Draw / Text</span>
                     </button>
                 </div>
             </div>

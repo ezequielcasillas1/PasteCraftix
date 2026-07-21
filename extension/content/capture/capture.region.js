@@ -116,13 +116,26 @@ function sendCaptureMessage(payload) {
 }
 
 async function resolveCaptureDataUrl(response) {
-  if (response?.dataUrl) return response.dataUrl;
+  if (response?.dataUrl) return { dataUrl: response.dataUrl, error: null };
   const key = response?.storageKey;
-  if (!key || typeof chrome.storage?.session?.get !== 'function') return null;
-  const bag = await chrome.storage.session.get(key);
-  const dataUrl = bag?.[key];
-  try { await chrome.storage.session.remove(key); } catch (_) {}
-  return typeof dataUrl === 'string' && dataUrl ? dataUrl : null;
+  if (!key || typeof key !== 'string') {
+    return { dataUrl: null, error: null };
+  }
+  // Large shots are stashed in chrome.storage.local (not sent over the message port).
+  if (typeof chrome.storage?.local?.get !== 'function') {
+    return { dataUrl: null, error: 'local_storage_unavailable' };
+  }
+  try {
+    const bag = await chrome.storage.local.get(key);
+    const dataUrl = bag?.[key];
+    try { await chrome.storage.local.remove(key); } catch (_) {}
+    if (typeof dataUrl === 'string' && dataUrl) {
+      return { dataUrl, error: null };
+    }
+    return { dataUrl: null, error: 'storage_key_empty' };
+  } catch (err) {
+    return { dataUrl: null, error: err?.message || 'local_storage_denied' };
+  }
 }
 
 async function requestCaptureRegionOnce(rect) {
@@ -134,17 +147,17 @@ async function requestCaptureRegionOnce(rect) {
   if (!isCaptureResponseOk(response)) {
     return { ok: false, response, error: describeCaptureFailure(response) };
   }
-  const dataUrl = await resolveCaptureDataUrl(response);
-  if (!dataUrl) {
+  const resolved = await resolveCaptureDataUrl(response);
+  if (!resolved.dataUrl) {
     return {
       ok: false,
       response,
-      error: response.storageKey ? 'storage_key_empty' : describeCaptureFailure(response),
+      error: resolved.error || (response.storageKey ? 'storage_key_empty' : describeCaptureFailure(response)),
     };
   }
   return {
     ok: true,
-    dataUrl,
+    dataUrl: resolved.dataUrl,
     cropped: response.cropped === true,
     response,
   };

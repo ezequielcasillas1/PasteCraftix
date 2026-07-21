@@ -3203,6 +3203,55 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   border-top: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+[data-theme="blue"] #imagePickerModal .clip-picker-content {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-tabs {
+  border-bottom-color: #334155;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-tab {
+  color: #94a3b8;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-tab:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+  background: #1e293b;
+}
+
+[data-theme="blue"] #imagePickerModal .image-picker-card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="blue"] #imagePickerModal .image-picker-card:hover:not(.already-added):not(:disabled) {
+  background: #1e3a5f;
+  border-color: #60a5fa;
+}
+
+[data-theme="blue"] #imagePickerModal .image-picker-card.selected {
+  background: #1e3a5f;
+  border-color: #60a5fa;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-footer {
+  background: #0f172a;
+  border-top-color: #334155;
+}
+
+[data-theme="blue"] #imagePickerModal .clip-picker-selection-count {
+  color: #e2e8f0;
+}
+
 [data-theme="blue"] #clipPickerModal .clip-picker-selection-count {
   color: var(--pc-text-muted);
 }

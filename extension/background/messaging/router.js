@@ -1,6 +1,8 @@
 /**
  * Mediator-style router for chrome.runtime.onMessage internal actions.
  * Handlers may return true (async sendResponse) or a Promise (payload reply).
+ * Promise replies are converted to return-true + sendResponse so the port
+ * stays open on all Chromium builds (raw Promise return is flaky).
  */
 export function createInternalMessageRouter(handlers) {
   const routeMap = handlers && typeof handlers === 'object' ? handlers : {};
@@ -19,11 +21,31 @@ export function createInternalMessageRouter(handlers) {
 
     console.log('📨 Internal message received:', action);
 
-    return handler(message, {
+    const result = handler(message, {
       sender,
       sendResponse,
       isExtensionPage: isExtensionPageSender(sender),
     });
+
+    if (result && typeof result.then === 'function') {
+      Promise.resolve(result).then(
+        (payload) => {
+          try { sendResponse(payload); } catch (_) {}
+        },
+        (err) => {
+          try {
+            sendResponse({
+              success: false,
+              ok: false,
+              error: err?.message || 'handler_failed',
+            });
+          } catch (_) {}
+        },
+      );
+      return true;
+    }
+
+    return result;
   };
 }
 

@@ -3,6 +3,7 @@
 import { mergeActiveClipsSources } from '../shared/clips-local-merge.js';
 import { getClipIdKey } from '../shared/clip-id.js';
 import { slimQuickViewClips } from '../shared/quickview-clips.js';
+import { peelImageDataUrlFromMeta, putClipImage } from '../shared/clip-images.js';
 
 async function loadDeletedClipIdSet() {
   try {
@@ -774,7 +775,6 @@ export function sanitizeClipMeta(meta) {
 
   const MAX_TEXT = 30000;
   const MAX_HTML = 50000;
-  const MAX_DATAURL_CHARS = 900000; // ~900KB of base64-ish chars
 
   const trim = (s, max) => {
     const str = String(s ?? '');
@@ -796,13 +796,20 @@ export function sanitizeClipMeta(meta) {
     const img = {};
     if (meta.image.mime != null) img.mime = trim(meta.image.mime, 128);
     if (meta.image.srcUrl != null) img.srcUrl = trim(meta.image.srcUrl, 4000);
+    // Never embed large dataUrls in clip.meta — side-store via putClipImage.
+    // Tiny thumbnails under the soft cap may stay inline for quick preview.
     if (meta.image.dataUrl != null) {
       const du = String(meta.image.dataUrl || '');
-      img.dataUrl = du.length <= MAX_DATAURL_CHARS ? du : '';
-      if (!img.dataUrl && du) img.tooLarge = true;
+      if (du && du.length <= 12000 && du.startsWith('data:image/')) {
+        img.dataUrl = du;
+      }
+      if (du.startsWith('data:image/')) img.hasImage = true;
+      else if (du) img.tooLarge = true;
     }
+    if (meta.image.hasImage === true) img.hasImage = true;
     if (typeof meta.image.size === 'number') img.size = meta.image.size;
     if (meta.image.tooLarge === true) img.tooLarge = true;
+    if (meta.image.exportFailed === true) img.exportFailed = true;
     out.image = img;
   }
 
@@ -812,7 +819,10 @@ export function sanitizeClipMeta(meta) {
     if (json.length > 140000) {
       // drop heavy fields first
       if (out.html) out.html = trim(out.html, 8000);
-      if (out.image && out.image.dataUrl) out.image.dataUrl = '';
+      if (out.image && out.image.dataUrl) {
+        out.image.hasImage = true;
+        out.image.dataUrl = '';
+      }
       const json2 = JSON.stringify(out);
       if (json2.length > 140000) return null;
     }
@@ -848,7 +858,8 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     throw error;
   }
   
-  const safeMeta = sanitizeClipMeta(meta);
+  const peeled = peelImageDataUrlFromMeta(meta);
+  const safeMeta = sanitizeClipMeta(peeled.meta);
   const now = Date.now();
   const newClip = {
     id: now + Math.random(),
@@ -858,6 +869,20 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     updatedAt: now,
     ...(safeMeta ? { meta: safeMeta } : {})
   };
+
+  if (peeled.dataUrl) {
+    try {
+      await putClipImage(newClip.id, peeled.dataUrl, peeled.mime);
+      if (newClip.meta?.image) {
+        newClip.meta.image.hasImage = true;
+        delete newClip.meta.image.dataUrl;
+        delete newClip.meta.image.tooLarge;
+      }
+    } catch (imgErr) {
+      console.warn('[saveTextDirectly] clip image store failed:', imgErr?.message || imgErr);
+      if (newClip.meta?.image) newClip.meta.image.tooLarge = true;
+    }
+  }
   
   console.log('📦 New clip id:', newClip.id);
   

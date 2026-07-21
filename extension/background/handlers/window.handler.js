@@ -18,7 +18,14 @@ function resolvePopupWindowSize(message) {
   return { width, height };
 }
 
-function createExtensionPopupWindow(finalUrl, size, sendResponse) {
+function resolvePopupWindowPosition(message) {
+  const createData = {};
+  if (Number.isFinite(message?.left)) createData.left = Math.round(message.left);
+  if (Number.isFinite(message?.top)) createData.top = Math.round(message.top);
+  return createData;
+}
+
+function createExtensionPopupWindow(finalUrl, size, position, sendResponse) {
   chrome.windows.create(
     {
       url: finalUrl,
@@ -26,6 +33,7 @@ function createExtensionPopupWindow(finalUrl, size, sendResponse) {
       width: size.width,
       height: size.height,
       focused: true,
+      ...position,
     },
     () => {
       const err = chrome.runtime.lastError;
@@ -52,7 +60,12 @@ export function handlePcOpenPopupWindow(message, { sendResponse }) {
       return false;
     }
 
-    createExtensionPopupWindow(finalUrl, resolvePopupWindowSize(message), sendResponse);
+    createExtensionPopupWindow(
+      finalUrl,
+      resolvePopupWindowSize(message),
+      resolvePopupWindowPosition(message),
+      sendResponse,
+    );
     return true;
   } catch (e) {
     sendResponse({ success: false, error: e?.message || String(e) });

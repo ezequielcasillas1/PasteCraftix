@@ -31,8 +31,12 @@ export function slimQuickViewClip(clip, options = {}) {
       lightMeta.image = {
         mime: meta.image.mime || '',
         srcUrl: meta.image.srcUrl || '',
-        tooLarge: meta.image.tooLarge === true || !!meta.image.dataUrl,
-        hasImage: !!(meta.image.dataUrl || meta.image.srcUrl),
+        tooLarge: meta.image.tooLarge === true,
+        hasImage: !!(
+          meta.image.hasImage ||
+          meta.image.dataUrl ||
+          meta.image.srcUrl
+        ),
       };
     }
   }

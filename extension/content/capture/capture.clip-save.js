@@ -2,6 +2,7 @@
 
 import { CAPTURE_MAX_TEXT } from './capture.constants.js';
 import { incrementCaptureToolsStats } from './capture.stats.js';
+import { peelImageDataUrlFromMeta, putClipImage } from '../../shared/clip-images.js';
 
 function pcSafeTrim(str, max) {
   const value = String(str ?? '');
@@ -14,14 +15,24 @@ async function saveClipLocalFallback({ text, meta, category }) {
     const stored = await chrome.storage.local.get(['clips']);
     const clips = Array.isArray(stored?.clips) ? stored.clips : [];
     const now = Date.now();
+    const peeled = peelImageDataUrlFromMeta(meta);
+    const lightMeta = peeled.meta ? { ...peeled.meta } : null;
+    if (lightMeta?.image) {
+      lightMeta.image = { ...lightMeta.image };
+      delete lightMeta.image.dataUrl;
+      if (peeled.dataUrl) lightMeta.image.hasImage = true;
+    }
     const newClip = {
       id: now + Math.random(),
       text,
       category: category || 'Uncategorized',
       timestamp: now,
       updatedAt: now,
-      ...(meta ? { meta } : {}),
+      ...(lightMeta ? { meta: lightMeta } : {}),
     };
+    if (peeled.dataUrl) {
+      await putClipImage(newClip.id, peeled.dataUrl, peeled.mime);
+    }
     clips.unshift(newClip);
     await chrome.storage.local.set({ clips, pc_local_updatedAt: now });
     chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});

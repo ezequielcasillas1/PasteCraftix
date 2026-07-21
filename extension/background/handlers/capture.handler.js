@@ -76,10 +76,36 @@ async function blobToDataUrl(blob) {
   return `data:${blob.type || 'image/png'};base64,${btoa(binary)}`;
 }
 
+/**
+ * Decode a data: URL to a Blob without fetch().
+ * Extension CSP connect-src blocks fetch('data:…') — same pattern as profile-images.js.
+ */
+function base64ToUint8Array(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  const chunk = 0x8000;
+  for (let i = 0; i < binary.length; i += chunk) {
+    const end = Math.min(i + chunk, binary.length);
+    for (let j = i; j < end; j++) bytes[j] = binary.charCodeAt(j);
+  }
+  return bytes;
+}
+
+function dataUrlToBlob(dataUrl) {
+  const u = String(dataUrl || '');
+  const comma = u.indexOf(',');
+  if (comma < 0) throw new Error('invalid_data_url');
+  const header = u.slice(0, comma);
+  const base64Match = header.match(/^data:([^;]+);base64$/i);
+  if (!base64Match) throw new Error('unsupported_data_url');
+  return new Blob([base64ToUint8Array(u.slice(comma + 1))], {
+    type: base64Match[1] || 'image/png',
+  });
+}
+
 async function cropDataUrlInWorker(dataUrl, rect, dpr) {
   const scale = Number.isFinite(dpr) && dpr > 0 ? dpr : 1;
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
+  const blob = dataUrlToBlob(dataUrl);
   const bitmap = await createImageBitmap(blob);
   const width = Math.max(1, Math.round(rect.width * scale));
   const height = Math.max(1, Math.round(rect.height * scale));
@@ -104,7 +130,9 @@ async function cropDataUrlInWorker(dataUrl, rect, dpr) {
 
 async function stashCaptureDataUrl(dataUrl) {
   const key = `${CAPTURE_STORAGE_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  await chrome.storage.session.set({ [key]: dataUrl });
+  // local (not session): content scripts can read it without setAccessLevel,
+  // and we avoid shipping multi‑MB dataUrls back over sendMessage.
+  await chrome.storage.local.set({ [key]: dataUrl });
   return key;
 }
 
@@ -116,8 +144,12 @@ async function buildCaptureSuccessPayload(dataUrl) {
     const storageKey = await stashCaptureDataUrl(dataUrl);
     return { success: true, ok: true, storageKey };
   } catch (err) {
-    // Last resort: try inline anyway (may fail on channel size).
-    return { success: true, ok: true, dataUrl, stashError: err?.message || 'stash_failed' };
+    // Do not fall back to inline multi‑MB dataUrl — closes the message port.
+    return {
+      success: false,
+      ok: false,
+      error: err?.message || 'stash_failed',
+    };
   }
 }
 

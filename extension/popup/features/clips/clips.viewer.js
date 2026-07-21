@@ -11,6 +11,8 @@ import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
 import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
 import { ensureRefactorRegistryReady } from '../ai-lab/ai-lab.magic.js';
+import { getClipImage } from '../../../shared/clip-images.js';
+import { openClipImageAnnotate, popOutClipImageAnnotate } from './clips.image-annotate.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
 const HEURISTIC_REFACTOR_WINDOW_MS = 5 * 60 * 1000;
@@ -514,6 +516,28 @@ function extractClipViewerSource(meta) {
   return { srcHtml, url, imgSrc };
 }
 
+async function resolveClipViewerImageSrc(clip, meta) {
+  const { imgSrc } = extractClipViewerSource(meta);
+  if (
+    imgSrc &&
+    (imgSrc.startsWith('data:image/') ||
+      imgSrc.startsWith('http://') ||
+      imgSrc.startsWith('https://'))
+  ) {
+    return imgSrc;
+  }
+  const wantsImage =
+    meta?.kind === 'image' ||
+    meta?.image?.hasImage === true ||
+    meta?.captureSource === 'image-picker';
+  if (!wantsImage && !imgSrc) return '';
+  try {
+    const stored = await getClipImage(clip?.id);
+    if (stored?.dataUrl) return stored.dataUrl;
+  } catch (_) {}
+  return imgSrc || '';
+}
+
 function buildClipViewerHeaderParts(app, text, meta, url, imgSrc) {
   const headerParts = [];
   let resolvedUrl = url;
@@ -544,9 +568,19 @@ function buildClipViewerHeaderParts(app, text, meta, url, imgSrc) {
       '<div class="clip-viewer-note">Image preview unavailable (non-renderable source).</div>',
     );
   } else if (imgSrc && isRenderableImageSrc) {
+    headerParts.push(`
+      <div class="clip-viewer-image-actions clip-viewer-image-actions--top">
+        <button type="button" class="pc-annotate-open-btn pc-annotate-open-btn--primary" data-action="clip-image-popout">Pop out full screen</button>
+      </div>
+    `);
     headerParts.push(
-      `<img class="clip-viewer-image" src="${app.escapeHtml(imgSrc)}" alt="Clip image" />`,
+      `<img class="clip-viewer-image" data-action="clip-image-annotate" src="${app.escapeHtml(imgSrc)}" alt="Clip image" title="Annotate here" />`,
     );
+    headerParts.push(`
+      <div class="clip-viewer-image-actions">
+        <button type="button" class="pc-annotate-open-btn" data-action="clip-image-annotate">Annotate here · Draw / Text</button>
+      </div>
+    `);
     if (meta && meta.image && meta.image.tooLarge) {
       headerParts.push(
         '<div class="clip-viewer-note">Image payload too large to embed; showing what is available.</div>',
@@ -557,6 +591,10 @@ function buildClipViewerHeaderParts(app, text, meta, url, imgSrc) {
         '<div class="clip-viewer-note">Image export blocked by the page (canvas/security restrictions).</div>',
       );
     }
+  } else if (meta && meta.image && (meta.image.tooLarge || meta.image.hasImage)) {
+    headerParts.push(
+      '<div class="clip-viewer-note">Image not found in local store. Capture again with Image Picker.</div>',
+    );
   }
 
   return headerParts;
@@ -659,6 +697,23 @@ function bindClipViewerLinkHandler(app, bodyEl) {
   try {
     if (app._clipViewerLinkHandlerAttached || !bodyEl) return;
     bodyEl.addEventListener('click', (e) => {
+      const popOutBtn = e?.target?.closest?.('[data-action="clip-image-popout"]');
+      if (popOutBtn && bodyEl.contains(popOutBtn)) {
+        e.preventDefault();
+        popOutClipImageAnnotate(app, { clipId: app.currentClipViewerClip?.id });
+        return;
+      }
+      const annotateBtn = e?.target?.closest?.('[data-action="clip-image-annotate"]');
+      if (annotateBtn && bodyEl.contains(annotateBtn)) {
+        e.preventDefault();
+        const clip = app.currentClipViewerClip;
+        const img = bodyEl.querySelector('img.clip-viewer-image');
+        openClipImageAnnotate(app, {
+          clipId: clip?.id,
+          dataUrl: img?.getAttribute('src') || '',
+        }).catch(() => {});
+        return;
+      }
       const link = e && e.target ? e.target.closest('a[data-pc-open-url="1"]') : null;
       if (!link) return;
       e.preventDefault();
@@ -719,7 +774,8 @@ export async function open(app, clip, sourceContext = 'clips') {
   renderClipViewerMeta(app, metaEl, meta, markupType, canonicalClip);
 
   const safeText = app.escapeHtml(text);
-  const { srcHtml, url, imgSrc } = extractClipViewerSource(meta);
+  const { srcHtml, url } = extractClipViewerSource(meta);
+  const imgSrc = await resolveClipViewerImageSrc(canonicalClip, meta);
   const headerParts = buildClipViewerHeaderParts(app, text, meta, url, imgSrc);
 
   let hasMarkup = false;

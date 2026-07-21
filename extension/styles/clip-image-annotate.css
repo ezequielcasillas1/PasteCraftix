@@ -1,0 +1,179 @@
+.pc-annotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  background: rgba(71, 85, 105, 0.94);
+  color: #f8fafc;
+}
+
+.pc-annotate-chrome {
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.96);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.pc-annotate-topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  overflow: visible;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.pc-annotate-title {
+  font: 600 14px system-ui, sans-serif;
+  color: #e2e8f0;
+  min-width: 0;
+}
+
+.pc-annotate-close-btn {
+  flex-shrink: 0;
+  min-width: 40px;
+  margin-right: 2px;
+}
+
+.pc-annotate-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  overflow: visible;
+}
+
+.pc-annotate-btn {
+  appearance: none;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #1e293b;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: 600 13px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.pc-annotate-btn.is-active,
+.pc-annotate-btn--primary {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.pc-annotate-pad-btn--white {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.pc-annotate-pad-btn--white:hover {
+  background: #f1f5f9;
+}
+
+.pc-annotate-pad-btn--black {
+  background: #000000;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+.pc-annotate-pad-btn--black:hover {
+  background: #1e293b;
+}
+
+.pc-annotate-color {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.pc-annotate-color input {
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.pc-annotate-spacer {
+  flex: 1;
+}
+
+.pc-annotate-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: auto;
+  background: #64748b;
+}
+
+.pc-annotate-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  background: #0f172a;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 250, 252, 0.4);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.35);
+  touch-action: none;
+}
+
+.pc-annotate-canvas.is-tool-move {
+  cursor: move;
+}
+
+/* Extra contrast when black note pad is active (shared overlay + pop-out). */
+.pc-annotate-overlay.has-black-pad .pc-annotate-stage {
+  background: #94a3b8;
+}
+
+.pc-annotate-overlay.has-black-pad .pc-annotate-canvas {
+  border-color: rgba(248, 250, 252, 0.65);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.4);
+}
+
+.clip-viewer-image {
+  cursor: zoom-in;
+}
+
+.clip-viewer-image-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: -6px 0 14px;
+}
+
+.clip-viewer-image-actions--top {
+  margin: 0 0 10px;
+}
+
+.clip-viewer-image-actions .pc-annotate-open-btn {
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.clip-viewer-image-actions .pc-annotate-open-btn:hover {
+  background: #f1f5f9;
+}
+
+.clip-viewer-image-actions .pc-annotate-open-btn--primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.clip-viewer-image-actions .pc-annotate-open-btn--primary:hover {
+  background: #1d4ed8;
+}

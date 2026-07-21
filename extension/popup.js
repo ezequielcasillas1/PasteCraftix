@@ -31,6 +31,8 @@ class PasteCraftPopup {
     // NOTE: selectedChips stores stable clip id keys (String(clip.id)), not indices.
     this.selectedChips = new Set();
     this.selectedPickerClips = new Set();
+    this.selectedPickerImages = new Set();
+    this.imagePickerCatalog = [];
     this.delimiter = 'comma';
     this.currentTab = 'clips';
     this.searchQuery = '';
@@ -1649,6 +1651,7 @@ class PasteCraftPopup {
   runAlbumAttachmentAiCraftClips() { return this.notesFeature.albumAttachmentViewer.runAiCraftClips(this); }
   runAlbumAttachmentSendToCategories() { return this.notesFeature.albumAttachmentViewer.runSendToCategories(this); }
   runAlbumAttachmentSendToNotes() { return this.notesFeature.albumAttachmentViewer.runSendToNotes(this); }
+  runAlbumAttachmentAnnotate() { return this.notesFeature.albumAttachmentViewer.runAnnotate(this); }
   openAlbumSourceNoteOverlay(sourceNoteId, albumId) { return this.notesFeature.album.openAlbumSourceNoteOverlay(this, sourceNoteId, albumId); }
   closeAlbumSourceNoteOverlay() { return this.notesFeature.album.closeAlbumSourceNoteOverlay(this); }
   copyAllNoteAttachments() { return this.notesFeature.album.copyAllNoteAttachments(this); }
@@ -1694,7 +1697,10 @@ class PasteCraftPopup {
   renderClipPickerSearchResults(results) { return this.notesFeature.editor.renderClipPickerSearchResults(this, results); }
   renderClipPickerCategories() { return this.notesFeature.editor.renderClipPickerCategories(this); }
   addSelectedClipsToNote() { return this.notesFeature.editor.addSelectedClipsToNote(this); }
-  showImagePickerForNote() { return this.notesFeature.editor.showImagePickerForNote(this); }
+  showImagePickerForNote() { return this.notesFeature.imagePicker.showImagePickerForNote(this); }
+  closeImagePicker() { return this.notesFeature.imagePicker.closeImagePicker(this); }
+  handleImagePickerClick(e) { return this.notesFeature.imagePicker.handleImagePickerClick(this, e); }
+  handleImagePickerFileChange(e) { return this.notesFeature.imagePicker.handleImagePickerFileChange(this, e); }
   addURLToNote() { return this.notesFeature.editor.addURLToNote(this); }
   async exportNoteToPDF(noteId) { return this.notesFeature.editor.exportNoteToPDF(this, noteId); }
 

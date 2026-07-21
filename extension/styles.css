@@ -277,6 +277,135 @@
   gap: 12px;
 }
 
+/* Notes Image Picker */
+.image-picker-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.image-picker-empty {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 24px 12px;
+}
+
+.image-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.image-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.image-picker-card:hover:not(.already-added):not(:disabled) {
+  border-color: var(--primary);
+  background: #eff6ff;
+}
+
+.image-picker-card.selected {
+  border-color: var(--primary);
+  background: #dbeafe;
+}
+
+.image-picker-card.already-added,
+.image-picker-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.image-picker-thumb-wrap {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+}
+
+.image-picker-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-picker-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.image-picker-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-picker-card-source {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-picker-upload-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0 16px;
+}
+
+.image-picker-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.image-picker-upload-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.image-picker-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.image-picker-url-row .note-input-field {
+  flex: 1;
+  min-width: 0;
+}
+
 .clip-picker-selection-count {
   font-size: 14px;
   font-weight: 600;
