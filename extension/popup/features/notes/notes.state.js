@@ -18,5 +18,7 @@ export function getNotesStateDefaults() {
     totalNotesCount: 0,
     tieredNotesStore: null,
     selectedPickerClips: new Set(),
+    selectedPickerImages: new Set(),
+    imagePickerCatalog: [],
   };
 }

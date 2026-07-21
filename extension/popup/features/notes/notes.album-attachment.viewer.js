@@ -1,5 +1,10 @@
-import { collectAlbumInterlayings } from './notes.album-interlayings.crud.js';
+import {
+  collectAlbumInterlayings,
+  resolveInterlayingAtFlatIndex,
+  updateAlbumInterlaying,
+} from './notes.album-interlayings.crud.js';
 import { resolveSafeExternalUrl } from '../../../safe-url.js';
+import { canAnnotateImageSrc, openImageAnnotate } from '../../../shared/image-annotate.js';
 import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 
@@ -15,7 +20,43 @@ function getViewerElements() {
     body: document.getElementById('albumAttachmentViewerBody'),
     openBtn: document.getElementById('albumAttachmentOpenInPopupBtn'),
     aiFooter: document.getElementById('albumAttachmentViewerFooter'),
+    annotateBtn: document.getElementById('albumAttachmentAnnotateBtn'),
   };
+}
+
+function attachmentImageSrc(att) {
+  return String(att?.dataUrl || att?.url || att?.src || '').trim();
+}
+
+function usesDataUrlOnly(att) {
+  return !!(att.dataUrl && !att.url && !att.src);
+}
+
+function usesSrcField(att) {
+  return !!(att.src && !att.url);
+}
+
+function buildAnnotatedImagePatch(att, dataUrl) {
+  if (usesDataUrlOnly(att)) return { dataUrl, mime: 'image/png' };
+  if (usesSrcField(att)) return { src: dataUrl, mime: 'image/png' };
+  return { dataUrl, mime: 'image/png' };
+}
+
+function setAnnotateButtonVisible(els, visible) {
+  if (!els.annotateBtn) return;
+  els.annotateBtn.style.display = visible ? 'inline-flex' : 'none';
+}
+
+function canShowAnnotateForAttachment(att) {
+  return att?.type === 'image' && canAnnotateImageSrc(attachmentImageSrc(att));
+}
+
+function syncViewerToolbar(app, els, att) {
+  const showAi = att.type === 'clip' || !!String(app.currentAlbumAttachmentClip?.text || '').trim();
+  const showAnnotate = canShowAnnotateForAttachment(att);
+  setAiToolbarVisible(els, showAi || showAnnotate);
+  setAnnotateButtonVisible(els, showAnnotate);
+  refreshLucideIcons(els.aiFooter);
 }
 
 function viewerElsValid(els) {
@@ -140,8 +181,7 @@ export function open(app, noteId, attachmentIndex) {
   if (els.openBtn) els.openBtn.style.display = 'inline-flex';
 
   renderAttachmentBody(app, att, els.body);
-  setAiToolbarVisible(els, att.type === 'clip' || !!String(app.currentAlbumAttachmentClip?.text || '').trim());
-  refreshLucideIcons(els.aiFooter);
+  syncViewerToolbar(app, els, att);
 
   els.modal.style.display = 'flex';
 }
@@ -232,4 +272,75 @@ export async function runSendToNotes(app) {
     app.pendingClipForNotes = clipObjects[0];
     app.showAlbumPicker?.();
   });
+}
+
+function resolveCurrentImageAttachment(app) {
+  const ctx = app.currentAlbumAttachmentContext;
+  if (!ctx) return null;
+  const album = app.notes?.find((n) => n.id == ctx.noteId && n.type === 'album');
+  const loc = album ? resolveInterlayingAtFlatIndex(album, ctx.attachmentIndex) : null;
+  if (!loc?.att || loc.att.type !== 'image') return null;
+  return { ctx, att: loc.att };
+}
+
+function refreshAlbumAfterImagePatch(app, noteId) {
+  if (app.currentViewerNoteId == noteId) app.openNoteViewer?.(noteId);
+  app.renderNotes?.();
+}
+
+async function persistAnnotatedImage(app, ctx, att, dataUrl) {
+  const patch = buildAnnotatedImagePatch(att, dataUrl);
+  await updateAlbumInterlaying(app, ctx.noteId, ctx.attachmentIndex, patch, {
+    afterUpdate: () => refreshAlbumAfterImagePatch(app, ctx.noteId),
+  });
+  app.currentAlbumAttachmentClip = resolveAttachmentClip(app, { ...att, ...patch, type: 'image' });
+  open(app, ctx.noteId, ctx.attachmentIndex);
+}
+
+async function openAnnotateEditor(app, src) {
+  return openImageAnnotate({
+    dataUrl: src,
+    ui: app,
+    awaitResult: true,
+    saveBehavior: 'close',
+  });
+}
+
+function isAnnotateSaveOk(result) {
+  return !!(result?.ok && canAnnotateImageSrc(result.dataUrl));
+}
+
+function toastAnnotateGateFailure(app, resolved, src) {
+  if (!resolved) {
+    app.showToast?.('No image to annotate', 'error');
+    return true;
+  }
+  if (!canAnnotateImageSrc(src)) {
+    app.showToast?.('Only embedded images can be annotated', 'error');
+    return true;
+  }
+  return false;
+}
+
+async function saveAnnotateResult(app, resolved, result) {
+  if (!isAnnotateSaveOk(result)) {
+    if (!result?.cancelled) app.showToast?.('Annotate cancelled');
+    return;
+  }
+  try {
+    await persistAnnotatedImage(app, resolved.ctx, resolved.att, result.dataUrl);
+    app.showToast?.('✅ Image annotated');
+  } catch (err) {
+    console.error('runAnnotate failed:', err);
+    app.showToast?.('Could not save annotated image', 'error');
+  }
+}
+
+/** Annotate the current album image attachment via shared/image-annotate.js. */
+export async function runAnnotate(app) {
+  const resolved = resolveCurrentImageAttachment(app);
+  const src = attachmentImageSrc(resolved?.att);
+  if (toastAnnotateGateFailure(app, resolved, src)) return;
+  const result = await openAnnotateEditor(app, src);
+  await saveAnnotateResult(app, resolved, result);
 }

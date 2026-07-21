@@ -75,6 +75,15 @@ export const NOTES_SELECTORS = Object.freeze({
   CLIP_PICKER_CLIPS_TAB: 'clipPickerClipsTab',
   CLIP_PICKER_SEARCH_TAB: 'clipPickerSearchTab',
   CLIP_PICKER_CATEGORIES_TAB: 'clipPickerCategoriesTab',
+  // Image picker
+  IMAGE_PICKER_MODAL: 'imagePickerModal',
+  IMAGE_PICKER_CAPTURES_LIST: 'imagePickerCapturesList',
+  IMAGE_PICKER_NOTES_LIST: 'imagePickerNotesList',
+  IMAGE_PICKER_FILE_INPUT: 'imagePickerFileInput',
+  IMAGE_PICKER_URL_INPUT: 'imagePickerUrlInput',
+  IMAGE_PICKER_ADD_BTN: 'imagePickerAddBtn',
+  IMAGE_PICKER_EDIT_ADD_BTN: 'imagePickerEditAddBtn',
+  IMAGE_PICKER_SELECTION_COUNT: 'imagePickerSelectionCount',
   // Album picker
   ALBUM_PICKER_MODAL: 'albumPickerModal',
   CLOSE_ALBUM_PICKER: 'closeAlbumPicker',
@@ -95,6 +104,7 @@ export const NOTES_SELECTORS = Object.freeze({
   ALBUM_ATTACHMENT_AI_CRAFT_BTN: 'albumAttachmentAiCraftBtn',
   ALBUM_ATTACHMENT_SEND_CATEGORIES_BTN: 'albumAttachmentSendCategoriesBtn',
   ALBUM_ATTACHMENT_SEND_NOTES_BTN: 'albumAttachmentSendNotesBtn',
+  ALBUM_ATTACHMENT_ANNOTATE_BTN: 'albumAttachmentAnnotateBtn',
   // Album source note overlay
   ALBUM_SOURCE_NOTE_MODAL: 'albumSourceNoteModal',
   ALBUM_SOURCE_NOTE_BACK_BTN: 'albumSourceNoteBackBtn',

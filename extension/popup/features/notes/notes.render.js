@@ -277,7 +277,14 @@ export function renderNoteAttachments(app) {
 
   attachmentsList.innerHTML = app.currentNoteAttachments.map((att, index) => {
     const icon = att.type === 'clip' ? '📋' : att.type === 'image' ? '🖼️' : '🔗';
-    const text = att.type === 'url' ? att.url : (att.text?.substring(0, 50) + '...');
+    let text = '';
+    if (att.type === 'url') text = att.url || '';
+    else if (att.type === 'image') {
+      text = att.text || att.url || (att.dataUrl ? 'Embedded image' : 'Image');
+      if (text.length > 50) text = `${text.substring(0, 50)}...`;
+    } else {
+      text = att.text ? `${att.text.substring(0, 50)}...` : 'Clip';
+    }
     const date = att.addedDate ? new Date(att.addedDate).toLocaleDateString() : '';
     return `
       <div class="attachment-item">
@@ -286,7 +293,7 @@ export function renderNoteAttachments(app) {
           <span class="attachment-text" title="${app.escapeHtml(text)}">${app.escapeHtml(text)}</span>
           ${date ? `<span class="attachment-date">${date}</span>` : ''}
         </div>
-        <button class="attachment-remove" data-index="${index}">✕</button>
+        <button class="attachment-remove" data-index="${index}" type="button" aria-label="Remove attachment">✕</button>
       </div>
     `;
   }).join('');

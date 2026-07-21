@@ -87,7 +87,7 @@ export function registerNotesEvents(app) {
 
   // Clip picker
   document.getElementById('closeClipPicker').addEventListener('click', () => app.closeClipPicker());
-  document.querySelectorAll('.clip-picker-tab').forEach(tab => {
+  document.querySelectorAll('#clipPickerModal .clip-picker-tab').forEach(tab => {
     tab.addEventListener('click', () => app.switchClipPickerTab(tab.dataset.pickerTab));
   });
   document.getElementById('clipPickerSearchInput').addEventListener('input', (e) => app.searchClipsInPicker(e.target.value));
@@ -100,6 +100,22 @@ export function registerNotesEvents(app) {
   document.getElementById('addURLToNote').addEventListener('click', () => {
     app.addURLToNote();
   });
+
+  // Image picker (data-action delegation + file input)
+  const imagePickerModal = document.getElementById('imagePickerModal');
+  if (imagePickerModal) {
+    imagePickerModal.addEventListener('click', (e) => {
+      if (e.target.id === 'imagePickerModal') {
+        app.closeImagePicker();
+        return;
+      }
+      app.handleImagePickerClick?.(e);
+    });
+  }
+  const imagePickerFileInput = document.getElementById('imagePickerFileInput');
+  if (imagePickerFileInput) {
+    imagePickerFileInput.addEventListener('change', (e) => app.handleImagePickerFileChange?.(e));
+  }
 
   // AI title/desc buttons
   const aiTitleBtn = document.getElementById('aiTitleBtn');
@@ -238,6 +254,10 @@ export function registerNotesEvents(app) {
   const albumAttachmentSendNotesBtn = document.getElementById('albumAttachmentSendNotesBtn');
   if (albumAttachmentSendNotesBtn) {
     albumAttachmentSendNotesBtn.addEventListener('click', () => app.runAlbumAttachmentSendToNotes());
+  }
+  const albumAttachmentAnnotateBtn = document.getElementById('albumAttachmentAnnotateBtn');
+  if (albumAttachmentAnnotateBtn) {
+    albumAttachmentAnnotateBtn.addEventListener('click', () => app.runAlbumAttachmentAnnotate());
   }
 
   // Album source note overlay

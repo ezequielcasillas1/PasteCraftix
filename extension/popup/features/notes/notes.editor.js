@@ -29,7 +29,11 @@ function _toggleBackToAlbumPicker(app, showBack) {
 
 function _collectExistingAttachments(note) {
   if (note.type === 'album') return collectAlbumInterlayings(note);
-  return [...(note.clips || []), ...(note.images || []), ...(note.urls || [])];
+  return [
+    ...(note.clips || []).map((c) => ({ ...c, type: c.type || 'clip' })),
+    ...(note.images || []).map((i) => ({ ...i, type: 'image' })),
+    ...(note.urls || []).map((u) => ({ ...u, type: u.type || 'url' })),
+  ];
 }
 
 function _populateExistingNoteFields(app, els, note) {
@@ -661,9 +665,7 @@ export function addSelectedClipsToNote(app) {
   app.showToast(_formatAddSelectedToast(addedCount, skippedCount));
 }
 
-export function showImagePickerForNote(app) {
-  app.showToast('Image picker coming soon! Use Add URL for now.');
-}
+export { showImagePickerForNote } from './notes.image-picker.js';
 
 export function addURLToNote(app) {
   const url = prompt('Enter URL:');

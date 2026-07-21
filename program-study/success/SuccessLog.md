@@ -86,7 +86,7 @@
 ### Jun 23, 2026 - Merchant Phase 3 Etsy tag validation + Test Lab
 **Status:** SUCCESS
 **Files:** merchant.tags.js, merchant.listing-dock.js, merchant.spot.js, merchant.constants.js, merchant-test-lab/*
-**Result:** Tags-only default dock UI; 13×20 preview chips; dedupe on save; Test Lab mock Etsy/Printify/generic pages. User-approved commit on feat/merchant-phase-2-3.
+**Result:** Tags-only default dock UI; 13ï¿½20 preview chips; dedupe on save; Test Lab mock Etsy/Printify/generic pages. User-approved commit on feat/merchant-phase-2-3.
 
 ### Jun 22, 2026 - Custom Search popup module overhaul
 **Status:** SUCCESS
@@ -173,7 +173,7 @@
 **Files:** stripe-webhook/index.ts, ai_workflow.ts, ai-image/index.ts, popup.html, profile/*, billing.constants.js, site.js, pricing.astro, upgrade.astro
 **Result:** Removed AI image generation; kept manual upload/gallery/profile/widget flows. Enhanced text credits: 4k weekly rollover to 20k, 35k monthly, 500k yearly. Commit 60b0921.
 
-### Jun 5, 2026 - Clip action icons â?? Google search + bundle menus
+### Jun 5, 2026 - Clip action icons ï¿½?? Google search + bundle menus
 **Status:** SUCCESS
 **Files:** clips.render.js, clips.action-menu.js, clips.events.js, popup.html, google-logo.svg
 **Result:** User reloaded extension; Google logo button and org/AI bundle menus appear on clip rows. Issue was stale unpacked build, not missing code.
@@ -199,18 +199,18 @@
 **Status:** SUCCESS
 **Commit:** 6b3ec8b on feature/widget-popup-preload-settings-shadow
 **Files:** extension/content/widget/widget.js
-**Result:** Warm hidden iframe for in-page popup panel; settings panel in closed Shadow DOM; loader gradient paints immediately via inline shell styles and iframe stays visibility:hidden until reveal â?? removes white blank flash before spinner.
+**Result:** Warm hidden iframe for in-page popup panel; settings panel in closed Shadow DOM; loader gradient paints immediately via inline shell styles and iframe stays visibility:hidden until reveal ï¿½?? removes white blank flash before spinner.
 
 ### May 21, 2026 - AI avatar 3D quality + security hardening + animal deck
 **Status:** SUCCESS
 **Commit:** 5e7dc12 on main
-**Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js, security-gate, admin-api/alerts, ai-name, migrations 20260521â??20260523, extension/content/safety, extension/shared/animal-names.js, animals.ts, manifest 3.0.9
+**Files:** supabase/functions/ai-image/index.ts, extension/supabase/ai-functions.js, security-gate, admin-api/alerts, ai-name, migrations 20260521ï¿½??20260523, extension/content/safety, extension/shared/animal-names.js, animals.ts, manifest 3.0.9
 **Result:** Restored premium 3D avatar prompts (no flat outlines, quality high). P0-P3 security: RLS, cron auth, JWT gates, site-guard, Shadow DOM. Funky animal deck cycle. ai-image edge deployed. User verified.
 
 ### May 21, 2026 - Production release v3.0.8
 **Status:** SUCCESS
 **Commit:** 3296842, merge 8a3bef2 on main
-**Branch:** feature/craft-clips-ai â?? main (PR #1)
+**Branch:** feature/craft-clips-ai ï¿½?? main (PR #1)
 **Files:** extension/* (manifest 3.0.8), ai-lab.*, vertical slice refactor, releases/pastecraft-v3.0.8.zip
 **Result:** Craft Clips AI, refactorization panel, AI history pagination, popup/background/content/supabase vertical slices. User verified all SUCCESS. Ready for Chrome + Edge store upload.
 
@@ -223,7 +223,7 @@
 **Status:** SUCCESS
 **Commit:** bb3410d, 88a981b on feature/craft-clips-ai
 **Files:** ai-lab.magic.js, ai-lab.craft-clips.constants.js, ai-lab.craft-clips.settings.js, clips.render.js, supabase-client.js, ai-refactor/, ai_workflow.ts, popup.html, craft-toolbar.events.js, categories.service.js, styles.css
-**Result:** Craft Clips (#47): AI Formatted/Refactoring, settings, dedupe archive. Refactor no longer replaces originalâ??new refactored clip in recents. User verified.
+**Result:** Craft Clips (#47): AI Formatted/Refactoring, settings, dedupe archive. Refactor no longer replaces originalï¿½??new refactored clip in recents. User verified.
 
 ### May 21, 2026 - Clip row Share + Open delegates
 **Status:** SUCCESS
@@ -238,12 +238,12 @@
 ### May 21, 2026 - AI History load-more pagination
 **Status:** SUCCESS
 **Files:** ai-lab.history.js, ai-lab.constants.js, popup.html, modals-shared.events.js, tab-nav.events.js, popup.js
-**Result:** AI History tab shows 7 entries; Load More reveals next 7 (max 50). Button hidden when total â?¤7. User verified.
+**Result:** AI History tab shows 7 entries; Load More reveals next 7 (max 50). Button hidden when total ï¿½?ï¿½7. User verified.
 
 ### May 21, 2026 - Popup orchestrator trim (batch 3 close-out)
 **Status:** SUCCESS
 **Files:** popup.js, popup.boot.js, popup.features.js, popup.init.js, ai-lab.analysis-history.js, ai-lab.summary.js, clips.state.js, categories.service.js, profile.generation-timer.js, profile.controller.js
-**Result:** Extracted analysis history, boot/messaging, feature loader registry, selection helpers, profile AI timer; removed dead code. popup.js ~1898 â?? ~1549 lines. User verified.
+**Result:** Extracted analysis history, boot/messaging, feature loader registry, selection helpers, profile AI timer; removed dead code. popup.js ~1898 ï¿½?? ~1549 lines. User verified.
 
 ### May 21, 2026 - Supabase sync RLS grants + session guard
 **Status:** SUCCESS
@@ -253,7 +253,7 @@
 ### May 21, 2026 - Popup refactor final slice (init, auth, AI, profile)
 **Status:** SUCCESS
 **Files:** popup.init.js, auth.callbacks.js, auth.password-strength.js, billing.unsubscribe.js, profile.ai-image.js, profile.viewer.js, ai-lab.breakdown.js, ai-lab.summary-modal.js, popup-icons.js, popup.js, popup.html, auth/billing/profile/ai-lab controllers
-**Result:** Startup, auth callbacks, password UI, unsubscribe, profile AI/viewer, breakdown/summary modals, Lucide boot extracted. popup.js ~2979 â?? ~1898 lines. User verified.
+**Result:** Startup, auth callbacks, password UI, unsubscribe, profile AI/viewer, breakdown/summary modals, Lucide boot extracted. popup.js ~2979 ï¿½?? ~1898 lines. User verified.
 
 ### May 21, 2026 - Popup refactor batch 3
 **Status:** SUCCESS
@@ -280,7 +280,7 @@
 
 
 
-### 2026-05-15 - Activity Log â?? Deleted Item Recovery
+### 2026-05-15 - Activity Log ï¿½?? Deleted Item Recovery
 **Status:** SUCCESS
 **Files:** 
 - `extension/indexeddb-store.js`
