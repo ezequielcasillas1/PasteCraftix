@@ -23,6 +23,11 @@ function isRoutedAction(action) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const action = message && typeof message.action === 'string' ? message.action : '';
 
+  // Offscreen document owns this action — do not sendResponse from the SW.
+  if (action === 'pcOffscreenReadClipboard') {
+    return false;
+  }
+
   if (isRoutedAction(action)) {
     return routeRoutedMessage(message, sender, sendResponse);
   }

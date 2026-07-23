@@ -324,10 +324,59 @@ export function handlePcCopyText(message, { sendResponse }) {
   return true;
 }
 
+const OFFSCREEN_CLIPBOARD = Object.freeze({
+  url: 'offscreen-clipboard.html',
+  reasons: ['CLIPBOARD'],
+  justification: 'Read clipboard text when PDF viewer steals page focus',
+});
+
+function isOffscreenAlreadyExistsError(err) {
+  return /already exists|Only a single offscreen/i.test(String(err?.message || err || ''));
+}
+
+async function ensureClipboardOffscreenDocument() {
+  try {
+    if (await chrome.offscreen.hasDocument?.()) return { ok: true };
+  } catch (_) {}
+
+  try {
+    await chrome.offscreen.createDocument(OFFSCREEN_CLIPBOARD);
+    return { ok: true };
+  } catch (err) {
+    if (isOffscreenAlreadyExistsError(err)) return { ok: true };
+    return { ok: false, error: String(err?.message || err || 'offscreen_create_failed') };
+  }
+}
+
+async function readClipboardViaOffscreen() {
+  const response = await chrome.runtime.sendMessage({ action: 'pcOffscreenReadClipboard' });
+  const text = String(response?.text || '').trim();
+  if (response?.success && text) return { success: true, text };
+  return { success: false, error: response?.error || 'offscreen_read_empty' };
+}
+
+/** Offscreen clipboard read — PDF plugin often blocks page-focused clipboard APIs. */
+export function handlePcReadClipboard(_message, { sendResponse }) {
+  (async () => {
+    const ready = await ensureClipboardOffscreenDocument();
+    if (!ready.ok) {
+      sendResponse({ success: false, error: ready.error });
+      return;
+    }
+    try {
+      sendResponse(await readClipboardViaOffscreen());
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
+  })();
+  return true;
+}
+
 export function createCaptureHandlerMap() {
   return {
     [A.PC_CAPTURE_REGION]: handlePcCaptureRegion,
     [A.PC_GET_PAGE_SELECTION]: handlePcGetPageSelection,
     [A.PC_COPY_TEXT]: handlePcCopyText,
+    [A.PC_READ_CLIPBOARD]: handlePcReadClipboard,
   };
 }
