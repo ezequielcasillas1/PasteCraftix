@@ -3,11 +3,14 @@ import { sanitizeWidgetSettings } from './widget.settings.js';
 import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
 import { pushQuickViewClipsToIframe } from './widget.quickview.js';
 import { LIKED_CLIPS_STORAGE_KEY } from './widget.liked-clips.js';
-import {
-  isPdfViewerPage,
-  subscribePdfClipboardCapture,
-  getPdfCaptureHint,
-} from '../pdf/pdf.capture.js';
+
+/** Lazy PDF facade — never block floating-widget boot if pdf slice is unavailable. */
+function loadPdfCaptureModule() {
+  return import('../pdf/pdf.capture.js').catch((err) => {
+    console.warn('[PasteCraft] PDF capture module unavailable:', err?.message || err);
+    return null;
+  });
+}
 
 export function setupWidgetStorageSync(widget) {
   if (widget._storageSyncListener) return;
@@ -138,23 +141,36 @@ export async function loadWidgetAutoCopyState(widget) {
   }
 }
 
+function clearAutoCopyPdfBridge(widget) {
+  if (widget._pdfAutoCopyUnsub) {
+    widget._pdfAutoCopyUnsub();
+    widget._pdfAutoCopyUnsub = null;
+  }
+}
+
 function syncAutoCopyPdfBridge(widget) {
-  if (widget.autoCopyEnabled && isPdfViewerPage()) {
+  if (!widget?.autoCopyEnabled) {
+    clearAutoCopyPdfBridge(widget);
+    return;
+  }
+  if (widget._pdfAutoCopyUnsub || widget._pdfAutoCopyLoading) return;
+
+  widget._pdfAutoCopyLoading = true;
+  loadPdfCaptureModule().then((pdf) => {
+    widget._pdfAutoCopyLoading = false;
+    if (!pdf || !widget.autoCopyEnabled) return;
+    if (!pdf.isPdfViewerPage()) return;
     if (widget._pdfAutoCopyUnsub) return;
+
     let lastPdfText = '';
-    widget._pdfAutoCopyUnsub = subscribePdfClipboardCapture(async ({ text }) => {
+    widget._pdfAutoCopyUnsub = pdf.subscribePdfClipboardCapture(async ({ text }) => {
       if (!widget.autoCopyEnabled) return;
       const body = String(text || '').trim();
       if (!body || body === lastPdfText) return;
       lastPdfText = body;
       await saveAutoCopyClip(widget, { textToSave: body });
     });
-    return;
-  }
-  if (widget._pdfAutoCopyUnsub) {
-    widget._pdfAutoCopyUnsub();
-    widget._pdfAutoCopyUnsub = null;
-  }
+  });
 }
 
 export function toggleWidgetAutoCopy(widget) {
@@ -174,12 +190,16 @@ export function toggleWidgetAutoCopy(widget) {
 
   console.log(`🔄 Auto Copy: ${newState.toUpperCase()}`);
 
-  if (widget.autoCopyEnabled) {
-    const pdfHint = isPdfViewerPage() ? ` ${getPdfCaptureHint()}` : '';
-    widget.showWidgetToast(`Auto-copy ON - copied text will be saved.${pdfHint}`);
-  } else {
+  if (!widget.autoCopyEnabled) {
     widget.showWidgetToast('Auto-copy OFF');
+    return;
   }
+
+  widget.showWidgetToast('Auto-copy ON - copied text will be saved.');
+  loadPdfCaptureModule().then((pdf) => {
+    if (!pdf || !widget.autoCopyEnabled || !pdf.isPdfViewerPage()) return;
+    widget.showWidgetToast(`Auto-copy ON - copied text will be saved.${pdf.getPdfCaptureHint()}`);
+  });
 }
 
 async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = null }) {
