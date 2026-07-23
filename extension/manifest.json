@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft",
-  "version": "3.0.22",
+  "version": "3.0.24",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Save, organize, and reuse clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -12,17 +12,21 @@
     "tabs",
     "scripting",
     "identity",
-    "clipboardWrite",
+    "clipboardWrite"
+  ],
+  "optional_permissions": [
     "clipboardRead",
     "offscreen"
   ],
   "host_permissions": [
-    "<all_urls>",
     "https://*.supabase.co/*",
     "https://*.blob.core.windows.net/*",
     "https://accounts.google.com/*",
     "https://pastecraft.com/*",
     "https://*.pastecraft.com/*"
+  ],
+  "optional_host_permissions": [
+    "<all_urls>"
   ],
   "oauth2": {
     "client_id": "142244466721-i4p5dgha27fic6muiuon244r044o7pjf.apps.googleusercontent.com",

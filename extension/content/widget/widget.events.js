@@ -1,4 +1,8 @@
 import { safeRuntimeSendMessage } from '../shared.js';
+import {
+  OPTIONAL_PERM_KINDS,
+  requestOptionalPermissions,
+} from '../../shared/optional-permissions.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
 import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
 import { pushQuickViewClipsToIframe } from './widget.quickview.js';
@@ -162,6 +166,12 @@ function syncAutoCopyPdfBridge(widget) {
     if (!pdf.isPdfViewerPage()) return;
     if (widget._pdfAutoCopyUnsub) return;
 
+    import('../pdf/pdf.clipboard.js')
+      .then(({ setClipboardPermissionDeniedHandler }) => {
+        setClipboardPermissionDeniedHandler((msg) => widget.showWidgetToast?.(msg));
+      })
+      .catch(() => {});
+
     let lastPdfText = '';
     widget._pdfAutoCopyUnsub = pdf.subscribePdfClipboardCapture(async ({ text }) => {
       if (!widget.autoCopyEnabled) return;
@@ -196,8 +206,17 @@ export function toggleWidgetAutoCopy(widget) {
   }
 
   widget.showWidgetToast('Auto-copy ON - copied text will be saved.');
-  loadPdfCaptureModule().then((pdf) => {
+  loadPdfCaptureModule().then(async (pdf) => {
     if (!pdf || !widget.autoCopyEnabled || !pdf.isPdfViewerPage()) return;
+
+    const clip = await requestOptionalPermissions(OPTIONAL_PERM_KINDS.PDF_CLIPBOARD);
+    if (!clip.ok) {
+      widget.showWidgetToast(
+        clip.message || 'PasteCraft needs clipboard permission for PDF capture',
+      );
+      return;
+    }
+
     widget.showWidgetToast(`Auto-copy ON - copied text will be saved.${pdf.getPdfCaptureHint()}`);
   });
 }

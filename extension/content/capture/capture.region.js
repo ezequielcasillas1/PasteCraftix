@@ -77,6 +77,7 @@ function describeCaptureFailure(response) {
     return `Unexpected pcCaptureRegion reply (${String(response)}). Another listener may have stolen the channel.`;
   }
   if (response.__transportError) return String(response.__transportError);
+  if (response.message) return String(response.message);
   if (response.error) return String(response.error);
   if (response.success === false || response.ok === false) {
     return 'Screenshot capture failed.';
