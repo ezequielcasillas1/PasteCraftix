@@ -3,12 +3,24 @@ import { shouldInitMerchantLayer } from './safety/product-line-gate.js';
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
 
+function ensureDocumentBody() {
+  if (document.body) return true;
+  try {
+    // Sparse PDF viewer shells can lack <body> briefly (or entirely).
+    const body = document.createElement('body');
+    document.documentElement.appendChild(body);
+    return !!document.body;
+  } catch (_) {
+    return false;
+  }
+}
+
 function pastecraftInitContent() {
   if (!isSiteAllowed(location.href)) {
     return;
   }
 
-  if (!document.body) {
+  if (!ensureDocumentBody()) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', pastecraftInitContent, { once: true });
     } else {

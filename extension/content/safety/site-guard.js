@@ -2,7 +2,9 @@
  * Runtime site guard — blocks widget/quick-paste on dangerous or sensitive pages.
  */
 
-const BLOCKED_PROTOCOLS = /^(chrome|chrome-extension|edge|about|devtools|view-source|file|blob|data|javascript):/i;
+const BLOCKED_PROTOCOLS = /^(chrome|chrome-extension|edge|about|devtools|view-source|blob|data|javascript):/i;
+const FILE_PROTOCOL_RE = /^file:/i;
+const PDF_FILE_RE = /\.pdf(?:$|[?#])/i;
 
 const SENSITIVE_FINANCE_HOSTS = new Set([
   'paypal.com', 'www.paypal.com', 'chase.com', 'www.chase.com',
@@ -60,6 +62,11 @@ function pathLooksScammy(rawUrl) {
 export function isSiteAllowed(rawUrl = location.href) {
   const url = String(rawUrl || '');
   if (!url || BLOCKED_PROTOCOLS.test(url)) return false;
+
+  // Local PDFs only — other file:// pages stay blocked.
+  if (FILE_PROTOCOL_RE.test(url)) {
+    return PDF_FILE_RE.test(url);
+  }
 
   const host = hostnameFromUrl(url);
   if (!host) return false;

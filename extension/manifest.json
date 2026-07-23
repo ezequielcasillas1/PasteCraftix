@@ -12,7 +12,9 @@
     "tabs",
     "scripting",
     "identity",
-    "clipboardWrite"
+    "clipboardWrite",
+    "clipboardRead",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>",
@@ -64,6 +66,7 @@
         "content/widget/*.js",
         "content/safety/*.js",
         "content/capture/*.js",
+        "content/pdf/*.js",
         "content/merchant/*.js",
         "shared/*.js",
         "styles.css",

@@ -109,12 +109,21 @@ export function setupWidgetEventListeners(widget) {
     console.log('✅ Settings button listener attached');
   }
 
+  const autoSection = widget.widget.querySelector('.auto-copy-section');
   const autoToggle = widget.widget.querySelector('.auto-copy-toggle');
-  if (autoToggle) {
-    autoToggle.addEventListener('click', () => {
-      console.log('🔄 Toggle clicked!');
-      widget.toggleAutoCopy();
-    });
+  const onAutoCopyClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('🔄 Toggle clicked!');
+    widget.toggleAutoCopy();
+  };
+  // Bind the whole section — PDF viewer shells can make the small circle hard to hit.
+  if (autoSection) {
+    autoSection.addEventListener('click', onAutoCopyClick);
+    autoSection.style.cursor = 'pointer';
+    console.log('✅ Auto-copy section listener attached');
+  } else if (autoToggle) {
+    autoToggle.addEventListener('click', onAutoCopyClick);
     console.log('✅ Auto toggle listener attached');
   }
 
