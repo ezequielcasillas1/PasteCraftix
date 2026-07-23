@@ -11,7 +11,9 @@
     "tabs",
     "scripting",
     "identity",
-    "clipboardWrite"
+    "clipboardWrite",
+    "clipboardRead",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -58,7 +60,10 @@
         "extension/content/widget/*.js",
         "extension/content/safety/*.js",
         "extension/content/capture/*.js",
+        "extension/content/pdf/*.js",
         "extension/content/merchant/*.js",
+        "extension/offscreen-clipboard.html",
+        "extension/offscreen-clipboard.js",
         "extension/styles.css",
         "extension/logo.svg",
         "extension/icon.png",

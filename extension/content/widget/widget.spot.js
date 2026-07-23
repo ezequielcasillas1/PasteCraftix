@@ -10,11 +10,6 @@ import {
   copyTextToClipboard,
 } from '../capture/capture.selection.js';
 import { saveTextClipFromContent } from '../capture/capture.clip-save.js';
-import {
-  isPdfViewerPage,
-  subscribePdfClipboardCapture,
-  getPdfCaptureHint,
-} from '../pdf/pdf.capture.js';
 
 let _armed = false;
 let _lastSavedText = '';
@@ -24,6 +19,14 @@ let _onSaved = null;
 let _checkTimer = null;
 let _copyHandler = null;
 let _pdfUnsub = null;
+
+/** Lazy PDF facade — Spot still works if pdf slice fails to load. */
+function loadPdfCaptureModule() {
+  return import('../pdf/pdf.capture.js').catch((err) => {
+    console.warn('[PasteCraft] PDF capture module unavailable:', err?.message || err);
+    return null;
+  });
+}
 
 function scheduleCheck(delayMs = 220) {
   clearTimeout(_checkTimer);
@@ -108,10 +111,11 @@ function bindSelectionListeners() {
   _copyHandler = onCopyWhileArmed;
   document.addEventListener('copy', _copyHandler, true);
 
-  if (isPdfViewerPage()) {
+  loadPdfCaptureModule().then((pdf) => {
+    if (!_armed || !pdf?.isPdfViewerPage()) return;
     _pdfUnsub?.();
-    _pdfUnsub = subscribePdfClipboardCapture(onPdfClipboardCapture);
-  }
+    _pdfUnsub = pdf.subscribePdfClipboardCapture(onPdfClipboardCapture);
+  });
 }
 
 function unbindSelectionListeners() {
@@ -157,14 +161,15 @@ export function armWidgetSpot() {
   bindSelectionListeners();
   _onModeChange?.('spot');
 
-  const onPdf = isPdfViewerPage();
-  const pdfHint = onPdf ? ` ${getPdfCaptureHint()}` : '';
+  loadPdfCaptureModule().then((pdf) => {
+    if (!_armed || !pdf?.isPdfViewerPage()) return;
+    _onToast?.(`Spot active (PDF). ${pdf.getPdfCaptureHint()}`);
+  });
+
   return {
     ok: true,
     armed: true,
-    message: onPdf
-      ? `Spot active (PDF).${pdfHint}`
-      : 'Spot active — highlight text (or Ctrl+C) to save.',
+    message: 'Spot active — highlight text (or Ctrl+C) to save.',
   };
 }
 
