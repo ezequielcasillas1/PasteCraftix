@@ -1,8 +1,11 @@
 import {
-  getClipWriteCrud,
   persistClipTitleState,
   queueClipTitleSync,
 } from '../../../bridges/clips/clips-write.facade.js';
+import {
+  saveClipsState,
+  snapshotClipValue,
+} from '../../../bridges/clips/clips-crud.facade.js';
 import { getClipIdKey } from '../../../shared/clip-id.js';
 
 export function findClipLocationById(app, clipId) {
@@ -40,8 +43,7 @@ export async function updateClipTitleById(app, clipId, title) {
     : String(title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
 
   return app._queueClipOp(async () => {
-    const PasteCraftCRUD = getClipWriteCrud();
-    const result = await PasteCraftCRUD.saveOperation({
+    const result = await saveClipsState({
       stateGetter: () => ({
         clips: app.clips,
         searchOnlyClips: app.searchOnlyClips,
@@ -124,7 +126,6 @@ export async function updateClipTitleById(app, clipId, title) {
 export function updateNoteClipTitlesById(app, clipId, title, updatedAt) {
   const changedNotes = [];
   const idKey = getClipIdKey(clipId);
-  const PasteCraftCRUD = getClipWriteCrud();
 
   (app.notes || []).forEach(note => {
     if (!Array.isArray(note?.clips)) return;
@@ -136,7 +137,7 @@ export function updateNoteClipTitlesById(app, clipId, title, updatedAt) {
     });
     if (changed) {
       note.updatedAt = updatedAt;
-      changedNotes.push(PasteCraftCRUD.createSnapshot(note));
+      changedNotes.push(snapshotClipValue(note));
     }
   });
 

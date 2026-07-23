@@ -9,12 +9,41 @@ async function ensureSupabaseGlobals() {
 
 let popupBootStarted = false;
 
+async function loadPopupAppPeel() {
+  const [appState, aiAccess, aiOutput, initGuard] = await Promise.all([
+    import('./popup.app-state.js'),
+    import('./popup.ai-access.js'),
+    import('./popup.ai-output.js'),
+    import('./popup.init-guard.js'),
+  ]);
+  return {
+    createPopupInitialState: appState.createPopupInitialState,
+    hasAiAccess: aiAccess.hasAiAccess,
+    formatShortDate: aiAccess.formatShortDate,
+    emitAiTaskOutput: aiOutput.emitAiTaskOutput,
+    setAiTaskOutputArtifact: aiOutput.setAiTaskOutputArtifact,
+    getAiTaskOutputArtifact: aiOutput.getAiTaskOutputArtifact,
+    consumeAiTaskOutputArtifact: aiOutput.consumeAiTaskOutputArtifact,
+    clearAiTaskOutputArtifact: aiOutput.clearAiTaskOutputArtifact,
+    runPopupInitWithGuard: initGuard.runPopupInitWithGuard,
+    showOfflineModeBanner: initGuard.showOfflineModeBanner,
+    clearOfflineModeBanner: initGuard.clearOfflineModeBanner,
+  };
+}
+
+async function ensurePasteCraftCrud() {
+  if (globalThis.PasteCraftCRUD) return;
+  await import('../../../popup/shared/pastecraft-crud.js');
+}
+
 async function startPopup(PasteCraftPopupClass) {
   if (popupBootStarted) return;
   popupBootStarted = true;
 
   await ensureSupabaseGlobals();
   try {
+    await ensurePasteCraftCrud();
+    PasteCraftPopupClass._appPeel = await loadPopupAppPeel();
     window.pasteCraftPopup = new PasteCraftPopupClass();
   } catch (error) {
     console.error('? Popup initialization failed:', error);

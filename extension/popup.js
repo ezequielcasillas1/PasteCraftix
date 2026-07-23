@@ -22,163 +22,15 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
   console.info = pastecraftNoop;
 }
 
-// PasteCraftCRUD — loaded from popup/shared/pastecraft-crud.js (before popup.js)
+// PasteCraftCRUD — ESM via popup.boot ensurePasteCraftCrud() → globalThis.PasteCraftCRUD
 
 class PasteCraftPopup {
   constructor() {
-    this.clips = [];
-    this.categories = [];
-    // NOTE: selectedChips stores stable clip id keys (String(clip.id)), not indices.
-    this.selectedChips = new Set();
-    this.selectedPickerClips = new Set();
-    this.selectedPickerImages = new Set();
-    this.imagePickerCatalog = [];
-    this.delimiter = 'comma';
-    this.currentTab = 'clips';
-    this.searchQuery = '';
-    this.selectedCategory = '';
-    this.selectedDateFilter = '';
-    this.pendingText = null;
-    this.selectedCategoryForSave = 'Uncategorized';
-    this.autoDeletePeriod = 'never';
-    // Global theme (single source of truth). Quick Paste follows this.
-    // 'light' = default | 'blue' = Blue Dark Mode | 'dark' = gray dark (deferred)
-    this.theme = 'light';
-    // True gray dark theme remains deferred; Blue Dark Mode uses theme === 'blue'.
-    this.darkModeComingSoon = false;
-    this._themeSyncing = false;
-    this.searchOnlyClips = [];
-    // These store stable clip id keys (String(clip.id)), not numbers.
-    this.selectedCategoryClips = new Set();
-    this.selectedSearchClips = new Set();
-    this.expandedCategoryIds = new Set();
-    this.categoryUiOrderSelectedIds = [];
-    // Pending clip reference for category modal actions (stable clip id key)
-    this.pendingClipId = null;
-
-    // Crafted Output (preview) editability
-    this.previewIsManual = false;
-    this.previewLastAutoValue = '';
-    this.options = {
-      deduplicate: false,
-      sort: false,
-      uppercase: false
-    };
-    this.userProfile = null;
-    
-    // Pagination system
-    this.currentPage = 0;
-    this.clipsPerPage = 10;
-    this.maxPages = 50;
-    this.maxClips = this.clipsPerPage * this.maxPages; // 500 clips total
-    
-    // Tiered storage for lazy loading
-    this.tieredClipsStore = null;
-    this.tieredNotesStore = null;
-    this.tieredArchivedStore = null;
-    this.totalClipsCount = 0; // Total clips including remote
-    this.totalNotesCount = 0; // Total notes including remote
-    this.totalArchivedCount = 0; // Total archived including remote
-    this._isLazyLoading = false; // Flag for loading indicator
-    
-    // Magic preview state
-    this._magicAnalysis = [];
-    this._magicSelected = new Set();
-    this._magicPage = 0;
-
-    // Breakdown text cache
-    this.currentBreakdownText = null;
-    this.currentBreakdownLevel = null;
-    this.breakdownCache = {};
-    
-    // Summary state
-    this.currentSummaryText = null;
-    this.generatedQuestions = [];
-    this.currentSummaryQuestion = null;
-    
-    // Thread conversation state
-    this.summaryThreads = [];
-    this.breakdownThreads = [];
-    this.currentSummaryThreadIndex = 0;
-    this.currentBreakdownThreadIndex = 0;
-    this.selectedFollowupLevel = null;
-    
-    // Session persistence state
-    this._currentAiLabSubTab = 'summary';
-    this._currentSummarySection = 'input';
-    
-    // Countdown timers
-    this.profileCollapseInterval = null;
-    this.nameCollapseInterval = null;
-
-    // Auto-refresh while sync progress is visible
-    this._syncAutoRefreshTimeout = null;
-    this._syncAutoRefreshInFlight = false;
-    this._syncAutoRefreshIntervalMs = 5000;
-    
-    // Analysis history
-    this.analysisHistory = [];
-
-    // AI History (persistent conversation logs)
-    this.aiHistoryEntries = [];
-    this.currentHistoryEntry = null;
-    this.currentHistoryThreadIndex = 0;
-    this._activeBreakdownHistoryId = null; // tracks active breakdown conversation
-    this._activeSummaryHistoryId = null;   // tracks active summary conversation
-    this._aiHistorySearchQuery = '';
-    this._aiHistoryFilterType = 'all';
-    this._aiHistoryPageIndex = 0;
-    
-    // Notes system
-    this.notes = [];
-    this.currentNoteId = null;
-    this.currentNoteType = 'note';
-    this.currentNoteAttachments = [];
-    this.pendingClipForNotes = null;
-    this.pendingBulkClipsForNotes = null; // array of clip objects for bulk send-to-notes
-    this.pendingBulkClipIds = null; // array of clip id keys for bulk send-to-categories
-    this.pendingNoteForAlbum = null;
-    this.currentViewerNoteId = null;
-    this.currentAlbumAttachmentContext = null;
-    this.noteViewerParentAlbumId = null;
-    this.notesViewMode = 'notes'; // 'notes' | 'albums'
-    this.notesPageIndex = 0; // starts at 0
-    this.notesAiEnabled = false;
-    this.pendingAiTaskOutputArtifact = null;
-    this.albumAttachmentOpenMode = 'overlay'; // 'edgePopup' | 'overlay'
-    this.idb = (typeof window !== 'undefined' && window.pasteCraftIndexedDB) ? window.pasteCraftIndexedDB : null;
-    this._idbReady = false;
-    this._aiOutputBridge = null;
-
-    // Serialize clip mutations to prevent races / double-click issues.
-    this._clipOpQueue = Promise.resolve();
-
-    // Auth preferences (local-only; never store passwords)
-    this._authPrefsKey = 'pc_auth_prefs_v1';
-
-    // Freemium guest mode (skipped login)
-    this._isFreemiumGuest = false;
-
-    // Restore points (local snapshots)
-    this._restorePointsKey = 'pc_restore_points_v1';
-    this._lastRestoreAtKey = 'pc_last_restore_at';
-    this._lastRestorePointIdKey = 'pc_last_restore_point_id';
-    this._restoreSkipCloudSyncWindowMs = 5 * 60 * 1000; // 5 minutes
-    this._lastPreviewRestore = null; // { point, cutoffMs, windowKey }
-    this._lastAppliedRestore = null; // { point, appliedAt }
-
-    // AI workflow override (provider + preset)
-    this._aiWorkflowKey = 'pc_ai_workflow_v1';
-    this.aiWorkflow = {
-      enabled: false,
-      provider: 'openai',
-      preset: 'default',
-      updatedAt: 0
-    };
-    
-    // BroadcastChannel is initialized by settingsFeature during popup init
-    this._broadcastChannel = null;
-    
+    const peel = PasteCraftPopup._appPeel;
+    if (!peel?.createPopupInitialState) {
+      throw new Error('PasteCraftPopup._appPeel not loaded — bootPopupPage must await peel modules first');
+    }
+    Object.assign(this, peel.createPopupInitialState());
     this.init();
   }
 
@@ -223,33 +75,23 @@ class PasteCraftPopup {
   }
 
   emitAiTaskOutput(rawArtifact) {
-    const bridge = this._aiOutputBridge;
-    if (!bridge?.setAiTaskOutputArtifact) return null;
-    return bridge.setAiTaskOutputArtifact(this, rawArtifact);
+    return PasteCraftPopup._appPeel.emitAiTaskOutput(this, rawArtifact);
   }
 
   setAiTaskOutputArtifact(rawArtifact) {
-    const bridge = this._aiOutputBridge;
-    if (!bridge?.setAiTaskOutputArtifact) return null;
-    return bridge.setAiTaskOutputArtifact(this, rawArtifact);
+    return PasteCraftPopup._appPeel.setAiTaskOutputArtifact(this, rawArtifact);
   }
 
   getAiTaskOutputArtifact() {
-    const bridge = this._aiOutputBridge;
-    if (!bridge?.getAiTaskOutputArtifact) return null;
-    return bridge.getAiTaskOutputArtifact(this);
+    return PasteCraftPopup._appPeel.getAiTaskOutputArtifact(this);
   }
 
   consumeAiTaskOutputArtifact() {
-    const bridge = this._aiOutputBridge;
-    if (!bridge?.consumeAiTaskOutputArtifact) return null;
-    return bridge.consumeAiTaskOutputArtifact(this);
+    return PasteCraftPopup._appPeel.consumeAiTaskOutputArtifact(this);
   }
 
   clearAiTaskOutputArtifact() {
-    const bridge = this._aiOutputBridge;
-    if (!bridge?.clearAiTaskOutputArtifact) return null;
-    return bridge.clearAiTaskOutputArtifact(this);
+    return PasteCraftPopup._appPeel.clearAiTaskOutputArtifact(this);
   }
 
   _categoryIdKey(category) {
@@ -281,43 +123,15 @@ class PasteCraftPopup {
   }
   
   async init() {
-    // Guarantees that the purple loading overlay never gets stuck. Wraps the
-    // real init body in try/catch/finally with an absolute 10s watchdog so a
-    // throw, hang, or network stall can't freeze the popup in a loading state.
-    const watchdog = setTimeout(() => {
-      try {
-        console.warn('[PasteCraft] init() watchdog fired at 10s — force-hiding overlay');
-        this.hideLoadingOverlay();
-        this._showOfflineModeBanner();
-      } catch (_) {}
-    }, 10000);
-
-    try {
-      await this._initImpl();
-      this._clearOfflineModeBanner();
-    } catch (e) {
-      console.error('[PasteCraft] init() failed:', e);
-      try { this._showOfflineModeBanner(); } catch (_) {}
-    } finally {
-      clearTimeout(watchdog);
-      try { this.hideLoadingOverlay(); } catch (_) {}
-    }
+    return PasteCraftPopup._appPeel.runPopupInitWithGuard(this, () => this._initImpl());
   }
 
   _showOfflineModeBanner() {
-    if (document.getElementById('pcOfflineModeBanner')) return;
-    const banner = document.createElement('div');
-    banner.id = 'pcOfflineModeBanner';
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10001;background:#b45309;color:#fff;font-size:12px;padding:6px 10px;text-align:center;cursor:pointer;';
-    banner.textContent = 'Loaded in offline mode \u2014 click to retry';
-    banner.addEventListener('click', () => { try { window.location.reload(); } catch (_) {} });
-    (document.body || document.documentElement).appendChild(banner);
+    return PasteCraftPopup._appPeel.showOfflineModeBanner();
   }
 
   _clearOfflineModeBanner() {
-    try {
-      document.getElementById('pcOfflineModeBanner')?.remove();
-    } catch (_) {}
+    return PasteCraftPopup._appPeel.clearOfflineModeBanner();
   }
 
   async _initImpl() {
@@ -330,13 +144,7 @@ class PasteCraftPopup {
 
 
   _formatShortDate(isoOrDate) {
-    try {
-      const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
-      if (Number.isNaN(d.getTime())) return null;
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } catch (_) {
-      return null;
-    }
+    return PasteCraftPopup._appPeel.formatShortDate(isoOrDate);
   }
 
   _computeAiImageCreditsView(subscription) {
@@ -752,17 +560,7 @@ class PasteCraftPopup {
 
   // --- Magic Button: Check if user has AI (premium) access ---
   _hasAiAccess() {
-    const sub = this.userSubscription;
-    if (!sub) return false;
-    const tier = String(sub.subscription_tier || '').toLowerCase();
-    const status = String(sub.subscription_status || '').toLowerCase();
-    const expiresAtMs = sub.ai_access_expires_at ? Date.parse(sub.ai_access_expires_at) : NaN;
-    const hasCouponAi = !!(sub.has_unlimited_ai === true || (Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()));
-    const isPaidPremium = tier === 'premium' && (status === 'active' || status === 'past_due');
-    const purchasedBalance = Number.isFinite(Number(sub.ai_purchased_credits_balance))
-      ? Math.max(0, Number(sub.ai_purchased_credits_balance))
-      : 0;
-    return isPaidPremium || hasCouponAi || purchasedBalance > 0;
+    return PasteCraftPopup._appPeel.hasAiAccess(this.userSubscription);
   }
 
   // --- Magic Button: Content types that should skip AI formatting ---
