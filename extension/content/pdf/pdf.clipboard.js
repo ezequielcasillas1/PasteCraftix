@@ -2,11 +2,30 @@
 
 const MAX_TEXT = 30000;
 
+let _permissionDeniedHandler = null;
+let _lastDeniedAt = 0;
+
 function trimText(value, max = MAX_TEXT) {
   const str = String(value ?? '').trim();
   if (!str) return '';
   if (str.length <= max) return str;
   return str.slice(0, max) + '…';
+}
+
+function notifyPermissionDenied(message) {
+  const now = Date.now();
+  if (now - _lastDeniedAt < 4000) return;
+  _lastDeniedAt = now;
+  try {
+    _permissionDeniedHandler?.(
+      message || 'PasteCraft needs clipboard permission for PDF capture',
+    );
+  } catch (_) {}
+}
+
+/** Optional toast/callback when clipboard/offscreen grant is denied. */
+export function setClipboardPermissionDeniedHandler(handler) {
+  _permissionDeniedHandler = typeof handler === 'function' ? handler : null;
 }
 
 /**
@@ -26,6 +45,9 @@ export async function readClipboardPlainText() {
     const response = await chrome.runtime.sendMessage({ action: 'pcReadClipboard' });
     if (response?.success && response.text) {
       return trimText(response.text);
+    }
+    if (response?.error === 'permission_denied') {
+      notifyPermissionDenied(response.message);
     }
   } catch (_) {}
 

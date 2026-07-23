@@ -1,4 +1,8 @@
 import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
+import {
+  OPTIONAL_PERM_KINDS,
+  ensureOptionalPermissions,
+} from '../../shared/optional-permissions.js';
 
 /**
  * Capture / clipboard / page-selection handlers (widget Capture Tools).
@@ -171,6 +175,16 @@ async function buildDeliverableCapturePayload(outUrl, cropped) {
 }
 
 async function runPcCaptureRegion(message, sender) {
+  const hostPerm = await ensureOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS);
+  if (!hostPerm.ok) {
+    return {
+      success: false,
+      ok: false,
+      error: hostPerm.error || 'permission_denied',
+      message: hostPerm.message,
+    };
+  }
+
   const windowId = sender.tab?.windowId;
   const cropRect = normalizeCropRect(message?.rect);
   const dpr = Number(message?.dpr);
@@ -293,21 +307,33 @@ export function handlePcGetPageSelection(_message, { sender, sendResponse }) {
     return false;
   }
 
-  chrome.scripting.executeScript(
-    {
-      target: { tabId, allFrames: true },
-      func: probePageSelectionInFrame,
-    },
-    (results) => {
-      const err = chrome.runtime.lastError;
-      if (err) {
-        sendResponse({ success: false, error: err.message || 'selection_probe_failed' });
-        return;
-      }
-      const best = pickLongestSelectionResult(results);
-      sendResponse({ success: !!best, text: best });
-    },
-  );
+  (async () => {
+    const hostPerm = await ensureOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS);
+    if (!hostPerm.ok) {
+      sendResponse({
+        success: false,
+        error: hostPerm.error || 'permission_denied',
+        message: hostPerm.message,
+      });
+      return;
+    }
+
+    chrome.scripting.executeScript(
+      {
+        target: { tabId, allFrames: true },
+        func: probePageSelectionInFrame,
+      },
+      (results) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          sendResponse({ success: false, error: err.message || 'selection_probe_failed' });
+          return;
+        }
+        const best = pickLongestSelectionResult(results);
+        sendResponse({ success: !!best, text: best });
+      },
+    );
+  })();
   return true;
 }
 
@@ -358,6 +384,16 @@ async function readClipboardViaOffscreen() {
 /** Offscreen clipboard read — PDF plugin often blocks page-focused clipboard APIs. */
 export function handlePcReadClipboard(_message, { sendResponse }) {
   (async () => {
+    const clipPerm = await ensureOptionalPermissions(OPTIONAL_PERM_KINDS.PDF_CLIPBOARD);
+    if (!clipPerm.ok) {
+      sendResponse({
+        success: false,
+        error: clipPerm.error || 'permission_denied',
+        message: clipPerm.message,
+      });
+      return;
+    }
+
     const ready = await ensureClipboardOffscreenDocument();
     if (!ready.ok) {
       sendResponse({ success: false, error: ready.error });
@@ -372,11 +408,19 @@ export function handlePcReadClipboard(_message, { sendResponse }) {
   return true;
 }
 
+export function handlePcEnsureOptionalPermissions(message, { sendResponse }) {
+  (async () => {
+    sendResponse(await ensureOptionalPermissions(message?.kind));
+  })();
+  return true;
+}
+
 export function createCaptureHandlerMap() {
   return {
     [A.PC_CAPTURE_REGION]: handlePcCaptureRegion,
     [A.PC_GET_PAGE_SELECTION]: handlePcGetPageSelection,
     [A.PC_COPY_TEXT]: handlePcCopyText,
     [A.PC_READ_CLIPBOARD]: handlePcReadClipboard,
+    [A.PC_ENSURE_OPTIONAL_PERMISSIONS]: handlePcEnsureOptionalPermissions,
   };
 }

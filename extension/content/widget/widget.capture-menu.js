@@ -2,6 +2,10 @@
 
 import { CAPTURE_COLORS } from '../capture/capture.constants.js';
 import {
+  OPTIONAL_PERM_KINDS,
+  requestOptionalPermissions,
+} from '../../shared/optional-permissions.js';
+import {
   armWidgetSpot,
   disarmWidgetSpot,
   isWidgetSpotArmed,
@@ -17,6 +21,7 @@ import {
   setWidgetImageSavedHandler,
 } from './widget.image-to-text.js';
 import { loadWidgetCaptureToolsStats } from './widget.capture-stats.js';
+import { isPdfViewerPage } from '../pdf/pdf.detect.js';
 
 export const WIDGET_CAPTURE_ACTIONS = Object.freeze({
   TOGGLE_MENU: 'widget-capture-toggle',
@@ -72,9 +77,34 @@ function closeCaptureMenu() {
   setMenuOpen(false);
 }
 
-function handleSpotClick() {
+async function ensureCaptureHostAccess() {
+  const host = await requestOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS);
+  if (!host.ok) {
+    _widgetRef?.showWidgetToast?.(
+      host.message || 'PasteCraft needs site access for Capture Tools on this page',
+    );
+    return false;
+  }
+  return true;
+}
+
+async function ensurePdfClipboardAccessIfNeeded() {
+  if (!isPdfViewerPage()) return true;
+  const clip = await requestOptionalPermissions(OPTIONAL_PERM_KINDS.PDF_CLIPBOARD);
+  if (!clip.ok) {
+    _widgetRef?.showWidgetToast?.(
+      clip.message || 'PasteCraft needs clipboard permission for PDF capture',
+    );
+    return false;
+  }
+  return true;
+}
+
+async function handleSpotClick() {
   closeCaptureMenu();
   cancelWidgetImagePreview();
+  if (!(await ensureCaptureHostAccess())) return;
+  if (!(await ensurePdfClipboardAccessIfNeeded())) return;
   const result = armWidgetSpot();
   _widgetRef?.showWidgetToast?.(result.message);
 }
@@ -82,6 +112,7 @@ function handleSpotClick() {
 async function handleImagePickerClick() {
   closeCaptureMenu();
   disarmWidgetSpot();
+  if (!(await ensureCaptureHostAccess())) return;
   setHexMode('image');
   await runWidgetImagePickerAction((msg) => _widgetRef?.showWidgetToast?.(msg));
 }
@@ -103,7 +134,7 @@ function bindCaptureMenuEvents() {
     }
     if (action === WIDGET_CAPTURE_ACTIONS.SPOT) {
       event.preventDefault();
-      handleSpotClick();
+      handleSpotClick().catch(() => {});
       return;
     }
     if (action === WIDGET_CAPTURE_ACTIONS.IMAGE_PICKER) {

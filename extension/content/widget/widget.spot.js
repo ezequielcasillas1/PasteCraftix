@@ -111,8 +111,12 @@ function bindSelectionListeners() {
   _copyHandler = onCopyWhileArmed;
   document.addEventListener('copy', _copyHandler, true);
 
-  loadPdfCaptureModule().then((pdf) => {
+  loadPdfCaptureModule().then(async (pdf) => {
     if (!_armed || !pdf?.isPdfViewerPage()) return;
+    try {
+      const { setClipboardPermissionDeniedHandler } = await import('../pdf/pdf.clipboard.js');
+      setClipboardPermissionDeniedHandler((msg) => _onToast?.(msg));
+    } catch (_) {}
     _pdfUnsub?.();
     _pdfUnsub = pdf.subscribePdfClipboardCapture(onPdfClipboardCapture);
   });
