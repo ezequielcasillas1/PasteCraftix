@@ -56,15 +56,57 @@ function getPriceIdFromSubscription(subscription: any): string | null {
   }
 }
 
+/** Normalize Stripe id fields that may arrive as a string or expanded object. */
+function getStripeId(value: unknown): string | null {
+  if (typeof value === 'string' && value) return value
+  if (value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string') {
+    const id = (value as { id: string }).id
+    return id || null
+  }
+  return null
+}
+
+function unixSecondsToIso(sec: unknown): string | null {
+  const n = typeof sec === 'number' ? sec : Number(sec)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return new Date(n * 1000).toISOString()
+}
+
+/**
+ * Billing period end for entitlements / credit reset.
+ * Basil+ (2025-03-31.basil): period lives on subscription items.
+ * Classic / our pinned apiVersion: may still expose subscription.current_period_end.
+ * Prefer items.data[0], then max item end, then top-level fallback.
+ */
 function getPeriodEndIso(subscription: any): string | null {
   try {
-    const sec = subscription?.current_period_end
-    const n = typeof sec === 'number' ? sec : Number(sec)
-    if (!Number.isFinite(n) || n <= 0) return null
-    return new Date(n * 1000).toISOString()
+    const items = Array.isArray(subscription?.items?.data) ? subscription.items.data : []
+    if (items.length > 0) {
+      const fromFirst = unixSecondsToIso(items[0]?.current_period_end)
+      if (fromFirst) return fromFirst
+
+      let maxSec = 0
+      for (const item of items) {
+        const n = Number(item?.current_period_end)
+        if (Number.isFinite(n) && n > maxSec) maxSec = n
+      }
+      const fromMax = unixSecondsToIso(maxSec)
+      if (fromMax) return fromMax
+    }
+
+    return unixSecondsToIso(subscription?.current_period_end)
   } catch (_) {
     return null
   }
+}
+
+/** Invoice to subscription id (classic invoice.subscription + Basil parent path). */
+function getSubscriptionIdFromInvoice(invoice: any): string | null {
+  return (
+    getStripeId(invoice?.subscription)
+    || getStripeId(invoice?.parent?.subscription_details?.subscription)
+    || null
+  )
 }
 
 function getTextCreditPolicyFromPriceId(priceId: string | null): { grant: number; cap: number } | null {
@@ -304,12 +346,20 @@ serve(async (req) => {
             break
           }
 
-          // Get customer email and subscription ID
+          // Prefer checkout.session.completed for subscription activation (not payment_intent alone).
           const customerEmail = session.customer_email || session.customer_details?.email
-          const subscriptionId = session.subscription as string
-          
+          const subscriptionId = getStripeId(session.subscription)
+
+          if (session.mode === 'subscription' && (!customerEmail || !subscriptionId)) {
+            console.warn('Subscription checkout completed but email/subscription missing; waiting for customer.subscription.*', {
+              sessionId: session.id,
+              hasEmail: !!customerEmail,
+              hasSubscription: !!subscriptionId,
+            })
+          }
+
           if (customerEmail && subscriptionId) {
-            // Fetch subscription from Stripe to get price ID
+            // Fetch subscription from Stripe to get price ID + Basil-safe period fields
             const subscription = await stripe.subscriptions.retrieve(subscriptionId)
             const tier = await getTierFromSubscription(subscription)
             const priceId = getPriceIdFromSubscription(subscription)
@@ -483,19 +533,22 @@ serve(async (req) => {
         case 'invoice.payment_failed': {
           const invoice = event.data.object
           console.log('Payment failed for invoice:', invoice.id)
-          
-          if (invoice.subscription) {
+
+          const failedSubscriptionId = getSubscriptionIdFromInvoice(invoice)
+          if (failedSubscriptionId) {
             const { error } = await supabase
               .from('user_subscriptions')
               .update({
                 subscription_status: 'past_due',
                 updated_at: new Date().toISOString(),
               })
-              .eq('stripe_subscription_id', invoice.subscription as string)
+              .eq('stripe_subscription_id', failedSubscriptionId)
 
             if (error) {
               console.error('Error updating payment failure:', error)
             }
+          } else {
+            console.warn('invoice.payment_failed missing subscription id', { invoiceId: invoice.id })
           }
           break
         }
