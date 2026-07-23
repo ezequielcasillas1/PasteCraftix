@@ -1,5 +1,9 @@
 /** @forward-slice Initial PasteCraftPopup instance fields (constructor peel). */
 
+import { AUTH_STORAGE_KEYS } from '../auth/auth.constants.js';
+import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
+import { RESTORE_STORAGE_KEYS } from '../settings/settings.constants.js';
+
 export function createPopupInitialState() {
   return {
     clips: [],
@@ -130,21 +134,21 @@ export function createPopupInitialState() {
     _clipOpQueue: Promise.resolve(),
 
     // Auth preferences (local-only; never store passwords)
-    _authPrefsKey: 'pc_auth_prefs_v1',
+    _authPrefsKey: AUTH_STORAGE_KEYS.AUTH_PREFS,
 
     // Freemium guest mode (skipped login)
     _isFreemiumGuest: false,
 
     // Restore points (local snapshots)
-    _restorePointsKey: 'pc_restore_points_v1',
-    _lastRestoreAtKey: 'pc_last_restore_at',
-    _lastRestorePointIdKey: 'pc_last_restore_point_id',
+    _restorePointsKey: RESTORE_STORAGE_KEYS.POINTS,
+    _lastRestoreAtKey: RESTORE_STORAGE_KEYS.LAST_AT,
+    _lastRestorePointIdKey: RESTORE_STORAGE_KEYS.LAST_POINT_ID,
     _restoreSkipCloudSyncWindowMs: 5 * 60 * 1000,
     _lastPreviewRestore: null,
     _lastAppliedRestore: null,
 
     // AI workflow override (provider + preset)
-    _aiWorkflowKey: 'pc_ai_workflow_v1',
+    _aiWorkflowKey: AI_STORAGE_KEYS.WORKFLOW,
     aiWorkflow: {
       enabled: false,
       provider: 'openai',

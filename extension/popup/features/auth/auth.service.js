@@ -224,8 +224,8 @@ export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') 
   }
 }
 
-export async function clearLegacyAuthPrefs(app) {
+export async function clearLegacyAuthPrefs() {
   try {
-    await chrome.storage.local.remove([app._authPrefsKey]);
+    await chrome.storage.local.remove([AUTH_STORAGE_KEYS.AUTH_PREFS]);
   } catch (_) {}
 }

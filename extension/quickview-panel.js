@@ -27,9 +27,38 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function getExtensionOrigin() {
+  try {
+    return new URL(chrome.runtime.getURL('/')).origin;
+  } catch (_) {
+    return '';
+  }
+}
+
+function resolveParentTargetOrigin() {
+  const extensionOrigin = getExtensionOrigin();
+  try {
+    if (document.referrer) {
+      const referrerOrigin = new URL(document.referrer).origin;
+      if (referrerOrigin === extensionOrigin) return referrerOrigin;
+    }
+  } catch (_) {}
+  return extensionOrigin || 'null';
+}
+
+function isTrustedQuickViewMessage(e) {
+  if (!e || e.source !== window.parent) return false;
+  const extensionOrigin = getExtensionOrigin();
+  if (!extensionOrigin || e.origin !== extensionOrigin) return false;
+  return !!(e.data && e.data.source === 'pastecraft-widget');
+}
+
 function postToParent(msg) {
   try {
-    window.parent.postMessage({ ...msg, source: 'pastecraft-quickview-panel' }, '*');
+    window.parent.postMessage(
+      { ...msg, source: 'pastecraft-quickview-panel' },
+      resolveParentTargetOrigin()
+    );
   } catch (_) {}
 }
 
@@ -267,7 +296,7 @@ function onDelegatedClick(e) {
 }
 
 window.addEventListener('message', (e) => {
-  if (!e?.data || e.data.source !== 'pastecraft-widget') return;
+  if (!isTrustedQuickViewMessage(e)) return;
   if (e.data.type === 'quickview-parent-refresh') {
     loadClips();
   }
