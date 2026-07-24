@@ -191,18 +191,65 @@ function _isAlreadyUsedRefreshError(error) {
   return msg.includes('already used') || msg.includes('invalid refresh token');
 }
 
+function _isTransientAuthNetworkError(error) {
+  if (!error) return false;
+  if (error.name === 'AuthRetryableFetchError') return true;
+  const msg = String(error.message || error || '');
+  return msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network error');
+}
+
+async function _softApplyBridgeTokens(app, tokens) {
+  const apply = pasteCraftSupabase?._applyCurrentSession;
+  if (typeof apply !== 'function' || !tokens?.access_token) return false;
+  let userId = tokens.user_id || '';
+  if (!userId && app) {
+    try {
+      const bridge = await _getSessionBridgePayload(app);
+      userId = bridge.user_id || '';
+    } catch (_) {}
+  }
+  apply.call(pasteCraftSupabase, {
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+    user: userId ? { id: userId } : null,
+  });
+  return true;
+}
+
 async function _setSessionOrRecoverRotatedBridge(app, tokens) {
   // CRITICAL: always pass the *current* refresh_token (post-rotation).
   // Using the pre-refresh RT after background rotation causes
   // "Invalid Refresh Token: Already Used" on the next auto-refresh.
-  const result = await _setSession(tokens.access_token, tokens.refresh_token);
+  let result;
+  try {
+    result = await _setSession(tokens.access_token, tokens.refresh_token);
+  } catch (err) {
+    if (_isTransientAuthNetworkError(err)) {
+      return _softApplyBridgeTokens(app, tokens);
+    }
+    return false;
+  }
   if (!(result && result.error)) return true;
+  if (_isTransientAuthNetworkError(result.error)) {
+    return _softApplyBridgeTokens(app, tokens);
+  }
   if (!_isAlreadyUsedRefreshError(result.error)) return false;
 
   const rotated = await _readBridgeTokenPair(app, tokens.refresh_token);
   if (!rotated) return false;
-  const retry = await _setSession(rotated.access_token, rotated.refresh_token);
-  return !(retry && retry.error);
+  try {
+    const retry = await _setSession(rotated.access_token, rotated.refresh_token);
+    if (!(retry && retry.error)) return true;
+    if (_isTransientAuthNetworkError(retry.error)) {
+      return _softApplyBridgeTokens(app, rotated);
+    }
+    return false;
+  } catch (err) {
+    if (_isTransientAuthNetworkError(err)) {
+      return _softApplyBridgeTokens(app, rotated);
+    }
+    return false;
+  }
 }
 
 export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') {

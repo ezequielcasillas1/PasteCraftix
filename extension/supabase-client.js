@@ -1,4 +1,8 @@
-// Backward-compat: optional early load via dynamic import (popup.boot is primary)
+/**
+ * Thin facade / early-load shim for PasteCraftSupabase.
+ * Primary load path: popup/features/app/popup.boot.js → supabase/index.js
+ * Keeps globalThis.pasteCraftSupabase for legacy non-module callers.
+ */
 import('./supabase/index.js')
   .then(({ pasteCraftSupabase, PasteCraftSupabase }) => {
     globalThis.pasteCraftSupabase = pasteCraftSupabase;

@@ -16,6 +16,8 @@ export class PasteCraftSupabase {
     this._aiWorkflowCache = { value: null, at: 0 };
     this._lastDeviceRegisterAt = 0;
     this._deviceRegisterCooldownMs = 60 * 1000; // avoid repeated upserts during rapid sync bursts
+    // Sync cache for isAuthenticated(); set by auth-bridge + hydrate/restore.
+    this._currentSession = null;
     // When true, prevent background sync/realtime work (e.g., after sign-out).
     this._pauseSync = false;
     this._fullSyncPromise = null;

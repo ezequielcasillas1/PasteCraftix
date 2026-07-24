@@ -343,3 +343,8 @@
 **Status:** SUCCESS
 **Files:** widget.quickview.js, widget.styles.js, widget.events.js, quickview-clips.js, background/shared.js, manifest.json
 **Result:** Quick View renders in content-script DOM instead of iframe/srcdoc so clips sync and display under strict host CSP.
+
+### [2026-07-24] - Supabase auth bridge hydrate
+**Status:** SUCCESS
+**Files:** auth-bridge.js, identity.js, core.js, supabase-bridge-auth.test.mjs
+**Result:** setSession hydrate succeeds; soft-keep on Failed to fetch; no auth wipe
