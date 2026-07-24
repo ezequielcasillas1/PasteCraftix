@@ -10712,6 +10712,16 @@
             <span class="upgrade-banner-arrow">›</span>
         </div>
 
+        <!-- Local / freemium data-safety banner (Aaron-class wipe guard) -->
+        <div class="data-safety-banner" id="dataSafetyBanner" style="display: none;" role="status" aria-live="polite">
+            <span class="data-safety-banner-text" id="dataSafetyBannerText"></span>
+            <div class="data-safety-banner-actions">
+                <button type="button" class="data-safety-btn" id="dataSafetyExportBtn">Export backup</button>
+                <button type="button" class="data-safety-btn data-safety-btn-primary" id="dataSafetyAccountBtn">Create account</button>
+                <button type="button" class="data-safety-dismiss" id="dataSafetyDismissBtn" aria-label="Dismiss">✕</button>
+            </div>
+        </div>
+
         <!-- Manual Text Input Section -->
         <section class="manual-input-section" id="manualInputSection">
             <div class="manual-input-header">
@@ -12646,7 +12656,7 @@ Multiple clips are separated by:
                     <div class="help-section">
                         <h4><i data-lucide="user"></i> Profile &amp; Account</h4>
                         <div class="help-item">
-                            <strong>Account:</strong> Sign in for cloud sync; guest / freemium mode keeps clips on this device only.
+                            <strong>Account:</strong> Sign in for cloud sync; guest / freemium keeps clips on this device only (export backups — Edge resets can erase local data).
                         </div>
                         <div class="help-item">
                             <strong>Profile names:</strong> Display name (top bar) and optional funky / AI name in Account.
@@ -12700,7 +12710,7 @@ Multiple clips are separated by:
                         <div class="help-item">• Categorize important clips so auto-delete never removes them</div>
                         <div class="help-item">• Use Custom Search from a clip when you need Google on a selection + question</div>
                         <div class="help-item">• Prefer cheap AI presets for daily study to stretch credits</div>
-                        <div class="help-item">• Sign in to sync across Chrome and Edge; freemium stays local-only</div>
+                        <div class="help-item">• Sign in + Basic/Premium for durable cloud sync; freemium is local-only — export backups</div>
                         <div class="help-item">• Open Capture Tools from the page widget for Spot and Image → Text</div>
                     </div>
                 </div>
@@ -12761,7 +12771,7 @@ Multiple clips are separated by:
                         </p>
 
                         <div id="accountInfoGuestNotice" class="account-info-guest" style="display: none;">
-                            <p>You are using PasteCraft in <strong>local freemium mode</strong> without signing in. Your clips stay on this device only.</p>
+                            <p>You are using PasteCraft in <strong>local freemium mode</strong> without signing in. Clips stay on this device only — an Edge reset or storage failure can erase them. Export a JSON backup from Settings, or create a free account (cloud sync still requires Basic/Premium).</p>
                             <div class="account-info-actions-row" id="accountInfoGuestActions" style="display: none;">
                                 <button type="button" class="btn-account-action btn-account-primary" id="profileSignInBtn">Sign in or create account</button>
                             </div>
@@ -13582,7 +13592,7 @@ Multiple clips are separated by:
                         <span class="skip-text">Skip to PasteCraft</span>
                     </button>
                     <p class="skip-disclaimer">Use PasteCraft free in local mode — no account needed.<br>
-                        <span class="skip-note">Go local if you don't want to connect right away; you can sign in later to sync your data. Once logged in (basic or enhanced), data saves to the database.</span>
+                        <span class="skip-note">Local mode stores clips on this device only. Edge resets can wipe them — export backups from Settings, or create an account. Cloud sync (Basic/Premium) is the durable backup across Chrome and Edge.</span>
                     </p>
                 </div>
             </div>

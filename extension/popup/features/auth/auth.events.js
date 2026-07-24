@@ -246,7 +246,12 @@ async function _enterFreemiumGuestMode(app) {
   app.renderCategories();
   app.updateCategoryFilter();
   app.hideLoadingOverlay();
-  app.showToast('🚀 Welcome to PasteCraft! Using free local mode.', 'success');
+  app.showToast(
+    '🚀 Local freemium mode — data stays on this device. Export backups or create an account so Edge resets cannot erase everything.',
+    'info',
+  );
+  try { await app.maybeCreateDailyRestorePoint?.('guest-enter'); } catch (_) {}
+  try { await app.dataSafetyFeature?.runCheck?.({ forceGuestBanner: true }); } catch (_) {}
 }
 
 function _bindFreemiumSkip(app) {

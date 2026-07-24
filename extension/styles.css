@@ -2770,6 +2770,63 @@ body {
   font-weight: 500;
 }
 
+/* Local / freemium data-safety banner */
+.data-safety-banner {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 10px 12px;
+  border: 1px solid #FCD34D;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  color: #78350F;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.data-safety-banner-text {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.data-safety-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-safety-btn {
+  border: 1px solid #D97706;
+  background: #fff;
+  color: #92400E;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.data-safety-btn-primary {
+  background: #F59E0B;
+  border-color: #D97706;
+  color: #fff;
+}
+
+.data-safety-btn:hover {
+  filter: brightness(0.97);
+}
+
+.data-safety-dismiss {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #92400E;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
 /* Freemium account notice in support forms */
 .freemium-account-notice {
   background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);

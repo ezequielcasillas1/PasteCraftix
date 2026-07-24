@@ -31,6 +31,30 @@ async function readStorageVersion() {
   return Number.isFinite(stored?.[DATA_VERSION_KEY]) ? stored[DATA_VERSION_KEY] : 0;
 }
 
+async function refreshSubscriptionOnVisible(app) {
+  if (typeof pasteCraftSupabase?.getUserSubscription !== 'function') return;
+  const subscription = await pasteCraftSupabase.getUserSubscription(app.currentUser.id);
+  app.userSubscription = subscription;
+  app.updateAiCreditsPills?.('visibility');
+  app.updateUpgradeUI?.();
+}
+
+function canRefreshEntitlement(app) {
+  return !app?._isFreemiumGuest && !!app?.currentUser?.id;
+}
+
+async function maybeMigrateOnVisible(app) {
+  await app.syncFeature?.localToCloud?.maybeMigrateLocalToCloud?.(app, {
+    reason: 'visibility',
+  });
+}
+
+async function refreshSubscriptionAndMaybeMigrate(app) {
+  if (!canRefreshEntitlement(app)) return;
+  try { await refreshSubscriptionOnVisible(app); } catch (_) {}
+  try { await maybeMigrateOnVisible(app); } catch (_) {}
+}
+
 async function refreshVisibleState(app) {
   const storageVersion = await readStorageVersion();
   const versionChanged = storageVersion !== (app._popupStorageVersion ?? storageVersion);
@@ -46,6 +70,7 @@ async function refreshVisibleState(app) {
     app._popupProfileStale = false;
     app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
   }
+  await refreshSubscriptionAndMaybeMigrate(app);
   renderCachedCurrentState(app);
 }
 

@@ -4,6 +4,7 @@ import * as syncListener from './sync.listener.js';
 import * as syncLoader from './sync.loader.js';
 import * as syncRepair from './sync.repair.js';
 import * as syncVisibility from './sync.visibility.js';
+import * as syncLocalToCloud from './sync.local-to-cloud.js';
 
 export function initSyncFeature(app) {
   return {
@@ -13,5 +14,6 @@ export function initSyncFeature(app) {
     loader: syncLoader,
     repair: syncRepair,
     visibility: syncVisibility,
+    localToCloud: syncLocalToCloud,
   };
 }

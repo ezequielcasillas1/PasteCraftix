@@ -28,8 +28,20 @@ function handleCloudSyncFailure(syncResult) {
   return 'failed';
 }
 
+async function runLocalToCloudMigrate(app, reason) {
+  try {
+    const migrate = app.syncFeature?.localToCloud?.maybeMigrateLocalToCloud;
+    if (typeof migrate !== 'function') return;
+    await migrate(app, { reason: `pre-sync:${reason}` });
+  } catch (error) {
+    console.warn('Local→cloud migrate skipped:', error?.message || error);
+  }
+}
+
 async function runCloudSync(app, force, reason) {
   console.log('🔄 Starting background sync with database...', { reason, force });
+  // Push freemium/local library before cloud→local merge so upgrades do not leave data behind.
+  await runLocalToCloudMigrate(app, reason);
   const syncResult = await pasteCraftSupabase.performFullSync();
   if (!syncResult.success) return handleCloudSyncFailure(syncResult);
   console.log('✅ Background sync complete:', syncResult.stats);
@@ -41,9 +53,13 @@ export async function performBackgroundSync(app, { force = false, reason = 'back
   let cloudResolution = 'failed';
   try {
     const skipCloudSync = await shouldSkipCloudSync(app, force, reason);
-    cloudResolution = skipCloudSync
-      ? 'ready'
-      : await runCloudSync(app, force, reason);
+    if (skipCloudSync) {
+      // Still attempt one-shot upload when entitled (restore-skip only blocks pull).
+      await runLocalToCloudMigrate(app, `skip-pull:${reason}`);
+      cloudResolution = 'ready';
+    } else {
+      cloudResolution = await runCloudSync(app, force, reason);
+    }
   } catch (error) {
     console.error('❌ Background sync error:', error);
   } finally {
