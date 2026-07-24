@@ -1,4 +1,4 @@
-import { getExtensionPageUrl } from '../shared.js';
+import { getExtensionPageUrl } from './bg-utils.js';
 import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
 
 /**

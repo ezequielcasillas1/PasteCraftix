@@ -1,5 +1,10 @@
-import { createInternalMessageRouter } from '../messaging/router.js';
-import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
+import { createInternalMessageRouter, listRouterActions } from '../messaging/router.js';
+import {
+  INTERNAL_MESSAGE_ACTIONS as A,
+  getInternalActionCoverage,
+  isDeferredInternalAction,
+  isSwallowInternalAction,
+} from '../messaging/message-types.js';
 import { createCaptureHandlerMap } from './capture.handler.js';
 import { createWindowHandlerMap } from './window.handler.js';
 import { createClipsHandlerMap } from './clips.handler.js';
@@ -16,6 +21,12 @@ function isRoutedAction(action) {
   return Object.prototype.hasOwnProperty.call(routedHandlers, action);
 }
 
+// Coverage gate (dev): every ROUTED action must be registered on the Mediator map.
+const __coverage = getInternalActionCoverage(listRouterActions(routedHandlers));
+if (!__coverage.ok) {
+  console.warn('[PasteCraft] internal message coverage gap:', __coverage.missingFromRouter);
+}
+
 // INTERNAL MESSAGE LISTENER (Content Script Messages)
 // =====================================================
 // Routed families: capture, window, clips/quickview/broadcast.
@@ -24,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const action = message && typeof message.action === 'string' ? message.action : '';
 
   // Offscreen document owns this action — do not sendResponse from the SW.
-  if (action === 'pcOffscreenReadClipboard') {
+  if (isSwallowInternalAction(action)) {
     return false;
   }
 
@@ -34,6 +45,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (!sender || (sender.id && sender.id !== chrome.runtime.id)) {
     sendResponse?.({ success: false, error: 'invalid_sender' });
+    return false;
+  }
+
+  // Deferred auth/billing only — unknown actions log then fall through (parity).
+  if (!isDeferredInternalAction(action)) {
+    console.log('📨 Internal message received:', action);
     return false;
   }
 

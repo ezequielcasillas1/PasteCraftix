@@ -1,10 +1,6 @@
-import {
-  normalizeArray,
-  safeTabsSendMessage,
-  saveTextDirectly,
-  getQuickViewClips,
-  deleteQuickViewClip,
-} from '../shared.js';
+import { normalizeArray, safeTabsSendMessage } from './bg-utils.js';
+import { saveTextDirectly } from './clips.commands.js';
+import { getQuickViewClips, deleteQuickViewClip } from '../quickview/quickview.service.js';
 import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
 
 /**

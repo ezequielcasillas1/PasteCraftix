@@ -1,5 +1,5 @@
+/** @forward-slice — Shared image annotate editor (draw / text / move / note pads). */
 /**
- * Shared image annotate editor — draw / text / move / note pads.
  * Public API for notes + clips (no cross-slice imports).
  */
 

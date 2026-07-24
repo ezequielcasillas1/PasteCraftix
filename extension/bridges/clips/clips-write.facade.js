@@ -3,6 +3,10 @@
  * Resolves legacy globals (PasteCraftCRUD, Supabase, IDB) for ES module callers.
  */
 import { CLIPS_STORAGE_KEYS, CLIPS_SYNC_QUEUE_KEYS } from '../../popup/features/clips/clips.constants.js';
+import {
+  getIndexedDb,
+  syncIndexedDbEntityFromLocalStorage,
+} from '../storage/indexeddb.facade.js';
 
 function resolveCrud() {
   const crud = globalThis.PasteCraftCRUD ?? globalThis.window?.PasteCraftCRUD;
@@ -12,10 +16,6 @@ function resolveCrud() {
 
 function resolveSupabase() {
   return globalThis.pasteCraftSupabase ?? null;
-}
-
-function resolveIndexedDb() {
-  return globalThis.pasteCraftIndexedDB ?? globalThis.window?.pasteCraftIndexedDB ?? null;
 }
 
 export function getClipWriteCrud() {
@@ -30,13 +30,12 @@ export async function persistClipTitleState({ clips, searchOnlyClips, notes }) {
     pc_local_updatedAt: Date.now(),
   });
 
-  const idb = resolveIndexedDb();
-  if (idb?.syncEntityFromLocalStorage) {
-    await idb.syncEntityFromLocalStorage(
+  if (getIndexedDb()?.syncEntityFromLocalStorage) {
+    await syncIndexedDbEntityFromLocalStorage(
       CLIPS_STORAGE_KEYS.ACTIVE,
       Array.isArray(clips) ? clips : [],
     );
-    await idb.syncEntityFromLocalStorage(
+    await syncIndexedDbEntityFromLocalStorage(
       'notes',
       Array.isArray(notes) ? notes : [],
     );

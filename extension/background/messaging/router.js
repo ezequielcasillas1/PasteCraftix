@@ -4,6 +4,7 @@
  * Promise replies are converted to return-true + sendResponse so the port
  * stays open on all Chromium builds (raw Promise return is flaky).
  */
+
 export function createInternalMessageRouter(handlers) {
   const routeMap = handlers && typeof handlers === 'object' ? handlers : {};
 
@@ -47,6 +48,11 @@ export function createInternalMessageRouter(handlers) {
 
     return result;
   };
+}
+
+export function listRouterActions(handlers) {
+  const routeMap = handlers && typeof handlers === 'object' ? handlers : {};
+  return Object.keys(routeMap).filter((key) => typeof routeMap[key] === 'function');
 }
 
 function isExtensionPageSender(sender) {

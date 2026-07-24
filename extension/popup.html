@@ -14004,6 +14004,33 @@ alice@email.com</div>
     <script src="lib/highlight.min.js"></script>
     <script src="lib/katex.min.js"></script>
     <script src="lib/lucide.min.js"></script>
+    <!-- PCMarkup Strategy modules (order: shared/markup/markup.load-order.js) -->
+    <script src="shared/markup/markup.ns.js"></script>
+    <script src="shared/markup/markup.constants.js"></script>
+    <script src="shared/markup/markup.sanitize.js"></script>
+    <script src="shared/markup/markup.detect.js"></script>
+    <script src="shared/markup/strategies/markdown.strategy.js"></script>
+    <script src="shared/markup/strategies/html.strategy.js"></script>
+    <script src="shared/markup/strategies/json.strategy.js"></script>
+    <script src="shared/markup/strategies/yaml.strategy.js"></script>
+    <script src="shared/markup/strategies/xml.strategy.js"></script>
+    <script src="shared/markup/strategies/toml.strategy.js"></script>
+    <script src="shared/markup/strategies/csv.strategy.js"></script>
+    <script src="shared/markup/strategies/latex.strategy.js"></script>
+    <script src="shared/markup/strategies/mermaid.strategy.js"></script>
+    <script src="shared/markup/strategies/bbcode.strategy.js"></script>
+    <script src="shared/markup/strategies/slack.strategy.js"></script>
+    <script src="shared/markup/strategies/code.strategy.js"></script>
+    <script src="shared/markup/strategies/asciidoc.strategy.js"></script>
+    <script src="shared/markup/strategies/rst.strategy.js"></script>
+    <script src="shared/markup/strategies/orgmode.strategy.js"></script>
+    <script src="shared/markup/strategies/mediawiki.strategy.js"></script>
+    <script src="shared/markup/strategies/textile.strategy.js"></script>
+    <script src="shared/markup/strategies/jira.strategy.js"></script>
+    <script src="shared/markup/strategies/text.strategy.js"></script>
+    <script src="shared/markup/markup.render.js"></script>
+    <script src="shared/markup/markup.badge.js"></script>
+    <script src="shared/markup/markup.api.js"></script>
     <script src="markup-renderer.js"></script>
     <script src="clip-title.js"></script>
 
@@ -14022,10 +14049,10 @@ alice@email.com</div>
 
     <!-- Config and Database Client -->
     <script src="config.js"></script>
-    <script src="indexeddb-store.js"></script>
-    <!-- Tiered Storage (lazy loading) -->
+    <script src="shared/storage/indexeddb-store.js"></script>
+    <!-- Tiered Storage (lazy loading); thin roots indexeddb-store.js / tiered-storage.js remain for legacy paths -->
     <script src="storage-meter.js"></script>
-    <script src="tiered-storage.js"></script>
+    <script src="shared/storage/tiered-storage.js"></script>
     <script src="popup/shared/async-utils.js"></script>
     <script src="popup/shared/popup-ui.js"></script>
     <!-- pastecraft-crud.js loaded as ESM from popup.boot (assigns globalThis.PasteCraftCRUD) -->

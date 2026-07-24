@@ -88,6 +88,8 @@
         "lib/katex.min.css",
         "lib/katex-fonts/*",
         "lib/mermaid.min.js",
+        "offscreen-clipboard.html",
+        "offscreen-clipboard.js",
         "lib/pdf.min.js",
         "lib/pdf.worker.min.js",
         "lib/lucide.min.js",

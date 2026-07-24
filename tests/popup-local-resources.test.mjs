@@ -37,6 +37,18 @@ function createClassicContext(overrides = {}) {
   return context;
 }
 
+/** Load PCMarkup Strategy modules + thin facade (shared/markup/markup.load-order.js). */
+function loadPCMarkupModules(context) {
+  const sandbox = vm.createContext(context);
+  vm.runInContext(readExtensionFile('shared/markup/markup.load-order.js'), sandbox);
+  const order = sandbox.__PCMarkupLoadOrder;
+  assert.ok(Array.isArray(order) && order.length > 0, 'PCMarkup load order missing');
+  for (const relativePath of order) {
+    vm.runInContext(readExtensionFile(relativePath), sandbox);
+  }
+  return sandbox;
+}
+
 test('PDF and Mermaid are absent from eager popup scripts', () => {
   const html = readExtensionFile('popup.html');
   const scripts = [...html.matchAll(/<script\s+src="([^"]+)"/g)].map((match) => match[1]);
@@ -169,7 +181,7 @@ test('Mermaid loads on first diagram and initializes with strict security', asyn
       },
     },
   });
-  vm.runInNewContext(readExtensionFile('markup-renderer.js'), context);
+  loadPCMarkupModules(context);
   assert.equal(loadCalls, 0);
 
   const first = await context.PCMarkup.renderMarkup(
@@ -200,7 +212,7 @@ test('Mermaid load failures fall back to escaped local code', async () => {
       },
     },
   });
-  vm.runInNewContext(readExtensionFile('markup-renderer.js'), context);
+  loadPCMarkupModules(context);
 
   const result = await context.PCMarkup.renderMarkup(
     'graph TD\nA["<unsafe>"]',
