@@ -1,5 +1,7 @@
 /** @forward-slice Page text selection helpers (plain DOM + code editors + iframes). */
 
+import { CAPTURE_MESSAGE_ACTIONS } from './capture.constants.js';
+
 function readInputSelection(el) {
   if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return '';
   const start = el.selectionStart;
@@ -188,7 +190,9 @@ export async function getPageSelectionTextDeep() {
   if (local) return local;
 
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'pcGetPageSelection' });
+    const response = await chrome.runtime.sendMessage({
+      action: CAPTURE_MESSAGE_ACTIONS.PC_GET_PAGE_SELECTION,
+    });
     if (response?.success && response.text) {
       return String(response.text).trim();
     }
@@ -215,7 +219,10 @@ export async function copyTextToClipboard(text) {
     return { ok: true };
   } catch (_) {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'pcCopyText', text: value });
+      const response = await chrome.runtime.sendMessage({
+        action: CAPTURE_MESSAGE_ACTIONS.PC_COPY_TEXT,
+        text: value,
+      });
       if (response?.success) return { ok: true };
       return { ok: false, error: response?.error || 'Clipboard unavailable.' };
     } catch (err) {

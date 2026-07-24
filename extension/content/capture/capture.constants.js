@@ -1,5 +1,14 @@
 /** @forward-slice Shared capture infra — Scholar widget + Merchant strip. */
 
+/** Mirror background message-types — content must not import background modules. */
+export const CAPTURE_MESSAGE_ACTIONS = Object.freeze({
+  PC_CAPTURE_REGION: 'pcCaptureRegion',
+  PC_GET_PAGE_SELECTION: 'pcGetPageSelection',
+  PC_COPY_TEXT: 'pcCopyText',
+  PC_READ_CLIPBOARD: 'pcReadClipboard',
+  PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
+});
+
 export const CAPTURE_MAX_REGION_PX = 4096;
 export const CAPTURE_MAX_TEXT = 50000;
 export const CAPTURE_OCR_PHASE = 1;

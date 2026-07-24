@@ -3,6 +3,7 @@
 import {
   CAPTURE_LAYER_Z,
   CAPTURE_MAX_REGION_PX,
+  CAPTURE_MESSAGE_ACTIONS,
   awaitCapturePaint,
   mountCaptureLayer,
 } from './capture.constants.js';
@@ -141,7 +142,7 @@ async function resolveCaptureDataUrl(response) {
 
 async function requestCaptureRegionOnce(rect) {
   const response = await sendCaptureMessage({
-    action: 'pcCaptureRegion',
+    action: CAPTURE_MESSAGE_ACTIONS.PC_CAPTURE_REGION,
     rect: rect || null,
     dpr: window.devicePixelRatio || 1,
   });

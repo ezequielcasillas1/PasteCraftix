@@ -1,11 +1,14 @@
 /** @forward-slice Clipboard read helpers for PDF viewer capture (plugin selections). */
 
-const MAX_TEXT = 30000;
+import {
+  PDF_CLIPBOARD_MAX_TEXT,
+  PDF_PERMISSION_DENIED_COOLDOWN_MS,
+} from './pdf.constants.js';
 
 let _permissionDeniedHandler = null;
 let _lastDeniedAt = 0;
 
-function trimText(value, max = MAX_TEXT) {
+function trimText(value, max = PDF_CLIPBOARD_MAX_TEXT) {
   const str = String(value ?? '').trim();
   if (!str) return '';
   if (str.length <= max) return str;
@@ -14,7 +17,7 @@ function trimText(value, max = MAX_TEXT) {
 
 function notifyPermissionDenied(message) {
   const now = Date.now();
-  if (now - _lastDeniedAt < 4000) return;
+  if (now - _lastDeniedAt < PDF_PERMISSION_DENIED_COOLDOWN_MS) return;
   _lastDeniedAt = now;
   try {
     _permissionDeniedHandler?.(

@@ -3,6 +3,20 @@ import { shouldInitMerchantLayer } from './safety/product-line-gate.js';
 import { QuickPasteInterface } from './quick-paste/quick-paste.js';
 import { PasteCraftFloatingWidget } from './widget/widget.js';
 
+function initCaptureAndPdfLayers() {
+  import('./capture/capture.controller.js')
+    .then(({ initCaptureLayer }) => initCaptureLayer())
+    .catch((err) => {
+      console.warn('[PasteCraft] capture layer skipped:', err);
+    });
+
+  import('./pdf/pdf.controller.js')
+    .then(({ initPdfLayer }) => initPdfLayer())
+    .catch((err) => {
+      console.warn('[PasteCraft] pdf layer skipped:', err);
+    });
+}
+
 function ensureDocumentBody() {
   if (document.body) return true;
   try {
@@ -28,6 +42,8 @@ function pastecraftInitContent() {
     }
     return;
   }
+  initCaptureAndPdfLayers();
+
   if (window.pasteCraftFloatingWidget) return;
 
   window.pasteCraftQuickPaste = new QuickPasteInterface();

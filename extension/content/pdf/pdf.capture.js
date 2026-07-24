@@ -2,6 +2,11 @@
 
 import { isPdfViewerPage } from './pdf.detect.js';
 import { readClipboardPlainText, textFromClipboardEvent } from './pdf.clipboard.js';
+import {
+  PDF_CAPTURE_HINT,
+  PDF_POLL_INTERVAL_MS,
+  PDF_READ_DELAY_MS,
+} from './pdf.constants.js';
 
 let _installed = false;
 let _handlers = new Set();
@@ -11,8 +16,8 @@ let _pendingTimer = null;
 let _pollTimer = null;
 let _pollActive = false;
 
-const READ_DELAY_MS = 60;
-const POLL_MS = 700;
+const READ_DELAY_MS = PDF_READ_DELAY_MS;
+const POLL_MS = PDF_POLL_INTERVAL_MS;
 
 function isCopyChord(event) {
   if (!event) return false;
@@ -129,7 +134,7 @@ export function subscribePdfClipboardCapture(handler) {
 }
 
 export function getPdfCaptureHint() {
-  return ' PDF: select text, then Ctrl+C to save (highlight-release is blocked by the browser PDF viewer).';
+  return PDF_CAPTURE_HINT;
 }
 
 export { isPdfViewerPage };

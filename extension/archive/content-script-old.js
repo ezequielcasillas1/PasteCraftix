@@ -1,4 +1,10 @@
-// PasteCraft Quick Paste Content Script
+/**
+ * @dead-file QUARANTINED — Phase 3D (2026-07-24)
+ * Legacy Quick Paste monolith (~892 LOC). NOT referenced by manifest or imports.
+ * Active content entry: extension/content-script.js → extension/content/*
+ * Do not re-enable without an explicit migration ticket.
+ */
+// PasteCraft Quick Paste Content Script (ARCHIVED — do not load)
 class QuickPasteInterface {
   constructor() {
     this.isVisible = false;

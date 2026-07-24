@@ -1,4 +1,5 @@
 /** Offscreen clipboard reader — service workers cannot call navigator.clipboard.readText. */
+/** @forward-slice PDF capture clipboard fallback (see capture.handler.js). */
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || message.action !== 'pcOffscreenReadClipboard') return false;
