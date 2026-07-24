@@ -15,6 +15,7 @@ const FEATURE_LOADERS = [
   ['profileFeature', '../profile/profile.controller.js', 'initProfileFeature'],
   ['billingFeature', '../billing/billing.controller.js', 'initBillingFeature'],
   ['syncFeature', '../sync/sync.controller.js', 'initSyncFeature'],
+  ['dataSafetyFeature', '../data-safety/data-safety.controller.js', 'initDataSafetyFeature'],
 ];
 
 const moduleImportPromises = new Map();

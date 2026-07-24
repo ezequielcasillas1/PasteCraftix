@@ -221,6 +221,7 @@ function scheduleAuthenticatedDeferredWork(app, currentUser, defer) {
       await app._initializeTieredStorage();
       await app._maybeMigrateTieredStorage();
       await app.performBackgroundSync();
+      try { await app.dataSafetyFeature?.runCheck?.(); } catch (_) {}
     }, 'Deferred storage and sync work');
     runDeferredTask(app, currentUser, async () => {
       const subscription = await pasteCraftSupabase.getUserSubscription(currentUser.id);
@@ -228,6 +229,12 @@ function scheduleAuthenticatedDeferredWork(app, currentUser, defer) {
       app.userSubscription = subscription;
       app.updateAiCreditsPills('fresh');
       app.updateUpgradeUI();
+      // Upgrade / coupon entitlement may land after checkout — push local library once.
+      try {
+        await app.syncFeature?.localToCloud?.maybeMigrateLocalToCloud?.(app, {
+          reason: 'subscription-refresh',
+        });
+      } catch (_) {}
     }, 'Subscription refresh');
   });
 }
@@ -237,6 +244,8 @@ function scheduleGuestDeferredWork(app, defer) {
     app.setupVisibilityListener();
     Promise.resolve(app._initializeTieredStorage?.()).catch(() => {});
     Promise.resolve(app.cleanupOldClips()).catch(() => {});
+    Promise.resolve(app.maybeCreateDailyRestorePoint?.('guest-startup')).catch(() => {});
+    Promise.resolve(app.dataSafetyFeature?.runCheck?.({ forceGuestBanner: true })).catch(() => {});
   });
 }
 

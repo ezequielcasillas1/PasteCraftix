@@ -1,4 +1,14 @@
 
+### Jul 24, 2026 - Local→cloud migrate on upgrade
+**Status:** PENDING USER VERIFY
+**Files:** sync.local-to-cloud.js, sync.local-to-cloud.constants.js, sync.controller.js, sync.listener.js, sync.visibility.js, popup.init.js
+**Result:** When hasCloudSyncAccess becomes true, one-shot upsert of local clips/archived/categories/notes/settings to Supabase (per-user flag `pc_local_to_cloud_migrated_v1`). Free sign-in alone skips. Needs user verify.
+
+### Jul 24, 2026 - Freemium data-safety (Aaron-class wipe guard)
+**Status:** PENDING USER VERIFY
+**Files:** data-safety/* (new slice), popup.features.js, popup.init.js, auth.events.js, popup.html, styles.css
+**Result:** Guest/local durability: storage canary, sync hint, IDB/restore-point auto-recover, freemium banner + honest local-risk copy. Cloud sync users still use Supabase. Needs user verify.
+
 ### Jul 19, 2026 - Support page for store listing URL
 **Status:** PENDING USER VERIFY
 **Files:** website/src/pages/support.astro, website/src/data/site.js, netlify.toml
