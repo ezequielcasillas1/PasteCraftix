@@ -1,3 +1,12 @@
+import {
+  getIndexedDb,
+  getIndexedDbPayloads,
+} from '../../../bridges/storage/indexeddb.facade.js';
+import {
+  getTieredStore,
+  isTieredStorageAvailable,
+} from '../../../bridges/storage/tiered-storage.facade.js';
+
 // ── dedupe helper ──────────────────────────────────────────────────────────
 
 // Two notes can never legitimately share an `id`. When that happens we keep
@@ -200,9 +209,9 @@ function _buildDemoNotes() {
 // ── initializeTieredNotesStorage ───────────────────────────────────────────
 
 export async function initializeTieredNotesStorage(app) {
-  if (typeof StorageMeter === 'undefined' || typeof tieredStorageManager === 'undefined') return;
+  if (!isTieredStorageAvailable()) return;
   try {
-    app.tieredNotesStore = tieredStorageManager.getStore('notes', {
+    app.tieredNotesStore = getTieredStore('notes', {
       pageSize: 6,
       localStorageKey: 'notes',
       supabaseTable: 'notes',
@@ -645,8 +654,8 @@ export async function deleteNote(app, noteId) {
       const inChrome = notes.some((n) => n.id == entityId);
       let inIdb = false;
       try {
-        if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-          const idbNotes = await window.pasteCraftIndexedDB.getAllPayloads('notes');
+        if (getIndexedDb()) {
+          const idbNotes = await getIndexedDbPayloads('notes');
           inIdb = Array.isArray(idbNotes) && idbNotes.some((n) => n.id == entityId);
         }
       } catch (_) {}

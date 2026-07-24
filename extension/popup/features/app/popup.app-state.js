@@ -3,6 +3,7 @@
 import { AUTH_STORAGE_KEYS } from '../auth/auth.constants.js';
 import { AI_STORAGE_KEYS } from '../ai-lab/ai-lab.constants.js';
 import { RESTORE_STORAGE_KEYS } from '../settings/settings.constants.js';
+import { getIndexedDb } from '../../../bridges/storage/indexeddb.facade.js';
 
 export function createPopupInitialState() {
   return {
@@ -126,7 +127,7 @@ export function createPopupInitialState() {
     notesAiEnabled: false,
     pendingAiTaskOutputArtifact: null,
     albumAttachmentOpenMode: 'overlay',
-    idb: (typeof window !== 'undefined' && window.pasteCraftIndexedDB) ? window.pasteCraftIndexedDB : null,
+    idb: getIndexedDb(),
     _idbReady: false,
     _aiOutputBridge: null,
 

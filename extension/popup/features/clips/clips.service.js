@@ -4,6 +4,10 @@ import {
   getSelectedSearchClipIdsInUiOrder,
   queueClipOp,
 } from './clips.state.js';
+import {
+  getIndexedDbPayloads,
+  syncIndexedDbEntityFromLocalStorage,
+} from '../../../bridges/storage/indexeddb.facade.js';
 
 function normalizeIdKeys(idKeys) {
   return Array.isArray(idKeys) ? idKeys.map(k => String(k)).filter(Boolean) : [];
@@ -49,9 +53,7 @@ async function persistClipState(data) {
     [CLIPS_STORAGE_KEYS.ARCHIVED]: Array.isArray(data?.searchOnlyClips) ? data.searchOnlyClips : [],
     [CLIPS_STORAGE_KEYS.UPDATED_AT]: Date.now(),
   });
-  if (typeof window !== 'undefined' && window.pasteCraftIndexedDB?.syncEntityFromLocalStorage) {
-    await window.pasteCraftIndexedDB.syncEntityFromLocalStorage(CLIPS_STORAGE_KEYS.ACTIVE, nextActive);
-  }
+  await syncIndexedDbEntityFromLocalStorage(CLIPS_STORAGE_KEYS.ACTIVE, nextActive);
 }
 
 async function verifyDeletedClipIds(idSet, includeArchived, activeIdSet = idSet) {
@@ -62,9 +64,9 @@ async function verifyDeletedClipIds(idSet, includeArchived, activeIdSet = idSet)
   ];
   const storageHit = verifiedClips.some(c => idSet.has(getClipIdKey(c?.id)));
   let idbHit = false;
-  if (activeIdSet?.size && typeof window !== 'undefined' && window.pasteCraftIndexedDB?.getAllPayloads) {
+  if (activeIdSet?.size) {
     try {
-      const idbClips = await window.pasteCraftIndexedDB.getAllPayloads('clips');
+      const idbClips = await getIndexedDbPayloads('clips');
       idbHit = Array.isArray(idbClips) && idbClips.some((clip) => activeIdSet.has(getClipIdKey(clip?.id)));
     } catch (_) {}
   }

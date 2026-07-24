@@ -1,8 +1,9 @@
 /** @forward-slice Local IDB hard-delete + chrome.storage tombstone paths (no Supabase). */
 
+import { getIndexedDb } from '../../../bridges/storage/indexeddb.facade.js';
+
 function resolveIndexedDb() {
-  if (typeof window === 'undefined') return null;
-  return window.pasteCraftIndexedDB || null;
+  return getIndexedDb();
 }
 
 const IDB_STATE_KEY_BY_STORE = {

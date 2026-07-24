@@ -1,3 +1,8 @@
+import {
+  getTieredStore,
+  isTieredStorageAvailable as isTieredStorageFacadeAvailable,
+} from '../../../bridges/storage/tiered-storage.facade.js';
+
 const indexedDbInitializationPromises = new WeakMap();
 const tieredStorageInitializationPromises = new WeakMap();
 const tieredStorageMigrationPromises = new WeakMap();
@@ -58,7 +63,7 @@ export async function mirrorChangedLocalStateToIndexedDb(app, changes) {
 }
 
 function isTieredStorageAvailable() {
-  return typeof StorageMeter !== 'undefined' && typeof tieredStorageManager !== 'undefined';
+  return isTieredStorageFacadeAvailable();
 }
 
 function setLocalTieredCounts(app) {
@@ -67,7 +72,7 @@ function setLocalTieredCounts(app) {
 }
 
 async function initializeTieredStores(app) {
-  app.tieredClipsStore = tieredStorageManager.getStore('clips', {
+  app.tieredClipsStore = getTieredStore('clips', {
     pageSize: app.clipsPerPage,
     localStorageKey: 'clips',
     supabaseTable: 'clips',
@@ -76,7 +81,7 @@ async function initializeTieredStores(app) {
   await app.tieredClipsStore.initialize();
   app.tieredClipsStore.localCount = app.clips.length;
 
-  app.tieredArchivedStore = tieredStorageManager.getStore('archived', {
+  app.tieredArchivedStore = getTieredStore('archived', {
     pageSize: 20,
     localStorageKey: 'searchOnlyClips',
     supabaseTable: 'archived_clips',

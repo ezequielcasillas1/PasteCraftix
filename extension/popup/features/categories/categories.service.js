@@ -1,6 +1,7 @@
 import { CATEGORIES_DEFAULTS } from './categories.constants.js';
 import { createClips, mutateClipCollections } from '../clips/clips.service.js';
 import { getClipIdKey } from '../clips/clips.state.js';
+import { getIndexedDb } from '../../../bridges/storage/indexeddb.facade.js';
 
 // ── createCategory ─────────────────────────────────────────────────────────
 
@@ -158,8 +159,9 @@ function buildDeleteCategoryOpts(app, category) {
       const inChrome = Array.isArray(categories) && categories.some(c => c.id === entityId);
       if (inChrome) return false;
       try {
-        if (typeof window !== 'undefined' && window.pasteCraftIndexedDB) {
-          const idbCats = await window.pasteCraftIndexedDB.getAll('categories');
+        const idb = getIndexedDb();
+        if (idb) {
+          const idbCats = await idb.getAll('categories');
           if (Array.isArray(idbCats) && idbCats.some(c => String(c?.id) === String(entityId))) return false;
         }
       } catch (_) {}

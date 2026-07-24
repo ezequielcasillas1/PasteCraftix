@@ -7,10 +7,11 @@ import {
   readSyncSafetyHint,
   summarizeLocalCounts,
 } from './data-safety.persistence.js';
+import { getIndexedDb } from '../../../bridges/storage/indexeddb.facade.js';
 
 function _resolveIdb() {
   try {
-    return typeof window !== 'undefined' ? window.pasteCraftIndexedDB : null;
+    return getIndexedDb();
   } catch (_) {
     return null;
   }
