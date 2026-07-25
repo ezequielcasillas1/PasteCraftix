@@ -76,8 +76,8 @@ function _bindResendVerification(app) {
     app.showToast('📧 Sending verification email...', 'info');
     const result = await pasteCraftSupabase.resendVerificationEmail(email);
     if (result.success) {
-      alert(`✅ Verification Email Sent!\n\nCheck your inbox at: ${email}\n\nThe verification link has been sent. Click it to activate your account.\n\n⚠️ Check your spam folder if you don't see it within a few minutes.`);
-      app.showToast('✅ Verification email sent! Check your inbox.', 'success');
+      alert(`📧 If this address still needs verification, a link was requested.\n\nInbox: ${email}\n\nAlready verified or Google-only accounts will NOT get a new email — use Sign In or Continue with Google.\n\nCheck spam if you expect a new message.`);
+      app.showToast('📧 Resend requested. Use Google/Sign In if already verified.', 'info');
     } else {
       app.showToast(`❌ Failed to resend: ${result.error}`, 'error');
     }

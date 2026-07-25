@@ -585,3 +585,8 @@
 **Status:** SUCCESS
 **Files:** activity.render.js
 **Result:** Escape clip text in activity rows so feed no longer nests/breaks.
+
+### Jul 24, 2026 - Signup confirm email redirect + guards
+**Status:** SUCCESS
+**Files:** extension/supabase/auth/auth.js, extension/popup/features/auth/auth.events.js, website/public/js/account-auth.js
+**Result:** emailRedirectTo pastecraft.com/account; already_registered empty-identities guard; skip subscription without session; honest resend copy; website verified-email notice after confirm hash.

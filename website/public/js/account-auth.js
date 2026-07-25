@@ -23,9 +23,21 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   window.addEventListener('load', async () => {
+    // Confirm-signup / magic-link land here with hash tokens; pick up session then clean URL.
+    const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    const authType = hashParams.get('type');
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       showDashboard(session.user);
+      if (authType === 'signup' || authType === 'email') {
+        showSettingsStatus(
+          'Email verified. Open the PasteCraft extension and sign in with this account.',
+          'success'
+        );
+      }
+      if (window.location.hash) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     }
   });
 

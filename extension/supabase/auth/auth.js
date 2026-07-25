@@ -1,5 +1,11 @@
 /** Vertical slice: auth.js — sign-in/out + session only (access gates → subscription.js) */
 
+/** Website-owned auth redirects (must be allowlisted in Supabase Auth → URL Configuration). */
+const AUTH_WEBSITE_REDIRECTS = Object.freeze({
+  EMAIL_CONFIRM: 'https://pastecraft.com/account',
+  PASSWORD_RESET: 'https://pastecraft.com/reset-password',
+});
+
 export const authMixin = {
 // AUTHENTICATION METHODS
 // =====================================================
@@ -14,19 +20,32 @@ async signUpWithEmail(email, password) {
 
   try {
     console.log('📝 Signing up user:', email);
-    
+
     const { data, error } = await this.client.auth.signUp({
       email: email,
       password: password,
       options: {
-        emailRedirectTo: chrome.runtime.getURL('popup.html')
+        // Website URL — chrome-extension:// redirects break confirm-email delivery/allowlist
+        emailRedirectTo: AUTH_WEBSITE_REDIRECTS.EMAIL_CONFIRM
       }
     });
 
     if (error) throw error;
 
-    // Create user subscription record (default free tier)
-    if (data.user) {
+    const identitiesCount = Array.isArray(data?.user?.identities) ? data.user.identities.length : -1;
+    const hasSession = !!data?.session;
+
+    // Supabase anti-enumeration: existing users return 200 with empty identities and no confirm email.
+    if (data.user && identitiesCount === 0) {
+      return {
+        success: false,
+        code: 'already_registered',
+        error: 'This email is already registered. Sign in, or use Google if you created the account that way. No new confirmation email is sent for existing accounts.',
+      };
+    }
+
+    // Subscription insert needs an authenticated session (RLS). Skip until email is confirmed.
+    if (data.user && hasSession) {
       await this.createUserSubscription(data.user.id, email, 'free');
     }
 
@@ -48,12 +67,12 @@ async resendVerificationEmail(email) {
 
   try {
     console.log('📧 Resending verification email to:', email);
-    
+
     const { data, error } = await this.client.auth.resend({
       type: 'signup',
       email: email,
       options: {
-        emailRedirectTo: chrome.runtime.getURL('popup.html')
+        emailRedirectTo: AUTH_WEBSITE_REDIRECTS.EMAIL_CONFIRM
       }
     });
 
@@ -78,16 +97,14 @@ async resetPassword(email) {
   try {
     console.log('🔑 Requesting password reset for:', email);
 
-    const callbackUrl = 'https://pastecraft.com/reset-password';
-
     const { data, error } = await this.client.auth.resetPasswordForEmail(email, {
-      redirectTo: callbackUrl
+      redirectTo: AUTH_WEBSITE_REDIRECTS.PASSWORD_RESET
     });
 
     if (error) throw error;
 
     console.log('✅ Password reset email sent');
-    console.log('💡 User will receive email with link to:', callbackUrl);
+    console.log('💡 User will receive email with link to:', AUTH_WEBSITE_REDIRECTS.PASSWORD_RESET);
     return { success: true };
   } catch (error) {
     console.error('❌ Password reset failed:', error);
@@ -287,7 +304,9 @@ _getSupabaseAuthStorageKey() {
 },
 
 async _clearCachedAuthState() {
-  // Best-effort: clear extension-side caches/ids without deleting user data.
+  // Auth-only: clears session caches/ids. Library wipe is owned by
+  // bridges/workspace (clearWorkspaceForAccountSwitch / ensureWorkspaceOwner).
+  // Do not clear clips here — guest startup also calls signOutFast().
   try {
     await new Promise((resolve) => chrome.storage.local.remove([this._subscriptionCacheKey], resolve));
   } catch (_) {}

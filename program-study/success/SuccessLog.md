@@ -348,3 +348,8 @@
 **Status:** SUCCESS
 **Files:** auth-bridge.js, identity.js, core.js, supabase-bridge-auth.test.mjs
 **Result:** setSession hydrate succeeds; soft-keep on Failed to fetch; no auth wipe
+
+### [Jul 24, 2026] - Signup confirm email redirect + guards
+**Status:** SUCCESS
+**Files:** auth.js, auth.events.js, account-auth.js
+**Result:** Website confirm redirect, already-registered guard, session-gated subscription, resend UX, account page verify notice.
