@@ -353,3 +353,8 @@
 **Status:** SUCCESS
 **Files:** auth.js, auth.events.js, account-auth.js
 **Result:** Website confirm redirect, already-registered guard, session-gated subscription, resend UX, account page verify notice.
+
+### [Jul 24, 2026] - Release v3.0.27
+**Status:** SUCCESS
+**Files:** extension/manifest.json
+**Result:** Production-ready patch after ef647fb signup confirm-email + guards; store upload candidate.

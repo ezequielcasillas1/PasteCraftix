@@ -590,3 +590,8 @@
 **Status:** SUCCESS
 **Files:** extension/supabase/auth/auth.js, extension/popup/features/auth/auth.events.js, website/public/js/account-auth.js
 **Result:** emailRedirectTo pastecraft.com/account; already_registered empty-identities guard; skip subscription without session; honest resend copy; website verified-email notice after confirm hash.
+
+### Jul 24, 2026 - Release v3.0.27 (production signup fix)
+**Status:** SUCCESS
+**Files:** extension/manifest.json @ ef647fb
+**Result:** Patch release ships confirm-email redirect to pastecraft.com/account, already_registered guard, session-gated subscription, account verified landing.
