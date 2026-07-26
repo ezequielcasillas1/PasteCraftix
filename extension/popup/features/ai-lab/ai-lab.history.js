@@ -1,12 +1,49 @@
+// @forward-slice AI Lab history — public API
 import { AI_STORAGE_KEYS, AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
 import { AI_SELECTORS, byId, getHistoryModalElements } from './ai-lab.selectors.js';
+import {
+  emitHistoryFromLatestThread,
+  emitHistoryThreadArtifact,
+} from './ai-lab.history.emit.js';
+import {
+  assertCloudTicketApi,
+  buildFormatHistoryEntry,
+  buildRefactorHistoryEntry,
+  buildRefactorTicketPayload,
+  createHistoryEntry,
+  findActiveHistoryEntry,
+  getRefactorTicketValidationError,
+  isUsableGeneratedTitle,
+  mergeCloudHistory,
+  serializeThreads,
+  setActiveHistoryId,
+  syncAiHistoryToCloud,
+} from './ai-lab.history.persist.js';
+import {
+  attachHistoryListHandlers,
+  clampAiHistoryPageIndex,
+  createHistoryThreadBox,
+  filterHistoryEntries,
+  getAiHistoryTotalPages,
+  getHistoryCopyText,
+  getHistoryTitleEditElements,
+  historyTypeIcon,
+  isValidHistoryThreadIndex,
+  renderAiHistoryListPagination,
+  renderCurrentHistoryThread,
+  renderEmptyHistory,
+  renderHistoryEntry,
+  renderHistoryModalHeader,
+  toggleRefactorModalUi,
+} from './ai-lab.history.render.js';
 
 export { renderOpenRecentConversation } from './ai-lab.summary.js';
+export { continueHistoryConversation } from './ai-lab.history.continue.js';
 
 export async function loadAiHistory() {
   try {
     const { [AI_STORAGE_KEYS.HISTORY]: localEntries = [] } = await chrome.storage.local.get([AI_STORAGE_KEYS.HISTORY]);
-    const localHistory = await _mergeCloudHistory(localEntries);
+    const localHistory = await mergeCloudHistory(localEntries);
     this.aiHistoryEntries = localHistory;
     return localHistory;
   } catch (_) {
@@ -21,8 +58,19 @@ export async function _persistAiHistory() {
       this.aiHistoryEntries.splice(50);
     }
     await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: this.aiHistoryEntries });
-    _syncAiHistoryToCloud(this.aiHistoryEntries);
+    syncAiHistoryToCloud(this.aiHistoryEntries);
   } catch (_) {}
+}
+
+function _ingestCompareHistoryEntry(app, entry, source) {
+  const titleSource = entry._titleSource;
+  delete entry._titleSource;
+  app.aiHistoryEntries.unshift(entry);
+  app._generateAiHistoryTitle(entry.id, titleSource);
+  emitHistoryThreadArtifact(app, entry, entry.threads[0], {
+    source,
+    persisted: true,
+  });
 }
 
 export async function saveRefactorHistory(records) {
@@ -31,37 +79,9 @@ export async function saveRefactorHistory(records) {
     await this.loadAiHistory();
 
     for (const record of records) {
-      const before = String(record.before || '').trim();
-      const after = String(record.after || '').trim();
-      if (!before) continue;
-
-      const placeholderTitle = before.substring(0, 40).replace(/\n/g, ' ').trim() || 'Refactor';
-      const entry = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        type: 'refactorization',
-        title: `${placeholderTitle}...`,
-        originalText: before.substring(0, 2000),
-        threads: [{
-          question: 'Before',
-          answer: after.substring(0, 4000),
-          before,
-          after,
-          refactorLevel: record.refactorLevel || 'college',
-          sourceClipId: record.sourceClipId || '',
-          newClipId: record.newClipId || '',
-          synthesis: record.synthesis || {},
-          timestamp: Date.now(),
-        }],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      this.aiHistoryEntries.unshift(entry);
-      this._generateAiHistoryTitle(entry.id, before);
-      _emitHistoryThreadArtifact(this, entry, entry.threads[0], {
-        source: 'ai-lab.refactorization',
-        persisted: true,
-      });
+      const entry = buildRefactorHistoryEntry(record);
+      if (!entry) continue;
+      _ingestCompareHistoryEntry(this, entry, 'ai-lab.refactorization');
     }
 
     await this._persistAiHistory();
@@ -73,35 +93,38 @@ export async function saveRefactorHistory(records) {
   }
 }
 
+export async function saveFormatHistory(records) {
+  try {
+    if (!Array.isArray(records) || records.length === 0) return;
+    await this.loadAiHistory();
+
+    for (const record of records) {
+      const entry = buildFormatHistoryEntry(record);
+      if (!entry) continue;
+      _ingestCompareHistoryEntry(this, entry, 'ai-lab.formatted');
+    }
+
+    await this._persistAiHistory();
+    if (this.currentTab === 'aiHistory') {
+      this.renderAiHistoryList();
+    }
+  } catch (err) {
+    console.error('saveFormatHistory failed:', err);
+  }
+}
+
 export async function submitRefactorTicket(message) {
   const entry = this.currentHistoryEntry;
-  if (!entry || entry.type !== 'refactorization') {
-    this.showToast('No refactor entry selected', 'error');
+  const validationError = getRefactorTicketValidationError(entry, message);
+  if (validationError) {
+    this.showToast(validationError, 'error');
     return false;
   }
 
   const trimmed = String(message || '').trim();
-  if (!trimmed) {
-    this.showToast('Describe what went wrong', 'error');
-    return false;
-  }
-
-  const thread = (entry.threads || [])[0] || {};
-  const before = thread.before || entry.originalText || thread.question || '';
-  const after = thread.after || thread.answer || '';
-
   try {
-    if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.submitRefactorTicket) {
-      throw new Error('Cloud sync unavailable');
-    }
-    await pasteCraftSupabase.submitRefactorTicket({
-      historyId: entry.id,
-      message: trimmed,
-      beforeText: before,
-      afterText: after,
-      refactorLevel: thread.refactorLevel || '',
-      synthesis: thread.synthesis || {},
-    });
+    assertCloudTicketApi();
+    await pasteCraftSupabase.submitRefactorTicket(buildRefactorTicketPayload(entry, trimmed));
     this.showToast('Ticket sent — thank you!');
     return true;
   } catch (err) {
@@ -119,23 +142,23 @@ export async function saveAiHistory(type, originalText, threads) {
     }
 
     await this.loadAiHistory();
-    const existing = _findActiveHistoryEntry(this, type);
+    const existing = findActiveHistoryEntry(this, type);
     if (existing) {
-      existing.entry.threads = _serializeThreads(threads, originalText);
+      existing.entry.threads = serializeThreads(threads, originalText);
       existing.entry.updatedAt = Date.now();
       await this._persistAiHistory();
       console.log('📜 AI History updated:', existing.entry.id, 'threads:', threads.length);
-      _emitHistoryFromLatestThread(this, existing.entry, { persisted: true, updated: true });
+      emitHistoryFromLatestThread(this, existing.entry, { persisted: true, updated: true });
       return existing.entry;
     }
 
-    const entry = _createHistoryEntry(type, originalText, threads);
+    const entry = createHistoryEntry(type, originalText, threads);
     this.aiHistoryEntries.unshift(entry);
-    _setActiveHistoryId(this, type, entry.id);
+    setActiveHistoryId(this, type, entry.id);
     await this._persistAiHistory();
     console.log('📜 AI History saved new entry:', entry.id, type, 'threads:', threads.length);
     this._generateAiHistoryTitle(entry.id, originalText);
-    _emitHistoryFromLatestThread(this, entry, { persisted: true });
+    emitHistoryFromLatestThread(this, entry, { persisted: true });
     return entry;
   } catch (err) {
     console.error('saveAiHistory failed:', err);
@@ -149,7 +172,7 @@ export async function _generateAiHistoryTitle(entryId, originalText) {
       snippet,
       'Generate a concise 3-5 word title for this text. Return ONLY the title text, nothing else. No quotes, no punctuation at the end.'
     );
-    if (!title || typeof title !== 'string' || !title.trim()) return;
+    if (!isUsableGeneratedTitle(title)) return;
 
     const cleanTitle = title.trim().replace(/^["']|["']$/g, '').substring(0, 60);
     const idx = this.aiHistoryEntries.findIndex(e => e.id === entryId);
@@ -170,8 +193,8 @@ export function resetAiHistoryListPagination() {
 }
 
 export function setAiHistoryListPage(pageIndex) {
-  const entries = _filterHistoryEntries(this);
-  const totalPages = _getAiHistoryTotalPages(entries.length);
+  const entries = filterHistoryEntries(this);
+  const totalPages = getAiHistoryTotalPages(entries.length);
   const next = Math.max(0, Math.min(pageIndex, totalPages - 1));
   if (this._aiHistoryPageIndex === next) return;
   this._aiHistoryPageIndex = next;
@@ -183,92 +206,27 @@ export function renderAiHistoryList() {
   const paginationEl = byId(AI_SELECTORS.historyListPagination);
   if (!container) return;
 
-  const entries = _filterHistoryEntries(this);
+  const entries = filterHistoryEntries(this);
   if (!entries || entries.length === 0) {
-    container.innerHTML = _renderEmptyHistory(this);
-    _renderAiHistoryListPagination(this, paginationEl, 0, 0);
+    container.innerHTML = renderEmptyHistory(this);
+    renderAiHistoryListPagination(this, paginationEl, 0, 0);
     return;
   }
 
   const total = entries.length;
-  const totalPages = _getAiHistoryTotalPages(total);
-  _clampAiHistoryPageIndex(this, totalPages);
+  const totalPages = getAiHistoryTotalPages(total);
+  clampAiHistoryPageIndex(this, totalPages);
 
   const pageIndex = this._aiHistoryPageIndex || 0;
   const start = pageIndex * AI_HISTORY_PAGE_SIZE;
   const pageEntries = entries.slice(start, start + AI_HISTORY_PAGE_SIZE);
 
-  container.innerHTML = pageEntries.map(entry => _renderHistoryEntry(this, entry)).join('');
-  _attachHistoryListHandlers(this, container);
-  _renderAiHistoryListPagination(this, paginationEl, total, totalPages);
+  container.innerHTML = pageEntries.map(entry => renderHistoryEntry(this, entry)).join('');
+  attachHistoryListHandlers(this, container);
+  renderAiHistoryListPagination(this, paginationEl, total, totalPages);
   if (typeof this.renderLucideIcons === 'function') {
     this.renderLucideIcons(container);
   }
-}
-
-function _getAiHistoryTotalPages(totalEntries) {
-  return Math.max(1, Math.ceil(totalEntries / AI_HISTORY_PAGE_SIZE));
-}
-
-function _clampAiHistoryPageIndex(app, totalPages) {
-  const idx = app._aiHistoryPageIndex || 0;
-  if (idx >= totalPages) {
-    app._aiHistoryPageIndex = Math.max(0, totalPages - 1);
-  } else if (idx < 0) {
-    app._aiHistoryPageIndex = 0;
-  }
-}
-
-function _getAiHistoryPaginationItems(currentPage, totalPages) {
-  const items = [];
-  const startPage = Math.max(0, currentPage - 2);
-  const endPage = Math.min(totalPages - 1, currentPage + 2);
-
-  if (currentPage > 2) items.push({ type: 'page', page: 0 });
-  if (currentPage > 3) items.push({ type: 'ellipsis' });
-
-  for (let page = startPage; page <= endPage; page++) {
-    items.push({ type: 'page', page });
-  }
-
-  if (currentPage < totalPages - 4) items.push({ type: 'ellipsis' });
-  if (currentPage < totalPages - 3) items.push({ type: 'page', page: totalPages - 1 });
-
-  return items;
-}
-
-function _renderAiHistoryPaginationItem(item, currentPage) {
-  if (item.type === 'ellipsis') return '<span class="pagination-ellipsis">...</span>';
-  const isActive = item.page === currentPage ? 'active' : '';
-  const label = item.page + 1;
-  return `<button type="button" class="pagination-number ${isActive}" data-action="ai-history-page" data-page="${item.page}" aria-label="Page ${label}">${label}</button>`;
-}
-
-function _renderAiHistoryListPagination(app, paginationEl, totalEntries, totalPages) {
-  if (!paginationEl) return;
-
-  if (totalEntries <= AI_HISTORY_PAGE_SIZE) {
-    paginationEl.style.display = 'none';
-    paginationEl.innerHTML = '';
-    return;
-  }
-
-  const currentPage = app._aiHistoryPageIndex || 0;
-  const pageLabel = currentPage + 1;
-
-  let html = '<div class="pagination-wrapper ai-history-pagination-wrapper">';
-  html += `<span class="ai-history-page-label" style="font-size:12px;font-weight:600;color:#64748b;margin-right:4px;">Page ${pageLabel} of ${totalPages}</span>`;
-  html += `<button type="button" class="pagination-btn pagination-prev" data-action="ai-history-page" data-page="${currentPage - 1}" ${currentPage === 0 ? 'disabled' : ''} aria-label="Previous page">‹ Prev</button>`;
-  html += '<div class="pagination-numbers">';
-  html += _getAiHistoryPaginationItems(currentPage, totalPages)
-    .map(item => _renderAiHistoryPaginationItem(item, currentPage))
-    .join('');
-  html += '</div>';
-  html += `<button type="button" class="pagination-btn pagination-next" data-action="ai-history-page" data-page="${currentPage + 1}" ${currentPage >= totalPages - 1 ? 'disabled' : ''} aria-label="Next page">Next ›</button>`;
-  html += '</div>';
-
-  paginationEl.style.display = 'flex';
-  paginationEl.innerHTML = html;
 }
 
 export async function openAiHistoryModal(entry) {
@@ -280,12 +238,12 @@ export async function openAiHistoryModal(entry) {
   if (!modal) return;
 
   this._cancelEditHistoryTitle();
-  _toggleRefactorModalUi(entry);
-  _renderHistoryModalHeader(entry, titleEl, subtitleEl);
+  toggleRefactorModalUi(entry);
+  renderHistoryModalHeader(entry, titleEl, subtitleEl);
   modal.style.display = 'flex';
   window.renderLucideIcons?.(modal);
-  await _renderCurrentHistoryThread(this, entry, resultEl);
-  _emitHistoryFromLatestThread(this, entry, { fromModalOpen: true, threadIndex: 0 });
+  await renderCurrentHistoryThread(this, entry, resultEl);
+  emitHistoryFromLatestThread(this, entry, { fromModalOpen: true, threadIndex: 0 });
   this._renderHistoryPagination();
 }
 
@@ -304,20 +262,20 @@ export function _renderHistoryPagination() {
   paginationEl.style.gap = '8px';
   paginationEl.innerHTML = '';
   threads.forEach((thread, index) => {
-    paginationEl.appendChild(_createHistoryThreadBox(this, thread, index));
+    paginationEl.appendChild(createHistoryThreadBox(this, thread, index));
   });
 }
 
 export async function navigateHistoryThread(index) {
   const entry = this.currentHistoryEntry;
-  if (!entry || !entry.threads || index < 0 || index >= entry.threads.length) return;
+  if (!isValidHistoryThreadIndex(entry, index)) return;
 
   this.currentHistoryThreadIndex = index;
   const resultEl = document.getElementById('aiHistoryResultContent');
   if (resultEl) {
     resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
   }
-  _emitHistoryThreadArtifact(this, entry, entry.threads[index], { fromModalNavigation: true, threadIndex: index });
+  emitHistoryThreadArtifact(this, entry, entry.threads[index], { fromModalNavigation: true, threadIndex: index });
   this._renderHistoryPagination();
 }
 
@@ -327,35 +285,29 @@ export function copyHistoryContent() {
   const thread = entry.threads[this.currentHistoryThreadIndex];
   if (!thread) return;
 
-  const text = entry.type === 'refactorization'
-    ? `Before:\n${thread.before || entry.originalText || ''}\n\nAfter:\n${thread.after || thread.answer || ''}`
-    : (thread.answer || '');
+  const text = getHistoryCopyText(entry, thread);
+  if (!text) return;
 
-  if (text) {
-    this.copyToClipboardFallback(text)
-      .then(() => this.showToast('Copied to clipboard!'))
-      .catch((error) => {
-        console.error('History copy failed:', error);
-        this.showToast('Failed to copy history content', 'error');
-      });
-  }
+  this.copyToClipboardFallback(text)
+    .then(() => this.showToast('Copied to clipboard!'))
+    .catch((error) => {
+      console.error('History copy failed:', error);
+      this.showToast('Failed to copy history content', 'error');
+    });
 }
 
 export function _startEditHistoryTitle() {
   const entry = this.currentHistoryEntry;
   if (!entry) return;
-  const titleEl = document.getElementById('aiHistoryModalTitle');
-  const editContainer = document.getElementById('aiHistoryTitleEditContainer');
-  const titleInput = document.getElementById('aiHistoryTitleInput');
-  const editBtn = document.getElementById('editAiHistoryTitleBtn');
-  if (!titleEl || !editContainer || !titleInput) return;
+  const els = getHistoryTitleEditElements();
+  if (!els) return;
 
-  titleEl.style.display = 'none';
-  editContainer.style.display = 'flex';
-  if (editBtn) editBtn.style.display = 'none';
-  titleInput.value = entry.title || 'Untitled';
-  titleInput.focus();
-  titleInput.select();
+  els.titleEl.style.display = 'none';
+  els.editContainer.style.display = 'flex';
+  if (els.editBtn) els.editBtn.style.display = 'none';
+  els.titleInput.value = entry.title || 'Untitled';
+  els.titleInput.focus();
+  els.titleInput.select();
 }
 
 export async function _saveEditHistoryTitle() {
@@ -374,9 +326,8 @@ export async function _saveEditHistoryTitle() {
   if (idx !== -1) this.aiHistoryEntries[idx].title = newTitle;
   await this._persistAiHistory();
 
-  const typeIcon = entry.type === 'breakdown' ? '🧠' : entry.type === 'refactorization' ? '✨' : '📝';
   const titleEl = document.getElementById('aiHistoryModalTitle');
-  if (titleEl) titleEl.textContent = `${typeIcon} ${newTitle}`;
+  if (titleEl) titleEl.textContent = `${historyTypeIcon(entry)} ${newTitle}`;
   this._cancelEditHistoryTitle();
   this.renderAiHistoryList();
   this.showToast('Title updated');
@@ -399,509 +350,4 @@ export async function clearAllAiHistory() {
   await this._persistAiHistory();
   this.renderAiHistoryList();
   this.showToast('AI history cleared');
-}
-
-async function _mergeCloudHistory(localEntries) {
-  let localHistory = localEntries;
-  if (typeof pasteCraftSupabase === 'undefined' || !pasteCraftSupabase.client) {
-    return localHistory;
-  }
-
-  try {
-    const remoteHistory = await pasteCraftSupabase.fetchAiHistoryFromSupabase();
-    if (remoteHistory && remoteHistory.length > 0) {
-      localHistory = pasteCraftSupabase.mergeAiHistory(localHistory, remoteHistory);
-      await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: localHistory });
-    }
-  } catch (_) {}
-
-  return localHistory;
-}
-
-function _syncAiHistoryToCloud(entries) {
-  if (typeof pasteCraftSupabase !== 'undefined' && pasteCraftSupabase.client) {
-    pasteCraftSupabase.syncAiHistoryToSupabase(entries).catch(() => {});
-  }
-}
-
-function _findActiveHistoryEntry(app, type) {
-  const activeId = type === 'breakdown' ? app._activeBreakdownHistoryId : app._activeSummaryHistoryId;
-  if (!activeId) return null;
-  const idx = app.aiHistoryEntries.findIndex(e => e.id === activeId);
-  return idx === -1 ? null : { idx, entry: app.aiHistoryEntries[idx] };
-}
-
-function _serializeThreads(threads, sourceText = '') {
-  const normalizedSource = String(sourceText || '').trim().substring(0, 2000);
-  return threads.map((t, index) => {
-    const next = {
-      question: t.question || '',
-      answer: t.answer || '',
-      level: t.level || null,
-      timestamp: t.timestamp || Date.now(),
-    };
-    const hasThreadSource = Boolean(String(t?.sourceText || t?.source_text || '').trim());
-    if (index === 0 && normalizedSource && !hasThreadSource) {
-      next.sourceText = normalizedSource;
-    }
-    return next;
-  });
-}
-
-function _createHistoryEntry(type, originalText, threads) {
-  const placeholderTitle = (originalText || '').substring(0, 40).replace(/\n/g, ' ').trim() || 'Untitled';
-  return {
-    id: Date.now(),
-    type,
-    title: placeholderTitle + '...',
-    originalText: (originalText || '').substring(0, 2000),
-    threads: _serializeThreads(threads, originalText),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-}
-
-function _setActiveHistoryId(app, type, id) {
-  if (type === 'breakdown') {
-    app._activeBreakdownHistoryId = id;
-  } else {
-    app._activeSummaryHistoryId = id;
-  }
-}
-
-function _filterHistoryEntries(app) {
-  let entries = app.aiHistoryEntries || [];
-  const filterType = app._aiHistoryFilterType || 'all';
-  if (filterType !== 'all') {
-    entries = entries.filter(e => e.type === filterType);
-  }
-
-  const query = (app._aiHistorySearchQuery || '').toLowerCase();
-  if (query) {
-    entries = entries.filter(entry => _historyEntryMatchesQuery(entry, query));
-  }
-  return entries;
-}
-
-function _historyEntryMatchesQuery(entry, query) {
-  const title = (entry.title || '').toLowerCase();
-  const text = (entry.originalText || '').toLowerCase();
-  const threads = entry.threads || [];
-  const answers = threads.map(t => (t.answer || '').toLowerCase()).join(' ');
-  const beforeAfter = threads.map(t => `${t.before || ''} ${t.after || ''}`).join(' ').toLowerCase();
-  return title.includes(query) || text.includes(query) || answers.includes(query) || beforeAfter.includes(query);
-}
-
-function _renderEmptyHistory(app) {
-  const query = app._aiHistorySearchQuery || '';
-  const filter = app._aiHistoryFilterType || 'all';
-  let msg = 'Your AI Summary, Breakdown, and Refactorization history will appear here';
-  let heading = 'No history yet';
-  if (query) {
-    msg = 'No results match your search';
-    heading = 'No matches';
-  } else if (filter === 'refactorization') {
-    msg = 'Refactorizations appear here after you run AI Lab Refactorization or Craft Clips (AI Refactoring)';
-    heading = 'No refactorizations yet';
-  }
-  return `
-    <div class="empty-state">
-      <div class="empty-state-icon"><i data-lucide="scroll-text"></i></div>
-      <h3>${heading}</h3>
-      <p>${msg}</p>
-    </div>`;
-}
-
-function _historyTypeMeta(entry) {
-  if (entry.type === 'breakdown') {
-    return { icon: '🧠', badgeClass: 'breakdown', badgeLabel: 'Breakdown' };
-  }
-  if (entry.type === 'refactorization') {
-    return { icon: '✨', badgeClass: 'refactorization', badgeLabel: 'Refactor' };
-  }
-  return { icon: '📝', badgeClass: 'summary', badgeLabel: 'Summary' };
-}
-
-function _renderHistoryEntry(app, entry) {
-  const meta = _historyTypeMeta(entry);
-  const threadCount = (entry.threads || []).length;
-  const timeStr = app.getTimeAgo ? app.getTimeAgo(entry.createdAt) : new Date(entry.createdAt).toLocaleDateString();
-  const title = app.escapeHtml ? app.escapeHtml(entry.title || 'Untitled') : (entry.title || 'Untitled');
-  const metaLabel = entry.type === 'refactorization'
-    ? `${timeStr} · before/after`
-    : `${timeStr} · ${threadCount} response${threadCount !== 1 ? 's' : ''}`;
-
-  return `
-    <div class="ai-history-entry" data-history-id="${entry.id}">
-      <span class="ai-history-entry-icon">${meta.icon}</span>
-      <div class="ai-history-entry-info">
-        <div class="ai-history-entry-title">${title}</div>
-        <div class="ai-history-entry-meta">${metaLabel}</div>
-      </div>
-      <span class="ai-history-entry-badge ${meta.badgeClass}">${meta.badgeLabel}</span>
-      <button class="ai-history-entry-delete" data-delete-id="${entry.id}" title="Delete"><i data-lucide="trash-2"></i></button>
-    </div>`;
-}
-
-function _attachHistoryListHandlers(app, container) {
-  container.querySelectorAll('.ai-history-entry').forEach(el => {
-    el.addEventListener('click', (e) => {
-      if (e.target.closest('.ai-history-entry-delete')) return;
-      const id = parseInt(el.dataset.historyId);
-      const entry = app.aiHistoryEntries.find(item => item.id === id);
-      if (entry) app.openAiHistoryModal(entry);
-    });
-  });
-
-  container.querySelectorAll('.ai-history-entry-delete').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = parseInt(btn.dataset.deleteId);
-      app.aiHistoryEntries = app.aiHistoryEntries.filter(entry => entry.id !== id);
-      await app._persistAiHistory();
-      app.renderAiHistoryList();
-      app.showToast('History entry deleted');
-    });
-  });
-}
-
-function _renderHistoryModalHeader(entry, titleEl, subtitleEl) {
-  const meta = _historyTypeMeta(entry);
-  const threadCount = (entry.threads || []).length;
-  if (titleEl) titleEl.textContent = `${meta.icon} ${entry.title || 'Untitled'}`;
-  if (subtitleEl) {
-    subtitleEl.textContent = entry.type === 'refactorization'
-      ? `AI Refactorization · ${(entry.threads?.[0]?.refactorLevel || 'college')} level`
-      : `${meta.badgeLabel} — ${threadCount} response(s)`;
-  }
-}
-
-function _toggleRefactorModalUi(entry) {
-  const isRefactor = entry?.type === 'refactorization';
-  const continueBtn = document.getElementById('continueConversationBtn');
-  const reportBtn   = document.getElementById('aiRefactorReportBtn');
-  const reportWrap  = document.getElementById('aiRefactorReportWrap');
-  const reportForm  = document.getElementById('aiRefactorReportForm');
-  const reportInput = document.getElementById('aiRefactorReportInput');
-  // continue btn: visible only for summary/breakdown
-  if (continueBtn) continueBtn.style.display = isRefactor ? 'none' : '';
-  // report icon btn: visible only for refactorization
-  if (reportBtn) reportBtn.style.display = isRefactor ? '' : 'none';
-  // collapse the report form wrap on open
-  if (reportWrap) reportWrap.style.display = 'none';
-  if (reportForm) reportForm.style.display = 'none';
-  if (reportInput) reportInput.value = '';
-}
-
-async function _renderCurrentHistoryThread(app, entry, resultEl) {
-  if (!entry.threads || entry.threads.length === 0) {
-    if (resultEl) resultEl.innerHTML = '<p style="color:#94a3b8;">No content</p>';
-    return;
-  }
-
-  if (entry.type === 'refactorization') {
-    if (resultEl) resultEl.innerHTML = _renderRefactorCompareHtml(app, entry.threads[0]);
-    return;
-  }
-
-  if (resultEl) {
-    resultEl.innerHTML = await app._renderAiResponse(entry.threads[0].answer);
-  }
-}
-
-function _renderRefactorCompareHtml(app, thread) {
-  const esc = app.escapeHtml ? app.escapeHtml.bind(app) : (s) => String(s || '');
-  const before = thread.before || thread.question || '';
-  const after = thread.after || thread.answer || '';
-  const synthesis = thread.synthesis || {};
-  const level = thread.refactorLevel || synthesis.level || 'college';
-  const outcome = synthesis.outcome ? String(synthesis.outcome) : 'changed';
-  const summary = synthesis.synthesis ? String(synthesis.synthesis) : '';
-  const reasons = Array.isArray(synthesis.reasons) ? synthesis.reasons : [];
-
-  return `
-    <div class="refactor-history-compare">
-      <div class="refactor-history-meta">
-        <span class="refactor-history-level">${esc(level)} level</span>
-        <span class="refactor-history-outcome outcome-${esc(outcome)}">${esc(outcome.replace(/_/g, ' '))}</span>
-      </div>
-      <div class="refactor-history-stack">
-        <section class="refactor-history-pane">
-          <h4>Before</h4>
-          <div class="refactor-history-text">${esc(before)}</div>
-        </section>
-        <section class="refactor-history-pane after">
-          <h4>After</h4>
-          <div class="refactor-history-text">${esc(after)}</div>
-        </section>
-      </div>
-      ${summary || reasons.length ? `
-        <div class="refactor-history-synthesis">
-          <h4>AI diagnostic</h4>
-          ${summary ? `<p>${esc(summary)}</p>` : ''}
-          ${reasons.length ? `<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-        </div>` : ''}
-    </div>`;
-}
-
-function _createHistoryThreadBox(app, thread, index) {
-  const box = document.createElement('div');
-  box.className = `thread-box ${index === app.currentHistoryThreadIndex ? 'active' : ''}`;
-  box.textContent = index + 1;
-  box.style.cssText = _historyThreadBoxStyle(app, index);
-
-  const question = thread.question || 'Response';
-  const tipText = question.length > 30 ? question.substring(0, 30) + '...' : question;
-  box.title = `${index + 1}. ${tipText}`;
-  box.addEventListener('click', () => app.navigateHistoryThread(index));
-  return box;
-}
-
-function _historyThreadBoxStyle(app, index) {
-  const active = index === app.currentHistoryThreadIndex;
-  return `
-    width: 32px; height: 32px; border-radius: 6px;
-    background: ${active ? 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)'};
-    border: 2px solid ${active ? '#2563eb' : '#cbd5e1'};
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700;
-    color: ${active ? 'white' : '#64748b'};
-    transition: all 0.25s ease;
-  `;
-}
-
-function _emitHistoryFromLatestThread(app, entry, metadata = {}) {
-  if (!entry?.threads?.length) return;
-  const latestThread = entry.threads[entry.threads.length - 1];
-  _emitHistoryThreadArtifact(app, entry, latestThread, {
-    ...metadata,
-    threadIndex: entry.threads.length - 1,
-  });
-}
-
-function _emitHistoryThreadArtifact(app, entry, thread, metadata = {}) {
-  if (!entry || !thread || typeof app?.emitAiTaskOutput !== 'function') return;
-
-  if (entry.type === 'refactorization') {
-    app.emitAiTaskOutput({
-      source: metadata.source || 'ai-history.refactorization',
-      taskType: 'refactorization',
-      title: entry.title || 'AI Refactorization',
-      sourceText: thread.before || entry.originalText || '',
-      question: 'Refactorization output',
-      level: thread.refactorLevel || thread.level || '',
-      outputText: thread.after || thread.answer || '',
-      metadata: {
-        historyId: entry.id,
-        threadTimestamp: thread.timestamp || Date.now(),
-        sourceClipId: thread.sourceClipId || '',
-        newClipId: thread.newClipId || '',
-        ...metadata,
-      },
-    });
-    return;
-  }
-
-  app.emitAiTaskOutput({
-    source: metadata.source || `ai-history.${entry.type || 'general'}`,
-    taskType: entry.type === 'breakdown' ? 'breakdown' : 'summary',
-    title: entry.title || 'AI History',
-    sourceText: entry.originalText || '',
-    question: thread.question || '',
-    level: thread.level || '',
-    outputText: thread.answer || '',
-    metadata: {
-      historyId: entry.id,
-      threadTimestamp: thread.timestamp || Date.now(),
-      ...metadata,
-    },
-  });
-}
-
-// ────────────────────────────────────────────────────────────
-// continueHistoryConversation — decomposed from cc=38
-// ────────────────────────────────────────────────────────────
-
-export async function continueHistoryConversation() {
-  const app = this;
-  const entry = app.currentHistoryEntry;
-  if (!_hasContinuableEntry(entry)) {
-    app.showToast('No conversation to continue');
-    return;
-  }
-
-  _closeAiHistoryModal();
-
-  if (entry.type === 'summary') {
-    await _continueSummaryConversation(app, entry);
-  } else if (entry.type === 'breakdown') {
-    await _continueBreakdownConversation(app, entry);
-  }
-}
-
-function _hasContinuableEntry(entry) {
-  return !!(entry && entry.threads && entry.threads.length > 0);
-}
-
-function _closeAiHistoryModal() {
-  const modal = document.getElementById('aiHistoryModal');
-  if (modal) modal.style.display = 'none';
-}
-
-// ── Summary continuation ──────────────────────────────────
-
-async function _continueSummaryConversation(app, entry) {
-  _restoreSummaryState(app, entry);
-  _activateAiTab(app);
-  _activateAiLabSubTab(app, 'summary', 'aiSummarySection');
-  await _renderRestoredSummaryView(app);
-  _showSummaryFollowupAndPagination(app);
-  _persistSummaryRestore(app);
-}
-
-function _restoreSummaryState(app, entry) {
-  app.currentSummaryText = entry.originalText || '';
-  app.summaryThreads = _serializeSummaryThreads(entry.threads);
-  app.currentSummaryThreadIndex = app.summaryThreads.length - 1;
-  app._activeSummaryHistoryId = entry.id;
-}
-
-function _serializeSummaryThreads(threads) {
-  return threads.map(t => ({
-    question: t.question || '',
-    answer: t.answer || '',
-    timestamp: t.timestamp || Date.now(),
-  }));
-}
-
-async function _renderRestoredSummaryView(app) {
-  app.showSummarySection('result');
-  const lastThread = app.summaryThreads[app.currentSummaryThreadIndex];
-  const summaryContent = document.getElementById('summaryResultContent');
-  if (summaryContent && lastThread) {
-    summaryContent.innerHTML = await app._renderAiResponse(lastThread.answer);
-  }
-}
-
-function _showSummaryFollowupAndPagination(app) {
-  const followupContainer = document.getElementById('summaryFollowupContainer');
-  if (followupContainer) followupContainer.style.display = 'block';
-  if (app.summaryThreads.length >= 2) {
-    app.renderThreadPagination('summary');
-  }
-}
-
-function _persistSummaryRestore(app) {
-  app._currentSummarySection = 'result';
-  app._saveSummaryState();
-  app._saveActiveTabState();
-  app.showToast('Conversation restored — ask a follow-up!');
-}
-
-// ── Breakdown continuation ────────────────────────────────
-
-async function _continueBreakdownConversation(app, entry) {
-  _restoreBreakdownState(app, entry);
-  _activateAiTab(app);
-  _activateAiLabSubTab(app, 'breakdown', 'aiBreakdownSection');
-  _openBreakdownModal();
-  _populateBreakdownOriginalText(app);
-  await _renderRestoredBreakdownView(app);
-  _showBreakdownFollowupAndPagination(app);
-  _persistBreakdownRestore(app);
-}
-
-function _deriveEntryOriginalText(entry) {
-  const firstThread = entry?.threads?.[0] || {};
-  return String(
-    entry?.originalText
-    || entry?.original_text
-    || firstThread?.sourceText
-    || firstThread?.source_text
-    || ''
-  );
-}
-
-function _restoreBreakdownState(app, entry) {
-  app.currentBreakdownText = _deriveEntryOriginalText(entry);
-  app.breakdownThreads = _serializeBreakdownThreads(entry.threads);
-  app.currentBreakdownThreadIndex = app.breakdownThreads.length - 1;
-  app._activeBreakdownHistoryId = entry.id;
-  app.currentBreakdownLevel = entry.threads[0]?.level || null;
-}
-
-function _serializeBreakdownThreads(threads) {
-  return threads.map(t => ({
-    question: t.question || '',
-    answer: t.answer || '',
-    level: t.level || null,
-    timestamp: t.timestamp || Date.now(),
-  }));
-}
-
-function _openBreakdownModal() {
-  const modal = document.getElementById('breakdownModal');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  window.renderLucideIcons?.(modal);
-}
-
-function _populateBreakdownOriginalText(app) {
-  if (typeof app.setBreakdownOriginalText === 'function') {
-    app.setBreakdownOriginalText(app.currentBreakdownText, { sourceMode: 'continue', collapsed: true });
-    return;
-  }
-
-  const originalEl = document.getElementById('breakdownOriginalText');
-  if (originalEl) originalEl.textContent = app.currentBreakdownText;
-
-  const lengthEl = document.getElementById('breakdownTextLength');
-  if (lengthEl && app.currentBreakdownText) {
-    const wordCount = app.currentBreakdownText.trim().split(/\s+/).length;
-    lengthEl.textContent = `${wordCount} words`;
-  }
-}
-
-async function _renderRestoredBreakdownView(app) {
-  const resultEl = document.getElementById('breakdownResult');
-  const lastThread = app.breakdownThreads[app.currentBreakdownThreadIndex];
-  if (resultEl && lastThread) {
-    resultEl.innerHTML = await app._renderAiResponse(lastThread.answer);
-  }
-}
-
-function _showBreakdownFollowupAndPagination(app) {
-  const followupContainer = document.getElementById('breakdownFollowupContainer');
-  if (followupContainer) followupContainer.style.display = 'block';
-  if (app.breakdownThreads.length >= 2) {
-    app.renderThreadPagination('breakdown');
-  }
-}
-
-function _persistBreakdownRestore(app) {
-  app._saveBreakdownModalState();
-  app._saveActiveTabState();
-  app.showToast('Conversation restored — ask a follow-up!');
-}
-
-// ── Shared tab activation ─────────────────────────────────
-
-function _activateAiTab(app) {
-  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  const aiTab = document.querySelector('[data-tab="ai"]');
-  if (aiTab) aiTab.classList.add('active');
-  const aiTabEl = document.getElementById('aiTab');
-  if (aiTabEl) aiTabEl.classList.add('active');
-  app.currentTab = 'ai';
-}
-
-function _activateAiLabSubTab(app, subTab, sectionId) {
-  document.querySelectorAll('.ai-lab-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.ai-lab-section').forEach(s => s.classList.remove('active'));
-  const tabEl = document.querySelector(`[data-ai-tab="${subTab}"]`);
-  if (tabEl) tabEl.classList.add('active');
-  const sectionEl = document.getElementById(sectionId);
-  if (sectionEl) sectionEl.classList.add('active');
-  app._currentAiLabSubTab = subTab;
 }
