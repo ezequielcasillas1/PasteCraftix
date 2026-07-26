@@ -11,6 +11,8 @@ import {
 export function registerAiLabPageEvents(app) {
     app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
     app.aiLabFeature?.announcements?.bindAnnouncementBannerEvents?.(app);
+    app.aiLabFeature?.modelPicker?.bindAiModelPickerEvents?.(app);
+    app.aiLabFeature?.modelPicker?.renderAiModelPicker?.(app);
 
     const minWordsForAi = 1;
 

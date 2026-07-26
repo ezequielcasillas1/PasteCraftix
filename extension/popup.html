@@ -4614,6 +4614,56 @@
         .header-actions {
             display: flex;
             gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .header-model-picker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 10px;
+            min-width: 0;
+            flex: 1 1 auto;
+            justify-content: flex-end;
+        }
+
+        .header-model-picker.is-locked .header-model-select {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .header-model-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            opacity: 0.85;
+            white-space: nowrap;
+        }
+
+        .header-model-select {
+            max-width: 148px;
+            min-width: 0;
+            height: 28px;
+            padding: 0 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(15, 23, 42, 0.35);
+            color: #f8fafc;
+            font-size: 11px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .header-model-select:focus {
+            border-color: rgba(147, 197, 253, 0.9);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+        }
+
+        .header-model-select option {
+            color: #0f172a;
+            background: #fff;
         }
         
         .profile-section {
@@ -6429,6 +6479,114 @@
             margin-bottom: 12px;
             padding-bottom: 16px;
             border-bottom: 2px solid #f1f5f9;
+        }
+
+        .ai-lab-model-block {
+            position: relative;
+            margin-top: 12px;
+            text-align: left;
+            padding: 14px 12px 12px;
+            border-radius: var(--pc-radius-md, 12px);
+            overflow: hidden;
+            border: 1px solid color-mix(in srgb, var(--pc-secondary-400, #3b82f6) 24%, transparent);
+            background:
+                radial-gradient(ellipse 90% 80% at 0% 35%, rgba(59, 130, 246, 0.32) 0%, transparent 58%),
+                radial-gradient(ellipse 55% 45% at 100% 0%, rgba(37, 99, 235, 0.14) 0%, transparent 52%),
+                linear-gradient(165deg, var(--pc-primary-800, #0d1240) 0%, var(--pc-primary-900, #080c2a) 58%, #0a1635 100%);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                0 8px 22px rgba(8, 12, 42, 0.2);
+        }
+
+        .ai-lab-model-heading {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--pc-secondary-200, #93c5fd);
+            margin-bottom: 10px;
+        }
+
+        .ai-lab-model-showcase {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .ai-model-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            padding: 12px 12px 10px;
+            border-radius: 10px;
+            border: 1.5px solid color-mix(in srgb, var(--pc-secondary-400, #3b82f6) 28%, transparent);
+            background:
+                linear-gradient(165deg,
+                    color-mix(in srgb, var(--pc-primary-800, #0d1240) 88%, #1e3a5f) 0%,
+                    var(--pc-primary-900, #080c2a) 100%);
+            color: var(--pc-text, #e2e8f0);
+            cursor: pointer;
+            text-align: left;
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.05),
+                0 2px 10px rgba(8, 12, 42, 0.35);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
+        }
+
+        .ai-model-card:hover:not(:disabled) {
+            border-color: var(--pc-secondary-300, #60a5fa);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.07),
+                0 0 14px rgba(59, 130, 246, 0.28),
+                0 4px 14px rgba(37, 99, 235, 0.22);
+        }
+
+        .ai-model-card.is-active {
+            border-color: var(--pc-secondary-400, #3b82f6);
+            border-width: 2px;
+            padding: 11.5px 11.5px 9.5px;
+            background:
+                linear-gradient(165deg,
+                    color-mix(in srgb, var(--pc-secondary-500, #2563eb) 18%, var(--pc-primary-800, #0d1240)) 0%,
+                    var(--pc-primary-900, #080c2a) 100%);
+            box-shadow:
+                0 0 0 1px color-mix(in srgb, var(--pc-secondary-400, #3b82f6) 45%, transparent),
+                0 0 20px rgba(59, 130, 246, 0.48),
+                0 4px 16px rgba(37, 99, 235, 0.32),
+                inset 0 1px 0 rgba(147, 197, 253, 0.12);
+        }
+
+        .ai-model-card:disabled,
+        .ai-model-card.is-locked {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .ai-model-card-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--pc-text, #f1f5f9);
+        }
+
+        .ai-model-card-cost {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--pc-secondary-300, #60a5fa);
+        }
+
+        .ai-model-card-strength {
+            font-size: 10px;
+            line-height: 1.35;
+            color: var(--pc-text-soft, #94a3b8);
+            margin-top: 2px;
+        }
+
+        .ai-lab-model-hint {
+            margin: 10px 0 0;
+            font-size: 11px;
+            line-height: 1.4;
+            color: var(--pc-text-soft, #94a3b8);
         }
 
         .ai-lab-banner-stack {
@@ -10698,6 +10856,15 @@
                     </div>
                 </div>
             </div>
+            <div class="header-model-picker" id="headerAiModelPicker" title="AI model">
+                <label class="header-model-label" for="headerAiModelSelect">Model</label>
+                <select class="header-model-select" id="headerAiModelSelect" aria-label="Select AI model">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="claude-haiku-4-5">Haiku 4.5</option>
+                    <option value="gpt-5.2">GPT-5.2</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                </select>
+            </div>
             <div class="header-actions">
                 <button class="settings-btn" id="aiBtn" title="AI Lab"><i data-lucide="bot"></i></button>
                 <button class="settings-btn" id="profileBtn" title="Profile"><i data-lucide="user"></i></button>
@@ -11033,6 +11200,7 @@
                 <button class="ai-history-filter-chip" data-filter="summary" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="notebook-pen"></i> Summary</button>
                 <button class="ai-history-filter-chip" data-filter="breakdown" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="brain"></i> Breakdown</button>
                 <button class="ai-history-filter-chip" data-filter="refactorization" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="sparkles"></i> AI Refactorization</button>
+                <button class="ai-history-filter-chip" data-filter="formatted" style="padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #e5e7eb;background:#f8fafc;color:#64748b;transition:all 0.15s ease;"><i data-lucide="pencil-line"></i> AI Formatted</button>
             </div>
 
             <div class="ai-history-list" id="aiHistoryList">
@@ -11211,6 +11379,11 @@
                                 Pick <strong>Cheap</strong> presets for daily studying &mdash; saves credits.
                             </span>
                         </div>
+                    </div>
+                    <div class="ai-lab-model-block">
+                        <div class="ai-lab-model-heading">AI models for your PasteCraft journey</div>
+                        <div class="ai-lab-model-showcase" id="aiLabModelShowcase" role="group" aria-label="AI model showcase"></div>
+                        <p class="ai-lab-model-hint" id="aiLabModelHint" aria-live="polite"></p>
                     </div>
                 </div>
 
@@ -12298,6 +12471,10 @@ Multiple clips are separated by:
                         <h4>Content Detected</h4>
                         <div class="magic-type-tags" id="magicTypeBreakdown"></div>
                     </div>
+                    <div class="magic-format-compare" id="magicFormatCompare" style="display: none;">
+                        <h4>AI Formatted · Before / After</h4>
+                        <div id="magicFormatCompareList"></div>
+                    </div>
                 </div>
                 <div class="modal-footer magic-results-footer">
                     <button class="btn-secondary" id="magicResultsSaveToNotes" aria-label="Save craft results to notes">
@@ -12329,7 +12506,7 @@ Multiple clips are separated by:
                         <div class="magic-info-icon"><i data-lucide="sparkles"></i></div>
                         <div class="magic-info-detail">
                             <h4>AI Formatted</h4>
-                            <p>Fixes grammar and punctuation in place — same meaning and vocabulary. Skips code, URLs, and data clips. One AI mode per craft.</p>
+                            <p>Fixes grammar and punctuation in place — same meaning and vocabulary. Shows before/after in Craft results, clip viewer, and AI History. Skips code, URLs, and data clips. One AI mode per craft.</p>
                             <p class="magic-info-credit-note">💎 Premium · ~25 AI text credits per batch</p>
                         </div>
                     </div>

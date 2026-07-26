@@ -41,6 +41,7 @@ export async function loadAiWorkflow() {
 export function applyAiWorkflowToUi() {
   const cfg = this._normalizeAiWorkflow(this.aiWorkflow);
   this.aiWorkflow = cfg;
+  this.aiLabFeature?.modelPicker?.renderAiModelPicker?.(this);
 }
 
 export async function saveAiWorkflowFromUi(silent = true) {
@@ -135,7 +136,9 @@ export function _buildCreditCostHtml() {
   const provider = cfg.provider || 'openai';
   const costs = AI_CREDIT_COSTS[provider] || AI_CREDIT_COSTS.openai;
   const presets = AI_PROVIDER_PRESETS[provider] || AI_PROVIDER_PRESETS.openai;
-  const providerName = provider === 'google' ? 'Google Gemini' : 'OpenAI';
+  const providerName = provider === 'google'
+    ? 'Google Gemini'
+    : (provider === 'anthropic' ? 'Anthropic' : 'OpenAI');
   const lines = presets
     .filter(p => costs[p.value] !== undefined)
     .map(p => {
@@ -157,6 +160,14 @@ export function updateAiCreditsPills(source = '') {
 
   this.aiLabFeature?.creditPacks?.refreshCreditPackBanner?.(this);
   this.aiLabFeature?.announcements?.renderAnnouncementBanner?.(this);
+  const picker = this.aiLabFeature?.modelPicker;
+  if (picker?.ensureDefaultWorkflowEnabled) {
+    Promise.resolve(picker.ensureDefaultWorkflowEnabled(this))
+      .catch(() => {})
+      .finally(() => picker.renderAiModelPicker?.(this));
+  } else {
+    picker?.renderAiModelPicker?.(this);
+  }
 
   if (source) {
     try { console.log(`🎫 AI credits pills updated (${source})`); } catch (_) {}
@@ -207,6 +218,7 @@ async function _verifyWorkflowPersisted(app, key) {
   const verified = app._normalizeAiWorkflow(verification ? verification[key] : null);
   if (
     verified.updatedAt !== app.aiWorkflow.updatedAt ||
+    verified.provider !== app.aiWorkflow.provider ||
     verified.preset !== app.aiWorkflow.preset ||
     verified.enabled !== app.aiWorkflow.enabled
   ) {

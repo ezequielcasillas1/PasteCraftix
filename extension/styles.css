@@ -2139,6 +2139,29 @@ body {
   color: var(--text-primary, #1f2937);
 }
 
+.magic-format-compare {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.magic-format-compare h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-primary, #1f2937);
+}
+
+.magic-format-compare-item {
+  margin-bottom: 12px;
+}
+
+.magic-format-compare-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 6px;
+}
+
 .magic-type-tags {
   display: flex;
   flex-wrap: wrap;
