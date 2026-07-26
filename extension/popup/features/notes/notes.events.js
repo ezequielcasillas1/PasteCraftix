@@ -223,7 +223,21 @@ export function registerNotesEvents(app) {
   const albumAttachmentViewerModal = document.getElementById('albumAttachmentViewerModal');
   if (albumAttachmentViewerModal) {
     albumAttachmentViewerModal.addEventListener('click', (e) => {
-      if (e.target.id === 'albumAttachmentViewerModal') app.closeAlbumAttachmentViewer();
+      if (e.target.id === 'albumAttachmentViewerModal') {
+        app.closeAlbumAttachmentViewer();
+        return;
+      }
+      const popOutEl = e.target.closest?.('[data-action="album-attachment-popout"]');
+      if (popOutEl && albumAttachmentViewerModal.contains(popOutEl)) {
+        e.preventDefault();
+        app.runAlbumAttachmentAnnotatePopOut?.();
+        return;
+      }
+      const annotateEl = e.target.closest?.('[data-action="album-attachment-annotate"]');
+      if (annotateEl && albumAttachmentViewerModal.contains(annotateEl)) {
+        e.preventDefault();
+        app.runAlbumAttachmentAnnotate?.();
+      }
     });
   }
 
@@ -312,4 +326,23 @@ export function registerNotesEvents(app) {
       if (e.target.id === 'albumInterlayingEditorModal') app.closeAlbumInterlayingEditor();
     });
   }
+
+  // Fullscreen annotate → attach pending image / refresh album viewer
+  const onNoteImageAnnotated = () => {
+    app.notesFeature?.imagePicker?.consumePendingNoteImageAttach?.(app)?.catch?.(() => {});
+    app.notesFeature?.albumAttachmentViewer?.refreshAfterExternalAnnotate?.(app)?.catch?.(() => {});
+  };
+  try {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message?.action === 'pcNoteImageAnnotated') onNoteImageAnnotated();
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.pcPendingNoteImageAttach?.newValue) onNoteImageAnnotated();
+      if (area === 'local' && changes.notes && app.currentAlbumAttachmentContext) {
+        app.notesFeature?.albumAttachmentViewer?.refreshAfterExternalAnnotate?.(app)?.catch?.(() => {});
+      }
+    });
+  } catch (_) {}
+
+  app.notesFeature?.imagePicker?.consumePendingNoteImageAttach?.(app)?.catch?.(() => {});
 }

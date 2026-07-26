@@ -232,7 +232,16 @@ async performFullSync() {
         return r || l;
       };
 
-      const mergedProfile = mergeUserProfileLocalRemote(localProfile, remoteProfile, pickUrl);
+      // Re-read local profile — snapshot may be stale if user saved during sync.
+      let latestLocalProfile = localProfile;
+      try {
+        const latest = await chrome.storage.local.get(['userProfile']);
+        if (latest?.userProfile && typeof latest.userProfile === 'object') {
+          latestLocalProfile = latest.userProfile;
+        }
+      } catch (_) { /* keep snapshot */ }
+
+      const mergedProfile = mergeUserProfileLocalRemote(latestLocalProfile, remoteProfile, pickUrl);
       const profileChanged = await this._safeStorageSet({ userProfile: mergedProfile });
       localWritesApplied = localWritesApplied || profileChanged;
       if (profileChanged) {

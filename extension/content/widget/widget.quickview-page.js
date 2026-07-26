@@ -4,6 +4,10 @@
  * Self-loads clips via background so host-page CSP cannot block the UI script.
  */
 import { getClipIdKey } from '../../shared/clip-id.js';
+import {
+  copyImageBearingClipToClipboard,
+  isImageBearingClip,
+} from '../../shared/clipboard-image.js';
 import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 
 const LIKED_KEY = 'likedClipIds';
@@ -213,6 +217,19 @@ function render() {
 
 async function copyClip(clipId) {
   const clip = allClips.find((c) => String(c.id || '') === String(clipId));
+  if (!clip) {
+    showToast('❌ Copy failed', true);
+    return;
+  }
+  if (isImageBearingClip(clip)) {
+    try {
+      await copyImageBearingClipToClipboard(clip);
+      showToast('✓ Image copied!');
+    } catch (_) {
+      showToast('❌ Image copy failed', true);
+    }
+    return;
+  }
   const text = clip?.text ? String(clip.text) : '';
   if (!text) {
     showToast('❌ Copy failed', true);

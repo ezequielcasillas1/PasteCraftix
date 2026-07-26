@@ -327,6 +327,8 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            flex: 0 1 auto;
+            min-width: 0;
         }
         
         .logo {
@@ -4621,39 +4623,44 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            margin: 0 10px;
-            min-width: 0;
-            flex: 1 1 auto;
+            margin: 0 8px;
+            min-width: 132px;
+            flex: 1 1 140px;
             justify-content: flex-end;
         }
 
         .header-model-picker.is-locked .header-model-select {
-            opacity: 0.55;
+            opacity: 0.7;
             cursor: not-allowed;
         }
 
         .header-model-label {
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.04em;
             text-transform: uppercase;
-            opacity: 0.85;
+            color: #fff;
+            opacity: 0.95;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .header-model-select {
+            width: 132px;
             max-width: 148px;
-            min-width: 0;
-            height: 28px;
+            min-width: 120px;
+            height: 30px;
             padding: 0 8px;
             border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            background: rgba(15, 23, 42, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            background: rgba(15, 23, 42, 0.55);
             color: #f8fafc;
             font-size: 11px;
             font-weight: 600;
             outline: none;
             cursor: pointer;
+            flex-shrink: 0;
+            appearance: auto;
         }
 
         .header-model-select:focus {
@@ -5110,14 +5117,24 @@
 
         .ai-name-value-row {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
         }
 
         .ai-name-value-row .ai-name-value {
-            flex: 1;
+            display: block;
+            width: 100%;
             min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ai-name-value-row .btn-save-name {
+            align-self: flex-start;
+            position: relative;
+            z-index: 1;
         }
 
         .ai-name-container .btn-primary::after,
@@ -5199,6 +5216,7 @@
             color: #1f2937;
             background: var(--pc-gradient-brand-soft);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         
@@ -5276,6 +5294,51 @@
             color: #1e293b;
             text-align: right;
             word-break: break-word;
+        }
+
+        .account-info-value-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            max-width: 70%;
+        }
+
+        .account-showcase-funky-btn {
+            appearance: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid #93c5fd;
+            background: #eff6ff;
+            color: #1d4ed8;
+            cursor: pointer;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .account-showcase-funky-btn:hover:not(:disabled) {
+            background: #dbeafe;
+        }
+
+        .account-showcase-funky-btn.is-active {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #fff;
+        }
+
+        .account-showcase-funky-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .account-showcase-funky-btn svg {
+            width: 14px;
+            height: 14px;
         }
 
         .account-info-value.account-info-email {
@@ -6863,7 +6926,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 10px;
             margin-bottom: 8px;
             width: 100%;
         }
@@ -6871,10 +6934,62 @@
         .ai-lab-title-main {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 12px;
-            flex: 1;
+            flex: 0 1 auto;
             min-width: 0;
+        }
+
+        .ai-lab-title-model-picker {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
+            justify-content: center;
+        }
+
+        .ai-lab-title-model-picker.is-locked .ai-lab-title-model-select {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .ai-lab-title-model-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--pc-secondary-200, #93c5fd);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .ai-lab-title-model-select {
+            width: 140px;
+            max-width: 100%;
+            min-width: 112px;
+            height: 30px;
+            padding: 0 8px;
+            border-radius: 8px;
+            border: 1px solid color-mix(in srgb, var(--pc-secondary-400, #3b82f6) 55%, transparent);
+            background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(11, 18, 32, 0.98) 100%);
+            color: var(--pc-secondary-50, #eff6ff);
+            font-size: 11px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+            flex-shrink: 1;
+            appearance: auto;
+        }
+
+        .ai-lab-title-model-select:focus {
+            border-color: var(--pc-secondary-300, #60a5fa);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+        }
+
+        .ai-lab-title-model-select option {
+            color: #0f172a;
+            background: #fff;
         }
 
         .ai-lab-credits {
@@ -11358,6 +11473,15 @@
                             <span class="ai-lab-icon"><i data-lucide="bot"></i></span>
                             <h2>AI Lab</h2>
                         </div>
+                        <div class="ai-lab-title-model-picker" id="aiLabTitleModelPicker" title="AI model">
+                            <label class="ai-lab-title-model-label" for="aiLabTitleModelSelect">Model</label>
+                            <select class="ai-lab-title-model-select" id="aiLabTitleModelSelect" aria-label="Select AI model">
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="claude-haiku-4-5">Haiku 4.5</option>
+                                <option value="gpt-5.2">GPT-5.2</option>
+                                <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                            </select>
+                        </div>
                         <div
                             class="ai-lab-credits"
                             id="aiTextCreditsPill"
@@ -12961,7 +13085,13 @@ Multiple clips are separated by:
                             </div>
                             <div class="account-info-row" id="accountInfoFunkyNameRow" style="display: none;">
                                 <span class="account-info-label">Funky AI name</span>
-                                <span class="account-info-value" id="accountInfoFunkyName">—</span>
+                                <span class="account-info-value-wrap">
+                                    <span class="account-info-value" id="accountInfoFunkyName">—</span>
+                                    <button type="button" class="account-showcase-funky-btn pc-delay-tip" id="accountShowcaseFunkyBtn" aria-label="Show funky name in top header" aria-pressed="false" title="Show this Funky AI name in the top-left header next to your avatar. Click again to switch back to your display name.">
+                                        <i data-lucide="panel-top"></i>
+                                        <span class="pc-tip" role="tooltip">Show this Funky AI name in the top-left header next to your avatar. Click again to switch back to your display name.</span>
+                                    </button>
+                                </span>
                             </div>
                             <div class="account-info-row">
                                 <span class="account-info-label">Login email</span>
@@ -13026,13 +13156,17 @@ Multiple clips are separated by:
                                     <span class="profile-name-block-title">AI funky animal name</span>
                                     <span class="profile-name-block-badge profile-name-block-badge--ai">Optional · AI</span>
                                 </div>
-                                <p class="profile-name-block-hint">A separate fun nickname (like EzeZestyFox) for avatars and flair. Saves here and under Account as “Funky AI name” — does not replace your display name in the top bar.</p>
+                                <p class="profile-name-block-hint">A separate fun nickname (like EzeZestyFox) for avatars and flair. Saves here and under Account as “Funky AI name.” Use the showcase button to show it in the top-left header (optional).</p>
                                 <div class="profile-name-ai-actions">
                                     <button class="btn-primary" id="generateNameBtn" type="button">Generate funky animal name</button>
                                     <div class="ai-name-display" id="aiNameDisplay" style="display: none;">
                                         <span class="ai-name-label">Generated AI name</span>
                                         <div class="ai-name-value-row">
                                             <span class="ai-name-value" id="aiNameValue">-</span>
+                                            <button type="button" class="account-showcase-funky-btn pc-delay-tip" id="profileShowcaseFunkyBtn" aria-label="Show funky name in top header" aria-pressed="false" title="Show this Funky AI name in the top-left header next to your avatar. Click again to switch back to your display name.">
+                                                <i data-lucide="panel-top"></i>
+                                                <span class="pc-tip" role="tooltip">Show this Funky AI name in the top-left header next to your avatar. Click again to switch back to your display name.</span>
+                                            </button>
                                             <button class="btn-secondary btn-save-name" id="saveAiNameBtn" type="button">Save funky name</button>
                                         </div>
                                     </div>
@@ -13302,7 +13436,8 @@ Multiple clips are separated by:
             <div class="clip-picker-footer">
                 <div class="clip-picker-selection-count" id="imagePickerSelectionCount">0 selected</div>
                 <div class="image-picker-footer-actions">
-                    <button type="button" class="btn-secondary clip-picker-add-btn" id="imagePickerEditAddBtn" data-action="edit-add-selected-image" disabled title="Draw / text annotate, then attach">Edit &amp; Add</button>
+                    <button type="button" class="btn-secondary clip-picker-add-btn" id="imagePickerEditAddBtn" data-action="edit-add-selected-image" disabled title="Draw / text annotate in popup, then attach">Edit &amp; Add</button>
+                    <button type="button" class="btn-secondary clip-picker-add-btn" id="imagePickerEditFullscreenBtn" data-action="edit-fullscreen-selected-image" disabled title="Pop out fullscreen Draw / Text, then attach on Save">Edit fullscreen</button>
                     <button type="button" class="btn-primary clip-picker-add-btn" id="imagePickerAddBtn" data-action="add-selected-images" disabled>Add Selected</button>
                 </div>
             </div>

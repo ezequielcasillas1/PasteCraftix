@@ -186,12 +186,17 @@ async function _persistAiName(app, userName, aiName) {
   if (!app.userProfile) app.userProfile = {};
   app.userProfile.userName = userName;
   app.userProfile.aiGeneratedName = aiName;
-  await app.saveUserProfile();
+  app._pendingFunkyAiName = aiName;
+  return app.saveUserProfile();
 }
 
 function _displayAiName(aiName) {
   const aiNameEl = sel.getAiNameValue();
-  if (aiNameEl) aiNameEl.textContent = aiName;
+  if (aiNameEl) {
+    aiNameEl.textContent = aiName;
+    aiNameEl.setAttribute('data-has-name', '1');
+    aiNameEl.title = aiName;
+  }
   _setDisplay('aiNameDisplay', 'flex');
 }
 
@@ -225,15 +230,18 @@ export async function generateAIName(app) {
     const aiName = typeof result === 'string' ? result : result?.aiName;
 
     if (aiName) {
+      app._pendingFunkyAiName = aiName;
       _displayAiName(aiName);
-      await _persistAiName(app, userName, aiName);
+      const saved = await _persistAiName(app, userName, aiName);
       _emitProfileNameArtifact(app, userName, aiName);
       app.updateAIGenerateButtonState();
       app.startNameSectionCollapse();
-      if (result?.cycleComplete) {
+      if (!saved) {
+        app.showToast('⚠️ Name generated but not saved — tap Save funky name', 'error');
+      } else if (result?.cycleComplete) {
         app.showToast('🔄 Full animal cycle complete — deck reshuffled!', 'success');
       } else {
-        app.showToast('✅ Funky animal name generated!', 'success');
+        app.showToast('✅ Funky animal name generated and saved!', 'success');
       }
     } else {
       const errMsg = result?.error || 'Failed to generate funky animal name';

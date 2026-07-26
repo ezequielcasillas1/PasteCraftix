@@ -27,6 +27,23 @@
   box-shadow: 0 4px 20px var(--pc-glow);
 }
 
+[data-theme="blue"] .header-model-picker {
+  display: flex !important;
+  visibility: visible;
+  opacity: 1;
+}
+
+[data-theme="blue"] .header-model-label {
+  color: #fff;
+}
+
+[data-theme="blue"] .header-model-select {
+  border-color: rgba(147, 197, 253, 0.65);
+  background: rgba(8, 12, 42, 0.72);
+  color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+}
+
 [data-theme="blue"] .settings-btn,
 [data-theme="blue"] .support-icon-btn,
 [data-theme="blue"] .header-action-btn {
@@ -1013,6 +1030,25 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   text-shadow: 0 0 18px rgba(59, 130, 246, 0.28);
 }
 
+[data-theme="blue"] .ai-lab-title-model-picker {
+  display: flex !important;
+  visibility: visible;
+  opacity: 1;
+}
+
+[data-theme="blue"] .ai-lab-title-model-label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .ai-lab-title-model-select {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.96) 0%, rgba(11, 18, 32, 0.98) 100%);
+  color: var(--pc-secondary-50);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.1);
+}
+
 [data-theme="blue"] .ai-lab-credits {
   background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(11, 18, 32, 0.98) 100%);
   border: 1px solid rgba(59, 130, 246, 0.4);
@@ -1735,6 +1771,23 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   color: var(--pc-secondary-300);
 }
 
+[data-theme="blue"] .account-showcase-funky-btn {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #93c5fd;
+}
+
+[data-theme="blue"] .account-showcase-funky-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.28);
+  color: #bfdbfe;
+}
+
+[data-theme="blue"] .account-showcase-funky-btn.is-active {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
 [data-theme="blue"] .account-info-badge.is-verified {
   background: rgba(16, 185, 129, 0.2);
   color: #6ee7b7;
@@ -1815,6 +1868,14 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
 
 [data-theme="blue"] .ai-name-label {
   color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .ai-name-value {
+  color: var(--pc-secondary-50);
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: var(--pc-secondary-50);
 }
 
 [data-theme="blue"] .profile-setting-label {

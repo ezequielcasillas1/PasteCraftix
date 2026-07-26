@@ -128,6 +128,14 @@ export function updateAccountInfoSection(app) {
   const funkyRow = document.getElementById('accountInfoFunkyNameRow');
   if (funkyRow) funkyRow.style.display = funkyName ? 'flex' : 'none';
   _setText('accountInfoFunkyName', funkyName || '—');
+  const showcaseBtn = document.getElementById('accountShowcaseFunkyBtn');
+  if (showcaseBtn) {
+    const active = !!(app.userProfile?.showcaseFunkyInHeader && funkyName);
+    showcaseBtn.style.display = funkyName ? 'inline-flex' : 'none';
+    showcaseBtn.disabled = !funkyName;
+    showcaseBtn.classList.toggle('is-active', active);
+    showcaseBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
   _setText('accountInfoEmail', email || 'Not available');
   _setText('accountInfoSignInMethod', _resolveSignInMethod(user));
   _setText('accountInfoPlan', _resolvePlanLabel(app));

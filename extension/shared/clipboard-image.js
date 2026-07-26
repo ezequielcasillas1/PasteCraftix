@@ -1,0 +1,247 @@
+/**
+ * Copy image-bearing clips to the system clipboard as image/png.
+ * Data URLs must not use fetch() — extension CSP blocks connect-src data:.
+ * Popup documents block navigator.clipboard.write for images (Permissions Policy);
+ * those contexts fall back to background → offscreen ClipboardItem write.
+ */
+
+import { isImageBearingClip, resolveClipImageSrc } from './clip-images.js';
+
+function base64ToUint8Array(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    const end = Math.min(i + chunk, binary.length);
+    for (let j = i; j < end; j++) bytes[j] = binary.charCodeAt(j);
+  }
+  return bytes;
+}
+
+/** Decode a data:image URL to a Blob without fetch(). */
+export function dataUrlToBlob(dataUrl) {
+  const u = String(dataUrl || '');
+  const comma = u.indexOf(',');
+  if (comma < 0) throw new Error('invalid_data_url');
+  const header = u.slice(0, comma);
+  const payload = u.slice(comma + 1);
+  const mimeMatch = header.match(/^data:([^;,]+)/i);
+  const mime = (mimeMatch && mimeMatch[1]) || 'image/png';
+  if (/;base64/i.test(header)) {
+    return new Blob([base64ToUint8Array(payload)], { type: mime });
+  }
+  return new Blob([decodeURIComponent(payload)], { type: mime });
+}
+
+function isHttpImageUrl(src) {
+  return typeof src === 'string' && /^https?:\/\//i.test(src.trim());
+}
+
+function isImageBlob(blob) {
+  return !!(blob && String(blob.type || '').startsWith('image/'));
+}
+
+/** Extension popup pages apply a Permissions-Policy that blocks clipboard.write for images. */
+function isExtensionPopupDocument() {
+  try {
+    const path = String(globalThis?.location?.pathname || '');
+    return /(^|\/)popup\.html$/i.test(path);
+  } catch (_) {
+    return false;
+  }
+}
+
+function isClipboardPermissionsPolicyError(err) {
+  const msg = String(err?.message || err || '');
+  return (
+    err?.name === 'NotAllowedError' ||
+    /permissions policy|clipboard api has been blocked|notallowederror/i.test(msg)
+  );
+}
+
+function canFallbackClipboardWrite(err) {
+  return !!(chrome?.runtime?.id && isClipboardPermissionsPolicyError(err));
+}
+
+async function blobToDataUrl(blob) {
+  if (typeof FileReader === 'undefined') {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return `data:${blob.type || 'image/png'};base64,${btoa(binary)}`;
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('blob_to_data_url_failed'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fetchHttpBlobDirect(src) {
+  const res = await fetch(src, { mode: 'cors', credentials: 'omit' });
+  if (!res.ok) throw new Error(`image_fetch_${res.status}`);
+  const blob = await res.blob();
+  if (!isImageBlob(blob)) throw new Error('not_image_response');
+  return blob;
+}
+
+async function fetchHttpBlobViaBackground(src) {
+  if (!chrome?.runtime?.id) throw new Error('no_runtime');
+  const resp = await chrome.runtime.sendMessage({
+    action: 'pcFetchImageAsDataUrl',
+    url: src,
+  });
+  if (!resp?.success || typeof resp.dataUrl !== 'string') {
+    throw new Error(resp?.error || 'background_image_fetch_failed');
+  }
+  return dataUrlToBlob(resp.dataUrl);
+}
+
+async function fetchUrlAsBlob(url) {
+  const src = String(url || '').trim();
+  if (!isHttpImageUrl(src)) throw new Error('unsupported_image_src');
+  try {
+    return await fetchHttpBlobDirect(src);
+  } catch (directErr) {
+    try {
+      return await fetchHttpBlobViaBackground(src);
+    } catch (_) {
+      throw directErr;
+    }
+  }
+}
+
+async function blobFromHtmlImage(img) {
+  if (!img || !img.naturalWidth) throw new Error('image_element_empty');
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas_unavailable');
+  ctx.drawImage(img, 0, 0);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('canvas_to_blob_failed'))),
+      'image/png',
+    );
+  });
+}
+
+async function pngViaOffscreenCanvas(blob) {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('OffscreenCanvas unavailable');
+    ctx.drawImage(bitmap, 0, 0);
+    return await canvas.convertToBlob({ type: 'image/png' });
+  } finally {
+    bitmap.close?.();
+  }
+}
+
+async function pngViaHtmlCanvas(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('image_decode_failed'));
+      el.src = url;
+    });
+    return blobFromHtmlImage(img);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function ensurePngBlob(blob) {
+  if (!blob) throw new Error('empty_blob');
+  if (blob.type === 'image/png') return blob;
+  if (typeof createImageBitmap === 'function' && typeof OffscreenCanvas === 'function') {
+    return pngViaOffscreenCanvas(blob);
+  }
+  if (typeof document === 'undefined') throw new Error('png_convert_unavailable');
+  return pngViaHtmlCanvas(blob);
+}
+
+async function writeImageBlobDirect(png) {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+    throw new Error('clipboard_image_unsupported');
+  }
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+}
+
+async function writeImageBlobViaBackground(png) {
+  if (!chrome?.runtime?.id) throw new Error('no_runtime');
+  const dataUrl = await blobToDataUrl(png);
+  if (!dataUrl.startsWith('data:image/')) throw new Error('invalid_png_data_url');
+  const resp = await chrome.runtime.sendMessage({ action: 'pcCopyImage', dataUrl });
+  if (resp?.success) return;
+  throw new Error(resp?.error || 'background_image_copy_failed');
+}
+
+export async function writeImageBlobToClipboard(blob) {
+  const png = await ensurePngBlob(blob);
+
+  // Popup: skip direct write — Permissions Policy logs a Violation even when caught.
+  if (isExtensionPopupDocument()) {
+    await writeImageBlobViaBackground(png);
+    return true;
+  }
+
+  try {
+    await writeImageBlobDirect(png);
+    return true;
+  } catch (directErr) {
+    if (!canFallbackClipboardWrite(directErr)) throw directErr;
+    await writeImageBlobViaBackground(png);
+    return true;
+  }
+}
+
+async function tryDomImageBlob(imageElement) {
+  if (!imageElement) return null;
+  try {
+    return await blobFromHtmlImage(imageElement);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function resolveImageBlob(clip, { imageElement } = {}) {
+  const { src } = await resolveClipImageSrc(clip);
+  if (src?.startsWith('data:image/')) return dataUrlToBlob(src);
+
+  if (isHttpImageUrl(src)) {
+    try {
+      return await fetchUrlAsBlob(src);
+    } catch (fetchErr) {
+      const fromDom = await tryDomImageBlob(imageElement);
+      if (fromDom) return fromDom;
+      throw fetchErr;
+    }
+  }
+
+  const fromDom = await tryDomImageBlob(imageElement);
+  if (fromDom) return fromDom;
+  throw new Error('no_image_src');
+}
+
+/**
+ * Write an image-bearing clip's bitmap to the system clipboard.
+ * @param {object} clip
+ * @param {{ imageElement?: HTMLImageElement }} [options]
+ */
+export async function copyImageBearingClipToClipboard(clip, options = {}) {
+  if (!isImageBearingClip(clip)) throw new Error('not_image_clip');
+  const blob = await resolveImageBlob(clip, options);
+  await writeImageBlobToClipboard(blob);
+}
+
+export { isImageBearingClip };

@@ -1,4 +1,8 @@
 
+### Jul 26, 2026 - v3.0.28 image clipboard + notes annotate + funky header
+**Files:** extension/shared/clipboard-image.js, notes.image-annotate*, profile.render.js, offscreen-clipboard.js, manifest.json
+**Result:** Image copy, notes fullscreen annotate, funky name header showcase, AI Lab picker UI; release 3.0.28.
+
 ### Jul 24, 2026 - Local→cloud migrate on upgrade
 **Status:** PENDING USER VERIFY
 **Files:** sync.local-to-cloud.js, sync.local-to-cloud.constants.js, sync.controller.js, sync.listener.js, sync.visibility.js, popup.init.js

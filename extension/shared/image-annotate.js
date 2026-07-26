@@ -391,7 +391,7 @@ function bindPointer(canvas) {
 
 function isStandaloneAnnotatePage() {
   try {
-    return /clip-image-annotate\.html/i.test(String(location?.pathname || ''));
+    return /(?:clip|note)-image-annotate\.html/i.test(String(location?.pathname || ''));
   } catch (_) {
     return false;
   }

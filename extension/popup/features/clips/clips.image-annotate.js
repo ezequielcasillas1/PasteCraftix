@@ -5,6 +5,10 @@
 
 import { getClipImage, putClipImage } from '../../../shared/clip-images.js';
 import { closeImageAnnotate, openImageAnnotate } from '../../../shared/image-annotate.js';
+import {
+  openAnnotateFullscreenWindow,
+  resolveExtensionPageUrl,
+} from '../../../shared/image-annotate-window.js';
 import { getClipIdKey } from './clips.state.js';
 
 function findClipById(app, id) {
@@ -94,45 +98,11 @@ export function closeClipImageAnnotate() {
   closeImageAnnotate();
 }
 
-function isRepoLoaderManifest() {
-  try {
-    const mf = chrome.runtime?.getManifest?.();
-    const name = String(mf?.name || '');
-    const desc = String(mf?.description || '');
-    return (
-      name.includes('Repo Loader') ||
-      desc.includes('repo root') ||
-      desc.includes('Actual extension lives in /extension')
-    );
-  } catch (_) {
-    return false;
-  }
-}
-
 function resolveAnnotatePopupUrl(clipId) {
-  const path = isRepoLoaderManifest()
-    ? 'extension/clip-image-annotate.html'
-    : 'clip-image-annotate.html';
-  return `${chrome.runtime.getURL(path)}?clipId=${encodeURIComponent(String(clipId))}`;
-}
-
-function leftFullscreenBounds() {
-  const left = Number.isFinite(window.screen?.availLeft) ? window.screen.availLeft : 0;
-  const top = Number.isFinite(window.screen?.availTop) ? window.screen.availTop : 0;
-  const width = Math.max(480, Math.round(window.screen?.availWidth || 1280));
-  const height = Math.max(480, Math.round(window.screen?.availHeight || 800));
-  return { left, top, width, height };
-}
-
-function openAnnotateWindowFallback(url, bounds, app) {
-  chrome.windows.create({
-    url,
-    type: 'popup',
-    focused: true,
-    ...bounds,
-  }).catch(() => {
-    app?.showToast?.('Could not open full screen window', 'error');
-  });
+  return resolveExtensionPageUrl(
+    'clip-image-annotate.html',
+    `clipId=${encodeURIComponent(String(clipId))}`,
+  );
 }
 
 /** Open annotate as a left-docked fullscreen popup window. */
@@ -142,26 +112,5 @@ export function popOutClipImageAnnotate(app, { clipId }) {
     app?.showToast?.('No image clip to pop out', 'error');
     return { ok: false };
   }
-
-  const url = resolveAnnotatePopupUrl(id);
-  const bounds = leftFullscreenBounds();
-  const payload = { action: 'pcOpenPopupWindow', url, ...bounds };
-
-  try {
-    chrome.runtime.sendMessage(payload, (response) => {
-      const err = chrome.runtime.lastError;
-      if (err || response?.success === false) {
-        openAnnotateWindowFallback(url, bounds, app);
-      }
-    });
-    return { ok: true };
-  } catch (_) {
-    try {
-      chrome.windows.create({ url, type: 'popup', focused: true, ...bounds });
-      return { ok: true };
-    } catch (err) {
-      app?.showToast?.(err?.message || 'Could not open full screen window', 'error');
-      return { ok: false };
-    }
-  }
+  return openAnnotateFullscreenWindow(resolveAnnotatePopupUrl(id), app);
 }

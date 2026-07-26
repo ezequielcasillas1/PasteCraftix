@@ -60,7 +60,7 @@ function getCategoryClipActionHandlers(app, clip, clipIdKey) {
     ['.category-clip-open-btn', () => clip && typeof app.openClipViewer === 'function' && app.openClipViewer(clip, 'categories')],
     ['.category-clip-share-btn', () => clip && typeof app.showShareMenuForClip === 'function' && app.showShareMenuForClip(clip)],
     [CLIP_AI_BUNDLE_SELECTOR, (anchor) => clip && openAiBundleMenu(app, { anchor, clip, context: 'categories' })],
-    ['.category-clip-copy-btn', () => clip && app.copyClipToClipboard(clip.text)],
+    ['.category-clip-copy-btn', () => clip && app.copyClipToClipboard(clip)],
   ];
 }
 

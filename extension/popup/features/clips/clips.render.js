@@ -308,7 +308,7 @@ async function handleChipAction({ app, clip, clipIdKey, chip, event }) {
     const shouldOneClickCopy = !!app.quickPasteSettings?.oneClickCopy;
     if (shouldOneClickCopy) {
       event.stopPropagation();
-      await app.copyClipToClipboard(clip?.text || '');
+      await app.copyClipToClipboard(clip || '');
       return;
     }
 
@@ -788,7 +788,7 @@ export function createSearchResultItem(app, clip) {
   });
   item.querySelector('.btn-copy').addEventListener('click', (e) => {
     e.stopPropagation();
-    app.copyClipToClipboard(clip.text);
+    app.copyClipToClipboard(clip);
   });
   item.querySelector('.chip-title-btn').addEventListener('click', (e) => {
     e.stopPropagation();

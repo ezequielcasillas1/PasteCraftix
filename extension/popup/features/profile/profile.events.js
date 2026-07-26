@@ -99,6 +99,20 @@ function _bindModalCloseHandlers(app) {
   }
 }
 
+function _bindShowcaseFunkyHandlers(app) {
+  const bind = (id) => {
+    const btn = _cloneReplace(id);
+    if (!btn) return;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await app.toggleShowcaseFunkyInHeader?.();
+    });
+  };
+  bind('accountShowcaseFunkyBtn');
+  bind('profileShowcaseFunkyBtn');
+}
+
 function _bindAccountInfoHandlers(app) {
   const resetBtn = _cloneReplace('profileResetPasswordBtn');
   if (resetBtn) {
@@ -114,6 +128,8 @@ function _bindAccountInfoHandlers(app) {
       app.showAuthModal();
     });
   }
+
+  _bindShowcaseFunkyHandlers(app);
 }
 
 function _bindUnsubscribeHandler(app) {

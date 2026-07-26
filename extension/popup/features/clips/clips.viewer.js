@@ -548,8 +548,11 @@ export async function runSendToNotes(app) {
 
 export async function copyText(app) {
   const clip = app.currentClipViewerClip;
-  const text = clip && clip.text != null ? String(clip.text) : '';
-  if (!text) return;
-  await copyClipToClipboard(app, text);
+  if (!clip) return;
+  const imageElement =
+    typeof document !== 'undefined'
+      ? document.querySelector('#clipViewerModal .clip-viewer-image, .clip-viewer-image')
+      : null;
+  await copyClipToClipboard(app, clip, { imageElement: imageElement || undefined });
 }
 

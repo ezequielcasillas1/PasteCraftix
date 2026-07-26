@@ -8,6 +8,7 @@ import {
 } from './popup.performance.js';
 import { ensureWorkspaceOwner } from '../../../bridges/workspace/workspace.facade.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
+import { mergeUserProfileLocalRemote } from '../../../shared/profile-merge.js';
 
 let popupRevealScheduled = false;
 const DEFERRED_IDLE_TIMEOUT_MS = 500;
@@ -191,7 +192,8 @@ async function refreshRemoteProfile(app, currentUser) {
   const remoteProfile = await pasteCraftSupabase.syncUserProfileFromSupabase();
   if (!remoteProfile) return;
   if (!isSameAuthenticatedUser(app, currentUser)) return;
-  app.userProfile = { ...(app.userProfile || {}), ...remoteProfile };
+  // Never let cloud nulls wipe local names (spread merge used to).
+  app.userProfile = mergeUserProfileLocalRemote(app.userProfile, remoteProfile);
   await chrome.storage.local.set({ userProfile: app.userProfile });
 }
 

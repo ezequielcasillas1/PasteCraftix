@@ -10,7 +10,8 @@ export const OPTIONAL_PERM_KINDS = Object.freeze({
 
 export const OPTIONAL_PERM_DESCS = Object.freeze({
   [OPTIONAL_PERM_KINDS.PDF_CLIPBOARD]: {
-    permissions: ['clipboardRead', 'offscreen'],
+    // offscreen is required (image copy + PDF); only clipboardRead is optional.
+    permissions: ['clipboardRead'],
   },
   [OPTIONAL_PERM_KINDS.ALL_URLS]: {
     origins: ['<all_urls>'],

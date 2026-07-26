@@ -700,8 +700,8 @@ class PasteCraftPopup {
     return PasteCraftPopupUi.escapeHtml(text);
   }
 
-  async copyClipToClipboard(text) {
-    return this.clipsFeature.service.copyClipToClipboard(this, text);
+  async copyClipToClipboard(textOrClip, options) {
+    return this.clipsFeature.service.copyClipToClipboard(this, textOrClip, options);
   }
 
   openClipViewer(clip, sourceContext) {
@@ -1178,6 +1178,9 @@ class PasteCraftPopup {
   }
   async saveUserName() { return this.profileFeature.storage.saveUserName(this); }
   async saveAiNameToProfile() { return this.profileFeature.storage.saveAiNameToProfile(this); }
+  async toggleShowcaseFunkyInHeader() {
+    return this.profileFeature?.render?.toggleShowcaseFunkyInHeader?.(this);
+  }
 
   // ==================== SESSION PERSISTENCE ====================
 
@@ -1454,6 +1457,7 @@ class PasteCraftPopup {
   runAlbumAttachmentSendToCategories() { return this.notesFeature.albumAttachmentViewer.runSendToCategories(this); }
   runAlbumAttachmentSendToNotes() { return this.notesFeature.albumAttachmentViewer.runSendToNotes(this); }
   runAlbumAttachmentAnnotate() { return this.notesFeature.albumAttachmentViewer.runAnnotate(this); }
+  runAlbumAttachmentAnnotatePopOut() { return this.notesFeature.albumAttachmentViewer.runAnnotatePopOut(this); }
   openAlbumSourceNoteOverlay(sourceNoteId, albumId) { return this.notesFeature.album.openAlbumSourceNoteOverlay(this, sourceNoteId, albumId); }
   closeAlbumSourceNoteOverlay() { return this.notesFeature.album.closeAlbumSourceNoteOverlay(this); }
   copyAllNoteAttachments() { return this.notesFeature.album.copyAllNoteAttachments(this); }

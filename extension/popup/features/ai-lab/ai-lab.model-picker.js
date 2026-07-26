@@ -29,20 +29,24 @@ function optionLabel(model, unlimited) {
   return `${model.label} · ${getShowcaseCreditCost(model)} cr`;
 }
 
-function fillHeaderSelect(ctx) {
-  const { headerSelect, models, selected, allowed, unlimited } = ctx;
-  if (!headerSelect) return;
-  headerSelect.innerHTML = models
+function fillModelSelect(select, ctx) {
+  if (!select) return;
+  select.innerHTML = ctx.models
     .map((m) => {
-      const sel = m.id === selected.id ? ' selected' : '';
-      return `<option value="${escapeHtml(m.id)}"${sel}>${escapeHtml(optionLabel(m, unlimited))}</option>`;
+      const sel = m.id === ctx.selected.id ? ' selected' : '';
+      return `<option value="${escapeHtml(m.id)}"${sel}>${escapeHtml(optionLabel(m, ctx.unlimited))}</option>`;
     })
     .join('');
-  headerSelect.disabled = !allowed;
-  headerSelect.title = allowed
-    ? `AI model: ${selected.label}`
+  select.disabled = !ctx.allowed;
+  select.title = ctx.allowed
+    ? `AI model: ${ctx.selected.label}`
     : 'Upgrade or redeem AI access to pick a model';
-  headerSelect.setAttribute('aria-label', 'Select AI model');
+  select.setAttribute('aria-label', 'Select AI model');
+}
+
+function fillModelSelects(ctx) {
+  fillModelSelect(ctx.headerSelect, ctx);
+  fillModelSelect(ctx.labTitleSelect, ctx);
 }
 
 function costHtml(model, unlimited) {
@@ -81,6 +85,14 @@ function fillHint(ctx) {
     : 'AI model picker unlocks with Premium, credit packs, or unlimited access.';
 }
 
+function revealPickerWrap(wrapId, allowed) {
+  const wrap = byId(wrapId);
+  if (!wrap) return;
+  wrap.hidden = false;
+  wrap.style.display = 'flex';
+  wrap.classList.toggle('is-locked', !allowed);
+}
+
 function buildPickerCtx(app) {
   const subscription = app?.userSubscription || null;
   return {
@@ -89,6 +101,7 @@ function buildPickerCtx(app) {
     models: listPickerModels(subscription),
     selected: resolveShowcaseModelFromWorkflow(app?.aiWorkflow),
     headerSelect: byId(AI_SELECTORS.headerModelSelect),
+    labTitleSelect: byId(AI_SELECTORS.labTitleModelSelect),
     showcase: byId(AI_SELECTORS.labModelShowcase),
     hint: byId(AI_SELECTORS.labModelHint),
   };
@@ -105,14 +118,9 @@ export async function ensureDefaultWorkflowEnabled(app) {
 
 export function renderAiModelPicker(app) {
   const ctx = buildPickerCtx(app);
-  fillHeaderSelect(ctx);
-
-  const headerWrap = byId(AI_SELECTORS.headerModelPicker);
-  if (headerWrap) {
-    headerWrap.hidden = false;
-    headerWrap.classList.toggle('is-locked', !ctx.allowed);
-  }
-
+  fillModelSelects(ctx);
+  revealPickerWrap(AI_SELECTORS.headerModelPicker, ctx.allowed);
+  revealPickerWrap(AI_SELECTORS.labTitleModelPicker, ctx.allowed);
   fillShowcase(ctx);
   fillHint(ctx);
 }
@@ -135,16 +143,19 @@ export async function selectAiShowcaseModel(app, modelId, { silent = true } = {}
   return persistShowcaseSelection(app, model, silent);
 }
 
+function bindSelectChange(select, app) {
+  if (!select) return;
+  select.addEventListener('change', async () => {
+    await selectAiShowcaseModel(app, select.value, { silent: false });
+  });
+}
+
 export function bindAiModelPickerEvents(app) {
   if (_eventsBound) return;
   _eventsBound = true;
 
-  const headerSelect = byId(AI_SELECTORS.headerModelSelect);
-  if (headerSelect) {
-    headerSelect.addEventListener('change', async () => {
-      await selectAiShowcaseModel(app, headerSelect.value, { silent: false });
-    });
-  }
+  bindSelectChange(byId(AI_SELECTORS.headerModelSelect), app);
+  bindSelectChange(byId(AI_SELECTORS.labTitleModelSelect), app);
 
   const showcase = byId(AI_SELECTORS.labModelShowcase);
   if (!showcase) return;
