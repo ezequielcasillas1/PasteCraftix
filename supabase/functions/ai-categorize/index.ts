@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import {
+  fetchChatCompletionsWithModelFallback,
+  parseAiWorkflowFromBody,
+  resolveModelsFromWorkflow,
+  getApiKeyForResolved,
+  requireTextCredits,
+  decrementTextCredits,
+  getTextCreditCost,
+} from "../_shared/ai_workflow.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -169,11 +177,9 @@ serve(async (req) => {
     }
 
     const batch = clips.slice(0, 50)
-    const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'openai',
-      preset: 'cheapest'
-    }
-    const models = resolveModelsFromWorkflow(cheapestWorkflow)
+    const categorizeWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } =
+      parseAiWorkflowFromBody(body) || { provider: 'openai', preset: 'cheapest' }
+    const models = resolveModelsFromWorkflow(categorizeWorkflow)
     const apiKey = getApiKeyForResolved(models)
     const clipSummaries = buildClipSummaries(batch)
 
@@ -189,7 +195,10 @@ serve(async (req) => {
 
       suggestions = suggestions.slice(0, SUGGESTION_COUNT)
 
-      const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+      const credits = await decrementTextCredits(
+        gate,
+        getTextCreditCost(categorizeWorkflow.provider, categorizeWorkflow.preset),
+      )
 
       return new Response(
         JSON.stringify({ suggestions, ...credits }),
@@ -230,7 +239,10 @@ serve(async (req) => {
     while (categories.length < batch.length) categories.push('Quick')
     if (categories.length > batch.length) categories.length = batch.length
 
-    const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+    const credits = await decrementTextCredits(
+      gate,
+      getTextCreditCost(categorizeWorkflow.provider, categorizeWorkflow.preset),
+    )
 
     return new Response(
       JSON.stringify({ categories, ...credits }),

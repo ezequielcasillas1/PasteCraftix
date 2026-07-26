@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchRefactorChatCompletions, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
-import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
+import {
+  fetchRefactorChatCompletions,
+  fetchChatCompletionsWithModelFallback,
+  parseAiWorkflowFromBody,
+  resolveModelsFromWorkflow,
+  getApiKeyForResolved,
+  requireTextCredits,
+  decrementTextCredits,
+  getTextCreditCost,
+} from "../_shared/ai_workflow.ts"
+import type { AiWorkflowProvider, AiWorkflowPreset, ResolvedAiModels } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -163,6 +172,11 @@ async function callRefactorModel(
   temperature: number,
   forceOpenAi = false,
   totalInputChars = 0,
+  workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
+    provider: 'anthropic',
+    preset: 'default',
+  },
+  models: ResolvedAiModels = resolveModelsFromWorkflow({ provider: 'anthropic', preset: 'default' }),
 ) {
   let maxTokens = computeRefactorMaxTokens(totalInputChars, batchLen)
   const buildPayload = (tokens: number) => ({
@@ -174,14 +188,23 @@ async function callRefactorModel(
     temperature,
   })
 
-  let { data } = await fetchRefactorChatCompletions(buildPayload(maxTokens), { forceOpenAi })
+  async function run(tokens: number) {
+    const payload = buildPayload(tokens)
+    if (forceOpenAi || workflow.provider === 'anthropic') {
+      return fetchRefactorChatCompletions(payload, { forceOpenAi })
+    }
+    const apiKey = getApiKeyForResolved(models)
+    return fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
+  }
+
+  let { data } = await run(maxTokens)
   let finishReason = String(data?.choices?.[0]?.finish_reason || '')
   // One retry if provider hit the output cap (incomplete rewrite / JSON).
   if (finishReason === 'length' || finishReason === 'max_tokens') {
     const higher = Math.min(MAX_OUTPUT_TOKENS, Math.ceil(maxTokens * 1.75))
     if (higher > maxTokens) {
       maxTokens = higher
-      ;({ data } = await fetchRefactorChatCompletions(buildPayload(maxTokens), { forceOpenAi }))
+      ;({ data } = await run(maxTokens))
       finishReason = String(data?.choices?.[0]?.finish_reason || '')
     }
   }
@@ -209,10 +232,9 @@ serve(async (req) => {
     const edgeLevel = levelPrompts[String(level || '')] ? String(level) : 'college'
     const batch = clips.slice(0, 30)
 
-    const refactorWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'anthropic',
-      preset: 'default',
-    }
+    const refactorWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } =
+      parseAiWorkflowFromBody(body) || { provider: 'anthropic', preset: 'default' }
+    const models = resolveModelsFromWorkflow(refactorWorkflow)
 
     const preparedTexts = batch.map((c: { text?: string }) =>
       String(c.text || '').trim().slice(0, MAX_CLIP_CHARS),
@@ -233,6 +255,8 @@ serve(async (req) => {
       0.65,
       false,
       totalInputChars,
+      refactorWorkflow,
+      models,
     )
     const parseOk = firstPass.parseOk
     const aiCount = firstPass.refactored.length
@@ -257,6 +281,8 @@ serve(async (req) => {
           0.85,
           true,
           promptText.length,
+          refactorWorkflow,
+          models,
         )
         if (retry.refactored[0] && retry.refactored[0] !== original) {
           refactored[i] = retry.refactored[0]
