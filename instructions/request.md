@@ -1,6 +1,6 @@
 # PasteCraft - Future Feature Requests
 
-**Last Updated:** July 13, 2026  
+**Last Updated:** July 26, 2026  
 **MVP Status:** ✅ COMPLETE AND DEPLOYED
 
 **Note:** All completed implementations are logged in `program-study/Completed/Implementations.md`
@@ -8,6 +8,18 @@
 ---
 
 ## 📋 **FUTURE ENHANCEMENTS (Post-MVP)**
+
+---
+
+#### 0. AI provider / model picker (header + AI Lab)
+**Priority:** HIGH  
+**Status:** Implemented (pending user SUCCESS verify)
+
+**Requirements:**
+- Header compact model select + AI Lab showcase cards (GPT-4o, Haiku 4.5, GPT-5.2, Gemini 3.6 Flash)
+- Map UI → existing `aiWorkflow` provider/preset; wire format/refactor/categorize + summary/breakdown
+- Gate: unlimited/dev4ever + Premium/credits get full list; paid shows credit costs
+- Edge presets: `gpt4o`, `gemini_36_flash` (`gemini-3.6-flash`); deploy ai-format/refactor/categorize (+ shared)
 
 ---
 
