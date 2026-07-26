@@ -1,4 +1,5 @@
 /** Vertical slice: full-sync.js */
+import { assertWorkspaceOwnerForSync } from '../../bridges/workspace/workspace.facade.js';
 import { mergeUserProfileLocalRemote } from '../../shared/profile-merge.js';
 
 export const fullSyncMixin = {
@@ -32,6 +33,19 @@ async performFullSync() {
     }
 
     const userId = await this.getSyncUserId();
+
+    // Hard account isolation: never merge/upload when local owner ≠ session user.
+    const ownerGate = await assertWorkspaceOwnerForSync(userId);
+    if (!ownerGate.ok) {
+      console.warn('⚠️ Skipping full sync: workspace owner gate failed', ownerGate.reason);
+      return {
+        success: false,
+        message: 'Workspace owner mismatch'
+      };
+    }
+    if (ownerGate.cleared) {
+      console.info('🔒 Local library cleared for account bind; hydrating from cloud only');
+    }
     
     // Check cloud sync access (FREE tier = local only)
     const hasAccess = await this.hasCloudSyncAccess(userId);
@@ -45,7 +59,7 @@ async performFullSync() {
     
     console.log('🔄 Starting full bidirectional sync...');
 
-    // Get local data from Chrome storage
+    // Get local data from Chrome storage (empty after owner clear → cloud-only hydrate)
     const localData = await new Promise((resolve) => {
       chrome.storage.local.get([
         'clips',
