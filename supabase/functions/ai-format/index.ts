@@ -1,5 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { fetchChatCompletionsWithModelFallback, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
+import {
+  CLAUDE_HAIKU_MODEL,
+  fetchRefactorChatCompletions,
+  fetchChatCompletionsWithModelFallback,
+  parseAiWorkflowFromBody,
+  resolveModelsFromWorkflow,
+  getApiKeyForResolved,
+  requireTextCredits,
+  decrementTextCredits,
+  getTextCreditCost,
+} from "../_shared/ai_workflow.ts"
 import type { AiWorkflowProvider, AiWorkflowPreset } from "../_shared/ai_workflow.ts"
 
 const corsHeaders = {
@@ -7,42 +17,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const AI_FILLER_RE = /\b(delve|delving|it's important to note|it is important to note|furthermore|in conclusion|additionally|moreover|it's worth noting|it is worth noting|in today's world|navigate the complexities|as an ai|underscores the importance|comprehensive overview|robust solution)\b/i
+/** Per-clip safety ceiling for prompt assembly (was 500 — truncated real clips). */
+const MAX_CLIP_CHARS = 8000
+/** Matches Anthropic clamp in fetchClaudeChat. */
+const MAX_OUTPUT_TOKENS = 4096
 
-function countEmDashes(text: string): number {
-  return (text.match(/—/g) || []).length
+/**
+ * Format polish ≈ input length + JSON wrapper (slightly tighter than refactor rewrite budget).
+ */
+function computeFormatMaxTokens(totalInputChars: number, batchLen: number): number {
+  const n = Math.max(1, batchLen)
+  const chars = Math.max(0, totalInputChars)
+  const inputTokensApprox = Math.ceil(chars / 3.5)
+  const jsonOverhead = 120 + n * 40
+  const needed = Math.ceil(inputTokensApprox * 1.25) + jsonOverhead
+  const floor = Math.max(512, n * 180)
+  return Math.min(MAX_OUTPUT_TOKENS, Math.max(floor, needed))
 }
 
-function isSuspiciousFormatOutput(original: string, formatted: string): boolean {
-  const orig = String(original || '').trim()
-  const fmt = String(formatted || '').trim()
-  if (!fmt || fmt === orig) return false
-  if (orig.length > 0 && fmt.length > orig.length * 1.12) return true
-  if (AI_FILLER_RE.test(fmt) && !AI_FILLER_RE.test(orig)) return true
-  if (countEmDashes(fmt) > countEmDashes(orig)) return true
-  return false
+function firstDiffIndex(a: string, b: string): number {
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) return i
+  }
+  return a.length === b.length ? -1 : n
 }
-
-const systemPrompt =
-  'You are a copy editor fixing standard English grammar in clipboard snippets. Correctness only — not style upgrades or AI polish.\n' +
-  'Fix when wrong:\n' +
-  '- Subject-verb agreement, pronoun-antecedent agreement, verb tense consistency\n' +
-  '- Double negatives, dangling or misplaced modifiers, sentence fragments, run-ons\n' +
-  '- Homophones (your/you\'re, there/their/they\'re, its/it\'s, affect/effect, to/too/two)\n' +
-  '- Punctuation, capitalization, and spelling\n' +
-  '- Wordiness only when it is a clear tautology or grammar error\n' +
-  'Do NOT:\n' +
-  '- Rewrite for better wording, corporate tone, or marketing polish\n' +
-  '- Add phrases, disclaimers, transitions, explanations, or new sentences\n' +
-  '- Use AI filler (delve, furthermore, additionally, in conclusion, it\'s important to note, leverage, utilize, robust, comprehensive, landscape)\n' +
-  '- Add em dashes (—) unless they already appear in the input\n' +
-  '- Change vocabulary, tone, voice, or meaning\n' +
-  '- Expand, summarize, or rephrase — minimal edits only\n' +
-  'Preserve line breaks, lists, and formatting. Return code, URLs, emails, phones, and structured data unchanged.\n' +
-  'If already grammatically correct, return unchanged.\n' +
-  'Return STRICT JSON only: {"formatted":["text0","text1",...]}\n' +
-  'Array length MUST match the number of input clips, in the same order.\n' +
-  'No markdown wrapping, no extra keys'
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -50,7 +49,6 @@ serve(async (req) => {
   }
 
   try {
-    // Credit gate: authenticate + check text credits
     const gate = await requireTextCredits(req)
     if (gate instanceof Response) return gate
 
@@ -61,76 +59,161 @@ serve(async (req) => {
       throw new Error('clips array is required')
     }
 
-    // Cap at 30 clips per request (format needs more tokens than categorize)
     const batch = clips.slice(0, 30)
 
-    // Always use cheapest preset
-    const cheapestWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } = {
-      provider: 'openai',
-      preset: 'cheapest'
-    }
-    const models = resolveModelsFromWorkflow(cheapestWorkflow)
-    const apiKey = getApiKeyForResolved(models)
+    // Default: Claude Haiku (same as refactor). Override when client sends aiWorkflow.
+    const formatWorkflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } =
+      parseAiWorkflowFromBody(body) || { provider: 'anthropic', preset: 'default' }
+    const models = resolveModelsFromWorkflow(formatWorkflow)
+    const requestedModel = models.chatTextModel
 
-    // Build clip texts for the prompt (truncated for token efficiency)
-    const clipTexts = batch.map((c: any, i: number) => {
-      const text = String(c.text || '').trim().slice(0, 500)
-      return `[${i}]\n${text}\n[/${i}]`
-    }).join('\n')
+    const preparedTexts = batch.map((c: { text?: string }) =>
+      String(c.text || '').trim().slice(0, MAX_CLIP_CHARS),
+    )
+    const totalInputChars = preparedTexts.reduce((sum, t) => sum + t.length, 0)
+    const clipTexts = preparedTexts
+      .map((text, i) => `[${i}]\n${text}\n[/${i}]`)
+      .join('\n')
 
-    const userPrompt = `Fix grammar only (no rewrites) for these ${batch.length} clipboard snippets:\n${clipTexts}`
+    const systemPrompt =
+      'You are a grammar and punctuation editor. Fix grammar, punctuation, capitalization, and sentence structure.\n' +
+      'Rules:\n' +
+      '- When text is messy (missing periods/commas, bad capitalization, run-ons, typos) you MUST apply visible polish\n' +
+      '- Fix spelling, grammar, punctuation, and capitalization errors\n' +
+      '- Improve sentence structure for clarity without changing meaning\n' +
+      '- DO NOT change vocabulary, tone, or meaning\n' +
+      '- DO NOT add new ideas, filler, or expand the text\n' +
+      '- DO NOT rewrite into a different style — polish what exists\n' +
+      '- Preserve line breaks, formatting, and code blocks as-is\n' +
+      '- Only return unchanged when the text is already clean and correctly punctuated\n' +
+      '- If text is code, URL, email, phone, or data (JSON/YAML/XML/CSV) — return it unchanged\n' +
+      '- Return STRICT JSON only: {"formatted":["text0","text1",...]}\n' +
+      '- Array length MUST match the number of input clips, in the same order\n' +
+      '- No markdown wrapping, no extra keys'
 
+    const userPrompt =
+      `Polish grammar and punctuation for these ${batch.length} clipboard snippets. ` +
+      `Apply corrections wherever the text is messy; do not invent content:\n${clipTexts}`
+
+    const maxTokens = computeFormatMaxTokens(totalInputChars, batch.length)
     const payload = {
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
-      max_tokens: Math.min(2000, batch.length * 60 + 100),
-      temperature: 0.1
+      max_tokens: maxTokens,
+      temperature: 0.2,
     }
 
-    const { data } = await fetchChatCompletionsWithModelFallback(apiKey, payload, models.chatTextModel, models)
-    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+    async function runFormat(tokens: number) {
+      const nextPayload = { ...payload, max_tokens: tokens }
+      if (formatWorkflow.provider === 'anthropic') {
+        return fetchRefactorChatCompletions(nextPayload)
+      }
+      const apiKey = getApiKeyForResolved(models)
+      return fetchChatCompletionsWithModelFallback(apiKey, nextPayload, models.chatTextModel, models)
+    }
 
-    let parsed: any = null
-    try {
-      parsed = JSON.parse(raw)
-    } catch (_) {
-      // Try to extract JSON from markdown code block
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (jsonMatch) {
-        try { parsed = JSON.parse(jsonMatch[1].trim()) } catch (_) { parsed = null }
+    let effectiveMaxTokens = maxTokens
+    let { data, usedModel } = await runFormat(maxTokens)
+    let finishReason = String(data?.choices?.[0]?.finish_reason || '')
+    if (finishReason === 'length' || finishReason === 'max_tokens') {
+      const higher = Math.min(MAX_OUTPUT_TOKENS, Math.ceil(maxTokens * 1.75))
+      if (higher > maxTokens) {
+        effectiveMaxTokens = higher
+        ;({ data, usedModel } = await runFormat(higher))
+        finishReason = String(data?.choices?.[0]?.finish_reason || '')
       }
     }
 
-    const formatted: string[] = Array.isArray(parsed?.formatted)
-      ? parsed.formatted.map((t: any, i: number) => {
-          const original = String(batch[i]?.text || '').trim()
-          const candidate = String(t || '').trim()
-          if (!candidate || candidate === original) return original
-          if (isSuspiciousFormatOutput(original, candidate)) return original
-          return candidate
-        })
+    const raw = String(data?.choices?.[0]?.message?.content || '').trim()
+
+    let parsed: { formatted?: unknown[] } | null = null
+    let parseOk = false
+    try {
+      parsed = JSON.parse(raw)
+      parseOk = Array.isArray(parsed?.formatted)
+    } catch (_) {
+      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[1].trim())
+          parseOk = Array.isArray(parsed?.formatted)
+        } catch (_) {
+          parsed = null
+          parseOk = false
+        }
+      }
+    }
+
+    const modelFormatted: string[] = parseOk
+      ? parsed!.formatted!.map((t: unknown) => String(t || '').trim())
       : []
 
-    // Pad with originals if AI returned fewer results
+    const diagnostics = batch.map((c: { text?: string }, i: number) => {
+      const original = String(c?.text || '').trim()
+      const candidate = modelFormatted[i]
+      const hadCandidate = typeof candidate === 'string'
+      const candidateText = hadCandidate ? candidate : ''
+      const equal = hadCandidate && candidateText === original
+      let outcome = 'accepted'
+      if (!parseOk) outcome = 'parse_fail_pad'
+      else if (!hadCandidate) outcome = 'missing_pad'
+      else if (!candidateText) outcome = 'empty_pad'
+      else if (equal) outcome = 'identical_model'
+      return {
+        index: i,
+        outcome,
+        originalLen: original.length,
+        candidateLen: candidateText.length,
+        equal,
+        firstDiff: equal || !hadCandidate ? -1 : firstDiffIndex(original, candidateText),
+        origPreview: original.slice(0, 80),
+        candPreview: candidateText.slice(0, 80),
+      }
+    })
+
+    const formatted: string[] = parseOk
+      ? modelFormatted.map((t: string) => String(t || '').trim())
+      : []
+
+    let paddedCount = 0
     while (formatted.length < batch.length) {
       formatted.push(String(batch[formatted.length]?.text || '').trim())
+      paddedCount++
     }
     if (formatted.length > batch.length) formatted.length = batch.length
 
-    // Decrement text credits (cheapest cost)
-    const credits = await decrementTextCredits(gate, getTextCreditCost(cheapestWorkflow.provider, cheapestWorkflow.preset))
+    // Anthropic default (Haiku) = 40 credits — same as ai-refactor
+    const credits = await decrementTextCredits(
+      gate,
+      getTextCreditCost(formatWorkflow.provider, formatWorkflow.preset),
+    )
 
     return new Response(
-      JSON.stringify({ formatted, ...credits }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({
+        formatted,
+        ...credits,
+        debug: {
+          sessionHint: 'e9511f',
+          usedModel: usedModel || requestedModel || CLAUDE_HAIKU_MODEL,
+          requestedModel,
+          parseOk,
+          finishReason,
+          rawLen: raw.length,
+          maxTokens: effectiveMaxTokens,
+          paddedCount,
+          modelResultCount: modelFormatted.length,
+          diagnostics,
+        },
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error)
     return new Response(
       JSON.stringify({ error: message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 },
     )
   }
 })

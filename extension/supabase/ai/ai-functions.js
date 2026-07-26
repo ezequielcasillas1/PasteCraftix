@@ -104,7 +104,9 @@ export const aiFunctionsMixin = {
     try {
       if (!Array.isArray(clips) || clips.length === 0) return [];
 
-      const body = { clips: this._buildCategorizeClipPayload(clips, 200) };
+      const body = await this._withAiWorkflow({
+        clips: this._buildCategorizeClipPayload(clips, 200),
+      });
       const response = await this._invokeAiEdge('ai-categorize', body, {
         timeoutMs: 20000,
         timeoutMessage: 'AI categorization timed out',
@@ -129,10 +131,10 @@ export const aiFunctionsMixin = {
         return [];
       }
 
-      const body = {
+      const body = await this._withAiWorkflow({
         mode: 'suggestions',
         clips: this._buildCategorizeClipPayload(clips, 200),
-      };
+      });
       const response = await this._invokeAiEdge('ai-categorize', body, {
         timeoutMs: 20000,
         timeoutMessage: 'AI category suggestions timed out',
@@ -155,9 +157,11 @@ export const aiFunctionsMixin = {
     try {
       if (!Array.isArray(clips) || clips.length === 0) return [];
 
-      const body = { clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })) };
+      const body = await this._withAiWorkflow({
+        clips: clips.map(c => ({ text: String(c.text || '').slice(0, 8000) })),
+      });
       const response = await this._invokeAiEdge('ai-format', body, {
-        timeoutMs: 25000,
+        timeoutMs: 30000,
         timeoutMessage: 'AI format timed out',
       });
 
@@ -180,10 +184,10 @@ export const aiFunctionsMixin = {
         return { refactored: [], diagnostics: [] };
       }
 
-      const body = {
+      const body = await this._withAiWorkflow({
         level: String(level || 'college'),
-        clips: clips.map(c => ({ text: String(c.text || '').slice(0, 500) })),
-      };
+        clips: clips.map(c => ({ text: String(c.text || '').slice(0, 8000) })),
+      });
       const response = await this._invokeAiEdge('ai-refactor', body, {
         timeoutMs: 30000,
         timeoutMessage: 'AI refactor timed out',
