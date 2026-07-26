@@ -1,5 +1,6 @@
 /** @forward-slice One-shot local → cloud library upload when hasCloudSyncAccess becomes true. */
 
+import { assertWorkspaceOwnerForSync } from '../../../bridges/workspace/workspace.facade.js';
 import {
   LOCAL_TO_CLOUD_STORAGE_KEYS,
   LOCAL_TO_CLOUD_TOAST,
@@ -150,6 +151,14 @@ async function _runUpload(app) {
 async function _gateMigrate(userId, force) {
   if (!(await _hasCloudAccess(userId))) {
     return { allow: false, reason: 'no-cloud-access' };
+  }
+  const ownerGate = await assertWorkspaceOwnerForSync(userId);
+  if (!ownerGate.ok) {
+    return { allow: false, reason: 'workspace-owner-mismatch' };
+  }
+  // After hard isolate clear, local is empty — do not upload foreign leftovers.
+  if (ownerGate.cleared) {
+    return { allow: false, reason: 'workspace-cleared-for-owner' };
   }
   if (!force && (await _isAlreadyMigrated(userId))) {
     return { allow: false, reason: 'already-migrated' };

@@ -1,4 +1,6 @@
 /** Vertical slice: sync-queue.js */
+import { assertWorkspaceOwnerForSync } from '../../bridges/workspace/workspace.facade.js';
+
 export const syncQueueMixin = {
 // CONNECTION & OFFLINE MODE
 // =====================================================
@@ -204,6 +206,24 @@ async processSyncQueue() {
   if (!this.isOnline || this.syncQueue.length === 0) {
     return;
   }
+
+  try {
+    const userId = await this.getSyncUserId();
+    const ownerGate = await assertWorkspaceOwnerForSync(userId);
+    if (!ownerGate.ok) {
+      console.warn('⚠️ Skipping sync queue: workspace owner gate failed', ownerGate.reason);
+      return;
+    }
+    if (ownerGate.cleared) {
+      this.syncQueue = [];
+      await this.saveSyncQueue();
+      console.info('🔒 Dropped sync queue after workspace owner clear');
+      return;
+    }
+  } catch (error) {
+    console.warn('⚠️ Sync queue owner check failed:', error?.message || error);
+    return;
+  }
   
   const compactedQueue = this._compactSyncQueue(this.syncQueue);
   if (compactedQueue.length !== this.syncQueue.length) {
@@ -304,6 +324,16 @@ updateSyncProgress(current, total, percentage) {
 
 async syncWithQueue(type, data, syncMethod) {
   const op = { type, data };
+  try {
+    const userId = await this.getSyncUserId();
+    const ownerGate = await assertWorkspaceOwnerForSync(userId);
+    if (!ownerGate.ok || ownerGate.cleared) {
+      console.warn('⚠️ Refusing syncWithQueue: workspace owner gate', ownerGate.reason || 'cleared');
+      return false;
+    }
+  } catch (_) {
+    return false;
+  }
   if (!this.isOnline) {
     // Offline: add to queue
     await this.addToSyncQueue(op);
