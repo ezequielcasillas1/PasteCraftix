@@ -9,6 +9,10 @@ import {
   resolveClipImageSrc,
 } from '../../../shared/clip-images.js';
 import { canAnnotateImageSrc, openImageAnnotate } from '../../../shared/image-annotate.js';
+import {
+  PENDING_NOTE_IMAGE_ATTACH_KEY,
+  popOutPickerImageAnnotate,
+} from './notes.image-annotate.js';
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
@@ -147,10 +151,13 @@ function _updateFooter(app) {
   const countEl = document.getElementById('imagePickerSelectionCount');
   const addBtn = document.getElementById('imagePickerAddBtn');
   const editBtn = document.getElementById('imagePickerEditAddBtn');
+  const fullscreenBtn = document.getElementById('imagePickerEditFullscreenBtn');
   const count = app.selectedPickerImages.size;
+  const canEdit = !!_selectedAnnotatableCandidate(app);
   if (countEl) countEl.textContent = count === 1 ? '1 selected' : `${count} selected`;
   if (addBtn) addBtn.disabled = count === 0;
-  if (editBtn) editBtn.disabled = !_selectedAnnotatableCandidate(app);
+  if (editBtn) editBtn.disabled = !canEdit;
+  if (fullscreenBtn) fullscreenBtn.disabled = !canEdit;
 }
 
 function _cardHtml(app, item) {
@@ -310,6 +317,55 @@ export async function editAndAddSelectedImageToNote(app) {
   _attachEditedCandidate(app, candidate, result.dataUrl);
 }
 
+/** Pop out fullscreen annotate (same tools), then attach when popup reopens. */
+export async function editFullscreenAndAddSelectedImageToNote(app) {
+  const candidate = _selectedAnnotatableCandidate(app);
+  if (!candidate) {
+    app.showToast('Select one image that can be edited (capture/upload)');
+    return;
+  }
+  const result = await popOutPickerImageAnnotate(app, candidate);
+  if (result?.ok) {
+    closeImagePicker(app);
+    app.showToast?.('Fullscreen annotate opened — Save there to attach');
+  }
+}
+
+/** Apply pending fullscreen annotate result into the open note draft. */
+export async function consumePendingNoteImageAttach(app) {
+  const editorOpen = document.getElementById('noteEditorModal')?.style?.display === 'flex';
+  if (!editorOpen) return false;
+
+  let pending = null;
+  try {
+    const row = await chrome.storage.local.get(PENDING_NOTE_IMAGE_ATTACH_KEY);
+    pending = row?.[PENDING_NOTE_IMAGE_ATTACH_KEY] || null;
+  } catch (_) {
+    return false;
+  }
+  if (!pending || !canAnnotateImageSrc(pending.dataUrl)) return false;
+
+  const pendingNoteId = pending.noteId;
+  if (
+    pendingNoteId != null &&
+    app?.currentNoteId != null &&
+    String(pendingNoteId) !== String(app.currentNoteId)
+  ) {
+    return false;
+  }
+
+  try {
+    await chrome.storage.local.remove(PENDING_NOTE_IMAGE_ATTACH_KEY);
+  } catch (_) {}
+
+  const candidate = {
+    ...(pending.candidate || {}),
+    src: pending.dataUrl,
+    mime: 'image/png',
+  };
+  return _attachEditedCandidate(app, candidate, pending.dataUrl);
+}
+
 function _readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -453,6 +509,7 @@ const PICKER_ACTIONS = Object.freeze({
   'toggle-image-picker-item': (app, target) => { toggleImagePickerItem(app, target.dataset.imageId); },
   'add-selected-images': (app) => { addSelectedImagesToNote(app); },
   'edit-add-selected-image': (app) => { editAndAddSelectedImageToNote(app); },
+  'edit-fullscreen-selected-image': (app) => { editFullscreenAndAddSelectedImageToNote(app); },
   'add-image-url': (app) => {
     const input = document.getElementById('imagePickerUrlInput');
     addImageUrlToNote(app, input?.value);

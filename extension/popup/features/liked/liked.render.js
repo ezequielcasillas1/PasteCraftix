@@ -145,7 +145,7 @@ function paintLikedRows(app, container, likedClips) {
     row.querySelector('.liked-copy-btn')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (typeof app.copyClipToClipboard === 'function') {
-        await app.copyClipToClipboard(clip?.text || '');
+        await app.copyClipToClipboard(clip || '');
       }
     });
 
@@ -157,7 +157,7 @@ function paintLikedRows(app, container, likedClips) {
     row.addEventListener('click', async (e) => {
       if (e.target.closest('button')) return;
       if (app.quickPasteSettings?.oneClickCopy && typeof app.copyClipToClipboard === 'function') {
-        await app.copyClipToClipboard(clip?.text || '');
+        await app.copyClipToClipboard(clip || '');
       }
     });
 

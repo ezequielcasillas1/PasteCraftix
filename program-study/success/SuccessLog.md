@@ -1,4 +1,9 @@
 
+### Jul 26, 2026 - Image copy, notes annotate fullscreen, funky header showcase
+**Status:** SUCCESS
+**Files:** clipboard-image.js, offscreen-clipboard.js, notes.image-annotate*.js, note-image-annotate.html, profile.render.js, ai-lab.model-picker.js, manifest.json (3.0.28)
+**Result:** Image clips copy as PNG via offscreen; notes/album annotate + Edit fullscreen; Funky AI name showcase in top header; AI Lab model picker placements. User production-ready.
+
 ### Jul 20, 2026 - Auth bridge hydrate before sync
 **Status:** SUCCESS
 **Files:** auth-bridge.js, identity.js, subscription.js

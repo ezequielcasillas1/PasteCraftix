@@ -7,6 +7,7 @@ import { resolveSafeExternalUrl } from '../../../safe-url.js';
 import { canAnnotateImageSrc, openImageAnnotate } from '../../../shared/image-annotate.js';
 import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
+import { popOutAlbumImageAnnotate } from './notes.image-annotate.js';
 
 const SOURCE_CONTEXT = 'album';
 
@@ -89,10 +90,32 @@ function resolveAttachmentOverlayTitle(app, att) {
 }
 
 function renderAttachmentImageBody(app, att, body) {
-  const src = att.dataUrl || att.url || att.src || '';
-  body.innerHTML = src
-    ? `<img src="${app.escapeHtml(src)}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb;" />`
-    : 'Image attachment is missing a source.';
+  const src = String(att.dataUrl || att.url || att.src || '').trim();
+  if (!src) {
+    body.textContent = 'Image attachment is missing a source.';
+    return;
+  }
+  const safeSrc = app.escapeHtml(src);
+  const canAnnotate = canAnnotateImageSrc(src);
+  const annotateActions = canAnnotate
+    ? `
+      <div class="clip-viewer-image-actions clip-viewer-image-actions--top">
+        <button type="button" class="pc-annotate-open-btn pc-annotate-open-btn--primary" data-action="album-attachment-popout">Pop out full screen</button>
+      </div>
+    `
+    : '';
+  const annotateFooter = canAnnotate
+    ? `
+      <div class="clip-viewer-image-actions">
+        <button type="button" class="pc-annotate-open-btn" data-action="album-attachment-annotate">Annotate here · Draw / Text</button>
+      </div>
+    `
+    : '';
+  body.innerHTML = `
+    ${annotateActions}
+    <img class="clip-viewer-image" ${canAnnotate ? 'data-action="album-attachment-annotate" title="Annotate here"' : ''} src="${safeSrc}" alt="Album attachment" style="max-width:100%; border-radius:10px; border:1px solid #e5e7eb; cursor:${canAnnotate ? 'pointer' : 'default'};" />
+    ${annotateFooter}
+  `;
 }
 
 function renderAttachmentLinkBody(app, att, body) {
@@ -343,4 +366,27 @@ export async function runAnnotate(app) {
   if (toastAnnotateGateFailure(app, resolved, src)) return;
   const result = await openAnnotateEditor(app, src);
   await saveAnnotateResult(app, resolved, result);
+}
+
+/** Pop out fullscreen annotate for the current album image (persists on Save). */
+export async function runAnnotatePopOut(app) {
+  const resolved = resolveCurrentImageAttachment(app);
+  const src = attachmentImageSrc(resolved?.att);
+  if (toastAnnotateGateFailure(app, resolved, src)) return;
+  await popOutAlbumImageAnnotate(app, {
+    noteId: resolved.ctx.noteId,
+    attachmentIndex: resolved.ctx.attachmentIndex,
+    dataUrl: src,
+  });
+}
+
+/** Refresh album viewer after fullscreen annotate wrote storage. */
+export async function refreshAfterExternalAnnotate(app) {
+  const ctx = app.currentAlbumAttachmentContext;
+  if (!ctx) return;
+  try {
+    await app.loadNotes?.();
+  } catch (_) {}
+  open(app, ctx.noteId, ctx.attachmentIndex);
+  app.renderNotes?.();
 }

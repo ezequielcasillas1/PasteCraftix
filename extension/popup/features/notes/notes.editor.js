@@ -80,7 +80,7 @@ function _renderEditorAttachmentList(app, els) {
   app.renderNoteAttachments();
 }
 
-export function openNoteEditor(app, type = 'note', noteId = null, showBack = false) {
+export async function openNoteEditor(app, type = 'note', noteId = null, showBack = false) {
   app.currentNoteType = type;
   app.currentNoteId = noteId;
   app.currentNoteAttachments = [];
@@ -92,6 +92,9 @@ export function openNoteEditor(app, type = 'note', noteId = null, showBack = fal
   _renderEditorAttachmentList(app, els);
   app.updateNoteAiControls();
   els.modal.style.display = 'flex';
+  try {
+    await app.notesFeature?.imagePicker?.consumePendingNoteImageAttach?.(app);
+  } catch (_) {}
 }
 
 // ── closeNoteEditor ────────────────────────────────────────────────────────

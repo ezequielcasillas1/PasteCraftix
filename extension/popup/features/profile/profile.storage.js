@@ -2,7 +2,6 @@ import {
   PROFILE_STORAGE_KEYS,
   PROFILE_ELEMENT_IDS,
 } from './profile.constants.js';
-import { updateAccountInfoSection } from './profile.account-info.js';
 import { refreshProfileNameFields } from './profile.render.js';
 
 // ── loadUserProfile ──────────────────────────────────────────────────────────
@@ -62,9 +61,11 @@ export async function saveUserProfile(app) {
 
     await _syncProfileToSupabase(app.userProfile);
     refreshProfileNameFields(app);
+    return true;
   } catch (error) {
     console.error('❌ CRITICAL: Failed to save user profile:', error);
     app.showToast('❌ Failed to save profile', 'error');
+    return false;
   }
 }
 
@@ -75,35 +76,55 @@ export async function saveUserName(app) {
     const userName = document.getElementById(PROFILE_ELEMENT_IDS.userName)?.value?.trim() || '';
     if (!userName) {
       app.showToast('📝 Enter your display name first', 'error');
-      return;
+      return false;
     }
     if (!app.userProfile) app.userProfile = {};
     app.userProfile.userName = userName;
-    await saveUserProfile(app);
+    const saved = await saveUserProfile(app);
+    if (!saved) return false;
     app.showToast('✅ Display name saved', 'success');
+    return true;
   } catch (error) {
     console.error('Failed to save name:', error);
     app.showToast('❌ Failed to save name', 'error');
+    return false;
   }
+}
+
+function _trimName(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function _resolvePendingFunkyName(app) {
+  const candidates = [
+    _trimName(app._pendingFunkyAiName),
+    _trimName(document.getElementById(PROFILE_ELEMENT_IDS.aiNameValue)?.textContent),
+    _trimName(app.userProfile?.aiGeneratedName),
+  ];
+  return candidates.find((name) => name && name !== '-') || '';
 }
 
 export async function saveAiNameToProfile(app) {
   try {
-    const aiNameFromUi = document.getElementById(PROFILE_ELEMENT_IDS.aiNameValue)?.textContent?.trim() || '';
-    const aiName = aiNameFromUi ||
-      (typeof app.userProfile?.aiGeneratedName === 'string' ? app.userProfile.aiGeneratedName.trim() : '');
+    const aiName = _resolvePendingFunkyName(app);
 
-    if (!aiName || aiName === '-') {
+    if (!aiName) {
       app.showToast('🎨 Please generate a funky animal name first', 'error');
-      return;
+      return false;
     }
     if (!app.userProfile) app.userProfile = {};
     app.userProfile.aiGeneratedName = aiName;
-    await saveUserProfile(app);
+    app._pendingFunkyAiName = aiName;
+
+    const saved = await saveUserProfile(app);
+    if (!saved) return false;
+
     app.updateAIGenerateButtonState();
     app.showToast('✅ Funky name saved', 'success');
+    return true;
   } catch (error) {
     console.error('Failed to save funky name:', error);
     app.showToast('❌ Failed to save funky name', 'error');
+    return false;
   }
 }

@@ -350,10 +350,77 @@ export function handlePcCopyText(message, { sendResponse }) {
   return true;
 }
 
+async function writeClipboardImageViaOffscreen(dataUrl) {
+  const response = await chrome.runtime.sendMessage({
+    action: 'pcOffscreenWriteClipboardImage',
+    dataUrl,
+  });
+  if (response?.success) return { success: true };
+  return { success: false, error: response?.error || 'offscreen_write_image_failed' };
+}
+
+/**
+ * Write a PNG (data URL) to the system clipboard via offscreen document.
+ * Popup documents block navigator.clipboard.write for images (Permissions Policy).
+ */
+export function handlePcCopyImage(message, { sendResponse }) {
+  const dataUrl = String(message?.dataUrl || '');
+  (async () => {
+    try {
+      if (!dataUrl.startsWith('data:image/')) {
+        sendResponse({ success: false, error: 'invalid_image_data_url' });
+        return;
+      }
+      const ready = await ensureClipboardOffscreenDocument();
+      if (!ready.ok) {
+        sendResponse({ success: false, error: ready.error });
+        return;
+      }
+      sendResponse(await writeClipboardImageViaOffscreen(dataUrl));
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
+  })();
+  return true;
+}
+
+function isHttpUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url);
+}
+
+async function fetchRemoteImageDataUrl(url) {
+  const res = await fetch(url, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`image_fetch_${res.status}`);
+  const blob = await res.blob();
+  const mime = String(blob?.type || '');
+  if (!mime.startsWith('image/')) throw new Error('not_image_response');
+  const dataUrl = await blobToDataUrl(blob);
+  return { dataUrl, mime: mime || 'image/png' };
+}
+
+/** Fetch a remote image for clipboard copy when popup CSP blocks connect-src. */
+export function handlePcFetchImageAsDataUrl(message, { sendResponse }) {
+  const url = String(message?.url || '').trim();
+  (async () => {
+    try {
+      if (!isHttpUrl(url)) {
+        sendResponse({ success: false, error: 'invalid_image_url' });
+        return;
+      }
+      const { dataUrl, mime } = await fetchRemoteImageDataUrl(url);
+      sendResponse({ success: true, dataUrl, mime });
+    } catch (error) {
+      sendResponse({ success: false, error: error?.message || String(error) });
+    }
+  })();
+  return true;
+}
+
 const OFFSCREEN_CLIPBOARD = Object.freeze({
   url: 'offscreen-clipboard.html',
   reasons: ['CLIPBOARD'],
-  justification: 'Read clipboard text when PDF viewer steals page focus',
+  justification:
+    'Read clipboard text when PDF viewer steals page focus; write image clips when popup Permissions Policy blocks Clipboard API',
 });
 
 function isOffscreenAlreadyExistsError(err) {
@@ -420,6 +487,8 @@ export function createCaptureHandlerMap() {
     [A.PC_CAPTURE_REGION]: handlePcCaptureRegion,
     [A.PC_GET_PAGE_SELECTION]: handlePcGetPageSelection,
     [A.PC_COPY_TEXT]: handlePcCopyText,
+    [A.PC_COPY_IMAGE]: handlePcCopyImage,
+    [A.PC_FETCH_IMAGE_AS_DATA_URL]: handlePcFetchImageAsDataUrl,
     [A.PC_READ_CLIPBOARD]: handlePcReadClipboard,
     [A.PC_ENSURE_OPTIONAL_PERMISSIONS]: handlePcEnsureOptionalPermissions,
   };

@@ -643,9 +643,36 @@ export async function removeChip(app, clipIdKey) {
   }
 }
 
-export async function copyClipToClipboard(app, text) {
+function isClipLikePayload(value) {
+  return !!(
+    value &&
+    typeof value === 'object' &&
+    (value.text != null || value.meta != null || value.id != null)
+  );
+}
+
+/**
+ * Copy a clip (image → bitmap) or plain text to the clipboard.
+ * Pass the clip object for image-bearing clips; strings stay text-only.
+ */
+export async function copyClipToClipboard(app, textOrClip, options = {}) {
   try {
-    await copyToClipboardFallback(text);
+    if (isClipLikePayload(textOrClip)) {
+      const { isImageBearingClip, copyImageBearingClipToClipboard } = await import(
+        '../../../shared/clipboard-image.js'
+      );
+      if (isImageBearingClip(textOrClip)) {
+        await copyImageBearingClipToClipboard(textOrClip, options);
+        app.showToast('Image copied!');
+        return;
+      }
+      const text = textOrClip.text != null ? String(textOrClip.text) : '';
+      await copyToClipboardFallback(text);
+      app.showToast('Content copied!');
+      return;
+    }
+
+    await copyToClipboardFallback(textOrClip);
     app.showToast('Content copied!');
   } catch (error) {
     console.error('Failed to copy:', error);

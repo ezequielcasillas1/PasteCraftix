@@ -1,5 +1,9 @@
 /** @forward-slice — Quick Paste paste-into-field + toast helpers. */
 
+import {
+  copyImageBearingClipToClipboard,
+  isImageBearingClip,
+} from '../../shared/clipboard-image.js';
 import { clipIdKey } from './qp.helpers.js';
 import { QP_CLASSES, QP_LIMITS } from './qp.constants.js';
 
@@ -43,6 +47,18 @@ async function pasteOrCopyText(qp, text) {
 export async function pasteQuickPasteClip(qp, index) {
   const clip = qp.clips[index];
   if (!clip) return;
+
+  if (typeof clip === 'object' && isImageBearingClip(clip)) {
+    try {
+      await copyImageBearingClipToClipboard(clip);
+      qp.showPasteSuccess('Image copied to clipboard');
+      return;
+    } catch (error) {
+      console.error('Image copy failed:', error);
+      qp.showPasteError();
+      return;
+    }
+  }
 
   const text = clip.text || clip;
   try {

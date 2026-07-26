@@ -1,6 +1,78 @@
-import { PROFILE_ELEMENT_IDS, ANIMAL_TYPES_REGEX } from './profile.constants.js';
+import { PROFILE_ELEMENT_IDS, ANIMAL_TYPES_REGEX, SHOWCASE_FUNKY_IN_HEADER_KEY } from './profile.constants.js';
 import * as sel from './profile.selectors.js';
 import { updateAccountInfoSection } from './profile.account-info.js';
+
+const SHOWCASE_TIP =
+  'Show this Funky AI name in the top-left header next to your avatar. Click again to switch back to your display name.';
+
+function _trimName(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function _resolveFunkyName(profile) {
+  return _trimName(profile?.aiGeneratedName);
+}
+
+function _wantsFunkyInHeader(profile) {
+  return !!(profile && profile[SHOWCASE_FUNKY_IN_HEADER_KEY]);
+}
+
+/** Name shown in the top-left header (display name, or funky when showcased). */
+export function resolveHeaderName(app) {
+  const profile = app?.userProfile || {};
+  const userName = _trimName(profile.userName);
+  const funkyName = _resolveFunkyName(profile);
+  const emailPrefix =
+    typeof app?.currentUser?.email === 'string' ? app.currentUser.email.split('@')[0] : '';
+  if (_wantsFunkyInHeader(profile) && funkyName) return funkyName;
+  return userName || funkyName || emailPrefix || (app?._isFreemiumGuest ? 'Guest' : '');
+}
+
+function _syncShowcaseButtons(app) {
+  const funkyName = _resolveFunkyName(app?.userProfile);
+  const active = _wantsFunkyInHeader(app?.userProfile) && !!funkyName;
+  const ids = [
+    PROFILE_ELEMENT_IDS.accountShowcaseFunkyBtn,
+    PROFILE_ELEMENT_IDS.profileShowcaseFunkyBtn,
+  ];
+  for (const id of ids) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.disabled = !funkyName;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.title = SHOWCASE_TIP;
+    const tip = btn.querySelector('.pc-tip');
+    if (tip) tip.textContent = SHOWCASE_TIP;
+  }
+  window.renderLucideIcons?.(document.getElementById('profileModal'));
+}
+
+/** Toggle Funky AI name in the top-left header; persists on userProfile. */
+export async function toggleShowcaseFunkyInHeader(app) {
+  const funkyName = _resolveFunkyName(app?.userProfile);
+  if (!funkyName) {
+    app?.showToast?.('Generate and save a funky AI name first', 'error');
+    return false;
+  }
+  if (!app.userProfile) app.userProfile = {};
+  app.userProfile[SHOWCASE_FUNKY_IN_HEADER_KEY] = !_wantsFunkyInHeader(app.userProfile);
+  const saved = await app.saveUserProfile?.();
+  if (saved === false) {
+    app?.showToast?.('Could not save header name preference', 'error');
+    return false;
+  }
+  app.updateTopBarIdentity?.();
+  updateAccountInfoSection(app);
+  _syncShowcaseButtons(app);
+  app?.showToast?.(
+    app.userProfile[SHOWCASE_FUNKY_IN_HEADER_KEY]
+      ? 'Funky AI name shown in top bar'
+      : 'Display name shown in top bar',
+    'success',
+  );
+  return true;
+}
 
 // ── refreshProfileNameFields ────────────────────────────────────────────────
 // Keep display-name input, saved funky name panel, top bar, and account card in sync.
@@ -10,12 +82,19 @@ export function refreshProfileNameFields(app) {
   const userNameEl = sel.getUserName();
   if (userNameEl) userNameEl.value = profile.userName || '';
 
-  const funkyName = typeof profile.aiGeneratedName === 'string' ? profile.aiGeneratedName.trim() : '';
+  const funkyName = _resolveFunkyName(profile);
   const aiNameEl = sel.getAiNameValue();
   const aiNameDisplay = document.getElementById('aiNameDisplay');
-  if (aiNameEl) aiNameEl.textContent = funkyName || '-';
+  if (aiNameEl) {
+    aiNameEl.textContent = funkyName || '-';
+    aiNameEl.title = funkyName || '';
+    if (funkyName) aiNameEl.setAttribute('data-has-name', '1');
+    else aiNameEl.removeAttribute('data-has-name');
+  }
   if (aiNameDisplay) aiNameDisplay.style.display = funkyName ? 'flex' : 'none';
+  if (funkyName) app._pendingFunkyAiName = funkyName;
 
+  _syncShowcaseButtons(app);
   app.updateTopBarIdentity();
   updateAccountInfoSection(app);
 }
@@ -67,10 +146,7 @@ export function updateTopBarIdentity(app, imageUrlOverride = undefined) {
     };
   }
 
-  const userName = typeof app.userProfile?.userName === 'string' ? app.userProfile.userName.trim() : '';
-  const funkyName = typeof app.userProfile?.aiGeneratedName === 'string' ? app.userProfile.aiGeneratedName.trim() : '';
-  const emailPrefix = typeof app.currentUser?.email === 'string' ? app.currentUser.email.split('@')[0] : '';
-  const displayName = userName || funkyName || emailPrefix || (app._isFreemiumGuest ? 'Guest' : '');
+  const displayName = resolveHeaderName(app);
 
   if (nameEl) {
     nameEl.textContent = displayName;

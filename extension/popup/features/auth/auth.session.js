@@ -373,6 +373,10 @@ function _refreshSettingsModalIfOpen(app, classification) {
 function _refreshProfileIdentity(app, classification) {
   if (!classification.profileChanged) return;
   app.updateTopBarIdentity(app.userProfile?.profileImageUrl || undefined);
+  // Keep Account + funky-name panel in sync when storage changes mid-session.
+  try {
+    app.profileFeature?.render?.refreshProfileNameFields?.(app);
+  } catch (_) { /* non-blocking */ }
 }
 
 function _clearHandledFreshness(app, classification) {

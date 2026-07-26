@@ -5,6 +5,8 @@ export const CAPTURE_MESSAGE_ACTIONS = Object.freeze({
   PC_CAPTURE_REGION: 'pcCaptureRegion',
   PC_GET_PAGE_SELECTION: 'pcGetPageSelection',
   PC_COPY_TEXT: 'pcCopyText',
+  PC_COPY_IMAGE: 'pcCopyImage',
+  PC_FETCH_IMAGE_AS_DATA_URL: 'pcFetchImageAsDataUrl',
   PC_READ_CLIPBOARD: 'pcReadClipboard',
   PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
 });

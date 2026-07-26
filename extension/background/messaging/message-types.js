@@ -9,6 +9,8 @@ export const ROUTED_INTERNAL_ACTIONS = Object.freeze({
   PC_CAPTURE_REGION: 'pcCaptureRegion',
   PC_GET_PAGE_SELECTION: 'pcGetPageSelection',
   PC_COPY_TEXT: 'pcCopyText',
+  PC_COPY_IMAGE: 'pcCopyImage',
+  PC_FETCH_IMAGE_AS_DATA_URL: 'pcFetchImageAsDataUrl',
   PC_READ_CLIPBOARD: 'pcReadClipboard',
   PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
   PC_OPEN_POPUP_WINDOW: 'pcOpenPopupWindow',
@@ -28,6 +30,7 @@ export const DEFERRED_INTERNAL_ACTIONS = Object.freeze({
 /** Known actions that must not be answered by the SW internal listener. */
 export const SWALLOW_INTERNAL_ACTIONS = Object.freeze({
   PC_OFFSCREEN_READ_CLIPBOARD: 'pcOffscreenReadClipboard',
+  PC_OFFSCREEN_WRITE_CLIPBOARD_IMAGE: 'pcOffscreenWriteClipboardImage',
 });
 
 /** Full catalog for coverage checks (routed + deferred). */

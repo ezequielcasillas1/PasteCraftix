@@ -4,6 +4,8 @@ export const AI_SELECTORS = {
   workflowPresetSelect: 'aiWorkflowPresetSelect',
   headerModelPicker: 'headerAiModelPicker',
   headerModelSelect: 'headerAiModelSelect',
+  labTitleModelPicker: 'aiLabTitleModelPicker',
+  labTitleModelSelect: 'aiLabTitleModelSelect',
   labModelShowcase: 'aiLabModelShowcase',
   labModelHint: 'aiLabModelHint',
   imageCreditsPill: 'aiCreditsPill',

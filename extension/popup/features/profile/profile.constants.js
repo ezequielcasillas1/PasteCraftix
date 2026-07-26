@@ -14,6 +14,8 @@ export const PROFILE_ELEMENT_IDS = Object.freeze({
   topBarFunkyName: 'topBarFunkyName',
   userName: 'userName',
   aiNameValue: 'aiNameValue',
+  accountShowcaseFunkyBtn: 'accountShowcaseFunkyBtn',
+  profileShowcaseFunkyBtn: 'profileShowcaseFunkyBtn',
   generateAnimalBtn: 'generateAnimalBtn',
   generateCartoonBtn: 'generateCartoonBtn',
   imageViewerModal: 'imageViewerModal',
@@ -21,5 +23,8 @@ export const PROFILE_ELEMENT_IDS = Object.freeze({
   imageViewerClose: 'imageViewerClose',
   imageViewerShare: 'imageViewerShare',
 });
+
+/** Persisted on userProfile — when true, top-left header shows Funky AI name. */
+export const SHOWCASE_FUNKY_IN_HEADER_KEY = 'showcaseFunkyInHeader';
 
 export { ANIMAL_TYPES_REGEX, FUNKY_ANIMALS, extractAnimalSuffix } from '../../../shared/animal-names.js';

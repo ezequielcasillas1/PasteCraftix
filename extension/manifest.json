@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft Smart Clipboard Manager",
-  "version": "3.0.27",
+  "version": "3.0.28",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Save, organize, and reuse clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -12,11 +12,11 @@
     "tabs",
     "scripting",
     "identity",
-    "clipboardWrite"
+    "clipboardWrite",
+    "offscreen"
   ],
   "optional_permissions": [
-    "clipboardRead",
-    "offscreen"
+    "clipboardRead"
   ],
   "host_permissions": [
     "https://*.supabase.co/*",

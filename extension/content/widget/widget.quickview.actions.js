@@ -3,6 +3,10 @@
  * @forward-slice
  */
 import { slimQuickViewClips } from '../../shared/quickview-clips.js';
+import {
+  copyImageBearingClipToClipboard,
+  isImageBearingClip,
+} from '../../shared/clipboard-image.js';
 import { injectQuickViewStyles } from './widget.styles.js';
 import {
   normalizeLikedClipId,
@@ -96,6 +100,22 @@ export function onQuickViewDelegatedClick(widget, e) {
 export async function copyQuickViewClip(widget, clipId) {
   const state = ensureQvState(widget);
   const clip = state.allClips.find((c) => String(c.id || '') === String(clipId));
+  if (!clip) {
+    showQvToast('❌ Copy failed', true);
+    return;
+  }
+
+  if (isImageBearingClip(clip)) {
+    try {
+      await copyImageBearingClipToClipboard(clip);
+      showQvToast('✓ Image copied!');
+      return;
+    } catch (_) {
+      showQvToast('❌ Image copy failed', true);
+      return;
+    }
+  }
+
   const text = clip?.text ? String(clip.text) : '';
   if (!text) {
     showQvToast('❌ Copy failed', true);
@@ -368,9 +388,15 @@ export async function populateMiniQuickViewBody(body) {
 
     card.addEventListener('click', async () => {
       try {
+        if (isImageBearingClip(clip)) {
+          await copyImageBearingClipToClipboard(clip);
+          flashCopied();
+          return;
+        }
         await navigator.clipboard.writeText(text);
         flashCopied();
       } catch (_) {
+        if (isImageBearingClip(clip)) return;
         try {
           const ta = document.createElement('textarea');
           ta.value = text;
