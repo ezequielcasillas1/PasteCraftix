@@ -10,6 +10,8 @@ import * as analysisHistory from './ai-lab.analysis-history.js';
 import * as refactorization from './ai-lab.refactorization.js';
 import * as creditPacks from './ai-lab.credit-packs.js';
 import * as announcements from './ai-lab.announcements.js';
+import * as modelPicker from './ai-lab.model-picker.js';
+import * as models from './ai-lab.models.js';
 
 export function initAiLabFeature(_app) {
   return {
@@ -25,5 +27,7 @@ export function initAiLabFeature(_app) {
     refactorization,
     creditPacks,
     announcements,
+    modelPicker,
+    models,
   };
 }

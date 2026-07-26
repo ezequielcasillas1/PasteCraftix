@@ -6,6 +6,7 @@ import {
   markPopupBootStart,
   markPopupContentReady,
 } from './popup.performance.js';
+import { ensureWorkspaceOwner } from '../../../bridges/workspace/workspace.facade.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 
 let popupRevealScheduled = false;
@@ -315,12 +316,18 @@ export async function runPopupInit(app, dependencies = {}) {
   }
 
   if (await handlePasswordRecovery(app)) return;
-  const localPreparation = startSafeLocalPreparation(app);
   const currentUser = await resolveAuthenticatedUser(app);
   if (!currentUser) {
     window.__pcPopupLucideBooting = false;
     app.showAuthModal();
     return;
   }
+  // Bind/clear workspace before IDB migrate or loadData can inherit foreign rows.
+  try {
+    await ensureWorkspaceOwner(currentUser.id);
+  } catch (error) {
+    console.warn('Workspace ownership ensure (pre-prep) failed:', error?.message || error);
+  }
+  const localPreparation = startSafeLocalPreparation(app);
   await runAuthenticatedStartup(app, currentUser, localPreparation, defer);
 }

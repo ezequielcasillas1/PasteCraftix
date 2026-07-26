@@ -1260,6 +1260,10 @@ class PasteCraftPopup {
     return this.aiLabFeature.history.saveRefactorHistory.call(this, records);
   }
 
+  async saveFormatHistory(records) {
+    return this.aiLabFeature.history.saveFormatHistory.call(this, records);
+  }
+
   async submitRefactorTicket(message) {
     return this.aiLabFeature.history.submitRefactorTicket.call(this, message);
   }
