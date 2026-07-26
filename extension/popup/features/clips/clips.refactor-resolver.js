@@ -283,9 +283,62 @@ function resolveRefactorContextHeuristicRecent(app, clip) {
   return buildRefactorPairResult(sourceClip, refClip, { resolverPath: 'heuristic-recent' });
 }
 
+function resolveFormatContextFromMeta(clip) {
+  const before = normalizeTextForMatch(clip?.meta?.craftFormatBefore);
+  const after = normalizeTextForMatch(clip?.text);
+  const craftFormatted = !!clip?.meta?.craftFormatted;
+  if (!craftFormatted || !before || !after || before === after) return null;
+
+  const clipKey = getClipIdKey(clip.id);
+  return buildRefactorPairResult(
+    { id: `${clipKey}_format_before`, text: clip.meta.craftFormatBefore },
+    clip,
+    { resolverPath: 'format-meta', isFormatCompare: true },
+  );
+}
+
+function resolveFormatContextFromHistory(app, clip) {
+  const clipId = getClipIdKey(clip?.id);
+  const clipText = normalizeTextForMatch(clip?.text);
+  if (!clipId && !clipText) return null;
+
+  for (const entry of app.aiHistoryEntries || []) {
+    if (entry?.type !== 'formatted') continue;
+    const thread = (entry.threads || [])[0] || {};
+    const before = normalizeTextForMatch(thread.before || entry.originalText);
+    const after = normalizeTextForMatch(thread.after || thread.answer);
+    if (!before || !after || before === after) continue;
+
+    const sourceId = getClipIdKey(thread.sourceClipId);
+    const matchesId = sourceId && sourceId === clipId;
+    const matchesAfter = clipText && textsMatch(clipText, after);
+    const matchesBefore = clipText && textsMatch(clipText, before);
+    if (!matchesId && !matchesAfter && !matchesBefore) continue;
+
+    return buildRefactorPairResult(
+      { id: `${sourceId || clipId}_format_before`, text: thread.before || entry.originalText },
+      { id: clipId || sourceId, text: thread.after || thread.answer || clip?.text },
+      { resolverPath: 'format-history', isFormatCompare: true },
+    );
+  }
+  return null;
+}
+
 export function resolveRefactorContext(app, clip) {
   if (!clip) {
     return null;
+  }
+
+  const formatMetaPair = resolveFormatContextFromMeta(clip);
+  if (formatMetaPair) {
+    logRefactorPairResolved(clip, formatMetaPair);
+    return formatMetaPair;
+  }
+
+  const formatHistoryPair = resolveFormatContextFromHistory(app, clip);
+  if (formatHistoryPair) {
+    logRefactorPairResolved(clip, formatHistoryPair);
+    return formatHistoryPair;
   }
 
   const sessionPair = resolveRefactorContextFromSessionIndex(app, clip);

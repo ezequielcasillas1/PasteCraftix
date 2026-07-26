@@ -81,10 +81,13 @@ function buildRefactorSectionHtml(app, label, text) {
 function renderRefactorDualContent(app, renderedEl, rawEl, refactorPair) {
   if (!renderedEl || !refactorPair) return;
 
+  const beforeLabel = refactorPair.isFormatCompare ? 'Before (original)' : 'Original clip';
+  const afterLabel = refactorPair.isFormatCompare ? 'After (AI Formatted)' : 'Refactored clip';
+
   renderedEl.innerHTML = `
     <div class="clip-viewer-refactor-dual">
-      ${buildRefactorSectionHtml(app, 'Original clip', refactorPair.originalText)}
-      ${buildRefactorSectionHtml(app, 'Refactored clip', refactorPair.refactoredText)}
+      ${buildRefactorSectionHtml(app, beforeLabel, refactorPair.originalText)}
+      ${buildRefactorSectionHtml(app, afterLabel, refactorPair.refactoredText)}
     </div>`;
   renderedEl.style.display = 'block';
 
