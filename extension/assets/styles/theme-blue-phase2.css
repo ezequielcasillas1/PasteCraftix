@@ -1228,6 +1228,25 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   color: #fff !important;
 }
 
+/* Lucide icons on navy cards — force light stroke (same pattern as chip actions) */
+[data-theme="blue"] .ai-refactorization-feature .refactor-icon,
+[data-theme="blue"] .ai-breakdown-feature .breakdown-icon {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .ai-refactorization-feature .refactor-icon svg.lucide,
+[data-theme="blue"] .ai-refactorization-feature .refactor-icon svg.lucide *,
+[data-theme="blue"] .ai-breakdown-feature .breakdown-icon svg.lucide,
+[data-theme="blue"] .ai-breakdown-feature .breakdown-icon svg.lucide * {
+  stroke: currentColor;
+  color: inherit;
+}
+
+[data-theme="blue"] .ai-refactorization-feature:hover .refactor-icon,
+[data-theme="blue"] .ai-breakdown-feature:hover .breakdown-icon {
+  color: #fff;
+}
+
 /* Summary / section chrome */
 [data-theme="blue"] .ai-section-title {
   color: var(--pc-secondary-200);
