@@ -138,9 +138,22 @@ export function resolveModelsFromWorkflow(
   return resolveFromProviderTable(OPENAI_PROVIDER, preset)
 }
 
-/** Resolve the API key from Deno env based on the resolved provider. Falls back to OPENAI_API_KEY. */
+/** Env aliases per canonical apiKeyEnv (secrets may use alternate names). */
+const API_KEY_ENV_ALIASES: Record<string, string[]> = {
+  OPENAI_API_KEY: ['OPENAI_API_KEY'],
+  GOOGLE_AI_KEY: ['GOOGLE_AI_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+  ANTHROPIC_API_KEY: ['ANTHROPIC_API_KEY', 'ANTHROPIC-API-KEY'],
+}
+
+/**
+ * Resolve the API key from Deno env for the resolved provider.
+ * Tries provider-specific aliases only; does not silently use OPENAI_API_KEY for Google/Anthropic.
+ */
 export function getApiKeyForResolved(resolved: ResolvedAiModels): string {
-  const key = Deno.env.get(resolved.apiKeyEnv) || Deno.env.get('OPENAI_API_KEY') || ''
-  if (!key) throw new Error(`API key not configured (expected ${resolved.apiKeyEnv})`)
-  return key
+  const aliases = API_KEY_ENV_ALIASES[resolved.apiKeyEnv] || [resolved.apiKeyEnv]
+  for (const name of aliases) {
+    const key = (Deno.env.get(name) || '').trim()
+    if (key) return key
+  }
+  throw new Error(`API key not configured (expected ${resolved.apiKeyEnv}; tried ${aliases.join(', ')})`)
 }
