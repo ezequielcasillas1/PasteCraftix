@@ -159,10 +159,11 @@ function _hasThreads(sum) {
   return Array.isArray(sum.threads) && sum.threads.length > 0;
 }
 
-function _showSummaryFollowupIfThreaded(sum) {
+function _showSummaryFollowupIfThreaded(app, sum) {
   const followupContainer = document.getElementById('summaryFollowupContainer');
   if (followupContainer && _hasThreads(sum)) {
     followupContainer.style.display = 'block';
+    app.aiLabFeature?.summaryClipsOverview?.mountSummaryClipsOverview?.(app);
   }
 }
 
@@ -174,7 +175,7 @@ function _renderSummaryResultSection(app, sum) {
       summaryContent.innerHTML = html;
     });
   }
-  _showSummaryFollowupIfThreaded(sum);
+  _showSummaryFollowupIfThreaded(app, sum);
   if (Array.isArray(sum.threads) && sum.threads.length >= 2) {
     app.renderThreadPagination('summary');
   }

@@ -8075,6 +8075,37 @@
             flex: 1;
         }
 
+        .summary-questions-image {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 0 16px 0;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+        }
+
+        #summaryResultImage {
+            margin-top: 12px;
+        }
+
+        .summary-questions-image-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+
+        .summary-questions-image-preview {
+            display: block;
+            width: 100%;
+            max-height: 280px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe;
+            background: #fff;
+        }
+
         .open-recent-conversation {
             margin-top: 16px;
             padding-top: 16px;
@@ -8403,6 +8434,292 @@
             overflow-x: hidden;
             overflow-wrap: anywhere;
             word-break: break-word;
+        }
+
+        .summary-clips-overview {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .summary-clips-overview-header {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 10px;
+        }
+
+        .summary-clips-overview-header strong {
+            font-size: 13px;
+            color: #1e293b;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .summary-clips-overview-header span {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .summary-clips-overview-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .summary-clips-overview-tab {
+            flex: 1;
+            padding: 8px 6px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .summary-clips-overview-tab.active {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .summary-clips-overview-panel[hidden] {
+            display: none !important;
+        }
+
+        .summary-clips-overview-search {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff;
+            color: #1e293b;
+        }
+
+        .summary-clips-overview-list {
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .summary-clip-overview-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .summary-clip-overview-row.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .summary-clip-overview-check {
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .summary-clip-overview-thumb {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid #e2e8f0;
+            background: #f1f5f9;
+        }
+
+        .summary-clip-overview-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .summary-clip-overview-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .summary-clip-overview-text {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.35;
+            margin-top: 2px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .summary-clip-overview-meta {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .summary-clip-overview-open {
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            margin-top: 0;
+            padding: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #fff;
+            color: #64748b;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .summary-clip-overview-open:hover {
+            border-color: #93c5fd;
+            color: #1d4ed8;
+            background: #eff6ff;
+        }
+
+        .summary-clip-overview-open i,
+        .summary-clip-overview-open svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .summary-clips-overview-files {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+            scrollbar-width: thin;
+        }
+
+        .summary-clips-overview-file-chip {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 160px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .summary-clips-overview-file-chip span:last-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .summary-clips-overview-file-chip.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .summary-clips-overview-file-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .summary-clip-overview-empty {
+            text-align: center;
+            padding: 18px 8px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .summary-clip-overview-category {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+            /* List is a flex column with max-height; overflow:hidden would
+               otherwise zero the auto min-height and collapse each group. */
+            flex-shrink: 0;
+        }
+
+        .summary-clip-overview-cat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.3;
+        }
+
+        .summary-clip-overview-cat-header strong {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .summary-clip-overview-cat-header span {
+            flex-shrink: 0;
+            margin-left: 8px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .summary-clip-overview-cat-body {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            padding: 0 8px 8px;
+        }
+
+        .summary-clip-overview-category.expanded .summary-clip-overview-cat-body {
+            display: flex;
+        }
+
+        .summary-clips-overview-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .summary-clips-overview-use:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .summary-result-actions {
@@ -11725,6 +12042,8 @@ Multiple clips are separated by:
                                     <span>Get Custom Summary</span>
                                 </button>
                             </div>
+
+                            <div id="summaryQuestionsImage" class="summary-questions-image" style="display: none;" aria-live="polite"></div>
                             
                             <button id="backToInputBtn" class="btn-secondary back-btn">
                                 <span>←</span>
@@ -11749,6 +12068,8 @@ Multiple clips are separated by:
                             </div>
                             
                             <div class="summary-result-content" id="summaryResultContent"></div>
+
+                            <div id="summaryResultImage" class="summary-questions-image" style="display: none;" aria-live="polite"></div>
                             
                             <!-- Follow-up Input Box -->
                             <div class="ai-followup-container" id="summaryFollowupContainer" style="display: none;">
@@ -11768,6 +12089,34 @@ Multiple clips are separated by:
                                         <span>Send</span>
                                         <span class="send-icon">→</span>
                                     </button>
+                                </div>
+                            </div>
+
+                            <!-- Clips overview: Recent · Search · Categories (host-scoped; AI Lab slice) -->
+                            <div id="summaryClipsOverview" class="summary-clips-overview" style="display: none;" aria-label="Clips overview">
+                                <div class="summary-clips-overview-header">
+                                    <strong><i data-lucide="clipboard-list"></i> Clips overview</strong>
+                                    <span>Browse clips to add context to your follow-up</span>
+                                </div>
+                                <div class="summary-clips-overview-tabs" role="tablist">
+                                    <button type="button" class="summary-clips-overview-tab active" data-action="summary-clip-tab" data-tab="clips" role="tab">Clips</button>
+                                    <button type="button" class="summary-clips-overview-tab" data-action="summary-clip-tab" data-tab="search" role="tab">Search</button>
+                                    <button type="button" class="summary-clips-overview-tab" data-action="summary-clip-tab" data-tab="categories" role="tab">Categories</button>
+                                </div>
+                                <div class="summary-clips-overview-panel active" id="summaryClipOverviewClipsPanel" role="tabpanel">
+                                    <div class="summary-clips-overview-list" id="summaryClipOverviewClipsList"></div>
+                                </div>
+                                <div class="summary-clips-overview-panel" id="summaryClipOverviewSearchPanel" role="tabpanel" hidden>
+                                    <input type="search" id="summaryClipOverviewSearchInput" class="summary-clips-overview-search" placeholder="Search your clips..." maxlength="200" autocomplete="off">
+                                    <div class="summary-clips-overview-list" id="summaryClipOverviewSearchList"></div>
+                                </div>
+                                <div class="summary-clips-overview-panel" id="summaryClipOverviewCategoriesPanel" role="tabpanel" hidden>
+                                    <div class="summary-clips-overview-files" id="summaryClipOverviewFilesStrip" aria-label="Filter by file"></div>
+                                    <div class="summary-clips-overview-list" id="summaryClipOverviewCategoriesList"></div>
+                                </div>
+                                <div class="summary-clips-overview-footer">
+                                    <span id="summaryClipOverviewCount">0 selected</span>
+                                    <button type="button" class="btn-primary summary-clips-overview-use" id="summaryClipOverviewUseBtn" data-action="summary-clip-use" disabled>Add to follow-up</button>
                                 </div>
                             </div>
                             

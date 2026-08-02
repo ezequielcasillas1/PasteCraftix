@@ -126,14 +126,44 @@ function _normalizeSummaryPrefillText(text, imageBase64) {
   return nextText;
 }
 
-/** Show/hide the summary image attachment indicator. */
-export function renderSummaryImageAttach(app) {
-  const host = document.getElementById('summaryImageAttach');
+/** Shared study preview used on questions step + paginated result chat. */
+function _renderStudyImagePreview(hostId, imageBase64) {
+  const host = document.getElementById(hostId);
   if (!host) return;
 
+  if (!imageBase64) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+
+  const safeSrc = _escapeAttr(imageBase64);
+  const canPreview = imageBase64.startsWith('data:image/') || /^https?:\/\//i.test(imageBase64);
+  if (!canPreview) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+
+  host.style.display = 'flex';
+  host.innerHTML = `
+    <span class="summary-questions-image-label">Reference image</span>
+    <img class="summary-questions-image-preview" alt="Attached clip image for study" src="${safeSrc}">
+  `;
+}
+
+/** Show/hide the summary image attachment indicator (+ questions/result study previews). */
+export function renderSummaryImageAttach(app) {
+  const host = document.getElementById('summaryImageAttach');
   const imageBase64 = typeof app?.currentSummaryImageBase64 === 'string'
     ? app.currentSummaryImageBase64
     : '';
+
+  _renderStudyImagePreview('summaryQuestionsImage', imageBase64);
+  _renderStudyImagePreview('summaryResultImage', imageBase64);
+
+  if (!host) return;
+
   if (!imageBase64) {
     host.style.display = 'none';
     host.innerHTML = '';

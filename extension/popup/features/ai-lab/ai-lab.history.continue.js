@@ -53,6 +53,7 @@ async function _renderRestoredSummaryView(app) {
 function _showSummaryFollowupAndPagination(app) {
   const followupContainer = document.getElementById('summaryFollowupContainer');
   if (followupContainer) followupContainer.style.display = 'block';
+  app.aiLabFeature?.summaryClipsOverview?.mountSummaryClipsOverview?.(app);
   if (app.summaryThreads.length >= 2) {
     app.renderThreadPagination('summary');
   }

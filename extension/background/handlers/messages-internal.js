@@ -48,6 +48,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // #region agent log
+  if (action === 'pcAgentDebugLog') {
+    (async () => {
+      try {
+        const resp = await fetch(String(message.endpoint || ''), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '7004b6' },
+          body: JSON.stringify(message.payload || {}),
+        });
+        sendResponse({ success: true, status: resp.status });
+      } catch (error) {
+        sendResponse({ success: false, error: error?.message || String(error) });
+      }
+    })();
+    return true;
+  }
+  // #endregion
+
   // Deferred auth/billing only — unknown actions log then fall through (parity).
   if (!isDeferredInternalAction(action)) {
     console.log('📨 Internal message received:', action);

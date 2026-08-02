@@ -1,5 +1,7 @@
 import { AI_STORAGE_KEYS, OPEN_RECENT_CONVERSATION_TOOLTIPS } from './ai-lab.constants.js';
 import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
+import { renderSummaryImageAttach } from './ai-lab.summary-modal.js';
+import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
 
 export async function generateBreakdownInline(level) {
   if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
@@ -134,6 +136,11 @@ export function showSummarySection(section) {
     resultSection.style.display = 'block';
     window.renderLucideIcons?.(resultSection);
   }
+
+  // Keep reference image visible across input → questions → paginated result chat.
+  if (section === 'questions' || section === 'result') {
+    renderSummaryImageAttach(this);
+  }
 }
 
 export async function generateSummaryQuestions(text) {
@@ -156,6 +163,7 @@ export async function generateSummaryQuestions(text) {
     if (questionsLoading) questionsLoading.style.display = 'none';
     _renderQuestionChips(this, questionsList, text, questions);
     _resetCustomQuestionInput();
+    renderSummaryImageAttach(this);
 
     this._currentSummarySection = 'questions';
     this._saveSummaryState();
@@ -202,7 +210,8 @@ export async function generateSummary(text, question) {
       outputText: formatted,
       metadata: { threadCount: this.summaryThreads.length + 1 },
     });
-    _showSummaryFollowup();
+    _showSummaryFollowup(this);
+    renderSummaryImageAttach(this);
     if (this.summaryThreads.length >= 2) this.renderThreadPagination('summary');
     this._currentSummarySection = 'result';
     this._saveSummaryState();
@@ -387,9 +396,10 @@ function _appendSummaryThread(app, question, formatted) {
   app.currentSummaryThreadIndex = app.summaryThreads.length - 1;
 }
 
-function _showSummaryFollowup() {
+function _showSummaryFollowup(app) {
   const followupContainer = document.getElementById('summaryFollowupContainer');
   if (followupContainer) followupContainer.style.display = 'block';
+  if (app) mountSummaryClipsOverview(app);
 }
 
 function _cleanAiOutputLine(line) {

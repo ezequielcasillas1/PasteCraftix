@@ -78,6 +78,7 @@ export function clearSummaryAiContext(app) {
   app.currentSummaryThreadIndex = 0;
   app._currentRawSummary = null;
   app._currentSummarySection = 'input';
+  app.aiLabFeature?.summaryClipsOverview?.hideSummaryClipsOverview?.(app);
 
   const questionsList = document.getElementById('questionsList');
   const summaryContent = document.getElementById('summaryResultContent');
@@ -88,6 +89,8 @@ export function clearSummaryAiContext(app) {
   const customQuestionInput = document.getElementById('customQuestionInput');
   const customQuestionBtn = document.getElementById('customQuestionBtn');
   const imageAttach = document.getElementById('summaryImageAttach');
+  const questionsImage = document.getElementById('summaryQuestionsImage');
+  const resultImage = document.getElementById('summaryResultImage');
 
   if (questionsList) questionsList.innerHTML = '';
   if (summaryContent) summaryContent.innerHTML = '';
@@ -100,6 +103,14 @@ export function clearSummaryAiContext(app) {
   if (imageAttach) {
     imageAttach.style.display = 'none';
     imageAttach.innerHTML = '';
+  }
+  if (questionsImage) {
+    questionsImage.style.display = 'none';
+    questionsImage.innerHTML = '';
+  }
+  if (resultImage) {
+    resultImage.style.display = 'none';
+    resultImage.innerHTML = '';
   }
 
   app.showSummarySection('input');

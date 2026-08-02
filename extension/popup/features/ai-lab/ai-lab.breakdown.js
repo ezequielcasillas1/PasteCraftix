@@ -1,5 +1,7 @@
 /** Breakdown modal, thread pagination, and inline breakdown entry. */
 import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
+import { renderSummaryImageAttach } from './ai-lab.summary-modal.js';
+import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
 
 const LEVEL_DESCRIPTIONS = {
   eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
@@ -394,6 +396,8 @@ export async function navigateToThread(type, index) {
 
   if (type === 'summary') {
     this.currentSummaryThreadIndex = index;
+    renderSummaryImageAttach(this);
+    mountSummaryClipsOverview(this);
   } else {
     this.currentBreakdownThreadIndex = index;
   }
