@@ -17,6 +17,31 @@ function readDateFilters() {
   };
 }
 
+/**
+ * Soft-deletes land as UPDATE + row_new.deleted_at (not hard DELETE).
+ * Strategy per filter chip so Deleted shows feeds and Updated excludes them.
+ */
+function applyOperationFilter(query, filter) {
+  if (!filter || filter === ACTIVITY_FILTERS.ALL) return query;
+
+  if (filter === ACTIVITY_FILTERS.DELETE) {
+    // Hard DELETE OR soft-delete transition (deleted_at newly set)
+    return query.or(
+      'operation.eq.DELETE,' +
+      'and(operation.eq.UPDATE,row_new->>deleted_at.not.is.null,row_old->>deleted_at.is.null)'
+    );
+  }
+
+  if (filter === ACTIVITY_FILTERS.UPDATE) {
+    // Real updates only — exclude soft-delete (new deleted_at set, old was null)
+    return query
+      .eq('operation', 'UPDATE')
+      .or('row_new->>deleted_at.is.null,row_old->>deleted_at.not.is.null');
+  }
+
+  return query.eq('operation', filter);
+}
+
 function buildActivityQuery(supabase, app) {
   let query = supabase
     .from('change_audit_log')
@@ -24,10 +49,7 @@ function buildActivityQuery(supabase, app) {
     .order('occurred_at', { ascending: false })
     .range(app.activityOffset, app.activityOffset + ACTIVITY_PAGE_SIZE - 1);
 
-  if (app.activityFilter && app.activityFilter !== ACTIVITY_FILTERS.ALL) {
-    query = query.eq('operation', app.activityFilter);
-  }
-
+  query = applyOperationFilter(query, app.activityFilter);
   return applyDateFilters(query, readDateFilters());
 }
 

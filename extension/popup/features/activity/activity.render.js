@@ -1,10 +1,30 @@
-import { ACTIVITY_OPERATION_ICONS, ACTIVITY_TABLE_BADGES, ACTIVITY_SELECTORS } from './activity.constants.js';
+import {
+  ACTIVITY_OPERATION_ICONS,
+  ACTIVITY_TABLE_BADGES,
+  ACTIVITY_SELECTORS,
+  ACTIVITY_FILTERS,
+  ACTIVITY_EMPTY_COPY,
+} from './activity.constants.js';
 
 function escapeHtml(app, text) {
   if (typeof app.escapeHtml === 'function') return app.escapeHtml(text);
   const div = document.createElement('div');
   div.textContent = String(text ?? '');
   return div.innerHTML;
+}
+
+/** Soft-delete = UPDATE that newly sets deleted_at. */
+export function isSoftDeleteEntry(entry) {
+  if (!entry || entry.operation !== 'UPDATE') return false;
+  const next = entry.row_new?.deleted_at;
+  const prev = entry.row_old?.deleted_at;
+  return Boolean(next) && !prev;
+}
+
+/** Effective op for icon/label (soft-deletes display as DELETE). */
+export function resolveDisplayOperation(entry) {
+  if (entry?.operation === 'DELETE' || isSoftDeleteEntry(entry)) return 'DELETE';
+  return entry?.operation || 'DEFAULT';
 }
 
 export function getActivityIcon(operation) {
@@ -23,15 +43,16 @@ function extractIdentifier(data) {
   return '';
 }
 
-function resolveAction(operation) {
-  if (operation === 'INSERT') return 'Created';
-  if (operation === 'UPDATE') return 'Updated';
-  if (operation === 'DELETE') return 'Deleted';
+function resolveAction(displayOperation) {
+  if (displayOperation === 'INSERT') return 'Created';
+  if (displayOperation === 'UPDATE') return 'Updated';
+  if (displayOperation === 'DELETE') return 'Deleted';
   return 'Modified';
 }
 
 export function getActivitySummary(entry) {
-  const action = resolveAction(entry.operation);
+  const displayOp = resolveDisplayOperation(entry);
+  const action = resolveAction(displayOp);
   const table = getTableBadge(entry.table_name).toLowerCase();
   const identifier = extractIdentifier(entry.row_new || entry.row_old);
   return `${action} ${table}${identifier}`;
@@ -51,8 +72,9 @@ export function formatTimeAgo(date) {
 }
 
 function buildEntryHTML(app, entry) {
-  const icon = getActivityIcon(entry.operation);
-  const iconClass = entry.operation.toLowerCase();
+  const displayOp = resolveDisplayOperation(entry);
+  const icon = getActivityIcon(displayOp);
+  const iconClass = displayOp.toLowerCase();
   const tableBadge = getTableBadge(entry.table_name);
   const summary = getActivitySummary(entry);
   const timeAgo = formatTimeAgo(new Date(entry.occurred_at));
@@ -69,13 +91,14 @@ function buildEntryHTML(app, entry) {
   `;
 }
 
-function renderEmptyState(container) {
+function renderEmptyState(container, filter) {
+  const copy = ACTIVITY_EMPTY_COPY[filter] || ACTIVITY_EMPTY_COPY[ACTIVITY_FILTERS.ALL];
   container.removeAttribute('aria-busy');
   container.innerHTML = `
     <div class="empty-state">
       <div class="empty-state-icon"><i data-lucide="bar-chart-3"></i></div>
-      <h3>No cloud activity yet</h3>
-      <p>Activity appears here after clips sync to the cloud.<br>Try clicking Refresh after making changes.</p>
+      <h3>${copy.title}</h3>
+      <p>${copy.body}</p>
     </div>
   `;
 }
@@ -86,7 +109,7 @@ export function renderActivityList(app) {
   if (!container) return;
 
   if (!app.activityEntries?.length) {
-    renderEmptyState(container);
+    renderEmptyState(container, app.activityFilter || ACTIVITY_FILTERS.ALL);
     if (loadMoreBtn) loadMoreBtn.style.display = 'none';
     return;
   }
