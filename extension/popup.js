@@ -476,8 +476,8 @@ class PasteCraftPopup {
     return this.clipsFeature.state.clearAllSelections(this);
   }
 
-  showSummaryModal(text) {
-    return this.aiLabFeature.summaryModal.showSummaryModal(this, text);
+  showSummaryModal(text, opts) {
+    return this.aiLabFeature.summaryModal.showSummaryModal(this, text, opts);
   }
 
   _getSelectedClipsText() {
@@ -714,6 +714,18 @@ class PasteCraftPopup {
 
   async copyClipViewerText() {
     return this.clipsFeature?.viewer?.copyText?.(this);
+  }
+
+  enterClipViewerEditMode() {
+    return this.clipsFeature?.viewer?.enterEditMode?.(this);
+  }
+
+  saveClipViewerEdit() {
+    return this.clipsFeature?.viewer?.saveEdit?.(this);
+  }
+
+  cancelClipViewerEdit() {
+    return this.clipsFeature?.viewer?.cancelEdit?.(this);
   }
 
   runClipViewerAiSummary() {

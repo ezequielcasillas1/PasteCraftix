@@ -39,6 +39,7 @@ function resetInputs(app) {
   if (highlightInput) highlightInput.value = '';
   if (questionInput) questionInput.value = '';
   app._customSearchHighlight = '';
+  app._customSearchLastCaptured = '';
   updateSubmitState(app);
 }
 
@@ -50,20 +51,83 @@ function updateSubmitState(app) {
   if (submitBtn) submitBtn.disabled = !valid;
 }
 
-function captureClipSelection(app, clipPanel) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0 || !clipPanel) return;
+function selectionIsInsideClipPanel(selection, clipPanel) {
+  if (!selection || !clipPanel || selection.rangeCount === 0) return false;
+  const anchor = selection.anchorNode;
+  const focus = selection.focusNode;
+  if (anchor && clipPanel.contains(anchor)) return true;
+  if (focus && clipPanel.contains(focus)) return true;
+  try {
+    const range = selection.getRangeAt(0);
+    return clipPanel.contains(range.commonAncestorContainer);
+  } catch (_) {
+    return false;
+  }
+}
 
-  const range = selection.getRangeAt(0);
-  if (!clipPanel.contains(range.commonAncestorContainer)) return;
+function appendHighlightText(app, selected) {
+  const { highlightInput } = getModuleElements();
+  const current = String(highlightInput?.value ?? app._customSearchHighlight ?? '').trim();
+  const next = current ? `${current} ${selected}` : selected;
+  app._customSearchHighlight = next;
+  if (highlightInput) highlightInput.value = next;
+  updateSubmitState(app);
+}
+
+function captureClipSelection(app) {
+  const { module, clipPanel } = getModuleElements();
+  if (!module || module.hidden || !clipPanel) return;
+
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed) return;
+  if (!selectionIsInsideClipPanel(selection, clipPanel)) return;
 
   const selected = selection.toString().trim();
   if (!selected) return;
 
-  app._customSearchHighlight = selected;
-  const { highlightInput } = getModuleElements();
-  if (highlightInput) highlightInput.value = selected;
-  updateSubmitState(app);
+  // mouseup + keyup can fire for one gesture — append once
+  if (app._customSearchLastCaptured === selected) return;
+  app._customSearchLastCaptured = selected;
+
+  appendHighlightText(app, selected);
+  try {
+    selection.removeAllRanges();
+  } catch (_) {}
+}
+
+function bindSelectionCapture(app) {
+  if (app._customSearchSelectionBound) return;
+
+  const onCapture = () => captureClipSelection(app);
+  const onClipMouseDown = (event) => {
+    const { clipPanel } = getModuleElements();
+    if (clipPanel?.contains(event.target)) {
+      // New drag/select gesture — allow the same phrase to append again
+      app._customSearchLastCaptured = '';
+    }
+  };
+  app._customSearchSelectionHandler = onCapture;
+  app._customSearchMouseDownHandler = onClipMouseDown;
+  // Document-level: drag-select often ends with mouseup outside the panel
+  document.addEventListener('mouseup', onCapture);
+  document.addEventListener('keyup', onCapture);
+  document.addEventListener('mousedown', onClipMouseDown);
+  app._customSearchSelectionBound = true;
+}
+
+function unbindSelectionCapture(app) {
+  const handler = app._customSearchSelectionHandler;
+  const mouseDownHandler = app._customSearchMouseDownHandler;
+  if (handler) {
+    document.removeEventListener('mouseup', handler);
+    document.removeEventListener('keyup', handler);
+  }
+  if (mouseDownHandler) {
+    document.removeEventListener('mousedown', mouseDownHandler);
+  }
+  app._customSearchSelectionHandler = null;
+  app._customSearchMouseDownHandler = null;
+  app._customSearchSelectionBound = false;
 }
 
 function setMainShellHidden(hidden) {
@@ -122,10 +186,12 @@ function hideModuleFromApp(app) {
 
   module.hidden = true;
   releaseFocusTrap(module);
+  unbindSelectionCapture(app);
   setMainShellHidden(false);
 
   app._customSearchContext = null;
   app._customSearchHighlight = '';
+  app._customSearchLastCaptured = '';
   app._customSearchPreviousTab = null;
   module._pcApp = null;
 
@@ -154,6 +220,7 @@ export function showModule(app, { clip = null, context = 'clips' } = {}) {
     app._customSearchContext = { clip, context };
     app._customSearchPreviousTab = app.currentTab || 'clips';
     app._customSearchHighlight = '';
+    app._customSearchLastCaptured = '';
 
     setMainShellHidden(true);
     module.hidden = false;
@@ -161,12 +228,15 @@ export function showModule(app, { clip = null, context = 'clips' } = {}) {
 
     renderClipPanel(clipPanel, clip, app);
     resetInputs(app);
+    bindSelectionCapture(app);
     trapFocus(module);
 
     questionInput?.focus();
     window.renderLucideIcons?.(module);
   } catch (error) {
     console.error('[custom-search] Failed to open module:', error);
+    unbindSelectionCapture(app);
+    releaseFocusTrap(module);
     module.hidden = true;
     setMainShellHidden(false);
     app.showToast?.('Could not open Custom Search', 'error');
@@ -191,14 +261,11 @@ async function handleSearch(app) {
 export function registerCustomSearchModuleEvents(app) {
   if (app._customSearchModuleEventsAttached) return;
 
-  const { module, backBtn, clipPanel, highlightInput, questionInput, submitBtn } =
+  const { module, backBtn, highlightInput, questionInput, submitBtn } =
     getModuleElements();
   if (!module) return;
 
   backBtn?.addEventListener('click', () => hideModule(app));
-
-  clipPanel?.addEventListener('mouseup', () => captureClipSelection(app, clipPanel));
-  clipPanel?.addEventListener('keyup', () => captureClipSelection(app, clipPanel));
 
   highlightInput?.addEventListener('input', () => updateSubmitState(app));
   questionInput?.addEventListener('input', () => updateSubmitState(app));

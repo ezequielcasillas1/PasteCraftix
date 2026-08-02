@@ -150,7 +150,8 @@ export async function generateSummaryQuestions(text) {
     if (questionsLoading) questionsLoading.style.display = 'flex';
     if (questionsList) questionsList.innerHTML = '';
 
-    const questions = await pasteCraftSupabase.generateSummaryQuestions(text);
+    const imageBase64 = this.currentSummaryImageBase64 || null;
+    const questions = await pasteCraftSupabase.generateSummaryQuestions(text, imageBase64);
     this.generatedQuestions = questions;
     if (questionsLoading) questionsLoading.style.display = 'none';
     _renderQuestionChips(this, questionsList, text, questions);
@@ -185,7 +186,8 @@ export async function generateSummary(text, question) {
     if (summaryLoading) summaryLoading.style.display = 'flex';
     if (summaryContent) summaryContent.innerHTML = '';
 
-    const summary = await pasteCraftSupabase.generateSummary(text, question);
+    const imageBase64 = this.currentSummaryImageBase64 || null;
+    const summary = await pasteCraftSupabase.generateSummary(text, question, imageBase64);
     const formatted = this._formatAiOutput(summary);
     if (summaryLoading) summaryLoading.style.display = 'none';
     if (summaryContent) summaryContent.innerHTML = await this._renderAiResponse(formatted);

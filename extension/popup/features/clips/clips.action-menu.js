@@ -4,6 +4,7 @@ import {
   getSelectedOrCurrentClipIdKeys,
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
+import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
 
 const MENU_ID = 'pcClipActionMenuPortal';
 const GOOGLE_SEARCH_MAX_QUERY_LENGTH = 1800;
@@ -157,24 +158,17 @@ function navigateToCategoriesTab() {
   document.querySelector('.tab-btn[data-tab="categories"]')?.click();
 }
 
-function navigateActiveTab(url) {
+function navigateNewTab(url) {
   const safeUrl = String(url || '').trim();
   if (!safeUrl) return;
   try {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs?.[0]?.id;
-      if (tabId != null) {
-        chrome.tabs.update(tabId, { url: safeUrl }, () => {
-          if (chrome.runtime.lastError) {
-            window.open(safeUrl, '_blank', 'noopener,noreferrer');
-          }
-        });
-      } else {
+    chrome.tabs.create({ url: safeUrl }, () => {
+      if (chrome.runtime.lastError) {
         window.open(safeUrl, '_blank', 'noopener,noreferrer');
       }
     });
   } catch (error) {
-    console.error('[clips.action-menu] Failed to navigate active tab:', error);
+    console.error('[clips.action-menu] Failed to open search tab:', error);
     try {
       window.open(safeUrl, '_blank', 'noopener,noreferrer');
     } catch (_) {}
@@ -284,6 +278,41 @@ async function runOrgBundleAction(app, actionId, { clip, clipIdKey, context }) {
   }
 }
 
+function clipTextForSummary(clip) {
+  const text = String(clip?.text ?? '').trim();
+  if (text) return text;
+  return String(clip?.meta?.plainText ?? '').trim();
+}
+
+function buildSummaryTextFromClips(app, clip, context) {
+  const clips = getSelectedOrCurrentClipObjects(app, clip, context);
+  if (clips.length > 1) {
+    return clips.map(clipTextForSummary).filter(Boolean).join('\n\n');
+  }
+  if (clips.length === 1) return clipTextForSummary(clips[0]);
+  return clipTextForSummary(clip);
+}
+
+async function resolveSingleClipSummaryImage(clips) {
+  if (!Array.isArray(clips) || clips.length !== 1 || !isImageBearingClip(clips[0])) {
+    return '';
+  }
+  try {
+    const resolved = await resolveClipImageSrc(clips[0]);
+    return resolved?.src || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function runSummaryFromClip(app, clip, context) {
+  const clips = getSelectedOrCurrentClipObjects(app, clip, context);
+  const fallback = app.getSelectedOrCurrentText?.(clip?.text ?? '', context) ?? String(clip?.text ?? '');
+  const summaryText = buildSummaryTextFromClips(app, clip, context) || String(fallback || '');
+  const imageBase64 = await resolveSingleClipSummaryImage(clips);
+  await app.showSummaryModal?.(summaryText, imageBase64 ? { imageBase64 } : undefined);
+}
+
 async function runAiBundleAction(app, actionId, { clip, context }) {
   const text = app.getSelectedOrCurrentText?.(clip?.text ?? '', context) ?? String(clip?.text ?? '');
 
@@ -292,7 +321,7 @@ async function runAiBundleAction(app, actionId, { clip, context }) {
     return;
   }
   if (actionId === 'summary') {
-    app.showSummaryModal?.(text);
+    await runSummaryFromClip(app, clip, context);
     return;
   }
   if (actionId === 'craft') {
@@ -312,7 +341,7 @@ export async function runGoogleSearchAction(app, actionId, { clip, context }) {
     return;
   }
   const query = buildGoogleSearchQuery(text, actionId);
-  navigateActiveTab(buildGoogleSearchUrl(query));
+  navigateNewTab(buildGoogleSearchUrl(query));
 }
 
 export function openOrgBundleMenu(app, { anchor, clip, clipIdKey, context }) {

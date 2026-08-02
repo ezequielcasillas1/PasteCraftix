@@ -1,4 +1,8 @@
 
+### Jul 28, 2026 - Manifest bump to 3.0.29
+**Files:** extension/manifest.json
+**Result:** v3.0.28 already tagged/released; bumped manifest to 3.0.29 for next Chrome/Edge upload cycle.
+
 ### Jul 26, 2026 - v3.0.28 image clipboard + notes annotate + funky header
 **Files:** extension/shared/clipboard-image.js, notes.image-annotate*, profile.render.js, offscreen-clipboard.js, manifest.json
 **Result:** Image copy, notes fullscreen annotate, funky name header showcase, AI Lab picker UI; release 3.0.28.

@@ -7,7 +7,6 @@ import { injectQuickViewStyles } from './widget.styles.js';
 import {
   ensureQvState,
   loadQuickViewClips,
-  qvDebug,
 } from './widget.quickview.load.js';
 import { buildQuickViewChrome } from './widget.quickview.render.js';
 import {
@@ -129,7 +128,6 @@ export function openQuickViewPanel(widget) {
     }, 10);
 
     loadQuickViewClips(widget).catch(() => {});
-    qvDebug('H7', 'widget.quickview.js:openQuickViewPanel', 'opened DOM Quick View', {});
   } catch (error) {
     console.error('❌ Error opening Quick View:', error);
     alert('Error opening Quick View. Check console for details.');

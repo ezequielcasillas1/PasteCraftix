@@ -27,15 +27,39 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([decodeURIComponent(payload)], { type: mime });
 }
 
+async function ensurePngBlob(blob) {
+  if (!blob) throw new Error('empty_blob');
+  if (blob.type === 'image/png') return blob;
+  if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function') {
+    return blob;
+  }
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return blob;
+    ctx.drawImage(bitmap, 0, 0);
+    return await canvas.convertToBlob({ type: 'image/png' });
+  } finally {
+    bitmap.close?.();
+  }
+}
+
 async function writePngViaClipboardApi(blob) {
   if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
     throw new Error('clipboard_image_unsupported');
   }
-  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  const png = await ensurePngBlob(blob);
+  const mime = png.type || 'image/png';
+  // Promise-wrapped Blob is required by some Chromium ClipboardItem builds.
+  await navigator.clipboard.write([
+    new ClipboardItem({ [mime]: Promise.resolve(png) }),
+  ]);
 }
 
 async function writePngViaExecCommand(blob) {
-  const url = URL.createObjectURL(blob);
+  const png = await ensurePngBlob(blob);
+  const url = URL.createObjectURL(png);
   try {
     const img = await new Promise((resolve, reject) => {
       const el = new Image();

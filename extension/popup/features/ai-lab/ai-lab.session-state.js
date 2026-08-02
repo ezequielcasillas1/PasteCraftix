@@ -70,6 +70,7 @@ export async function saveSummaryState(app) {
 /** Drop prior summary Q&A threads and UI; optional input text is set separately. */
 export function clearSummaryAiContext(app) {
   app.currentSummaryText = null;
+  app.currentSummaryImageBase64 = null;
   app.generatedQuestions = [];
   app.currentSummaryQuestion = null;
   app._activeSummaryHistoryId = null;
@@ -86,6 +87,7 @@ export function clearSummaryAiContext(app) {
   const paginationContainer = document.getElementById('summaryThreadPagination');
   const customQuestionInput = document.getElementById('customQuestionInput');
   const customQuestionBtn = document.getElementById('customQuestionBtn');
+  const imageAttach = document.getElementById('summaryImageAttach');
 
   if (questionsList) questionsList.innerHTML = '';
   if (summaryContent) summaryContent.innerHTML = '';
@@ -95,6 +97,10 @@ export function clearSummaryAiContext(app) {
   if (paginationContainer) paginationContainer.style.display = 'none';
   if (customQuestionInput) customQuestionInput.value = '';
   if (customQuestionBtn) customQuestionBtn.disabled = true;
+  if (imageAttach) {
+    imageAttach.style.display = 'none';
+    imageAttach.innerHTML = '';
+  }
 
   app.showSummarySection('input');
 }

@@ -75,15 +75,6 @@ export function onQuickViewDelegatedClick(widget, e) {
       state.likedIdSet = new Set(
         (result.ids || []).map((id) => normalizeLikedClipId(id)).filter(Boolean)
       );
-      // #region agent log
-      console.warn('[PasteCraft:debug:liked0711]', {
-        runId: 'post-fix',
-        hypothesisId: 'H3',
-        location: 'widget.quickview.actions.js:toggle-like',
-        message: 'qv heart toggled',
-        data: { clipId, liked: !!result.liked, idCount: state.likedIdSet.size },
-      });
-      // #endregion
       renderQuickViewList(widget);
     });
     return;

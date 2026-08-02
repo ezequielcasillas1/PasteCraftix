@@ -95,21 +95,6 @@ export async function getQuickViewClips() {
   merged.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0) || String(b.id).localeCompare(String(a.id)));
   // Strip image dataUrls before messaging — large payloads break Quick View postMessage/sendResponse
   const slimmed = slimQuickViewClips(merged.slice(0, 200));
-  // #region agent log
-  console.warn('[PasteCraft:debug:liked0711]', {
-    runId: 'post-fix',
-    hypothesisId: 'H7',
-    location: 'background/quickview/quickview.service.js:getQuickViewClips',
-    message: 'qv clips assembled',
-    data: {
-      localActive: localActive.length,
-      idbClips: Array.isArray(idbClips) ? idbClips.length : -1,
-      archived: archived.length,
-      merged: merged.length,
-      slimmed: slimmed.length,
-    },
-  });
-  // #endregion
   return slimmed;
 }
 

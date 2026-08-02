@@ -3,10 +3,25 @@
  * Keeps large dataUrls out of clip.meta (sanitizeClipMeta 140KB cap).
  */
 
+import { getClipIdKey } from './clip-id.js';
+
 const KEY_PREFIX = 'pc_clip_img_v1_';
 
 export function clipImageStorageKey(clipId) {
-  return `${KEY_PREFIX}${String(clipId)}`;
+  const keyId = getClipIdKey(clipId) || (clipId != null ? String(clipId) : '');
+  return keyId ? `${KEY_PREFIX}${keyId}` : '';
+}
+
+/** Legacy keys used String(id) before getClipIdKey normalization. */
+function clipImageStorageKeyCandidates(clipId) {
+  const keys = [];
+  const normalized = clipImageStorageKey(clipId);
+  if (normalized) keys.push(normalized);
+  if (clipId != null && clipId !== '') {
+    const raw = `${KEY_PREFIX}${String(clipId)}`;
+    if (raw !== normalized) keys.push(raw);
+  }
+  return keys;
 }
 
 export function isClipImageStorageKey(key) {
@@ -14,44 +29,52 @@ export function isClipImageStorageKey(key) {
 }
 
 export async function putClipImage(clipId, dataUrl, mime = 'image/png') {
-  const id = clipId != null ? String(clipId) : '';
+  const key = clipImageStorageKey(clipId);
   const url = typeof dataUrl === 'string' ? dataUrl : '';
-  if (!id || !url.startsWith('data:image/')) {
+  if (!key || !url.startsWith('data:image/')) {
     throw new Error('invalid_clip_image');
   }
-  const key = clipImageStorageKey(id);
-  await chrome.storage.local.set({
-    [key]: {
-      dataUrl: url,
-      mime: String(mime || 'image/png').slice(0, 128),
-      updatedAt: Date.now(),
-    },
-  });
+  const payload = {
+    dataUrl: url,
+    mime: String(mime || 'image/png').slice(0, 128),
+    updatedAt: Date.now(),
+  };
+  // Write canonical key; drop legacy String(id) duplicate if it differs.
+  const legacy = `${KEY_PREFIX}${String(clipId)}`;
+  const bag = { [key]: payload };
+  await chrome.storage.local.set(bag);
+  if (legacy !== key) {
+    try {
+      await chrome.storage.local.remove(legacy);
+    } catch (_) {}
+  }
   return key;
 }
 
 export async function getClipImage(clipId) {
-  const id = clipId != null ? String(clipId) : '';
-  if (!id) return null;
-  const key = clipImageStorageKey(id);
-  const bag = await chrome.storage.local.get(key);
-  const row = bag?.[key];
-  if (!row || typeof row !== 'object') return null;
-  const dataUrl = typeof row.dataUrl === 'string' ? row.dataUrl : '';
-  if (!dataUrl.startsWith('data:image/')) return null;
-  return {
-    dataUrl,
-    mime: typeof row.mime === 'string' ? row.mime : 'image/png',
-    updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : 0,
-  };
+  const keys = clipImageStorageKeyCandidates(clipId);
+  if (!keys.length) return null;
+  const bag = await chrome.storage.local.get(keys);
+  for (const key of keys) {
+    const row = bag?.[key];
+    if (!row || typeof row !== 'object') continue;
+    const dataUrl = typeof row.dataUrl === 'string' ? row.dataUrl : '';
+    if (!dataUrl.startsWith('data:image/')) continue;
+    return {
+      dataUrl,
+      mime: typeof row.mime === 'string' ? row.mime : 'image/png',
+      updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : 0,
+    };
+  }
+  return null;
 }
 
 export async function removeClipImages(clipIds) {
   const keys = (Array.isArray(clipIds) ? clipIds : [clipIds])
-    .map((id) => (id != null ? clipImageStorageKey(id) : ''))
+    .flatMap((id) => clipImageStorageKeyCandidates(id))
     .filter(Boolean);
   if (!keys.length) return;
-  await chrome.storage.local.remove(keys);
+  await chrome.storage.local.remove([...new Set(keys)]);
 }
 
 function _metaImage(meta) {

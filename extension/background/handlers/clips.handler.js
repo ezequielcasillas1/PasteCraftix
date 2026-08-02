@@ -27,15 +27,6 @@ export function handleSaveClip(message, { sendResponse }) {
 
 function respondQuickViewGetFailure(error, sendResponse) {
   console.error('❌ Failed to get Quick View clips:', error);
-  // #region agent log
-  console.warn('[PasteCraft:debug:liked0711]', {
-    runId: 'post-fix',
-    hypothesisId: 'H7',
-    location: 'clips.handler.js:pcGetQuickViewClips',
-    message: 'qv get failed',
-    data: { error: String(error?.message || error) },
-  });
-  // #endregion
   sendResponse({
     success: false,
     error: error?.message || String(error),

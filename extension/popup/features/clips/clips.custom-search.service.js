@@ -38,20 +38,13 @@ export async function navigateToGoogleSearch(query) {
   if (!url) return false;
 
   try {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tabId = tabs?.[0]?.id;
-      if (tabId != null) {
-        chrome.tabs.update(tabId, { url }, () => {
-          if (chrome.runtime.lastError) {
-            window.open(url, '_blank', 'noopener,noreferrer');
-          }
-        });
-      } else {
+    chrome.tabs.create({ url }, () => {
+      if (chrome.runtime.lastError) {
         window.open(url, '_blank', 'noopener,noreferrer');
       }
     });
   } catch (error) {
-    console.error('[custom-search] Failed to navigate active tab:', error);
+    console.error('[custom-search] Failed to open search tab:', error);
     try {
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (_) {

@@ -11,6 +11,7 @@ import * as clipShare from './clips.share.js';
 import * as clipActionMenu from './clips.action-menu.js';
 import * as clipCustomSearch from './clips.custom-search.module.js';
 import * as clipLiked from './clips.liked.js';
+import { hydrateSearchIncludeTitles } from './clips.search-prefs.js';
 
 export function initClipsFeature(app) {
   app.clipsPerPage = CLIPS_LIMITS.CLIPS_PER_PAGE;
@@ -21,6 +22,7 @@ export function initClipsFeature(app) {
   void clipLiked.hydrateLikedClipIds(app).then(() => {
     if (typeof app.renderChips === 'function') app.renderChips();
   });
+  void hydrateSearchIncludeTitles(app);
   clipLiked.setupLikedStorageListener(app);
 
   return {

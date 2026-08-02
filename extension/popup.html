@@ -2418,6 +2418,25 @@
             border-color: var(--pc-secondary-400);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
+
+        .search-title-toggle {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 12px;
+            border: 2px solid var(--pc-border);
+            border-radius: var(--pc-radius-sm);
+            font-size: 13px;
+            background: var(--pc-bg);
+            color: var(--pc-text);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .search-title-toggle input[type="checkbox"] {
+            margin: 0;
+        }
         
         .search-results {
             max-height: 300px;
@@ -6576,12 +6595,18 @@
             gap: 10px;
         }
 
+        .ai-model-card-wrap {
+            position: relative;
+            min-width: 0;
+        }
+
         .ai-model-card {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
             gap: 2px;
-            padding: 12px 12px 10px;
+            width: 100%;
+            padding: 12px 28px 10px 12px;
             border-radius: 10px;
             border: 1.5px solid color-mix(in srgb, var(--pc-secondary-400, #3b82f6) 28%, transparent);
             background:
@@ -6608,7 +6633,7 @@
         .ai-model-card.is-active {
             border-color: var(--pc-secondary-400, #3b82f6);
             border-width: 2px;
-            padding: 11.5px 11.5px 9.5px;
+            padding: 11.5px 27.5px 9.5px 11.5px;
             background:
                 linear-gradient(165deg,
                     color-mix(in srgb, var(--pc-secondary-500, #2563eb) 18%, var(--pc-primary-800, #0d1240)) 0%,
@@ -6624,6 +6649,19 @@
         .ai-model-card.is-locked {
             opacity: 0.55;
             cursor: not-allowed;
+        }
+
+        .ai-model-card-info {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            z-index: 2;
+            cursor: pointer;
+        }
+
+        .ai-model-card-info:hover {
+            background: #2563eb;
+            transform: scale(1.1);
         }
 
         .ai-model-card-label {
@@ -6643,6 +6681,32 @@
             line-height: 1.35;
             color: var(--pc-text-soft, #94a3b8);
             margin-top: 2px;
+        }
+
+        .ai-model-info-modal {
+            max-width: 420px;
+            width: 95%;
+        }
+
+        .ai-model-info-tagline {
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #1e3a8a;
+        }
+
+        .ai-model-info-cost {
+            margin: 0 0 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2563eb;
+        }
+
+        .ai-model-info-description {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #334155;
         }
 
         .ai-lab-model-hint {
@@ -7981,6 +8045,34 @@
             gap: 12px;
             margin-top: 12px;
             justify-content: flex-end;
+        }
+
+        .summary-image-attach {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #1e40af;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .summary-image-thumb {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #bfdbfe;
+            flex-shrink: 0;
+            background: #fff;
+        }
+
+        .summary-image-attach-label {
+            flex: 1;
         }
 
         .open-recent-conversation {
@@ -11383,6 +11475,10 @@
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
                     </select>
+                    <label class="search-title-toggle checkbox-label">
+                        <input type="checkbox" id="searchIncludeTitles" checked>
+                        Titles
+                    </label>
                 </div>
             </div>
             <div class="search-results" id="searchResults">
@@ -11583,6 +11679,7 @@ Multiple clips are separated by:
                                 rows="12"
                                 maxlength="12000"
                             ></textarea>
+                            <div id="summaryImageAttach" class="summary-image-attach" style="display: none;" aria-live="polite"></div>
                             
                             <div class="summary-input-actions">
                                 <button id="clearSummaryInput" class="btn-secondary summary-clear-btn">
@@ -12359,6 +12456,10 @@ Multiple clips are separated by:
                     <div class="clip-viewer-body" id="clipViewerBody">
                         <div class="pc-rendered-content" id="clipViewerRendered"></div>
                         <pre class="clip-viewer-pre" id="clipViewerRaw" style="display:none;"></pre>
+                        <div class="clip-viewer-edit-panel" id="clipViewerEditPanel" style="display:none;">
+                            <p class="clip-viewer-edit-hint">Edit freely — append or remove text, then Save</p>
+                            <textarea id="clipViewerEditTextarea" class="clip-viewer-edit-textarea" rows="12" aria-label="Edit clip text"></textarea>
+                        </div>
                     </div>
                     <details class="clip-viewer-details" id="clipViewerHtmlDetails" style="display:none; margin-top: 12px;">
                         <summary>Source HTML</summary>
@@ -12401,9 +12502,21 @@ Multiple clips are separated by:
                                 <i data-lucide="file-text"></i>
                                 <span class="pc-tip" role="tooltip">View Raw</span>
                             </button>
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="editClipViewerBtn" type="button" aria-label="Edit">
+                                <i data-lucide="pencil"></i>
+                                <span class="pc-tip" role="tooltip">Edit</span>
+                            </button>
                             <button class="pc-ai-icon-btn pc-delay-tip" id="copyClipViewerBtn" type="button" aria-label="Copy">
                                 <i data-lucide="clipboard"></i>
                                 <span class="pc-tip" role="tooltip">Copy</span>
+                            </button>
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="saveClipViewerEditBtn" type="button" aria-label="Save" style="display:none;">
+                                <i data-lucide="save"></i>
+                                <span class="pc-tip" role="tooltip">Save</span>
+                            </button>
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="cancelClipViewerEditBtn" type="button" aria-label="Cancel" style="display:none;">
+                                <i data-lucide="x"></i>
+                                <span class="pc-tip" role="tooltip">Cancel</span>
                             </button>
                             <button class="pc-ai-icon-btn pc-ai-icon-btn--done pc-delay-tip" id="closeClipViewerBtn" type="button" aria-label="Done">
                                 <i data-lucide="check"></i>
@@ -12685,6 +12798,24 @@ Multiple clips are separated by:
             </div>
         </div>
 
+        <!-- AI Model Info Modal -->
+        <div class="modal-overlay" id="aiModelInfoModal" style="display: none;">
+            <div class="modal-content ai-model-info-modal">
+                <div class="modal-header">
+                    <h3 id="aiModelInfoTitle">AI Model</h3>
+                    <button class="modal-close" id="closeAiModelInfo" type="button">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p class="ai-model-info-tagline" id="aiModelInfoTagline"></p>
+                    <p class="ai-model-info-cost" id="aiModelInfoCost"></p>
+                    <p class="ai-model-info-description" id="aiModelInfoDescription"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="magic-btn-craft" id="aiModelInfoDone" type="button">Got it!</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Notes Info Modal -->
         <div class="modal-overlay" id="notesInfoModal" style="display: none;">
             <div class="modal-content notes-info-modal-content">
@@ -12789,7 +12920,7 @@ Multiple clips are separated by:
                             <strong>Clip Joiner:</strong> Combine selected clips into one crafted output (editable before save).
                         </div>
                         <div class="help-item">
-                            <strong>Custom Search:</strong> From a clip, highlight text, add your question, and open Google on the active tab.
+                            <strong>Custom Search:</strong> From a clip, highlight text, add your question, and open Google in a new tab.
                         </div>
                         <div class="help-item">
                             <strong>Manual input:</strong> Create a clip by typing or pasting without copying from a page first.

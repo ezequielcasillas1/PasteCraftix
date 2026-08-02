@@ -7,6 +7,7 @@ import {
   openOrgBundleMenu,
 } from './clips.action-menu.js';
 import { getClipBulkActionControls, getClipSearchControls } from './clips.selectors.js';
+import { persistSearchIncludeTitles } from './clips.search-prefs.js';
 
 const SEARCH_INPUT_DEBOUNCE_MS = 80;
 
@@ -86,7 +87,17 @@ async function handleCategoryClipClick(app, container, event) {
 }
 
 export function registerClipSearchEvents(app) {
-  const { searchInput, clearSearch, categoryFilter, dateFilter } = getClipSearchControls();
+  const { searchInput, clearSearch, categoryFilter, dateFilter, searchIncludeTitles } = getClipSearchControls();
+
+  if (searchIncludeTitles) {
+    searchIncludeTitles.checked = app.searchIncludeTitles !== false;
+  }
+
+  searchIncludeTitles?.addEventListener('change', async (e) => {
+    app.searchIncludeTitles = e.target.checked;
+    await persistSearchIncludeTitles(app);
+    renderSearchNow(app);
+  });
 
   searchInput?.addEventListener('input', (e) => {
     app.searchQuery = e.target.value;

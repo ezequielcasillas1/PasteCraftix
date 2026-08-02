@@ -351,12 +351,24 @@ export function handlePcCopyText(message, { sendResponse }) {
 }
 
 async function writeClipboardImageViaOffscreen(dataUrl) {
-  const response = await chrome.runtime.sendMessage({
-    action: 'pcOffscreenWriteClipboardImage',
-    dataUrl,
-  });
-  if (response?.success) return { success: true };
-  return { success: false, error: response?.error || 'offscreen_write_image_failed' };
+  let lastError = 'offscreen_write_image_failed';
+  // Retry: offscreen createDocument can resolve before its listener is ready.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 40 * attempt));
+    }
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'pcOffscreenWriteClipboardImage',
+        dataUrl,
+      });
+      if (response?.success) return { success: true };
+      lastError = response?.error || lastError;
+    } catch (err) {
+      lastError = err?.message || String(err) || lastError;
+    }
+  }
+  return { success: false, error: lastError };
 }
 
 /**
@@ -373,8 +385,12 @@ export function handlePcCopyImage(message, { sendResponse }) {
       }
       const ready = await ensureClipboardOffscreenDocument();
       if (!ready.ok) {
-        sendResponse({ success: false, error: ready.error });
+        sendResponse({ success: false, error: ready.error || 'offscreen_create_failed' });
         return;
+      }
+      // Brief settle after first create so offscreen script can register onMessage.
+      if (ready.created) {
+        await new Promise((resolve) => setTimeout(resolve, 30));
       }
       sendResponse(await writeClipboardImageViaOffscreen(dataUrl));
     } catch (error) {
@@ -429,14 +445,14 @@ function isOffscreenAlreadyExistsError(err) {
 
 async function ensureClipboardOffscreenDocument() {
   try {
-    if (await chrome.offscreen.hasDocument?.()) return { ok: true };
+    if (await chrome.offscreen.hasDocument?.()) return { ok: true, created: false };
   } catch (_) {}
 
   try {
     await chrome.offscreen.createDocument(OFFSCREEN_CLIPBOARD);
-    return { ok: true };
+    return { ok: true, created: true };
   } catch (err) {
-    if (isOffscreenAlreadyExistsError(err)) return { ok: true };
+    if (isOffscreenAlreadyExistsError(err)) return { ok: true, created: false };
     return { ok: false, error: String(err?.message || err || 'offscreen_create_failed') };
   }
 }

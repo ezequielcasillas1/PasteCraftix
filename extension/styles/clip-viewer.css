@@ -55,6 +55,9 @@
 }
 
 .clip-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 14px;
   padding: 10px 12px;
   border: 1px solid #dbeafe;
@@ -63,6 +66,24 @@
   color: #475569;
   font-size: 12px;
   line-height: 1.55;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.clip-viewer-meta-item {
+  flex: none;
+}
+
+.clip-viewer-meta-from {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clip-viewer-meta-sep {
+  flex: none;
+  color: #94a3b8;
 }
 
 .clip-viewer-body {
@@ -281,4 +302,41 @@
 .clip-viewer-toolbar .pc-ai-icon-btn > svg,
 .clip-viewer-toolbar .pc-ai-icon-btn > svg * {
   pointer-events: none;
+}
+
+.clip-viewer-edit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.clip-viewer-edit-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.clip-viewer-edit-textarea {
+  width: 100%;
+  min-height: 220px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: inherit;
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+.clip-viewer-edit-textarea:focus {
+  outline: none;
+  border-color: #93c5fd;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }

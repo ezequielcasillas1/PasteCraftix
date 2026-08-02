@@ -207,6 +207,18 @@ export function registerSharedModalEvents(app) {
     if (copyClipViewerBtn) {
       copyClipViewerBtn.addEventListener('click', () => app.copyClipViewerText());
     }
+    const editClipViewerBtn = document.getElementById('editClipViewerBtn');
+    if (editClipViewerBtn) {
+      editClipViewerBtn.addEventListener('click', () => app.enterClipViewerEditMode());
+    }
+    const saveClipViewerEditBtn = document.getElementById('saveClipViewerEditBtn');
+    if (saveClipViewerEditBtn) {
+      saveClipViewerEditBtn.addEventListener('click', () => app.saveClipViewerEdit());
+    }
+    const cancelClipViewerEditBtn = document.getElementById('cancelClipViewerEditBtn');
+    if (cancelClipViewerEditBtn) {
+      cancelClipViewerEditBtn.addEventListener('click', () => app.cancelClipViewerEdit());
+    }
     const clipViewerAiSummaryBtn = document.getElementById('clipViewerAiSummaryBtn');
     if (clipViewerAiSummaryBtn) {
       clipViewerAiSummaryBtn.addEventListener('click', () => app.runClipViewerAiSummary());

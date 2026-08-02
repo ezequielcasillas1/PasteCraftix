@@ -31,6 +31,13 @@ export const aiFunctionsMixin = {
     return String(value ?? '').slice(0, maxChars);
   },
 
+  _withOptionalImageBase64(payload, imageBase64) {
+    const next = payload && typeof payload === 'object' ? { ...payload } : {};
+    const image = typeof imageBase64 === 'string' ? imageBase64.trim() : '';
+    if (image) next.imageBase64 = image;
+    return next;
+  },
+
   async generateAIName(userName) {
     try {
       if (!this.client) {
@@ -280,14 +287,15 @@ export const aiFunctionsMixin = {
     }
   },
 
-  async generateSummaryQuestions(text) {
+  async generateSummaryQuestions(text, imageBase64 = null) {
     try {
       console.log('🤔 Generating summary questions...');
 
-      const body = await this._withAiWorkflow({
+      const body = await this._withAiWorkflow(this._withOptionalImageBase64({
         text: this._truncateAiInputText(text),
         generateQuestions: true,
-      });
+      }, imageBase64));
+
       const response = await this._invokeAiEdge(
         ['ai-summary', 'summarize-or-qa'],
         body,
@@ -295,7 +303,7 @@ export const aiFunctionsMixin = {
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.error || 'Failed to generate questions');
       }
 
@@ -308,14 +316,14 @@ export const aiFunctionsMixin = {
     }
   },
 
-  async generateSummary(text, question) {
+  async generateSummary(text, question, imageBase64 = null) {
     try {
       console.log('📝 Generating summary for question:', question);
 
-      const body = await this._withAiWorkflow({
+      const body = await this._withAiWorkflow(this._withOptionalImageBase64({
         text: this._truncateAiInputText(text),
         question: this._truncateAiInputText(question),
-      });
+      }, imageBase64));
       const response = await this._invokeAiEdge(
         ['ai-summary', 'summarize-or-qa'],
         body,

@@ -17,6 +17,7 @@ export function createPopupInitialState() {
     delimiter: 'comma',
     currentTab: 'clips',
     searchQuery: '',
+    searchIncludeTitles: true,
     selectedCategory: '',
     selectedDateFilter: '',
     pendingText: null,

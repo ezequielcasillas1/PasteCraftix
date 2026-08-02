@@ -8,8 +8,10 @@ import { openGoogleSearchMenu } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
-import { getClipImage } from '../../../shared/clip-images.js';
+import { getClipImage, isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
+import { getClipIdKey } from '../../../shared/clip-id.js';
 import { openClipImageAnnotate, popOutClipImageAnnotate } from './clips.image-annotate.js';
+import { updateClipTextById } from './clips.text.js';
 import {
   ensureRefactorResolverData,
   findClipAcrossCollections,
@@ -17,6 +19,20 @@ import {
 } from './clips.refactor-resolver.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
+
+const CLIP_VIEWER_EDIT_HIDE_IDS = [
+  'clipViewerAiSummaryBtn',
+  'clipViewerAiBreakdownBtn',
+  'clipViewerGoogleSearchBtn',
+  'clipViewerAiRefactorBtn',
+  'clipViewerAiCraftBtn',
+  'clipViewerSendCategoriesBtn',
+  'clipViewerSendNotesBtn',
+  'clipViewerToggleRaw',
+  'editClipViewerBtn',
+  'copyClipViewerBtn',
+  'closeClipViewerBtn',
+];
 
 function normalizeClipViewerSourceContext(sourceContext) {
   return CLIP_VIEWER_SOURCE_CONTEXTS.has(sourceContext) ? sourceContext : 'clips';
@@ -62,12 +78,64 @@ function getClipViewerElements() {
     bodyEl: document.getElementById('clipViewerBody'),
     renderedEl: document.getElementById('clipViewerRendered'),
     rawEl: document.getElementById('clipViewerRaw'),
+    editPanel: document.getElementById('clipViewerEditPanel'),
+    editTextarea: document.getElementById('clipViewerEditTextarea'),
     htmlDetails: document.getElementById('clipViewerHtmlDetails'),
     htmlPre: document.getElementById('clipViewerHtml'),
     toggleBtn: document.getElementById('clipViewerToggleRaw'),
+    editBtn: document.getElementById('editClipViewerBtn'),
+    saveEditBtn: document.getElementById('saveClipViewerEditBtn'),
+    cancelEditBtn: document.getElementById('cancelClipViewerEditBtn'),
   };
 }
 
+function setClipViewerEditChrome(editing) {
+  CLIP_VIEWER_EDIT_HIDE_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (editing) {
+      if (el.dataset.pcEditPrevDisplay == null) {
+        el.dataset.pcEditPrevDisplay = el.style.display || '';
+      }
+      el.style.display = 'none';
+      el.disabled = true;
+      return;
+    }
+    if (el.dataset.pcEditPrevDisplay != null) {
+      el.style.display = el.dataset.pcEditPrevDisplay;
+      delete el.dataset.pcEditPrevDisplay;
+    }
+    el.disabled = false;
+  });
+
+  const { saveEditBtn, cancelEditBtn } = getClipViewerElements();
+  if (saveEditBtn) {
+    saveEditBtn.style.display = editing ? '' : 'none';
+    saveEditBtn.disabled = false;
+  }
+  if (cancelEditBtn) {
+    cancelEditBtn.style.display = editing ? '' : 'none';
+    cancelEditBtn.disabled = false;
+  }
+}
+
+function exitEditModeUi(app) {
+  const { renderedEl, rawEl, editPanel, editTextarea, htmlDetails } = getClipViewerElements();
+  app._clipViewerEditing = false;
+  if (editPanel) editPanel.style.display = 'none';
+  if (editTextarea) editTextarea.value = '';
+  if (renderedEl) {
+    renderedEl.style.display = app._clipViewerShowingRaw ? 'none' : 'block';
+  }
+  if (rawEl) {
+    rawEl.style.display = app._clipViewerShowingRaw ? 'block' : 'none';
+  }
+  if (htmlDetails && htmlDetails.dataset.pcEditPrevDisplay != null) {
+    htmlDetails.style.display = htmlDetails.dataset.pcEditPrevDisplay;
+    delete htmlDetails.dataset.pcEditPrevDisplay;
+  }
+  setClipViewerEditChrome(false);
+}
 
 function buildRefactorSectionHtml(app, label, text) {
   const content = formatClipViewerPlainText.call(app, text);
@@ -117,22 +185,31 @@ function resolveClipViewerTitle(clipTitle, meta) {
 function renderClipViewerMeta(app, metaEl, meta, markupType, clip) {
   if (!metaEl) return;
   const bits = [];
-  if (meta && meta.kind) bits.push(`<strong>Type:</strong> ${app.escapeHtml(meta.kind)}`);
+  if (meta && meta.kind) {
+    bits.push(
+      `<span class="clip-viewer-meta-item"><strong>Type:</strong> ${app.escapeHtml(meta.kind)}</span>`,
+    );
+  }
   if (markupType !== 'text') {
-    bits.push(`<strong>Format:</strong> ${app.escapeHtml(markupType.toUpperCase())}`);
+    bits.push(
+      `<span class="clip-viewer-meta-item"><strong>Format:</strong> ${app.escapeHtml(markupType.toUpperCase())}</span>`,
+    );
   }
   if (meta && meta.sourcePageUrl) {
-    bits.push(`<strong>From:</strong> ${app.escapeHtml(meta.sourcePageUrl)}`);
+    const escapedUrl = app.escapeHtml(meta.sourcePageUrl);
+    bits.push(
+      `<span class="clip-viewer-meta-item clip-viewer-meta-from" title="${escapedUrl}"><strong>From:</strong> ${escapedUrl}</span>`,
+    );
   }
   if (clip && typeof clip.timestamp === 'number') {
     bits.push(
-      `<strong>Saved:</strong> ${app.escapeHtml(getTimeAgo(clip.timestamp))}`,
+      `<span class="clip-viewer-meta-item"><strong>Saved:</strong> ${app.escapeHtml(getTimeAgo(clip.timestamp))}</span>`,
     );
   }
 
   if (bits.length) {
-    metaEl.innerHTML = bits.join('<br>');
-    metaEl.style.display = 'block';
+    metaEl.innerHTML = bits.join('<span class="clip-viewer-meta-sep" aria-hidden="true">·</span>');
+    metaEl.style.display = 'flex';
     return;
   }
   metaEl.textContent = '';
@@ -398,6 +475,8 @@ export async function open(app, clip, sourceContext = 'clips') {
     return;
   }
 
+  exitEditModeUi(app);
+
   await ensureRefactorResolverData(app);
 
   const canonicalClip = findClipAcrossCollections(app, clip?.id) || clip;
@@ -443,6 +522,7 @@ export async function open(app, clip, sourceContext = 'clips') {
 }
 
 export function hide(app) {
+  exitEditModeUi(app);
   const modal = document.getElementById('clipViewerModal');
   if (modal) modal.style.display = 'none';
   app.currentClipViewerClip = null;
@@ -450,14 +530,109 @@ export function hide(app) {
   app._clipViewerRefactorPair = null;
 }
 
-export function runAiSummary(app) {
-  closeClipViewerThen(app, ({ text }) => {
-    const trimmed = String(text || '').trim();
-    if (!trimmed) {
+export async function refreshIfOpen(app, clipId) {
+  const openClip = app.currentClipViewerClip;
+  if (!openClip) return false;
+  if (getClipIdKey(openClip.id) !== getClipIdKey(clipId)) return false;
+
+  const modal = document.getElementById('clipViewerModal');
+  if (!modal || modal.style.display === 'none') return false;
+
+  const fresh = findClipAcrossCollections(app, clipId) || openClip;
+  const sourceContext = app.clipViewerSourceContext || 'clips';
+  await open(app, fresh, sourceContext);
+  return true;
+}
+
+export function enterEditMode(app) {
+  const clip = app.currentClipViewerClip;
+  if (!clip) {
+    app.showToast?.('No clip to edit', 'error');
+    return;
+  }
+
+  const { renderedEl, rawEl, editPanel, editTextarea, htmlDetails } = getClipViewerElements();
+  if (!editPanel || !editTextarea) return;
+
+  const { text } = buildClipViewerContext(clip);
+  app._clipViewerEditing = true;
+
+  if (renderedEl) renderedEl.style.display = 'none';
+  if (rawEl) rawEl.style.display = 'none';
+  if (htmlDetails) {
+    if (htmlDetails.dataset.pcEditPrevDisplay == null) {
+      htmlDetails.dataset.pcEditPrevDisplay = htmlDetails.style.display || '';
+    }
+    htmlDetails.style.display = 'none';
+  }
+
+  editTextarea.value = text;
+  editPanel.style.display = 'flex';
+  setClipViewerEditChrome(true);
+  window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
+  editTextarea.focus();
+  try {
+    const len = editTextarea.value.length;
+    editTextarea.setSelectionRange(len, len);
+  } catch (_) {
+    // Non-fatal (some hosts reject setSelectionRange)
+  }
+}
+
+export async function saveEdit(app) {
+  const clip = app.currentClipViewerClip;
+  if (!clip || !app._clipViewerEditing) return false;
+
+  const { editTextarea } = getClipViewerElements();
+  if (!editTextarea) return false;
+
+  const nextText = String(editTextarea.value ?? '');
+  const updated = await updateClipTextById(app, clip.id, nextText);
+  const nextClip = updated || findClipAcrossCollections(app, clip.id);
+  if (!nextClip) return false;
+
+  app.currentClipViewerClip = nextClip;
+  const sourceContext = app.clipViewerSourceContext || 'clips';
+  exitEditModeUi(app);
+  await open(app, nextClip, sourceContext);
+  app.showToast?.('Clip updated');
+  return true;
+}
+
+export function cancelEdit(app) {
+  if (!app._clipViewerEditing) return;
+  exitEditModeUi(app);
+  window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
+}
+
+async function resolveViewerSummaryImage(objects) {
+  if (!Array.isArray(objects) || objects.length !== 1 || !isImageBearingClip(objects[0])) {
+    return '';
+  }
+  try {
+    const resolved = await resolveClipImageSrc(objects[0]);
+    return resolved?.src || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+export async function runAiSummary(app) {
+  await closeClipViewerThen(app, async ({ text, clip, clipObjects }) => {
+    const objects = Array.isArray(clipObjects) && clipObjects.length
+      ? clipObjects
+      : (clip ? [clip] : []);
+
+    const imageBase64 = await resolveViewerSummaryImage(objects);
+    let trimmed = String(text || '').trim();
+    if (!trimmed && objects.length === 1) {
+      trimmed = String(objects[0]?.meta?.plainText || '').trim();
+    }
+    if (!trimmed && !imageBase64) {
       app.showToast?.('No clip text to summarize', 'error');
       return;
     }
-    app.showSummaryModal?.(trimmed);
+    await app.showSummaryModal?.(trimmed, imageBase64 ? { imageBase64 } : undefined);
   });
 }
 

@@ -13,15 +13,6 @@ import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 const LIKED_KEY = 'likedClipIds';
 const HEART_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
 
-const DEBUG = 'qv-sync-0711';
-function qvDebug(hypothesisId, message, data) {
-  // #region agent log
-  console.warn(
-    `[PasteCraft:debug:${DEBUG}] ${hypothesisId} ${message} | ${JSON.stringify(data || {})}`
-  );
-  // #endregion
-}
-
 let allClips = [];
 let likedIdSet = new Set();
 let likedFilterOn = false;
@@ -136,27 +127,18 @@ async function loadClips() {
     }
 
     let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-    let source = 'background';
     if (!response?.success || clips.length === 0) {
       const localClips = await loadClipsFromLocalStorage();
       if (localClips.length > 0) {
         clips = localClips;
-        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
       }
     }
 
     allClips = slimQuickViewClips(clips);
     likedIdSet = new Set(await getLikedIds());
-    qvDebug('H5', 'panel self-load', {
-      ok: !!response?.success || allClips.length > 0,
-      count: allClips.length,
-      source,
-      error: response?.error ? String(response.error).slice(0, 120) : '',
-    });
     render();
     postToParent({ type: 'quickview-clips-ack', count: allClips.length, totalCount: allClips.length });
   } catch (err) {
-    qvDebug('H5', 'panel self-load failed', { error: String(err?.message || err) });
     try {
       allClips = await loadClipsFromLocalStorage();
       likedIdSet = new Set(await getLikedIds());
@@ -336,4 +318,3 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 loadClips();
-qvDebug('H5', 'panel boot', { href: location.href });

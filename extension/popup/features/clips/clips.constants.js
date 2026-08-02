@@ -5,6 +5,7 @@ export const CLIPS_STORAGE_KEYS = Object.freeze({
   DELETED_ACTIVE: 'pc_deleted_clips',
   DELETED_ARCHIVED: 'pc_deleted_archived_clips',
   LIKED: 'likedClipIds',
+  SEARCH_INCLUDE_TITLES: 'pc_search_include_titles',
 });
 
 export const CLIPS_SYNC_QUEUE_KEYS = Object.freeze({
@@ -35,6 +36,7 @@ export const CLIPS_SELECTORS = Object.freeze({
   CLEAR_SEARCH: 'clearSearch',
   CATEGORY_FILTER: 'categoryFilter',
   DATE_FILTER: 'dateFilter',
+  SEARCH_INCLUDE_TITLES: 'searchIncludeTitles',
   CATEGORY_BULK_COPY_BUTTON: 'categoryBulkCopyBtn',
   CATEGORY_BULK_DELETE_BUTTON: 'categoryBulkDeleteBtn',
   SEARCH_BULK_COPY_BUTTON: 'searchBulkCopyBtn',

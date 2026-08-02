@@ -1,9 +1,30 @@
 /** Scholar Image Picker — region snip + preview + clip save. */
 
-import { CAPTURE_LAYER_Z, mountCaptureLayer } from '../capture/capture.constants.js';
+import {
+  CAPTURE_LAYER_Z,
+  CAPTURE_MESSAGE_ACTIONS,
+  mountCaptureLayer,
+} from '../capture/capture.constants.js';
 import { capturePageRegion, cancelRegionCapture, isRegionCaptureActive } from '../capture/capture.region.js';
 import { extractTextFromImageDataUrl } from '../capture/capture.ocr.js';
 import { saveImageTextClipFromContent } from '../capture/capture.clip-save.js';
+
+async function copyPreviewImageToClipboard(dataUrl) {
+  const url = String(dataUrl || '');
+  if (!url.startsWith('data:image/')) {
+    return { ok: false, error: 'No image to copy.' };
+  }
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: CAPTURE_MESSAGE_ACTIONS.PC_COPY_IMAGE,
+      dataUrl: url,
+    });
+    if (response?.success) return { ok: true };
+    return { ok: false, error: response?.error || 'Clipboard unavailable.' };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Clipboard unavailable.' };
+  }
+}
 
 let _previewHost = null;
 let _onModeChange = null;
@@ -56,11 +77,20 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
+  cancelBtn.setAttribute('data-action', 'image-preview-cancel');
   cancelBtn.textContent = 'Cancel';
   cancelBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;';
 
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.setAttribute('data-action', 'image-preview-copy');
+  copyBtn.textContent = 'Copy';
+  copyBtn.disabled = !dataUrl;
+  copyBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;';
+
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
+  saveBtn.setAttribute('data-action', 'image-preview-save');
   saveBtn.textContent = 'Save clip';
   saveBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-weight:600;';
 
@@ -70,6 +100,23 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
     onCancel?.();
   });
 
+  copyBtn.addEventListener('click', async () => {
+    if (!dataUrl || copyBtn.disabled) return;
+    copyBtn.disabled = true;
+    const prev = copyBtn.textContent;
+    const result = await copyPreviewImageToClipboard(dataUrl);
+    copyBtn.textContent = result.ok ? 'Copied!' : 'Copy failed';
+    if (!result.ok) {
+      copyBtn.title = result.error || 'Copy failed';
+    }
+    setTimeout(() => {
+      if (!copyBtn.isConnected) return;
+      copyBtn.textContent = prev;
+      copyBtn.disabled = !dataUrl;
+      copyBtn.removeAttribute('title');
+    }, 1600);
+  });
+
   saveBtn.addEventListener('click', async () => {
     saveBtn.disabled = true;
     await onSave?.(textarea.value.trim());
@@ -77,7 +124,7 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
     _onModeChange?.('idle');
   });
 
-  actions.append(cancelBtn, saveBtn);
+  actions.append(cancelBtn, copyBtn, saveBtn);
   panel.appendChild(actions);
   host.appendChild(panel);
   mountCaptureLayer(host, CAPTURE_LAYER_Z.PREVIEW);

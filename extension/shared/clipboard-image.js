@@ -181,7 +181,12 @@ async function writeImageBlobViaBackground(png) {
   if (!chrome?.runtime?.id) throw new Error('no_runtime');
   const dataUrl = await blobToDataUrl(png);
   if (!dataUrl.startsWith('data:image/')) throw new Error('invalid_png_data_url');
-  const resp = await chrome.runtime.sendMessage({ action: 'pcCopyImage', dataUrl });
+  let resp;
+  try {
+    resp = await chrome.runtime.sendMessage({ action: 'pcCopyImage', dataUrl });
+  } catch (err) {
+    throw new Error(err?.message || 'background_image_copy_failed');
+  }
   if (resp?.success) return;
   throw new Error(resp?.error || 'background_image_copy_failed');
 }
@@ -215,6 +220,10 @@ async function tryDomImageBlob(imageElement) {
 }
 
 async function resolveImageBlob(clip, { imageElement } = {}) {
+  // Prefer the visible viewer bitmap first — survives side-store key drift.
+  const fromDomFirst = await tryDomImageBlob(imageElement);
+  if (fromDomFirst) return fromDomFirst;
+
   const { src } = await resolveClipImageSrc(clip);
   if (src?.startsWith('data:image/')) return dataUrlToBlob(src);
 
@@ -222,15 +231,43 @@ async function resolveImageBlob(clip, { imageElement } = {}) {
     try {
       return await fetchUrlAsBlob(src);
     } catch (fetchErr) {
-      const fromDom = await tryDomImageBlob(imageElement);
-      if (fromDom) return fromDom;
-      throw fetchErr;
+      throw fetchErr?.message ? fetchErr : new Error('image_fetch_failed');
     }
   }
 
-  const fromDom = await tryDomImageBlob(imageElement);
-  if (fromDom) return fromDom;
   throw new Error('no_image_src');
+}
+
+/** Map internal copy error codes to short toast-friendly reasons. */
+export function formatClipboardImageError(error) {
+  const code = String(error?.message || error || '').trim();
+  const map = {
+    no_image_src: 'no image found',
+    not_image_clip: 'not an image clip',
+    invalid_data_url: 'invalid image data',
+    invalid_png_data_url: 'invalid image data',
+    invalid_image_data_url: 'invalid image data',
+    image_element_empty: 'image not loaded',
+    canvas_unavailable: 'image render failed',
+    canvas_to_blob_failed: 'image render failed',
+    image_decode_failed: 'image decode failed',
+    clipboard_image_unsupported: 'clipboard blocked',
+    background_image_copy_failed: 'clipboard blocked',
+    offscreen_write_image_failed: 'clipboard blocked',
+    offscreen_create_failed: 'clipboard blocked',
+    no_runtime: 'extension context lost',
+    unsupported_image_src: 'unsupported image source',
+    not_image_response: 'not an image',
+    empty_blob: 'no image found',
+    png_convert_unavailable: 'image convert failed',
+  };
+  if (map[code]) return map[code];
+  if (/permissions policy|notallowederror|clipboard api has been blocked/i.test(code)) {
+    return 'clipboard blocked';
+  }
+  if (/image_fetch_/i.test(code)) return 'image download failed';
+  if (/offscreen/i.test(code)) return 'clipboard blocked';
+  return code.length > 60 ? 'copy failed' : code || 'copy failed';
 }
 
 /**

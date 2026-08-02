@@ -80,8 +80,10 @@ function matchesQuery(app, clip) {
   const query = app.searchQuery ? app.searchQuery.toLowerCase() : '';
   if (!query) return true;
   const text = String(clip.text || '').toLowerCase();
+  if (text.includes(query)) return true;
+  if (app.searchIncludeTitles === false) return false;
   const title = getClipTitle(clip).toLowerCase();
-  return text.includes(query) || title.includes(query);
+  return title.includes(query);
 }
 
 function matchesCategory(app, clip) {

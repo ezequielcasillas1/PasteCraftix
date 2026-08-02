@@ -24,6 +24,7 @@ export function getClipSearchControls() {
     clearSearch: byId(CLIPS_SELECTORS.CLEAR_SEARCH),
     categoryFilter: byId(CLIPS_SELECTORS.CATEGORY_FILTER),
     dateFilter: byId(CLIPS_SELECTORS.DATE_FILTER),
+    searchIncludeTitles: byId(CLIPS_SELECTORS.SEARCH_INCLUDE_TITLES),
   };
 }
 

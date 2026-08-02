@@ -34,7 +34,8 @@ function fillModelSelect(select, ctx) {
   select.innerHTML = ctx.models
     .map((m) => {
       const sel = m.id === ctx.selected.id ? ' selected' : '';
-      return `<option value="${escapeHtml(m.id)}"${sel}>${escapeHtml(optionLabel(m, ctx.unlimited))}</option>`;
+      const tip = escapeHtml(m.tagline || m.strength || '');
+      return `<option value="${escapeHtml(m.id)}" title="${tip}"${sel}>${escapeHtml(optionLabel(m, ctx.unlimited))}</option>`;
     })
     .join('');
   select.disabled = !ctx.allowed;
@@ -59,14 +60,21 @@ function renderShowcaseCard(model, ctx) {
   const locked = ctx.allowed ? '' : ' is-locked';
   const disabled = ctx.allowed ? '' : 'disabled';
   const pressed = model.id === ctx.selected.id ? 'true' : 'false';
+  const id = escapeHtml(model.id);
+  const label = escapeHtml(model.label);
   return (
+    `<div class="ai-model-card-wrap${active}${locked}">` +
     `<button type="button" class="ai-model-card${active}${locked}"` +
-    ` data-action="select-ai-model" data-model-id="${escapeHtml(model.id)}"` +
+    ` data-action="select-ai-model" data-model-id="${id}"` +
     ` ${disabled} aria-pressed="${pressed}">` +
-    `<span class="ai-model-card-label">${escapeHtml(model.label)}</span>` +
+    `<span class="ai-model-card-label">${label}</span>` +
     `${costHtml(model, ctx.unlimited)}` +
     `<span class="ai-model-card-strength">${escapeHtml(model.strength)}</span>` +
-    `</button>`
+    `</button>` +
+    `<button type="button" class="ai-model-card-info info-icon"` +
+    ` data-action="ai-model-info" data-model-id="${id}"` +
+    ` aria-label="About ${label}" title="About ${label}">i</button>` +
+    `</div>`
   );
 }
 
@@ -105,6 +113,31 @@ function buildPickerCtx(app) {
     showcase: byId(AI_SELECTORS.labModelShowcase),
     hint: byId(AI_SELECTORS.labModelHint),
   };
+}
+
+function closeAiModelInfoModal() {
+  const modal = byId(AI_SELECTORS.modelInfoModal);
+  if (modal) modal.style.display = 'none';
+}
+
+function openAiModelInfoModal(app, modelId) {
+  const model = getShowcaseModelById(modelId);
+  if (!model) return;
+  const modal = byId(AI_SELECTORS.modelInfoModal);
+  const titleEl = byId(AI_SELECTORS.modelInfoTitle);
+  const taglineEl = byId(AI_SELECTORS.modelInfoTagline);
+  const costEl = byId(AI_SELECTORS.modelInfoCost);
+  const descEl = byId(AI_SELECTORS.modelInfoDescription);
+  if (!modal || !titleEl || !taglineEl || !costEl || !descEl) return;
+
+  const unlimited = isUnlimitedAi(app?.userSubscription);
+  titleEl.textContent = model.label;
+  taglineEl.textContent = model.tagline || model.strength || '';
+  costEl.textContent = unlimited
+    ? 'Cost: Unlimited'
+    : `Cost: ${getShowcaseCreditCost(model)} credits per use`;
+  descEl.textContent = model.description || '';
+  modal.style.display = 'flex';
 }
 
 /** Promote showcase default into enabled aiWorkflow once AI access is available. */
@@ -150,16 +183,42 @@ function bindSelectChange(select, app) {
   });
 }
 
+function bindAiModelInfoModalEvents() {
+  const closeBtn = byId(AI_SELECTORS.modelInfoClose);
+  if (closeBtn) closeBtn.addEventListener('click', closeAiModelInfoModal);
+  const doneBtn = byId(AI_SELECTORS.modelInfoDone);
+  if (doneBtn) doneBtn.addEventListener('click', closeAiModelInfoModal);
+  const overlay = byId(AI_SELECTORS.modelInfoModal);
+  if (overlay) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target.id === AI_SELECTORS.modelInfoModal) closeAiModelInfoModal();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = byId(AI_SELECTORS.modelInfoModal);
+    if (modal && modal.style.display === 'flex') closeAiModelInfoModal();
+  });
+}
+
 export function bindAiModelPickerEvents(app) {
   if (_eventsBound) return;
   _eventsBound = true;
 
   bindSelectChange(byId(AI_SELECTORS.headerModelSelect), app);
   bindSelectChange(byId(AI_SELECTORS.labTitleModelSelect), app);
+  bindAiModelInfoModalEvents();
 
   const showcase = byId(AI_SELECTORS.labModelShowcase);
   if (!showcase) return;
   showcase.addEventListener('click', async (e) => {
+    const infoBtn = e.target.closest('[data-action="ai-model-info"]');
+    if (infoBtn) {
+      e.stopPropagation();
+      const infoId = infoBtn.getAttribute('data-model-id');
+      if (infoId) openAiModelInfoModal(app, infoId);
+      return;
+    }
     const btn = e.target.closest('[data-action="select-ai-model"]');
     if (!btn || btn.disabled) return;
     const modelId = btn.getAttribute('data-model-id');

@@ -658,13 +658,22 @@ function isClipLikePayload(value) {
 export async function copyClipToClipboard(app, textOrClip, options = {}) {
   try {
     if (isClipLikePayload(textOrClip)) {
-      const { isImageBearingClip, copyImageBearingClipToClipboard } = await import(
-        '../../../shared/clipboard-image.js'
-      );
+      const {
+        isImageBearingClip,
+        copyImageBearingClipToClipboard,
+        formatClipboardImageError,
+      } = await import('../../../shared/clipboard-image.js');
       if (isImageBearingClip(textOrClip)) {
-        await copyImageBearingClipToClipboard(textOrClip, options);
-        app.showToast('Image copied!');
-        return;
+        try {
+          await copyImageBearingClipToClipboard(textOrClip, options);
+          app.showToast('Image copied!');
+          return;
+        } catch (imageErr) {
+          console.error('Failed to copy image:', imageErr);
+          const reason = formatClipboardImageError(imageErr);
+          app.showToast(`Copy failed: ${reason}`, 'error');
+          return;
+        }
       }
       const text = textOrClip.text != null ? String(textOrClip.text) : '';
       await copyToClipboardFallback(text);

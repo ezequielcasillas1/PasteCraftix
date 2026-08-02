@@ -320,6 +320,8 @@ export function registerAiLabPageEvents(app) {
         summaryInput.value = '';
         if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
         if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
+        app.currentSummaryImageBase64 = null;
+        app.aiLabFeature?.summaryModal?.clearSummaryAttachedImage?.(app);
         summaryInput.focus();
         // Persist cleared state
         app._currentSummarySection = 'input';

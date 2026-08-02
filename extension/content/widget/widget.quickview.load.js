@@ -6,17 +6,6 @@ import { slimQuickViewClips } from '../../shared/quickview-clips.js';
 import { getLikedClipIds } from './widget.liked-clips.js';
 import { renderQuickViewList } from './widget.quickview.render.js';
 
-const DEBUG_QV = 'qv-sync-0711';
-
-export function qvDebug(hypothesisId, location, message, data) {
-  // #region agent log
-  console.warn(
-    `[PasteCraft:debug:${DEBUG_QV}] ${hypothesisId} ${message} | ${JSON.stringify(data || {})}`,
-    { runId: 'post-fix', hypothesisId, location, message, data }
-  );
-  // #endregion
-}
-
 export function ensureQvState(widget) {
   if (!widget._qvState) {
     widget._qvState = {
@@ -53,31 +42,19 @@ export async function loadQuickViewClips(widget) {
     }
 
     let clips = response?.success && Array.isArray(response.clips) ? response.clips : [];
-    let source = 'background';
 
     // Background miss / SW failure → read chrome.storage.local in-content.
     if (!response?.success || clips.length === 0) {
       const localClips = await loadClipsFromLocalStorage();
       if (localClips.length > 0) {
         clips = localClips;
-        source = response?.success ? 'storage-fallback-empty-bg' : 'storage-fallback-bg-fail';
       }
     }
 
     state.allClips = slimQuickViewClips(clips);
     state.likedIdSet = new Set(await getLikedClipIds());
-    qvDebug('H7', 'widget.quickview.load.js:loadQuickViewClips', 'DOM path loaded', {
-      ok: !!response?.success || state.allClips.length > 0,
-      count: state.allClips.length,
-      source,
-      error: response?.error ? String(response.error).slice(0, 120) : '',
-      bgCount: Array.isArray(response?.clips) ? response.clips.length : -1,
-    });
     renderQuickViewList(widget);
   } catch (err) {
-    qvDebug('H7', 'widget.quickview.load.js:loadQuickViewClips', 'DOM path failed', {
-      error: String(err?.message || err),
-    });
     try {
       state.allClips = await loadClipsFromLocalStorage();
       state.likedIdSet = new Set(await getLikedClipIds());
