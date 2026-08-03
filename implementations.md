@@ -1,4 +1,16 @@
 
+### Aug 3, 2026 - Chrome Web Store live on website
+**Files:** website/src/data/site.js, website/src/pages/index.astro, pricing.astro, upgrade.astro, website/pricing.html, upgrade.html, index.html, production-publishing-safety.mdc, docs/publishing/*
+**Result:** Chrome listing `fidljmdohgkjmmgojdblbbnfoeengoko` wired sitewide; pills/CTAs show Chrome + Edge live.
+
+### Aug 3, 2026 - Production package v3.0.30
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.30.zip, docs/publishing/*, production-publishing-safety.mdc
+**Result:** Store rejected re-upload of 3.0.29; bumped to 3.0.30. Same Drop ghost + clipboard-writer packet. Last published stays 3.0.29 until 3.0.30 approved.
+
+### Aug 3, 2026 - Production package v3.0.29
+**Files:** extension/* (working tree), releases/pastecraft-v3.0.29.zip, docs/publishing/EXTENSION_UPDATE_PROTOCOL.md, widget.drag-capture.js
+**Result:** Repackaged 3.0.29 after Drop ghost fix + clipboard-writer/AI Lab/activity. Smoke Section G before store submit.
+
 ### Jul 28, 2026 - Manifest bump to 3.0.29
 **Files:** extension/manifest.json
 **Result:** v3.0.28 already tagged/released; bumped manifest to 3.0.29 for next Chrome/Edge upload cycle.

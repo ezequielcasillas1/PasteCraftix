@@ -19,9 +19,14 @@ PasteCraft ships the same `extension/` package to Chrome Web Store and Edge Add-
 Supabase Dashboard → Authentication → URL Configuration → Redirect URLs → add BOTH:
 
 ```
-https://<CHROME_EXTENSION_ID>.chromiumapp.org/
-https://<EDGE_EXTENSION_ID>.chromiumapp.org/
+https://fidljmdohgkjmmgojdblbbnfoeengoko.chromiumapp.org/
+https://fblihhfoojjhmhnhilhhejdcigjmmncc.chromiumapp.org/
 ```
+
+| Store | Extension ID |
+|---|---|
+| Chrome Web Store | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Edge Add-ons | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 
 Save. Changes take effect immediately.
 

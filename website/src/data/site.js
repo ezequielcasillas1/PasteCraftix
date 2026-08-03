@@ -24,7 +24,7 @@ export const socialLinks = [
 ];
 
 export const storeLinks = {
-  chrome: '#chrome-store-coming-soon',
+  chrome: 'https://chromewebstore.google.com/detail/pastecraft-smart-clipboar/fidljmdohgkjmmgojdblbbnfoeengoko',
   edge: 'https://microsoftedge.microsoft.com/addons/detail/pastecraft/fblihhfoojjhmhnhilhhejdcigjmmncc',
 };
 
