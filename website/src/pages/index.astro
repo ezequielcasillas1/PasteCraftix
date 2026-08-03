@@ -56,7 +56,7 @@ const counterStats = [
 
 <BaseLayout
   title="PasteCraft | Productivity and study clipboard for Edge and Chrome"
-  description="PasteCraft is a productivity and study tool that helps you copy fast, save valuable information, organize categories and notes, and use AI Lab when you need clarity. Free to start on Edge. Chrome coming soon."
+  description="PasteCraft is a productivity and study tool that helps you copy fast, save valuable information, organize categories and notes, and use AI Lab when you need clarity. Free to start on Chrome and Edge."
   keywords="clipboard manager, study tool, productivity extension, clipboard history, chrome extension, edge extension, study notes, categories, AI Lab, copy paste tool, text snippets, cloud sync clipboard"
   currentPath="/"
 >
@@ -64,10 +64,10 @@ const counterStats = [
     eyebrow="Productivity and study tool"
     title="Copy fast, save what matters"
     description="PasteCraft helps you save the information you need most—valuable notes, research, and study material—so you can copy quickly and get back to work. Organize clips into categories and notes, then use AI Lab when a situation calls for it."
-    primaryHref={storeLinks.edge}
-    primaryLabel="Install for Edge"
-    secondaryHref="/pricing"
-    secondaryLabel="View pricing"
+    primaryHref={storeLinks.chrome}
+    primaryLabel="Install for Chrome"
+    secondaryHref={storeLinks.edge}
+    secondaryLabel="Install for Edge"
   >
     <div class="hero-stack">
       <div class="hero-matrix">
@@ -84,14 +84,14 @@ const counterStats = [
       </div>
 
       <div class="browser-pills">
+        <a class="pill pill-live" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">
+          <span class="pill-dot"></span>
+          Chrome — Live
+        </a>
         <a class="pill pill-live" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">
           <span class="pill-dot"></span>
           Edge — Live
         </a>
-        <span class="pill pill-soon">
-          <span class="pill-dot"></span>
-          Chrome — Coming soon
-        </span>
       </div>
     </div>
 
@@ -135,8 +135,8 @@ const counterStats = [
           <h2 class="section-title">See the study and work flow in your browser</h2>
           <p class="section-copy">Copy text, open PasteCraft, and find it saved, organized, and ready to paste into your next study session or productivity sprint.</p>
           <div class="button-row">
-            <a class="button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
-            <a class="ghost-button" href="/pricing">View pricing</a>
+            <a class="button" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">Install for Chrome</a>
+            <a class="ghost-button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
           </div>
         </div>
         <Preview3D />
@@ -273,15 +273,16 @@ const counterStats = [
   <SectionShell
     eyebrow="Get started"
     title="Ready to copy fast and study with clarity"
-    copy="Install PasteCraft on Edge now. Chrome is still in review. Subscribe from inside the extension after you install."
+    copy="Install PasteCraft on Chrome or Edge. Subscribe from inside the extension after you install."
   >
     <div class="surface-card panel cta-band">
       <div class="stack">
         <h3>Start free, then grow into sync and AI Lab</h3>
-        <p class="section-copy">Get the Edge Add-ons listing, then finish checkout inside the extension after install.</p>
+        <p class="section-copy">Get the Chrome Web Store or Edge Add-ons listing, then finish checkout inside the extension after install.</p>
       </div>
       <div class="button-row">
-        <a class="button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
+        <a class="button" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">Install for Chrome</a>
+        <a class="ghost-button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
         <a class="ghost-button" href="/pricing">View pricing</a>
       </div>
     </div>
