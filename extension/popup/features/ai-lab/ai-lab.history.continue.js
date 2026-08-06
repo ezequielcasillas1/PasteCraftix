@@ -4,6 +4,10 @@ import {
   serializeBreakdownThreads,
   serializeSummaryThreads,
 } from './ai-lab.history.persist.js';
+import {
+  getHistoryEntryImage,
+  renderSummaryImageAttach,
+} from './ai-lab.summary-modal.js';
 
 function _hasContinuableEntry(entry) {
   return Boolean(entry && entry.threads && entry.threads.length > 0);
@@ -39,10 +43,12 @@ function _restoreSummaryState(app, entry) {
   app.summaryThreads = serializeSummaryThreads(entry.threads);
   app.currentSummaryThreadIndex = app.summaryThreads.length - 1;
   app._activeSummaryHistoryId = entry.id;
+  app.currentSummaryImageBase64 = getHistoryEntryImage(entry) || null;
 }
 
 async function _renderRestoredSummaryView(app) {
   app.showSummarySection('result');
+  renderSummaryImageAttach(app);
   const lastThread = app.summaryThreads[app.currentSummaryThreadIndex];
   const summaryContent = document.getElementById('summaryResultContent');
   if (summaryContent && lastThread) {

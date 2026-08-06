@@ -1,4 +1,24 @@
 
+### Aug 5, 2026 - Reset password meter/form dead
+**Status:** FIXED (pending deploy + verify)
+**Files:** website/public/js/reset-password.js, website/src/pages/reset-password.astro
+**Result:** CSP `script-src 'self'` on `/reset-password*` blocked inline JS (meter/submit never bound). Moved logic to external `/js/reset-password.js`; `[hidden]` restored so form stays hidden until recovery session ready.
+
+### Aug 3, 2026 - Store rejected 3.0.29 re-upload
+**Status:** FIXED (packet)
+**Files:** extension/manifest.json → 3.0.30, releases/pastecraft-v3.0.30.zip
+**Result:** Store already has 3.0.29; strict bump to 3.0.30. Drop ghost fix retained in widget.drag-capture.js.
+
+### Aug 3, 2026 - Ghost Drop UI on video pages
+**Status:** PARTIAL
+**Files:** extension/content/widget/widget.drag-capture.js
+**Result:** Drop box mounted eagerly + opacity-only hide left orphans/ghosts mid-page. Now lazy, display:none+orphan sweep, show only while clickAndDrag drag active.
+
+### Aug 3, 2026 - AI Summary white cards on blue theme
+**Status:** PARTIAL
+**Files:** theme-blue-phase2.css, popup.html
+**Result:** Dark blue premium overrides for reference image, follow-up, clips overview; follow-up base CSS restored (styles.css unlinked).
+
 ### Jul 11, 2026 - Quick View empty (CSP / iframe)
 **Status:** SUCCESS
 **Files:** extension/content/widget/widget.quickview.js, widget.styles.js, widget.events.js, extension/shared/quickview-clips.js
@@ -282,3 +302,18 @@
 **Status:** SUCCESS
 **Files:** extension/background.js, extension/content-script.js, extension/popup.js
 **Result:** Fixed undefined `normalizeArray` in background clip save path so auto-copied clips persist and show; instrumentation removed after verification.
+
+### 2026-08-02 - Image Clip Copy Not Pasting Into Chat Boxes
+**Status:** SUCCESS
+**Files:** extension/clipboard-writer.html, extension/clipboard-writer.js, extension/shared/clipboard-image.js, extension/background/handlers/capture.handler.js, extension/background/messaging/message-types.js, extension/shared/offscreen-clipboard-channel.js, extension/offscreen-clipboard.js
+**Result:** Image clips now copy as real image/png via a tiny focused helper window (popup Permissions-Policy blocked, offscreen focus-blocked, SW dynamic import fixed); chat paste verified by user.
+
+### 2026-08-02 - Picked image missing from AI summary history
+**Status:** PENDING USER VERIFY
+**Files:** ai-lab.summary-modal.js, ai-lab.summary.js, ai-lab.history.js, ai-lab.history.persist.js, ai-lab.history.render.js, ai-lab.history.continue.js, extension/supabase/ai/ai-history-sync.js, extension/popup.js
+**Result:** Root cause: saveAiHistory never stored currentSummaryImageBase64. Now persisted on entry + first thread (quota-capped 640px JPEG), shown in history modal/list badge, restored on continue, round-trips cloud sync via threads JSON (no schema change).
+
+### 2026-08-03 - AI History modal still missing Reference image
+**Status:** PENDING USER VERIFY
+**Files:** ai-history-sync.js, ai-lab.history.js, ai-lab.session-state.js, auth.session.js, ai-lab.summary.js, ai-lab.summary-modal.js, popup.html, popup.js
+**Result:** Cloud merge wiped local imageBase64; save path reloaded+merged before write; session did not restore image. Fix: preserve local images on merge, strip images from cloud upsert, local-only load on save, session restore image+activeId, CSS force-show history preview, open-modal backfill.

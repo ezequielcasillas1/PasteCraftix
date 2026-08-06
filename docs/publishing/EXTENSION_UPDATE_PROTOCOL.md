@@ -6,60 +6,60 @@
 
 ---
 
-## Release: 2026-07-23 (v3.0.24)
+## Release: 2026-08-03 (v3.0.30) — production finalization
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.24` (bumped from 3.0.23 — permission narrowing for Chrome review) |
-| Package | Same `extension/` zip for Chrome **and** Edge |
+| Manifest version | `3.0.30` (from last published `3.0.29`; 3.0.29 already on store — never reuse) |
+| Package | `releases/pastecraft-v3.0.30.zip` — same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
-| Chrome listing ID | Fill from Chrome Web Store Dev Console (do not invent) |
-| Section I triggers | **Full Section G checklist** — `manifest.json` + permission shape changed (re-consent possible for optional grants) |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** — manifest/offscreen clipboard path + capture writer + AI Lab history/summary UX |
 
-### Permissions (what changed vs always-on)
+### What’s in this update (since 3.0.28)
 
-| Permission | 3.0.23-style | 3.0.24 |
-|---|---|---|
-| `clipboardRead`, `offscreen` | Always-on `permissions` | **`optional_permissions`** — requested before PDF/clipboard capture |
-| `<all_urls>` host API access | Always-on `host_permissions` | **`optional_host_permissions`** — requested before Capture Tools (Spot / Image Picker / frame selection) |
-| Auth/sync hosts | supabase / google / pastecraft / blob | Still required `host_permissions` (narrower than all_urls) |
-| `content_scripts` matches | `<all_urls>` | **Still `<all_urls>`** — floating widget must inject on many sites (honest tradeoff; install dialog may still mention broad page access) |
-| Core | storage, identity, tabs, scripting, activeTab, contextMenus, clipboardWrite | Unchanged required |
-
-### What’s in this update (on `main` since 3.0.22)
-
-| Area | Change | Commit / PR |
-|---|---|---|
-| Permissions | Optional clipboard/offscreen + optional all_urls host; keep content_scripts all_urls for widget | this release |
-| Widget boot | Lazy-load PDF capture so floating widget boots | PR #166 / `3ffdc76` |
-| PDF capture | Clipboard PDF via offscreen reader bridge | PR #165 / `13c3202` |
-| Security | Validate quickview `postMessage` origin + storage key centralize | PR #164 / `8de3103` |
-| Billing | Basil-safe Stripe webhook period / invoice subscription id | PR #163 / `0b9d270` |
-| Architecture | Phase 1 vertical-slice modularity | PR #162 / `25d38b9` |
-| Notes / annotate | Image picker, album annotate toolbar, clip annotate wiring | `f84c462` / `9e6d3c6` |
-
-Prior 3.0.22 fixes (auth/sync, clip tombstones, Image Picker, titles, categories) remain in the package.
+| Area | Change |
+|---|---|
+| Clipboard | Offscreen channel + clipboard-writer page for reliable image/text writes |
+| Capture | Capture handler clipboard path hardened |
+| AI Lab | History persist/continue/render + summary modal polish |
+| Activity | Soft-delete visibility in Deleted filter |
+| Widget | Ghost “Drop” box only during active click-and-drag (no left-side leak) |
+| UI | Header model picker spacing; light craft + AI icons |
+| API keys | Provider env aliases resolved without OpenAI fallback |
+| Version | Strict bump 3.0.29 → 3.0.30 after store rejected reuse of 3.0.29 |
 
 ### Store “What’s new” (paste into both dashboards)
 
 ```
-PasteCraft 3.0.24
+PasteCraft 3.0.30
 
-• Narrower install permissions: clipboard/PDF capture and broad site API access are optional (prompted when you use Capture Tools / PDF capture)
-• Floating widget still works across sites; auth/sync hosts stay explicit
-• Floating widget boots reliably (PDF capture loads only when needed)
-• PDF clipboard capture via secure offscreen reader
-• Harden Quick View messaging and storage key handling
-• Stripe webhook billing period fixes for subscription renewals
-• Notes image picker + clip annotate tooling
-• Includes prior 3.0.22 clip delete, auth sync, and Image Picker fixes
+• Floating Drop box only appears during an active clip drag (ghost fix)
+• More reliable image/text clipboard writes (offscreen + writer bridge)
+• AI Lab history sync and continue improvements
+• Activity Deleted filter shows soft-deleted items correctly
+• Header model picker spacing and craft/AI icon polish
+• Provider API keys resolve from env aliases without wrong OpenAI fallback
+• Includes 3.0.28–3.0.29 clipboard, notes annotate, and Funky AI header work
 ```
 
 ### Chrome certification note (permissions)
 
 ```
-clipboardRead and offscreen are optional and requested only when the user uses PDF/clipboard capture (native PDF viewers block normal selection). optional_host_permissions <all_urls> is requested when the user starts Capture Tools (region/screenshot/all-frame selection). content_scripts still match <all_urls> so the floating widget can appear on study sites without per-site installs. Required hosts are limited to Supabase, Google accounts, PasteCraft, and Azure blob for auth/sync/media.
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
 ```
+
+---
+
+## Prior release: 2026-08-03 (v3.0.29)
+
+On store as last published. Superseded for next upload by 3.0.30 (store rejected re-upload of 3.0.29). Keep `releases/pastecraft-v3.0.29.zip` for rollback.
+
+---
+
+## Prior release: 2026-07-23 (v3.0.24)
+
+Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.30 (`offscreen` required since 3.0.28).
 
 ---
 
@@ -85,7 +85,7 @@ If version was already published: bump patch (`3.0.23` → `3.0.24`) before pack
 .\scripts\package-extension.ps1
 ```
 
-- [ ] Output: `releases/pastecraft-v3.0.24.zip` (version from manifest)
+- [ ] Output: `releases/pastecraft-v3.0.30.zip` (version from manifest)
 - [ ] Zip = contents of `extension/` only (not repo root, not `manifest.json` at repo root)
 - [ ] Archive last 3 published zips locally as rollback copies
 
@@ -118,7 +118,7 @@ Load **previous published** unpacked → create test data → replace with **new
 ### Edge Add-ons (live)
 
 1. Partner Center → PasteCraft → **Update** / new submission  
-2. Upload `releases/pastecraft-v3.0.24.zip`  
+2. Upload `releases/pastecraft-v3.0.30.zip`  
 3. Paste “What’s new” above  
 4. Submit for certification  
 
@@ -142,10 +142,10 @@ Dashboard: https://chrome.google.com/webstore/devconsole
 
 - [ ] Install from each store URL (not unpacked) and re-smoke login + one clip
 - [ ] Update `.cursor/rules/production-publishing-safety.mdc`:
-  - `Last published version: 3.0.24`
-  - Chrome Web Store ID if still `TBD_CHROME_ID`
+  - `Last published version: 3.0.30` (only after store approval of 3.0.30)
+  - Chrome Web Store ID: `fidljmdohgkjmmgojdblbbnfoeengoko`
 - [ ] If Chrome just went live: set `website/src/data/site.js` `chrome` URL to the real store link
-- [ ] Keep zip: `pastecraft-v3.0.24.zip` in local archive (last 3)
+- [ ] Keep zip: `pastecraft-v3.0.30.zip` in local archive (last 3)
 
 ### Rollback
 

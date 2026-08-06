@@ -3853,8 +3853,20 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
 /* ── AI result wrap + history/refactor contrast (styles.css unlinked) ── */
 
 [data-theme="blue"] .summary-result-section {
-  background: var(--pc-glass-strong);
-  border-color: var(--pc-border);
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.4),
+    0 2px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .summary-result-section .result-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-loading {
+  color: var(--pc-secondary-200);
 }
 
 [data-theme="blue"] .summary-result-content,
@@ -3869,9 +3881,242 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   box-sizing: border-box;
 }
 
+/* Reference image + attach chip — navy glass (was light blue / white) */
+[data-theme="blue"] .summary-questions-image {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.94) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] #aiHistoryModal .ai-history-entry-image.summary-questions-image {
+  display: flex !important;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.94) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.08);
+}
+
+[data-theme="blue"] .summary-questions-image-label,
+[data-theme="blue"] #aiHistoryModal .ai-history-entry-image .summary-questions-image-label {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-questions-image-preview,
+[data-theme="blue"] #aiHistoryModal .ai-history-entry-image .summary-questions-image-preview {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+[data-theme="blue"] .summary-image-attach {
+  background: rgba(30, 58, 138, 0.22);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .summary-image-thumb {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* Follow-up — dark blue premium (summary + breakdown share classes) */
+[data-theme="blue"] .ai-followup-container {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .followup-label,
+[data-theme="blue"] .followup-level-label {
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .followup-input {
+  background: rgba(11, 18, 32, 0.95) !important;
+  border: 1.5px solid rgba(59, 130, 246, 0.4) !important;
+  color: var(--pc-secondary-50) !important;
+  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .followup-input:focus {
+  border-color: var(--pc-secondary-300) !important;
+  box-shadow: 0 0 0 3px var(--pc-glow) !important;
+  outline: none;
+}
+
+[data-theme="blue"] .followup-input::placeholder {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .followup-send-btn {
+  background: var(--pc-gradient-brand-soft);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--pc-glow);
+}
+
+[data-theme="blue"] .followup-send-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.45);
+}
+
+[data-theme="blue"] .followup-send-btn:disabled {
+  background: rgba(71, 85, 105, 0.55);
+  border-color: transparent;
+  color: var(--pc-text-muted);
+  box-shadow: none;
+}
+
+/* Clips overview — navy glass cards (was white) */
+[data-theme="blue"] .summary-clips-overview {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.94) 0%, rgba(11, 18, 32, 0.98) 100%);
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(30, 58, 138, 0.35),
+    inset 0 1px 0 rgba(96, 165, 250, 0.06);
+}
+
+[data-theme="blue"] .summary-clips-overview-header strong {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clips-overview-header span {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-clips-overview-tab {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(59, 130, 246, 0.32);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-clips-overview-tab.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.22);
+}
+
+[data-theme="blue"] .summary-clips-overview-search {
+  background: rgba(11, 18, 32, 0.95);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clips-overview-search::placeholder {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-clip-overview-row {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .summary-clip-overview-row.selected {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: var(--pc-secondary-400);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="blue"] .summary-clip-overview-title {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clip-overview-text {
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-clip-overview-meta {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-clip-overview-thumb {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(11, 18, 32, 0.9);
+}
+
+[data-theme="blue"] .summary-clip-overview-open {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: rgba(59, 130, 246, 0.32);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-clip-overview-open:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: var(--pc-secondary-300);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clips-overview-file-chip {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(59, 130, 246, 0.32);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-clips-overview-file-chip.selected {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--pc-secondary-400);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clip-overview-empty {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-clip-overview-category {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="blue"] .summary-clip-overview-cat-header,
+[data-theme="blue"] .summary-clip-overview-cat-header strong {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-clip-overview-cat-header span {
+  color: var(--pc-text-muted);
+}
+
+[data-theme="blue"] .summary-clips-overview-footer {
+  border-top-color: rgba(59, 130, 246, 0.28);
+  color: var(--pc-secondary-200);
+}
+
+[data-theme="blue"] .summary-clips-overview-use:disabled {
+  background: rgba(71, 85, 105, 0.55) !important;
+  color: var(--pc-text-muted) !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+[data-theme="blue"] .custom-question-section {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 18, 32, 0.94) 100%);
+  border: 1.5px dashed rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="blue"] .custom-question-label {
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .custom-question-input {
+  background: rgba(11, 18, 32, 0.95);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .custom-question-input:focus {
+  border-color: var(--pc-secondary-300);
+  box-shadow: 0 0 0 3px var(--pc-glow);
+}
+
 [data-theme="blue"] .summary-result-content {
-  background: var(--pc-glass-strong);
-  border-color: var(--pc-border);
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(59, 130, 246, 0.32);
 }
 
 [data-theme="blue"] .summary-result-content h1,

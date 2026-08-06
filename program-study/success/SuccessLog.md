@@ -363,3 +363,13 @@
 **Status:** SUCCESS
 **Files:** extension/manifest.json
 **Result:** Production-ready patch after ef647fb signup confirm-email + guards; store upload candidate.
+
+### 2026-08-02 - Image clip copy via focused writer window
+**Status:** SUCCESS
+**Files:** extension/clipboard-writer.html, extension/clipboard-writer.js, extension/shared/clipboard-image.js, extension/background/handlers/capture.handler.js, extension/background/messaging/message-types.js, extension/shared/offscreen-clipboard-channel.js, extension/offscreen-clipboard.js
+**Result:** Image clips now copy as real image/png via a tiny focused helper window (popup is Permissions-Policy blocked, offscreen is focus-blocked); paste into chat uploaders verified working by user.
+
+### [2026-08-06] - MathJax clipboard markup for clips
+**Status:** SUCCESS
+**Files:** clipboard-markup.js, capture.handler.js, markup.enrich.js, clips.viewer.js, widget.*
+**Result:** Widget/page MathJax selection recovers TeX; clips render LaTeX; debug probes removed.

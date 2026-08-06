@@ -3,6 +3,11 @@ import {
   OPTIONAL_PERM_KINDS,
   requestOptionalPermissions,
 } from '../../shared/optional-permissions.js';
+import {
+  captureSelectedMathHtml,
+  extractTexFromSelection,
+  resolveClipboardMarkupText,
+} from '../../shared/clipboard-markup.js';
 import { sanitizeWidgetSettings } from './widget.settings.js';
 import { applyCaptureToolsStorageChange } from './widget.capture-stats.js';
 import { pushQuickViewClipsToIframe } from './widget.quickview.js';
@@ -221,7 +226,7 @@ export function toggleWidgetAutoCopy(widget) {
   });
 }
 
-async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = null }) {
+async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = null, domTexes = null }) {
   const MAX_TEXT = 30000;
   const MAX_HTML = 50000;
 
@@ -242,19 +247,27 @@ async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = nul
     }
   };
 
-  let body = String(textToSave || '').trim();
+  const resolved = resolveClipboardMarkupText(textToSave, html, {
+    domTexes: Array.isArray(domTexes) ? domTexes : extractTexFromSelection(),
+  });
+  let body = String(resolved.text || '').trim();
+  const htmlToStore = resolved.mathHtml || html;
   const meta = {
     kind: 'text',
     plainText: safeTrim(body, MAX_TEXT),
-    html: html ? safeTrim(html, MAX_HTML) : '',
+    html: htmlToStore ? safeTrim(htmlToStore, MAX_HTML) : '',
     url: isProbablyUrl(body) ? body : '',
     image: imageMeta,
     sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
     capturedAt: Date.now(),
   };
 
+  if (resolved.markupHint) meta.markupHint = resolved.markupHint;
   if (meta.url) meta.kind = 'url';
-  if (meta.html && !meta.url) meta.kind = 'html';
+  // Math HTML fallback or generic rich clipboard without a TeX recovery.
+  if (meta.html && !meta.url && (resolved.markupHint === 'html' || !resolved.markupHint)) {
+    meta.kind = 'html';
+  }
   if (imageMeta) {
     meta.kind = 'image';
     if (!body) body = '[Image]';
@@ -301,10 +314,27 @@ export function setupWidgetAutoCopyListener(widget) {
 
     const cd = e && e.clipboardData ? e.clipboardData : null;
     const plain = cd ? (cd.getData('text/plain') || '') : '';
-    const html = cd ? (cd.getData('text/html') || '') : '';
-    const selection = window.getSelection ? String(window.getSelection().toString() || '') : '';
+    let html = cd ? (cd.getData('text/html') || '') : '';
+    const liveSelection = window.getSelection ? window.getSelection() : null;
+    const selection = liveSelection ? String(liveSelection.toString() || '') : '';
+    let domTexes = extractTexFromSelection(liveSelection);
     let textToSave = (plain || selection || '').trim();
     let imageMeta = null;
+
+    // MathJax often copies Unicode-only (htmlLen=0). Pull live math node HTML.
+    if (!html) {
+      html = captureSelectedMathHtml(liveSelection) || '';
+    }
+
+    // MathJax TeX lives on page MathItem.math — isolated world cannot see it.
+    if (!domTexes.length) {
+      try {
+        const resp = await safeRuntimeSendMessage({ action: 'pcExtractPageMathTex' });
+        if (resp && Array.isArray(resp.texes) && resp.texes.length) {
+          domTexes = resp.texes;
+        }
+      } catch (_) { /* ignore */ }
+    }
 
     try {
       if (cd && cd.items && cd.items.length) {
@@ -332,7 +362,7 @@ export function setupWidgetAutoCopyListener(widget) {
       console.warn('⚠️ Auto-copy image capture failed:', err?.message || err);
     }
 
-    await saveAutoCopyClip(widget, { textToSave, html, imageMeta });
+    await saveAutoCopyClip(widget, { textToSave, html, imageMeta, domTexes });
   };
 
   document.addEventListener('copy', handler, true);

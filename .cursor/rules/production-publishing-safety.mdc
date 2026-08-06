@@ -16,7 +16,7 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 2. Never create a new store listing. Always "Upload new package" to the existing Chrome Web Store and Edge Add-ons listings.
 3. Never change the Supabase project URL or anon key in a way that re-scopes `user_id`.
 4. Published extension IDs (fill after first publish):
-   - Chrome Web Store ID: `TBD_CHROME_ID`
+   - Chrome Web Store ID: `fidljmdohgkjmmgojdblbbnfoeengoko`
    - Edge Add-ons ID: `fblihhfoojjhmhnhilhhejdcigjmmncc`
 
 ---
@@ -26,7 +26,7 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 1. `extension/manifest.json` `version` must strictly increase on every store upload.
 2. Patch for fixes, minor for additive features, major for breaking changes.
 3. Never reuse a version number that was ever submitted (even if rejected).
-4. Last published version: `3.0.28` (GitHub release 2026-07-26; update after each store upload).
+4. Last published version: `3.0.29` (store has 3.0.29; update after each store approval).
 
 ---
 

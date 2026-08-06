@@ -652,8 +652,8 @@ function isClipLikePayload(value) {
 }
 
 /**
- * Copy a clip (image → bitmap) or plain text to the clipboard.
- * Pass the clip object for image-bearing clips; strings stay text-only.
+ * Copy a clip or plain text to the clipboard.
+ * Image-picker / image-bearing clips → image bitmap only (never OCR/text fallback).
  */
 export async function copyClipToClipboard(app, textOrClip, options = {}) {
   try {
@@ -663,6 +663,7 @@ export async function copyClipToClipboard(app, textOrClip, options = {}) {
         copyImageBearingClipToClipboard,
         formatClipboardImageError,
       } = await import('../../../shared/clipboard-image.js');
+      // Image Picker + kind:image: copy PNG only — do not copy clip.text / OCR.
       if (isImageBearingClip(textOrClip)) {
         try {
           await copyImageBearingClipToClipboard(textOrClip, options);

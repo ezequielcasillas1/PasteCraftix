@@ -21,10 +21,12 @@ export const footerLinks = [
 export const socialLinks = [
   { href: 'https://www.facebook.com/PasteCraftOfficial', label: 'Facebook' },
   { href: 'https://www.reddit.com/r/PasteCraft/', label: 'Reddit' },
+  { href: 'https://instagram.com/casiezeq', label: 'Instagram @casiezeq' },
+  { href: 'https://x.com/casiezeq', label: 'X @casiezeq' },
 ];
 
 export const storeLinks = {
-  chrome: '#chrome-store-coming-soon',
+  chrome: 'https://chromewebstore.google.com/detail/pastecraft-smart-clipboar/fidljmdohgkjmmgojdblbbnfoeengoko',
   edge: 'https://microsoftedge.microsoft.com/addons/detail/pastecraft/fblihhfoojjhmhnhilhhejdcigjmmncc',
 };
 

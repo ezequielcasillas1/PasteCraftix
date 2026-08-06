@@ -14,9 +14,12 @@ import {
   findActiveHistoryEntry,
   getRefactorTicketValidationError,
   isUsableGeneratedTitle,
+  backfillHistoryEntryImageFromSession,
   mergeCloudHistory,
+  resolveHistoryImageToPersist,
   serializeThreads,
   setActiveHistoryId,
+  stripOlderHistoryImages,
   syncAiHistoryToCloud,
 } from './ai-lab.history.persist.js';
 import {
@@ -33,6 +36,7 @@ import {
   renderCurrentHistoryThread,
   renderEmptyHistory,
   renderHistoryEntry,
+  renderHistoryImageBlock,
   renderHistoryModalHeader,
   toggleRefactorModalUi,
 } from './ai-lab.history.render.js';
@@ -40,10 +44,13 @@ import {
 export { renderOpenRecentConversation } from './ai-lab.summary.js';
 export { continueHistoryConversation } from './ai-lab.history.continue.js';
 
-export async function loadAiHistory() {
+export async function loadAiHistory(options = {}) {
+  const mergeCloud = options?.mergeCloud !== false;
   try {
     const { [AI_STORAGE_KEYS.HISTORY]: localEntries = [] } = await chrome.storage.local.get([AI_STORAGE_KEYS.HISTORY]);
-    const localHistory = await mergeCloudHistory(localEntries);
+    const localHistory = mergeCloud
+      ? await mergeCloudHistory(localEntries)
+      : (Array.isArray(localEntries) ? localEntries : []);
     this.aiHistoryEntries = localHistory;
     return localHistory;
   } catch (_) {
@@ -57,7 +64,13 @@ export async function _persistAiHistory() {
     if (this.aiHistoryEntries.length > 50) {
       this.aiHistoryEntries.splice(50);
     }
-    await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: this.aiHistoryEntries });
+    try {
+      await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: this.aiHistoryEntries });
+    } catch (quotaErr) {
+      this.aiHistoryEntries = stripOlderHistoryImages(this.aiHistoryEntries, 8);
+      await chrome.storage.local.set({ [AI_STORAGE_KEYS.HISTORY]: this.aiHistoryEntries });
+      console.warn('AI history persist: stripped older images after quota error', quotaErr?.message || quotaErr);
+    }
     syncAiHistoryToCloud(this.aiHistoryEntries);
   } catch (_) {}
 }
@@ -134,17 +147,21 @@ export async function submitRefactorTicket(message) {
   }
 }
 
-export async function saveAiHistory(type, originalText, threads) {
+export async function saveAiHistory(type, originalText, threads, options = {}) {
   try {
     if (!threads || threads.length === 0) {
       console.warn('saveAiHistory: no threads to save');
       return;
     }
 
-    await this.loadAiHistory();
+    const imageBase64 = typeof options?.imageBase64 === 'string' ? options.imageBase64 : '';
+    // Local-only reload — cloud merge must not race-strip imageBase64 before we write.
+    await this.loadAiHistory({ mergeCloud: false });
     const existing = findActiveHistoryEntry(this, type);
     if (existing) {
-      existing.entry.threads = serializeThreads(threads, originalText);
+      const carriedImage = resolveHistoryImageToPersist(imageBase64, existing.entry);
+      existing.entry.threads = serializeThreads(threads, originalText, carriedImage);
+      if (carriedImage) existing.entry.imageBase64 = carriedImage;
       existing.entry.updatedAt = Date.now();
       await this._persistAiHistory();
       console.log('📜 AI History updated:', existing.entry.id, 'threads:', threads.length);
@@ -152,7 +169,7 @@ export async function saveAiHistory(type, originalText, threads) {
       return existing.entry;
     }
 
-    const entry = createHistoryEntry(type, originalText, threads);
+    const entry = createHistoryEntry(type, originalText, threads, imageBase64);
     this.aiHistoryEntries.unshift(entry);
     setActiveHistoryId(this, type, entry.id);
     await this._persistAiHistory();
@@ -229,8 +246,20 @@ export function renderAiHistoryList() {
   }
 }
 
+async function _persistBackfilledHistoryImage(app, entry) {
+  const idx = app.aiHistoryEntries?.findIndex((e) => e.id === entry.id);
+  if (idx == null || idx === -1) return;
+  app.aiHistoryEntries[idx] = entry;
+  await app._persistAiHistory();
+}
+
 export async function openAiHistoryModal(entry) {
   if (!entry) return;
+
+  if (backfillHistoryEntryImageFromSession(this, entry)) {
+    await _persistBackfilledHistoryImage(this, entry);
+  }
+
   this.currentHistoryEntry = entry;
   this.currentHistoryThreadIndex = 0;
 
@@ -273,7 +302,8 @@ export async function navigateHistoryThread(index) {
   this.currentHistoryThreadIndex = index;
   const resultEl = document.getElementById('aiHistoryResultContent');
   if (resultEl) {
-    resultEl.innerHTML = await this._renderAiResponse(entry.threads[index].answer);
+    const answerHtml = await this._renderAiResponse(entry.threads[index].answer);
+    resultEl.innerHTML = renderHistoryImageBlock(entry) + answerHtml;
   }
   emitHistoryThreadArtifact(this, entry, entry.threads[index], { fromModalNavigation: true, threadIndex: index });
   this._renderHistoryPagination();

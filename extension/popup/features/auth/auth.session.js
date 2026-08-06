@@ -128,6 +128,13 @@ function _hydrateSummaryFields(app, sum) {
     summaryInput.dispatchEvent(new Event('input'));
   }
   if (sum.currentSummaryText) app.currentSummaryText = sum.currentSummaryText;
+  const sessionImage = typeof sum.currentSummaryImageBase64 === 'string'
+    ? sum.currentSummaryImageBase64.trim()
+    : '';
+  app.currentSummaryImageBase64 = sessionImage.startsWith('data:image/') ? sessionImage : null;
+  if (sum.activeSummaryHistoryId != null) {
+    app._activeSummaryHistoryId = sum.activeSummaryHistoryId;
+  }
   if (sum.generatedQuestions) app.generatedQuestions = sum.generatedQuestions;
   if (sum.currentQuestion) app.currentSummaryQuestion = sum.currentQuestion;
   if (sum.threads) app.summaryThreads = sum.threads;
@@ -153,6 +160,7 @@ function _renderSummaryQuestionsSection(app, sum) {
   sum.generatedQuestions.forEach(question => {
     questionsList.appendChild(_createSummaryQuestionChip(app, question, sum));
   });
+  app.aiLabFeature?.summaryModal?.renderSummaryImageAttach?.(app);
 }
 
 function _hasThreads(sum) {
@@ -175,6 +183,7 @@ function _renderSummaryResultSection(app, sum) {
       summaryContent.innerHTML = html;
     });
   }
+  app.aiLabFeature?.summaryModal?.renderSummaryImageAttach?.(app);
   _showSummaryFollowupIfThreaded(app, sum);
   if (Array.isArray(sum.threads) && sum.threads.length >= 2) {
     app.renderThreadPagination('summary');

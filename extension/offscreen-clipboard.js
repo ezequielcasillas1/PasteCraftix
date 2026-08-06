@@ -1,5 +1,14 @@
-/** Offscreen clipboard I/O — service workers lack reliable Clipboard DOM APIs. */
+/** Offscreen clipboard I/O — classic script (no imports) so boot cannot fail on modules. */
 /** @forward-slice PDF capture read + popup image write (see capture.handler.js). */
+
+const CH = Object.freeze({
+  WRITE_REQ: 'write-image',
+  WRITE_RES: 'write-image-result',
+  PING_REQ: 'ping',
+  PING_RES: 'pong',
+});
+
+const BC_NAME = 'pastecraft-offscreen-clipboard';
 
 function base64ToUint8Array(b64) {
   const binary = atob(b64);
@@ -51,7 +60,6 @@ async function writePngViaClipboardApi(blob) {
   }
   const png = await ensurePngBlob(blob);
   const mime = png.type || 'image/png';
-  // Promise-wrapped Blob is required by some Chromium ClipboardItem builds.
   await navigator.clipboard.write([
     new ClipboardItem({ [mime]: Promise.resolve(png) }),
   ]);
@@ -90,15 +98,41 @@ async function writePngViaExecCommand(blob) {
 
 async function writeClipboardImage(dataUrl) {
   const blob = dataUrlToBlob(dataUrl);
+  let apiErr = null;
   try {
     await writePngViaClipboardApi(blob);
-  } catch (_) {
-    await writePngViaExecCommand(blob);
+    return;
+  } catch (err) {
+    apiErr = err;
   }
+  try {
+    await writePngViaExecCommand(blob);
+  } catch (execErr) {
+    const apiMsg = String(apiErr?.message || apiErr || 'clipboard_api_failed');
+    const execMsg = String(execErr?.message || execErr || 'execCommand_copy_failed');
+    throw new Error(`${apiMsg}|${execMsg}`);
+  }
+}
+
+/** Inline data URLs only — chrome.storage is undefined in this offscreen context. */
+async function resolveWriteDataUrl(message) {
+  const inline = String(message?.dataUrl || '');
+  if (inline.startsWith('data:image/')) return inline;
+  throw new Error('invalid_image_data_url');
+}
+
+async function handleWriteRequest(message) {
+  const dataUrl = await resolveWriteDataUrl(message);
+  await writeClipboardImage(dataUrl);
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message.action !== 'string') return false;
+
+  if (message.action === 'pcOffscreenClipboardPing') {
+    sendResponse({ success: true, pong: true });
+    return false;
+  }
 
   if (message.action === 'pcOffscreenReadClipboard') {
     (async () => {
@@ -116,12 +150,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === 'pcOffscreenWriteClipboardImage') {
     (async () => {
       try {
-        const dataUrl = String(message.dataUrl || '');
-        if (!dataUrl.startsWith('data:image/')) {
-          sendResponse({ success: false, error: 'invalid_image_data_url' });
-          return;
-        }
-        await writeClipboardImage(dataUrl);
+        await handleWriteRequest(message);
         sendResponse({ success: true });
       } catch (err) {
         sendResponse({
@@ -135,3 +164,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   return false;
 });
+
+try {
+  const bc = new BroadcastChannel(BC_NAME);
+  bc.onmessage = async (ev) => {
+    const msg = ev?.data;
+    if (!msg || typeof msg !== 'object') return;
+
+    if (msg.type === CH.PING_REQ) {
+      bc.postMessage({ type: CH.PING_RES, id: msg.id, success: true });
+      return;
+    }
+
+    if (msg.type !== CH.WRITE_REQ) return;
+    try {
+      await handleWriteRequest(msg);
+      bc.postMessage({ type: CH.WRITE_RES, id: msg.id, success: true });
+    } catch (err) {
+      bc.postMessage({
+        type: CH.WRITE_RES,
+        id: msg.id,
+        success: false,
+        error: String(err?.message || err || 'write_image_failed'),
+      });
+    }
+  };
+} catch (_) {}

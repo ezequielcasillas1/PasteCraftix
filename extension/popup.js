@@ -1258,17 +1258,17 @@ class PasteCraftPopup {
 
   // ==================== AI HISTORY SYSTEM ====================
 
-  /** Load AI history entries from local + cloud (merged) */
-  async loadAiHistory() {
-    return this.aiLabFeature.history.loadAiHistory.call(this);
+  /** Load AI history entries from local + cloud (merged). Pass `{ mergeCloud: false }` for local-only. */
+  async loadAiHistory(options) {
+    return this.aiLabFeature.history.loadAiHistory.call(this, options);
   }
 
   async _persistAiHistory() {
     return this.aiLabFeature.history._persistAiHistory.call(this);
   }
 
-  async saveAiHistory(type, originalText, threads) {
-    return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads);
+  async saveAiHistory(type, originalText, threads, options) {
+    return this.aiLabFeature.history.saveAiHistory.call(this, type, originalText, threads, options);
   }
 
   async saveRefactorHistory(records) {
