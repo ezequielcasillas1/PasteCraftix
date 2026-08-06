@@ -177,26 +177,104 @@ async function writeImageBlobDirect(png) {
   await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
 }
 
-async function writeImageBlobViaBackground(png) {
+/**
+ * execCommand image copy inside the current document.
+ * Works in popup pages where Permissions Policy blocks clipboard.write(image).
+ */
+async function writeImageBlobViaExecCommand(png) {
+  if (typeof document === 'undefined' || !document.body || !document.execCommand) {
+    throw new Error('execCommand_unavailable');
+  }
+  const url = URL.createObjectURL(png);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('image_decode_failed'));
+      el.src = url;
+    });
+
+    const holder = document.createElement('div');
+    holder.contentEditable = 'true';
+    holder.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+    holder.appendChild(img);
+    document.body.appendChild(holder);
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(holder);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const ok = document.execCommand('copy');
+    selection.removeAllRanges();
+    holder.remove();
+    if (!ok) throw new Error('execCommand_copy_failed');
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function stageClipboardDataUrl(dataUrl) {
+  const storageKey = `pc_clipboard_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await chrome.storage.local.set({ [storageKey]: dataUrl });
+  return storageKey;
+}
+
+async function clearStagedDataUrl(storageKey) {
+  if (!storageKey) return;
+  try {
+    await chrome.storage.local.remove(storageKey);
+  } catch (_) {}
+}
+
+/**
+ * Real image/png write via a tiny focused helper window.
+ * Action popups are Permissions-Policy blocked (crbug.com/414348233) and
+ * offscreen documents are focus-blocked; a focused extension window is neither.
+ * Result comes back through chrome.storage (writer window can use it).
+ */
+async function writeImageBlobViaHelperWindow(png) {
   if (!chrome?.runtime?.id) throw new Error('no_runtime');
   const dataUrl = await blobToDataUrl(png);
   if (!dataUrl.startsWith('data:image/')) throw new Error('invalid_png_data_url');
-  let resp;
+
+  const { CLIPBOARD_WRITER_BRIDGE: WB } = await import('./offscreen-clipboard-channel.js');
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const storageKey = await stageClipboardDataUrl(dataUrl);
   try {
-    resp = await chrome.runtime.sendMessage({ action: 'pcCopyImage', dataUrl });
-  } catch (err) {
-    throw new Error(err?.message || 'background_image_copy_failed');
+    await chrome.storage.local.remove([WB.RESULT]);
+    chrome.runtime.sendMessage(
+      { action: 'pcOpenClipboardWriter', id, storageKey },
+      () => { void chrome.runtime.lastError; },
+    );
+    for (let i = 0; i < 60; i += 1) {
+      await new Promise((r) => setTimeout(r, 100));
+      const stored = await chrome.storage.local.get([WB.RESULT]);
+      const res = stored?.[WB.RESULT];
+      if (!res || res.id !== id) continue;
+      if (res.success) return;
+      throw new Error(res.error || 'background_image_copy_failed');
+    }
+    throw new Error('offscreen_write_timeout');
+  } finally {
+    await clearStagedDataUrl(storageKey);
   }
-  if (resp?.success) return;
-  throw new Error(resp?.error || 'background_image_copy_failed');
 }
 
 export async function writeImageBlobToClipboard(blob) {
   const png = await ensurePngBlob(blob);
 
-  // Popup: skip direct write — Permissions Policy logs a Violation even when caught.
+  // Popup: Permissions Policy blocks clipboard.write(image) (crbug.com/414348233)
+  // and offscreen docs are focus-blocked — a focused helper window is neither.
+  // execCommand only puts an HTML flavor on the clipboard, which image-drop
+  // targets (chat uploaders) ignore, so it stays the last resort.
   if (isExtensionPopupDocument()) {
-    await writeImageBlobViaBackground(png);
+    try {
+      await writeImageBlobViaHelperWindow(png);
+      return true;
+    } catch (_) {}
+    await writeImageBlobViaExecCommand(png);
     return true;
   }
 
@@ -205,7 +283,11 @@ export async function writeImageBlobToClipboard(blob) {
     return true;
   } catch (directErr) {
     if (!canFallbackClipboardWrite(directErr)) throw directErr;
-    await writeImageBlobViaBackground(png);
+    try {
+      await writeImageBlobViaExecCommand(png);
+      return true;
+    } catch (_) {}
+    await writeImageBlobViaHelperWindow(png);
     return true;
   }
 }
@@ -240,7 +322,9 @@ async function resolveImageBlob(clip, { imageElement } = {}) {
 
 /** Map internal copy error codes to short toast-friendly reasons. */
 export function formatClipboardImageError(error) {
-  const code = String(error?.message || error || '').trim();
+  const raw = String(error?.message || error || '').trim();
+  // Combined API|execCommand failures from offscreen — use first segment for map.
+  const code = raw.includes('|') ? raw.split('|')[0] : raw;
   const map = {
     no_image_src: 'no image found',
     not_image_clip: 'not an image clip',
@@ -254,7 +338,11 @@ export function formatClipboardImageError(error) {
     clipboard_image_unsupported: 'clipboard blocked',
     background_image_copy_failed: 'clipboard blocked',
     offscreen_write_image_failed: 'clipboard blocked',
+    offscreen_write_timeout: 'clipboard timed out',
     offscreen_create_failed: 'clipboard blocked',
+    invalid_writer_job: 'clipboard blocked',
+    execCommand_copy_failed: 'clipboard blocked',
+    write_image_failed: 'clipboard blocked',
     no_runtime: 'extension context lost',
     unsupported_image_src: 'unsupported image source',
     not_image_response: 'not an image',
@@ -262,16 +350,17 @@ export function formatClipboardImageError(error) {
     png_convert_unavailable: 'image convert failed',
   };
   if (map[code]) return map[code];
-  if (/permissions policy|notallowederror|clipboard api has been blocked/i.test(code)) {
+  if (/permissions policy|notallowederror|clipboard api has been blocked/i.test(raw)) {
     return 'clipboard blocked';
   }
-  if (/image_fetch_/i.test(code)) return 'image download failed';
-  if (/offscreen/i.test(code)) return 'clipboard blocked';
-  return code.length > 60 ? 'copy failed' : code || 'copy failed';
+  if (/image_fetch_/i.test(raw)) return 'image download failed';
+  if (/timeout/i.test(raw)) return 'clipboard timed out';
+  if (/offscreen/i.test(raw)) return 'clipboard blocked';
+  return raw.length > 60 ? 'copy failed' : raw || 'copy failed';
 }
 
 /**
- * Write an image-bearing clip's bitmap to the system clipboard.
+ * Write only the image bitmap for image-picker / image clips (never text/OCR).
  * @param {object} clip
  * @param {{ imageElement?: HTMLImageElement }} [options]
  */

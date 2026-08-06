@@ -7,6 +7,7 @@
 - Website account sign-in not working (email/password on /account "Access your account" form)
 - Liked page empty after hearting a clip (float id mismatch: getClipIdKey vs String) — fix on cursor/fix-liked-page-id-match-015e
 - AI refactor clip truncated mid-sentence (ai-refactor input .slice(0,500) + low max_tokens)
+- Widget-copied LaTeX/math renders as broken Unicode (an=, split underbrace) — pending verify (DOM TeX from .katex parent + enrich)
 }
 
 **Note:** All fixed issues are now logged in `program-study/Fixed/RefreshFixedLog.md`

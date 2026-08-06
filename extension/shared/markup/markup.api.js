@@ -12,6 +12,8 @@
       detectMarkupType: ns.detectMarkupType,
       renderMarkup: ns.renderMarkup,
       renderMarkupPreview: ns.renderMarkupPreview,
+      renderEnriched: ns.renderEnriched,
+      needsEnrichment: ns.needsEnrichment,
       getMarkupBadge: ns.getMarkupBadge,
       getMarkupBadgeForClip: ns.getMarkupBadgeForClip,
       sanitize: ns.sanitize,

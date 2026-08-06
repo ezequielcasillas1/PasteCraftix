@@ -1,4 +1,8 @@
 import { pastecraftGetURL } from '../shared.js';
+import {
+  extractTexFromSelection,
+  resolveClipboardMarkupText,
+} from '../../shared/clipboard-markup.js';
 
 function pcSafeTrim(s, max) {
   const str = String(s ?? '');
@@ -85,11 +89,27 @@ function pcSelectionText() {
   }
 }
 
+function removeOrphanDropBoxes(keepEl = null) {
+  try {
+    document.querySelectorAll('#pastecraft-click-drag-dropbox').forEach((el) => {
+      if (keepEl && el === keepEl) return;
+      el.remove();
+    });
+  } catch (_) {}
+}
+
 export function setupClickAndDragCapture(widget) {
   if (widget._pcClickAndDragSetup) return;
   widget._pcClickAndDragSetup = true;
 
-  ensureClickAndDragDropBox(widget);
+  // Never leave a ghost from a prior content-script inject / stuck drag.
+  removeOrphanDropBoxes(widget._pcDropBoxEl || null);
+  if (widget._pcDropBoxEl && !document.body.contains(widget._pcDropBoxEl)) {
+    widget._pcDropBoxEl = null;
+    widget._pcDropBoxVisible = false;
+  }
+  // Keep DOM clean until an actual enabled drag starts (do not mount eagerly).
+  hideClickAndDragDropBox(widget, true);
 
   // Show drop box only during active drags, and only if enabled.
   widget._pcOnDragStart = (e) => {
@@ -102,18 +122,36 @@ export function setupClickAndDragCapture(widget) {
     showClickAndDragDropBox(widget);
   };
 
-  widget._pcOnDragEnd = () => {
-    if (!widget._pcDragActive) return;
+  widget._pcClearDragUi = () => {
     widget._pcDragActive = false;
-    hideClickAndDragDropBox(widget);
+    // Box drop owns flash→hide; skip immediate clear from trailing dragend.
+    if (widget._pcDropBoxDropHandled) {
+      widget._pcDropBoxDropHandled = false;
+      return;
+    }
+    hideClickAndDragDropBox(widget, true);
+  };
+
+  // Hide after any drag ends; document drop clears drops outside the box
+  // (box drop handler owns flash → hide when the target is our dropbox).
+  widget._pcOnDocDrop = (e) => {
+    const box = widget._pcDropBoxEl;
+    const t = e && e.target ? e.target : null;
+    if (box && t && (t === box || box.contains(t))) return;
+    widget._pcClearDragUi();
   };
 
   document.addEventListener('dragstart', widget._pcOnDragStart, true);
-  document.addEventListener('dragend', widget._pcOnDragEnd, true);
+  document.addEventListener('dragend', widget._pcClearDragUi, true);
+  document.addEventListener('drop', widget._pcOnDocDrop, true);
 }
 
 export function ensureClickAndDragDropBox(widget) {
   if (widget._pcDropBoxEl && document.body.contains(widget._pcDropBoxEl)) return;
+
+  // Drop prior orphans before creating a tracked instance (duplicate ids = ghost UI).
+  removeOrphanDropBoxes(null);
+  widget._pcDropBoxEl = null;
 
   if (!document.getElementById('pastecraft-click-drag-dropbox-styles')) {
     const iconUrl = pastecraftGetURL('assets/distribute-spacing-vertical.svg');
@@ -126,9 +164,12 @@ export function ensureClickAndDragDropBox(widget) {
           height: 64px;
           border-radius: 14px;
           z-index: 2147483647;
-          opacity: 0;
+          /* Host pages (video players) can defeat opacity-only hiding — use display. */
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
           transform: scale(0.92);
-          pointer-events: none;
+          pointer-events: none !important;
           transition: opacity 140ms ease, transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
           border: 2px solid rgba(96, 165, 250, 0.25);
           box-shadow: -6px 0 24px rgba(0,0,0,0.18), 0 6px 26px rgba(30, 64, 175, 0.22);
@@ -137,9 +178,11 @@ export function ensureClickAndDragDropBox(widget) {
         }
 
         #pastecraft-click-drag-dropbox.pc-visible {
-          opacity: 1;
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
           transform: scale(1);
-          pointer-events: auto;
+          pointer-events: auto !important;
         }
 
         #pastecraft-click-drag-dropbox .pc-dropbox-inner {
@@ -196,6 +239,8 @@ export function ensureClickAndDragDropBox(widget) {
 
   const el = document.createElement('div');
   el.id = 'pastecraft-click-drag-dropbox';
+  el.hidden = true;
+  el.setAttribute('aria-hidden', 'true');
   el.innerHTML = `
       <div class="pc-dropbox-inner" aria-hidden="true">
         <div class="pc-dropbox-icon"></div>
@@ -225,14 +270,21 @@ export function ensureClickAndDragDropBox(widget) {
     e.preventDefault();
     e.stopPropagation();
     el.classList.remove('pc-hover');
+    widget._pcDragActive = false;
+    widget._pcDropBoxDropHandled = true;
     const dt = e.dataTransfer || null;
     (async () => {
       const saved = await saveClickAndDragFromDataTransfer(widget, dt);
       if (saved) {
         flashClickAndDragDropBoxSuccess(widget);
         widget.showWidgetToast('Saved to Clips');
+        clearTimeout(widget._pcDropBoxHideTimer);
+        widget._pcDropBoxHideTimer = setTimeout(() => {
+          hideClickAndDragDropBox(widget, true);
+        }, 700);
       } else {
         widget.showWidgetToast('Nothing to save');
+        hideClickAndDragDropBox(widget, true);
       }
     })();
   });
@@ -261,26 +313,38 @@ export function positionClickAndDragDropBox(widget) {
 }
 
 export function showClickAndDragDropBox(widget) {
+  if (!widget.settings || widget.settings.clickAndDragEnabled !== true) return;
+  if (!widget._pcDragActive) return;
   ensureClickAndDragDropBox(widget);
   positionClickAndDragDropBox(widget);
   if (!widget._pcDropBoxEl) return;
+  widget._pcDropBoxEl.hidden = false;
+  widget._pcDropBoxEl.setAttribute('aria-hidden', 'false');
   widget._pcDropBoxEl.classList.add('pc-visible');
   widget._pcDropBoxVisible = true;
 }
 
 export function hideClickAndDragDropBox(widget, immediate = false) {
+  // Sweep orphans even when this widget never owned a box.
+  removeOrphanDropBoxes(widget._pcDropBoxEl || null);
   if (!widget._pcDropBoxEl) return;
   widget._pcDropBoxEl.classList.remove('pc-hover');
   widget._pcDropBoxEl.classList.remove('pc-success');
   widget._pcDropBoxEl.classList.remove('pc-visible');
+  widget._pcDropBoxEl.hidden = true;
+  widget._pcDropBoxEl.setAttribute('aria-hidden', 'true');
   widget._pcDropBoxVisible = false;
   if (immediate) {
     // Force-hide immediately (some pages can keep transitions running).
+    widget._pcDropBoxEl.style.display = 'none';
     widget._pcDropBoxEl.style.opacity = '0';
+    widget._pcDropBoxEl.style.visibility = 'hidden';
     widget._pcDropBoxEl.style.pointerEvents = 'none';
     setTimeout(() => {
       if (!widget._pcDropBoxVisible && widget._pcDropBoxEl) {
+        widget._pcDropBoxEl.style.display = '';
         widget._pcDropBoxEl.style.opacity = '';
+        widget._pcDropBoxEl.style.visibility = '';
         widget._pcDropBoxEl.style.pointerEvents = '';
       }
     }, 0);
@@ -352,18 +416,24 @@ export async function saveClickAndDragFromDataTransfer(widget, dt) {
 
   // 2) Text (prefer highlighted text over URL payloads, unless text is itself a URL)
   if (textCandidate && !textLooksUrl) {
+    const resolved = resolveClipboardMarkupText(textCandidate, html, {
+      domTexes: extractTexFromSelection(),
+    });
+    const body = resolved.text || textCandidate;
+    const htmlToStore = resolved.mathHtml || html;
     const meta = {
-      kind: 'text',
-      plainText: pcSafeTrim(textCandidate, MAX_TEXT),
-      html: pcSafeTrim(html, MAX_HTML),
+      kind: resolved.markupHint === 'html' ? 'html' : 'text',
+      plainText: pcSafeTrim(body, MAX_TEXT),
+      html: pcSafeTrim(htmlToStore, MAX_HTML),
       url: '',
       sourcePageUrl: pcSafeTrim(sourcePageUrl, 4000),
       capturedAt
     };
+    if (resolved.markupHint) meta.markupHint = resolved.markupHint;
 
     await chrome.runtime.sendMessage({
       action: 'saveClip',
-      text: pcSafeTrim(textCandidate, MAX_TEXT),
+      text: pcSafeTrim(body, MAX_TEXT),
       meta,
       category: 'Uncategorized',
       autoShow: false
@@ -396,18 +466,24 @@ export async function saveClickAndDragFromDataTransfer(widget, dt) {
 
   // 4) Text fallback (even if it looks like a URL, if we got here there's nothing else)
   if (textCandidate) {
+    const resolved = resolveClipboardMarkupText(textCandidate, html, {
+      domTexes: extractTexFromSelection(),
+    });
+    const body = resolved.text || textCandidate;
+    const htmlToStore = resolved.mathHtml || html;
     const meta = {
-      kind: 'text',
-      plainText: pcSafeTrim(textCandidate, MAX_TEXT),
-      html: pcSafeTrim(html, MAX_HTML),
+      kind: resolved.markupHint === 'html' ? 'html' : 'text',
+      plainText: pcSafeTrim(body, MAX_TEXT),
+      html: pcSafeTrim(htmlToStore, MAX_HTML),
       url: '',
       sourcePageUrl: pcSafeTrim(sourcePageUrl, 4000),
       capturedAt
     };
+    if (resolved.markupHint) meta.markupHint = resolved.markupHint;
 
     await chrome.runtime.sendMessage({
       action: 'saveClip',
-      text: pcSafeTrim(textCandidate, MAX_TEXT),
+      text: pcSafeTrim(body, MAX_TEXT),
       meta,
       category: 'Uncategorized',
       autoShow: false

@@ -31,6 +31,7 @@
     'shared/markup/strategies/textile.strategy.js',
     'shared/markup/strategies/jira.strategy.js',
     'shared/markup/strategies/text.strategy.js',
+    'shared/markup/markup.enrich.js',
     'shared/markup/markup.render.js',
     'shared/markup/markup.badge.js',
     'shared/markup/markup.api.js',
