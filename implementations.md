@@ -1,4 +1,24 @@
 
+### Aug 6, 2026 - KaTeX selection → real TeX (not Unicode dump)
+**Files:** clipboard-markup.js, widget.events.js, widget.drag-capture.js, widget.spot.js, clips.viewer.js, clips.render.js
+**Result:** Copy of rendered KaTeX reads parent `.katex` annotation (selection only has `.katex-html`). Spot/auto-copy/drag use DOM TeX. Viewer/chips recover from meta.html when text is a Unicode math dump.
+
+### Aug 6, 2026 - Clip markup enrich + clipboard LaTeX recover
+**Files:** markup.enrich.js, markup.render.js, markup.detect.js, markup.sanitize.js, latex.strategy.js, clipboard-markup.js, widget.events.js, widget.drag-capture.js, ai-lab.summary.js, popup.html, styles.css
+**Result:** Shared LaTeX/Mermaid enrich for Clip Viewer (same as AI Lab). Widget auto-copy/drag recovers TeX from KaTeX/MathJax HTML. Wider latex detect; MathML allowlist; latex chip preview safe.
+
+### Aug 3, 2026 - testerinfo.html rewritten for v3.0.30
+**Files:** website/testerinfo.html
+**Result:** Replaced REDDIT100-era plan with full current coverage: image/PDF clips, widget + capture tools, AI Lab + credits, sync, gating, stress. Coupon code removed — codes now DMed manually.
+
+### Aug 3, 2026 - Reddit coupon reactivated (2 years)
+**Files:** coupon_codes table (prod)
+**Result:** REDDIT-47261 expiry moved from 2026-06-12 (expired) to 2028-08-03; active, 100 max redemptions, 0 used.
+
+### Aug 3, 2026 - Tester knowledge context + FIVERRAI coupon live
+**Files:** docs/testing/TESTER_KNOWLEDGE_CONTEXT.md, coupon_codes table (prod)
+**Result:** Wrote v3.0.30 tester guide covering clips/notes/widget/capture/AI Lab/credits/sync/gating. Inserted FIVERRAI coupon (1 month AI, max 25) — was scripted but never in DB. REDDIT-47261 basic coupon expired 2026-06-12.
+
 ### Aug 3, 2026 - Chrome Web Store live on website
 **Files:** website/src/data/site.js, website/src/pages/index.astro, pricing.astro, upgrade.astro, website/pricing.html, upgrade.html, index.html, production-publishing-safety.mdc, docs/publishing/*
 **Result:** Chrome listing `fidljmdohgkjmmgojdblbbnfoeengoko` wired sitewide; pills/CTAs show Chrome + Edge live.

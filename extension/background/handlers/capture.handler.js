@@ -3,6 +3,11 @@ import {
   OPTIONAL_PERM_KINDS,
   ensureOptionalPermissions,
 } from '../../shared/optional-permissions.js';
+import {
+  CLIPBOARD_WRITER_BRIDGE,
+  OFFSCREEN_CLIPBOARD_MSG,
+  createOffscreenClipboardChannel,
+} from '../../shared/offscreen-clipboard-channel.js';
 
 /**
  * Capture / clipboard / page-selection handlers (widget Capture Tools).
@@ -337,6 +342,158 @@ export function handlePcGetPageSelection(_message, { sender, sendResponse }) {
   return true;
 }
 
+/**
+ * MAIN-world probe: MathJax keeps original TeX on MathItem.math (not in isolated DOM).
+ * Only formulas whose typeset root intersects the selection (never whole-page jax).
+ * Must stay closure-free for chrome.scripting.executeScript.
+ */
+function probePageMathTexInFrame() {
+  const sel = window.getSelection && window.getSelection();
+  if (!sel || !sel.rangeCount) return [];
+
+  const ranges = [];
+  for (let r = 0; r < sel.rangeCount; r++) ranges.push(sel.getRangeAt(r));
+
+  const intersects = (node) => {
+    if (!node) return false;
+    for (let i = 0; i < ranges.length; i++) {
+      try {
+        if (ranges[i].intersectsNode(node)) return true;
+      } catch (_) { /* ignore */ }
+    }
+    return false;
+  };
+
+  // One TeX string per math container (longest wins if duplicates).
+  const byRoot = [];
+  const remember = (math, domNode, requireIntersect) => {
+    const s = String(math || '').trim();
+    if (!s || !domNode) return;
+    if (requireIntersect && !intersects(domNode)) return;
+    for (let i = 0; i < byRoot.length; i++) {
+      if (byRoot[i].dom === domNode) {
+        if (s.length > byRoot[i].math.length) byRoot[i].math = s;
+        return;
+      }
+    }
+    byRoot.push({ dom: domNode, math: s });
+  };
+
+  // Primary: closest mjx/katex from selection endpoints (trusted — no intersect filter).
+  const tips = [sel.anchorNode, sel.focusNode];
+  for (let t = 0; t < tips.length; t++) {
+    let el = tips[t];
+    if (el && el.nodeType !== 1) el = el.parentElement;
+    const root = el && el.closest
+      ? el.closest('mjx-container, .MathJax_Display, .MathJax, .katex-display, .katex')
+      : null;
+    if (!root) continue;
+
+    try {
+      const doc = window.MathJax && window.MathJax.startup && window.MathJax.startup.document;
+      if (doc && typeof doc.getMathItemsWithin === 'function') {
+        const items = doc.getMathItemsWithin(root) || [];
+        let best = '';
+        for (let i = 0; i < items.length; i++) {
+          const m = items[i] && items[i].math ? String(items[i].math).trim() : '';
+          if (m.length > best.length) best = m;
+        }
+        if (best) remember(best, root, false);
+      }
+    } catch (_) { /* ignore */ }
+
+    try {
+      const hub = window.MathJax && window.MathJax.Hub;
+      if (hub && typeof hub.getAllJax === 'function') {
+        const jaxList = hub.getAllJax(root) || [];
+        for (let i = 0; i < jaxList.length; i++) {
+          const jax = jaxList[i];
+          if (jax && jax.originalText) remember(jax.originalText, root, false);
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    try {
+      const ann = root.querySelector && root.querySelector('annotation[encoding="application/x-tex"]');
+      if (ann && ann.textContent) remember(ann.textContent, root, false);
+    } catch (_) { /* ignore */ }
+  }
+
+  // Secondary: only when endpoints are in prose — MathItems overlapping selection.
+  if (!byRoot.length) {
+    try {
+      const doc = window.MathJax && window.MathJax.startup && window.MathJax.startup.document;
+      if (doc && doc.math) {
+        for (let i = 0; i < doc.math.length; i++) {
+          const item = doc.math[i];
+          if (!item || !item.math || !item.typesetRoot) continue;
+          remember(item.math, item.typesetRoot, true);
+        }
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  return byRoot.map((entry) => entry.math);
+}
+
+function mergePageMathTexResults(results) {
+  const out = [];
+  const seen = Object.create(null);
+  for (const entry of results || []) {
+    const list = Array.isArray(entry?.result) ? entry.result : [];
+    for (const tex of list) {
+      const s = String(tex || '').trim();
+      if (!s || seen[s]) continue;
+      seen[s] = true;
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+export function handlePcExtractPageMathTex(_message, { sender, sendResponse }) {
+  const tabId = sender.tab?.id;
+  if (!Number.isFinite(tabId)) {
+    sendResponse({ success: false, error: 'missing_tab', texes: [] });
+    return false;
+  }
+
+  (async () => {
+    const hostPerm = await ensureOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS);
+    if (!hostPerm.ok) {
+      sendResponse({
+        success: false,
+        error: hostPerm.error || 'permission_denied',
+        message: hostPerm.message,
+        texes: [],
+      });
+      return;
+    }
+
+    chrome.scripting.executeScript(
+      {
+        target: { tabId, allFrames: true },
+        world: 'MAIN',
+        func: probePageMathTexInFrame,
+      },
+      (results) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          sendResponse({
+            success: false,
+            error: err.message || 'math_tex_probe_failed',
+            texes: [],
+          });
+          return;
+        }
+        const texes = mergePageMathTexResults(results);
+        sendResponse({ success: texes.length > 0, texes });
+      },
+    );
+  })();
+  return true;
+}
+
 export function handlePcCopyText(message, { sendResponse }) {
   const text = String(message.text || '');
   (async () => {
@@ -350,20 +507,61 @@ export function handlePcCopyText(message, { sendResponse }) {
   return true;
 }
 
-async function writeClipboardImageViaOffscreen(dataUrl) {
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Prefer BroadcastChannel (SW→offscreen sendMessage replies are often undefined).
+ * Falls back to runtime.sendMessage for older offscreen builds.
+ */
+async function writeClipboardImageViaOffscreen(dataUrl, storageKey = '') {
   let lastError = 'offscreen_write_image_failed';
-  // Retry: offscreen createDocument can resolve before its listener is ready.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (attempt > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 40 * attempt));
-    }
+
+  try {
+    const CH = OFFSCREEN_CLIPBOARD_MSG;
+    const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const result = await new Promise((resolve) => {
+      const bc = createOffscreenClipboardChannel();
+      const timer = setTimeout(() => {
+        try {
+          bc.close();
+        } catch (_) {}
+        resolve({ success: false, error: 'offscreen_write_timeout' });
+      }, 8000);
+      bc.onmessage = (ev) => {
+        const msg = ev?.data;
+        if (!msg || msg.id !== id || msg.type !== CH.WRITE_RES) return;
+        clearTimeout(timer);
+        try {
+          bc.close();
+        } catch (_) {}
+        resolve({ success: !!msg.success, error: msg.error || lastError });
+      };
+      bc.postMessage({
+        type: CH.WRITE_REQ,
+        id,
+        dataUrl: storageKey ? '' : dataUrl,
+        storageKey: storageKey || '',
+      });
+    });
+    if (result?.success) return { success: true };
+    lastError = result?.error || lastError;
+  } catch (err) {
+    lastError = err?.message || String(err) || lastError;
+  }
+
+  // Legacy sendMessage path (may drop reply when SW is also a listener).
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) await delay(40 * attempt);
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'pcOffscreenWriteClipboardImage',
-        dataUrl,
+        dataUrl: storageKey ? undefined : dataUrl,
+        storageKey: storageKey || undefined,
       });
       if (response?.success) return { success: true };
-      lastError = response?.error || lastError;
+      if (response?.error) lastError = response.error;
     } catch (err) {
       lastError = err?.message || String(err) || lastError;
     }
@@ -372,32 +570,91 @@ async function writeClipboardImageViaOffscreen(dataUrl) {
 }
 
 /**
- * Write a PNG (data URL) to the system clipboard via offscreen document.
- * Popup documents block navigator.clipboard.write for images (Permissions Policy).
+ * Create/settle the offscreen clipboard document (popup then writes directly).
+ * Return a Promise so the Mediator router owns sendResponse (callback replies
+ * often arrive as undefined at the popup for this action).
  */
-export function handlePcCopyImage(message, { sendResponse }) {
-  const dataUrl = String(message?.dataUrl || '');
-  (async () => {
+export function handlePcEnsureClipboardOffscreen(message) {
+  return (async () => {
     try {
-      if (!dataUrl.startsWith('data:image/')) {
-        sendResponse({ success: false, error: 'invalid_image_data_url' });
-        return;
+      const ready = await ensureClipboardOffscreenDocument({ force: !!message?.force });
+      if (!ready.ok) {
+        return { success: false, error: ready.error || 'offscreen_create_failed' };
+      }
+      if (ready.created) await delay(80);
+      return { success: true, created: !!ready.created };
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  })();
+}
+
+/**
+ * Write a PNG (data URL) to the system clipboard via offscreen document.
+ * Promise return → router sendResponse (avoids undefined popup replies).
+ */
+export function handlePcCopyImage(message) {
+  const dataUrl = String(message?.dataUrl || '');
+  const storageKey = String(message?.storageKey || '');
+  return (async () => {
+    try {
+      if (!dataUrl.startsWith('data:image/') && !storageKey.startsWith('pc_clipboard_img_')) {
+        return { success: false, error: 'invalid_image_data_url' };
       }
       const ready = await ensureClipboardOffscreenDocument();
       if (!ready.ok) {
-        sendResponse({ success: false, error: ready.error || 'offscreen_create_failed' });
-        return;
+        return { success: false, error: ready.error || 'offscreen_create_failed' };
       }
-      // Brief settle after first create so offscreen script can register onMessage.
-      if (ready.created) {
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      }
-      sendResponse(await writeClipboardImageViaOffscreen(dataUrl));
+      if (ready.created) await delay(50);
+      return await writeClipboardImageViaOffscreen(dataUrl, storageKey);
     } catch (error) {
-      sendResponse({ success: false, error: error?.message || String(error) });
+      return { success: false, error: error?.message || String(error) };
     }
   })();
-  return true;
+}
+
+/**
+ * Open a tiny focused writer window for real image/png clipboard writes.
+ * Action popups are Permissions-Policy blocked (crbug.com/414348233) and
+ * offscreen documents are focus-blocked; a focused extension window is neither.
+ * Promise return → router sendResponse.
+ */
+export function handlePcOpenClipboardWriter(message) {
+  return (async () => {
+    try {
+      const id = String(message?.id || '');
+      const storageKey = String(message?.storageKey || '');
+      if (!id || !storageKey.startsWith('pc_clipboard_img_')) {
+        return { success: false, error: 'invalid_writer_job' };
+      }
+      const WB = CLIPBOARD_WRITER_BRIDGE;
+      await chrome.storage.local.set({ [WB.JOB]: { id, storageKey, ts: Date.now() } });
+      const win = await chrome.windows.create({
+        url: chrome.runtime.getURL('clipboard-writer.html'),
+        type: 'popup',
+        width: 160,
+        height: 100,
+        focused: true,
+      });
+      const windowId = win?.id;
+      if (Number.isFinite(windowId)) {
+        const onChange = (changes, area) => {
+          if (area !== 'local') return;
+          const res = changes?.[WB.RESULT]?.newValue;
+          if (!res || res.id !== id) return;
+          try { chrome.storage.onChanged.removeListener(onChange); } catch (_) {}
+          chrome.windows.remove(windowId).catch(() => {});
+        };
+        chrome.storage.onChanged.addListener(onChange);
+        setTimeout(() => {
+          try { chrome.storage.onChanged.removeListener(onChange); } catch (_) {}
+        }, 15000);
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  })();
 }
 
 function isHttpUrl(url) {
@@ -439,21 +696,56 @@ const OFFSCREEN_CLIPBOARD = Object.freeze({
     'Read clipboard text when PDF viewer steals page focus; write image clips when popup Permissions Policy blocks Clipboard API',
 });
 
+const ENSURE_RESULT_KEY = 'pc_clipboard_ensure_result';
+
 function isOffscreenAlreadyExistsError(err) {
   return /already exists|Only a single offscreen/i.test(String(err?.message || err || ''));
 }
 
-async function ensureClipboardOffscreenDocument() {
+async function publishEnsureResult(result) {
   try {
-    if (await chrome.offscreen.hasDocument?.()) return { ok: true, created: false };
+    await chrome.storage.local.set({
+      [ENSURE_RESULT_KEY]: { ...result, ts: Date.now() },
+    });
+  } catch (_) {}
+}
+
+async function ensureClipboardOffscreenDocument(options = {}) {
+  const force = !!options.force;
+  try {
+    const hasDoc = !!(await chrome.offscreen.hasDocument?.());
+    if (hasDoc && force && chrome.offscreen.closeDocument) {
+      try { await chrome.offscreen.closeDocument(); } catch (_) {}
+      try {
+        await chrome.storage.local.remove([
+          'pc_clipboard_offscreen_ready',
+          ENSURE_RESULT_KEY,
+        ]);
+      } catch (_) {}
+    } else if (hasDoc) {
+      const out = { ok: true, created: false };
+      await publishEnsureResult(out);
+      return out;
+    }
   } catch (_) {}
 
   try {
     await chrome.offscreen.createDocument(OFFSCREEN_CLIPBOARD);
-    return { ok: true, created: true };
+    const out = { ok: true, created: true };
+    await publishEnsureResult(out);
+    return out;
   } catch (err) {
-    if (isOffscreenAlreadyExistsError(err)) return { ok: true, created: false };
-    return { ok: false, error: String(err?.message || err || 'offscreen_create_failed') };
+    if (isOffscreenAlreadyExistsError(err)) {
+      const out = { ok: true, created: false };
+      await publishEnsureResult(out);
+      return out;
+    }
+    const out = {
+      ok: false,
+      error: String(err?.message || err || 'offscreen_create_failed'),
+    };
+    await publishEnsureResult(out);
+    return out;
   }
 }
 
@@ -498,12 +790,31 @@ export function handlePcEnsureOptionalPermissions(message, { sendResponse }) {
   return true;
 }
 
+/**
+ * On write REQ: only ensure the offscreen document exists.
+ * Offscreen owns the clipboard write + RES (avoids SW↔offscreen reply drops).
+ */
+export function installClipboardStorageBridge() {
+  if (installClipboardStorageBridge._installed) return;
+  installClipboardStorageBridge._installed = true;
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (!changes?.pc_clipboard_write_req?.newValue) return;
+    ensureClipboardOffscreenDocument().catch(() => {});
+  });
+}
+
 export function createCaptureHandlerMap() {
+  installClipboardStorageBridge();
   return {
     [A.PC_CAPTURE_REGION]: handlePcCaptureRegion,
     [A.PC_GET_PAGE_SELECTION]: handlePcGetPageSelection,
+    [A.PC_EXTRACT_PAGE_MATH_TEX]: handlePcExtractPageMathTex,
     [A.PC_COPY_TEXT]: handlePcCopyText,
     [A.PC_COPY_IMAGE]: handlePcCopyImage,
+    [A.PC_ENSURE_CLIPBOARD_OFFSCREEN]: handlePcEnsureClipboardOffscreen,
+    [A.PC_OPEN_CLIPBOARD_WRITER]: handlePcOpenClipboardWriter,
     [A.PC_FETCH_IMAGE_AS_DATA_URL]: handlePcFetchImageAsDataUrl,
     [A.PC_READ_CLIPBOARD]: handlePcReadClipboard,
     [A.PC_ENSURE_OPTIONAL_PERMISSIONS]: handlePcEnsureOptionalPermissions,

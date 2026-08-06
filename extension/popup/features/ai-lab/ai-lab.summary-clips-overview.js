@@ -11,156 +11,6 @@ const SELECTED_KEY = '_summaryOverviewSelected';
 const FILE_ID_KEY = '_summaryOverviewFileId';
 const ACTIVE_TAB_KEY = '_summaryOverviewActiveTab';
 
-// #region agent log
-const _DBG_RELAY = false;
-const _DBG_ENDPOINT = 'http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd';
-const _DBG_MAX = 12;
-let _dbgCount = 0;
-let _dbgBudgetNotified = false;
-let _dbgRelayReported = false;
-const _dbgSeen = new Set();
-let _dbgPass = null;
-
-function _escapeWsSample(text) {
-  return String(text ?? '').slice(0, 40).replace(/\r/g, '\\r').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
-}
-
-function _dbgDedupeKey(hypothesisId, data) {
-  const d = data && typeof data === 'object' ? data : {};
-  const stable = d.groupCount != null
-    ? `${d.groupCount}|${JSON.stringify(d.groups || [])}`
-    : d.rows != null
-      ? `${d.rows}|${JSON.stringify(d.byBranch || {})}|${d.junk || 0}|${JSON.stringify((d.examples || []).map((e) => e.id || e.resolved || e))}`
-      : d.thumbs != null
-        ? `${d.thumbs}|${d.resolved}|${d.unresolved}`
-        : d.clipId != null
-          ? String(d.clipId)
-          : d.normalized != null
-            ? String(d.normalized)
-            : JSON.stringify(d);
-  return `${hypothesisId}|${stable}`;
-}
-
-function _dbg(hypothesisId, location, message, data) {
-  if (_dbgBudgetNotified) return;
-  const key = _dbgDedupeKey(hypothesisId, data);
-  if (_dbgSeen.has(key)) return;
-  // Reserve final slot for the budget-reached line (total ≤ _DBG_MAX warns).
-  if (_dbgCount >= _DBG_MAX - 1) {
-    _dbgBudgetNotified = true;
-    _dbgCount += 1;
-    console.warn('[PasteCraft:debug:7004b6]', JSON.stringify({
-      sessionId: '7004b6',
-      runId: 'pre-fix',
-      hypothesisId: 'BUDGET',
-      location: 'ai-lab.summary-clips-overview.js:_dbg',
-      message: 'probe budget reached',
-      data: { max: _DBG_MAX },
-      timestamp: Date.now(),
-    }));
-    return;
-  }
-  _dbgSeen.add(key);
-  _dbgCount += 1;
-  const payload = {
-    sessionId: '7004b6',
-    runId: 'pre-fix',
-    hypothesisId,
-    location,
-    message,
-    data,
-    timestamp: Date.now(),
-  };
-  console.warn('[PasteCraft:debug:7004b6]', JSON.stringify(payload));
-  if (!_DBG_RELAY) return;
-  try {
-    chrome.runtime.sendMessage({ action: 'pcAgentDebugLog', endpoint: _DBG_ENDPOINT, payload }, (resp) => {
-      if (_dbgRelayReported) return;
-      _dbgRelayReported = true;
-      const err = chrome.runtime.lastError;
-      console.warn('[PasteCraft:debug:7004b6]', JSON.stringify({
-        sessionId: '7004b6',
-        runId: 'pre-fix',
-        hypothesisId: 'RELAY',
-        location: 'ai-lab.summary-clips-overview.js:_dbg',
-        message: 'relay result',
-        data: { error: err ? err.message : null, resp: resp || null },
-        timestamp: Date.now(),
-      }));
-    });
-  } catch (_) { /* relay unavailable */ }
-}
-
-function _beginDbgPass() {
-  _dbgPass = {
-    h3: {
-      rows: 0,
-      byBranch: { clipTitle: 0, fallback: 0 },
-      junk: 0,
-      examples: [],
-      _seenEx: new Set(),
-    },
-    h4: { thumbs: 0, resolved: 0, unresolved: 0 },
-  };
-}
-
-function _isJunkDisplayTitle(resolved) {
-  const t = String(resolved || '');
-  if (!t || t.length <= 3) return true;
-  if (/\bfile\b/i.test(t)) return true;
-  if (/^[-–—_•·.\s]+$/.test(t)) return true;
-  try {
-    if (/^[\p{P}\p{S}\s]+$/u.test(t)) return true;
-  } catch (_) { /* unicode property unsupported */ }
-  return false;
-}
-
-function _noteH3(app, clip, branch, resolved) {
-  if (!_dbgPass?.h3) return;
-  const h3 = _dbgPass.h3;
-  h3.rows += 1;
-  if (branch === 'clipTitle') h3.byBranch.clipTitle += 1;
-  else h3.byBranch.fallback += 1;
-  if (!_isJunkDisplayTitle(resolved)) return;
-  h3.junk += 1;
-  const id = _clipIdKey(app, clip?.id);
-  if (!id || h3._seenEx.has(id) || h3.examples.length >= 3) return;
-  h3._seenEx.add(id);
-  h3.examples.push({
-    id,
-    resolved: String(resolved || '').slice(0, 40),
-    text: _escapeWsSample(clip?.text),
-  });
-}
-
-function _flushH3() {
-  if (!_dbgPass?.h3 || _dbgPass.h3.rows === 0) return;
-  const h3 = _dbgPass.h3;
-  _dbg('H3', 'ai-lab.summary-clips-overview.js:_displayTitle', 'title resolution summary', {
-    rows: h3.rows,
-    byBranch: h3.byBranch,
-    junk: h3.junk,
-    examples: h3.examples,
-  });
-}
-
-function _noteH4(resolvedOk) {
-  if (!_dbgPass?.h4) return;
-  _dbgPass.h4.thumbs += 1;
-  if (resolvedOk) _dbgPass.h4.resolved += 1;
-  else _dbgPass.h4.unresolved += 1;
-}
-
-function _flushH4() {
-  if (!_dbgPass?.h4 || _dbgPass.h4.thumbs === 0) return;
-  const h4 = _dbgPass.h4;
-  _dbg('H4', 'ai-lab.summary-clips-overview.js:_fillThumb', 'thumb resolve summary', {
-    thumbs: h4.thumbs,
-    resolved: h4.resolved,
-    unresolved: h4.unresolved,
-  });
-}
-// #endregion
 
 function _escapeHtml(app, value) {
   if (typeof app?.escapeHtml === 'function') return app.escapeHtml(value);
@@ -216,9 +66,6 @@ function _displayTitle(app, clip) {
   } else {
     result = _clipPreview(clip).slice(0, 46) || 'Untitled clip';
   }
-  // #region agent log
-  _noteH3(app, clip, titled ? 'clipTitle' : 'fallback', result);
-  // #endregion
   return result;
 }
 
@@ -252,17 +99,6 @@ function _toggleClip(app, clipId, row) {
 function _clipPreview(clip) {
   const normalized = _normalizeText(clip?.text);
   const junk = /^[-–—_•·.\s]+$/.test(normalized);
-  // #region agent log
-  let punctOnly = false;
-  try { punctOnly = /^[\p{P}\p{S}\s]+$/u.test(normalized); } catch (_) { /* unicode property unsupported */ }
-  if (normalized && (junk || punctOnly)) {
-    _dbg('H2', 'ai-lab.summary-clips-overview.js:_clipPreview', 'dashy preview eval', {
-      normalized: normalized.slice(0, 40),
-      junkRegexHit: junk,
-      previewEmitted: !junk,
-    });
-  }
-  // #endregion
   if (!normalized || junk) return '';
   return normalized.length > 90 ? `${normalized.slice(0, 90)}…` : normalized;
 }
@@ -308,9 +144,6 @@ async function _fillThumb(img, clip) {
   if (!clip || !isImageBearingClip(clip)) return;
   try {
     const resolved = await resolveClipImageSrc(clip);
-    // #region agent log
-    _noteH4(Boolean(resolved?.src));
-    // #endregion
     if (!resolved?.src || !img.isConnected) return;
     img.src = resolved.src;
     img.hidden = false;
@@ -327,9 +160,6 @@ async function _hydrateThumbnails(app, container, clips) {
     const id = String(img.getAttribute('data-thumb-clip-id') || '');
     return _fillThumb(img, byId.get(id));
   }));
-  // #region agent log
-  _flushH4();
-  // #endregion
 }
 
 function _emptyHtml(app, icon, message, hint) {
@@ -402,36 +232,21 @@ function _ensureFilesLoaded(app) {
 export function renderSummaryClipOverviewClips(app) {
   const list = document.getElementById('summaryClipOverviewClipsList');
   if (!list) return;
-  // #region agent log
-  _beginDbgPass();
-  // #endregion
   const recent = (app.clips || []).slice(0, 30);
   if (!recent.length) {
     list.innerHTML = _emptyHtml(app, '📋', 'No recent clips');
-    // #region agent log
-    _flushH3();
-    // #endregion
     return;
   }
   list.innerHTML = recent.map((clip) => _buildRowHtml(app, clip)).join('');
-  // #region agent log
-  _flushH3();
-  // #endregion
   void _hydrateThumbnails(app, list, recent);
 }
 
 export function renderSummaryClipOverviewSearch(app, query) {
   const list = document.getElementById('summaryClipOverviewSearchList');
   if (!list) return;
-  // #region agent log
-  _beginDbgPass();
-  // #endregion
   const q = String(query || '').trim().toLowerCase();
   if (!q) {
     list.innerHTML = _emptyHtml(app, '🔎', 'Type to search clips');
-    // #region agent log
-    _flushH3();
-    // #endregion
     return;
   }
   const results = _allClips(app)
@@ -443,15 +258,9 @@ export function renderSummaryClipOverviewSearch(app, query) {
     .slice(0, 50);
   if (!results.length) {
     list.innerHTML = _emptyHtml(app, '🔎', 'No matching clips');
-    // #region agent log
-    _flushH3();
-    // #endregion
     return;
   }
   list.innerHTML = results.map((clip) => _buildRowHtml(app, clip)).join('');
-  // #region agent log
-  _flushH3();
-  // #endregion
   void _hydrateThumbnails(app, list, results);
 }
 
@@ -459,9 +268,6 @@ export function renderSummaryClipOverviewCategories(app) {
   const list = document.getElementById('summaryClipOverviewCategoriesList');
   if (!list) return;
 
-  // #region agent log
-  _beginDbgPass();
-  // #endregion
 
   _renderFilesStrip(app);
 
@@ -488,30 +294,6 @@ export function renderSummaryClipOverviewCategories(app) {
 
   const filled = groups.filter((g) => g.clips.length > 0);
 
-  // #region agent log
-  _dbg('H1', 'ai-lab.summary-clips-overview.js:renderSummaryClipOverviewCategories', 'categories render groups', {
-    groupCount: filled.length,
-    groups: filled.map((g) => ({ name: g.name, count: g.clips.length })),
-  });
-  {
-    const snip = filled.find((g) => /snip history/i.test(String(g.name || '')));
-    if (snip) {
-      _dbg('H6', 'ai-lab.summary-clips-overview.js:renderSummaryClipOverviewCategories', 'snip history group dump', {
-        name: snip.name,
-        count: snip.clips.length,
-        clips: snip.clips.slice(0, 4).map((clip) => ({
-          id: _clipIdKey(app, clip?.id),
-          title: clip?.title ?? null,
-          text: _escapeWsSample(clip?.text),
-          textLen: String(clip?.text ?? '').length,
-          isImage: isImageBearingClip(clip),
-          metaKind: clip?.meta?.kind ?? null,
-          category: clip?.category ?? null,
-        })),
-      });
-    }
-  }
-  // #endregion
 
   if (!filled.length) {
     // Files strip already rendered above — keep it so user can clear the filter.
@@ -528,9 +310,6 @@ export function renderSummaryClipOverviewCategories(app) {
       }
     }
     list.innerHTML = _emptyHtml(app, '📁', emptyMessage, emptyHint);
-    // #region agent log
-    _flushH3();
-    // #endregion
     return;
   }
 
@@ -550,9 +329,6 @@ export function renderSummaryClipOverviewCategories(app) {
     </div>
   `;
   }).join('');
-  // #region agent log
-  _flushH3();
-  // #endregion
   void _hydrateThumbnails(app, list, rowClips);
 }
 

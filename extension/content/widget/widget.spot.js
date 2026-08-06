@@ -10,6 +10,12 @@ import {
   copyTextToClipboard,
 } from '../capture/capture.selection.js';
 import { saveTextClipFromContent } from '../capture/capture.clip-save.js';
+import {
+  captureSelectedMathHtml,
+  extractTexFromSelection,
+  resolveClipboardMarkupText,
+} from '../../shared/clipboard-markup.js';
+import { safeRuntimeSendMessage } from '../shared.js';
 
 let _armed = false;
 let _lastSavedText = '';
@@ -40,25 +46,42 @@ async function checkAndSaveSelection(explicitText = '') {
 
   const text = String(explicitText || '').trim() || await getPageSelectionTextDeep();
   if (!text || text.length < 1) return null;
-  if (text === _lastSavedText) return null;
 
-  const saveResult = await saveTextClipFromContent(text);
+  let domTexes = extractTexFromSelection();
+  let html = captureSelectedMathHtml() || '';
+  if (!domTexes.length) {
+    try {
+      const resp = await safeRuntimeSendMessage({ action: 'pcExtractPageMathTex' });
+      if (resp && Array.isArray(resp.texes) && resp.texes.length) domTexes = resp.texes;
+    } catch (_) { /* ignore */ }
+  }
+  const resolved = resolveClipboardMarkupText(text, html, { domTexes });
+  const body = String(resolved.text || text).trim();
+  if (!body || body === _lastSavedText) return null;
+
+  const saveMeta = {};
+  if (resolved.markupHint) saveMeta.markupHint = resolved.markupHint;
+  if (resolved.mathHtml || html) {
+    saveMeta.html = resolved.mathHtml || html;
+    if (resolved.markupHint === 'html') saveMeta.kind = 'html';
+  }
+  const saveResult = await saveTextClipFromContent(body, { meta: saveMeta });
   if (!saveResult.ok) {
     const msg = saveResult.error || 'Could not save clip.';
     _onToast?.(msg);
     return { ok: false, message: msg };
   }
 
-  _lastSavedText = text;
+  _lastSavedText = body;
   _onSaved?.();
 
   const result = {
     ok: true,
     saved: true,
-    message: `Spot saved clip (${text.length} chars) + copied.`,
+    message: `Spot saved clip (${body.length} chars) + copied.`,
   };
   _onToast?.(result.message);
-  copyTextToClipboard(text).catch(() => {});
+  copyTextToClipboard(body).catch(() => {});
   return result;
 }
 

@@ -7720,6 +7720,21 @@
             word-break: break-word;
         }
 
+        /* Light-theme parity with blue guards (styles.css is unlinked here):
+           keep history/breakdown modal layers from ever outpacing the popup. */
+        #aiHistoryModal .modal-body,
+        #breakdownModal .modal-body {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        #aiHistoryModal .breakdown-content,
+        #breakdownModal .breakdown-content {
+            max-width: 100%;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
         .breakdown-result pre,
         .breakdown-result .pc-plain-text,
         .summary-result-content pre,
@@ -8084,6 +8099,21 @@
             border-radius: 10px;
             border: 1px solid #dbeafe;
             background: #eff6ff;
+        }
+
+        /* History modal injects inline display:flex; keep preview visible under blue theme too. */
+        #aiHistoryModal .ai-history-entry-image.summary-questions-image {
+            display: flex !important;
+            flex-direction: column;
+            gap: 8px;
+            margin: 0 0 16px 0;
+        }
+
+        #aiHistoryModal .ai-history-entry-image .summary-questions-image-preview {
+            display: block;
+            width: 100%;
+            max-height: 280px;
+            object-fit: contain;
         }
 
         #summaryResultImage {
@@ -8720,6 +8750,96 @@
         .summary-clips-overview-use:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        /* Follow-up (styles.css unlinked — light-theme parity) */
+        .ai-followup-container {
+            margin-top: 16px;
+            padding: 14px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .followup-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .followup-icon {
+            display: inline-flex;
+            align-items: center;
+            font-size: 16px;
+        }
+
+        .followup-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .followup-input {
+            flex: 1;
+            min-width: 0;
+            padding: 11px 14px;
+            border: 2px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            color: #1f2937;
+            background: #fff;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .followup-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+
+        .followup-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .followup-send-btn {
+            padding: 11px 16px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+
+        .followup-send-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+        }
+
+        .followup-send-btn:disabled {
+            background: #e5e7eb;
+            color: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .send-icon {
+            font-size: 14px;
+            font-weight: 700;
         }
 
         .summary-result-actions {
@@ -14820,6 +14940,7 @@ alice@email.com</div>
     <script src="shared/markup/strategies/textile.strategy.js"></script>
     <script src="shared/markup/strategies/jira.strategy.js"></script>
     <script src="shared/markup/strategies/text.strategy.js"></script>
+    <script src="shared/markup/markup.enrich.js"></script>
     <script src="shared/markup/markup.render.js"></script>
     <script src="shared/markup/markup.badge.js"></script>
     <script src="shared/markup/markup.api.js"></script>
