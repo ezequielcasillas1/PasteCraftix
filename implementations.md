@@ -1,4 +1,8 @@
 
+### Aug 6, 2026 - Production package v3.0.31
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.31.zip, docs/publishing/*
+**Result:** Bump 3.0.30 → 3.0.31 for store upload. Includes MathJax clips, AI history reference image, model persist, header MODEL spacing. Last published stays 3.0.29 until approved.
+
 ### Aug 6, 2026 - KaTeX selection → real TeX (not Unicode dump)
 **Files:** clipboard-markup.js, widget.events.js, widget.drag-capture.js, widget.spot.js, clips.viewer.js, clips.render.js
 **Result:** Copy of rendered KaTeX reads parent `.katex` annotation (selection only has `.katex-html`). Spot/auto-copy/drag use DOM TeX. Viewer/chips recover from meta.html when text is a Unicode math dump.
