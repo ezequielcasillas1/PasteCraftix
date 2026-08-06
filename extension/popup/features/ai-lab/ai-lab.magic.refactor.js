@@ -221,20 +221,8 @@ export async function _insertRefactoredSiblingClips(app, ctx, targetSet) {
     targetSet.add(getClipIdKey(newClip.id));
   }
 
-  console.warn('[PasteCraft:refactor]', {
-    message: 'siblings_inserted',
-    siblingsCreated: created.length,
-    linksRegistered: linkRecords.length,
-  });
-
   if (linkRecords.length > 0) {
     await _persistRefactorLinks(linkRecords);
-    for (const record of linkRecords) {
-      console.warn('[PasteCraft:refactor-link]', {
-        sourceId: record.sourceClipId,
-        refactoredId: record.newClipId,
-      });
-    }
   }
 
   if (typeof app.enforceClipLimit === 'function') {

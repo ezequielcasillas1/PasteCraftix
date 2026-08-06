@@ -130,15 +130,6 @@ function backfillRefactorMetaLink(refactoredClip, sourceClipId) {
   }
 }
 
-function logRefactorPairResolved(clip, pair) {
-  console.warn('[PasteCraft:refactor-link]', {
-    clipId: getClipIdKey(clip?.id),
-    sourceClipId: getClipIdKey(pair.sourceClipId),
-    refactoredClipId: getClipIdKey(pair.refactoredClipId),
-    resolverPath: pair.resolverPath || 'unknown',
-  });
-}
-
 function resolveRefactorContextFromHistory(app, clip) {
   const clipId = getClipIdKey(clip?.id);
   const clipText = normalizeTextForMatch(clip?.text);
@@ -331,19 +322,16 @@ export function resolveRefactorContext(app, clip) {
 
   const formatMetaPair = resolveFormatContextFromMeta(clip);
   if (formatMetaPair) {
-    logRefactorPairResolved(clip, formatMetaPair);
     return formatMetaPair;
   }
 
   const formatHistoryPair = resolveFormatContextFromHistory(app, clip);
   if (formatHistoryPair) {
-    logRefactorPairResolved(clip, formatHistoryPair);
     return formatHistoryPair;
   }
 
   const sessionPair = resolveRefactorContextFromSessionIndex(app, clip);
   if (sessionPair) {
-    logRefactorPairResolved(clip, sessionPair);
     return sessionPair;
   }
 
@@ -358,12 +346,10 @@ export function resolveRefactorContext(app, clip) {
   if (viewingRefactoredCopy && !sourceClip) {
     const historyPair = resolveRefactorContextFromHistory(app, clip);
     if (historyPair) {
-      logRefactorPairResolved(clip, historyPair);
       return historyPair;
     }
     const linkPair = resolveRefactorContextFromLinks(app, clip);
     if (linkPair) {
-      logRefactorPairResolved(clip, linkPair);
       return linkPair;
     }
   }
@@ -378,7 +364,6 @@ export function resolveRefactorContext(app, clip) {
   if (sourceClip && refactoredClip) {
     const metaPair = buildRefactorPairResult(sourceClip, refactoredClip, { resolverPath: 'meta' });
     if (metaPair) {
-      logRefactorPairResolved(clip, metaPair);
       return metaPair;
     }
   }
@@ -388,7 +373,6 @@ export function resolveRefactorContext(app, clip) {
     if (historyPair.refactoredClip?.id && historyPair.sourceClipId) {
       backfillRefactorMetaLink(historyPair.refactoredClip, historyPair.sourceClipId);
     }
-    logRefactorPairResolved(clip, historyPair);
     return historyPair;
   }
 
@@ -397,13 +381,11 @@ export function resolveRefactorContext(app, clip) {
     if (linkPair.refactoredClip?.id && linkPair.sourceClipId) {
       backfillRefactorMetaLink(linkPair.refactoredClip, linkPair.sourceClipId);
     }
-    logRefactorPairResolved(clip, linkPair);
     return linkPair;
   }
 
   const contentPair = resolveRefactorContextFromContentMatch(app, clip);
   if (contentPair) {
-    logRefactorPairResolved(clip, contentPair);
     return contentPair;
   }
 
@@ -412,14 +394,8 @@ export function resolveRefactorContext(app, clip) {
     if (heuristicPair.refactoredClip?.id && heuristicPair.sourceClipId) {
       backfillRefactorMetaLink(heuristicPair.refactoredClip, heuristicPair.sourceClipId);
     }
-    logRefactorPairResolved(clip, heuristicPair);
     return heuristicPair;
   }
 
-  console.warn('[PasteCraft:refactor-link]', {
-    clipId: getClipIdKey(clip.id),
-    resolverPath: null,
-    message: 'No refactor link for this clip — run AI Refactorization first',
-  });
   return null;
 }
