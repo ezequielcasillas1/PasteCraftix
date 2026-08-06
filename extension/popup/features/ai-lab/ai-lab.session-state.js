@@ -51,9 +51,18 @@ export async function saveSummaryState(app) {
     const tabId = await getCurrentTabId();
     const currentThread = app.summaryThreads?.[app.currentSummaryThreadIndex];
     const rawResult = currentThread?.answer || app._currentRawSummary || '';
+    // Cap session image so popup restore does not blow chrome.storage quota.
+    const rawImage = typeof app.currentSummaryImageBase64 === 'string'
+      ? app.currentSummaryImageBase64.trim()
+      : '';
+    const sessionImage = rawImage.startsWith('data:image/') && rawImage.length <= 220_000
+      ? rawImage
+      : '';
     const state = {
       inputText: summaryInput ? summaryInput.value : '',
       currentSummaryText: app.currentSummaryText || null,
+      currentSummaryImageBase64: sessionImage || null,
+      activeSummaryHistoryId: app._activeSummaryHistoryId || null,
       generatedQuestions: (app.generatedQuestions || []).slice(0, 20),
       currentQuestion: app.currentSummaryQuestion || null,
       resultContent: rawResult,
