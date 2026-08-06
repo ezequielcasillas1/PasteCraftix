@@ -86,6 +86,55 @@ function _preserveLocalOriginalText(existingEntry, incomingEntry) {
   };
 }
 
+function _isDataImage(value) {
+  return typeof value === 'string' && value.trim().startsWith('data:image/');
+}
+
+function _entryImageBase64(entry) {
+  if (_isDataImage(entry?.imageBase64)) return entry.imageBase64.trim();
+  if (_isDataImage(entry?.threads?.[0]?.imageBase64)) return entry.threads[0].imageBase64.trim();
+  return '';
+}
+
+function _attachImageToFirstThread(threads, imageBase64) {
+  if (!Array.isArray(threads)) return threads;
+  return threads.map((thread, index) => {
+    if (index !== 0 || !thread || typeof thread !== 'object') return thread;
+    return { ...thread, imageBase64 };
+  });
+}
+
+/** Reference images stay local (quota); never let a cloud row wipe a local data URL. */
+function _preserveLocalImageBase64(existingEntry, incomingEntry) {
+  if (!existingEntry || !incomingEntry) return incomingEntry;
+  const localImage = _entryImageBase64(existingEntry);
+  if (!localImage || _entryImageBase64(incomingEntry)) return incomingEntry;
+  return {
+    ...incomingEntry,
+    imageBase64: localImage,
+    threads: _attachImageToFirstThread(incomingEntry.threads, localImage),
+  };
+}
+
+function _threadWithoutImage(thread) {
+  if (!thread || typeof thread !== 'object' || !thread.imageBase64) return thread;
+  const next = { ...thread };
+  delete next.imageBase64;
+  return next;
+}
+
+/** Drop heavy data URLs before cloud upsert — text/history still syncs; images stay local. */
+function _threadsForCloudSync(entry) {
+  return _threadsWithSourceTextFallback(entry).map(_threadWithoutImage);
+}
+
+function _mergeIncomingHistoryEntry(existingEntry, incomingEntry) {
+  return _preserveLocalImageBase64(
+    existingEntry,
+    _preserveLocalOriginalText(existingEntry, incomingEntry),
+  );
+}
+
 function _aiHistoryErrorText(error) {
   return `${String(error?.message || '').trim()} ${String(error?.details || '').trim()}`.trim().toLowerCase();
 }
@@ -130,7 +179,7 @@ async syncAiHistoryToSupabase(localHistory) {
       history_id: Number(entry.id),
       type: String(entry.type || 'summary'),
       title: String(entry.title || '').substring(0, 255),
-      threads: JSON.stringify(_threadsWithSourceTextFallback(entry)),
+      threads: JSON.stringify(_threadsForCloudSync(entry)),
       created_at: entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date().toISOString(),
       updated_at: entry.updatedAt ? new Date(entry.updatedAt).toISOString() : new Date().toISOString()
     }));
@@ -172,11 +221,13 @@ async fetchAiHistoryFromSupabase() {
     return rows.map(row => {
       const parsedThreads = _parseHistoryThreads(row.threads);
       const originalText = _restoreOriginalTextFromRow({ ...row, threads: parsedThreads });
+      const imageBase64 = String(parsedThreads[0]?.imageBase64 || '');
       return {
         id: Number(row.history_id),
         type: String(row.type || 'summary'),
         title: String(row.title || ''),
         originalText,
+        imageBase64,
         threads: _threadsWithSourceTextFallback({
           originalText,
           threads: parsedThreads,
@@ -291,7 +342,7 @@ mergeAiHistory(localHistory, remoteHistory) {
     const existingUpdated = Number.isFinite(existing?.updatedAt) ? existing.updatedAt : 0;
     const remoteUpdated = Number.isFinite(entry?.updatedAt) ? entry.updatedAt : 0;
     if (!existing || remoteUpdated >= existingUpdated) {
-      merged.set(entry.id, _preserveLocalOriginalText(existing, entry));
+      merged.set(entry.id, _mergeIncomingHistoryEntry(existing, entry));
     }
   });
 

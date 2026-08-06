@@ -1,5 +1,24 @@
 // @forward-slice AI Lab history — list / modal render helpers
 import { AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
+import { getHistoryEntryImage } from './ai-lab.summary-modal.js';
+
+function _escapeImageAttr(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;');
+}
+
+/** Reference-image block for the history modal — same visual language as the summary study preview. */
+export function renderHistoryImageBlock(entry) {
+  const src = getHistoryEntryImage(entry);
+  if (!src) return '';
+  return `
+    <div class="summary-questions-image ai-history-entry-image" style="display:flex;">
+      <span class="summary-questions-image-label">Reference image</span>
+      <img class="summary-questions-image-preview" alt="Picked image used in this conversation" src="${_escapeImageAttr(src)}">
+    </div>`;
+}
 
 export function getAiHistoryTotalPages(totalEntries) {
   return Math.max(1, Math.ceil(totalEntries / AI_HISTORY_PAGE_SIZE));
@@ -142,8 +161,9 @@ function _isCompareHistoryType(type) {
 }
 
 function _historyEntryMetaLabel(entry, timeStr, threadCount) {
+  const imageTag = getHistoryEntryImage(entry) ? ' · 🖼️ image' : '';
   if (_isCompareHistoryType(entry.type)) return `${timeStr} · before/after`;
-  return `${timeStr} · ${threadCount} response${threadCount !== 1 ? 's' : ''}`;
+  return `${timeStr} · ${threadCount} response${threadCount !== 1 ? 's' : ''}${imageTag}`;
 }
 
 export function renderHistoryEntry(app, entry) {
@@ -310,7 +330,9 @@ export async function renderCurrentHistoryThread(app, entry, resultEl) {
     return;
   }
 
-  _setResultHtml(resultEl, await app._renderAiResponse(entry.threads[0].answer));
+  const imageHtml = renderHistoryImageBlock(entry);
+  const answerHtml = await app._renderAiResponse(entry.threads[0].answer);
+  _setResultHtml(resultEl, imageHtml + answerHtml);
 }
 
 function _historyThreadBoxStyle(app, index) {

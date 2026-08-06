@@ -29,6 +29,57 @@ export function syncAiHistoryToCloud(entries) {
   pasteCraftSupabase.syncAiHistoryToSupabase(entries).catch(() => {});
 }
 
+function _stripEntryImage(entry) {
+  if (!entry?.imageBase64 && !entry?.threads?.[0]?.imageBase64) return entry;
+  const next = { ...entry, imageBase64: '' };
+  if (!Array.isArray(next.threads) || !next.threads[0]?.imageBase64) return next;
+  next.threads = next.threads.map((thread, index) => {
+    if (index !== 0 || !thread?.imageBase64) return thread;
+    const copy = { ...thread };
+    delete copy.imageBase64;
+    return copy;
+  });
+  return next;
+}
+
+/** Keep newest 8 images; strip the rest when chrome.storage quota fails. */
+export function stripOlderHistoryImages(entries, keepNewest = 8) {
+  return (Array.isArray(entries) ? entries : []).map((entry, index) => (
+    index < keepNewest ? entry : _stripEntryImage(entry)
+  ));
+}
+
+function _sessionSummaryImage(app) {
+  const value = typeof app?.currentSummaryImageBase64 === 'string'
+    ? app.currentSummaryImageBase64.trim()
+    : '';
+  return value.startsWith('data:image/') ? value : '';
+}
+
+function _entryMissingImage(entry) {
+  const value = typeof entry?.imageBase64 === 'string' ? entry.imageBase64.trim() : '';
+  return !value.startsWith('data:image/');
+}
+
+/**
+ * If the live summary session still holds the picked image, attach it to a
+ * history entry that lost it (pre-fix rows / cloud merge wipe).
+ * @returns {boolean} true when the entry was mutated
+ */
+export function backfillHistoryEntryImageFromSession(app, entry) {
+  if (!entry || entry.type !== 'summary' || !_entryMissingImage(entry)) return false;
+  const sessionImage = _sessionSummaryImage(app);
+  if (!sessionImage) return false;
+  const activeId = app?._activeSummaryHistoryId;
+  if (activeId != null && activeId !== entry.id) return false;
+
+  entry.imageBase64 = sessionImage;
+  if (Array.isArray(entry.threads) && entry.threads[0]) {
+    entry.threads[0] = { ...entry.threads[0], imageBase64: sessionImage };
+  }
+  return true;
+}
+
 function _activeHistoryIdForType(app, type) {
   return type === 'breakdown' ? app._activeBreakdownHistoryId : app._activeSummaryHistoryId;
 }
@@ -53,6 +104,18 @@ function _orEmpty(value) {
   return value || '';
 }
 
+/** Prefer newly saved image, else entry/thread carry. */
+export function resolveHistoryImageToPersist(optionsImage, entry) {
+  const fromOpts = typeof optionsImage === 'string' ? optionsImage.trim() : '';
+  if (fromOpts.startsWith('data:image/')) return fromOpts;
+  const fromEntry = typeof entry?.imageBase64 === 'string' ? entry.imageBase64.trim() : '';
+  if (fromEntry.startsWith('data:image/')) return fromEntry;
+  const fromThread = typeof entry?.threads?.[0]?.imageBase64 === 'string'
+    ? entry.threads[0].imageBase64.trim()
+    : '';
+  return fromThread.startsWith('data:image/') ? fromThread : fromOpts;
+}
+
 function _normalizeThreadSource(sourceText) {
   return String(_orEmpty(sourceText)).trim().substring(0, 2000);
 }
@@ -65,39 +128,57 @@ function _shouldAttachSourceText(index, normalizedSource, thread) {
   return index === 0 && Boolean(normalizedSource) && !_threadHasOwnSource(thread);
 }
 
+function _normalizeThreadImage(imageBase64) {
+  const value = String(imageBase64 || '').trim();
+  return value.startsWith('data:image/') ? value : '';
+}
+
 function _baseSerializedThread(thread) {
-  return {
+  const next = {
     question: _orEmpty(thread.question),
     answer: _orEmpty(thread.answer),
     level: thread.level || null,
     timestamp: thread.timestamp || Date.now(),
   };
+  const carried = _normalizeThreadImage(thread.imageBase64);
+  if (carried) next.imageBase64 = carried;
+  return next;
 }
 
-function _serializeOneThread(thread, index, normalizedSource) {
+function _shouldAttachThreadImage(index, normalizedImage, thread) {
+  return index === 0 && Boolean(normalizedImage) && !_normalizeThreadImage(thread?.imageBase64);
+}
+
+function _serializeOneThread(thread, index, normalizedSource, normalizedImage) {
   const next = _baseSerializedThread(thread);
   if (_shouldAttachSourceText(index, normalizedSource, thread)) {
     next.sourceText = normalizedSource;
   }
+  if (_shouldAttachThreadImage(index, normalizedImage, thread)) {
+    next.imageBase64 = normalizedImage;
+  }
   return next;
 }
 
-export function serializeThreads(threads, sourceText = '') {
+export function serializeThreads(threads, sourceText = '', imageBase64 = '') {
   const normalizedSource = _normalizeThreadSource(sourceText);
-  return threads.map((thread, index) => _serializeOneThread(thread, index, normalizedSource));
+  const normalizedImage = _normalizeThreadImage(imageBase64);
+  return threads.map((thread, index) => _serializeOneThread(thread, index, normalizedSource, normalizedImage));
 }
 
 function _placeholderTitle(text, fallback) {
   return String(_orEmpty(text)).substring(0, 40).replace(/\n/g, ' ').trim() || fallback;
 }
 
-export function createHistoryEntry(type, originalText, threads) {
+export function createHistoryEntry(type, originalText, threads, imageBase64 = '') {
+  const normalizedImage = _normalizeThreadImage(imageBase64);
   return {
     id: Date.now(),
     type,
     title: `${_placeholderTitle(originalText, 'Untitled')}...`,
     originalText: String(_orEmpty(originalText)).substring(0, 2000),
-    threads: serializeThreads(threads, originalText),
+    threads: serializeThreads(threads, originalText, normalizedImage),
+    imageBase64: normalizedImage,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
