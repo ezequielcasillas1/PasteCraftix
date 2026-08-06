@@ -143,6 +143,9 @@ function openAiModelInfoModal(app, modelId) {
 /** Promote showcase default into enabled aiWorkflow once AI access is available. */
 export async function ensureDefaultWorkflowEnabled(app) {
   if (!canUseModelPicker(app?.userSubscription)) return null;
+  // In-memory default is openai/default/enabled:false until hydrate — never persist that
+  // as GPT-4o or a refresh wipes the user's last showcase pick (e.g. Gemini 3.6).
+  if (!app?._aiWorkflowHydrated) return null;
   const cfg = app._normalizeAiWorkflow?.(app.aiWorkflow) || app.aiWorkflow;
   if (cfg?.enabled === true) return cfg;
   const model = resolveShowcaseModelFromWorkflow(cfg);

@@ -10,6 +10,9 @@ const root = join(__dirname, '..');
 const modelsUrl = pathToFileURL(
   join(root, 'extension/popup/features/ai-lab/ai-lab.models.js'),
 ).href;
+const pickerUrl = pathToFileURL(
+  join(root, 'extension/popup/features/ai-lab/ai-lab.model-picker.js'),
+).href;
 
 const {
   AI_SHOWCASE_MODELS,
@@ -20,6 +23,7 @@ const {
   canUseModelPicker,
   isUnlimitedAi,
 } = await import(modelsUrl);
+const { ensureDefaultWorkflowEnabled } = await import(pickerUrl);
 
 assert.equal(AI_SHOWCASE_MODELS.length, 4);
 assert.equal(DEFAULT_SHOWCASE_MODEL_ID, 'gpt-4o');
@@ -71,5 +75,39 @@ const workflowTs = readFileSync(
 );
 assert.match(workflowTs, /gemini_36_flash[\s\S]*gemini-3\.6-flash/);
 assert.match(workflowTs, /gpt4o[\s\S]*gpt-4o/);
+
+// Pre-hydrate must not persist GPT-4o over a stored Gemini pick
+{
+  let saved = null;
+  const app = {
+    _aiWorkflowHydrated: false,
+    userSubscription: { has_unlimited_ai: true },
+    aiWorkflow: { enabled: false, provider: 'openai', preset: 'default', updatedAt: 0 },
+    _normalizeAiWorkflow(raw) {
+      return { ...raw };
+    },
+    applyAiWorkflowToUi() {},
+    async saveAiWorkflowFromUi() {
+      saved = this.aiWorkflow;
+      return this.aiWorkflow;
+    },
+  };
+  const before = await ensureDefaultWorkflowEnabled(app);
+  assert.equal(before, null);
+  assert.equal(saved, null);
+
+  app._aiWorkflowHydrated = true;
+  app.aiWorkflow = {
+    enabled: true,
+    provider: 'google',
+    preset: 'gemini_36_flash',
+    updatedAt: 99,
+  };
+  const kept = await ensureDefaultWorkflowEnabled(app);
+  assert.equal(kept.enabled, true);
+  assert.equal(kept.provider, 'google');
+  assert.equal(kept.preset, 'gemini_36_flash');
+  assert.equal(saved, null);
+}
 
 console.log('ai-model-picker.test.mjs: ok');

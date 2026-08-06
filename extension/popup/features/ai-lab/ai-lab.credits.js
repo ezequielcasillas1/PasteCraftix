@@ -28,10 +28,12 @@ export async function loadAiWorkflow() {
   const fromLocal = this._normalizeAiWorkflow(localCfg ? localCfg[key] : null);
   const hasSync = !!(syncCfg && syncCfg[key]);
   const hasLocal = !!(localCfg && localCfg[key]);
-  const preferSync = hasSync && fromSync.updatedAt >= fromLocal.updatedAt;
+  // Local-first: sync wins only when strictly newer (ties keep local — matches save path).
+  const preferSync = hasSync && (!hasLocal || fromSync.updatedAt > fromLocal.updatedAt);
   const next = preferSync ? fromSync : (hasLocal ? fromLocal : defaults);
 
   this.aiWorkflow = this._normalizeAiWorkflow(next);
+  this._aiWorkflowHydrated = true;
   try { await chrome.storage.local.set({ [key]: this.aiWorkflow }); } catch (_) {}
 
   this.applyAiWorkflowToUi();
@@ -52,6 +54,7 @@ export async function saveAiWorkflowFromUi(silent = true) {
   try {
     const next = _readWorkflowFromUi(this);
     this.aiWorkflow = next;
+    this._aiWorkflowHydrated = true;
     this.applyAiWorkflowToUi();
 
     await window.PasteCraftCRUD.retryOperation(async () => {
