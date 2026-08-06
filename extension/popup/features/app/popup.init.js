@@ -137,6 +137,8 @@ async function loadAuthenticatedCriticalState(app, currentUser, localPreparation
     loadCachedSubscription(currentUser.id),
   ]);
   app.userSubscription = subscription;
+  // Hydrate AI model pick before credits pills — pills call ensureDefaultWorkflowEnabled.
+  try { await app.loadAiWorkflow(); } catch (_) {}
   app.updateAiCreditsPills('cached');
   app.updateUpgradeUI();
 }

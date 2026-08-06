@@ -151,6 +151,8 @@ export function createPopupInitialState() {
 
     // AI workflow override (provider + preset)
     _aiWorkflowKey: AI_STORAGE_KEYS.WORKFLOW,
+    /** Set true only after loadAiWorkflow hydrates storage — blocks default GPT-4o stomp. */
+    _aiWorkflowHydrated: false,
     aiWorkflow: {
       enabled: false,
       provider: 'openai',
