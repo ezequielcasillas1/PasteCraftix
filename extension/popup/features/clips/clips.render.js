@@ -15,6 +15,11 @@ import {
   getSelectedSearchClipIdsInUiOrder,
 } from './clips.state.js';
 import { isClipLikedInApp, toggleClipLike } from './clips.liked.js';
+import {
+  looksLikeLatexSource,
+  looksLikeRenderedMathPlain,
+  resolveClipboardMarkupText,
+} from '../../../shared/clipboard-markup.js';
 
 const markupByClip = new WeakMap();
 const markupFallback = new Map();
@@ -54,7 +59,14 @@ function isNetworkLoadError(error) {
 }
 
 function getClipPreviewText(clip) {
-  return String(clip?.text || '');
+  const original = String(clip?.text || '');
+  const html = typeof clip?.meta?.html === 'string' ? clip.meta.html : '';
+  if (!html || looksLikeLatexSource(original)) return original;
+  const htmlLooksMath =
+    /application\/x-tex|math\/tex|class=["'][^"']*katex|data-latex=/i.test(html);
+  if (!htmlLooksMath && !looksLikeRenderedMathPlain(original)) return original;
+  const resolved = resolveClipboardMarkupText(original, html);
+  return resolved.usedHtmlTex ? resolved.text : original;
 }
 
 function getGoogleSearchButtonHtml(className, extraAttributes = '') {

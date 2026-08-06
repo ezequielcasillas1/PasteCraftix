@@ -23,6 +23,17 @@
     if (meta && meta.kind === 'image') return 'text';
     if (meta && meta.kind === 'url') return 'text';
 
+    // 1b. Clipboard KaTeX/MathJax HTML (Unicode plain text has no TeX commands)
+    if (meta && typeof meta.html === 'string' && meta.html) {
+      const htmlLooksMath =
+        /class=["'][^"']*\bkatex\b|katex-html|mjx-container|MathJax|application\/x-tex|math\/tex/i.test(
+          meta.html,
+        );
+      if (htmlLooksMath && !/\\(?:frac|underbrace|begin|sum|int)\b|\$\$/.test(t)) {
+        return 'html';
+      }
+    }
+
     // 2. JSON
     if ((t[0] === '{' && t[t.length - 1] === '}') || (t[0] === '[' && t[t.length - 1] === ']')) {
       try { JSON.parse(t); return 'json'; } catch (_) { /* not JSON */ }
@@ -31,10 +42,11 @@
     // 3. XML
     if (/^<\?xml[\s>]/i.test(t)) return 'xml';
 
-    // 4. LaTeX
-    if (/\\begin\{|\\end\{|\$\$.+?\$\$|\\frac\{|\\sum[^a-z]|\\int[^a-z]|\\alpha|\\beta|\\gamma|\\left[(\[]|\\right[)\]]/s.test(t)) return 'latex';
+    // 4. LaTeX signals (may yield markdown when mixed with prose — enrich renders both)
+    const hasLatex =
+      /\\begin\{|\\end\{|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\\frac\{|\\sqrt\{|\\sum(?:_|\b)|\\int(?:_|\b)|\\prod(?:_|\b)|\\lim(?:_|\b)|\\underbrace\b|\\overbrace\b|\\alpha\b|\\beta\b|\\gamma\b|\\delta\b|\\theta\b|\\lambda\b|\\pi\b|\\sigma\b|\\omega\b|\\infty\b|\\left[(\[]|\\right[)\]]|\\mathbf\{|\\mathrm\{|\\mathbb\{|\\text\{|\\pm\b|\\cdot\b|\\times\b|\\cdots\b|\\ldots\b/i.test(t);
 
-    // 5. Mermaid diagram
+    // 5. Mermaid diagram (pure diagram source)
     if (/^(graph\s+(TD|TB|BT|RL|LR)|flowchart\s+(TD|TB|BT|RL|LR)|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|pie|gitGraph|journey|mindmap|timeline|sankey|xychart|block-beta)/m.test(t)) return 'mermaid';
 
     // 6. YAML (frontmatter or key:value-heavy)
@@ -55,7 +67,7 @@
     // 9. Fenced code block (```lang ... ```) - check before general markdown
     if (/^```[\w-]*\s*\n[\s\S]+?\n```\s*$/m.test(t) && !/^#{1,6}\s/m.test(t)) return 'code';
 
-    // 10. Markdown (common patterns)
+    // 10. Markdown (common patterns) — prefer over pure latex when prose+math mix
     {
       let mdScore = 0;
       if (/^#{1,6}\s.+$/m.test(t)) mdScore += 2;
@@ -67,8 +79,19 @@
       if (/^\|.+\|$/m.test(t) && /^\|[-:| ]+\|$/m.test(t)) mdScore += 2;
       if (/^>\s/m.test(t)) mdScore++;
       if (/!\[.*?\]\(.*?\)/.test(t)) mdScore++;
+      // Prose paragraphs around $$ / \( math → markdown + enrich
+      if (hasLatex) {
+        const lines = t.split('\n').filter((l) => l.trim());
+        const prose = lines.filter((l) => {
+          const s = l.trim();
+          return s && !/^\$\$/.test(s) && !/^\\\[/.test(s) && !/^\\begin\{/.test(s) && !/\\frac\{|\\sqrt\{|\\sum|\\int/.test(s);
+        });
+        if (prose.length >= 1) mdScore += 2;
+      }
       if (mdScore >= 2) return 'markdown';
     }
+
+    if (hasLatex) return 'latex';
 
     // 11. HTML tags in text (guard: skip if text looks like JSX/template code)
     if (/<(?:div|span|p|h[1-6]|table|thead|tbody|tr|td|th|ul|ol|li|a|img|br|hr|strong|em|code|pre|blockquote|section|article|nav|header|footer|form|input|button|select|textarea)[^>]*>/i.test(t)) {

@@ -6,6 +6,8 @@ const IMAGE_CLIP_PLACEHOLDER = /^image clip$/i;
 const IMAGE_SUMMARY_INSTRUCTION = 'Describe and summarize this image.';
 const SUMMARY_IMAGE_MAX_DIM = 1024;
 const SUMMARY_IMAGE_MAX_CHARS = 900_000;
+const HISTORY_IMAGE_MAX_DIM = 640;
+const HISTORY_IMAGE_MAX_CHARS = 220_000;
 
 function _escapeAttr(value) {
   return String(value || '')
@@ -48,9 +50,17 @@ async function _httpUrlToDataUrl(url) {
  * Normalize any clip image src to a compact JPEG data URL.
  * Remote http(s) URLs are fetched/inlined — Gemini rejects remote image_url fetches.
  */
-async function _downscaleSummaryImage(rawSrc) {
+async function _downscaleSummaryImage(rawSrc, maxDim = SUMMARY_IMAGE_MAX_DIM, maxChars = SUMMARY_IMAGE_MAX_CHARS) {
   let src = typeof rawSrc === 'string' ? rawSrc.trim() : '';
   if (!src) return '';
+
+  // Idempotent reuse: already-compact JPEG (e.g. restored from AI history) passes through
+  // unchanged — other formats still re-encode to JPEG for provider compatibility.
+  if (src.startsWith('data:image/jpeg') && src.length <= maxChars) {
+    const probe = await _loadImageElement(src).catch(() => null);
+    const biggest = Math.max(probe?.naturalWidth || 0, probe?.naturalHeight || 0);
+    if (probe && biggest <= maxDim) return src;
+  }
 
   if (/^https?:\/\//i.test(src)) {
     try {
@@ -64,9 +74,9 @@ async function _downscaleSummaryImage(rawSrc) {
 
   try {
     const image = await _loadImageElement(src);
-    const width = image.naturalWidth || image.width || SUMMARY_IMAGE_MAX_DIM;
-    const height = image.naturalHeight || image.height || SUMMARY_IMAGE_MAX_DIM;
-    const scale = Math.min(1, SUMMARY_IMAGE_MAX_DIM / Math.max(width, height));
+    const width = image.naturalWidth || image.width || maxDim;
+    const height = image.naturalHeight || image.height || maxDim;
+    const scale = Math.min(1, maxDim / Math.max(width, height));
     const targetWidth = Math.max(1, Math.round(width * scale));
     const targetHeight = Math.max(1, Math.round(height * scale));
     const canvas = document.createElement('canvas');
@@ -90,7 +100,7 @@ async function _downscaleSummaryImage(rawSrc) {
     for (const [type, quality] of attempts) {
       const candidate = canvas.toDataURL(type, quality);
       if (!best || candidate.length < best.length) best = candidate;
-      if (candidate.length <= SUMMARY_IMAGE_MAX_CHARS) return candidate;
+      if (candidate.length <= maxChars) return candidate;
     }
     return best || (src.startsWith('data:image/') ? src : '');
   } catch (_) {
@@ -183,6 +193,26 @@ export function renderSummaryImageAttach(app) {
 export function clearSummaryAttachedImage(app) {
   if (app) app.currentSummaryImageBase64 = null;
   renderSummaryImageAttach(app);
+}
+
+/**
+ * Compact copy of the picked summary image for AI history persistence.
+ * Smaller caps than the live-API image so 50 stored entries stay well
+ * inside chrome.storage.local quota; returns '' when nothing usable.
+ */
+export async function downscaleImageForHistory(rawSrc) {
+  return _downscaleSummaryImage(rawSrc, HISTORY_IMAGE_MAX_DIM, HISTORY_IMAGE_MAX_CHARS);
+}
+
+/** Picked image carried on a history entry (entry-level or first thread). */
+export function getHistoryEntryImage(entry) {
+  const fromEntry = typeof entry?.imageBase64 === 'string' ? entry.imageBase64.trim() : '';
+  if (fromEntry.startsWith('data:image/') || /^https?:\/\//i.test(fromEntry)) return fromEntry;
+  const fromThread = typeof entry?.threads?.[0]?.imageBase64 === 'string'
+    ? entry.threads[0].imageBase64.trim()
+    : '';
+  if (fromThread.startsWith('data:image/') || /^https?:\/\//i.test(fromThread)) return fromThread;
+  return '';
 }
 
 /**

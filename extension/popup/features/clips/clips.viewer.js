@@ -10,6 +10,11 @@ import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
 import { getClipImage, isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
 import { getClipIdKey } from '../../../shared/clip-id.js';
+import {
+  looksLikeLatexSource,
+  looksLikeRenderedMathPlain,
+  resolveClipboardMarkupText,
+} from '../../../shared/clipboard-markup.js';
 import { openClipImageAnnotate, popOutClipImageAnnotate } from './clips.image-annotate.js';
 import { updateClipTextById } from './clips.text.js';
 import {
@@ -165,9 +170,30 @@ function renderRefactorDualContent(app, renderedEl, rawEl, refactorPair) {
   }
 }
 
-function buildClipViewerContext(clip) {
-  const text = clip && clip.text != null ? String(clip.text) : '';
+function recoverClipTextForMarkup(clip) {
+  const original = clip && clip.text != null ? String(clip.text) : '';
   const meta = clip && clip.meta && typeof clip.meta === 'object' ? clip.meta : null;
+  const html = typeof meta?.html === 'string' ? meta.html : '';
+  if (!html || looksLikeLatexSource(original)) {
+    return { text: original, meta };
+  }
+  const htmlLooksMath =
+    /application\/x-tex|math\/tex|class=["'][^"']*katex|data-latex=/i.test(html);
+  if (!htmlLooksMath && !looksLikeRenderedMathPlain(original)) {
+    return { text: original, meta };
+  }
+  const resolved = resolveClipboardMarkupText(original, html);
+  if (!resolved.usedHtmlTex) return { text: original, meta };
+  const nextMeta = resolved.markupHint
+    ? { ...meta, markupHint: meta?.markupHint || resolved.markupHint }
+    : meta;
+  return { text: resolved.text, meta: nextMeta };
+}
+
+function buildClipViewerContext(clip) {
+  const recovered = recoverClipTextForMarkup(clip);
+  const text = recovered.text;
+  const meta = recovered.meta;
   const clipTitle = getClipTitle(clip);
   const markupType =
     typeof PCMarkup !== 'undefined' ? PCMarkup.detectMarkupType(text, meta) : 'text';

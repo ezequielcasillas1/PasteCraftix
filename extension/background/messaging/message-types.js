@@ -8,8 +8,11 @@
 export const ROUTED_INTERNAL_ACTIONS = Object.freeze({
   PC_CAPTURE_REGION: 'pcCaptureRegion',
   PC_GET_PAGE_SELECTION: 'pcGetPageSelection',
+  PC_EXTRACT_PAGE_MATH_TEX: 'pcExtractPageMathTex',
   PC_COPY_TEXT: 'pcCopyText',
   PC_COPY_IMAGE: 'pcCopyImage',
+  PC_ENSURE_CLIPBOARD_OFFSCREEN: 'pcEnsureClipboardOffscreen',
+  PC_OPEN_CLIPBOARD_WRITER: 'pcOpenClipboardWriter',
   PC_FETCH_IMAGE_AS_DATA_URL: 'pcFetchImageAsDataUrl',
   PC_READ_CLIPBOARD: 'pcReadClipboard',
   PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
@@ -31,6 +34,7 @@ export const DEFERRED_INTERNAL_ACTIONS = Object.freeze({
 export const SWALLOW_INTERNAL_ACTIONS = Object.freeze({
   PC_OFFSCREEN_READ_CLIPBOARD: 'pcOffscreenReadClipboard',
   PC_OFFSCREEN_WRITE_CLIPBOARD_IMAGE: 'pcOffscreenWriteClipboardImage',
+  PC_OFFSCREEN_CLIPBOARD_PING: 'pcOffscreenClipboardPing',
 });
 
 /** Full catalog for coverage checks (routed + deferred). */

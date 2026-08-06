@@ -20,7 +20,10 @@ export function createInternalMessageRouter(handlers) {
       return false;
     }
 
-    console.log('📨 Internal message received:', action);
+    // Skip noisy ensure kicks (clipboard image copy readiness).
+    if (action !== 'pcEnsureClipboardOffscreen') {
+      console.log('📨 Internal message received:', action);
+    }
 
     const result = handler(message, {
       sender,

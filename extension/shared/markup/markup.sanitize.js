@@ -21,12 +21,18 @@
           'figure','figcaption',
           'abbr','cite','q','var','kbd','samp','time',
           'svg','path','g','circle','rect','line','polyline','polygon','text','tspan','defs','use',
+          // KaTeX MathML mirror + clipboard MathML
+          'math','annotation','semantics','mrow','mi','mo','mn','ms','mtext','mspace',
+          'mfrac','msup','msub','msubsup','msqrt','mroot','mstyle','mtable','mtr','mtd',
+          'munder','mover','munderover','menclose','mpadded','mphantom',
         ],
         ALLOWED_ATTR: [
           'href','target','rel','src','alt','title','width','height','class','id','style',
           'colspan','rowspan','scope','align','valign',
           'viewBox','xmlns','d','fill','stroke','stroke-width','transform','cx','cy','r','x','y',
           'x1','y1','x2','y2','points','font-size','text-anchor',
+          'encoding','display','mathvariant','mathsize','mathcolor','stretchy','fence',
+          'separator','lspace','rspace','symmetric','maxsize','minsize','alttext',
         ],
         ALLOW_DATA_ATTR: false,
         ADD_ATTR: ['target'],

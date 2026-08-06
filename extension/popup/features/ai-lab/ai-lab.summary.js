@@ -1,6 +1,6 @@
 import { AI_STORAGE_KEYS, OPEN_RECENT_CONVERSATION_TOOLTIPS } from './ai-lab.constants.js';
 import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
-import { renderSummaryImageAttach } from './ai-lab.summary-modal.js';
+import { downscaleImageForHistory, renderSummaryImageAttach } from './ai-lab.summary-modal.js';
 import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
 
 export async function generateBreakdownInline(level) {
@@ -215,7 +215,16 @@ export async function generateSummary(text, question) {
     if (this.summaryThreads.length >= 2) this.renderThreadPagination('summary');
     this._currentSummarySection = 'result';
     this._saveSummaryState();
-    await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads);
+    let historyImage = '';
+    if (this.currentSummaryImageBase64) {
+      historyImage = await downscaleImageForHistory(this.currentSummaryImageBase64);
+      if (!historyImage) {
+        const raw = String(this.currentSummaryImageBase64).trim();
+        // Fallback when canvas downscale fails but we already have a compact data URL.
+        if (raw.startsWith('data:image/') && raw.length <= 220_000) historyImage = raw;
+      }
+    }
+    await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads, { imageBase64: historyImage });
   } catch (error) {
     console.error('Failed to generate summary:', error);
     if (isOutOfCreditsError(error)) {
@@ -244,13 +253,9 @@ export async function _renderAiResponse(rawText) {
   if (!text) return '';
   if (typeof PCMarkup === 'undefined') return text;
 
-  const mermaidBlocks = [];
-  const latexBlocks = [];
-  let processed = _extractMermaidBlocks(text, mermaidBlocks);
-  processed = _extractLatexBlocks(processed, latexBlocks);
-  let html = PCMarkup.renderMarkup(processed, null, { type: 'markdown' });
-  html = _renderLatexBlocks(html, latexBlocks);
-  return _renderMermaidBlocks(html, mermaidBlocks);
+  // Shared enrich pipeline (LaTeX + Mermaid inside markdown) — same as Clip Viewer.
+  const rendered = PCMarkup.renderMarkup(text, null, { type: 'markdown' });
+  return rendered && typeof rendered.then === 'function' ? rendered : rendered;
 }
 
 export async function handleBreakdownFollowup(followupQuestion) {
@@ -425,74 +430,6 @@ function _collapseBlankLines(lines) {
     out.push(line);
   }
   return out;
-}
-
-function _extractMermaidBlocks(text, mermaidBlocks) {
-  return text.replace(/```mermaid\s*\n([\s\S]*?)```/gi, (_, code) => {
-    const placeholder = `%%MERMAID_BLOCK_${mermaidBlocks.length}%%`;
-    mermaidBlocks.push(code.trim());
-    return placeholder;
-  });
-}
-
-function _extractLatexBlocks(text, latexBlocks) {
-  let processed = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => _pushLatex(latexBlocks, expr, true));
-  processed = processed.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => _pushLatex(latexBlocks, expr, true));
-  processed = processed.replace(/\$([^$\n]+?)\$/g, (_, expr) => _pushLatex(latexBlocks, expr, false));
-  return processed.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => _pushLatex(latexBlocks, expr, false));
-}
-
-function _pushLatex(latexBlocks, expr, display) {
-  const type = display ? 'DISPLAY' : 'INLINE';
-  const placeholder = `%%LATEX_${type}_${latexBlocks.length}%%`;
-  latexBlocks.push({ expr: expr.trim(), display });
-  return placeholder;
-}
-
-function _renderLatexBlocks(html, latexBlocks) {
-  let output = html;
-  for (let i = 0; i < latexBlocks.length; i++) {
-    output = _replaceLatexBlock(output, latexBlocks[i], i);
-  }
-  return output;
-}
-
-function _replaceLatexBlock(html, block, index) {
-  const displayPlaceholder = `%%LATEX_DISPLAY_${index}%%`;
-  const inlinePlaceholder = `%%LATEX_INLINE_${index}%%`;
-  const fallback = `<code>${PCMarkup.escapeHtml(block.expr)}</code>`;
-  if (typeof katex === 'undefined') {
-    return html.replace(displayPlaceholder, fallback).replace(inlinePlaceholder, fallback);
-  }
-  try {
-    const rendered = katex.renderToString(block.expr, {
-      displayMode: block.display,
-      throwOnError: false,
-    });
-    return html.replace(displayPlaceholder, rendered).replace(inlinePlaceholder, rendered);
-  } catch (_) {
-    return html.replace(displayPlaceholder, fallback).replace(inlinePlaceholder, fallback);
-  }
-}
-
-async function _renderMermaidBlocks(html, mermaidBlocks) {
-  let output = html;
-  for (let i = 0; i < mermaidBlocks.length; i++) {
-    const placeholder = `%%MERMAID_BLOCK_${i}%%`;
-    if (output.includes(placeholder)) {
-      output = await _replaceMermaidBlock(output, placeholder, mermaidBlocks[i]);
-    }
-  }
-  return output;
-}
-
-async function _replaceMermaidBlock(html, placeholder, block) {
-  try {
-    const mermaidHtml = await PCMarkup.renderMarkup(block, null, { type: 'mermaid' });
-    return html.replace(placeholder, mermaidHtml);
-  } catch (_) {
-    return html.replace(placeholder, `<pre class="pc-code-block"><code>${PCMarkup.escapeHtml(block)}</code></pre>`);
-  }
 }
 
 async function _runBreakdownFollowup(app, followupQuestion) {
