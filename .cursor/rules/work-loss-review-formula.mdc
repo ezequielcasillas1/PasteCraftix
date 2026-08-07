@@ -1,0 +1,89 @@
+---
+description: Work-loss diagnosis formula — classify why work vanished, recover before re-implementing, ask Ezequiel separate vs build-on vs merge-first.
+alwaysApply: true
+---
+
+# Work-Loss Review Formula
+
+**Incidents:** AI history image on unmerged `feat/ai-lab-history-summary` @ `c920d88` ([7ded2c72](7ded2c72-61c3-40ad-9a0c-8ff885f5c109)); Capture Tools stale checkout ([cc661455](cc661455-dcdb-4c5d-9778-b77cb128f922)); model taglines on unmerged `feat/clip-ai-7-objectives` ([e11b055c](e11b055c-724f-46b2-a0ef-3ee5e49d414e)).
+
+**Pushed ≠ merged.** Returning to `main` after SUCCESS is correct — but the feature is **invisible on main until PR-merge**.
+
+---
+
+## When to run (not only at commit)
+
+1. User says lost / vanished / disappeared / “get it back”
+2. Before `git commit` / `git commit all` / checkout / PR test (with [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc))
+3. Before re-implementing a feature that “used to work”
+
+Say out loud:
+
+> Phase: work-loss. Checkout: `<branch>`. Class: `<A|B|C|D|E>`. Recover: `<branch@sha or none>`. Action: `<ask | merge-first | build-on | sync | restore-files>`.
+
+---
+
+## Classify first (do not code yet)
+
+| Class | Symptom | Typical cause |
+|---|---|---|
+| **A** | Missing on `main`, exists on task branch | SUCCESS pushed, **never PR-merged** |
+| **B** | Missing on current branch, present on `origin/main` | **Stale checkout** (forked before merge) |
+| **C** | Live UI on main, history/persist missing | Sibling unmerged slice (partial ship) |
+| **D** | Agent about to rewrite known feature | **Re-implement** instead of recover |
+| **E** | Files on disk / wrong folder / untracked WIP | Session/path confusion, not git delete |
+
+---
+
+## Formula (W1 → W5)
+
+| Step | Do |
+|---|---|
+| **W1 Locate** | `git fetch`; `git branch --show-current`; `git rev-list --left-right --count origin/main...HEAD`; `git status --short` |
+| **W2 Inventory** | `git branch -a --no-merged origin/main`; `git stash list`; `gh pr list --state open`; scan recent parent `agent-transcripts/` for SUCCESS + `feat/`/`fix/` |
+| **W3 Match** | Keyword search: `git log --all --oneline --grep="<feature>"`; `git log --all --oneline -- <path>`; `git branch -a --contains <sha>` |
+| **W4 Ask** | Mandatory ask below — **stop** until Ezequiel answers (unless answered in-message) |
+| **W5 Recover** | Merge / cherry-pick / sync / restore **before** any re-implement |
+
+---
+
+## Mandatory ask (do not skip)
+
+> Ezequiel — work-loss review: class `[A–E]`. Unmerged SUCCESS `[branch @ sha — topic]`. Stashes `[n]`. Other-chat SUCCESS `[titles or none]`. For next step: **separate** from main, **build on** `<branch>`, or **merge-first** `<PR/branch>`? Recover existing commit before new code?
+
+| Choice | Action |
+|---|---|
+| Separate | Fresh `main` → new task branch; leave prior unmerged branches untouched |
+| Build on | Checkout related branch → merge `origin/main` if behind → continue |
+| Merge-first | Open/merge PR(s), `git checkout main && git pull`, then next work |
+
+---
+
+## Recovery checklist (before re-implement)
+
+1. List unmerged SUCCESS candidates (`--no-merged origin/main` + transcript SUCCESS).
+2. Search commits by keyword / touched paths; confirm `git merge-base --is-ancestor <sha> origin/main` (fail = not on main).
+3. Prefer: merge PR → or `git cherry-pick <sha>` onto fresh main branch → or build on the existing branch.
+4. Stale checkout (class B): `git merge origin/main` into current branch (or checkout main); do **not** copy-paste from main.
+5. Only re-implement if W2–W3 find **no** matching branch/commit/stash.
+
+---
+
+## Forbidden
+
+- Re-implement a feature that already exists on an unmerged branch/commit
+- Treat “on main checkout + even with origin/main” as “feature never shipped” without W2–W3
+- Start new work on main while related SUCCESS sits only on a sibling branch — without the ask
+- Drop stashes or force-push that discard unique task-branch commits
+- Confuse untracked marketing WIP / wrong folder with code deletion (class E)
+
+---
+
+## Relationship
+
+| Rule | Role |
+|---|---|
+| **This file** | Diagnosis formula + recover-before-rewrite |
+| [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc) | Behind-main / stale checkout sync |
+| [git-workflow-commands.mdc](git-workflow-commands.mdc) | Commit voice commands invoke this gate |
+| [git-commit-branch-alignment.mdc](git-commit-branch-alignment.mdc) | Implement on main → branch after SUCCESS → **merge PR to permanize** |

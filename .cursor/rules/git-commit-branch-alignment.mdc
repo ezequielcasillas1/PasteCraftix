@@ -103,9 +103,9 @@ Before commit:
 
 > Phase: `<implementing on main | ready to commit>`. Branch: `<current>`. Work: `<summary>`. Action: `<stay on main | create fix/foo | reuse fix/foo>`.
 
-Also run the **work-loss review gate** in `git-workflow-commands.mdc` (unmerged branches + other chats + ask Ezequiel: separate vs build-on vs merge-first).
+Also run [work-loss-review-formula.mdc](work-loss-review-formula.mdc) / the gate in `git-workflow-commands.mdc` (classify A–E, unmerged SUCCESS, ask Ezequiel: separate vs build-on vs merge-first).
 
-After push, remind: **pushed ≠ merged** — open/merge the PR so the next implementation stacks on `main` instead of racing an unmerged sibling.
+After push, remind: **pushed ≠ merged** — open/merge the PR so the next implementation stacks on `main` instead of racing an unmerged sibling. Testing on `main` after return-from-push will **not** show the feature until merge.
 
 ## `git commit all` — multi-scope exception
 

@@ -132,8 +132,9 @@ When preflight finds a stale branch, tell Ezequiel:
 | Rule | Role |
 |---|---|
 | **This file** | Examination + sync gate (prevent disappearances) |
+| [work-loss-review-formula.mdc](work-loss-review-formula.mdc) | Classify lost work (A–E); recover before re-implement |
 | `git-workflow-commands.mdc` | Voice triggers (`git commit all`, etc.) |
 | `git-commit-branch-alignment.mdc` | Implement on `main`, branch after SUCCESS |
 | `git-commit-push-mastery.mdc` | What belongs on `main` vs task branches |
 
-Run **this preflight first**, then the matching voice-command playbook.
+Run **this preflight first**, then [work-loss-review-formula.mdc](work-loss-review-formula.mdc) when work is missing or before commit, then the matching voice-command playbook.

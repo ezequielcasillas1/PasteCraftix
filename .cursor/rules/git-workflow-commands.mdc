@@ -19,24 +19,27 @@ When the user says one of these phrases, follow the matching playbook. Do **not*
 
 ---
 
-## Work-loss review gate (mandatory on every commit voice command)
+## Work-loss review gate (mandatory)
 
-Run this **before** staging/committing whenever the user says `git commit`, `git commit all`, or `git commit` + push. Goal: never lose work under newer work, and never “overwrite” an unmerged SUCCESS with a sibling branch by accident.
+**Full formula:** [work-loss-review-formula.mdc](work-loss-review-formula.mdc) (classify A–E → W1–W5 → recover before re-implement).
 
-### 1. Assess (read-only)
+Run **before** staging/committing on `git commit` / `git commit all` / push, **and** when the user reports lost / vanished / disappeared work.
+
+### 1. Assess (read-only) — formula W1–W3
 
 In parallel with preflight:
 
-- Open local + remote task branches ahead of / not in `origin/main`
-- `git stash list`
+- Open local + remote task branches ahead of / not in `origin/main` (`git branch -a --no-merged origin/main`)
+- `git stash list`; open `gh pr list --state open`
 - Recent parent `agent-transcripts/` for SUCCESS / branch names / uncommitted paths
+- Keyword/`git log --all` match for the missing feature before assuming it was never built
 - Spot-check: would checking out the target branch drop files that exist on `origin/main` or on another unmerged SUCCESS branch?
+
+Say: `Phase: work-loss. Checkout: … Class: … Recover: … Action: …`
 
 ### 2. Ask Ezequiel (required — do not skip)
 
-Present a short review, then ask:
-
-> Ezequiel — work-loss review: unmerged branches `[list]`. Stashes `[n]`. Other-chat SUCCESS `[titles or none]`. For this commit: **separate branch from main** or **build on `<existing-branch>`**? Any PR to merge first so we don’t stack on stale main?
+> Ezequiel — work-loss review: class `[A–E]`. Unmerged SUCCESS `[branch @ sha]`. Stashes `[n]`. Other-chat SUCCESS `[titles or none]`. For this commit: **separate** from main, **build on** `<existing-branch>`, or **merge-first**? Recover existing commit before new code?
 
 Wait for the answer before creating branches / committing (unless the user already answered in the same message).
 
@@ -48,7 +51,7 @@ Wait for the answer before creating branches / committing (unless the user alrea
 | Build on | Checkout latest related task branch → merge `origin/main` if behind → commit on top |
 | Merge first | Help open/merge PR(s), pull `main`, then commit the new work |
 
-Pushed branches are **not** replaced by a new push elsewhere. Only merge (or explicit abandon) retires them.
+Pushed branches are **not** replaced by a new push elsewhere. Only merge (or explicit abandon) retires them. **Pushed ≠ merged** — remind after every push.
 
 ---
 
@@ -202,6 +205,7 @@ Never stage: `.env`, credentials, `node_modules`, duplicate path variants (`exte
 ## Quick reference (agent)
 
 ```
+lost / vanished → work-loss-review-formula (W1–W5) → recover before re-implement
 git commit all  → work-loss ask → split scopes → N branches → push each → main → report SHAs + unmerged
 git commit      → work-loss ask → same, push only if user said push
 git workflow    → audit (git + stashes + branches + transcripts + logs + safe-loop) → recommend next step
