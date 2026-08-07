@@ -100,22 +100,22 @@ async function persistAlbumImageResult(session, outUrl) {
   const flatIndex = Number(session.attachmentIndex);
   const { notes } = await chrome.storage.local.get(['notes']);
   const list = Array.isArray(notes) ? notes : [];
-  const albumIdx = list.findIndex((n) => n && n.id == noteId && n.type === 'album');
-  if (albumIdx < 0) throw new Error('Album not found');
+  const noteIdx = list.findIndex((n) => n && n.id == noteId);
+  if (noteIdx < 0) throw new Error('Note not found');
 
-  const album = { ...list[albumIdx] };
-  const loc = resolveInterlayingAtFlatIndex(album, flatIndex);
+  const note = { ...list[noteIdx] };
+  const loc = resolveInterlayingAtFlatIndex(note, flatIndex);
   if (!loc?.att || loc.att.type !== 'image') throw new Error('Image attachment not found');
 
   const patch = buildAnnotatedImagePatch(loc.att, outUrl);
-  const images = Array.isArray(album.images) ? [...album.images] : [];
+  const images = Array.isArray(note.images) ? [...note.images] : [];
   if (loc.bucket !== 'images' || loc.bucketIndex < 0 || loc.bucketIndex >= images.length) {
     throw new Error('Image bucket index invalid');
   }
   images[loc.bucketIndex] = { ...images[loc.bucketIndex], ...patch };
-  album.images = images;
-  album.updatedAt = Date.now();
-  list[albumIdx] = album;
+  note.images = images;
+  note.updatedAt = Date.now();
+  list[noteIdx] = note;
   await chrome.storage.local.set({ notes: list });
   try {
     chrome.runtime.sendMessage({ action: 'pcNoteImageAnnotated', noteId }).catch(() => {});

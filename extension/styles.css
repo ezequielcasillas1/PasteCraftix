@@ -20,6 +20,11 @@
   margin-bottom: 16px;
 }
 
+#clipPickerModal .clip-picker-tabs {
+  flex-wrap: wrap;
+  gap: 4px 0;
+}
+
 .clip-picker-tab {
   flex: 1;
   padding: 10px 12px;
@@ -31,6 +36,14 @@
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+#clipPickerModal .clip-picker-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .clip-picker-tab:hover {
@@ -265,6 +278,58 @@
 .clip-picker-empty-icon {
   font-size: 40px;
   margin-bottom: 8px;
+}
+
+.clip-picker-write-panel,
+.clip-picker-pdf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 8px;
+}
+
+.clip-picker-write-textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.clip-picker-write-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.clip-picker-write-actions .manual-input-category,
+.clip-picker-write-actions .manual-input-markup {
+  min-width: 140px;
+  flex: 1 1 140px;
+}
+
+.clip-picker-write-toolbar {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 100%;
+  justify-content: flex-end;
+}
+
+.clip-picker-pdf-panel {
+  align-items: flex-start;
+}
+
+.clip-picker-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.clip-picker-pdf-panel .clip-picker-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .clip-picker-footer {

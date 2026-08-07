@@ -9,6 +9,7 @@ import * as albumInterlayingEditor from './notes.album-interlaying.editor.js';
 import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
 import * as noteImagePicker from './notes.image-picker.js';
 import * as noteImageAnnotate from './notes.image-annotate.js';
+import * as noteClipCreate from './notes.clip-create.js';
 
 export function initNotesFeature(_app) {
   return {
@@ -23,5 +24,6 @@ export function initNotesFeature(_app) {
     albumAttachmentViewer,
     imagePicker: noteImagePicker,
     imageAnnotate: noteImageAnnotate,
+    clipCreate: noteClipCreate,
   };
 }

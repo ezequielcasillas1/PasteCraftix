@@ -1,4 +1,4 @@
-// PasteCraft Advanced Popup Script
+﻿// PasteCraft Advanced Popup Script
 // (startup logging removed)
 
 const PASTECRAFT_LOGS_ENABLED = (() => {
@@ -22,13 +22,13 @@ if (!PASTECRAFT_LOGS_ENABLED && typeof console !== 'undefined') {
   console.info = pastecraftNoop;
 }
 
-// PasteCraftCRUD � ESM via popup.boot ensurePasteCraftCrud() ? globalThis.PasteCraftCRUD
+// PasteCraftCRUD — ESM via popup.boot ensurePasteCraftCrud() → globalThis.PasteCraftCRUD
 
 class PasteCraftPopup {
   constructor() {
     const peel = PasteCraftPopup._appPeel;
     if (!peel?.createPopupInitialState) {
-      throw new Error('PasteCraftPopup._appPeel not loaded � bootPopupPage must await peel modules first');
+      throw new Error('PasteCraftPopup._appPeel not loaded — bootPopupPage must await peel modules first');
     }
     Object.assign(this, peel.createPopupInitialState());
     this.init();
@@ -371,7 +371,7 @@ class PasteCraftPopup {
   }
 
   _wireSupportFormControls() {
-    /* now part of initSupportEvents ? no-op stub */
+    /* now part of initSupportEvents � no-op stub */
   }
 
   openSupportForm(type) {
@@ -898,7 +898,7 @@ class PasteCraftPopup {
     return this.categoriesFeature.service.showCreateCategoryFromModal(this);
   }
 
-  // Settings Management Functions ? delegated to settingsFeature
+  // Settings Management Functions � delegated to settingsFeature
   async loadSettings() {
     this._debugLoadSettingsCalls = (this._debugLoadSettingsCalls || 0) + 1;
     return this.settingsFeature.storage.loadSettings();
@@ -981,7 +981,7 @@ class PasteCraftPopup {
    * Category-page clip handlers are wired via a single delegated click listener
    * on `#categoriesList` (see `setupCategoryClipDelegation`). This method is
    * kept as a no-op stub so existing callers (`toggleCategoryDropdown`) stay
-   * safe ? delegation survives every `renderCategories()` re-render, unlike
+   * safe � delegation survives every `renderCategories()` re-render, unlike
    * the previous per-button listeners which detached whenever the list was
    * re-rendered while a dropdown was open.
    */
@@ -1515,6 +1515,21 @@ class PasteCraftPopup {
   renderClipPickerSearchResults(results) { return this.notesFeature.editor.renderClipPickerSearchResults(this, results); }
   renderClipPickerCategories() { return this.notesFeature.editor.renderClipPickerCategories(this); }
   addSelectedClipsToNote() { return this.notesFeature.editor.addSelectedClipsToNote(this); }
+  populateClipPickerWriteCategories() {
+    return this.notesFeature.clipCreate.populateClipPickerWriteCategories(this);
+  }
+  clearClipPickerWriteForm() {
+    return this.notesFeature.clipCreate.clearClipPickerWriteForm(this);
+  }
+  saveClipPickerWriteClip() {
+    return this.notesFeature.clipCreate.saveClipPickerWriteClip(this);
+  }
+  chooseClipPickerPdf() {
+    return this.notesFeature.clipCreate.chooseClipPickerPdf(this);
+  }
+  handleClipPickerPdfFileChange(e) {
+    return this.notesFeature.clipCreate.handleClipPickerPdfFileChange(this, e);
+  }
   showImagePickerForNote() { return this.notesFeature.imagePicker.showImagePickerForNote(this); }
   closeImagePicker() { return this.notesFeature.imagePicker.closeImagePicker(this); }
   handleImagePickerClick(e) { return this.notesFeature.imagePicker.handleImagePickerClick(this, e); }

@@ -93,6 +93,23 @@ export function registerNotesEvents(app) {
   document.getElementById('clipPickerSearchInput').addEventListener('input', (e) => app.searchClipsInPicker(e.target.value));
   document.getElementById('clipPickerAddBtn').addEventListener('click', () => app.addSelectedClipsToNote());
 
+  const writeSaveBtn = document.getElementById('clipPickerWriteSaveBtn');
+  if (writeSaveBtn) {
+    writeSaveBtn.addEventListener('click', () => app.saveClipPickerWriteClip());
+  }
+  const writeClearBtn = document.getElementById('clipPickerWriteClearBtn');
+  if (writeClearBtn) {
+    writeClearBtn.addEventListener('click', () => app.clearClipPickerWriteForm());
+  }
+  const pdfChooseBtn = document.getElementById('clipPickerPdfChooseBtn');
+  if (pdfChooseBtn) {
+    pdfChooseBtn.addEventListener('click', () => app.chooseClipPickerPdf());
+  }
+  const pdfFileInput = document.getElementById('clipPickerPdfFileInput');
+  if (pdfFileInput) {
+    pdfFileInput.addEventListener('change', (e) => app.handleClipPickerPdfFileChange(e));
+  }
+
   document.getElementById('addImageToNote').addEventListener('click', () => {
     app.showImagePickerForNote();
   });

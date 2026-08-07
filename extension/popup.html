@@ -12663,6 +12663,8 @@ Multiple clips are separated by:
                         <div class="settings-note" style="margin-top: 8px;">
                             <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Navy glass + electric blue. True gray Dark Mode is coming later.</span>
+                        </div>
+                    </div>
                     <div class="settings-section">
                         <h4><i data-lucide="map-pin"></i> Remember location</h4>
                         <p class="settings-description">When on, reopening PasteCraft returns you to the same tab and open screen (for example clip viewer edit).</p>
@@ -12674,8 +12676,6 @@ Multiple clips are separated by:
                         <div class="settings-note" style="margin-top: 8px;">
                             <span class="note-icon"><i data-lucide="info"></i></span>
                             <span>Turn off to always start fresh on Clips when you reopen the popup.</span>
-                        </div>
-                    </div>
                         </div>
                     </div>
                     <div class="settings-section">
@@ -14186,6 +14186,8 @@ Multiple clips are separated by:
                     <button class="clip-picker-tab active" data-picker-tab="clips"><i data-lucide="clipboard"></i> Recent Clips</button>
                     <button class="clip-picker-tab" data-picker-tab="search"><i data-lucide="search"></i> Search</button>
                     <button class="clip-picker-tab" data-picker-tab="categories"><i data-lucide="folder"></i> Categories</button>
+                    <button class="clip-picker-tab" data-picker-tab="write"><i data-lucide="pencil-line"></i> Write</button>
+                    <button class="clip-picker-tab" data-picker-tab="pdf"><i data-lucide="file-search"></i> PDF</button>
                 </div>
                 <div class="clip-picker-tab-content active" id="clipPickerClipsTab">
                     <div class="chip-container" id="clipPickerRecentList"></div>
@@ -14199,8 +14201,62 @@ Multiple clips are separated by:
                 <div class="clip-picker-tab-content" id="clipPickerCategoriesTab">
                     <div class="clip-picker-categories" id="clipPickerCategoriesList"></div>
                 </div>
+                <div class="clip-picker-tab-content" id="clipPickerWriteTab">
+                    <div class="clip-picker-write-panel">
+                        <textarea
+                            class="note-input-field clip-picker-write-textarea"
+                            id="clipPickerWriteTextarea"
+                            placeholder="Type or paste text to create a clip and attach it…"
+                            rows="6"
+                            aria-label="Write clip text"></textarea>
+                        <div class="clip-picker-write-actions">
+                            <select class="manual-input-category note-input-field" id="clipPickerWriteCategory" aria-label="Clip category">
+                                <option value="Uncategorized">Uncategorized</option>
+                            </select>
+                            <select class="manual-input-markup note-input-field" id="clipPickerWriteMarkup" title="Markup format" aria-label="Markup format">
+                                <option value="auto">Auto-detect</option>
+                                <option value="markdown">Markdown</option>
+                                <option value="html">HTML</option>
+                                <option value="json">JSON</option>
+                                <option value="yaml">YAML</option>
+                                <option value="xml">XML</option>
+                                <option value="toml">TOML</option>
+                                <option value="csv">CSV</option>
+                                <option value="tsv">TSV</option>
+                                <option value="latex">LaTeX</option>
+                                <option value="mermaid">Diagram (Mermaid)</option>
+                                <option value="bbcode">BBCode</option>
+                                <option value="slack">Slack / Discord</option>
+                                <option value="asciidoc">AsciiDoc</option>
+                                <option value="rst">reStructuredText</option>
+                                <option value="orgmode">Org-mode</option>
+                                <option value="mediawiki">MediaWiki</option>
+                                <option value="textile">Textile</option>
+                                <option value="jira">JIRA / Confluence</option>
+                                <option value="code">Code</option>
+                            </select>
+                            <div class="clip-picker-write-toolbar">
+                                <button type="button" class="btn-primary clip-picker-add-btn" id="clipPickerWriteSaveBtn">
+                                    <span class="btn-loading-spinner" id="clipPickerWriteSaveSpinner" style="display: none;"></span>
+                                    <span id="clipPickerWriteSaveLabel">Create &amp; Attach</span>
+                                </button>
+                                <button type="button" class="btn-secondary" id="clipPickerWriteClearBtn">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="clip-picker-tab-content" id="clipPickerPdfTab">
+                    <div class="clip-picker-pdf-panel">
+                        <p class="clip-picker-hint">Extract text from a PDF, save as clip(s), and attach to this note.</p>
+                        <input type="file" id="clipPickerPdfFileInput" accept=".pdf,application/pdf" hidden />
+                        <button type="button" class="btn-primary clip-picker-add-btn" id="clipPickerPdfChooseBtn">
+                            <i data-lucide="file-search"></i>
+                            <span>Choose PDF</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="clip-picker-footer">
+            <div class="clip-picker-footer" id="clipPickerSelectFooter">
                 <div class="clip-picker-selection-count" id="clipPickerSelectionCount">0 selected</div>
                 <button class="btn-primary clip-picker-add-btn" id="clipPickerAddBtn" disabled>Add Selected</button>
             </div>
