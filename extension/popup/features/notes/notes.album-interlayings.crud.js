@@ -21,11 +21,11 @@ export function countAlbumInterlayings(note) {
   return refs > 0 ? refs : attachmentCount;
 }
 
-export function resolveInterlayingAtFlatIndex(album, flatIndex) {
-  if (!album || album.type !== 'album' || !Number.isFinite(flatIndex)) return null;
-  const clips = Array.isArray(album.clips) ? album.clips : [];
-  const images = Array.isArray(album.images) ? album.images : [];
-  const urls = Array.isArray(album.urls) ? album.urls : [];
+export function resolveInterlayingAtFlatIndex(note, flatIndex) {
+  if (!note || !Number.isFinite(flatIndex)) return null;
+  const clips = Array.isArray(note.clips) ? note.clips : [];
+  const images = Array.isArray(note.images) ? note.images : [];
+  const urls = Array.isArray(note.urls) ? note.urls : [];
   let idx = flatIndex;
   if (idx < clips.length) {
     return { att: { ...clips[idx], type: 'clip' }, bucket: 'clips', bucketIndex: idx, flatIndex };
@@ -160,9 +160,10 @@ export function applyFlatAttachmentsToAlbumDraft(album, flatAttachments, existin
 
 // ── Persisted CRUD (mutateNote) ────────────────────────────────────────────
 
-async function _mutateAlbumInterlayings(app, albumId, mutator, options = {}) {
-  return mutateNote(app, albumId, (draft) => {
-    if (!draft || draft.type !== 'album') return draft;
+async function _mutateAlbumInterlayings(app, noteId, mutator, options = {}) {
+  return mutateNote(app, noteId, (draft) => {
+    if (!draft) return draft;
+    // Albums + regular notes share clips/images/urls buckets
     return mutator(draft);
   }, options);
 }

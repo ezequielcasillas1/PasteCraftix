@@ -414,17 +414,30 @@ export async function savePdfClips(app) {
       }
     }
 
+    const attachToNote = !!app._pdfAttachToNote;
     const result = await createClips(app, clipsToSave, {
-      successMessage: `Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`,
+      successMessage: attachToNote
+        ? null
+        : `Saved ${clipsToSave.length} clip${clipsToSave.length > 1 ? 's' : ''} from PDF!`,
       autoShowSavedClip: false,
     });
 
     if (!result.success) {
+      app._pdfAttachToNote = false;
       app.showToast('Failed to save PDF clips', 'error');
       return;
     }
 
     closePdfModal(app);
+
+    if (attachToNote) {
+      const finishAttach = app.notesFeature?.clipCreate?.finishPdfAttachToNote;
+      if (typeof finishAttach === 'function') {
+        finishAttach(app, clipsToSave);
+      } else {
+        app._pdfAttachToNote = false;
+      }
+    }
   } finally {
     if (saveBtn) saveBtn.dataset.saving = 'false';
     if (spinner) spinner.style.display = 'none';
@@ -440,4 +453,6 @@ export function closePdfModal(app) {
   app._pdfPages = [];
   app._pdfActiveTab = 'all';
   app._pdfIsScanned = false;
+  // Cancel / dismiss: do not leave Notes attach intent sticky for Quick Save PDF
+  if (app._pdfAttachToNote) app._pdfAttachToNote = false;
 }

@@ -7,6 +7,7 @@ import {
 } from './notes.album-interlayings.crud.js';
 import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
 import { resolveSafeExternalUrl } from '../../../safe-url.js';
+import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 function _arrayHasItemWithId(arr, id) {
   if (!Array.isArray(arr)) return false;
@@ -139,13 +140,14 @@ function _buildNoteAttachmentRow(app, att, idx) {
   const attIcon = _resolveAttachmentIcon(att);
   const attachmentHtml = _buildAttachmentInnerHtml(app, att);
   return `
-    <div class="viewer-attachment-item">
+    <div class="viewer-attachment-item viewer-attachment-openable" data-index="${idx}" role="button" tabindex="0">
       <div class="viewer-attachment-info">
         <span class="viewer-attachment-icon">${attIcon}</span>
         <div style="min-width:0;">${attachmentHtml}</div>
       </div>
       <div class="viewer-attachment-actions">
         <button class="btn-copy-attachment" data-index="${idx}" type="button">Copy</button>
+        <button class="btn-open-album-attachment" data-index="${idx}" type="button" title="Open attachment" style="border:none; background:transparent; cursor:pointer; color:#9ca3af; font-size:18px; line-height:1; padding:0 2px;">›</button>
       </div>
     </div>
   `;
@@ -163,7 +165,9 @@ function _resolveAlbumCopyText(att) {
 }
 
 function _resolveNoteCopyText(att) {
-  return att.type === 'url' ? att.url : att.text;
+  if (att.type === 'url') return att.url;
+  if (att.type === 'image') return att.url || att.src || att.dataUrl;
+  return att.text;
 }
 
 function _wireCopyButtons(app, ctx) {
@@ -243,8 +247,12 @@ function _wireNoteViewerEvents(app, ctx) {
     attachList: ctx.attachList,
     selector: '.btn-copy-attachment',
     allAttachments: ctx.allAttachments,
-    resolveText: _resolveNoteCopyText
+    resolveText: _resolveNoteCopyText,
+    stopPropagation: true
   });
+  // Reuse album open wiring — same popup module for note attachments
+  _attachAlbumOpenHandlers(app, ctx.attachList, ctx.albumId);
+  _attachAlbumOpenableHandlers(app, ctx.attachList, ctx.allAttachments, ctx.albumId);
 }
 
 function _wireViewerAttachmentEvents(app, ctx) {
@@ -291,6 +299,7 @@ export function openNoteViewer(app, noteId) {
   _renderViewerAttachments(app, { els, allAttachments, isAlbum, albumId: noteId });
 
   els.modal.style.display = 'flex';
+  notifyUiLocationChanged(app);
 }
 
 // ── closeNoteViewer ────────────────────────────────────────────────────────
@@ -299,6 +308,7 @@ export function closeNoteViewer(app) {
   document.getElementById('noteViewerModal').style.display = 'none';
   app.currentViewerNoteId = null;
   app.noteViewerParentAlbumId = null;
+  notifyUiLocationChanged(app, true);
 }
 
 // ── getAlbumAttachmentOpenMode ─────────────────────────────────────────────
@@ -313,7 +323,7 @@ export function getAlbumAttachmentOpenMode(app) {
 
 export function openAlbumAttachment(app, noteId, attachmentIndex) {
   const note = app.notes.find(n => n.id == noteId);
-  if (!note || note.type !== 'album') return;
+  if (!note) return;
 
   const allAttachments = collectAlbumInterlayings(note);
   const att = allAttachments[attachmentIndex];
@@ -363,7 +373,7 @@ function _openInPopupWindow(app, url, consoleError, toastMessage) {
 
 export function openAlbumAttachmentInEdgePopup(app, noteId, attachmentIndex) {
   const note = app.notes.find(n => n.id == noteId);
-  if (!note || note.type !== 'album') return;
+  if (!note) return;
 
   const allAttachments = collectAlbumInterlayings(note);
   const att = allAttachments[attachmentIndex];

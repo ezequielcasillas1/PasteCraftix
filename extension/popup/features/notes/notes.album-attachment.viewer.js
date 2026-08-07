@@ -8,6 +8,7 @@ import { canAnnotateImageSrc, openImageAnnotate } from '../../../shared/image-an
 import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 import { popOutAlbumImageAnnotate } from './notes.image-annotate.js';
+import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 const SOURCE_CONTEXT = 'album';
 
@@ -182,7 +183,7 @@ function switchToAiTab() {
 
 export function open(app, noteId, attachmentIndex) {
   const note = app.notes.find((n) => n.id == noteId);
-  if (!note || note.type !== 'album') return;
+  if (!note) return;
 
   const allAttachments = collectAlbumInterlayings(note);
   const att = allAttachments[attachmentIndex];
@@ -194,9 +195,12 @@ export function open(app, noteId, attachmentIndex) {
   app.currentAlbumAttachmentContext = { noteId, attachmentIndex };
   app.currentAlbumAttachmentClip = resolveAttachmentClip(app, att);
 
-  const safeTitle = (note.title || '').trim() || 'Untitled Album';
+  const isAlbum = note.type === 'album';
+  const safeTitle = (note.title || '').trim() || (isAlbum ? 'Untitled Album' : 'Untitled Note');
   const safeDesc = (note.description || '').trim();
   els.metaSection.style.display = 'block';
+  const metaHeading = els.metaSection.querySelector('.note-viewer-section-title');
+  if (metaHeading) metaHeading.textContent = isAlbum ? 'Album' : 'Note';
   els.albumTitle.textContent = safeTitle;
   els.albumDesc.textContent = safeDesc || '';
 
@@ -207,6 +211,7 @@ export function open(app, noteId, attachmentIndex) {
   syncViewerToolbar(app, els, att);
 
   els.modal.style.display = 'flex';
+  notifyUiLocationChanged(app);
 }
 
 export function close(app) {
@@ -214,6 +219,7 @@ export function close(app) {
   if (modal) modal.style.display = 'none';
   app.currentAlbumAttachmentContext = null;
   app.currentAlbumAttachmentClip = null;
+  notifyUiLocationChanged(app, true);
 }
 
 export function runAiSummary(app) {
@@ -300,8 +306,8 @@ export async function runSendToNotes(app) {
 function resolveCurrentImageAttachment(app) {
   const ctx = app.currentAlbumAttachmentContext;
   if (!ctx) return null;
-  const album = app.notes?.find((n) => n.id == ctx.noteId && n.type === 'album');
-  const loc = album ? resolveInterlayingAtFlatIndex(album, ctx.attachmentIndex) : null;
+  const note = app.notes?.find((n) => n.id == ctx.noteId);
+  const loc = note ? resolveInterlayingAtFlatIndex(note, ctx.attachmentIndex) : null;
   if (!loc?.att || loc.att.type !== 'image') return null;
   return { ctx, att: loc.att };
 }

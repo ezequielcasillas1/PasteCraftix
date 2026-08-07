@@ -5,6 +5,7 @@ import {
   syncAlbumRefMetadata
 } from './notes.album-interlayings.crud.js';
 import { artifactToNotesClip } from '../../shared/ai-output-bridge.js';
+import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 // ── openNoteEditor ─────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ export async function openNoteEditor(app, type = 'note', noteId = null, showBack
   try {
     await app.notesFeature?.imagePicker?.consumePendingNoteImageAttach?.(app);
   } catch (_) {}
+  notifyUiLocationChanged(app);
 }
 
 // ── closeNoteEditor ────────────────────────────────────────────────────────
@@ -108,6 +110,7 @@ export function closeNoteEditor(app) {
   if (typeof app.returnToAlbumViewerAfterEditor === 'function') {
     app.returnToAlbumViewerAfterEditor();
   }
+  notifyUiLocationChanged(app, true);
 }
 
 // ── saveNote ───────────────────────────────────────────────────────────────
@@ -348,17 +351,14 @@ export async function generateNoteDescriptionFromContent(app) {
 // ── Clip Picker ────────────────────────────────────────────────────────────
 
 export function showClipPickerForNote(app) {
-  if (app.clips.length === 0 && app.searchOnlyClips.length === 0) {
-    app.showToast('No clips available. Create some clips first!');
-    return;
-  }
   app.selectedPickerClips.clear();
   app.updateClipPickerFooter();
   const modal = document.getElementById('clipPickerModal');
   if (modal) {
     modal.style.display = 'flex';
-    app.switchClipPickerTab('clips');
-    app.renderClipPickerRecentClips();
+    const hasClips = (app.clips?.length || 0) + (app.searchOnlyClips?.length || 0) > 0;
+    app.switchClipPickerTab(hasClips ? 'clips' : 'write');
+    if (hasClips) app.renderClipPickerRecentClips();
   }
 }
 
@@ -487,14 +487,22 @@ export function attachPickerSearchRowHandlers(app, container) {
   });
 }
 
+function _clipPickerRoot() {
+  return document.getElementById('clipPickerModal');
+}
+
 function _setPickerTabActive(tabName) {
-  document.querySelectorAll('.clip-picker-tab').forEach(tab => {
+  const root = _clipPickerRoot();
+  if (!root) return;
+  root.querySelectorAll('.clip-picker-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.pickerTab === tabName);
   });
 }
 
 function _hidePickerTabContents() {
-  document.querySelectorAll('.clip-picker-tab-content').forEach(content => {
+  const root = _clipPickerRoot();
+  if (!root) return;
+  root.querySelectorAll('.clip-picker-tab-content').forEach(content => {
     content.classList.remove('active');
     content.style.display = 'none';
   });
@@ -505,9 +513,26 @@ function _showPickerTabContent(tabName) {
   if (target) { target.classList.add('active'); target.style.display = 'block'; }
 }
 
+function _setSelectFooterVisible(visible) {
+  const footer = document.getElementById('clipPickerSelectFooter');
+  if (footer) footer.style.display = visible ? '' : 'none';
+}
+
 function _runTabSpecificAction(app, tabName) {
+  const selectMode = tabName === 'clips' || tabName === 'search' || tabName === 'categories';
+  _setSelectFooterVisible(selectMode);
+
   if (tabName === 'clips') { app.renderClipPickerRecentClips(); return; }
   if (tabName === 'categories') { app.renderClipPickerCategories(); return; }
+  if (tabName === 'write') {
+    if (typeof app.populateClipPickerWriteCategories === 'function') {
+      app.populateClipPickerWriteCategories();
+    }
+    const textarea = document.getElementById('clipPickerWriteTextarea');
+    if (textarea) textarea.focus();
+    return;
+  }
+  if (tabName === 'pdf') return;
   if (tabName !== 'search') return;
   const searchInput = document.getElementById('clipPickerSearchInput');
   if (searchInput) searchInput.value = '';
