@@ -22,6 +22,7 @@ import {
   findClipAcrossCollections,
   resolveRefactorContext,
 } from './clips.refactor-resolver.js';
+import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
 
@@ -545,6 +546,7 @@ export async function open(app, clip, sourceContext = 'clips') {
 
   modal.style.display = 'flex';
   window.renderLucideIcons?.(modal);
+  notifyUiLocationChanged(app);
 }
 
 export function hide(app) {
@@ -554,6 +556,7 @@ export function hide(app) {
   app.currentClipViewerClip = null;
   app.clipViewerSourceContext = null;
   app._clipViewerRefactorPair = null;
+  notifyUiLocationChanged(app, true);
 }
 
 export async function refreshIfOpen(app, clipId) {
@@ -603,6 +606,7 @@ export function enterEditMode(app) {
   } catch (_) {
     // Non-fatal (some hosts reject setSelectionRange)
   }
+  notifyUiLocationChanged(app);
 }
 
 export async function saveEdit(app) {
@@ -622,6 +626,7 @@ export async function saveEdit(app) {
   exitEditModeUi(app);
   await open(app, nextClip, sourceContext);
   app.showToast?.('Clip updated');
+  notifyUiLocationChanged(app, true);
   return true;
 }
 
@@ -629,6 +634,7 @@ export function cancelEdit(app) {
   if (!app._clipViewerEditing) return;
   exitEditModeUi(app);
   window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
+  notifyUiLocationChanged(app, true);
 }
 
 async function resolveViewerSummaryImage(objects) {

@@ -211,6 +211,9 @@ export function activatePopupTab(app, tab, options = {}) {
   window.__pcTabIconRendering = true;
   activateTabDom(app, tab);
   app._saveActiveTabState?.();
+  try {
+    app.uiLocationFeature?.save?.();
+  } catch (_) {}
   app.updateHeaderClipCount?.();
   paintTabActivation(app, lifecycle, tab);
   markTabCachedActivationEnd();

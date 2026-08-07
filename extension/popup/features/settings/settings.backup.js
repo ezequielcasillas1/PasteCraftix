@@ -6,6 +6,7 @@ const BACKUP_KEYS = [
   'autoDeletePeriod',
   'quickPasteSettings',
   'albumAttachmentOpenMode',
+  'rememberUiLocation',
   'theme',
   'settingsUpdatedAt',
 ];
@@ -96,14 +97,15 @@ async function _persistImportedPopupData(next) {
       autoDeletePeriod: next.autoDeletePeriod,
       quickPasteSettings: next.quickPasteSettings,
       albumAttachmentOpenMode: next.albumAttachmentOpenMode,
+      rememberUiLocation: next.rememberUiLocation,
       theme: next.theme,
       settingsUpdatedAt: next.settingsUpdatedAt,
       pc_local_updatedAt: next.pc_local_updatedAt,
     }),
     stateSetter: async () => {},
-    stateKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
+    stateKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
     mutateState: async () => {},
-    storageKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
+    storageKeys: ['clips', 'searchOnlyClips', 'categories', 'notes', 'autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'theme', 'settingsUpdatedAt', 'pc_local_updatedAt'],
     buildStorageData: async (state) => ({
       clips: state.clips,
       searchOnlyClips: state.searchOnlyClips,
@@ -112,6 +114,7 @@ async function _persistImportedPopupData(next) {
       autoDeletePeriod: state.autoDeletePeriod,
       quickPasteSettings: state.quickPasteSettings,
       albumAttachmentOpenMode: state.albumAttachmentOpenMode,
+      rememberUiLocation: state.rememberUiLocation,
       theme: state.theme,
       settingsUpdatedAt: state.settingsUpdatedAt,
       pc_local_updatedAt: state.pc_local_updatedAt,
@@ -148,7 +151,7 @@ export async function importBackupFromJsonMerge(app, file) {
     pc_local_updatedAt: Date.now(),
   };
 
-  ['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'theme', 'settingsUpdatedAt'].forEach((key) => {
+  ['autoDeletePeriod', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'theme', 'settingsUpdatedAt'].forEach((key) => {
     if (backup[key] !== undefined) next[key] = backup[key];
   });
 

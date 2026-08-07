@@ -46,7 +46,7 @@ export function initSettingsFeature(app) {
     },
     render: {
       showSettingsModal: () => showSettingsModal(app),
-      hideSettingsModal: () => hideSettingsModal(),
+      hideSettingsModal: () => hideSettingsModal(app),
       showHelpModal: () => showHelpModal(),
       hideHelpModal: () => hideHelpModal(),
       updateStorageStats: () => updateStorageStats(app),

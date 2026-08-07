@@ -13,6 +13,7 @@ import {
   getQuickPasteShowTimestampsEl,
   getQuickPasteMaxClipsEl,
   getAlbumAttachmentModeEl,
+  getRememberUiLocationToggleEl,
 } from './settings.selectors.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,6 +39,12 @@ function _normalizeAlbumMode(raw) {
   return raw === 'overlay' || raw === 'edgePopup' ? raw : 'overlay';
 }
 
+function _normalizeRememberUiLocation(raw) {
+  if (raw === false || raw === 'false' || raw === 0) return false;
+  if (raw === true || raw === 'true' || raw === 1) return true;
+  return SETTINGS_DEFAULTS.rememberUiLocation !== false;
+}
+
 function _buildQuickPasteDefaults(override = {}) {
   return { ...SETTINGS_DEFAULTS.quickPasteSettings, ...override };
 }
@@ -55,6 +62,10 @@ function _applySource(app, source, fallbackLocal) {
   app.quickPasteSettings = _buildQuickPasteDefaults({ ...fallbackLocal.quickPasteSettings, ...source.quickPasteSettings });
   _stripThemeKey(app.quickPasteSettings);
   app.albumAttachmentOpenMode = _normalizeAlbumMode(source.albumAttachmentOpenMode || fallbackLocal.albumAttachmentOpenMode);
+  const rememberRaw = source.rememberUiLocation !== undefined
+    ? source.rememberUiLocation
+    : fallbackLocal.rememberUiLocation;
+  app.rememberUiLocation = _normalizeRememberUiLocation(rememberRaw);
   app.settingsUpdatedAt = source.settingsUpdatedAt || fallbackLocal.settingsUpdatedAt || Date.now();
 }
 
@@ -76,7 +87,13 @@ export async function loadSettings(app) {
 }
 
 function _hasPayload(data) {
-  return !!(data.autoDeletePeriod || data.quickPasteSettings || data.albumAttachmentOpenMode || data.theme);
+  return !!(
+    data.autoDeletePeriod ||
+    data.quickPasteSettings ||
+    data.albumAttachmentOpenMode ||
+    data.theme ||
+    data.rememberUiLocation !== undefined
+  );
 }
 
 function _ts(data) {
@@ -117,6 +134,11 @@ function _extractLocalValues(localData) {
     autoDeletePeriod: localData.autoDeletePeriod || SETTINGS_DEFAULTS.autoDeletePeriod,
     quickPasteSettings: localData.quickPasteSettings || {},
     albumAttachmentOpenMode: localData.albumAttachmentOpenMode || SETTINGS_DEFAULTS.albumAttachmentOpenMode,
+    rememberUiLocation: _normalizeRememberUiLocation(
+      localData.rememberUiLocation !== undefined
+        ? localData.rememberUiLocation
+        : SETTINGS_DEFAULTS.rememberUiLocation,
+    ),
     theme: localData.theme || SETTINGS_DEFAULTS.theme,
     settingsUpdatedAt: typeof localData.settingsUpdatedAt === 'number' ? localData.settingsUpdatedAt : 0,
   };
@@ -128,6 +150,7 @@ async function _persistMergedSettingsLocal(app) {
       [SETTINGS_STORAGE_KEYS.AUTO_DELETE_PERIOD]: app.autoDeletePeriod,
       [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: app.quickPasteSettings,
       [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: app.albumAttachmentOpenMode,
+      [SETTINGS_STORAGE_KEYS.REMEMBER_UI_LOCATION]: app.rememberUiLocation !== false,
       [SETTINGS_STORAGE_KEYS.THEME]: app.theme,
       [SETTINGS_STORAGE_KEYS.UPDATED_AT]: app.settingsUpdatedAt || Date.now(),
     });
@@ -142,6 +165,7 @@ function _buildSettingsState(app) {
     theme: app.theme,
     quickPasteSettings: JSON.parse(JSON.stringify(app.quickPasteSettings || SETTINGS_DEFAULTS.quickPasteSettings)),
     albumAttachmentOpenMode: app.albumAttachmentOpenMode,
+    rememberUiLocation: app.rememberUiLocation !== false,
     settingsUpdatedAt: app.settingsUpdatedAt || 0,
   };
 }
@@ -152,6 +176,7 @@ function _applySettingsStateToApp(app, state) {
   app.quickPasteSettings = _buildQuickPasteDefaults(state.quickPasteSettings || {});
   _stripThemeKey(app.quickPasteSettings);
   app.albumAttachmentOpenMode = _normalizeAlbumMode(state.albumAttachmentOpenMode);
+  app.rememberUiLocation = _normalizeRememberUiLocation(state.rememberUiLocation);
   app.settingsUpdatedAt = state.settingsUpdatedAt || Date.now();
 }
 
@@ -161,6 +186,7 @@ function _buildSettingsStoragePayload(state) {
     [SETTINGS_STORAGE_KEYS.THEME]: state.theme,
     [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: state.quickPasteSettings,
     [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: state.albumAttachmentOpenMode,
+    [SETTINGS_STORAGE_KEYS.REMEMBER_UI_LOCATION]: state.rememberUiLocation !== false,
     [SETTINGS_STORAGE_KEYS.UPDATED_AT]: state.settingsUpdatedAt,
   };
 }
@@ -194,6 +220,7 @@ function _buildSettingsSyncPayload(state) {
     theme: state.theme,
     quickPasteSettings: state.quickPasteSettings,
     albumAttachmentOpenMode: state.albumAttachmentOpenMode,
+    rememberUiLocation: state.rememberUiLocation !== false,
   };
 }
 
@@ -224,7 +251,7 @@ export async function saveSettings(app, silent = false, _skipAuthPrefs = false) 
       _applySettingsStateToApp(app, newState);
       syncThemeToggles(app);
     },
-    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'settingsUpdatedAt'],
     validator: () => ({ valid: true }),
     mutateState: async (state) => {
       state.autoDeletePeriod = validated.autoDeletePeriod;
@@ -237,10 +264,11 @@ export async function saveSettings(app, silent = false, _skipAuthPrefs = false) 
       });
       _stripThemeKey(state.quickPasteSettings);
       state.albumAttachmentOpenMode = validated.albumAttachmentOpenMode;
+      state.rememberUiLocation = validated.rememberUiLocation !== false;
       state.settingsUpdatedAt = Date.now();
       return { settingsUpdatedAt: state.settingsUpdatedAt };
     },
-    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'settingsUpdatedAt'],
     buildStorageData: async (state) => _buildSettingsStoragePayload(state),
     storageWriter: async (data) => {
       await chrome.storage.local.set(data);
@@ -279,7 +307,7 @@ export async function saveQuickPasteSettingsPatch(app, patch = {}, silent = true
       syncThemeToggles(app);
       _syncOneClickCopyToggle(app);
     },
-    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'settingsUpdatedAt'],
     validator: () => ({ valid: true }),
     mutateState: async (state) => {
       state.quickPasteSettings = _buildQuickPasteDefaults({
@@ -290,7 +318,7 @@ export async function saveQuickPasteSettingsPatch(app, patch = {}, silent = true
       state.settingsUpdatedAt = Date.now();
       return { settingsUpdatedAt: state.settingsUpdatedAt };
     },
-    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    storageKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'settingsUpdatedAt'],
     buildStorageData: async (state) => _buildSettingsStoragePayload(state),
     storageWriter: async (data) => {
       await chrome.storage.local.set(data);
@@ -341,6 +369,7 @@ function _readAndValidateFromUI() {
 
   const { darkModeEl, autoHideEl, showTimestampsEl, maxClipsEl } = _getRequiredEls();
 
+  const rememberEl = getRememberUiLocationToggleEl();
   return {
     autoDeletePeriod,
     theme: darkModeEl.checked ? 'blue' : 'light',
@@ -348,6 +377,7 @@ function _readAndValidateFromUI() {
     showTimestamps: showTimestampsEl.checked,
     maxClipsDisplay: parseInt(maxClipsEl.value) || 20,
     albumAttachmentOpenMode: _resolveAlbumMode(),
+    rememberUiLocation: rememberEl ? !!rememberEl.checked : SETTINGS_DEFAULTS.rememberUiLocation !== false,
   };
 }
 
@@ -359,6 +389,7 @@ function _applyValidatedToApp(app, validated) {
   app.quickPasteSettings.maxClipsDisplay = validated.maxClipsDisplay;
   _stripThemeKey(app.quickPasteSettings);
   app.albumAttachmentOpenMode = validated.albumAttachmentOpenMode;
+  app.rememberUiLocation = validated.rememberUiLocation !== false;
 }
 
 async function _persistSaveLocal(app, settingsUpdatedAt) {
@@ -367,6 +398,7 @@ async function _persistSaveLocal(app, settingsUpdatedAt) {
     [SETTINGS_STORAGE_KEYS.THEME]: app.theme,
     [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: app.quickPasteSettings,
     [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: app.albumAttachmentOpenMode,
+    [SETTINGS_STORAGE_KEYS.REMEMBER_UI_LOCATION]: app.rememberUiLocation !== false,
     [SETTINGS_STORAGE_KEYS.UPDATED_AT]: settingsUpdatedAt,
   });
 }
@@ -378,6 +410,7 @@ async function _persistSaveSync(app, settingsUpdatedAt) {
       [SETTINGS_STORAGE_KEYS.THEME]: app.theme,
       [SETTINGS_STORAGE_KEYS.QUICK_PASTE]: app.quickPasteSettings,
       [SETTINGS_STORAGE_KEYS.ALBUM_MODE]: app.albumAttachmentOpenMode,
+      [SETTINGS_STORAGE_KEYS.REMEMBER_UI_LOCATION]: app.rememberUiLocation !== false,
       [SETTINGS_STORAGE_KEYS.UPDATED_AT]: settingsUpdatedAt,
     }, resolve));
   } catch (_) {}
@@ -396,6 +429,7 @@ function _broadcastAndCloudSync(app, silent) {
     theme: app.theme,
     quickPasteSettings: app.quickPasteSettings,
     albumAttachmentOpenMode: app.albumAttachmentOpenMode,
+    rememberUiLocation: app.rememberUiLocation !== false,
   };
 
   pasteCraftSupabase.syncSettingsToSupabase(settingsData)
@@ -463,7 +497,7 @@ export async function saveThemeOnly(app, nextTheme, silent = false) {
       syncThemeToggles(app);
       applyDocumentTheme(newState.theme);
     },
-    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'settingsUpdatedAt'],
+    stateKeys: ['autoDeletePeriod', 'theme', 'quickPasteSettings', 'albumAttachmentOpenMode', 'rememberUiLocation', 'settingsUpdatedAt'],
     validator: () => ({ valid: true }),
     mutateState: async (state) => {
       state.theme = normalized;

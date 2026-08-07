@@ -62,5 +62,6 @@ export const SETTINGS_CHANGE_KEYS = Object.freeze([
   'autoDeletePeriod',
   'quickPasteSettings',
   'albumAttachmentOpenMode',
+  'rememberUiLocation',
   'theme',
 ]);
