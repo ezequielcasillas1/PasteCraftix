@@ -19,9 +19,9 @@ function _wireModalToggle(app) {
   const modalOverlay = document.getElementById('settingsModal');
 
   settingsBtn?.addEventListener('click', () => showSettingsModal(app));
-  closeBtn?.addEventListener('click', () => hideSettingsModal());
+  closeBtn?.addEventListener('click', () => hideSettingsModal(app));
   modalOverlay?.addEventListener('click', (e) => {
-    if (e.target.id === 'settingsModal') hideSettingsModal();
+    if (e.target.id === 'settingsModal') hideSettingsModal(app);
   });
 }
 
@@ -38,6 +38,24 @@ function _wireHelpModal() {
 }
 
 // ── Standard settings inputs ──────────────────────────────────────────────────
+
+function _wireRememberUiLocationToggle(app, triggerAutoSave) {
+  const el = document.getElementById('rememberUiLocationToggle');
+  if (!el) return;
+  el.addEventListener('change', () => {
+    app.rememberUiLocation = !!el.checked;
+    triggerAutoSave(true);
+    if (!el.checked) {
+      try {
+        app.uiLocationFeature?.clear?.();
+      } catch (_) {}
+    } else {
+      try {
+        app.uiLocationFeature?.save?.(true);
+      } catch (_) {}
+    }
+  });
+}
 
 function _wireStandardInputs(app, triggerAutoSave) {
   [
@@ -59,6 +77,8 @@ function _wireStandardInputs(app, triggerAutoSave) {
     maxClipsEl.addEventListener('input', () => triggerAutoSave(true));
     maxClipsEl.addEventListener('change', () => triggerAutoSave(true));
   }
+
+  _wireRememberUiLocationToggle(app, triggerAutoSave);
 }
 
 // ── Theme toggles ─────────────────────────────────────────────────────────────

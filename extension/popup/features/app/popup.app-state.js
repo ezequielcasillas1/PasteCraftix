@@ -128,6 +128,7 @@ export function createPopupInitialState() {
     notesAiEnabled: false,
     pendingAiTaskOutputArtifact: null,
     albumAttachmentOpenMode: 'overlay',
+    rememberUiLocation: true,
     idb: getIndexedDb(),
     _idbReady: false,
     _aiOutputBridge: null,

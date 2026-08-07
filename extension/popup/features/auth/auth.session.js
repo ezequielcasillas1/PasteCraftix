@@ -222,9 +222,28 @@ function _logSessionRestore(_stored) {
 
 export async function _restoreSessionState(app) {
   try {
+    if (app.rememberUiLocation === false) {
+      await restorePopupTab(app, 'clips').catch(() => {});
+      try {
+        await app.uiLocationFeature?.clear?.();
+      } catch (_) {}
+      return;
+    }
+
     const stored = await chrome.storage.local.get(SESSION_STATE_KEYS);
 
-    await _restoreActiveTab(app, stored);
+    // Overlay stack owns tab restore when a location snapshot exists; otherwise fall back to legacy tab keys.
+    let locationRestored = false;
+    try {
+      const locResult = await app.uiLocationFeature?.restore?.();
+      locationRestored = !!locResult?.restored;
+    } catch (locErr) {
+      console.warn('[UiLocation] restore failed:', locErr);
+    }
+
+    if (!locationRestored) {
+      await _restoreActiveTab(app, stored);
+    }
     _restoreAiSubTab(app, stored);
 
     const currentTabId = await app._getCurrentTabId();

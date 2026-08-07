@@ -44,6 +44,10 @@ export function getAlbumAttachmentModeEl() {
   return document.getElementById(SETTINGS_ELEMENT_IDS.ALBUM_MODE);
 }
 
+export function getRememberUiLocationToggleEl() {
+  return document.getElementById(SETTINGS_ELEMENT_IDS.REMEMBER_UI_LOCATION);
+}
+
 export function getRestoreWindowSelect() {
   return document.getElementById(SETTINGS_ELEMENT_IDS.RESTORE_WINDOW);
 }

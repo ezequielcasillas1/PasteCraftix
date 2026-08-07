@@ -9,6 +9,7 @@ const FEATURE_LOADERS = [
   ['widgetsFeature', '../widgets/widgets.controller.js', 'initWidgetsFeature'],
   ['aiLabFeature', '../ai-lab/ai-lab.controller.js', 'initAiLabFeature'],
   ['settingsFeature', '../settings/settings.controller.js', 'initSettingsFeature'],
+  ['uiLocationFeature', '../ui-location/ui-location.controller.js', 'initUiLocationFeature'],
   ['privacyFeature', '../privacy/privacy.controller.js', 'initPrivacyFeature'],
   ['activityFeature', '../activity/activity.controller.js', 'initActivityFeature'],
   ['authFeature', '../auth/auth.controller.js', 'initAuthFeature'],

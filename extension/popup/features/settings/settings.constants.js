@@ -2,6 +2,7 @@ export const SETTINGS_STORAGE_KEYS = {
   AUTO_DELETE_PERIOD: 'autoDeletePeriod',
   QUICK_PASTE: 'quickPasteSettings',
   ALBUM_MODE: 'albumAttachmentOpenMode',
+  REMEMBER_UI_LOCATION: 'rememberUiLocation',
   THEME: 'theme',
   UPDATED_AT: 'settingsUpdatedAt',
   WIDGET: 'widgetSettings',
@@ -11,6 +12,7 @@ export const SETTINGS_SYNC_KEYS = [
   'autoDeletePeriod',
   'quickPasteSettings',
   'albumAttachmentOpenMode',
+  'rememberUiLocation',
   'theme',
   'settingsUpdatedAt',
 ];
@@ -19,6 +21,7 @@ export const SETTINGS_DEFAULTS = {
   autoDeletePeriod: 'never',
   theme: 'light',
   albumAttachmentOpenMode: 'overlay',
+  rememberUiLocation: true,
   quickPasteSettings: {
     autoHide: true,
     showTimestamps: true,
@@ -40,6 +43,7 @@ export const SETTINGS_ELEMENT_IDS = {
   QUICK_PASTE_MAX_CLIPS: 'quickPasteMaxClipsPopup',
   ACTIVITY_ONE_CLICK_COPY: 'activityOneClickCopyToggle',
   ALBUM_MODE: 'albumAttachmentOpenMode',
+  REMEMBER_UI_LOCATION: 'rememberUiLocationToggle',
   HELP_MODAL: 'helpModal',
   CLOSE_HELP: 'closeHelpModal',
   BACK_BTN: 'backBtn',

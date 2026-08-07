@@ -3,6 +3,7 @@ import {
   getRestoreWindowSelect,
 } from './settings.selectors.js';
 import { loadSettings } from './settings.storage.js';
+import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 // ── updateStorageStats ────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export async function showSettingsModal(app) {
   document.getElementById('settingsModal').style.display = 'flex';
   window.renderLucideIconsSync?.(document.getElementById('settingsModal'))
     || window.renderLucideIcons?.(document.getElementById('settingsModal'));
+  notifyUiLocationChanged(app);
 
   // Background refresh: update UI with fresh values without blocking modal open
   Promise.all([
@@ -77,11 +79,17 @@ function _applyQuickPasteUI(app) {
   if (albumModeEl) albumModeEl.value = app.albumAttachmentOpenMode || 'edgePopup';
 }
 
+function _applyRememberUiLocationUI(app) {
+  const el = document.getElementById('rememberUiLocationToggle');
+  if (el) el.checked = app.rememberUiLocation !== false;
+}
+
 function _applyBasicSettingsToUI(app) {
   _applyAutoDeleteUI(app);
   _applyThemeToggle(app, getDarkModeToggleEl(), app.darkModeComingSoon);
   _applyThemeToggle(app, document.getElementById('profileDarkModeToggle'), app.darkModeComingSoon);
   _applyQuickPasteUI(app);
+  _applyRememberUiLocationUI(app);
 }
 
 function _applyThemeToggle(app, el, comingSoon) {
@@ -98,9 +106,10 @@ function _applyThemeToggle(app, el, comingSoon) {
 
 // ── hideSettingsModal ─────────────────────────────────────────────────────────
 
-export function hideSettingsModal() {
+export function hideSettingsModal(app) {
   const modal = document.getElementById('settingsModal');
   if (modal) modal.style.display = 'none';
+  if (app) notifyUiLocationChanged(app, true);
 }
 
 // ── Help modal ────────────────────────────────────────────────────────────────

@@ -162,6 +162,9 @@ async function paintAuthenticatedPopup(app) {
     app.displayImageTopLeft(app.userProfile.profileImageUrl);
   }
   await app.setupEventListeners();
+  try {
+    app.uiLocationFeature?.wireDraftInputs?.();
+  } catch (_) {}
   updateCoreMetadata(app);
   await restoreActiveUiState(app);
   // Safety net: session restore fire-and-forgets tab paint; ensure Clips
