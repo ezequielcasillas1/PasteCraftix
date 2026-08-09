@@ -12,7 +12,7 @@ This index helps you navigate all the documentation and resources created for pu
 
 → **[`EXTENSION_UPDATE_PROTOCOL.md`](EXTENSION_UPDATE_PROTOCOL.md)** — version bump, package, Section G smoke, dual upload, What’s new copy for the current release.
 
-Current release packet: **v3.0.31** (2026-08-06) — `releases/pastecraft-v3.0.31.zip`.
+Current release packet: **v3.0.33** (2026-08-08) — `releases/pastecraft-v3.0.33.zip`.
 
 ---
 
