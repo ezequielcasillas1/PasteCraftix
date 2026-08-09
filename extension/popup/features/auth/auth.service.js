@@ -198,6 +198,34 @@ function _isTransientAuthNetworkError(error) {
   return msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network error');
 }
 
+/** Short Auth API probe before setSession (avoids supabase.js Failed to fetch noise). */
+async function _isAuthApiReachable(timeoutMs = 1500) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    const { supabaseUrl, anonKey } = _readSupabaseConfig();
+    const baseUrl = supabaseUrl ? String(supabaseUrl).replace(/\/$/, '') : '';
+    if (!baseUrl || !anonKey) return false;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${baseUrl}/auth/v1/health`, {
+        method: 'GET',
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        signal: controller.signal,
+      });
+      return !!(res && res.ok);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (_) {
+    return false;
+  }
+}
+
 async function _softApplyBridgeTokens(app, tokens) {
   const apply = pasteCraftSupabase?._applyCurrentSession;
   if (typeof apply !== 'function' || !tokens?.access_token) return false;
@@ -265,6 +293,12 @@ export async function restoreSupabaseSessionFromBridge(app, reason = 'unknown') 
 
     const tokens = await _resolveSessionTokens(app, bridge, refreshToken);
     if (!_hasTokenPair(tokens)) return false;
+
+    // Skip setSession when Auth is unreachable (navigator offline or health probe fail).
+    if (!(await _isAuthApiReachable())) {
+      return _softApplyBridgeTokens(app, tokens);
+    }
+
     return _setSessionOrRecoverRotatedBridge(app, tokens);
   } catch (_) {
     return false;

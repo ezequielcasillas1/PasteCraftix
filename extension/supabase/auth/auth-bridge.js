@@ -45,6 +45,38 @@ _softApplyBridgeSession(tokens) {
   return true;
 },
 
+/**
+ * Short Auth API probe before setSession (which always network-calls _getUser).
+ * Public url/anonKey only — never logs tokens.
+ */
+async _isAuthApiReachable(timeoutMs = 1500) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    const cfg = (typeof PASTECRAFT_CONFIG !== 'undefined' && PASTECRAFT_CONFIG?.supabase) || null;
+    const baseUrl = cfg?.url ? String(cfg.url).replace(/\/$/, '') : '';
+    const anonKey = cfg?.anonKey ? String(cfg.anonKey) : '';
+    if (!baseUrl || !anonKey) return false;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${baseUrl}/auth/v1/health`, {
+        method: 'GET',
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+        },
+        signal: controller.signal,
+      });
+      return !!(res && res.ok);
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (_) {
+    return false;
+  }
+},
+
 async _setSessionFromBridgeTokens(tokens) {
   try {
     return await this.client.auth.setSession({
@@ -147,9 +179,9 @@ async hydrateClientSessionFromBridge() {
       tokens = await this._readBridgeSessionTokens();
       if (!tokens) return false;
 
-      // setSession always network-calls getUser; skip when offline so we do not
-      // wipe auth UX or spam supabase-js console.error(TypeError Failed to fetch).
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      // setSession always network-calls getUser; skip when offline or Auth
+      // preflight fails so supabase-js does not console.error(TypeError Failed to fetch).
+      if (!(await this._isAuthApiReachable())) {
         return this._softApplyBridgeSession(tokens);
       }
 

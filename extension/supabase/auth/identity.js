@@ -128,7 +128,8 @@ async ensureUserProfileRow(userId) {
       await this.hydrateClientSessionFromBridge();
       ({ data: { session } } = await this.client.auth.getSession());
     }
-    // Never upsert without a JWT — RLS rejects anonymous user_profiles writes.
+    // Soft-hydrate can leave JWT only on _currentSession (client.auth empty).
+    // Upsert needs a client-bound JWT; skip rather than anonymous write (RLS 401).
     if (!session?.access_token) return;
     const { error } = await this.client
       .from('user_profiles')

@@ -4,7 +4,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 
 const storage = new Map();
 
@@ -35,6 +35,13 @@ globalThis.chrome = {
   },
 };
 
+globalThis.PASTECRAFT_CONFIG = {
+  supabase: {
+    url: 'https://example.supabase.co',
+    anonKey: 'test-anon-key',
+  },
+};
+
 const { authBridgeMixin } = await import('../extension/supabase/auth/auth-bridge.js');
 const { authMixin } = await import('../extension/supabase/auth/auth.js');
 
@@ -54,6 +61,22 @@ function makeClient(session = null) {
   };
 }
 
+function stubAuthReachable(ok = true) {
+  return mock.method(globalThis, 'fetch', async (input) => {
+    const url = String(input || '');
+    if (url.includes('/auth/v1/health')) {
+      return { ok, status: ok ? 200 : 503 };
+    }
+    throw new TypeError('Unexpected fetch in test: ' + url);
+  });
+}
+
+function seedBridge(tokens) {
+  return chrome.storage.local.set({
+    pc_supabase_session_v1: tokens,
+  });
+}
+
 test('isAuthenticated is false without _currentSession', () => {
   const pc = makeClient();
   assert.equal(pc.isAuthenticated(), false);
@@ -61,16 +84,16 @@ test('isAuthenticated is false without _currentSession', () => {
 
 test('hydrate from bridge assigns _currentSession and unlocks isAuthenticated', async () => {
   storage.clear();
-  await chrome.storage.local.set({
-    pc_supabase_session_v1: {
-      access_token: 'test-jwt',
-      refresh_token: 'test-rt',
-      user_id: 'user-1',
-      email: 'a@b.c',
-    },
+  const fetchMock = stubAuthReachable(true);
+  await seedBridge({
+    access_token: 'test-jwt',
+    refresh_token: 'test-rt',
+    user_id: 'user-1',
+    email: 'a@b.c',
   });
   const pc = makeClient(null);
   const ok = await pc.hydrateClientSessionFromBridge();
+  fetchMock.mock.restore();
   assert.equal(ok, true);
   assert.equal(pc.isAuthenticated(), true);
   assert.equal(pc._currentSession?.access_token, 'test-jwt');
@@ -93,13 +116,12 @@ test('onAuthStateChange SIGNED_OUT clears _currentSession', async () => {
 
 test('hydrate soft-keeps bridge tokens when setSession fails with Failed to fetch', async () => {
   storage.clear();
-  await chrome.storage.local.set({
-    pc_supabase_session_v1: {
-      access_token: 'bridge-jwt',
-      refresh_token: 'bridge-rt',
-      user_id: 'user-soft',
-      email: 'soft@test.com',
-    },
+  const fetchMock = stubAuthReachable(true);
+  await seedBridge({
+    access_token: 'bridge-jwt',
+    refresh_token: 'bridge-rt',
+    user_id: 'user-soft',
+    email: 'soft@test.com',
   });
   const pc = makeClient(null);
   pc.client.auth.setSession = async () => ({
@@ -107,6 +129,7 @@ test('hydrate soft-keeps bridge tokens when setSession fails with Failed to fetc
     error: Object.assign(new Error('Failed to fetch'), { name: 'AuthRetryableFetchError' }),
   });
   const ok = await pc.hydrateClientSessionFromBridge();
+  fetchMock.mock.restore();
   assert.equal(ok, true);
   assert.equal(pc.isAuthenticated(), true);
   assert.equal(pc._currentSession?.access_token, 'bridge-jwt');
@@ -115,18 +138,18 @@ test('hydrate soft-keeps bridge tokens when setSession fails with Failed to fetc
 
 test('hydrate soft-keeps bridge tokens when setSession throws Failed to fetch', async () => {
   storage.clear();
-  await chrome.storage.local.set({
-    pc_supabase_session_v1: {
-      access_token: 'throw-jwt',
-      refresh_token: 'throw-rt',
-      user_id: 'user-throw',
-    },
+  const fetchMock = stubAuthReachable(true);
+  await seedBridge({
+    access_token: 'throw-jwt',
+    refresh_token: 'throw-rt',
+    user_id: 'user-throw',
   });
   const pc = makeClient(null);
   pc.client.auth.setSession = async () => {
     throw new TypeError('Failed to fetch');
   };
   const ok = await pc.hydrateClientSessionFromBridge();
+  fetchMock.mock.restore();
   assert.equal(ok, true);
   assert.equal(pc.isAuthenticated(), true);
   assert.equal(pc._currentSession?.access_token, 'throw-jwt');
@@ -134,12 +157,11 @@ test('hydrate soft-keeps bridge tokens when setSession throws Failed to fetch', 
 
 test('hydrate does not soft-keep on non-network setSession errors', async () => {
   storage.clear();
-  await chrome.storage.local.set({
-    pc_supabase_session_v1: {
-      access_token: 'bad-jwt',
-      refresh_token: 'bad-rt',
-      user_id: 'user-bad',
-    },
+  const fetchMock = stubAuthReachable(true);
+  await seedBridge({
+    access_token: 'bad-jwt',
+    refresh_token: 'bad-rt',
+    user_id: 'user-bad',
   });
   const pc = makeClient(null);
   pc.client.auth.setSession = async () => ({
@@ -147,6 +169,69 @@ test('hydrate does not soft-keep on non-network setSession errors', async () => 
     error: new Error('Invalid Refresh Token: Already Used'),
   });
   const ok = await pc.hydrateClientSessionFromBridge();
+  fetchMock.mock.restore();
   assert.equal(ok, false);
   assert.equal(pc.isAuthenticated(), false);
+});
+
+test('hydrate skips setSession when Auth preflight fails and soft-applies', async () => {
+  storage.clear();
+  const fetchMock = stubAuthReachable(false);
+  await seedBridge({
+    access_token: 'preflight-jwt',
+    refresh_token: 'preflight-rt',
+    user_id: 'user-preflight',
+  });
+  const pc = makeClient(null);
+  let setSessionCalls = 0;
+  pc.client.auth.setSession = async () => {
+    setSessionCalls += 1;
+    return { data: { session: null, user: null }, error: null };
+  };
+  const ok = await pc.hydrateClientSessionFromBridge();
+  fetchMock.mock.restore();
+  assert.equal(ok, true);
+  assert.equal(setSessionCalls, 0);
+  assert.equal(pc.isAuthenticated(), true);
+  assert.equal(pc._currentSession?.access_token, 'preflight-jwt');
+});
+
+test('hydrate skips setSession when navigator is offline and soft-applies', async () => {
+  storage.clear();
+  const prevDesc = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+  Object.defineProperty(navigator, 'onLine', {
+    configurable: true,
+    enumerable: true,
+    get: () => false,
+  });
+
+  await seedBridge({
+    access_token: 'offline-jwt',
+    refresh_token: 'offline-rt',
+    user_id: 'user-offline',
+  });
+  const pc = makeClient(null);
+  let setSessionCalls = 0;
+  let fetchCalls = 0;
+  const fetchMock = mock.method(globalThis, 'fetch', async () => {
+    fetchCalls += 1;
+    return { ok: true, status: 200 };
+  });
+  pc.client.auth.setSession = async () => {
+    setSessionCalls += 1;
+    return { data: { session: null, user: null }, error: null };
+  };
+
+  try {
+    const ok = await pc.hydrateClientSessionFromBridge();
+    assert.equal(ok, true);
+    assert.equal(setSessionCalls, 0);
+    assert.equal(fetchCalls, 0);
+    assert.equal(pc.isAuthenticated(), true);
+    assert.equal(pc._currentSession?.access_token, 'offline-jwt');
+  } finally {
+    fetchMock.mock.restore();
+    if (prevDesc) Object.defineProperty(navigator, 'onLine', prevDesc);
+    else delete navigator.onLine;
+  }
 });
