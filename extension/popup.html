@@ -11548,6 +11548,7 @@
     <!-- Component base CSS loads before Blue Dark Mode decorators. -->
     <link rel="stylesheet" href="styles/clip-title.css">
     <link rel="stylesheet" href="styles/clip-viewer.css">
+    <link rel="stylesheet" href="shared/viewer-shell/viewer-shell.css">
     <link rel="stylesheet" href="styles/clip-image-annotate.css">
     <link rel="stylesheet" href="styles/notes-image-picker.css">
 </head>
@@ -13051,7 +13052,9 @@ Multiple clips are separated by:
                     <button class="modal-close" id="closeClipViewerModal" type="button" aria-label="Close"><i data-lucide="x"></i></button>
                 </div>
                 <div class="modal-body">
-                    <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
+                    <div class="pc-viewer-shell-meta-row" id="clipViewerMetaRow">
+                        <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
+                    </div>
                     <div class="clip-viewer-body" id="clipViewerBody">
                         <div class="pc-rendered-content" id="clipViewerRendered"></div>
                         <pre class="clip-viewer-pre" id="clipViewerRaw" style="display:none;"></pre>

@@ -70,6 +70,13 @@
   overflow: hidden;
 }
 
+/* Viewer-shell meta row: Format/Saved + expand/pop-out coexist */
+.pc-viewer-shell-meta-row .clip-viewer-meta {
+  white-space: normal;
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
 .clip-viewer-meta-item {
   flex: none;
 }

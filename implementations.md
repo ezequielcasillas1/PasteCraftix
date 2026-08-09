@@ -1,4 +1,9 @@
 
+### Aug 8, 2026 - Viewer shell wrap + expand + pop-out
+**Files:** shared/viewer-shell/*, viewer-popout.html, viewer-popout.js, popup.html, popup.init.js, clip-viewer.css, manifest.json
+**Result:** Shared shell mounts expand/pop-out on every modal; CODE/text wraps inside modules (no horizontal chop); pop-out opens viewer-popout window.
+
+
 ### Aug 6, 2026 - Production package v3.0.31
 **Files:** extension/manifest.json, releases/pastecraft-v3.0.31.zip, docs/publishing/*
 **Result:** Bump 3.0.30 → 3.0.31 for store upload. Includes MathJax clips, AI history reference image, model persist, header MODEL spacing. Last published stays 3.0.29 until approved.

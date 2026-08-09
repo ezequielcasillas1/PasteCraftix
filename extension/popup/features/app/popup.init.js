@@ -9,6 +9,7 @@ import {
 import { ensureWorkspaceOwner } from '../../../bridges/workspace/workspace.facade.js';
 import { rememberVerifiedEmailsFromSession } from '../auth/auth.email-cache.js';
 import { mergeUserProfileLocalRemote } from '../../../shared/profile-merge.js';
+import { mountAll as mountViewerShell } from '../../../shared/viewer-shell/viewer-shell.js';
 
 let popupRevealScheduled = false;
 const DEFERRED_IDLE_TIMEOUT_MS = 500;
@@ -312,6 +313,11 @@ export async function runPopupInit(app, dependencies = {}) {
   const defer = dependencies.defer || defaultDefer;
 
   beginPopupBoot();
+  try {
+    mountViewerShell(document);
+  } catch (error) {
+    console.warn('[PasteCraft:viewer-shell] mount failed', error?.message || error);
+  }
   const featureInitialization = initializeFeatures(app);
   const guestModeCheck = isLocalGuestMode();
   await featureInitialization;

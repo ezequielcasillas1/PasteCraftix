@@ -1,0 +1,120 @@
+/* Shared viewer shell: wrap + in-module expand + header actions */
+
+.pc-viewer-shell-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-left: auto;
+}
+
+.pc-viewer-shell-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  cursor: pointer;
+  flex: none;
+}
+
+.pc-viewer-shell-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.pc-viewer-shell-btn[aria-pressed='true'] {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.pc-viewer-shell-btn svg,
+.pc-viewer-shell-btn [data-lucide] {
+  width: 16px;
+  height: 16px;
+}
+
+.pc-viewer-shell-meta-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pc-viewer-shell-meta-row .clip-viewer-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Default wrap inside every mounted modal — no horizontal chop */
+.pc-viewer-shell .pc-code-block,
+.pc-viewer-shell .pc-rendered-content pre,
+.pc-viewer-shell .clip-viewer-pre,
+.pc-viewer-shell .note-viewer-text,
+.pc-viewer-shell .note-viewer-body,
+.pc-viewer-shell .modal-body pre,
+.pc-viewer-shell .breakdown-result pre,
+.pc-viewer-shell .breakdown-result .pc-plain-text,
+.pc-viewer-shell .summary-result-content pre,
+.pc-viewer-shell .summary-result-content .pc-plain-text {
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow-x: hidden !important;
+  max-width: 100%;
+}
+
+.pc-viewer-shell .pc-rendered-content,
+.pc-viewer-shell .modal-body,
+.pc-viewer-shell .clip-viewer-body,
+.pc-viewer-shell .note-viewer-body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.pc-viewer-shell .pc-code-block code {
+  white-space: inherit;
+  word-break: inherit;
+  overflow-wrap: inherit;
+}
+
+/* In-module expand: fill popup viewport */
+.pc-viewer-shell.pc-viewer-shell--expanded,
+.pc-viewer-shell.pc-viewer-shell--expanded > .modal-content,
+.pc-viewer-shell.pc-viewer-shell--expanded > .upgrade-modal,
+.pc-viewer-shell.pc-viewer-shell--expanded > .info-modal-content,
+.pc-viewer-shell.pc-viewer-shell--expanded > .image-viewer-content {
+  width: calc(100vw - 8px) !important;
+  max-width: none !important;
+  height: calc(100vh - 8px) !important;
+  max-height: none !important;
+}
+
+.pc-viewer-shell.pc-viewer-shell--expanded .modal-body,
+.pc-viewer-shell.pc-viewer-shell--expanded .info-modal-body,
+.pc-viewer-shell.pc-viewer-shell--expanded .upgrade-modal-body,
+.pc-viewer-shell.pc-viewer-shell--expanded .clip-viewer-content .modal-body {
+  max-height: none !important;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.pc-viewer-shell.pc-viewer-shell--expanded > .modal-content,
+.pc-viewer-shell.pc-viewer-shell--expanded > .upgrade-modal,
+.pc-viewer-shell.pc-viewer-shell--expanded > .info-modal-content,
+.pc-viewer-shell.pc-viewer-shell--expanded > .image-viewer-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

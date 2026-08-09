@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PasteCraft Viewer</title>
+    <link rel="stylesheet" href="shared/viewer-shell/viewer-shell.css" />
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background: #f8fafc;
+        color: #111827;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .title {
+        font-size: 14px;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .btn {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        flex: none;
+      }
+      .container {
+        padding: 14px;
+      }
+      .card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+      .meta {
+        margin: 0 0 10px 0;
+        color: #6b7280;
+        font-size: 12px;
+      }
+      #viewerBody {
+        max-width: 100%;
+        overflow-x: hidden;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      #viewerBody pre,
+      #viewerBody .pc-code-block {
+        white-space: pre-wrap !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        overflow-x: hidden !important;
+        max-width: 100%;
+      }
+      #viewerBody img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body class="pc-viewer-shell">
+    <div class="header">
+      <div class="title" id="viewerTitle">PasteCraft Viewer</div>
+      <button class="btn" id="closeBtn" type="button">Close</button>
+    </div>
+    <div class="container">
+      <div class="card">
+        <p class="meta" id="viewerMeta">Loading…</p>
+        <div id="viewerBody"></div>
+      </div>
+    </div>
+    <script type="module" src="viewer-popout.js"></script>
+  </body>
+</html>
