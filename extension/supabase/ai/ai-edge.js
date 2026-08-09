@@ -4,7 +4,22 @@ export const aiEdgeMixin = {
   async _getAiAccessToken() {
     try {
       const s = await this.client?.auth?.getSession?.();
-      return s?.data?.session?.access_token ? String(s.data.session.access_token) : '';
+      const fromClient = s?.data?.session?.access_token
+        ? String(s.data.session.access_token)
+        : '';
+      if (fromClient) return fromClient;
+
+      // Soft-hydrate may keep JWT only on _currentSession when setSession was skipped.
+      const fromCache = this._currentSession?.access_token
+        ? String(this._currentSession.access_token)
+        : '';
+      if (fromCache) return fromCache;
+
+      if (typeof this.getStoredAccessToken === 'function') {
+        const fromBridge = await this.getStoredAccessToken();
+        return fromBridge ? String(fromBridge) : '';
+      }
+      return '';
     } catch (_) {
       return '';
     }
