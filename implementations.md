@@ -1,4 +1,8 @@
 
+### Aug 8, 2026 - Production package v3.0.33
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.33.zip, docs/publishing/*
+**Result:** Bump 3.0.32 → 3.0.33 for store upload. Includes viewer-shell wrap/expand/pop-out + Notes write/PDF + remember UI location. Last published stays 3.0.29 until approved.
+
 ### Aug 8, 2026 - Viewer shell wrap + expand + pop-out
 **Files:** shared/viewer-shell/*, viewer-popout.html, viewer-popout.js, popup.html, popup.init.js, clip-viewer.css, manifest.json
 **Result:** Shared shell mounts expand/pop-out on every modal; CODE/text wraps inside modules (no horizontal chop); pop-out opens viewer-popout window.

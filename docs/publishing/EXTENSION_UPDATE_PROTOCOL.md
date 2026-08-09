@@ -6,38 +6,38 @@
 
 ---
 
-## Release: 2026-08-06 (v3.0.31) — Aug patches
+## Release: 2026-08-08 (v3.0.33) — Viewer shell + Aug stack
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.31` (store last published `3.0.29`; do not reuse 3.0.30) |
-| Package | `releases/pastecraft-v3.0.31.zip` — same zip for Chrome **and** Edge |
+| Manifest version | `3.0.33` (store last published `3.0.29`; do not reuse 3.0.30–3.0.32) |
+| Package | `releases/pastecraft-v3.0.33.zip` — same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 | Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
-| Section I triggers | **Full Section G checklist** — manifest bump + AI Lab history/model UX |
+| Section I triggers | **Full Section G checklist** — manifest bump + viewer-shell / popup modal chrome |
 
 ### What’s in this update (since 3.0.29)
 
 | Area | Change |
 |---|---|
+| Viewer shell | Wrap CODE/text in every modal (no horizontal chop); in-module expand + pop-out |
+| Notes | Write / PDF attach + attachment viewer |
+| UI location | Remember popup location |
 | Math / clips | MathJax / LaTeX clipboard markup for clips |
-| AI Lab | History Reference image persist + render |
-| AI Lab | Selected model persists across popup refresh |
-| UI | Header MODEL label stacked above select (clear of clip count) |
-| Website | Reset-password meter under CSP; Chrome Store live link |
-| Prior packet | Includes 3.0.30 prep (Drop ghost, offscreen clipboard writer, etc.) |
+| AI Lab | History reference image; model persists; MODEL label spacing |
+| Prior packets | Includes 3.0.30–3.0.32 prep (Drop ghost, offscreen clipboard, etc.) |
 
 ### Store “What’s new” (paste into both dashboards)
 
 ```
-PasteCraft 3.0.31
+PasteCraft 3.0.33
 
-• Math/LaTeX clips render with MathJax markup
-• AI Summary history shows the picked reference image
-• Chosen AI model stays selected after popup refresh
-• Header MODEL label no longer overlaps clip count
-• Drop ghost + reliable image/text clipboard writes (from 3.0.30 prep)
-• Reset-password strength meter works under site CSP
+• Clip/module viewers wrap long CODE text (no sideways scroll)
+• Expand-in-module + pop-out controls on every modal
+• Notes write / PDF attach + attachment viewer
+• Remembers popup UI location
+• Math/LaTeX clips, AI history image, model persist (from Aug packets)
+• Drop ghost + reliable clipboard writes (from 3.0.30 prep)
 ```
 
 ### Chrome certification note (permissions)
@@ -48,21 +48,33 @@ offscreen is required for reliable clipboard image writes. clipboardRead remains
 
 ---
 
+## Prior release: 2026-08-07 (v3.0.32)
+
+Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.32.zip` for rollback if needed.
+
+---
+
+## Prior release: 2026-08-06 (v3.0.31)
+
+Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.31.zip` for rollback if needed.
+
+---
+
 ## Prior release: 2026-08-03 (v3.0.30)
 
-Local/prep packet only if never approved. Superseded for upload by 3.0.31. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-03 (v3.0.29)
 
-On store as last published until 3.0.31 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
+On store as last published until 3.0.33 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
 
 ---
 
 ## Prior release: 2026-07-23 (v3.0.24)
 
-Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.31 (`offscreen` required since 3.0.28).
+Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.33 (`offscreen` required since 3.0.28).
 
 ---
 
@@ -88,7 +100,7 @@ If version was already published: bump patch (`3.0.23` → `3.0.24`) before pack
 .\scripts\package-extension.ps1
 ```
 
-- [ ] Output: `releases/pastecraft-v3.0.31.zip` (version from manifest)
+- [ ] Output: `releases/pastecraft-v3.0.33.zip` (version from manifest)
 - [ ] Zip = contents of `extension/` only (not repo root, not `manifest.json` at repo root)
 - [ ] Archive last 3 published zips locally as rollback copies
 
@@ -121,7 +133,7 @@ Load **previous published** unpacked → create test data → replace with **new
 ### Edge Add-ons (live)
 
 1. Partner Center → PasteCraft → **Update** / new submission  
-2. Upload `releases/pastecraft-v3.0.31.zip`  
+2. Upload `releases/pastecraft-v3.0.33.zip`  
 3. Paste “What’s new” above  
 4. Submit for certification  
 
@@ -145,10 +157,10 @@ Dashboard: https://chrome.google.com/webstore/devconsole
 
 - [ ] Install from each store URL (not unpacked) and re-smoke login + one clip
 - [ ] Update `.cursor/rules/production-publishing-safety.mdc`:
-  - `Last published version: 3.0.31` (only after store approval of 3.0.31)
+  - `Last published version: 3.0.33` (only after store approval of 3.0.33)
   - Chrome Web Store ID: `fidljmdohgkjmmgojdblbbnfoeengoko`
 - [ ] If Chrome just went live: set `website/src/data/site.js` `chrome` URL to the real store link
-- [ ] Keep zip: `pastecraft-v3.0.31.zip` in local archive (last 3)
+- [ ] Keep zip: `pastecraft-v3.0.33.zip` in local archive (last 3)
 
 ### Rollback
 
