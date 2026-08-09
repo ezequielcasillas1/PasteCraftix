@@ -6,6 +6,49 @@
 
 ---
 
+## Release: 2026-08-08 (v3.0.34) — Auth hydrate + viewer stack
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.34` (store last published `3.0.29`; do not reuse 3.0.30–3.0.33) |
+| Package | `releases/pastecraft-v3.0.34.zip` — same zip for Chrome **and** Edge |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** — manifest bump + auth hydrate + prior 3.0.33 popup/viewer changes |
+
+### What's in this update (since 3.0.29)
+
+| Area | Change |
+|---|---|
+| Auth | Preflight Auth before setSession — fewer Failed to fetch / session hydrate errors on popup open |
+| Viewer shell | Wrap CODE/text in every modal (no horizontal chop); in-module expand + pop-out |
+| Notes | Write / PDF attach + attachment viewer |
+| UI location | Remember popup location |
+| Math / clips | MathJax / LaTeX clipboard markup for clips |
+| AI Lab | History reference image; model persists; MODEL label spacing |
+| Prior packets | Includes 3.0.30–3.0.33 prep (Drop ghost, offscreen clipboard, etc.) |
+
+### Store "What's new" (paste into both dashboards)
+
+```
+PasteCraft 3.0.34
+
+• Fewer login/session errors on popup open (auth hydrate preflight)
+• Clip/module viewers wrap long CODE text (no sideways scroll)
+• Expand-in-module + pop-out controls on every modal
+• Notes write / PDF attach + attachment viewer
+• Remembers popup UI location
+• Math/LaTeX clips, AI history image, model persist (from Aug packets)
+• Drop ghost + reliable clipboard writes (from 3.0.30 prep)
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
+```
+
+---
 ## Release: 2026-08-08 (v3.0.33) â€” Viewer shell + Aug stack
 
 | Field | Value |
@@ -50,31 +93,31 @@ offscreen is required for reliable clipboard image writes. clipboardRead remains
 
 ## Prior release: 2026-08-07 (v3.0.32)
 
-Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.32.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.32.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-06 (v3.0.31)
 
-Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.31.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.31.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-03 (v3.0.30)
 
-Local/prep packet. Superseded for upload by 3.0.33. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-03 (v3.0.29)
 
-On store as last published until 3.0.33 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
+On store as last published until 3.0.34 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
 
 ---
 
 ## Prior release: 2026-07-23 (v3.0.24)
 
-Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.33 (`offscreen` required since 3.0.28).
+Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.34 (`offscreen` required since 3.0.28).
 
 ---
 
