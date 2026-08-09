@@ -1,4 +1,8 @@
 
+### Aug 8, 2026 - Production package v3.0.34
+**Files:** extension/manifest.json, releases/pastecraft-v3.0.34.zip, docs/publishing/*
+**Result:** Bump 3.0.33 ? 3.0.34 for store upload. Auth hydrate preflight before setSession + 3.0.33 viewer-shell stack. Last published stays 3.0.29 until approved.
+
 ### Aug 8, 2026 - Production package v3.0.33
 **Files:** extension/manifest.json, releases/pastecraft-v3.0.33.zip, docs/publishing/*
 **Result:** Bump 3.0.32 → 3.0.33 for store upload. Includes viewer-shell wrap/expand/pop-out + Notes write/PDF + remember UI location. Last published stays 3.0.29 until approved.
