@@ -25,9 +25,16 @@ const fullCanonical = canonicalUrl || `${siteUrl}${currentPath}`;
     <meta name="keywords" content={keywords} />
     <link rel="canonical" href={fullCanonical} />
     <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#071523" />
+    <meta name="theme-color" content="#f8fafc" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="PasteCraft" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js" defer></script>
     
     <!-- Open Graph -->
     <meta property="og:title" content={title} />
@@ -69,10 +76,42 @@ const fullCanonical = canonicalUrl || `${siteUrl}${currentPath}`;
     <slot name="head" />
   </head>
   <body>
-    <Header currentPath={currentPath} />
-    <main>
-      <slot />
-    </main>
-    <Footer />
+    <canvas id="starfield-bg" aria-hidden="true"></canvas>
+    <div class="page-content">
+      <Header currentPath={currentPath} />
+      <main>
+        <slot />
+      </main>
+      <Footer />
+    </div>
+    <script>
+      import { createStarfield } from '../features/starfield/create-starfield.js';
+
+      const starfieldCanvas = document.getElementById('starfield-bg');
+      if (starfieldCanvas instanceof HTMLCanvasElement) {
+        createStarfield(starfieldCanvas);
+      }
+    </script>
   </body>
 </html>
+
+<style>
+  #starfield-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .page-content {
+    position: relative;
+    z-index: 1;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  main {
+    max-width: 100%;
+    min-width: 0;
+  }
+</style>

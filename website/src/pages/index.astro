@@ -1,542 +1,1071 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Hero from '../components/Hero.astro';
-import SectionShell from '../components/SectionShell.astro';
-import FeatureGrid from '../components/FeatureGrid.astro';
-import PricingCard from '../components/PricingCard.astro';
-import Preview3D from '../components/Preview3D.astro';
-import { pricingPlans, storeLinks, trustPills } from '../data/site.js';
+import ShowcaseGrid from '../components/showcase/ShowcaseGrid.astro';
+import ShowcaseCardClips from '../components/showcase/ShowcaseCard-Clips.astro';
+import { pricingPlans, storeLinks } from '../data/site.js';
 
-const featureItems = [
+const problems = [
   {
-    icon: '⚡',
-    title: 'Copy fast, save what matters',
-    copy: 'Capture valuable text in seconds—study material, research, and notes you need again—then paste it back without hunting through tabs.',
+    icon: 'solar:clipboard-remove-linear',
+    title: 'Clips vanish',
+    copy: 'Copy something twice and the first thing is gone forever. Your clipboard holds one item and no memory.',
   },
   {
-    icon: '🧭',
-    title: 'Categories and notes in one flow',
-    copy: 'Move through clips, categories, and notes so productive study sessions stay organized instead of scattered.',
+    icon: 'solar:folder-open-linear',
+    title: 'Everything lands in one pile',
+    copy: 'Code snippets, study quotes, listing drafts — all mixed together with no categories, search, or order.',
   },
   {
-    icon: '✨',
-    title: 'AI Lab for real situations',
-    copy: 'Use AI Lab for summaries, breakdowns, and study-ready help when a dense page, lecture note, or work draft needs clarity.',
+    icon: 'solar:rewind-back-linear',
+    title: 'You rewrite what you already wrote',
+    copy: 'Replies, templates, and answers get typed again and again because there is no reusable library.',
+  },
+  {
+    icon: 'solar:devices-linear',
+    title: 'Devices do not share',
+    copy: 'What you copy on one machine stays there. Your work does not follow you between browsers or devices.',
   },
 ];
 
-const testimonials = [
+const workflowSteps = [
   {
-    name: 'Sarah M.',
-    role: 'Graduate student',
-    avatar: 'https://i.pravatar.cc/64?img=1',
-    quote: 'I copy research all day. PasteCraft saves what I need for exams, keeps it in categories, and makes review much faster.',
+    icon: 'solar:copy-linear',
+    step: 'Step 01',
+    title: 'Copy like you already do',
+    copy: 'Ctrl+C stays the same. PasteCraft captures every clip in the background with title, source, and timestamp.',
   },
   {
-    name: 'James K.',
-    role: 'Software engineer',
-    avatar: 'https://i.pravatar.cc/64?img=3',
-    quote: 'AI Lab helps when docs get dense. I save snippets fast, organize them, and get back to shipping with less friction.',
+    icon: 'solar:folder-with-files-linear',
+    step: 'Step 02',
+    title: 'Craft your library',
+    copy: 'File clips into categories, pin what matters, bundle notes and albums, and mark favorites for instant recall.',
   },
   {
-    name: 'Priya L.',
-    role: 'Productivity coach',
-    avatar: 'https://i.pravatar.cc/64?img=5',
-    quote: 'PasteCraft fits study and work habits. Fast copy, clear notes, and categories that keep valuable information ready to reuse.',
+    icon: 'solar:stars-linear',
+    step: 'Step 03',
+    title: 'Reuse in one click',
+    copy: 'Quick-paste from the popup or widget, fire AI summaries and breakdowns, and sync it all across Chrome and Edge.',
   },
 ];
 
-const counterStats = [
-  { value: 10000, suffix: '+', label: 'Clips saved', prefix: '' },
-  { value: 500, suffix: '+', label: 'Active users', prefix: '' },
-  { value: 190, suffix: '+', label: 'Languages', prefix: '' },
-  { value: 4.8, suffix: '★', label: 'Average rating', prefix: '' },
+const audiences = [
+  {
+    href: '/scholar-vs-merchant#scholar',
+    icon: 'solar:book-bookmark-linear',
+    name: 'Scholar',
+    tagline: 'For students, researchers, and deep-work builders.',
+    points: [
+      'Keep quotes, citations, and sources organized by category',
+      'Summarize long reads with AI Lab before you study them',
+      'Notes and albums bundle clips into exam-ready packs',
+    ],
+  },
+  {
+    href: '/scholar-vs-merchant#merchant-use-cases',
+    icon: 'solar:shop-linear',
+    name: 'Merchant',
+    tagline: 'For sellers and creators shipping listings every day.',
+    points: [
+      'Stage titles, tags, and descriptions for Etsy, Amazon, and more',
+      'Reuse polished replies and promo snippets in one click',
+      'Spot-check and strip text before it ships — no per-call AI burn',
+    ],
+  },
+];
+
+const privacyPoints = [
+  {
+    icon: 'solar:lock-keyhole-linear',
+    title: 'Local-first free tier',
+    copy: 'Freemium keeps every clip on your device. Nothing leaves the browser unless you choose cloud sync.',
+  },
+  {
+    icon: 'solar:shield-check-linear',
+    title: 'Your account, your rows',
+    copy: 'Cloud sync stores data in your own account, protected by row-level security. Last-write-wins keeps devices in step.',
+  },
+  {
+    icon: 'solar:trash-bin-trash-linear',
+    title: 'Delete means delete',
+    copy: 'Remove a clip and it is purged from every synced device. No hidden copies, no dark patterns.',
+  },
+];
+
+const faqs = [
+  {
+    q: 'Is PasteCraft really free?',
+    a: 'Yes. The Freemium plan includes unlimited clips, notes, and categories with local storage — free forever. Basic adds cloud sync across devices, and Enhanced unlocks AI Lab.',
+  },
+  {
+    q: 'Which browsers does PasteCraft support?',
+    a: 'PasteCraft runs on Chrome and Edge (and other Chromium browsers like Brave and Arc). Both stores ship the same build, and cloud sync keeps them identical.',
+  },
+  {
+    q: 'Where is my data stored?',
+    a: 'On Freemium, everything stays on your device. With Basic or Enhanced, clips sync to your private account — each row is protected by row-level security so only you can read it.',
+  },
+  {
+    q: 'What can AI Lab do?',
+    a: 'AI Lab turns any clip into summaries, breakdowns, and crafted rewrites. Enhanced plans include weekly, monthly, or yearly text credits with rollover.',
+  },
+  {
+    q: 'Does PasteCraft see what I copy?',
+    a: 'No. Capture happens locally in your browser. We never inspect clip contents — sync is account-scoped and you can delete anything permanently.',
+  },
+  {
+    q: 'How do I start?',
+    a: 'Install from the Chrome Web Store or Edge Add-ons, pin the extension, and copy something. Your first clip is saved instantly — no account required.',
+  },
 ];
 ---
 
 <BaseLayout
-  title="PasteCraft | Productivity and study clipboard for Edge and Chrome"
-  description="PasteCraft is a productivity and study tool that helps you copy fast, save valuable information, organize categories and notes, and use AI Lab when you need clarity. Free to start on Chrome and Edge."
-  keywords="clipboard manager, study tool, productivity extension, clipboard history, chrome extension, edge extension, study notes, categories, AI Lab, copy paste tool, text snippets, cloud sync clipboard"
+  title="PasteCraft | Clipboard Manager & History Extension for Chrome + Edge"
+  description="PasteCraft turns your clipboard into a crafted library. Save unlimited clips, organize them into categories, summarize with AI Lab, and sync across Chrome and Edge."
   currentPath="/"
 >
-  <Hero
-    eyebrow="Productivity and study tool"
-    title="Copy fast, save what matters"
-    description="PasteCraft helps you save the information you need most—valuable notes, research, and study material—so you can copy quickly and get back to work. Organize clips into categories and notes, then use AI Lab when a situation calls for it."
-    primaryHref={storeLinks.chrome}
-    primaryLabel="Install for Chrome"
-    secondaryHref={storeLinks.edge}
-    secondaryLabel="Install for Edge"
-  >
-    <div class="hero-stack">
-      <div class="hero-matrix">
-        <div class="hero-panel surface-card panel">
-          <span class="hero-label">Fast capture</span>
-          <strong>Save valuable information quickly</strong>
-          <p>Keep study material, research, and work notes ready to paste when you need them.</p>
-        </div>
-        <div class="hero-panel surface-card panel accent">
-          <span class="hero-label">Study-wise flow</span>
-          <strong>Categories, notes, and AI Lab</strong>
-          <p>Orchestrate copying, saving, and review—then open AI Lab for almost any situation.</p>
-        </div>
-      </div>
-
-      <div class="browser-pills">
-        <a class="pill pill-live" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">
-          <span class="pill-dot"></span>
-          Chrome — Live
-        </a>
-        <a class="pill pill-live" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">
-          <span class="pill-dot"></span>
-          Edge — Live
-        </a>
-      </div>
-    </div>
-
-    <Fragment slot="meta">
-      <div class="tag-row">
-        {trustPills.map((pill) => (
-          <span class="tag">{pill}</span>
-        ))}
-      </div>
-    </Fragment>
+  <Hero>
+    <ShowcaseCardClips />
   </Hero>
 
-  <section class="section stats-section" id="stats">
-    <div class="container">
-      <div class="stats-counter-grid">
-        {counterStats.map((stat) => (
-          <div class="counter-card surface-card panel">
-            <strong class="counter-number" data-target={stat.value} data-suffix={stat.suffix} data-prefix={stat.prefix}>
-              {stat.prefix}{stat.value.toLocaleString()}{stat.suffix}
-            </strong>
-            <span class="counter-label">{stat.label}</span>
+  <!-- Problem -->
+  <section class="section-block" id="why">
+    <div class="section-inner">
+      <div class="section-intro">
+        <p class="mono-eyebrow">WHY IT MATTERS</p>
+        <h2>
+          Your clipboard forgets.
+          <span class="h2-sub">PasteCraft remembers.</span>
+        </h2>
+        <p class="section-lead">
+          Every day you copy links, snippets, quotes, and replies — and almost
+          all of it disappears. PasteCraft turns that stream into a library you
+          can actually use.
+        </p>
+      </div>
+      <div class="problem-grid">
+        {problems.map((problem) => (
+          <div class="problem-card">
+            <div class="icon-tile">
+              <iconify-icon icon={problem.icon} style="stroke-width: 1.5;"></iconify-icon>
+            </div>
+            <h3>{problem.title}</h3>
+            <p>{problem.copy}</p>
           </div>
         ))}
       </div>
     </div>
   </section>
 
-  <SectionShell
-    eyebrow="Features"
-    title="Built for productivity and studying habits"
-    copy="PasteCraft turns fast copying into a lasting workflow. Save what matters, organize it, and reuse it when you study or work."
-  >
-    <FeatureGrid items={featureItems} />
-  </SectionShell>
+  <!-- Showcase: the craft, live -->
+  <section class="section-block" id="showcase">
+    <div class="section-inner">
+      <div class="section-intro center">
+        <p class="mono-eyebrow">THE CRAFT, LIVE</p>
+        <h2>
+          See the workshop
+          <span class="h2-sub">right on this page.</span>
+        </h2>
+        <p class="section-lead center-lead">
+          These are the PasteCraft screens, recreated as living mockups.
+          Clips, notes, AI Lab, and categories — the same craft you get in the
+          extension.
+        </p>
+      </div>
+      <ShowcaseGrid />
+      <p class="showcase-disclaimer">
+        Mockups of the current iteration — not 100% accurate screenshots of the
+        shipping extension.
+      </p>
+    </div>
+  </section>
 
-  <section class="section mockup-section">
-    <div class="container">
-      <div class="mockup-shell">
-        <div class="mockup-text stack">
-          <span class="eyebrow">Extension preview</span>
-          <h2 class="section-title">See the study and work flow in your browser</h2>
-          <p class="section-copy">Copy text, open PasteCraft, and find it saved, organized, and ready to paste into your next study session or productivity sprint.</p>
-          <div class="button-row">
-            <a class="button" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">Install for Chrome</a>
-            <a class="ghost-button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
+  <!-- Workflow -->
+  <section class="section-block" id="workflow">
+    <div class="section-inner">
+      <div class="section-intro">
+        <p class="mono-eyebrow">HOW IT WORKS</p>
+        <h2>
+          Copy. Craft.
+          <span class="h2-sub">Create.</span>
+        </h2>
+        <p class="section-lead">
+          Three steps, zero new habits. PasteCraft fits the way you already
+          work.
+        </p>
+      </div>
+      <div class="workflow-grid">
+        {workflowSteps.map((step) => (
+          <div class="workflow-card">
+            <p class="mono-step">{step.step}</p>
+            <div class="icon-tile">
+              <iconify-icon icon={step.icon} style="stroke-width: 1.5;"></iconify-icon>
+            </div>
+            <h3>{step.title}</h3>
+            <p>{step.copy}</p>
           </div>
-        </div>
-        <Preview3D />
+        ))}
       </div>
     </div>
   </section>
 
-  <SectionShell
-    eyebrow="Workflow"
-    title="Orchestrate copy, save, and review"
-    copy="PasteCraft keeps the moves that matter close together so you spend less time hunting and more time learning or shipping."
-  >
-    <div class="split">
-      <article class="surface-card panel stack">
-        <h3>Save the information you need</h3>
-        <ul class="list-clean">
-          <li>Capture study material, research, and work notes the moment you copy them.</li>
-          <li>Keep valuable information ready instead of losing it to a temporary clipboard.</li>
-          <li>Paste quickly when a deadline, lecture, or task needs the right detail.</li>
-        </ul>
-      </article>
-
-      <article class="surface-card panel stack">
-        <h3>Move with categories, notes, and AI Lab</h3>
-        <ul class="list-clean">
-          <li>Sort clips into categories so review stays structured.</li>
-          <li>Use notes to keep context next to the content that matters.</li>
-          <li>Open AI Lab for summaries and breakdowns in almost any situation.</li>
-        </ul>
-      </article>
-    </div>
-  </SectionShell>
-
-  <section class="section testimonials-section">
-    <div class="container">
-      <div class="section-header stack">
-        <span class="eyebrow">What users say</span>
-        <h2 class="section-title">Built for people who study and ship</h2>
+  <!-- Built for -->
+  <section class="section-block" id="built-for">
+    <div class="section-inner">
+      <div class="section-intro">
+        <p class="mono-eyebrow">BUILT FOR YOUR CRAFT</p>
+        <h2>
+          One clipboard,
+          <span class="h2-sub">two superpowers.</span>
+        </h2>
+        <p class="section-lead">
+          Scholar for study and deep work. Merchant for listings and shipping.
+          Same crafted library underneath.
+        </p>
       </div>
-      <div class="testimonials-grid">
-        {testimonials.map((t) => (
-          <article class="testimonial-card surface-card panel">
-            <div class="testimonial-stars">★★★★★</div>
-            <p class="testimonial-quote">"{t.quote}"</p>
-            <div class="testimonial-author">
-              <img src={t.avatar} alt={t.name} width="40" height="40" class="testimonial-avatar" loading="lazy" />
+      <div class="audience-grid">
+        {audiences.map((audience) => (
+          <a href={audience.href} class="audience-card">
+            <div class="audience-head">
+              <div class="icon-tile">
+                <iconify-icon icon={audience.icon} style="stroke-width: 1.5;"></iconify-icon>
+              </div>
               <div>
-                <strong>{t.name}</strong>
-                <span>{t.role}</span>
+                <h3>{audience.name}</h3>
+                <p class="audience-tagline">{audience.tagline}</p>
               </div>
             </div>
-          </article>
+            <ul>
+              {audience.points.map((point) => (
+                <li>
+                  <iconify-icon icon="solar:check-circle-linear" style="stroke-width: 1.5;"></iconify-icon>
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <span class="audience-link">
+              Explore {audience.name}
+              <iconify-icon icon="solar:arrow-right-linear" style="stroke-width: 1.5;"></iconify-icon>
+            </span>
+          </a>
         ))}
       </div>
     </div>
   </section>
 
-  <SectionShell
-    eyebrow="Plans"
-    title="Choose a plan that fits your habits"
-    copy="Start free for fast local capture. Add cloud sync for continuity, or unlock AI Lab when study and work need deeper help."
-  >
-    <div class="card-grid three">
-      {pricingPlans.map((plan) => (
-        <PricingCard
-          id={`${plan.id}-home`}
-          name={plan.name}
-          tier={plan.tier}
-          price={plan.price}
-          cadence={plan.cadence}
-          note={plan.note}
-          features={plan.features}
-          popular={plan.popular}
-        >
-          <a class={plan.popular ? 'button' : 'ghost-button'} href="/pricing">View pricing</a>
-        </PricingCard>
-      ))}
-    </div>
-  </SectionShell>
-
-  <script is:inline>
-    try {
-      var _hashParams = new URLSearchParams((window.location.hash || '').substring(1));
-      if (
-        _hashParams.get('type') === 'recovery' ||
-        _hashParams.get('access_token') ||
-        _hashParams.get('error_description')
-      ) {
-        window.location.replace('/reset-password' + (window.location.hash || ''));
-      }
-    } catch (_) {}
-  </script>
-
-  <script is:inline>
-    (function () {
-      var counters = document.querySelectorAll('.counter-number');
-      if (!counters.length) return;
-
-      function animateCounter(el) {
-        var target = parseFloat(el.dataset.target);
-        var suffix = el.dataset.suffix || '';
-        var prefix = el.dataset.prefix || '';
-        var duration = 1800;
-        var start = performance.now();
-        var isDecimal = target % 1 !== 0;
-
-        function step(now) {
-          var elapsed = now - start;
-          var progress = Math.min(elapsed / duration, 1);
-          var eased = 1 - Math.pow(1 - progress, 3);
-          var current = target * eased;
-          el.textContent = prefix + (isDecimal ? current.toFixed(1) : Math.floor(current).toLocaleString()) + suffix;
-          if (progress < 1) requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
-      }
-
-      if ('IntersectionObserver' in window) {
-        var observer = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              animateCounter(entry.target);
-              observer.unobserve(entry.target);
-            }
-          });
-        }, { threshold: 0.3 });
-        counters.forEach(function (el) { observer.observe(el); });
-      } else {
-        counters.forEach(animateCounter);
-      }
-    })();
-  </script>
-
-  <SectionShell
-    eyebrow="Get started"
-    title="Ready to copy fast and study with clarity"
-    copy="Install PasteCraft on Chrome or Edge. Subscribe from inside the extension after you install."
-  >
-    <div class="surface-card panel cta-band">
-      <div class="stack">
-        <h3>Start free, then grow into sync and AI Lab</h3>
-        <p class="section-copy">Get the Chrome Web Store or Edge Add-ons listing, then finish checkout inside the extension after install.</p>
+  <!-- Privacy (dark contrast section) -->
+  <section class="privacy-section" id="privacy">
+    <div class="section-inner">
+      <div class="section-intro center">
+        <p class="mono-eyebrow dark">PRIVACY BY DESIGN</p>
+        <h2 class="h2-dark">
+          Your clips are yours.
+          <span class="h2-sub-dark">Period.</span>
+        </h2>
+        <p class="section-lead dark-lead center-lead">
+          PasteCraft is built so your clipboard stays your business — on your
+          device first, and in your private account only when you ask for sync.
+        </p>
       </div>
-      <div class="button-row">
-        <a class="button" href={storeLinks.chrome} target="_blank" rel="noopener noreferrer">Install for Chrome</a>
-        <a class="ghost-button" href={storeLinks.edge} target="_blank" rel="noopener noreferrer">Install for Edge</a>
-        <a class="ghost-button" href="/pricing">View pricing</a>
+      <div class="privacy-grid">
+        {privacyPoints.map((point) => (
+          <div class="privacy-card">
+            <div class="icon-tile dark-tile">
+              <iconify-icon icon={point.icon} style="stroke-width: 1.5;"></iconify-icon>
+            </div>
+            <h3>{point.title}</h3>
+            <p>{point.copy}</p>
+          </div>
+        ))}
+      </div>
+      <p class="privacy-link-row">
+        <a href="/privacy">Read the full privacy policy</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section-block" id="pricing">
+    <div class="section-inner">
+      <div class="section-intro center">
+        <p class="mono-eyebrow">PRICING</p>
+        <h2>
+          Start free.
+          <span class="h2-sub">Upgrade when it pays off.</span>
+        </h2>
+        <p class="section-lead center-lead">
+          Every plan includes unlimited local clips, notes, and categories.
+        </p>
+      </div>
+      <div class="pricing-grid">
+        {pricingPlans.map((plan) => (
+          <div class:list={['plan-card', { popular: plan.popular }]}>
+            {plan.popular && <span class="popular-badge">Most popular</span>}
+            <p class="plan-tier">{plan.tier}</p>
+            <p class="plan-price">
+              {plan.price}
+              <span>{plan.cadence}</span>
+            </p>
+            <p class="plan-note">{plan.note}</p>
+            <ul>
+              {plan.features.slice(0, 5).map((feature) => (
+                <li>
+                  <iconify-icon icon="solar:check-circle-linear" style="stroke-width: 1.5;"></iconify-icon>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p class="pricing-link-row">
+        <a href="/pricing" class="btn-text">
+          Compare full plans
+          <iconify-icon icon="solar:arrow-right-linear" style="stroke-width: 1.5;"></iconify-icon>
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section-block" id="faq">
+    <div class="section-inner narrow-inner">
+      <div class="section-intro center">
+        <p class="mono-eyebrow">QUESTIONS</p>
+        <h2>
+          Answers, before
+          <span class="h2-sub">you ask.</span>
+        </h2>
+      </div>
+      <div class="faq-list">
+        {faqs.map((faq) => (
+          <details class="faq-item">
+            <summary>
+              <h3>{faq.q}</h3>
+              <iconify-icon icon="solar:alt-arrow-down-linear" style="stroke-width: 1.5;" class="faq-chevron"></iconify-icon>
+            </summary>
+            <p>{faq.a}</p>
+          </details>
+        ))}
       </div>
     </div>
-  </SectionShell>
+  </section>
 
-  <style>
-    .hero-stack {
-      display: grid;
-      gap: 1rem;
+  <!-- Final CTA -->
+  <section class="section-block final-cta">
+    <div class="section-inner narrow-inner center">
+      <h2>
+        Craft your clipboard.
+        <span class="h2-sub">It takes one copy.</span>
+      </h2>
+      <p class="section-lead center-lead">
+        Install PasteCraft free on Chrome or Edge. Your first clip saves
+        instantly — no account needed.
+      </p>
+      <div class="final-ctas">
+        <a href={storeLinks.chrome} target="_blank" rel="noopener noreferrer" class="btn-primary-lg">
+          Add to Chrome
+          <iconify-icon icon="solar:arrow-right-linear" style="stroke-width: 1.5;"></iconify-icon>
+        </a>
+        <a href={storeLinks.edge} target="_blank" rel="noopener noreferrer" class="btn-ghost-lg">
+          Get it on Edge
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { createCardDither } from '../features/starfield/create-card-dither.js';
+
+    document.querySelectorAll('.showcase-card').forEach((card) => {
+      if (card instanceof HTMLElement) createCardDither(card);
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .section-block {
+    margin: 0 auto;
+    padding: 5rem 1.5rem;
+    box-sizing: border-box;
+    max-width: min(80rem, 100%);
+    overflow-x: clip;
+  }
+
+  .section-inner,
+  .narrow-inner {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .narrow-inner {
+    max-width: 56rem;
+    margin: 0 auto;
+  }
+
+  .center {
+    text-align: center;
+  }
+
+  .section-intro {
+    max-width: 48rem;
+    margin-bottom: 4rem;
+  }
+
+  .section-intro.center {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mono-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--blue);
+    margin: 0 0 1rem;
+  }
+
+  .mono-eyebrow.dark {
+    color: var(--blue-soft);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: clamp(1.85rem, 1.2rem + 3.2vw, 3.75rem);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    color: var(--ink);
+    overflow-wrap: break-word;
+  }
+
+  .h2-sub {
+    display: block;
+    color: var(--ink);
+  }
+
+  .h2-dark {
+    color: #ffffff;
+  }
+
+  .h2-sub-dark {
+    display: block;
+    color: var(--blue-soft);
+  }
+
+  .section-lead {
+    margin: 1.25rem 0 0;
+    font-size: 1rem;
+    line-height: 2;
+    font-weight: 300;
+    color: #475569;
+    max-width: 42rem;
+  }
+
+  @media (min-width: 768px) {
+    .section-lead {
+      font-size: 1.125rem;
     }
+  }
 
-    .hero-matrix {
-      display: grid;
+  .center-lead {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .dark-lead {
+    color: #94a3b8;
+  }
+
+  .icon-tile {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 1rem;
+    background: var(--blue-faint);
+    border: 1px solid #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--blue);
+    font-size: 1.5rem;
+    box-shadow: inset 0 1px 0 #ffffff;
+    flex-shrink: 0;
+  }
+
+  .dark-tile {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(147, 197, 253, 0.25);
+    color: var(--blue-soft);
+    box-shadow: none;
+  }
+
+  .problem-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .problem-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1rem;
     }
+  }
 
-    .hero-panel strong {
-      display: block;
-      margin: 0.45rem 0 0.75rem;
-      font-size: 1.2rem;
-    }
-
-    .hero-panel p {
-      margin: 0;
-      color: var(--text-soft);
-      line-height: 1.7;
-    }
-
-    .hero-label {
-      color: var(--gold);
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-
-    .accent {
-      background:
-        linear-gradient(180deg, rgba(251, 191, 36, 0.1) 0%, rgba(8, 12, 42, 0) 100%),
-        var(--surface);
-      border-color: rgba(251, 191, 36, 0.2);
-    }
-
-    .browser-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.65rem;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.45rem;
-      padding: 0.45rem 0.85rem;
-      border-radius: 999px;
-      font-size: 0.82rem;
-      font-weight: 600;
-    }
-
-    .pill-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-    }
-
-    .pill-live {
-      background: rgba(37, 99, 235, 0.12);
-      border: 1px solid rgba(37, 99, 235, 0.4);
-      color: #93c5fd;
-      text-decoration: none;
-    }
-
-    .pill-live:hover {
-      border-color: rgba(37, 99, 235, 0.7);
-      color: #bfdbfe;
-    }
-
-    .pill-live .pill-dot {
-      background: #22d3ee;
-      box-shadow: 0 0 6px #22d3ee;
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-
-    .pill-soon {
-      background: rgba(251, 191, 36, 0.08);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      color: var(--gold);
-    }
-
-    .pill-soon .pill-dot {
-      background: var(--gold);
-      opacity: 0.6;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .stats-section {
-      padding: 2rem 0 3rem;
-    }
-
-    .stats-counter-grid {
-      display: grid;
+  @media (min-width: 1024px) {
+    .problem-grid {
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1.25rem;
+      gap: 2rem;
+    }
+  }
+
+  .problem-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid #ffffff;
+    padding: 1.5rem;
+    box-shadow: 0 10px 28px -20px rgba(15, 23, 42, 0.24), inset 0 1px 0 #ffffff;
+    transition: all 300ms ease;
+    min-width: 0;
+  }
+
+  .problem-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  .problem-card h3,
+  .workflow-card h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .problem-card p,
+  .workflow-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.75;
+    font-weight: 300;
+    color: #475569;
+  }
+
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .workflow-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2rem;
+    }
+  }
+
+  .workflow-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-radius: 2rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 1.75rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+    transition: all 300ms ease;
+    min-width: 0;
+  }
+
+  .workflow-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 34px -26px rgba(15, 23, 42, 0.25), inset 0 1px 0 #ffffff;
+  }
+
+  .mono-step {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: #94a3b8;
+    letter-spacing: -0.05em;
+    margin: 0;
+  }
+
+  .audience-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 900px) {
+    .audience-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2rem;
+    }
+  }
+
+  .audience-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    border-radius: 2rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 2rem;
+    text-decoration: none;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+    transition: all 300ms ease;
+    min-width: 0;
+  }
+
+  .audience-card:hover {
+    transform: translateY(-4px);
+    border-color: #bfdbfe;
+    box-shadow: 0 18px 38px -20px rgba(59, 130, 246, 0.25), inset 0 1px 0 #ffffff;
+  }
+
+  .audience-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .audience-head h3 {
+    margin: 0;
+    font-size: 1.375rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .audience-tagline {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 300;
+    color: #64748b;
+  }
+
+  .audience-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .audience-card li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 300;
+    color: #475569;
+    line-height: 1.6;
+  }
+
+  .audience-card li iconify-icon {
+    color: var(--blue);
+    font-size: 1rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  .audience-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--brand);
+    font-weight: 400;
+  }
+
+  .privacy-section {
+    background: linear-gradient(180deg, #020617 0%, #0f172a 100%);
+    padding: 6rem 1.5rem;
+    box-sizing: border-box;
+    overflow-x: clip;
+  }
+
+  .privacy-section .section-inner {
+    max-width: min(80rem, 100%);
+    margin: 0 auto;
+    min-width: 0;
+  }
+
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .privacy-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2rem;
+    }
+  }
+
+  .privacy-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.75rem;
+  }
+
+  .privacy-card h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+  }
+
+  .privacy-card p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.75;
+    font-weight: 300;
+    color: #94a3b8;
+  }
+
+  .privacy-link-row {
+    margin: 3rem 0 0;
+    text-align: center;
+  }
+
+  .privacy-link-row a {
+    color: var(--blue-soft);
+    font-size: 0.875rem;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(147, 197, 253, 0.4);
+    padding-bottom: 2px;
+    transition: color 200ms ease;
+  }
+
+  .privacy-link-row a:hover {
+    color: #ffffff;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 900px) {
+    .pricing-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 2rem;
+    }
+  }
+
+  .plan-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    border-radius: 2rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03), inset 0 1px 0 #ffffff;
+    transition: all 300ms ease;
+    min-width: 0;
+  }
+
+  .plan-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 34px -26px rgba(15, 23, 42, 0.25), inset 0 1px 0 #ffffff;
+  }
+
+  .plan-card.popular {
+    border-color: #bfdbfe;
+    background: linear-gradient(180deg, #eff6ff 0%, #ffffff 40%);
+    box-shadow: 0 18px 38px -20px rgba(59, 130, 246, 0.3), inset 0 1px 0 #ffffff;
+  }
+
+  .popular-badge {
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: -0.04em;
+    color: #ffffff;
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    border: 1px solid #1d4ed8;
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    white-space: nowrap;
+  }
+
+  .plan-tier {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: -0.04em;
+    color: var(--blue);
+  }
+
+  .plan-price {
+    margin: 0;
+    font-size: clamp(2.1rem, 1.5rem + 2vw, 2.75rem);
+    font-weight: 300;
+    letter-spacing: -0.05em;
+    color: var(--ink);
+  }
+
+  .plan-price span {
+    font-size: 0.875rem;
+    font-weight: 300;
+    color: #94a3b8;
+    letter-spacing: 0;
+  }
+
+  .plan-note {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    font-weight: 300;
+    color: #475569;
+  }
+
+  .plan-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .plan-card li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    font-size: 0.8125rem;
+    font-weight: 300;
+    color: #475569;
+    line-height: 1.55;
+  }
+
+  .plan-card li iconify-icon {
+    color: var(--blue);
+    font-size: 1rem;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+  }
+
+  .pricing-link-row {
+    margin: 3rem 0 0;
+    text-align: center;
+  }
+
+  .btn-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--brand);
+    font-size: 0.9375rem;
+    text-decoration: none;
+    transition: color 200ms ease;
+  }
+
+  .btn-text:hover {
+    color: var(--brand-deep);
+  }
+
+  .showcase-disclaimer {
+    margin: 1.75rem 0 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: -0.03em;
+    color: #94a3b8;
+  }
+
+  .faq-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .faq-item {
+    border-radius: 2rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid #ffffff;
+    box-shadow: 0 14px 34px -26px rgba(15, 23, 42, 0.25), inset 0 1px 0 #ffffff;
+    transition: background 300ms ease;
+  }
+
+  .faq-item[open] {
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .faq-item summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-item summary h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .faq-chevron {
+    color: #94a3b8;
+    font-size: 1.25rem;
+    transition: transform 300ms ease;
+    flex-shrink: 0;
+  }
+
+  .faq-item[open] .faq-chevron {
+    transform: rotate(180deg);
+  }
+
+  .faq-item > p {
+    margin: 0;
+    padding: 0 1.5rem 1.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.85;
+    font-weight: 300;
+    color: #475569;
+  }
+
+  .final-cta h2 {
+    margin-bottom: 1.25rem;
+  }
+
+  .final-ctas {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .final-ctas {
+      flex-direction: row;
+    }
+  }
+
+  .btn-primary-lg,
+  .btn-ghost-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    border-radius: 999px;
+    padding: 1rem 1.75rem;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    transition: all 300ms ease;
+  }
+
+  @media (min-width: 640px) {
+    .btn-primary-lg,
+    .btn-ghost-lg {
+      width: auto;
+    }
+  }
+
+  .btn-primary-lg {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    border: 1px solid #1d4ed8;
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(59, 130, 246, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .btn-primary-lg:hover {
+    background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+    transform: translateY(-2px);
+  }
+
+  .btn-ghost-lg {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05), inset 0 1px 0 #ffffff;
+  }
+
+  .btn-ghost-lg:hover {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 640px) {
+    .section-block {
+      padding: 3.5rem 1rem;
     }
 
-    .counter-card {
-      text-align: center;
-      border: 1px solid rgba(37, 99, 235, 0.25);
-      transition: transform 200ms ease, border-color 200ms ease;
-    }
-
-    .counter-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(251, 191, 36, 0.3);
-    }
-
-    .counter-number {
-      display: block;
-      font-size: 2.4rem;
-      font-weight: 800;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-      background: var(--gradient-gold);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .counter-label {
-      color: var(--text-muted);
-      font-size: 0.88rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .mockup-section {
-      background: linear-gradient(180deg, transparent 0%, rgba(13, 18, 64, 0.4) 50%, transparent 100%);
-    }
-
-    .mockup-shell {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3rem;
-      align-items: center;
-    }
-
-    .mockup-shell :global(.preview-3d) {
-      justify-self: end;
-    }
-
-    .testimonials-section {
-      padding: 4.5rem 0;
-    }
-
-    .section-header {
+    .section-intro {
       margin-bottom: 2.5rem;
     }
 
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.5rem;
+    .privacy-section {
+      padding: 4rem 1rem;
     }
 
-    .testimonial-card {
-      display: grid;
-      gap: 1rem;
-      border: 1px solid rgba(37, 99, 235, 0.22);
-      backdrop-filter: blur(20px);
-      background:
-        linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(13, 18, 64, 0.6) 100%),
-        var(--surface);
-      transition: transform 200ms ease, border-color 200ms ease;
+    .problem-card,
+    .workflow-card,
+    .audience-card,
+    .privacy-card,
+    .plan-card {
+      padding: 1.35rem;
+      border-radius: 1.5rem;
     }
 
-    .testimonial-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(251, 191, 36, 0.3);
+    .faq-item {
+      border-radius: 1.5rem;
     }
 
-    .testimonial-stars {
-      color: var(--gold);
-      font-size: 0.95rem;
-      letter-spacing: 0.05em;
-    }
-
-    .testimonial-quote {
-      margin: 0;
-      color: var(--text-soft);
-      line-height: 1.75;
-      font-style: italic;
-    }
-
-    .testimonial-author {
-      display: flex;
-      align-items: center;
+    .faq-item summary {
+      padding: 1.1rem 1.15rem;
       gap: 0.75rem;
     }
 
-    .testimonial-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid rgba(251, 191, 36, 0.3);
-      flex-shrink: 0;
+    .faq-item summary h3 {
+      font-size: 1rem;
     }
 
-    .testimonial-author strong {
-      display: block;
-      font-size: 0.92rem;
+    .faq-item > p {
+      padding: 0 1.15rem 1.25rem;
+      font-size: 0.875rem;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .section-block {
+      padding: 3rem 0.85rem;
     }
 
-    .testimonial-author span {
-      font-size: 0.78rem;
-      color: var(--text-muted);
+    .audience-card,
+    .plan-card {
+      padding: 1.15rem;
     }
-
-    .cta-band {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      border: 1px solid rgba(251, 191, 36, 0.2);
-      background:
-        linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%),
-        var(--surface);
-    }
-
-    .cta-band h3 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-
-    @media (max-width: 980px) {
-      .hero-matrix,
-      .stats-counter-grid,
-      .testimonials-grid,
-      .mockup-shell {
-        grid-template-columns: 1fr;
-      }
-
-      .mockup-shell :global(.preview-3d) {
-        justify-self: center;
-      }
-
-      .cta-band {
-        flex-direction: column;
-        align-items: stretch;
-      }
-    }
-  </style>
-</BaseLayout>
+  }
+</style>

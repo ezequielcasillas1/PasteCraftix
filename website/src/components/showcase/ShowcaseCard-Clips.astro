@@ -1,0 +1,170 @@
+---
+import ShowcaseChrome from './ShowcaseChrome.astro';
+
+const { class: className = '' } = Astro.props;
+
+const clips = [
+  {
+    title: 'debounce helper',
+    preview: 'export function debounce(fn, ms = 200) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }',
+    time: '2m ago',
+    category: 'Code',
+    categoryTone: 'blue',
+    liked: true,
+  },
+  {
+    title: 'Feynman on learning',
+    preview: '“What I cannot create, I do not understand.” — keep the proof until you can rebuild it from scratch.',
+    time: '18m ago',
+    category: 'Study',
+    categoryTone: 'indigo',
+    liked: false,
+  },
+  {
+    title: 'Stripe webhook docs',
+    preview: 'https://docs.stripe.com/webhooks — verify signatures before updating subscription_status.',
+    time: '1h ago',
+    category: 'Links',
+    categoryTone: 'slate',
+    liked: false,
+  },
+  {
+    title: 'Ship checklist',
+    preview: '□ Bump manifest version  □ Smoke login + one clip  □ Zip extension/ only',
+    time: '3h ago',
+    category: 'Todos',
+    categoryTone: 'emerald',
+    liked: true,
+  },
+  {
+    title: 'Founder update draft',
+    preview: 'Shipped clip sync hardening this week. Next: AI Lab credit packs + store upload 3.0.34.',
+    time: 'Yesterday',
+    category: 'Work',
+    categoryTone: 'amber',
+    liked: false,
+  },
+];
+
+const toneClass = {
+  blue: 'bg-blue-50 text-blue-600 border-blue-100',
+  indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+  slate: 'bg-slate-100 text-slate-600 border-slate-200',
+  emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  amber: 'bg-amber-50 text-amber-700 border-amber-100',
+};
+---
+
+<div class:list={['showcase-card', className]}>
+  <div
+    class="w-[min(100%,420px)] rounded-2xl bg-white border border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.03),0_18px_38px_-20px_rgba(15,23,42,0.18),inset_0_1px_0_white] overflow-hidden"
+  >
+    <ShowcaseChrome active="clips" />
+
+    <!-- Clips tab body: one-click copy bar + clip chip rows (mirrors #clipsTab) -->
+    <div class="px-2.5 pt-2 pb-2 bg-gradient-to-b from-slate-50/40 to-white">
+      <div class="flex items-center justify-between gap-2 rounded-xl bg-white border border-slate-200/90 px-2.5 py-2 mb-2 shadow-[inset_0_1px_0_white]">
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium text-slate-900 leading-tight">One-click copy</p>
+          <p class="text-[10px] text-slate-400 font-light leading-tight mt-0.5">Click a clip below to copy it instantly.</p>
+        </div>
+        <span class="relative inline-flex w-8 h-[18px] rounded-full bg-blue-500 shrink-0" aria-hidden="true">
+          <span class="absolute top-[2px] right-[2px] w-[14px] h-[14px] rounded-full bg-white shadow"></span>
+        </span>
+      </div>
+
+      <ul class="space-y-1.5" role="list">
+        {
+          clips.map((clip) => (
+            <li class="clip-chip flex items-center gap-1.5 rounded-2xl border border-[#e0e7ef] bg-gradient-to-br from-[#fafbfc] to-white px-2.5 py-2 shadow-[0_2px_8px_rgba(15,23,42,0.03),inset_0_1px_0_white]">
+              <span class="w-3.5 h-3.5 rounded border border-slate-300 bg-white shrink-0" aria-hidden="true" />
+              <span
+                class:list={[
+                  'w-6 h-6 rounded-md flex items-center justify-center shrink-0',
+                  clip.liked ? 'text-rose-500 bg-rose-50' : 'text-slate-300',
+                ]}
+                title={clip.liked ? 'Liked' : 'Like'}
+              >
+                <iconify-icon icon="solar:heart-linear" style="stroke-width: 1.5;" class="text-[13px]" />
+              </span>
+
+              <span class="min-w-0 flex-1">
+                <span class="block text-[12.5px] font-medium text-slate-900 truncate leading-tight">{clip.title}</span>
+                <span class="clip-preview block mt-0.5 text-[11px] leading-[1.35] text-slate-500 font-light">{clip.preview}</span>
+                <span
+                  class:list={[
+                    'inline-flex items-center rounded-full border px-1.5 py-px mt-1 font-[\'JetBrains_Mono\',monospace] text-[9px] tracking-[-0.03em]',
+                    toneClass[clip.categoryTone],
+                  ]}
+                >
+                  {clip.category}
+                </span>
+              </span>
+
+              <span class="font-['JetBrains_Mono',monospace] text-[10px] text-slate-400 tracking-[-0.04em] shrink-0 self-start mt-0.5">
+                {clip.time}
+              </span>
+
+              <!-- Real chip actions: edit title, organize, Google search, open, share, AI, remove -->
+              <span class="clip-actions flex items-center gap-0.5 text-slate-400 shrink-0" aria-hidden="true">
+                <span class="clip-action" title="Edit clip title">
+                  <iconify-icon icon="solar:pen-new-square-linear" style="stroke-width: 1.5;" class="text-[12px]" />
+                </span>
+                <span class="clip-action" title="Notes and categories">
+                  <iconify-icon icon="solar:folders-linear" style="stroke-width: 1.5;" class="text-[12px]" />
+                </span>
+                <span class="clip-action" title="Search on Google">
+                  <img src="/assets/google-logo.svg" alt="" class="w-3 h-3" />
+                </span>
+                <span class="clip-action" title="Open clip">
+                  <iconify-icon icon="solar:magnifer-linear" style="stroke-width: 1.5;" class="text-[12px]" />
+                </span>
+                <span class="clip-action" title="Share clip">
+                  <iconify-icon icon="solar:link-linear" style="stroke-width: 1.5;" class="text-[12px]" />
+                </span>
+                <span class="clip-action" title="AI actions">
+                  <iconify-icon icon="solar:star-shine-linear" style="stroke-width: 1.5;" class="text-[12px]" />
+                </span>
+                <span class="clip-action text-slate-400" title="Remove clip">×</span>
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+  .clip-preview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+  }
+
+  .clip-action {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  @media (max-width: 480px) {
+    .clip-actions .clip-action:nth-child(2),
+    .clip-actions .clip-action:nth-child(5) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .clip-actions .clip-action:nth-child(1),
+    .clip-actions .clip-action:nth-child(4) {
+      display: none;
+    }
+  }
+</style>

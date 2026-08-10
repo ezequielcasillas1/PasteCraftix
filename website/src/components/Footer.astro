@@ -5,7 +5,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
 <footer class="site-footer">
   <div class="container footer-shell surface-card">
     <div class="footer-brand">
-      <img src="/logo.svg" alt="PasteCraft logo" width="38" height="38" style="border-radius:10px;flex-shrink:0;box-shadow:0 0 14px rgba(251,191,36,0.18);" />
+      <img src="/logo.svg" alt="PasteCraft logo" width="38" height="38" style="border-radius:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(15,23,42,0.12);" />
       <div>
         <strong>PasteCraft</strong>
         <p>Save what you copy. Find it later. Keep it organized.</p>
@@ -46,30 +46,29 @@ import { footerLinks, socialLinks } from '../data/site.js';
 
   .footer-shell {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     gap: 1.5rem;
     padding: 1.5rem;
-    border-top: 2px solid rgba(251, 191, 36, 0.3);
-    box-shadow: 0 -4px 32px rgba(251, 191, 36, 0.06), var(--shadow-md);
-    background:
-      linear-gradient(180deg, rgba(13, 18, 64, 0.95) 0%, rgba(8, 12, 42, 0.98) 100%),
-      var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    background: var(--surface-strong);
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .footer-brand {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
+    min-width: 0;
   }
 
   .footer-brand strong {
     display: block;
     margin-bottom: 0.6rem;
     font-size: 1.05rem;
-    background: linear-gradient(135deg, #f0f4ff 30%, var(--gold));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    letter-spacing: -0.02em;
+    color: var(--ink);
   }
 
   .footer-brand p {
@@ -87,8 +86,11 @@ import { footerLinks, socialLinks } from '../data/site.js';
 
   .footer-links h3 {
     margin: 0 0 0.85rem;
-    font-size: 0.95rem;
-    color: var(--gold);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    color: var(--brand);
   }
 
   .footer-links ul {
@@ -107,7 +109,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
 
   .footer-links a:hover,
   .footer-links a:focus-visible {
-    color: var(--gold);
+    color: var(--brand);
   }
 
   .footer-bottom {
@@ -125,6 +127,27 @@ import { footerLinks, socialLinks } from '../data/site.js';
     .footer-shell,
     .footer-links {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .footer-shell {
+      padding: 1.15rem;
+      gap: 1.15rem;
+    }
+
+    .footer-brand {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .footer-brand p {
+      max-width: none;
+    }
+
+    .footer-links {
+      text-align: center;
     }
   }
 </style>

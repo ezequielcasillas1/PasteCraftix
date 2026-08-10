@@ -1,0 +1,174 @@
+---
+import ShowcaseChrome from './ShowcaseChrome.astro';
+
+const { class: className = '' } = Astro.props;
+
+const notes = [
+  {
+    type: 'note',
+    title: 'Exam prep — Bio 201',
+    description: 'Mitosis stages, Krebs cycle shortcuts, and lab quiz flash prompts…',
+    date: '3/12/2026',
+    count: '5 items',
+    accent: 'blue',
+  },
+  {
+    type: 'note',
+    title: 'Listing description draft',
+    description: 'Mid-century oak desk — warm grain, dove-tailed drawers, lightly restored…',
+    date: '3/10/2026',
+    count: '3 items',
+    accent: 'sky',
+  },
+  {
+    type: 'album',
+    title: 'Product launch kit',
+    description: 'Grouped clips, mock URLs, and screenshot captures for the spring drop.',
+    date: '3/8/2026',
+    count: '8 items',
+    accent: 'indigo',
+  },
+  {
+    type: 'note',
+    title: 'Meeting notes',
+    description: 'Sync with design — Aura hero, showcase cards, ship Notes mock first.',
+    date: '3/6/2026',
+    count: '2 items',
+    accent: 'emerald',
+  },
+];
+---
+
+<div class:list={['showcase-card', className]}>
+  <article
+    class="notes-showcase relative w-full max-w-[400px] overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 shadow-[0_2px_8px_rgba(15,23,42,0.03),inset_0_1px_0_white]"
+  >
+    <!-- Real popup chrome: header + full tab nav (Notes active) -->
+    <ShowcaseChrome active="notes" />
+
+    <div class="space-y-3 p-4">
+      <!-- Info strip -->
+      <div
+        class="flex items-start gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_2px_8px_rgba(15,23,42,0.03),inset_0_1px_0_white]"
+      >
+        <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+          <iconify-icon icon="solar:info-circle-linear" style="stroke-width: 1.5;" class="text-base"></iconify-icon>
+        </span>
+        <p class="text-xs leading-5 font-light text-slate-500">
+          <span class="font-normal text-slate-800">Notes & Albums</span>
+          — jot thoughts, attach clips, and group related notes into collections.
+        </p>
+      </div>
+
+      <!-- Actions row -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-2.5 py-1.5 text-[11px] font-normal text-white shadow-[0_8px_16px_-12px_rgba(37,99,235,0.7),inset_0_1px_0_rgba(255,255,255,0.3)]"
+          >
+            <iconify-icon icon="solar:notebook-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+            New Note
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-normal text-slate-600 shadow-[inset_0_1px_0_white]"
+          >
+            <iconify-icon icon="solar:folder-with-files-linear" style="stroke-width: 1.5;" class="text-sm text-blue-500"></iconify-icon>
+            New Album
+          </span>
+        </div>
+        <div class="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-[inset_0_1px_0_white]">
+          <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
+            <iconify-icon icon="solar:widget-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+          </span>
+          <span class="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400">
+            <iconify-icon icon="solar:hamburger-menu-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+          </span>
+        </div>
+      </div>
+
+      <!-- Search (static) -->
+      <div
+        class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-[inset_0_1px_0_white]"
+      >
+        <iconify-icon icon="solar:magnifer-linear" style="stroke-width: 1.5;" class="text-base text-slate-400"></iconify-icon>
+        <span class="font-['JetBrains_Mono',monospace] text-[11px] tracking-[-0.03em] text-slate-400">
+          Search notes & albums…
+        </span>
+      </div>
+
+      <!-- Note cards -->
+      <div class="grid gap-2.5">
+        {
+          notes.map((note) => (
+            <div
+              class:list={[
+                'rounded-2xl border bg-white p-3 shadow-[0_2px_8px_rgba(15,23,42,0.03),inset_0_1px_0_white]',
+                note.type === 'album' ? 'border-indigo-200' : 'border-slate-200',
+              ]}
+            >
+              <div class="mb-2 flex items-start justify-between gap-2">
+                <span
+                  class:list={[
+                    'flex h-7 w-7 items-center justify-center rounded-xl',
+                    note.accent === 'blue' && 'bg-blue-50 text-blue-500',
+                    note.accent === 'sky' && 'bg-sky-50 text-sky-500',
+                    note.accent === 'indigo' && 'bg-indigo-50 text-indigo-500',
+                    note.accent === 'emerald' && 'bg-emerald-50 text-emerald-500',
+                  ]}
+                >
+                  <iconify-icon
+                    icon={note.type === 'album' ? 'solar:folder-open-linear' : 'solar:notebook-linear'}
+                    style="stroke-width: 1.5;"
+                    class="text-base"
+                  />
+                </span>
+
+                <div class="flex items-center gap-1 text-slate-400">
+                  <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-50">
+                    <iconify-icon icon="solar:pen-linear" style="stroke-width: 1.5;" class="text-xs" />
+                  </span>
+                  <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-50">
+                    <iconify-icon icon="solar:file-download-linear" style="stroke-width: 1.5;" class="text-xs" />
+                  </span>
+                </div>
+              </div>
+
+              <div class="mb-1 flex items-center gap-2">
+                <h4 class="text-sm font-normal tracking-tight text-slate-950">{note.title}</h4>
+                {
+                  note.type === 'album' && (
+                    <span class="rounded-full border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 font-['JetBrains_Mono',monospace] text-[9px] tracking-[-0.03em] text-indigo-500">
+                      ALBUM
+                    </span>
+                  )
+                }
+              </div>
+
+              <p class="text-xs leading-5 font-light text-slate-500">{note.description}</p>
+
+              <div class="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                <span class="font-['JetBrains_Mono',monospace] text-[10px] tracking-[-0.04em] text-slate-400">
+                  {note.date}
+                </span>
+                <span class="font-['JetBrains_Mono',monospace] text-[10px] tracking-[-0.04em] text-slate-500">
+                  {note.count}
+                </span>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </article>
+</div>
+
+<style>
+  .notes-showcase {
+    font-feature-settings: 'ss01' on;
+  }
+
+  .notes-showcase :global(iconify-icon) {
+    display: inline-flex;
+    line-height: 1;
+  }
+</style>
