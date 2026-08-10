@@ -41,12 +41,15 @@ async function startPopup(PasteCraftPopupClass) {
   popupBootStarted = true;
 
   await ensureSupabaseGlobals();
+  /* Header decor is decorative-only — never block boot on it. */
+  import('../header/header.starlight.js')
+    .then((mod) => mod.initHeaderStarlight())
+    .catch(() => {});
   try {
     await ensurePasteCraftCrud();
     PasteCraftPopupClass._appPeel = await loadPopupAppPeel();
     window.pasteCraftPopup = new PasteCraftPopupClass();
-  } catch (error) {
-    console.error('? Popup initialization failed:', error);
+  } catch (error) {    console.error('? Popup initialization failed:', error);
     document.body.innerHTML = `
       <div style="padding: 20px; font-family: Arial, sans-serif;">
         <h2><i data-lucide="clipboard"></i> PasteCraft</h2>

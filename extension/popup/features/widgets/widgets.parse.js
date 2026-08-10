@@ -69,7 +69,7 @@ function _toExternalPlan(raw) {
     .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
     .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
     .replace(/javascript:/gi, '');
-  const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;padding:12px;overflow:auto;background:#0b1220;color:#e2e8f0;font-family:system-ui,sans-serif;}</style></head><body>${cleaned}</body></html>`;
+  const srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;padding:12px;overflow:auto;background:#ffffff;color:#0f172a;font-family:system-ui,sans-serif;}</style></head><body>${cleaned}</body></html>`;
   return { ok: true, mode: 'external', srcdoc, raw };
 }
 

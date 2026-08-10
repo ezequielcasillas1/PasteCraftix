@@ -27,6 +27,37 @@
   box-shadow: 0 4px 20px var(--pc-glow);
 }
 
+/* Dithered shooting-star decor — behavior owned by the shared slice
+   popup/features/header/header.starlight.js (light + blue). Blue gets the
+   luminous THEME_TUNING.blue palette; these rules only place the canvas. */
+[data-theme="blue"] .header {
+  position: relative;
+}
+
+[data-theme="blue"] .header .header-starlight {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="blue"] .header .header-starlight-fallback {
+  position: absolute;
+  top: 2px;
+  right: 150px;
+  height: calc(100% - 4px);
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="blue"] .header > * {
+  position: relative;
+  z-index: 1;
+}
+
 [data-theme="blue"] .header-model-picker {
   display: flex !important;
   visibility: visible;
