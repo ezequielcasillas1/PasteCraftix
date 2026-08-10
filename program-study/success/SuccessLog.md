@@ -373,3 +373,9 @@
 **Status:** SUCCESS
 **Files:** clipboard-markup.js, capture.handler.js, markup.enrich.js, clips.viewer.js, widget.*
 **Result:** Widget/page MathJax selection recovers TeX; clips render LaTeX; debug probes removed.
+
+### [2026-08-10] - Classic light mode UI + starlight
+**Status:** SUCCESS
+**Files:** popup.html, header.starlight.js, popup.boot.js, widgets.parse.js, theme-blue-phase2.css, star-shooting.png
+**Result:** Light white AI Lab/widget cards; baby-blue header with dithered shooting star (touch-reactive); star also on blue premium via THEME_TUNING.
+

@@ -4695,6 +4695,73 @@
             color: #0f172a;
             background: #fff;
         }
+
+        /* Classic light mode: baby-blue header + dithered shooting star canvas */
+        html[data-theme="light"] .header {
+            position: relative;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 52%, #93c5fd 100%);
+            color: #1e3a8a;
+        }
+
+        html[data-theme="light"] .header .header-starlight {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        html[data-theme="light"] .header .header-starlight-fallback {
+            position: absolute;
+            top: 2px;
+            right: 150px;
+            height: calc(100% - 4px);
+            opacity: 0.85;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        html[data-theme="light"] .header > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        html[data-theme="light"] .header .logo {
+            filter: drop-shadow(1px 1px 2px rgba(30, 58, 138, 0.28));
+        }
+
+        html[data-theme="light"] .header .last-capture {
+            opacity: 0.85;
+        }
+
+        html[data-theme="light"] .header .sync-queue-count {
+            background: rgba(30, 58, 138, 0.12);
+        }
+
+        html[data-theme="light"] .header-model-label {
+            color: #1e3a8a;
+        }
+
+        html[data-theme="light"] .header-model-select {
+            border: 1px solid rgba(30, 58, 138, 0.35);
+            background: rgba(255, 255, 255, 0.78);
+            color: #1e3a8a;
+        }
+
+        html[data-theme="light"] .header-model-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.22);
+        }
+
+        html[data-theme="light"] .header .settings-btn {
+            background: rgba(255, 255, 255, 0.5);
+            color: #1e3a8a;
+        }
+
+        html[data-theme="light"] .header .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.78);
+        }
         
         .profile-section {
             margin-bottom: 32px;
@@ -6720,6 +6787,55 @@
             color: var(--pc-text-soft, #94a3b8);
         }
 
+        /* Classic light mode: white AI model cards, dark readable text */
+        html[data-theme="light"] .ai-lab-model-block {
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+        }
+
+        html[data-theme="light"] .ai-lab-model-heading {
+            color: #475569;
+        }
+
+        html[data-theme="light"] .ai-model-card {
+            border-color: #e2e8f0;
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.07);
+        }
+
+        html[data-theme="light"] .ai-model-card:hover:not(:disabled) {
+            border-color: #93c5fd;
+            box-shadow:
+                0 0 0 1px rgba(59, 130, 246, 0.18),
+                0 4px 12px rgba(59, 130, 246, 0.14);
+        }
+
+        html[data-theme="light"] .ai-model-card.is-active {
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow:
+                0 0 0 1px rgba(37, 99, 235, 0.28),
+                0 4px 14px rgba(37, 99, 235, 0.16);
+        }
+
+        html[data-theme="light"] .ai-model-card-label {
+            color: #0f172a;
+        }
+
+        html[data-theme="light"] .ai-model-card-cost {
+            color: #2563eb;
+        }
+
+        html[data-theme="light"] .ai-model-card-strength {
+            color: #64748b;
+        }
+
+        html[data-theme="light"] .ai-lab-model-hint {
+            color: #64748b;
+        }
+
         .ai-lab-banner-stack {
             display: flex;
             flex-direction: column;
@@ -7058,6 +7174,23 @@
         .ai-lab-title-model-select option {
             color: #0f172a;
             background: #fff;
+        }
+
+        /* Classic light mode: white AI Lab title model pill */
+        html[data-theme="light"] .ai-lab-title-model-label {
+            color: #475569;
+        }
+
+        html[data-theme="light"] .ai-lab-title-model-select {
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        }
+
+        html[data-theme="light"] .ai-lab-title-model-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.22);
         }
 
         .ai-lab-credits {
@@ -10416,6 +10549,20 @@
             line-height: 1.4;
             color: #94a3b8;
             max-width: 320px;
+        }
+        /* Classic light mode: white external-widget placeholder, dark text */
+        html[data-theme="light"] .pc-widget-external {
+            background: #f8fafc;
+            color: #0f172a;
+        }
+        html[data-theme="light"] .pc-widget-external-icon {
+            color: #2563eb;
+        }
+        html[data-theme="light"] .pc-widget-external-title {
+            color: #0f172a;
+        }
+        html[data-theme="light"] .pc-widget-external-blurb {
+            color: #64748b;
         }
         .pc-widget-open-btn {
             margin-top: 4px;

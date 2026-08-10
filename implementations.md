@@ -652,3 +652,9 @@
 **Status:** SUCCESS
 **Files:** extension/manifest.json @ ef647fb
 **Result:** Patch release ships confirm-email redirect to pastecraft.com/account, already_registered guard, session-gated subscription, account verified landing.
+
+### [2026-08-10] - Classic light mode UI + starlight
+**Status:** SUCCESS
+**Files:** popup.html, header.starlight.js, popup.boot.js, widgets.parse.js, theme-blue-phase2.css, star-shooting.png
+**Result:** Launch-ready light wrap and starlight header; user verified UI iterations.
+
