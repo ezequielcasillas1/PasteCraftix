@@ -1,0 +1,162 @@
+---
+import ShowcaseChrome from './ShowcaseChrome.astro';
+
+const { class: className = '' } = Astro.props;
+
+const categories = [
+  {
+    name: 'Research',
+    count: 42,
+    icon: 'solar:magnifer-linear',
+    tone: 'blue',
+    expanded: false,
+  },
+  {
+    name: 'Code Snippets',
+    count: 87,
+    icon: 'solar:code-linear',
+    tone: 'indigo',
+    expanded: true,
+  },
+  {
+    name: 'Listings',
+    count: 19,
+    icon: 'solar:shop-linear',
+    tone: 'emerald',
+    expanded: false,
+  },
+  {
+    name: 'Study',
+    count: 56,
+    icon: 'solar:notebook-linear',
+    tone: 'amber',
+    expanded: false,
+  },
+  {
+    name: 'Inbox',
+    count: 11,
+    icon: 'solar:inbox-linear',
+    tone: 'slate',
+    expanded: false,
+  },
+];
+
+const toneClass = {
+  blue: 'bg-blue-50 text-blue-600 border-blue-100',
+  indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+  emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+  amber: 'bg-amber-50 text-amber-700 border-amber-100',
+  slate: 'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+const dotClass = {
+  blue: 'bg-blue-500',
+  indigo: 'bg-indigo-500',
+  emerald: 'bg-emerald-500',
+  amber: 'bg-amber-500',
+  slate: 'bg-slate-400',
+};
+---
+
+<div class:list={['showcase-card', className]}>
+  <div
+    class="categories-shell w-[min(100%,400px)] rounded-2xl bg-white border border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.03),0_18px_38px_-20px_rgba(15,23,42,0.18),inset_0_1px_0_white] overflow-hidden"
+  >
+    <!-- Real popup chrome: header + full tab nav (Categories active) -->
+    <ShowcaseChrome active="categories" />
+
+    <!-- Create category affordance (static) -->
+    <div class="px-3 pt-3 pb-2 bg-slate-50/60 border-b border-slate-100">
+      <div
+        class="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-3 py-2 text-white shadow-[0_6px_14px_-8px_rgba(59,130,246,0.55),inset_0_1px_0_rgba(255,255,255,0.28)]"
+        aria-hidden="true"
+      >
+        <iconify-icon icon="solar:add-circle-linear" style="stroke-width: 1.5;" class="text-base"></iconify-icon>
+        <span class="text-xs font-medium tracking-tight">Create Category</span>
+      </div>
+    </div>
+
+    <!-- Category rows -->
+    <ul class="categories-list p-2.5 space-y-1.5 bg-gradient-to-b from-slate-50/40 to-white" role="list">
+      {
+        categories.map((category) => (
+          <li
+            class:list={[
+              'rounded-xl bg-white border px-2.5 py-2 shadow-[0_2px_8px_rgba(15,23,42,0.03),inset_0_1px_0_white]',
+              category.expanded ? 'border-blue-200' : 'border-slate-200/90',
+            ]}
+          >
+            <div class="flex items-center gap-2">
+              <span
+                class:list={[
+                  'w-8 h-8 rounded-lg border flex items-center justify-center shrink-0',
+                  toneClass[category.tone],
+                ]}
+              >
+                <iconify-icon icon={category.icon} style="stroke-width: 1.5;" class="text-[15px]"></iconify-icon>
+              </span>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class:list={['w-1.5 h-1.5 rounded-full shrink-0', dotClass[category.tone]]}></span>
+                  <p class="text-[12.5px] font-medium text-slate-900 truncate leading-tight">{category.name}</p>
+                </div>
+                <p class="font-['JetBrains_Mono',monospace] text-[10px] text-slate-400 tracking-[-0.04em] mt-0.5">
+                  {category.count}/150 clips
+                </p>
+              </div>
+
+              <div class="flex items-center gap-0.5 text-slate-400 shrink-0" aria-hidden="true">
+                <span class="w-6 h-6 rounded-md flex items-center justify-center hover:bg-slate-50">
+                  <iconify-icon icon="solar:pen-linear" style="stroke-width: 1.5;" class="text-[13px]"></iconify-icon>
+                </span>
+                <span class="w-6 h-6 rounded-md flex items-center justify-center text-slate-400">
+                  <iconify-icon icon="solar:trash-bin-trash-linear" style="stroke-width: 1.5;" class="text-[13px]"></iconify-icon>
+                </span>
+                <span
+                  class:list={[
+                    'w-6 h-6 rounded-md flex items-center justify-center text-slate-400 transition-transform',
+                    category.expanded && 'rotate-90 text-blue-500',
+                  ]}
+                >
+                  <iconify-icon icon="solar:alt-arrow-right-linear" style="stroke-width: 1.5;" class="text-[13px]"></iconify-icon>
+                </span>
+              </div>
+            </div>
+
+            {
+              category.expanded && (
+                <div class="mt-2 pt-2 border-t border-slate-100 space-y-1.5">
+                  <div class="flex items-center gap-2 rounded-lg bg-slate-50/80 border border-slate-100 px-2 py-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
+                    <p class="text-[11px] text-slate-600 font-light truncate">debounce helper · 2m ago</p>
+                  </div>
+                  <div class="flex items-center gap-2 rounded-lg bg-slate-50/80 border border-slate-100 px-2 py-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
+                    <p class="text-[11px] text-slate-600 font-light truncate">retry with backoff · 1h ago</p>
+                  </div>
+                </div>
+              )
+            }
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="px-3.5 py-2 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between">
+      <span class="font-['JetBrains_Mono',monospace] text-[10px] text-slate-400 tracking-[-0.04em]">
+        Organize by folder
+      </span>
+      <span class="inline-flex items-center gap-1 text-[10px] text-blue-600 font-medium">
+        <iconify-icon icon="solar:folder-with-files-linear" style="stroke-width: 1.5;" class="text-xs"></iconify-icon>
+        150 per category
+      </span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .categories-list {
+    max-height: 340px;
+  }
+</style>

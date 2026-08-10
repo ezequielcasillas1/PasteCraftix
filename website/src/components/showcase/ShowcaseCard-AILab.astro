@@ -1,0 +1,262 @@
+---
+import ShowcaseChrome from './ShowcaseChrome.astro';
+
+const { class: className = '' } = Astro.props;
+---
+
+<div class:list={['showcase-card', className]}>
+  <div class="ailab-shell">
+    <!-- Mini popup chrome -->
+    <div class="ailab-popup">
+      <!-- Real popup chrome: header + full tab nav (AI Lab active) -->
+      <ShowcaseChrome active="ai" />
+
+      <!-- Credits chip row -->
+      <div class="ailab-credits-row">
+        <div class="ailab-credits">
+          <iconify-icon icon="solar:stars-linear" style="stroke-width: 1.5;" class="text-xs text-blue-500"></iconify-icon>
+          <span>3,940 credits</span>
+        </div>
+      </div>
+
+      <!-- Input area -->
+      <div class="ailab-input">
+        <p class="ailab-input-label">Paste content to summarize</p>
+        <div class="ailab-textarea" aria-hidden="true">
+          Package last week’s customer calls into a launch positioning memo. Capture objections, buying triggers, and the three phrases that kept coming up in demos.
+        </div>
+      </div>
+
+      <!-- Action pills -->
+      <div class="ailab-actions">
+        <span class="ailab-pill ailab-pill-active">
+          <iconify-icon icon="solar:notebook-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+          Summarize
+        </span>
+        <span class="ailab-pill">
+          <iconify-icon icon="solar:chart-2-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+          Breakdown
+        </span>
+        <span class="ailab-pill">
+          <iconify-icon icon="solar:magic-stick-3-linear" style="stroke-width: 1.5;" class="text-sm"></iconify-icon>
+          Magic Craft
+        </span>
+      </div>
+
+      <!-- Result card -->
+      <div class="ailab-result">
+        <div class="ailab-result-head">
+          <div class="ailab-result-icon">
+            <iconify-icon icon="solar:stars-linear" style="stroke-width: 1.5;" class="text-base text-blue-500"></iconify-icon>
+          </div>
+          <div>
+            <p class="ailab-result-title">Summary</p>
+            <p class="ailab-result-meta">3 bullets · GPT-4o · 40 cr</p>
+          </div>
+        </div>
+        <ul class="ailab-bullets">
+          <li>
+            <span class="ailab-dot"></span>
+            Buyers want clearer launch messaging before they commit.
+          </li>
+          <li>
+            <span class="ailab-dot"></span>
+            Objections cluster around timing, proof, and onboarding effort.
+          </li>
+          <li>
+            <span class="ailab-dot"></span>
+            Reuse the three demo phrases as the memo’s positioning spine.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .showcase-card {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .ailab-shell {
+    border-radius: 1rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    box-shadow:
+      0 2px 8px rgba(15, 23, 42, 0.03),
+      inset 0 1px 0 #fff;
+  }
+
+  .ailab-popup {
+    width: min(100%, 400px);
+    margin-inline: auto;
+    border-radius: 0.875rem;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 42%);
+    border: 1px solid #e2e8f0;
+    padding: 0.875rem;
+    display: grid;
+    gap: 0.75rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+    box-shadow:
+      0 18px 40px -28px rgba(15, 23, 42, 0.35),
+      inset 0 1px 0 #fff;
+  }
+
+  .ailab-popup :global(.chrome) {
+    margin: -0.875rem -0.875rem 0;
+    width: calc(100% + 1.75rem);
+    max-width: none;
+  }
+
+  .ailab-credits-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .ailab-credits {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 0.25rem 0.55rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.625rem;
+    letter-spacing: -0.03em;
+    color: #64748b;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .ailab-input {
+    border-radius: 0.875rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 0.7rem 0.75rem;
+    box-shadow:
+      0 2px 8px rgba(15, 23, 42, 0.03),
+      inset 0 1px 0 #fff;
+  }
+
+  .ailab-input-label {
+    margin: 0 0 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.625rem;
+    letter-spacing: -0.03em;
+    color: #94a3b8;
+  }
+
+  .ailab-textarea {
+    min-height: 4.5rem;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    font-weight: 300;
+    color: #475569;
+  }
+
+  .ailab-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .ailab-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #64748b;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .ailab-pill-active {
+    color: #fff;
+    border-color: #2563eb;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow:
+      0 8px 18px -12px rgba(37, 99, 235, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .ailab-result {
+    border-radius: 0.875rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    box-shadow:
+      0 2px 8px rgba(15, 23, 42, 0.03),
+      inset 0 1px 0 #fff;
+  }
+
+  .ailab-result-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .ailab-result-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.75rem;
+    background: #eff6ff;
+    border: 1px solid #dbeafe;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 #fff;
+  }
+
+  .ailab-result-title {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #0f172a;
+  }
+
+  .ailab-result-meta {
+    margin: 0.15rem 0 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.625rem;
+    letter-spacing: -0.03em;
+    color: #94a3b8;
+  }
+
+  .ailab-bullets {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .ailab-bullets li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    font-weight: 300;
+    color: #64748b;
+  }
+
+  .ailab-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    margin-top: 0.35rem;
+    border-radius: 999px;
+    background: #60a5fa;
+    flex-shrink: 0;
+  }
+</style>

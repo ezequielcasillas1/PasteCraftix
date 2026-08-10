@@ -379,3 +379,8 @@
 **Files:** popup.html, header.starlight.js, popup.boot.js, widgets.parse.js, theme-blue-phase2.css, star-shooting.png
 **Result:** Light white AI Lab/widget cards; baby-blue header with dithered shooting star (touch-reactive); star also on blue premium via THEME_TUNING.
 
+
+### [2026-08-10] - Website Aura Redesign
+**Status:** SUCCESS
+**Files:** website/src/**, website/astro.config.mjs, website/package.json
+**Result:** Aura light redesign live with starfield, particle-formed showcase cards, responsive 320–1440, mockup disclaimer. User verified.
