@@ -1,45 +1,43 @@
-# PasteCraft — Production Extension Update Protocol
+# PasteCraft ? Production Extension Update Protocol
 
 **Purpose:** Upload a new package to the **existing** Chrome Web Store and Edge Add-ons listings (never create a new listing).  
 **Authority:** `.cursor/rules/production-publishing-safety.mdc`  
-**Package script:** `scripts/package-extension.ps1` → `releases/pastecraft-v<version>.zip`
+**Package script:** `scripts/package-extension.ps1` ? `releases/pastecraft-v<version>.zip`
 
 ---
 
-## Release: 2026-08-08 (v3.0.34) � Auth hydrate + viewer stack
+## Release: 2026-08-12 (v3.0.35) - Category separators + AI Lab gateway
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.34` (store last published `3.0.29`; do not reuse 3.0.30�3.0.33) |
-| Package | `releases/pastecraft-v3.0.34.zip` � same zip for Chrome **and** Edge |
+| Manifest version | `3.0.35` (store last published `3.0.29`; do not reuse 3.0.30-3.0.34) |
+| Package | `releases/pastecraft-v3.0.35.zip` - same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 | Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
-| Section I triggers | **Full Section G checklist** � manifest bump + auth hydrate + prior 3.0.33 popup/viewer changes |
+| Section I triggers | **Full Section G checklist** - manifest bump + categories separators + AI gateway/sync |
 
 ### What's in this update (since 3.0.29)
 
 | Area | Change |
 |---|---|
-| Auth | Preflight Auth before setSession � fewer Failed to fetch / session hydrate errors on popup open |
-| Viewer shell | Wrap CODE/text in every modal (no horizontal chop); in-module expand + pop-out |
+| Categories | Named section separators inside category units (CRUD + local/cloud persist) |
+| AI Lab | Shared AI gateway models/routing for Magic Craft / summary workflows |
+| Auth | Preflight Auth before setSession - fewer Failed to fetch / session hydrate errors |
+| Viewer shell | Wrap CODE/text in every modal; in-module expand + pop-out |
 | Notes | Write / PDF attach + attachment viewer |
-| UI location | Remember popup location |
-| Math / clips | MathJax / LaTeX clipboard markup for clips |
-| AI Lab | History reference image; model persists; MODEL label spacing |
-| Prior packets | Includes 3.0.30�3.0.33 prep (Drop ghost, offscreen clipboard, etc.) |
+| Prior packets | Includes 3.0.30-3.0.34 prep (viewer shell, auth hydrate, Drop ghost, etc.) |
 
 ### Store "What's new" (paste into both dashboards)
 
 ```
-PasteCraft 3.0.34
+PasteCraft 3.0.35
 
-� Fewer login/session errors on popup open (auth hydrate preflight)
-� Clip/module viewers wrap long CODE text (no sideways scroll)
-� Expand-in-module + pop-out controls on every modal
-� Notes write / PDF attach + attachment viewer
-� Remembers popup UI location
-� Math/LaTeX clips, AI history image, model persist (from Aug packets)
-� Drop ghost + reliable clipboard writes (from 3.0.30 prep)
+- Category section separators for study organization
+- AI Lab gateway model routing improvements
+- Fewer login/session errors on popup open (auth hydrate)
+- Clip/module viewers wrap long CODE text; expand + pop-out
+- Notes write / PDF attach + attachment viewer
+- Remembers popup UI location; Math/LaTeX clips (from Aug packets)
 ```
 
 ### Chrome certification note (permissions)
@@ -49,17 +47,61 @@ offscreen is required for reliable clipboard image writes. clipboardRead remains
 ```
 
 ---
-## Release: 2026-08-08 (v3.0.33) — Viewer shell + Aug stack
+
+## Release: 2026-08-08 (v3.0.34) - Auth hydrate + viewer stack
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.33` (store last published `3.0.29`; do not reuse 3.0.30–3.0.32) |
-| Package | `releases/pastecraft-v3.0.33.zip` — same zip for Chrome **and** Edge |
+| Manifest version | `3.0.34` (store last published `3.0.29`; do not reuse 3.0.30-3.0.33) |
+| Package | `releases/pastecraft-v3.0.34.zip` - same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 | Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
-| Section I triggers | **Full Section G checklist** — manifest bump + viewer-shell / popup modal chrome |
+| Section I triggers | **Full Section G checklist** - manifest bump + auth hydrate + prior 3.0.33 popup/viewer changes |
 
-### What’s in this update (since 3.0.29)
+### What's in this update (since 3.0.29)
+
+| Area | Change |
+|---|---|
+| Auth | Preflight Auth before setSession - fewer Failed to fetch / session hydrate errors on popup open |
+| Viewer shell | Wrap CODE/text in every modal (no horizontal chop); in-module expand + pop-out |
+| Notes | Write / PDF attach + attachment viewer |
+| UI location | Remember popup location |
+| Math / clips | MathJax / LaTeX clipboard markup for clips |
+| AI Lab | History reference image; model persists; MODEL label spacing |
+| Prior packets | Includes 3.0.30-3.0.33 prep (Drop ghost, offscreen clipboard, etc.) |
+
+### Store "What's new" (paste into both dashboards)
+
+```
+PasteCraft 3.0.34
+
+- Fewer login/session errors on popup open (auth hydrate preflight)
+- Clip/module viewers wrap long CODE text (no sideways scroll)
+- Expand-in-module + pop-out controls on every modal
+- Notes write / PDF attach + attachment viewer
+- Remembers popup UI location
+- Math/LaTeX clips, AI history image, model persist (from Aug packets)
+- Drop ghost + reliable clipboard writes (from 3.0.30 prep)
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
+```
+
+---
+## Release: 2026-08-08 (v3.0.33) ? Viewer shell + Aug stack
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.33` (store last published `3.0.29`; do not reuse 3.0.30?3.0.32) |
+| Package | `releases/pastecraft-v3.0.33.zip` ? same zip for Chrome **and** Edge |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** ? manifest bump + viewer-shell / popup modal chrome |
+
+### What?s in this update (since 3.0.29)
 
 | Area | Change |
 |---|---|
@@ -68,19 +110,19 @@ offscreen is required for reliable clipboard image writes. clipboardRead remains
 | UI location | Remember popup location |
 | Math / clips | MathJax / LaTeX clipboard markup for clips |
 | AI Lab | History reference image; model persists; MODEL label spacing |
-| Prior packets | Includes 3.0.30–3.0.32 prep (Drop ghost, offscreen clipboard, etc.) |
+| Prior packets | Includes 3.0.30?3.0.32 prep (Drop ghost, offscreen clipboard, etc.) |
 
-### Store “What’s new” (paste into both dashboards)
+### Store ?What?s new? (paste into both dashboards)
 
 ```
 PasteCraft 3.0.33
 
-• Clip/module viewers wrap long CODE text (no sideways scroll)
-• Expand-in-module + pop-out controls on every modal
-• Notes write / PDF attach + attachment viewer
-• Remembers popup UI location
-• Math/LaTeX clips, AI history image, model persist (from Aug packets)
-• Drop ghost + reliable clipboard writes (from 3.0.30 prep)
+? Clip/module viewers wrap long CODE text (no sideways scroll)
+? Expand-in-module + pop-out controls on every modal
+? Notes write / PDF attach + attachment viewer
+? Remembers popup UI location
+? Math/LaTeX clips, AI history image, model persist (from Aug packets)
+? Drop ghost + reliable clipboard writes (from 3.0.30 prep)
 ```
 
 ### Chrome certification note (permissions)
@@ -93,35 +135,35 @@ offscreen is required for reliable clipboard image writes. clipboardRead remains
 
 ## Prior release: 2026-08-07 (v3.0.32)
 
-Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.32.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.35. Keep `releases/pastecraft-v3.0.32.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-06 (v3.0.31)
 
-Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.31.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.35. Keep `releases/pastecraft-v3.0.31.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-03 (v3.0.30)
 
-Local/prep packet. Superseded for upload by 3.0.34. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
+Local/prep packet. Superseded for upload by 3.0.35. Keep `releases/pastecraft-v3.0.30.zip` for rollback if needed.
 
 ---
 
 ## Prior release: 2026-08-03 (v3.0.29)
 
-On store as last published until 3.0.34 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
+On store as last published until 3.0.35 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
 
 ---
 
 ## Prior release: 2026-07-23 (v3.0.24)
 
-Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.34 (`offscreen` required since 3.0.28).
+Superseded for store upload. Keep zip for rollback if needed. Permission narrowing (optional clipboardRead / optional all_urls host) remains the baseline shape through 3.0.35 (`offscreen` required since 3.0.28).
 
 ---
 
-## Phase 0 — Preflight (every update)
+## Phase 0 ? Preflight (every update)
 
 - [ ] On `main`, clean, pulled: `git checkout main && git pull origin main`
 - [ ] Confirm `extension/manifest.json` `version` > last published store version
@@ -133,11 +175,11 @@ Superseded for store upload. Keep zip for rollback if needed. Permission narrowi
   - `https://<CHROME_ID>.chromiumapp.org/`
   - `https://fblihhfoojjhmhnhilhhejdcigjmmncc.chromiumapp.org/`
 
-If version was already published: bump patch (`3.0.23` → `3.0.24`) before packaging. Never reuse a submitted version.
+If version was already published: bump patch (`3.0.23` ? `3.0.24`) before packaging. Never reuse a submitted version.
 
 ---
 
-## Phase 1 — Package
+## Phase 1 ? Package
 
 ```powershell
 .\scripts\package-extension.ps1
@@ -149,9 +191,9 @@ If version was already published: bump patch (`3.0.23` → `3.0.24`) before pack
 
 ---
 
-## Phase 2 — Full Section G smoke (required this release)
+## Phase 2 ? Full Section G smoke (required this release)
 
-Load **previous published** unpacked → create test data → replace with **new** files → reload.
+Load **previous published** unpacked ? create test data ? replace with **new** files ? reload.
 
 | Step | Chrome Stable | Edge Stable |
 |---|---|---|
@@ -160,10 +202,10 @@ Load **previous published** unpacked → create test data → replace with **new
 | Clip title edit saves | [ ] | [ ] |
 | 1 category create / rename / delete (no sync error) | [ ] | [ ] |
 | Floating widget appears / opens on a normal page | [ ] | [ ] |
-| Capture Tools → accept optional site access when prompted | [ ] | [ ] |
-| PDF clipboard / capture path — accept optional clipboard when prompted | [ ] | [ ] |
-| Deny clipboard optional → toast explains need (no silent break) | [ ] | [ ] |
-| Image Picker / region capture → preview saves | [ ] | [ ] |
+| Capture Tools ? accept optional site access when prompted | [ ] | [ ] |
+| PDF clipboard / capture path ? accept optional clipboard when prompted | [ ] | [ ] |
+| Deny clipboard optional ? toast explains need (no silent break) | [ ] | [ ] |
+| Image Picker / region capture ? preview saves | [ ] | [ ] |
 | After login, sync hydrates without stuck session | [ ] | [ ] |
 | Notes image picker / annotate (smoke) | [ ] | [ ] |
 | No console errors on popup open | [ ] | [ ] |
@@ -171,13 +213,13 @@ Load **previous published** unpacked → create test data → replace with **new
 
 ---
 
-## Phase 3 — Upload (same zip, both stores)
+## Phase 3 ? Upload (same zip, both stores)
 
 ### Edge Add-ons (live)
 
-1. Partner Center → PasteCraft → **Update** / new submission  
+1. Partner Center ? PasteCraft ? **Update** / new submission  
 2. Upload `releases/pastecraft-v3.0.33.zip`  
-3. Paste “What’s new” above  
+3. Paste ?What?s new? above  
 4. Submit for certification  
 
 Dashboard: https://partner.microsoft.com/dashboard/microsoftedge/  
@@ -185,9 +227,9 @@ Store: https://microsoftedge.microsoft.com/addons/detail/pastecraft/fblihhfoojjh
 
 ### Chrome Web Store
 
-1. Dev Console → existing PasteCraft listing → **Package** → Upload new package  
+1. Dev Console ? existing PasteCraft listing ? **Package** ? Upload new package  
 2. Same zip as Edge  
-3. Paste same “What’s new”  
+3. Paste same ?What?s new?  
 4. Submit for review  
 
 Dashboard: https://chrome.google.com/webstore/devconsole  
@@ -196,7 +238,7 @@ Dashboard: https://chrome.google.com/webstore/devconsole
 
 ---
 
-## Phase 4 — After approval
+## Phase 4 ? After approval
 
 - [ ] Install from each store URL (not unpacked) and re-smoke login + one clip
 - [ ] Update `.cursor/rules/production-publishing-safety.mdc`:
@@ -217,7 +259,7 @@ Superseded by 3.0.24 before store upload if 3.0.23 was only a local prep (always
 
 ---
 
-## Prior release note (v3.0.22 — 2026-07-20)
+## Prior release note (v3.0.22 ? 2026-07-20)
 
 Package kept at `releases/pastecraft-v3.0.22.zip` for rollback.
 
@@ -225,13 +267,13 @@ Package kept at `releases/pastecraft-v3.0.22.zip` for rollback.
 
 ## Repeatable checklist (future updates)
 
-1. Land fixes on `main` → verify SUCCESS  
+1. Land fixes on `main` ? verify SUCCESS  
 2. Bump `extension/manifest.json` version  
-3. Package → smoke (Section G if Section I triggers)  
+3. Package ? smoke (Section G if Section I triggers)  
 4. Upload **same** zip to Chrome + Edge  
 5. Record published version + archive zip  
 
-**Section I → full smoke:** manifest edit, storage key/shape change, `onInstalled`/`onStartup`, auth flow, clips/categories/settings schema migration, host_permissions / externally_connectable.
+**Section I ? full smoke:** manifest edit, storage key/shape change, `onInstalled`/`onStartup`, auth flow, clips/categories/settings schema migration, host_permissions / externally_connectable.
 
 **Otherwise:** short smoke (login, 1 clip, 1 setting) is enough.
 
