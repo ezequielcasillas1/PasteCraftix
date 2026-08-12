@@ -139,9 +139,14 @@ export function _buildCreditCostHtml() {
   const provider = cfg.provider || 'openai';
   const costs = AI_CREDIT_COSTS[provider] || AI_CREDIT_COSTS.openai;
   const presets = AI_PROVIDER_PRESETS[provider] || AI_PROVIDER_PRESETS.openai;
-  const providerName = provider === 'google'
-    ? 'Google Gemini'
-    : (provider === 'anthropic' ? 'Anthropic' : 'OpenAI');
+  const providerName = ({
+    google: 'Google Gemini',
+    anthropic: 'Anthropic',
+    deepseek: 'DeepSeek',
+    alibaba: 'Qwen',
+    inclusionai: 'Ling',
+    openai: 'OpenAI',
+  })[provider] || 'OpenAI';
   const lines = presets
     .filter(p => costs[p.value] !== undefined)
     .map(p => {

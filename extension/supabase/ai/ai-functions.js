@@ -1,6 +1,18 @@
 /** Vertical slice: ai-functions.js — Edge Function callers (URL + anon/JWT only). */
 const AI_TEXT_INPUT_MAX_CHARS = 12000;
 
+function _throwAiEdgeError(errorBody, fallback) {
+  const body = errorBody && typeof errorBody === 'object' ? errorBody : {};
+  const detail = String(body.error || body.message || body.msg || '').trim();
+  const providerBody = String(body.providerBody || '').trim();
+  const combined = [detail || fallback, providerBody].filter(Boolean).join(' — ');
+  const err = new Error(combined || fallback);
+  if (body.code) err.aiErrorCode = body.code;
+  if (body.providerStatus != null) err.providerStatus = body.providerStatus;
+  if (providerBody) err.providerBody = providerBody;
+  throw err;
+}
+
 export const aiFunctionsMixin = {
   _buildCategorizeClipPayload(clips, textLimit = 200) {
     return (Array.isArray(clips) ? clips : []).map((c) => {
@@ -63,8 +75,7 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
-        const detail = errorBody.error || errorBody.message || errorBody.msg;
-        throw new Error(detail || `AI name generation failed (${response.status})`);
+        _throwAiEdgeError(errorBody, `AI name generation failed (${response.status})`);
       }
 
       const data = await response.json();
@@ -96,7 +107,7 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || response.statusText || 'Vision analysis failed');
+        _throwAiEdgeError(errorData, response.statusText || 'Vision analysis failed');
       }
 
       const data = await response.json();
@@ -121,7 +132,7 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'AI categorization failed');
+        _throwAiEdgeError(error, 'AI categorization failed');
       }
 
       const data = await response.json();
@@ -149,7 +160,7 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'AI category suggestions failed');
+        _throwAiEdgeError(errorBody, 'AI category suggestions failed');
       }
 
       const data = await response.json();
@@ -174,14 +185,15 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'AI format failed');
+        _throwAiEdgeError(error, 'AI format failed');
       }
 
       const data = await response.json();
       return Array.isArray(data.formatted) ? data.formatted : [];
     } catch (error) {
       console.error('AI format failed:', error);
-      return [];
+      // Re-throw so AI Lab can show model-not-capable / real failures (no silent []).
+      throw error;
     }
   },
 
@@ -206,7 +218,7 @@ export const aiFunctionsMixin = {
         if (response.status === 402 || /no text credits/i.test(String(detail))) {
           throw new Error('Need more AI credits');
         }
-        throw new Error(detail);
+        _throwAiEdgeError(error, 'AI refactor failed');
       }
 
       const data = await response.json();
@@ -274,8 +286,8 @@ export const aiFunctionsMixin = {
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Breakdown failed');
+        const error = await response.json().catch(() => ({}));
+        _throwAiEdgeError(error, 'Breakdown failed');
       }
 
       const data = await response.json();
@@ -304,7 +316,7 @@ export const aiFunctionsMixin = {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || 'Failed to generate questions');
+        _throwAiEdgeError(error, 'Failed to generate questions');
       }
 
       const data = await response.json();
@@ -331,8 +343,8 @@ export const aiFunctionsMixin = {
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate summary');
+        const error = await response.json().catch(() => ({}));
+        _throwAiEdgeError(error, 'Failed to generate summary');
       }
 
       const data = await response.json();

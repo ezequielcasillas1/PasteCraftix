@@ -55,19 +55,28 @@ function costHtml(model, unlimited) {
   return `<span class="ai-model-card-cost">${getShowcaseCreditCost(model)} cr</span>`;
 }
 
-function renderShowcaseCard(model, ctx) {
+const SHOWCASE_STAGGER_MS = 70;
+
+function renderShowcaseCard(model, ctx, index) {
   const active = model.id === ctx.selected.id ? ' is-active' : '';
   const locked = ctx.allowed ? '' : ' is-locked';
   const disabled = ctx.allowed ? '' : 'disabled';
   const pressed = model.id === ctx.selected.id ? 'true' : 'false';
   const id = escapeHtml(model.id);
+  const brand = escapeHtml(model.brandName || model.label);
+  const realModel = escapeHtml(model.modelName || '');
   const label = escapeHtml(model.label);
+  const delay = `${Math.max(0, index) * SHOWCASE_STAGGER_MS}ms`;
+  const nameHtml = realModel
+    ? `<span class="ai-model-card-brand">${brand}</span>` +
+      `<span class="ai-model-card-model"> · ${realModel}</span>`
+    : `<span class="ai-model-card-brand">${brand}</span>`;
   return (
-    `<div class="ai-model-card-wrap${active}${locked}">` +
+    `<div class="ai-model-card-wrap is-stagger${active}${locked}" style="--ai-card-stagger:${delay}">` +
     `<button type="button" class="ai-model-card${active}${locked}"` +
     ` data-action="select-ai-model" data-model-id="${id}"` +
-    ` ${disabled} aria-pressed="${pressed}">` +
-    `<span class="ai-model-card-label">${label}</span>` +
+    ` ${disabled} aria-pressed="${pressed}" aria-label="${label}">` +
+    `<span class="ai-model-card-label">${nameHtml}</span>` +
     `${costHtml(model, ctx.unlimited)}` +
     `<span class="ai-model-card-strength">${escapeHtml(model.strength)}</span>` +
     `</button>` +
@@ -82,7 +91,8 @@ function fillShowcase(ctx) {
   const showcase = ctx.showcase;
   if (!showcase) return;
   showcase.hidden = false;
-  showcase.innerHTML = ctx.models.map((m) => renderShowcaseCard(m, ctx)).join('');
+  // Re-assign innerHTML so stagger animation replays on each render.
+  showcase.innerHTML = ctx.models.map((m, i) => renderShowcaseCard(m, ctx, i)).join('');
 }
 
 function fillHint(ctx) {

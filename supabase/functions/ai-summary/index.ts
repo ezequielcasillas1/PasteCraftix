@@ -212,7 +212,9 @@ async function runVisionSummary(opts: {
   text: string
   dataUrl: string
 }): Promise<string> {
-  if (opts.models.provider === 'google') {
+  const viaGateway = String(opts.models.apiBaseUrl || '').includes('ai-gateway.vercel.sh')
+  // Native Gemini path needs GOOGLE_AI_KEY; gateway uses OpenAI-compat vision.
+  if (opts.models.provider === 'google' && !viaGateway) {
     return await callGeminiNativeVision({
       apiKey: opts.apiKey,
       model: opts.model,

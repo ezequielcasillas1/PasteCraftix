@@ -4,11 +4,28 @@ export const aiWorkflowMixin = {
 // =====================================================
 
 _normalizeAiWorkflow(raw) {
-  const allowedProviders = new Set(['openai', 'google', 'anthropic']);
+  const allowedProviders = new Set([
+    'openai',
+    'google',
+    'anthropic',
+    'deepseek',
+    'alibaba',
+    'inclusionai',
+  ]);
   const presetsByProvider = {
     openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
-    google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_36_flash']),
+    google: new Set([
+      'default',
+      'cheapest',
+      'gemini_pro',
+      'latest',
+      'gemini_36_flash',
+      'gemini_35_flash_lite',
+    ]),
     anthropic: new Set(['default']),
+    deepseek: new Set(['default', 'cheapest', 'deepseek_v4_flash']),
+    alibaba: new Set(['default', 'qwen_flash']),
+    inclusionai: new Set(['default', 'ling_flash']),
   };
 
   const obj = (raw && typeof raw === 'object') ? raw : {};

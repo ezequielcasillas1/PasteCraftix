@@ -5,8 +5,19 @@ export type AiWorkflowPreset =
   | 'latest'
   | 'gpt4o'
   | 'gemini_pro'
-  | 'gemini_36_flash';
-export type AiWorkflowProvider = 'openai' | 'google' | 'anthropic';
+  | 'gemini_36_flash'
+  | 'gemini_35_flash_lite'
+  | 'deepseek_v4_flash'
+  | 'qwen_flash'
+  | 'ling_flash';
+
+export type AiWorkflowProvider =
+  | 'openai'
+  | 'google'
+  | 'anthropic'
+  | 'deepseek'
+  | 'alibaba'
+  | 'inclusionai';
 
 export type AiWorkflowConfig = {
   enabled?: boolean;
@@ -54,11 +65,22 @@ export const TEXT_CREDITS_CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set(['openai', 'google', 'anthropic']);
+const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set([
+  'openai',
+  'google',
+  'anthropic',
+  'deepseek',
+  'alibaba',
+  'inclusionai',
+]);
+
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
   openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
-  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_36_flash']),
+  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_36_flash', 'gemini_35_flash_lite']),
   anthropic: new Set(['default']),
+  deepseek: new Set(['default', 'cheapest', 'deepseek_v4_flash']),
+  alibaba: new Set(['default', 'qwen_flash']),
+  inclusionai: new Set(['default', 'ling_flash']),
 };
 
 export function normalizeProvider(provider: unknown): AiWorkflowProvider {
@@ -87,9 +109,23 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     gemini_pro: 350,
     latest: 100,
     gemini_36_flash: 40,
+    gemini_35_flash_lite: 25,
   },
   anthropic: {
     default: 40,
+  },
+  deepseek: {
+    default: 20,
+    cheapest: 20,
+    deepseek_v4_flash: 20,
+  },
+  alibaba: {
+    default: 20,
+    qwen_flash: 20,
+  },
+  inclusionai: {
+    default: 15,
+    ling_flash: 15,
   },
 };
 

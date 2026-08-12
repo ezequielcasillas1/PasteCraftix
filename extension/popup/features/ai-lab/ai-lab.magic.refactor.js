@@ -3,6 +3,7 @@ import { getClipIdKey } from '../clips/clips.state.js';
 import { deleteClipsByIdKeys } from '../clips/clips.service.js';
 import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
 import { isOutOfCreditsError } from './ai-lab.credit-error.js';
+import { isModelNotCapableError, MODEL_NOT_CAPABLE_MESSAGE } from './ai-lab.model-error.js';
 
 export function _resolveRefactorSourceClip(app, clip) {
   const linkedSourceId = clip?.meta?.craftRefactorSourceId;
@@ -61,6 +62,9 @@ export function _resolveRefactorSkipToast(skipped, refactorError) {
     if (isOutOfCreditsError({ message: refactorError }) || /need more ai credits/i.test(refactorError)) {
       return 'Need more AI credits — buy a pack or wait for your monthly reset';
     }
+    if (isModelNotCapableError({ message: refactorError }) || /not capable/i.test(refactorError)) {
+      return MODEL_NOT_CAPABLE_MESSAGE;
+    }
     if (/failed to fetch|network|timeout/i.test(refactorError)) {
       return 'Refactor failed — network error reaching Supabase. Check connection and retry.';
     }
@@ -77,6 +81,8 @@ export function _resolveRefactorSkipToast(skipped, refactorError) {
   switch (outcome) {
     case 'no_credits':
       return 'Need more AI credits — buy a pack or wait for your monthly reset';
+    case 'model_not_capable':
+      return MODEL_NOT_CAPABLE_MESSAGE;
     case 'unchanged':
       return 'AI returned the same text — try a different level or a longer clip';
     case 'minimal_change':

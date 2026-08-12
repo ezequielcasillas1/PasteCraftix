@@ -4,6 +4,13 @@ import {
   CLAUDE_HAIKU_MODEL,
   REFACTOR_OPENAI_FALLBACK_MODEL,
 } from './ai_workflow_types.ts'
+import {
+  AI_GATEWAY_BASE_URL,
+  ANTHROPIC_HAIKU_GATEWAY,
+  hasAiGatewayKey,
+  peekAiGatewayKey,
+  toGatewayModelId,
+} from './ai_gateway.ts'
 
 export type ChatCompletionResult = { data: any; usedModel: string }
 
@@ -19,7 +26,8 @@ function looksLikeMissingModelError(msg: string): boolean {
 /** GPT-5 / reasoning models reject legacy max_tokens on chat/completions. */
 function usesMaxCompletionTokens(model: string): boolean {
   const m = String(model || '').toLowerCase()
-  return m.startsWith('gpt-5') || /^o[134]/.test(m)
+  const bare = m.includes('/') ? m.slice(m.indexOf('/') + 1) : m
+  return bare.startsWith('gpt-5') || /^o[134]/.test(bare)
 }
 
 function looksLikeMaxTokensParamError(msg: string): boolean {
@@ -43,10 +51,19 @@ export function normalizeChatCompletionPayload(
   return out
 }
 
+function stripGatewayPrefix(model: string): { providerHint: string; bare: string; gateway: boolean } {
+  const m = String(model || '').trim()
+  const slash = m.indexOf('/')
+  if (slash <= 0) return { providerHint: '', bare: m, gateway: false }
+  return { providerHint: m.slice(0, slash), bare: m.slice(slash + 1), gateway: true }
+}
+
 function googleFallbackChain(model: string): string[] {
   const m = String(model || '').trim()
   if (!m) return ['gemini-3.6-flash', 'gemini-2.0-flash']
-  if (m === 'gemini-3.6-flash') return ['gemini-3.6-flash', 'gemini-2.0-flash']
+  if (m === 'gemini-3.6-flash' || m === 'gemini-3.5-flash-lite') {
+    return [m, 'gemini-2.0-flash']
+  }
   return [m, 'gemini-2.0-flash']
 }
 
@@ -64,12 +81,24 @@ function openAiFallbackChain(model: string): string[] {
   return OPENAI_FALLBACK_CHAINS[m] ?? [m, 'gpt-4o-mini']
 }
 
+function bareFallbackChain(bare: string, provider: AiWorkflowProvider): string[] {
+  if (provider === 'google') return googleFallbackChain(bare)
+  if (provider === 'deepseek') return [bare || 'deepseek-v4-flash-0731']
+  if (provider === 'alibaba') return [bare || 'qwen3.7-flash']
+  if (provider === 'inclusionai') return [bare || 'ling-3.0-flash']
+  if (provider === 'anthropic') return [bare || CLAUDE_HAIKU_MODEL]
+  return openAiFallbackChain(bare)
+}
+
 export function getChatModelFallbackChain(
   model: string,
   provider: AiWorkflowProvider = 'openai',
 ): string[] {
-  if (provider === 'google') return googleFallbackChain(model)
-  return openAiFallbackChain(model)
+  const { bare, gateway, providerHint } = stripGatewayPrefix(model)
+  const effectiveProvider = (providerHint || provider) as AiWorkflowProvider
+  const chain = bareFallbackChain(bare, effectiveProvider)
+  if (!gateway) return chain
+  return chain.map((c) => toGatewayModelId(effectiveProvider, c))
 }
 
 function payloadHasVisionContent(payload: any): boolean {
@@ -182,9 +211,10 @@ async function fetchOpenAiChatSingleModel(
   apiKey: string,
   payload: any,
   model: string,
+  baseUrl: string = 'https://api.openai.com/v1',
 ): Promise<ChatCompletionResult> {
   const bodyPayload = normalizeChatCompletionPayload(payload, model)
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+  const resp = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -205,20 +235,50 @@ function refactorOpenAiMissingKeyError(forceOpenAi: boolean): Error {
   return new Error(forceOpenAi ? 'OpenAI API key not configured' : 'Anthropic and OpenAI unavailable')
 }
 
+async function fetchRefactorViaGateway(payload: any, model: string, provider: AiWorkflowProvider) {
+  const gatewayKey = peekAiGatewayKey()
+  if (!gatewayKey) return null
+  const resolved: ResolvedAiModels = {
+    provider,
+    preset: 'default',
+    chatTextModel: model,
+    chatVisionModel: model,
+    imageGenerationModel: 'gpt-image-1',
+    apiBaseUrl: AI_GATEWAY_BASE_URL,
+    apiKeyEnv: 'AI_GATEWAY_API_KEY',
+  }
+  const result = await fetchChatCompletionsWithModelFallback(gatewayKey, payload, model, resolved)
+  return { ...result, provider }
+}
+
 async function fetchRefactorOpenAiFallback(payload: any, forceOpenAi: boolean) {
+  if (hasAiGatewayKey()) {
+    const viaGw = await fetchRefactorViaGateway(
+      payload,
+      toGatewayModelId('openai', REFACTOR_OPENAI_FALLBACK_MODEL),
+      'openai',
+    )
+    if (viaGw) return viaGw
+  }
   const openAiKey = Deno.env.get('OPENAI_API_KEY') || ''
   if (!openAiKey) throw refactorOpenAiMissingKeyError(forceOpenAi)
   const result = await fetchOpenAiChatSingleModel(openAiKey, payload, REFACTOR_OPENAI_FALLBACK_MODEL)
   return { ...result, provider: 'openai' as const }
 }
 
-/** Refactor path: Claude Haiku primary, GPT-4o fallback (no 4o-mini). */
+/** Refactor path: Claude Haiku primary (gateway preferred), GPT-4o fallback. */
 export async function fetchRefactorChatCompletions(
   payload: any,
   options?: { forceOpenAi?: boolean },
 ) {
   const forceOpenAi = !!options?.forceOpenAi
   if (!forceOpenAi) {
+    if (hasAiGatewayKey()) {
+      try {
+        const viaGw = await fetchRefactorViaGateway(payload, ANTHROPIC_HAIKU_GATEWAY, 'anthropic')
+        if (viaGw) return viaGw
+      } catch (_) { /* fall through to native Anthropic / OpenAI */ }
+    }
     const claudeResult = await fetchClaudeChat(payload, CLAUDE_HAIKU_MODEL)
     if (claudeResult) return { ...claudeResult, provider: 'anthropic' as const }
   }

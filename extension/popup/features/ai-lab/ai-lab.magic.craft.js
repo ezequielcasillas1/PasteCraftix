@@ -29,6 +29,10 @@ import {
   _applyAiFormatRefactorAndCleanup,
   _saveCraftFormatHistory,
 } from './ai-lab.magic.craft.format.js';
+import {
+  isModelNotCapableError,
+  MODEL_NOT_CAPABLE_MESSAGE,
+} from './ai-lab.model-error.js';
 import { _runAiRefactoring } from './ai-lab.magic.craft.refactor-run.js';
 import {
   _archiveYoungerDuplicates,
@@ -167,7 +171,16 @@ async function _runMagicAiPhase(input) {
     if (_isRefactoringMode(settings)) {
       await _runRefactorAiPhase({ app, settings, aiEligibleTargets, stats, phase });
     } else {
-      phase.aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
+      try {
+        phase.aiFormatMap = await _runAiFormatting(aiEligibleTargets, hasAi);
+      } catch (err) {
+        const msg = isModelNotCapableError(err)
+          ? MODEL_NOT_CAPABLE_MESSAGE
+          : String(err?.message || 'AI format failed');
+        stats.formatError = msg;
+        // Surface clearly — do not silently continue as if format succeeded.
+        app?.showToast?.(msg, 'error');
+      }
     }
   } else if (_isRefactoringMode(settings)) {
     _warnSkippedRefactorPhase(aiEligibleTargets, hasAi);
