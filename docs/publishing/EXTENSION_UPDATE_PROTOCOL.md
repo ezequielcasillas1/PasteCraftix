@@ -10,13 +10,13 @@
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.35` (store last published `3.0.29`; do not reuse 3.0.30-3.0.34) |
+| Manifest version | `3.0.35` (store last published `3.0.34`; do not reuse 3.0.34) |
 | Package | `releases/pastecraft-v3.0.35.zip` - same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 | Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
 | Section I triggers | **Full Section G checklist** - manifest bump + categories separators + AI gateway/sync |
 
-### What's in this update (since 3.0.29)
+### What's in this update (since 3.0.34)
 
 | Area | Change |
 |---|---|
@@ -153,7 +153,7 @@ Local/prep packet. Superseded for upload by 3.0.35. Keep `releases/pastecraft-v3
 
 ## Prior release: 2026-08-03 (v3.0.29)
 
-On store as last published until 3.0.35 is approved. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
+Superseded; store is now `3.0.34`. Keep `releases/pastecraft-v3.0.29.zip` for rollback.
 
 ---
 

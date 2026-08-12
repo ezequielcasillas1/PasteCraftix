@@ -1,7 +1,7 @@
 
 ### Aug 12, 2026 - Production package v3.0.35
 **Files:** extension/manifest.json, docs/publishing/*, production-publishing-safety.mdc
-**Result:** Bump 3.0.34 → 3.0.35 for store upload. Category separators (#196) + AI Lab gateway (#197). Last published stays 3.0.29 until approved.
+**Result:** Bump 3.0.34 → 3.0.35 for store upload. Category separators (#196) + AI Lab gateway (#197). Last published is 3.0.34 until 3.0.35 approved.
 
 ### Aug 12, 2026 - Category Separator section arrows
 **Files:** categories.separators.section.js, categories.separators.render/events/constants.js, categories.controller.js, popup.js/html
