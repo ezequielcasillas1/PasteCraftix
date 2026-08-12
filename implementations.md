@@ -1,4 +1,8 @@
 
+### Aug 12, 2026 - Production package v3.0.35
+**Files:** extension/manifest.json, docs/publishing/*, production-publishing-safety.mdc
+**Result:** Bump 3.0.34 → 3.0.35 for store upload. Category separators (#196) + AI Lab gateway (#197). Last published stays 3.0.29 until approved.
+
 ### Aug 12, 2026 - Category Separator section arrows
 **Files:** categories.separators.section.js, categories.separators.render/events/constants.js, categories.controller.js, popup.js/html
 **Result:** One toggle chevron (flips) + lead arrow by grip; both highlight master clips. Pending SUCCESS verify.
