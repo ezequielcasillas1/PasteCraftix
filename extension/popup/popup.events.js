@@ -12,6 +12,7 @@ export function registerPopupEventListeners(app) {
   app._popupEventListenersRegistered = true;
 
   app.setupCategoryClipDelegation();
+  app.categoriesFeature?.events?.setupCategorySeparatorDelegation?.(app);
   registerBillingUpgradeEvents(app);
   registerTabNavEvents(app);
   registerClipsShellEvents(app);

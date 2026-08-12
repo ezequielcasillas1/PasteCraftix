@@ -94,11 +94,13 @@ async syncCategoriesToSupabase(localCategories) {
     const dbCategories = filteredCategories.map(cat => {
       const updatedAtMs = Number.isFinite(cat?.updatedAt) ? cat.updatedAt : Date.now();
       const deletedAtMs = Number.isFinite(cat?.deletedAt) ? cat.deletedAt : null;
+      const separators = Array.isArray(cat?.separators) ? cat.separators : [];
       return {
         user_id: userId,
         category_id: String(cat.id),
         name: cat.name,
         icon: cat.icon || '📁',
+        separators,
         updated_at: new Date(updatedAtMs).toISOString(),
         deleted_at: Number.isFinite(deletedAtMs) ? new Date(deletedAtMs).toISOString() : null,
         device_id: deviceId || null
@@ -302,6 +304,7 @@ async syncCategoriesFromSupabase() {
       id: cat.category_id,
       name: cat.name,
       icon: cat.icon,
+      separators: Array.isArray(cat.separators) ? cat.separators : [],
       updatedAt: cat.updated_at ? Date.parse(cat.updated_at) : Date.now(),
       deletedAt: cat.deleted_at ? Date.parse(cat.deleted_at) : null,
       deviceId: cat.device_id || null
@@ -404,7 +407,10 @@ async mergeCategories(localCategories, remoteCategories) {
     const localUpdatedAt = Number.isFinite(localCat?.updatedAt) ? localCat.updatedAt : 0;
     const remoteUpdatedAt = Number.isFinite(remoteCat?.updatedAt) ? remoteCat.updatedAt : 0;
     if (remoteUpdatedAt >= localUpdatedAt) {
-      merged.set(remoteCat.id, remoteCat);
+      const separators = Array.isArray(remoteCat.separators)
+        ? remoteCat.separators
+        : (Array.isArray(localCat.separators) ? localCat.separators : []);
+      merged.set(remoteCat.id, { ...remoteCat, separators });
     }
   });
 
