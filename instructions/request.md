@@ -13,13 +13,13 @@
 
 #### 0. AI provider / model picker (header + AI Lab)
 **Priority:** HIGH  
-**Status:** Implemented (pending user SUCCESS verify)
+**Status:** Expanded (pending user SUCCESS verify)
 
 **Requirements:**
-- Header compact model select + AI Lab showcase cards (GPT-4o, Haiku 4.5, GPT-5.2, Gemini 3.6 Flash)
-- Map UI → existing `aiWorkflow` provider/preset; wire format/refactor/categorize + summary/breakdown
-- Gate: unlimited/dev4ever + Premium/credits get full list; paid shows credit costs
-- Edge presets: `gpt4o`, `gemini_36_flash` (`gemini-3.6-flash`); deploy ai-format/refactor/categorize (+ shared)
+- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Nano Clip, Silk Flash, Pulse Lite)
+- Map UI → `aiWorkflow` provider/preset; real IDs via Vercel AI Gateway (`AI_GATEWAY_API_KEY` in Edge)
+- Staggered one-by-one card reveal; gate: unlimited/Premium/credits
+- Cheap Gateway models incl. Gemini 3.6 Flash + DeepSeek/Qwen/Ling lite tiers
 
 ---
 
@@ -868,6 +868,21 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Source of truth: Microsoft Partner Center → listing → Analytics (installs, weekly users, impressions, CSV)
 - Chrome Developer Dashboard / listing GA wait until Chrome is live
 - Optional later: anonymous first-party install/active pings (Supabase) for cross-store totals
+
+---
+
+#### 62. Category Separator Service (Named Line Bars)
+**Priority:** High  
+**Status:** Implemented (pending user SUCCESS verify)  
+**Slice:** `extension/popup/features/categories/` (+ `categories.separators.*`)
+
+**Requirements:**
+- Named horizontal line bar between bundled clips in a category unit (insert above/below a clip)
+- CRUD: add / rename / move / delete separators; persist per category (local + sync when cloud enabled)
+- Drag reorder: click-hold separator bar and drop between clips
+- Study use: label study sections (e.g. “Key terms”, “Exam review”) so clips group under named bars
+- UI: accessible `role="separator"` + visible label; does not count toward 150 clip cap
+- Section arrows: one toggle chevron (flips on click) + matching lead arrow beside grip; highlight master clips under that separator
 
 ---
 

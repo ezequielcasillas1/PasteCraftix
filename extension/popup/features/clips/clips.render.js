@@ -837,41 +837,43 @@ export function createSearchResultItem(app, clip) {
   return item;
 }
 
+export function createCategoryClipRowHTML(app, clip) {
+  const {
+    timeAgo,
+    isSelected,
+    displayTitle,
+    cBadge,
+    catTextContent,
+  } = getCategoryClipViewModel(app, clip);
+
+  return `
+    <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}" title="${app.escapeHtml(clip.text)}">
+      <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
+      <div class="category-clip-content">
+        <div class="category-clip-text pc-clip-title-stack">
+          <div class="pc-clip-title" title="${app.escapeHtml(displayTitle)}">${app.escapeHtml(displayTitle)}</div>
+          <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
+        </div>
+        <div class="category-clip-time">${timeAgo}</div>
+      </div>
+      <div class="category-clip-actions">
+        <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
+        <button class="category-clip-org-bundle-btn" data-clip-id="${clip.id}" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
+        ${getGoogleSearchButtonHtml('category-clip-google-search-btn', ` data-clip-id="${clip.id}"`)}
+        <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
+        <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share" aria-label="Share clip"><i data-lucide="link"></i></button>
+        <button class="category-clip-ai-bundle-btn" data-clip-id="${clip.id}" type="button" title="AI actions" aria-label="AI actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="brain"></i></button>
+        <button class="category-clip-add-separator-btn" data-clip-id="${clip.id}" type="button" title="Add separator below" aria-label="Add separator below this clip"><i data-lucide="minus"></i></button>
+        <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy" aria-label="Copy clip"><i data-lucide="clipboard"></i></button>
+      </div>
+    </div>
+  `;
+}
+
 export function createCategoryClipsHTML(app, clips) {
   if (clips.length === 0) {
     return '<div class="category-clip" style="text-align: center; color: #9ca3af; padding: 16px;">No clips in this category</div>';
   }
 
-  return clips.map(clip => {
-    const {
-      timeAgo,
-      isSelected,
-      displayTitle,
-      cBadge,
-      catTextContent,
-    } = getCategoryClipViewModel(app, clip);
-
-    const html = `
-      <div class="category-clip ${isSelected ? 'selected' : ''}" data-clip-id="${clip.id}" title="${app.escapeHtml(clip.text)}">
-        <input type="checkbox" class="category-checkbox" ${isSelected ? 'checked' : ''}>
-        <div class="category-clip-content">
-          <div class="category-clip-text pc-clip-title-stack">
-            <div class="pc-clip-title" title="${app.escapeHtml(displayTitle)}">${app.escapeHtml(displayTitle)}</div>
-            <div class="pc-clip-subtext">${cBadge}${catTextContent}</div>
-          </div>
-          <div class="category-clip-time">${timeAgo}</div>
-        </div>
-        <div class="category-clip-actions">
-          <button class="category-clip-title-btn" data-clip-id="${clip.id}" title="Edit clip title" aria-label="Edit clip title"><i data-lucide="pencil-line"></i></button>
-          <button class="category-clip-org-bundle-btn" data-clip-id="${clip.id}" type="button" title="Notes and categories" aria-label="Notes and categories" aria-haspopup="menu" aria-expanded="false"><i data-lucide="folders"></i></button>
-          ${getGoogleSearchButtonHtml('category-clip-google-search-btn', ` data-clip-id="${clip.id}"`)}
-          <button class="category-clip-open-btn" data-clip-id="${clip.id}" title="Open" aria-label="Open clip"><i data-lucide="search"></i></button>
-          <button class="category-clip-share-btn" data-clip-id="${clip.id}" title="Share" aria-label="Share clip"><i data-lucide="link"></i></button>
-          <button class="category-clip-ai-bundle-btn" data-clip-id="${clip.id}" type="button" title="AI actions" aria-label="AI actions" aria-haspopup="menu" aria-expanded="false"><i data-lucide="brain"></i></button>
-          <button class="category-clip-copy-btn" data-clip-id="${clip.id}" title="Copy" aria-label="Copy clip"><i data-lucide="clipboard"></i></button>
-        </div>
-      </div>
-    `;
-    return html;
-  }).join('');
+  return clips.map((clip) => createCategoryClipRowHTML(app, clip)).join('');
 }

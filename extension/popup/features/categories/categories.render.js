@@ -1,5 +1,7 @@
 import { CATEGORIES_DEFAULTS } from './categories.constants.js';
 import { getCategoryListElements, getCategoryDropdownElements } from './categories.selectors.js';
+import { renderCategoryCompositeHTML } from './categories.separators.render.js';
+import { CATEGORY_SEPARATOR_SELECTORS } from './categories.separators.constants.js';
 
 function getAllClips(app) {
   return [...(app.clips || []), ...(app.searchOnlyClips || [])];
@@ -121,10 +123,12 @@ export function renderCategories(app) {
   const categories = getCategoriesForSelectedFile(app);
   if (categories.length === 0) {
     renderEmptyCategories(container, app.selectedFileId);
+    window.renderLucideIconsSync?.(container);
     return;
   }
   const clipsByCategory = indexClipsByCategory(getAllClips(app));
   container.replaceChildren(buildCategoryFragment(app, categories, clipsByCategory));
+  window.renderLucideIconsSync?.(container);
 }
 
 export function createCategoryItem(app, category, clipsByCategory = null) {
@@ -148,13 +152,14 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
         </div>
       </div>
       <div class="category-header-actions">
+        <button class="category-btn ${CATEGORY_SEPARATOR_SELECTORS.ADD_BTN}" data-action="add-separator" title="Add separator" aria-label="Add named separator">―</button>
         <button class="category-btn edit-category" data-action="edit" title="Edit category">✏️</button>
         <button class="category-btn delete-category" data-action="delete" title="Delete category"><i data-lucide="trash-2"></i></button>
         <span class="category-expand-icon">▶</span>
       </div>
     </div>
     <div class="category-dropdown${isExpanded ? ' expanded' : ''}" id="dropdown-${category.id}">
-      ${app.createCategoryClipsHTML(clipsInCategory, category.id)}
+      ${renderCategoryCompositeHTML(app, category, clipsInCategory)}
     </div>
   `;
 
@@ -162,6 +167,14 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
   header.addEventListener('click', (e) => {
     if (e.target.closest('.category-header-actions button')) return;
     app.toggleCategoryDropdown(item, category);
+  });
+
+  item.querySelector(`.${CATEGORY_SEPARATOR_SELECTORS.ADD_BTN}`)?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!item.classList.contains('expanded')) {
+      app.toggleCategoryDropdown?.(item, category);
+    }
+    await app.createCategorySeparator?.(category, { afterClipId: null });
   });
 
   item.querySelector('.edit-category').addEventListener('click', (e) => {

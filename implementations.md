@@ -1,4 +1,13 @@
 
+### Aug 12, 2026 - Category Separator section arrows
+**Files:** categories.separators.section.js, categories.separators.render/events/constants.js, categories.controller.js, popup.js/html
+**Result:** One toggle chevron (flips) + lead arrow by grip; both highlight master clips. Pending SUCCESS verify.
+
+### Aug 12, 2026 - Category Separator Service (#62)
+**Files:** categories.separators.*, categories.render/events.js, clips.render/events.js, sync-categories.js, popup.js/html, db/migrations/20260812_category_separators_jsonb.sql
+**Result:** Named study section bars inside category units; CRUD + local/cloud persist. Pending SUCCESS verify.
+
+
 ### Aug 8, 2026 - Production package v3.0.34
 **Files:** extension/manifest.json, releases/pastecraft-v3.0.34.zip, docs/publishing/*
 **Result:** Bump 3.0.33 ? 3.0.34 for store upload. Auth hydrate preflight before setSession + 3.0.33 viewer-shell stack. Last published stays 3.0.29 until approved.

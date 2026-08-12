@@ -66,6 +66,29 @@ function getCategoryClipActionHandlers(app, clip, clipIdKey) {
 }
 
 async function handleCategoryClipClick(app, container, event) {
+  const addSepBtn = event.target.closest('.category-clip-add-separator-btn');
+  if (addSepBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = addSepBtn.closest('.category-item');
+    const categoryId = item?.dataset?.categoryId;
+    const category = (app.categories || []).find((c) => (
+      String(c?.id) === String(categoryId)
+      || String(app._categoryIdKey?.(c) || '') === String(categoryId)
+    ));
+    if (category) {
+      await app.createCategorySeparator?.(category, { afterClipId: addSepBtn.dataset.clipId });
+    }
+    return;
+  }
+
+  if (
+    event.target.closest('.category-separator')
+    || event.target.closest('.add-category-separator')
+  ) {
+    return;
+  }
+
   const row = event.target.closest('.category-clip');
   if (!row || !container.contains(row)) return;
 

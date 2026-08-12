@@ -1,4 +1,9 @@
 
+### Aug 12, 2026 - Category Separator Service (#62)
+**Status:** PENDING USER VERIFY
+**Files:** categories.separators.*, categories.render.js, categories.events.js, clips.render.js, clips.events.js, sync-categories.js, popup.js, popup.html, db/migrations/20260812_category_separators_jsonb.sql
+**Result:** Named line bars in category units (add top / below clip, rename, delete); local + Supabase jsonb sync. Separators excluded from 150 clip cap.
+
 ### Jul 20, 2026 - Auth bridge hydrate before sync
 **Status:** SUCCESS
 **Files:** auth-bridge.js, identity.js, subscription.js
