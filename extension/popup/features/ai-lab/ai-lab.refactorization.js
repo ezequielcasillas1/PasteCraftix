@@ -6,6 +6,7 @@ import {
   loadCraftClipsSettings,
   saveCraftClipsSettings,
 } from './ai-lab.craft-clips.settings.js';
+import { presentAiLabError } from './ai-lab.model-error.js';
 
 const PREVIEW_MAX = 100;
 
@@ -169,7 +170,7 @@ export async function runRefactorizationFromPanel() {
     renderRefactorizationPanel.call(app);
   } catch (err) {
     console.error('[runRefactorizationFromPanel]', err);
-    app.showToast(err?.message || 'Refactorization failed', 'error');
+    presentAiLabError(app, err, { fallbackMessage: 'Refactorization failed' });
   } finally {
     if (runBtn) runBtn.disabled = false;
     _updateRefactorizationRunBtn();

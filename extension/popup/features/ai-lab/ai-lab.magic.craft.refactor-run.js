@@ -1,5 +1,6 @@
 // @forward-slice AI Lab magic — craft AI refactor batch run
 import { isOutOfCreditsError } from './ai-lab.credit-error.js';
+import { isModelNotCapableError, MODEL_NOT_CAPABLE_MESSAGE } from './ai-lab.model-error.js';
 import {
   _normalizeRefactorText,
   _textPreview,
@@ -28,8 +29,9 @@ function _isNetworkishMessage(msg) {
   return msg.includes('fetch') || msg.includes('network');
 }
 
-function _failureSynthesis(msg, creditBlocked) {
+function _failureSynthesis(msg, creditBlocked, modelBlocked) {
   if (creditBlocked) return 'Not enough AI text credits for this refactor batch.';
+  if (modelBlocked) return MODEL_NOT_CAPABLE_MESSAGE;
   if (_isNetworkishMessage(msg)) {
     return 'Network error — check connection and Supabase reachability, then try again.';
   }
@@ -91,15 +93,18 @@ function _pushCreditSkip(pipeline, target) {
 
 function _applyRefactorFailure(ctx) {
   const { targets, err, edgeLevel, stats, diagnostics, pipeline } = ctx;
-  const msg = String(err?.message || 'AI refactor request failed');
+  const modelBlocked = isModelNotCapableError(err);
+  const msg = modelBlocked
+    ? MODEL_NOT_CAPABLE_MESSAGE
+    : String(err?.message || 'AI refactor request failed');
   stats.refactorError = msg;
   pipeline.error = msg;
   const creditBlocked = _isCreditBlockedError(err, msg);
-  const synthesis = _failureSynthesis(msg, creditBlocked);
+  const synthesis = _failureSynthesis(msg, creditBlocked, modelBlocked);
 
   targets.forEach((target) => {
     diagnostics.set(String(target.id), {
-      outcome: creditBlocked ? 'no_credits' : 'failed',
+      outcome: creditBlocked ? 'no_credits' : (modelBlocked ? 'model_not_capable' : 'failed'),
       reasons: [msg],
       synthesis,
       level: edgeLevel,
@@ -109,7 +114,7 @@ function _applyRefactorFailure(ctx) {
 
   console.warn('[PasteCraft:refactor]', {
     ...pipeline,
-    reason: creditBlocked ? 'no_credits' : 'request_failed',
+    reason: creditBlocked ? 'no_credits' : (modelBlocked ? 'model_not_capable' : 'request_failed'),
     skipSummaries: pipeline.skipped.map((s) => _formatRefactorSkipLog(s)).join(' | '),
   });
 }

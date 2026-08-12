@@ -101,6 +101,8 @@ export async function _runAiFormatting(targets, hasAi) {
       message: 'aiFormat request failed',
       error: err?.message || String(err),
     });
+    // Do not silently swallow capability failures — let Craft surface them.
+    throw err;
   }
   console.warn('[PasteCraft:ai-format]', {
     message: 'accepted map',

@@ -1,5 +1,5 @@
 /** Breakdown modal, thread pagination, and inline breakdown entry. */
-import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
+import { presentAiLabError } from './ai-lab.model-error.js';
 import { renderSummaryImageAttach } from './ai-lab.summary-modal.js';
 import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
 
@@ -245,14 +245,11 @@ export async function generateBreakdown(level) {
     await this.saveAiHistory('breakdown', this.currentBreakdownText, this.breakdownThreads);
   } catch (error) {
     console.error('Failed to generate breakdown:', error);
-    if (isOutOfCreditsError(error)) {
-      showCreditExhaustedInline(this, resultEl, loadingEl);
-    } else {
-      const message = String(error?.message || '').trim();
-      resultEl.textContent = message || 'Failed to generate explanation.';
-      loadingEl.style.display = 'none';
-      this.showToast(message || 'Failed to generate explanation');
-    }
+    presentAiLabError(this, error, {
+      resultEl,
+      loadingEl,
+      fallbackMessage: 'Failed to generate explanation',
+    });
   }
 }
 

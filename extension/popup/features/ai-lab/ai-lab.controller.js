@@ -12,6 +12,7 @@ import * as creditPacks from './ai-lab.credit-packs.js';
 import * as announcements from './ai-lab.announcements.js';
 import * as modelPicker from './ai-lab.model-picker.js';
 import * as models from './ai-lab.models.js';
+import * as modelError from './ai-lab.model-error.js';
 import * as summaryClipsOverview from './ai-lab.summary-clips-overview.js';
 
 export function initAiLabFeature(_app) {
@@ -30,6 +31,7 @@ export function initAiLabFeature(_app) {
     announcements,
     modelPicker,
     models,
+    modelError,
     summaryClipsOverview,
   };
 }

@@ -10,6 +10,12 @@ import {
   normalizePreset,
   normalizeProvider,
 } from './ai_workflow_types.ts'
+import {
+  AI_GATEWAY_BASE_URL,
+  AI_GATEWAY_KEY_ENV,
+  hasAiGatewayKey,
+  toGatewayModelId,
+} from './ai_gateway.ts'
 
 export type {
   AiWorkflowPreset,
@@ -42,6 +48,16 @@ export {
   requireAuthenticatedUser,
   checkAiNameRateLimit,
 } from './ai_workflow_credits.ts'
+
+export {
+  AI_GATEWAY_BASE_URL,
+  AI_GATEWAY_KEY_ENV,
+  hasAiGatewayKey,
+  peekAiGatewayKey,
+  toGatewayModelId,
+  isGatewayBaseUrl,
+  ANTHROPIC_HAIKU_GATEWAY,
+} from './ai_gateway.ts'
 
 /**
  * Map an untrusted client craftPower value to a server-whitelisted workflow.
@@ -97,7 +113,39 @@ const GOOGLE_PROVIDER: ProviderModelTable = {
     gemini_pro: { chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06' },
     latest: { chatTextModel: 'gemini-2.5-flash-preview-04-17', chatVisionModel: 'gemini-2.5-flash-preview-04-17' },
     gemini_36_flash: { chatTextModel: 'gemini-3.6-flash', chatVisionModel: 'gemini-3.6-flash' },
+    gemini_35_flash_lite: { chatTextModel: 'gemini-3.5-flash-lite', chatVisionModel: 'gemini-3.5-flash-lite' },
     default: { chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash' },
+  },
+}
+
+const DEEPSEEK_PROVIDER: ProviderModelTable = {
+  provider: 'deepseek',
+  apiBaseUrl: AI_GATEWAY_BASE_URL,
+  apiKeyEnv: AI_GATEWAY_KEY_ENV,
+  modelsByPreset: {
+    cheapest: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
+    deepseek_v4_flash: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
+    default: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
+  },
+}
+
+const ALIBABA_PROVIDER: ProviderModelTable = {
+  provider: 'alibaba',
+  apiBaseUrl: AI_GATEWAY_BASE_URL,
+  apiKeyEnv: AI_GATEWAY_KEY_ENV,
+  modelsByPreset: {
+    qwen_flash: { chatTextModel: 'qwen3.7-flash', chatVisionModel: 'qwen3.7-flash' },
+    default: { chatTextModel: 'qwen3.7-flash', chatVisionModel: 'qwen3.7-flash' },
+  },
+}
+
+const INCLUSIONAI_PROVIDER: ProviderModelTable = {
+  provider: 'inclusionai',
+  apiBaseUrl: AI_GATEWAY_BASE_URL,
+  apiKeyEnv: AI_GATEWAY_KEY_ENV,
+  modelsByPreset: {
+    ling_flash: { chatTextModel: 'ling-3.0-flash', chatVisionModel: 'ling-3.0-flash' },
+    default: { chatTextModel: 'ling-3.0-flash', chatVisionModel: 'ling-3.0-flash' },
   },
 }
 
@@ -127,19 +175,38 @@ function resolveAnthropic(_preset: AiWorkflowPreset): ResolvedAiModels {
   }
 }
 
+/** Prefer Vercel AI Gateway when secret is present (one key → many models). */
+function applyGatewayRouting(resolved: ResolvedAiModels): ResolvedAiModels {
+  if (!hasAiGatewayKey()) return resolved
+  return {
+    ...resolved,
+    apiBaseUrl: AI_GATEWAY_BASE_URL,
+    apiKeyEnv: AI_GATEWAY_KEY_ENV,
+    chatTextModel: toGatewayModelId(resolved.provider, resolved.chatTextModel),
+    chatVisionModel: toGatewayModelId(resolved.provider, resolved.chatVisionModel),
+  }
+}
+
 export function resolveModelsFromWorkflow(
   workflow: { provider: AiWorkflowProvider; preset: AiWorkflowPreset } | null,
 ): ResolvedAiModels {
   const provider = workflow ? workflow.provider : 'openai'
   const preset = workflow ? workflow.preset : 'default'
 
-  if (provider === 'google') return resolveFromProviderTable(GOOGLE_PROVIDER, preset)
-  if (provider === 'anthropic') return resolveAnthropic(preset)
-  return resolveFromProviderTable(OPENAI_PROVIDER, preset)
+  let resolved: ResolvedAiModels
+  if (provider === 'google') resolved = resolveFromProviderTable(GOOGLE_PROVIDER, preset)
+  else if (provider === 'anthropic') resolved = resolveAnthropic(preset)
+  else if (provider === 'deepseek') resolved = resolveFromProviderTable(DEEPSEEK_PROVIDER, preset)
+  else if (provider === 'alibaba') resolved = resolveFromProviderTable(ALIBABA_PROVIDER, preset)
+  else if (provider === 'inclusionai') resolved = resolveFromProviderTable(INCLUSIONAI_PROVIDER, preset)
+  else resolved = resolveFromProviderTable(OPENAI_PROVIDER, preset)
+
+  return applyGatewayRouting(resolved)
 }
 
 /** Env aliases per canonical apiKeyEnv (secrets may use alternate names). */
 const API_KEY_ENV_ALIASES: Record<string, string[]> = {
+  AI_GATEWAY_API_KEY: ['AI_GATEWAY_API_KEY', 'VERCEL_AI_GATEWAY_API_KEY', 'AI_GATEWAY_KEY'],
   OPENAI_API_KEY: ['OPENAI_API_KEY'],
   GOOGLE_AI_KEY: ['GOOGLE_AI_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY'],
   ANTHROPIC_API_KEY: ['ANTHROPIC_API_KEY', 'ANTHROPIC-API-KEY'],
@@ -147,13 +214,19 @@ const API_KEY_ENV_ALIASES: Record<string, string[]> = {
 
 /**
  * Resolve the API key from Deno env for the resolved provider.
- * Tries provider-specific aliases only; does not silently use OPENAI_API_KEY for Google/Anthropic.
+ * Gateway key is preferred when apiKeyEnv is AI_GATEWAY_API_KEY.
  */
 export function getApiKeyForResolved(resolved: ResolvedAiModels): string {
   const aliases = API_KEY_ENV_ALIASES[resolved.apiKeyEnv] || [resolved.apiKeyEnv]
   for (const name of aliases) {
     const key = (Deno.env.get(name) || '').trim()
     if (key) return key
+  }
+  // Last-chance: if provider key missing but gateway present, use gateway
+  // (covers deepseek/alibaba/inclusionai tables that require gateway).
+  if (resolved.apiKeyEnv !== AI_GATEWAY_KEY_ENV && hasAiGatewayKey()) {
+    const gw = (Deno.env.get('AI_GATEWAY_API_KEY') || Deno.env.get('VERCEL_AI_GATEWAY_API_KEY') || Deno.env.get('AI_GATEWAY_KEY') || '').trim()
+    if (gw) return gw
   }
   throw new Error(`API key not configured (expected ${resolved.apiKeyEnv}; tried ${aliases.join(', ')})`)
 }

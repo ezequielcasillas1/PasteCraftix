@@ -973,6 +973,39 @@ class PasteCraftPopup {
     return this.clipsFeature.render.createCategoryClipsHTML(this, clips, categoryId);
   }
 
+  createCategoryClipRowHTML(clip) {
+    return this.clipsFeature.render.createCategoryClipRowHTML(this, clip);
+  }
+
+  createCategorySeparator(category, options = {}) {
+    return this.categoriesFeature.separators.service.createCategorySeparator(this, category, options);
+  }
+
+  renameCategorySeparator(category, separatorId) {
+    return this.categoriesFeature.separators.service.renameCategorySeparator(this, category, separatorId);
+  }
+
+  moveCategorySeparator(category, separatorId, afterClipId) {
+    return this.categoriesFeature.separators.service.moveCategorySeparator(
+      this,
+      category,
+      separatorId,
+      afterClipId,
+    );
+  }
+
+  deleteCategorySeparator(category, separatorId) {
+    return this.categoriesFeature.separators.service.deleteCategorySeparator(this, category, separatorId);
+  }
+
+  focusCategorySeparatorSection(category, separatorId) {
+    return this.categoriesFeature.separators.section.toggleSeparatorSection(
+      this,
+      category,
+      separatorId,
+    );
+  }
+
   toggleCategoryDropdown(categoryItem, category) {
     return this.categoriesFeature.render.toggleCategoryDropdown(this, categoryItem, category);
   }

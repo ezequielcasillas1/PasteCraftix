@@ -1,5 +1,8 @@
 import { AI_STORAGE_KEYS, OPEN_RECENT_CONVERSATION_TOOLTIPS } from './ai-lab.constants.js';
-import { isOutOfCreditsError, showCreditExhaustedInline } from './ai-lab.credit-error.js';
+import {
+  assertModelCapableForAction,
+  presentAiLabError,
+} from './ai-lab.model-error.js';
 import { downscaleImageForHistory, renderSummaryImageAttach } from './ai-lab.summary-modal.js';
 import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
 
@@ -52,13 +55,11 @@ export async function generateBreakdownInline(level) {
     await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
   } catch (error) {
     console.error('Failed to generate inline breakdown:', error);
-    if (isOutOfCreditsError(error)) {
-      showCreditExhaustedInline(this, resultEl, loadingEl);
-    } else {
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate explanation. Please try again.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate explanation');
-    }
+    presentAiLabError(this, error, {
+      resultEl,
+      loadingEl,
+      fallbackMessage: 'Failed to generate explanation. Please try again.',
+    });
   }
 }
 
@@ -97,13 +98,11 @@ export async function sendInlineBreakdownFollowup(question) {
     await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
   } catch (error) {
     console.error('Failed to send inline follow-up:', error);
-    if (isOutOfCreditsError(error)) {
-      showCreditExhaustedInline(this, resultEl, loadingEl);
-    } else {
-      if (resultEl) resultEl.innerHTML = '❌ Failed to generate response.';
-      if (loadingEl) loadingEl.style.display = 'none';
-      this.showToast('Failed to generate follow-up');
-    }
+    presentAiLabError(this, error, {
+      resultEl,
+      loadingEl,
+      fallbackMessage: 'Failed to generate follow-up',
+    });
   }
 }
 
@@ -158,6 +157,7 @@ export async function generateSummaryQuestions(text) {
     if (questionsList) questionsList.innerHTML = '';
 
     const imageBase64 = this.currentSummaryImageBase64 || null;
+    if (imageBase64) assertModelCapableForAction(this, 'vision');
     const questions = await pasteCraftSupabase.generateSummaryQuestions(text, imageBase64);
     this.generatedQuestions = questions;
     if (questionsLoading) questionsLoading.style.display = 'none';
@@ -169,15 +169,13 @@ export async function generateSummaryQuestions(text) {
     this._saveSummaryState();
   } catch (error) {
     console.error('Failed to generate questions:', error);
-    if (isOutOfCreditsError(error)) {
-      this.showSummarySection('input');
-      const inputSection = document.getElementById('summaryInputSection');
-      showCreditExhaustedInline(this, inputSection, document.getElementById('questionsLoading'));
-    } else {
-      const message = String(error?.message || '').trim();
-      this.showToast(message || 'Failed to generate questions. Please try again.');
-      this.showSummarySection('input');
-    }
+    this.showSummarySection('input');
+    const inputSection = document.getElementById('summaryInputSection');
+    presentAiLabError(this, error, {
+      resultEl: inputSection,
+      loadingEl: document.getElementById('questionsLoading'),
+      fallbackMessage: 'Failed to generate questions. Please try again.',
+    });
   }
 }
 
@@ -195,6 +193,7 @@ export async function generateSummary(text, question) {
     if (summaryContent) summaryContent.innerHTML = '';
 
     const imageBase64 = this.currentSummaryImageBase64 || null;
+    if (imageBase64) assertModelCapableForAction(this, 'vision');
     const summary = await pasteCraftSupabase.generateSummary(text, question, imageBase64);
     const formatted = this._formatAiOutput(summary);
     if (summaryLoading) summaryLoading.style.display = 'none';
@@ -227,16 +226,11 @@ export async function generateSummary(text, question) {
     await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads, { imageBase64: historyImage });
   } catch (error) {
     console.error('Failed to generate summary:', error);
-    if (isOutOfCreditsError(error)) {
-      showCreditExhaustedInline(this, summaryContent, summaryLoading);
-    } else {
-      const message = String(error?.message || '').trim();
-      if (summaryContent) {
-        summaryContent.textContent = `❌ ${message || 'Failed to generate summary.'}`;
-      }
-      if (summaryLoading) summaryLoading.style.display = 'none';
-      this.showToast(message || 'Failed to generate summary');
-    }
+    presentAiLabError(this, error, {
+      resultEl: summaryContent,
+      loadingEl: summaryLoading,
+      fallbackMessage: 'Failed to generate summary',
+    });
   }
 }
 
@@ -469,9 +463,11 @@ async function _runBreakdownFollowup(app, followupQuestion) {
     await app.saveAiHistory('breakdown', app.currentBreakdownText, app.breakdownThreads);
   } catch (error) {
     console.error('Failed to generate follow-up:', error);
-    if (resultEl) resultEl.innerHTML = '❌ Failed to generate follow-up response.';
-    if (loadingEl) loadingEl.style.display = 'none';
-    app.showToast('Failed to generate follow-up');
+    presentAiLabError(app, error, {
+      resultEl,
+      loadingEl,
+      fallbackMessage: 'Failed to generate follow-up response',
+    });
   }
 }
 
