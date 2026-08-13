@@ -4,6 +4,7 @@ export type AiWorkflowPreset =
   | 'gpt5_mini'
   | 'latest'
   | 'gpt4o'
+  | 'gpt54'
   | 'gemini_pro'
   | 'gemini_36_flash'
   | 'gemini_35_flash_lite'
@@ -75,7 +76,7 @@ const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set([
 ]);
 
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
-  openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
+  openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
   google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_36_flash', 'gemini_35_flash_lite']),
   anthropic: new Set(['default']),
   deepseek: new Set(['default', 'cheapest', 'deepseek_v4_flash']),
@@ -102,6 +103,7 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     gpt5_mini: 200,
     latest: 500,
     gpt4o: 80,
+    gpt54: 500,
   },
   google: {
     default: 40,

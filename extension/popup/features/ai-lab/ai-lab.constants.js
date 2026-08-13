@@ -1,5 +1,5 @@
 export const AI_CREDIT_COSTS = {
-  openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500, gpt4o: 80 },
+  openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500, gpt4o: 80, gpt54: 500 },
   google: {
     default: 40,
     cheapest: 25,
@@ -21,6 +21,7 @@ export const AI_PROVIDER_PRESETS = {
     { value: 'gpt4o', label: 'Clip Forge · GPT-4o · 80 cr' },
     { value: 'gpt5_mini', label: 'Forge Mini · GPT-5 Mini · 200 cr' },
     { value: 'latest', label: 'Apex Craft · GPT-5.2 · 500 cr' },
+    { value: 'gpt54', label: 'Summit Craft · GPT-5.4 · 500 cr' },
   ],
   google: [
     { value: 'default', label: 'Gemini Flash · Gemini 2.0 Flash · 40 cr' },

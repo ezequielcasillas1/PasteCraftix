@@ -99,6 +99,7 @@ const OPENAI_PROVIDER: ProviderModelTable = {
     cheapest: { chatTextModel: 'gpt-5-nano', chatVisionModel: 'gpt-5-nano' },
     gpt5_mini: { chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini' },
     latest: { chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2' },
+    gpt54: { chatTextModel: 'gpt-5.4', chatVisionModel: 'gpt-5.4' },
     gpt4o: { chatTextModel: 'gpt-4o', chatVisionModel: 'gpt-4o' },
     default: { chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o' },
   },
