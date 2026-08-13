@@ -5,6 +5,7 @@
  */
 
 import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
+import { formatClipTextWithSource } from '../../../shared/clip-source.js';
 
 const HOST_ID = 'summaryClipsOverview';
 const SELECTED_KEY = '_summaryOverviewSelected';
@@ -367,7 +368,8 @@ function _selectedClipTexts(app) {
   const texts = [];
   _selected(app).forEach((id) => {
     const clip = clips.find((c) => _clipIdKey(app, c.id) === String(id) || String(c.id) === String(id));
-    if (clip?.text) texts.push(_normalizeText(clip.text));
+    if (!clip?.text) return;
+    texts.push(formatClipTextWithSource(clip, _normalizeText(clip.text)));
   });
   return texts;
 }

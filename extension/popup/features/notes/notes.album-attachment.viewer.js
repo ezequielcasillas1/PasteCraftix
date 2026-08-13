@@ -9,6 +9,7 @@ import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 import { popOutAlbumImageAnnotate } from './notes.image-annotate.js';
 import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
+import { joinClipsForSummary } from '../../../shared/clip-source.js';
 
 const SOURCE_CONTEXT = 'album';
 
@@ -223,8 +224,8 @@ export function close(app) {
 }
 
 export function runAiSummary(app) {
-  closeViewerThen(app, ({ text }) => {
-    const trimmed = String(text || '').trim();
+  closeViewerThen(app, ({ text, clipObjects }) => {
+    const trimmed = joinClipsForSummary(clipObjects) || String(text || '').trim();
     if (!trimmed) {
       app.showToast?.('No clip text to summarize', 'error');
       return;

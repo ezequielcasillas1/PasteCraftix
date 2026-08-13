@@ -5,6 +5,7 @@ import {
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
 import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
+import { joinClipsForSummary } from '../../../shared/clip-source.js';
 
 const MENU_ID = 'pcClipActionMenuPortal';
 const GOOGLE_SEARCH_MAX_QUERY_LENGTH = 1800;
@@ -278,19 +279,10 @@ async function runOrgBundleAction(app, actionId, { clip, clipIdKey, context }) {
   }
 }
 
-function clipTextForSummary(clip) {
-  const text = String(clip?.text ?? '').trim();
-  if (text) return text;
-  return String(clip?.meta?.plainText ?? '').trim();
-}
-
 function buildSummaryTextFromClips(app, clip, context) {
   const clips = getSelectedOrCurrentClipObjects(app, clip, context);
-  if (clips.length > 1) {
-    return clips.map(clipTextForSummary).filter(Boolean).join('\n\n');
-  }
-  if (clips.length === 1) return clipTextForSummary(clips[0]);
-  return clipTextForSummary(clip);
+  if (clips.length > 0) return joinClipsForSummary(clips);
+  return joinClipsForSummary([clip]);
 }
 
 async function resolveSingleClipSummaryImage(clips) {

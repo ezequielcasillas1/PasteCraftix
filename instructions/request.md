@@ -444,6 +444,14 @@ state management.
 - Add optional **step mode** toggle (numbered steps) for AI Summary + AI Breakdown
 - Avoid unnecessary code-style prefixes (e.g. leading `//`) when not needed
 
+#### 34b. AI Summary source references
+**Priority:** Medium  
+**Status:** Implemented (pending SUCCESS)
+
+- Summaries and Q&A end with a **## Sources** section (short quotes)
+- Clip page URL/title is passed in as `[Source: …]` when available
+- Title/category “return only” prompts stay bare (no Sources block)
+
 ---
 
 #### 35. Funky Animal Name Save/Render Fix

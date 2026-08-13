@@ -1,3 +1,13 @@
+import { joinClipsForSummary } from '../../../shared/clip-source.js';
+
+function resolveBulkSummaryText(getClipObjects, getText) {
+  if (typeof getClipObjects === 'function') {
+    const labeled = joinClipsForSummary(getClipObjects());
+    if (labeled) return labeled;
+  }
+  return typeof getText === 'function' ? getText() : '';
+}
+
 export function wireBulkAiButtons(app, config) {
   if (!config) return;
   const {
@@ -11,9 +21,9 @@ export function wireBulkAiButtons(app, config) {
   } = config;
 
   const summaryBtn = summaryBtnId ? document.getElementById(summaryBtnId) : null;
-  if (summaryBtn && typeof getText === 'function') {
+  if (summaryBtn) {
     summaryBtn.addEventListener('click', () => {
-      const text = getText();
+      const text = resolveBulkSummaryText(getClipObjects, getText);
       if (text) app.showSummaryModal(text);
     });
   }
