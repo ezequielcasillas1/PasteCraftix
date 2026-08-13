@@ -985,6 +985,20 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   color: var(--pc-secondary-200) !important;
 }
 
+[data-theme="blue"] .category-btn.send-category-notes {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--pc-secondary-100);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: inset 0 1px 0 rgba(147, 197, 253, 0.12);
+}
+
+[data-theme="blue"] .category-btn.send-category-notes:hover {
+  background: rgba(59, 130, 246, 0.32);
+  border-color: var(--pc-secondary-300);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
 [data-theme="blue"] .category-btn.edit-category {
   background: rgba(59, 130, 246, 0.18);
   color: var(--pc-secondary-200);

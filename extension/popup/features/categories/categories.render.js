@@ -1,4 +1,4 @@
-import { CATEGORIES_DEFAULTS } from './categories.constants.js';
+import { CATEGORIES_DEFAULTS, CATEGORIES_SELECTORS } from './categories.constants.js';
 import { getCategoryListElements, getCategoryDropdownElements } from './categories.selectors.js';
 import { renderCategoryCompositeHTML } from './categories.separators.render.js';
 import { CATEGORY_SEPARATOR_SELECTORS } from './categories.separators.constants.js';
@@ -153,6 +153,7 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
       </div>
       <div class="category-header-actions">
         <button class="category-btn ${CATEGORY_SEPARATOR_SELECTORS.ADD_BTN}" data-action="add-separator" title="Add separator" aria-label="Add named separator">―</button>
+        <button type="button" class="category-btn ${CATEGORIES_SELECTORS.SEND_NOTES_BTN}" data-action="send-to-notes" title="Send category to Notes" aria-label="Send category to Notes"><i data-lucide="notebook"></i></button>
         <button class="category-btn edit-category" data-action="edit" title="Edit category">✏️</button>
         <button class="category-btn delete-category" data-action="delete" title="Delete category"><i data-lucide="trash-2"></i></button>
         <span class="category-expand-icon">▶</span>
@@ -163,6 +164,11 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
     </div>
   `;
 
+  wireCategoryHeaderActions(app, item, category);
+  return item;
+}
+
+function wireCategoryHeaderActions(app, item, category) {
   const header = item.querySelector('.category-header');
   header.addEventListener('click', (e) => {
     if (e.target.closest('.category-header-actions button')) return;
@@ -177,6 +183,11 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
     await app.createCategorySeparator?.(category, { afterClipId: null });
   });
 
+  item.querySelector(`.${CATEGORIES_SELECTORS.SEND_NOTES_BTN}`)?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    app.sendCategoryToNotes?.(category);
+  });
+
   item.querySelector('.edit-category').addEventListener('click', (e) => {
     e.stopPropagation();
     app.editCategory(category);
@@ -186,8 +197,6 @@ export function createCategoryItem(app, category, clipsByCategory = null) {
     e.stopPropagation();
     app.deleteCategory(category);
   });
-
-  return item;
 }
 
 function collapseOtherCategoryItems(app, categoryItem) {

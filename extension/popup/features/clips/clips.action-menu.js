@@ -245,16 +245,9 @@ function getGoogleSearchItems() {
 
 async function runOrgBundleAction(app, actionId, { clip, clipIdKey, context }) {
   if (actionId === 'notes') {
-    await app.loadNotes?.();
     const clipObjects = getSelectedOrCurrentClipObjects(app, clip, context);
-    if (clipObjects.length > 1) {
-      app.pendingBulkClipsForNotes = clipObjects;
-      app.pendingClipForNotes = null;
-    } else {
-      app.pendingBulkClipsForNotes = null;
-      app.pendingClipForNotes = clip || null;
-    }
-    app.showAlbumPicker?.();
+    const payload = clipObjects.length ? clipObjects : (clip ? [clip] : []);
+    await app.queueClipsForNotes?.(payload);
     return;
   }
 

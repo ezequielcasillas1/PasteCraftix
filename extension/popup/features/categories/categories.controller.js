@@ -6,6 +6,7 @@ import * as categorySeparatorsService from './categories.separators.service.js';
 import * as categorySeparatorsRender from './categories.separators.render.js';
 import * as categorySeparatorsDrag from './categories.separators.drag.js';
 import * as categorySeparatorsSection from './categories.separators.section.js';
+import * as categoryNotesSend from './categories.notes-send.js';
 
 export function initCategoriesFeature(_app) {
   return {
@@ -13,6 +14,7 @@ export function initCategoriesFeature(_app) {
     events: categoryEvents,
     state: categoryState,
     service: categoryService,
+    notesSend: categoryNotesSend,
     separators: {
       service: categorySeparatorsService,
       render: categorySeparatorsRender,
