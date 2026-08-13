@@ -164,6 +164,21 @@ export const AI_SHOWCASE_MODELS = [
     description:
       'Pulse Lite · Ling 3.0 Flash is PasteCraft’s budget pulse model. Lowest showcase credit cost for light drafts, snips, and exploratory passes (~15 credits).',
   },
+  {
+    id: 'gpt-5.4',
+    brandName: 'Summit Craft',
+    modelName: 'GPT-5.4',
+    label: displayLabel('Summit Craft', 'GPT-5.4'),
+    shortLabel: 'Summit',
+    provider: 'openai',
+    preset: 'gpt54',
+    gatewayModel: 'openai/gpt-5.4',
+    supportsVision: true,
+    strength: 'Newest flagship · long-context craft',
+    tagline: 'Frontier reasoning · Super craft quality',
+    description:
+      'Summit Craft · GPT-5.4 is PasteCraft’s newest OpenAI flagship. Stronger long-context judgment, coding-aware craft, and careful multi-step formatting. Premium cost (~500 credits) — use for Super craft, complex summaries, and messy mixed content.',
+  },
 ];
 
 export const DEFAULT_SHOWCASE_MODEL_ID = 'gpt-4o';

@@ -13,7 +13,7 @@ _normalizeAiWorkflow(raw) {
     'inclusionai',
   ]);
   const presetsByProvider = {
-    openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
+    openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
     google: new Set([
       'default',
       'cheapest',
