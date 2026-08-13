@@ -9,6 +9,7 @@ import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
 import { getClipImage, isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
+import { joinClipsForSummary } from '../../../shared/clip-source.js';
 import { getClipIdKey } from '../../../shared/clip-id.js';
 import {
   looksLikeLatexSource,
@@ -656,10 +657,8 @@ export async function runAiSummary(app) {
       : (clip ? [clip] : []);
 
     const imageBase64 = await resolveViewerSummaryImage(objects);
-    let trimmed = String(text || '').trim();
-    if (!trimmed && objects.length === 1) {
-      trimmed = String(objects[0]?.meta?.plainText || '').trim();
-    }
+    const fromClips = joinClipsForSummary(objects);
+    let trimmed = fromClips || String(text || '').trim();
     if (!trimmed && !imageBase64) {
       app.showToast?.('No clip text to summarize', 'error');
       return;

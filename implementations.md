@@ -1,4 +1,8 @@
 
+### Aug 13, 2026 - AI summary source references
+**Files:** ai_summary_prompts.js, ai-summary/index.ts, clip-source.js, clips.action-menu/viewer.js, ai-lab.bulk.js, summary-clips-overview.js
+**Result:** Summaries/Q&A now add a ## Sources section (quotes + clip page URLs). Title/category "return only" prompts stay bare.
+
 ### Aug 13, 2026 - Category send to Notes catalog
 **Files:** notes.send-catalog.js, categories.notes-send.js, categories.render/controller/constants.js, popup.js/html, clips.action-menu/viewer.js, ai-lab.bulk.js, notes.editor.js
 **Result:** Category cards inherit send-to-notes via the notes destination catalog (album picker). Clip/bulk/AI send paths share the same queue.

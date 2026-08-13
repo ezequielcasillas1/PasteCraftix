@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
 import type { ResolvedAiModels } from "../_shared/ai_workflow.ts"
+import { buildTextPrompts } from "../_shared/ai_summary_prompts.js"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -37,61 +38,6 @@ function parseDataImage(dataUrl: string): { mime: string; data: string } | null 
   const data = m[2].replace(/\s+/g, '')
   if (!data) return null
   return { mime, data }
-}
-
-function buildTextPrompts(opts: {
-  text: string
-  question?: string
-  generateQuestions?: boolean
-  hasImage: boolean
-}): { systemPrompt: string; userPrompt: string } {
-  const { text, question, generateQuestions, hasImage } = opts
-
-  // Keep vision prompts short — long formatRules + image triggered opaque Gemini 400s.
-  if (hasImage) {
-    if (generateQuestions) {
-      return {
-        systemPrompt: 'Generate exactly 4 short insightful questions about this image. Return ONLY the questions, one per line, no numbering.',
-        userPrompt: `Context text (may be a placeholder):\n${text}`,
-      }
-    }
-    if (question) {
-      return {
-        systemPrompt: 'Answer the question using the image and any context text. Be concise but thorough. Use Markdown when helpful.',
-        userPrompt: `Context: ${text}\n\nQuestion: ${question}`,
-      }
-    }
-    return {
-      systemPrompt: 'Describe and summarize this image clearly. Use Markdown headings and bullets when helpful.',
-      userPrompt: `Context text (may be a placeholder):\n${text}`,
-    }
-  }
-
-  const formatRules = `
-FORMATTING RULES (strict):
-- Use Markdown formatting: headings (#, ##, ###), bold (**text**), italic (*text*), bullet lists (- item), numbered lists (1. item), tables, and code blocks.
-- For math/formulas use LaTeX notation: inline math with $...$, display math with $$...$$.
-- For diagrams, use Mermaid in a fenced code block tagged "mermaid".
-- Use tables for comparisons. Use code blocks for code.
-- Never use // or \\\\ as decorative separators.
-- Be detailed but minimal.`
-
-  if (generateQuestions) {
-    return {
-      systemPrompt: `You are a helpful assistant. Generate 4 short, insightful questions about the provided text. Return ONLY the questions, one per line, no numbering or bullets.${formatRules}`,
-      userPrompt: `Generate 4 questions about this text:\n\n${text}`,
-    }
-  }
-  if (question) {
-    return {
-      systemPrompt: `You are a helpful assistant. Answer the question based on the provided text. Be concise but thorough.${formatRules}`,
-      userPrompt: `Text: ${text}\n\nQuestion: ${question}`,
-    }
-  }
-  return {
-    systemPrompt: `You are a helpful assistant. Provide a clear, concise summary of the text.${formatRules}`,
-    userPrompt: `Summarize this text:\n\n${text}`,
-  }
 }
 
 function buildTextOnlyPayload(systemPrompt: string, userPrompt: string) {
