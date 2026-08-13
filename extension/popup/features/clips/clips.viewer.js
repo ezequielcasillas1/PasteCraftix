@@ -737,19 +737,7 @@ export function runSendToCategories(app) {
 
 export async function runSendToNotes(app) {
   closeClipViewerThen(app, async ({ clipObjects }) => {
-    if (!clipObjects.length) {
-      app.showToast?.('No clip to send to notes', 'error');
-      return;
-    }
-    await app.loadNotes?.();
-    if (clipObjects.length > 1) {
-      app.pendingBulkClipsForNotes = clipObjects;
-      app.pendingClipForNotes = null;
-    } else {
-      app.pendingBulkClipsForNotes = null;
-      app.pendingClipForNotes = clipObjects[0];
-    }
-    app.showAlbumPicker?.();
+    await app.queueClipsForNotes?.(clipObjects);
   });
 }
 

@@ -9,6 +9,7 @@ import { openGoogleSearchMenu } from '../clips/clips.action-menu.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 import { popOutAlbumImageAnnotate } from './notes.image-annotate.js';
 import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
+import { queueClipsForNotes } from './notes.send-catalog.js';
 
 const SOURCE_CONTEXT = 'album';
 
@@ -292,14 +293,7 @@ export function runSendToCategories(app) {
 
 export async function runSendToNotes(app) {
   closeViewerThen(app, async ({ clipObjects }) => {
-    if (!clipObjects.length) {
-      app.showToast?.('No clip to send to notes', 'error');
-      return;
-    }
-    await app.loadNotes?.();
-    app.pendingBulkClipsForNotes = null;
-    app.pendingClipForNotes = clipObjects[0];
-    app.showAlbumPicker?.();
+    await queueClipsForNotes(app, clipObjects);
   });
 }
 

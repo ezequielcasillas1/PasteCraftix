@@ -655,6 +655,10 @@ class PasteCraftPopup {
     return this.categoriesFeature.service.deleteCategory(this, category);
   }
 
+  sendCategoryToNotes(category) {
+    return this.categoriesFeature.notesSend.sendCategoryToNotes(this, category);
+  }
+
   updateCategoryFilter() {
     return this.categoriesFeature.render.updateCategoryFilter(this);
   }
@@ -1444,6 +1448,10 @@ class PasteCraftPopup {
 
   refreshAlbumsForNote(sourceNote) {
     return this.notesFeature.album.refreshAlbumsForNote(this, sourceNote);
+  }
+
+  queueClipsForNotes(clips, options) {
+    return this.notesFeature.sendCatalog.queueClipsForNotes(this, clips, options);
   }
 
   showAlbumPicker() {
