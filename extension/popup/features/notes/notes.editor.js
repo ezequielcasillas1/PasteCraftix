@@ -6,6 +6,7 @@ import {
 } from './notes.album-interlayings.crud.js';
 import { artifactToNotesClip } from '../../shared/ai-output-bridge.js';
 import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
+import { queueClipsForNotes } from './notes.send-catalog.js';
 
 // ── openNoteEditor ─────────────────────────────────────────────────────────
 
@@ -823,9 +824,6 @@ export async function saveCurrentAiOutputToNotes(app) {
     return;
   }
 
-  await app.loadNotes?.();
-  app.pendingBulkClipsForNotes = null;
-  app.pendingClipForNotes = clip;
-  app.showAlbumPicker?.();
-  app.showToast('Select a note or album for this AI output');
+  const queued = await queueClipsForNotes(app, [clip]);
+  if (queued) app.showToast('Select a note or album for this AI output');
 }

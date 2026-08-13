@@ -16,7 +16,7 @@
 **Status:** Expanded (pending user SUCCESS verify)
 
 **Requirements:**
-- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Nano Clip, Silk Flash, Pulse Lite)
+- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Nano Clip, Silk Flash, Pulse Lite, Summit Craft)
 - Map UI → `aiWorkflow` provider/preset; real IDs via Vercel AI Gateway (`AI_GATEWAY_API_KEY` in Edge)
 - Staggered one-by-one card reveal; gate: unlimited/Premium/credits
 - Cheap Gateway models incl. Gemini 3.6 Flash + DeepSeek/Qwen/Ling lite tiers

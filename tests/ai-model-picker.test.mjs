@@ -25,7 +25,8 @@ const {
 } = await import(modelsUrl);
 const { ensureDefaultWorkflowEnabled } = await import(pickerUrl);
 
-assert.ok(AI_SHOWCASE_MODELS.length >= 9);
+assert.ok(AI_SHOWCASE_MODELS.length >= 10);
+assert.equal(AI_SHOWCASE_MODELS.at(-1).id, 'gpt-5.4');
 assert.equal(DEFAULT_SHOWCASE_MODEL_ID, 'gpt-4o');
 
 const map = Object.fromEntries(AI_SHOWCASE_MODELS.map((m) => [m.id, m]));
@@ -51,6 +52,11 @@ assert.equal(map['gemini-3.5-flash-lite'].label, 'Beam Lite · Gemini 3.5 Flash-
 assert.equal(map['gpt-5-nano'].label, 'Nano Clip · GPT-5 Nano');
 assert.equal(map['qwen-3.7-flash'].label, 'Silk Flash · Qwen 3.7 Flash');
 assert.equal(map['ling-3.0-flash'].label, 'Pulse Lite · Ling 3.0 Flash');
+assert.equal(map['gpt-5.4'].label, 'Summit Craft · GPT-5.4');
+assert.equal(map['gpt-5.4'].provider, 'openai');
+assert.equal(map['gpt-5.4'].preset, 'gpt54');
+assert.equal(map['gpt-5.4'].gatewayModel, 'openai/gpt-5.4');
+assert.equal(map['gpt-5.4'].supportsVision, true);
 
 // User-facing copy must not mention Vercel / gateway branding
 for (const m of AI_SHOWCASE_MODELS) {
@@ -61,6 +67,10 @@ for (const m of AI_SHOWCASE_MODELS) {
 assert.equal(
   resolveShowcaseModelFromWorkflow({ provider: 'openai', preset: 'latest' }).id,
   'gpt-5.2',
+);
+assert.equal(
+  resolveShowcaseModelFromWorkflow({ provider: 'openai', preset: 'gpt54' }).id,
+  'gpt-5.4',
 );
 assert.equal(
   resolveShowcaseModelFromWorkflow({ provider: 'google', preset: 'gemini_36_flash' }).id,
@@ -77,6 +87,7 @@ assert.equal(wf.provider, 'openai');
 assert.equal(wf.preset, 'gpt4o');
 
 assert.equal(getShowcaseCreditCost(map['gpt-5.2']), 500);
+assert.equal(getShowcaseCreditCost(map['gpt-5.4']), 500);
 assert.equal(getShowcaseCreditCost(map['claude-haiku-4-5']), 40);
 assert.equal(getShowcaseCreditCost(map['gemini-3.6-flash']), 40);
 assert.equal(getShowcaseCreditCost(map['deepseek-v4-flash']), 20);
@@ -101,6 +112,7 @@ const workflowTs = readFileSync(
 );
 assert.match(workflowTs, /gemini_36_flash[\s\S]*gemini-3\.6-flash/);
 assert.match(workflowTs, /gpt4o[\s\S]*gpt-4o/);
+assert.match(workflowTs, /gpt54[\s\S]*gpt-5\.4/);
 assert.match(workflowTs, /AI_GATEWAY_BASE_URL|ai-gateway\.vercel\.sh/);
 assert.match(workflowTs, /deepseek-v4-flash-0731/);
 

@@ -3572,6 +3572,13 @@
             font-size: 12px;
             color: #6b7280;
         }
+
+        .category-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
         
         .category-actions {
             display: flex;
@@ -3586,10 +3593,29 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
+
+        .category-btn svg,
+        .category-btn svg *,
+        .category-btn i {
+            pointer-events: none;
+        }
         
         .edit-category {
             background: #f3f4f6;
             color: #6b7280;
+        }
+
+        .send-category-notes {
+            background: #eff6ff;
+            color: #2563eb;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-category-notes:hover {
+            background: #dbeafe;
+            color: #1d4ed8;
         }
         
         .edit-category:hover {

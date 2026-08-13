@@ -21,4 +21,5 @@ export const CATEGORIES_SELECTORS = Object.freeze({
   PDF_EXTRACT_CATEGORY: 'pdfExtractCategory',
   CATEGORY_OPTIONS: 'categoryOptions',
   CREATE_CATEGORY_BTN: 'createCategoryBtn',
+  SEND_NOTES_BTN: 'send-category-notes',
 });

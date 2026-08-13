@@ -10,6 +10,7 @@ import * as albumAttachmentViewer from './notes.album-attachment.viewer.js';
 import * as noteImagePicker from './notes.image-picker.js';
 import * as noteImageAnnotate from './notes.image-annotate.js';
 import * as noteClipCreate from './notes.clip-create.js';
+import * as noteSendCatalog from './notes.send-catalog.js';
 
 export function initNotesFeature(_app) {
   return {
@@ -25,5 +26,6 @@ export function initNotesFeature(_app) {
     imagePicker: noteImagePicker,
     imageAnnotate: noteImageAnnotate,
     clipCreate: noteClipCreate,
+    sendCatalog: noteSendCatalog,
   };
 }

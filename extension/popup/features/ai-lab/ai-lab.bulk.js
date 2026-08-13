@@ -45,10 +45,7 @@ export function wireBulkAiButtons(app, config) {
     sendNotesBtn.addEventListener('click', async () => {
       const clips = getClipObjects();
       if (!clips || clips.length === 0) return;
-      await app.loadNotes();
-      app.pendingBulkClipsForNotes = clips;
-      app.pendingClipForNotes = null;
-      app.showAlbumPicker();
+      await app.queueClipsForNotes?.(clips);
     });
   }
 
