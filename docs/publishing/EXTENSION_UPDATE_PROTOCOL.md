@@ -6,11 +6,49 @@
 
 ---
 
+## Release: 2026-08-13 (v3.0.36) - Notes catalog + GPT-5.4 + summary sources + apply-on-download
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.36` (store last published `3.0.35`; do not reuse 3.0.35) |
+| Package | `releases/pastecraft-v3.0.36.zip` - same zip for Chrome **and** Edge |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** - manifest bump + `onUpdateAvailable` lifecycle |
+
+### What's in this update (since 3.0.35)
+
+| Area | Change |
+|---|---|
+| Notes | Category cards send clips to Notes via the shared destination catalog (album picker) |
+| AI Lab | Summit Craft · GPT-5.4 as the newest flagship model |
+| AI Summary | Summaries/Q&A add a ## Sources section (quotes + clip page URLs) |
+| Updates | Apply downloaded Chrome/Edge packages immediately (`onUpdateAvailable` + offscreen close) so installs are not stuck on the previous version |
+
+### Store "What's new" (paste into both dashboards)
+
+```
+PasteCraft 3.0.36
+
+- Send a category's clips to Notes from the category card
+- GPT-5.4 (Summit Craft) in AI Lab
+- AI summaries include source quotes and page URLs
+- Store updates apply without uninstall/reinstall
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
+```
+
+---
+
 ## Release: 2026-08-12 (v3.0.35) - Category separators + AI Lab gateway
 
 | Field | Value |
 |---|---|
-| Manifest version | `3.0.35` (store last published `3.0.34`; do not reuse 3.0.34) |
+| Manifest version | `3.0.35` (published on Chrome Aug 13, 2026; superseded for upload by 3.0.36) |
 | Package | `releases/pastecraft-v3.0.35.zip` - same zip for Chrome **and** Edge |
 | Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
 | Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
@@ -185,7 +223,7 @@ If version was already published: bump patch (`3.0.23` ? `3.0.24`) before packag
 .\scripts\package-extension.ps1
 ```
 
-- [ ] Output: `releases/pastecraft-v3.0.33.zip` (version from manifest)
+- [ ] Output: `releases/pastecraft-v3.0.36.zip` (version from manifest)
 - [ ] Zip = contents of `extension/` only (not repo root, not `manifest.json` at repo root)
 - [ ] Archive last 3 published zips locally as rollback copies
 
