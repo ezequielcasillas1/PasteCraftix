@@ -28,6 +28,30 @@ describe('buildDbClipsForUpsert', () => {
     assert.equal(byId.a__dup2.text, 'hello2');
     assert.equal(byId.a.user_id, 'user-1');
     assert.equal(byId.a.device_id, 'device-1');
+    assert.equal(byId.a.image_url, null);
+  });
+
+  it('upserts https clip image_url and ignores data URLs', () => {
+    const rows = buildDbClipsForUpsert(
+      [{
+        id: 'img-1',
+        text: 'Image clip',
+        timestamp: 1,
+        meta: {
+          kind: 'image',
+          image: {
+            hasImage: true,
+            srcUrl: 'https://example.supabase.co/storage/v1/object/public/clip-images/u/img-1.png',
+          },
+        },
+      }],
+      'user-1',
+      'device-1',
+    );
+    assert.equal(
+      rows[0].image_url,
+      'https://example.supabase.co/storage/v1/object/public/clip-images/u/img-1.png',
+    );
   });
 
   it('drops foreign origin_device_id imports', () => {
@@ -91,6 +115,20 @@ describe('merge helpers', () => {
     assert.equal(merged.meta.kind, 'image');
     assert.equal(merged.meta.image.hasImage, true);
   });
+
+  it('keeps local https image URL when incoming image has none', () => {
+    const local = {
+      text: 'img',
+      meta: { kind: 'image', image: { hasImage: true, srcUrl: 'https://cdn.example/a.png' } },
+    };
+    const remote = {
+      text: 'img',
+      updatedAt: 20,
+      meta: { kind: 'image', image: { hasImage: true } },
+    };
+    const merged = carryForwardClipMeta(local, remote);
+    assert.equal(merged.meta.image.srcUrl, 'https://cdn.example/a.png');
+  });
 });
 
 describe('mapDbClip', () => {
@@ -127,5 +165,25 @@ describe('mapDbClip', () => {
       deviceId: 'd1',
       meta: { x: 1 }
     });
+  });
+
+  it('maps clips.image_url into meta.image.srcUrl', () => {
+    const mapped = mapDbClipToLocal({
+      clip_id: 'img-1',
+      text: 'Image clip',
+      title: '',
+      category: 'Uncategorized',
+      timestamp: 10,
+      updated_at: null,
+      deleted_at: null,
+      device_id: 'd1',
+      image_url: 'https://example.supabase.co/storage/v1/object/public/clip-images/u/img-1.png',
+    });
+    assert.equal(mapped.meta.kind, 'image');
+    assert.equal(mapped.meta.image.hasImage, true);
+    assert.equal(
+      mapped.meta.image.srcUrl,
+      'https://example.supabase.co/storage/v1/object/public/clip-images/u/img-1.png',
+    );
   });
 });

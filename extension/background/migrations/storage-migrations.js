@@ -3,11 +3,15 @@
  * See .cursor/rules/production-publishing-safety.mdc Sections D and E.
  */
 
-export const SCHEMA_VERSION = 1;
+import { migrateClipImagesFromChromeStorage } from '../../shared/clip-images.js';
+
+export const SCHEMA_VERSION = 2;
 export const SCHEMA_VERSION_KEY = '__schemaVersion';
 
 const migrations = {
-  // Example: 1: async () => { /* migrate from v1 to v2 */ }
+  1: async () => {
+    await migrateClipImagesFromChromeStorage();
+  },
 };
 
 export async function runStorageMigrations(previousVersion) {

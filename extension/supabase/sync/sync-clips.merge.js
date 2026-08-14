@@ -95,6 +95,22 @@ export function carryForwardClipMeta(prev, incoming) {
   if (prevImg && !nextImg) {
     return { ...incoming, meta: { ...nextMeta, image: prevImg } };
   }
+  const prevUrl = typeof prevImg?.srcUrl === 'string' ? prevImg.srcUrl.trim() : '';
+  const nextUrl = typeof nextImg?.srcUrl === 'string' ? nextImg.srcUrl.trim() : '';
+  if (prevUrl.startsWith('https://') && !nextUrl.startsWith('https://')) {
+    return {
+      ...incoming,
+      meta: {
+        ...nextMeta,
+        image: {
+          ...(nextImg || {}),
+          srcUrl: prevUrl,
+          hasImage: true,
+          storagePath: prevImg.storagePath || nextImg?.storagePath,
+        },
+      },
+    };
+  }
   if (prevMeta.captureSource && !nextMeta.captureSource) {
     return { ...incoming, meta: { ...nextMeta, captureSource: prevMeta.captureSource } };
   }

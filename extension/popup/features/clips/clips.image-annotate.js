@@ -3,7 +3,7 @@
  * UI/tools live in extension/shared/image-annotate.js.
  */
 
-import { getClipImage, putClipImage } from '../../../shared/clip-images.js';
+import { getClipImage, putClipImage, LOCAL_STORAGE_LIMIT_MESSAGE } from '../../../shared/clip-images.js';
 import { closeImageAnnotate, openImageAnnotate } from '../../../shared/image-annotate.js';
 import {
   openAnnotateFullscreenWindow,
@@ -52,7 +52,12 @@ async function resolveAnnotateSource(clipId, dataUrl) {
 }
 
 async function persistClipAnnotation(app, id, outUrl) {
-  if (id) await putClipImage(id, outUrl, 'image/png');
+  try {
+    if (id) await putClipImage(id, outUrl, 'image/png');
+  } catch (err) {
+    app?.showToast?.(err?.message || LOCAL_STORAGE_LIMIT_MESSAGE, 'error');
+    return null;
+  }
   const clip = findClipById(app, id);
   markClipHasImage(clip);
   if (app?.currentClipViewerClip && getClipIdKey(app.currentClipViewerClip.id) === getClipIdKey(id)) {

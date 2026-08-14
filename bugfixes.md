@@ -1,3 +1,7 @@
+### Aug 14, 2026 - Clip images blank (chrome.storage 10MB)
+**Status:** SUCCESS
+**Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js
+**Result:** Root cause was chrome.storage.local 10MB quota, not Supabase wipe. IDB-first + migrate `pc_clip_img_v1_*`; cloud `clip-images` bucket + `clips.image_url`. Quota text: You have reached the limits of the providing local storage. User verified images after reload + recapture.
 
 ### Aug 14, 2026 - Image Picker Opera site permission
 **Status:** FAILURE

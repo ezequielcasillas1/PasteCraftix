@@ -9,6 +9,7 @@ import {
   safeTabsSendMessage,
 } from './bg-utils.js';
 import { saveTextDirectly, pasteClip } from './clips.commands.js';
+import { ensureClipImagesMigrated } from '../../shared/clip-images.js';
 import {
   SCHEMA_VERSION,
   SCHEMA_VERSION_KEY,
@@ -191,10 +192,12 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onStartup.addListener(() => {
   createContextMenus();
+  void ensureClipImagesMigrated();
 });
 
 // Force create immediately
 createContextMenus();
+void ensureClipImagesMigrated();
 
 // Handle extension icon click - open slide-in panel instead of popup
 chrome.action.onClicked.addListener(async (tab) => {

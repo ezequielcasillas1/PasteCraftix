@@ -1,4 +1,9 @@
 
+### Aug 14, 2026 - Clip images in viewer (IDB-first + cloud preserve)
+**Status:** SUCCESS
+**Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js
+**Result:** Blank viewer was chrome.storage.local 10MB quota, not a Supabase wipe. IDB-first + migrate `pc_clip_img_v1_*`; cloud `clip-images` bucket + `clips.image_url`. Quota text: You have reached the limits of the providing local storage. User verified after reload + recapture.
+
 ### Jul 26, 2026 - Image copy, notes annotate fullscreen, funky header showcase
 **Status:** SUCCESS
 **Files:** clipboard-image.js, offscreen-clipboard.js, notes.image-annotate*.js, note-image-annotate.html, profile.render.js, ai-lab.model-picker.js, manifest.json (3.0.28)

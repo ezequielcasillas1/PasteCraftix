@@ -19,6 +19,7 @@ export const ROUTED_INTERNAL_ACTIONS = Object.freeze({
   PC_OPEN_SITE_ACCESS_GRANT: 'pcOpenSiteAccessGrant',
   PC_OPEN_POPUP_WINDOW: 'pcOpenPopupWindow',
   SAVE_CLIP: 'saveClip',
+  PC_PUT_CLIP_IMAGE: 'pcPutClipImage',
   PC_GET_QUICK_VIEW_CLIPS: 'pcGetQuickViewClips',
   PC_DELETE_QUICK_VIEW_CLIP: 'pcDeleteQuickViewClip',
   REFRESH_CLIPS: 'refreshClips',

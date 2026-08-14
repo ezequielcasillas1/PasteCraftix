@@ -30,6 +30,7 @@ import { syncNotesMixin } from './sync/sync-notes.js';
 import { syncSettingsMixin } from './sync/sync-settings.js';
 import { fullSyncMixin } from './sync/full-sync.js';
 import { realtimeMixin } from './sync/realtime.js';
+import { clipImagesCloudMixin } from './sync/clip-images-cloud.js';
 
 import { aiEdgeMixin } from './ai/ai-edge.js';
 import { aiFunctionsMixin } from './ai/ai-functions.js';
@@ -49,6 +50,7 @@ Object.assign(PasteCraftSupabase.prototype, identityMixin);
 Object.assign(PasteCraftSupabase.prototype, tombstonesMixin);
 Object.assign(PasteCraftSupabase.prototype, syncQueueMixin);
 Object.assign(PasteCraftSupabase.prototype, realtimeMixin);
+Object.assign(PasteCraftSupabase.prototype, clipImagesCloudMixin);
 Object.assign(PasteCraftSupabase.prototype, syncClipsMixin);
 Object.assign(PasteCraftSupabase.prototype, syncCategoriesMixin);
 Object.assign(PasteCraftSupabase.prototype, syncArchivedMixin);
