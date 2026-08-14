@@ -1037,11 +1037,39 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
 
 [data-theme="blue"] .category-clip {
   border-bottom: 1px solid rgba(30, 58, 138, 0.55);
+  user-select: none;
+  -webkit-user-select: none;
+  color-scheme: dark;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 [data-theme="blue"] .category-clip:hover {
   background: rgba(59, 130, 246, 0.12);
   box-shadow: inset 3px 0 0 var(--pc-secondary-400);
+}
+
+/* Must beat popup.html .category-clip.selected (electric fill) AND
+   [data-theme="blue"] .category-clip:hover (0,2,1) while the pointer is down. */
+[data-theme="blue"] .category-clip.selected,
+[data-theme="blue"] .category-clip.selected:hover {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.72) 0%, rgba(11, 18, 32, 0.94) 58%, rgba(37, 99, 235, 0.28) 100%);
+  box-shadow:
+    inset 3px 0 0 var(--pc-secondary-300),
+    inset 0 1px 0 rgba(191, 219, 254, 0.14),
+    0 2px 16px rgba(37, 99, 235, 0.28);
+  border-bottom-color: rgba(96, 165, 250, 0.4);
+  color: #fff;
+}
+
+[data-theme="blue"] .category-clip ::selection,
+[data-theme="blue"] .category-clip ::-moz-selection {
+  background: rgba(30, 58, 138, 0.75);
+  color: #fff;
+}
+
+[data-theme="blue"] .category-checkbox {
+  accent-color: var(--pc-secondary-400);
+  color-scheme: dark;
 }
 
 [data-theme="blue"] .category-clip-text {

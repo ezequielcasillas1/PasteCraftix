@@ -3445,7 +3445,9 @@
             padding: 8px 16px;
             border-bottom: 1px solid #e2e8f0;
             cursor: pointer;
-            transition: all 0.2s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            transition: background 0.15s ease, box-shadow 0.15s ease;
         }
         
         .category-clip:last-child {
@@ -3456,7 +3458,8 @@
             background: #e2e8f0;
         }
         
-        .category-clip.selected {
+        .category-clip.selected,
+        .category-clip.selected:hover {
             background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             color: white;
         }

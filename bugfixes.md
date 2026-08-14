@@ -1,3 +1,8 @@
+### Aug 14, 2026 - Category clip selected highlight glitchy
+**Status:** PARTIAL (pending user verify)
+**Files:** theme-blue-phase2.css, popup.html, tests/category-clip-selected-theme.test.mjs
+**Result:** Blue theme had hover but no `.category-clip.selected`, so hover beat the electric popup fill and native text selection showed on MD/title. Full-row dark-navy selected now beats hover; `user-select: none`.
+
 ### Aug 14, 2026 - Clip images blank (chrome.storage 10MB)
 **Status:** SUCCESS
 **Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js
