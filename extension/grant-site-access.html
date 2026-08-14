@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PasteCraft site access</title>
+  <style>
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    main {
+      width: min(380px, calc(100vw - 32px));
+      padding: 20px;
+      border: 1px solid #1e3a5f;
+      border-radius: 14px;
+      background: #132033;
+    }
+    h1 { margin: 0 0 8px; font-size: 16px; }
+    p { margin: 0 0 16px; color: #94a3b8; }
+    button {
+      width: 100%;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    .status { margin-top: 12px; min-height: 1.2em; color: #fca5a5; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Allow site access</h1>
+    <p>Image Picker and Spot need permission to capture this page. Click the button below — Chrome and Edge only show the prompt from this page. Refresh the site afterward if Capture Tools were missing.</p>
+    <p id="operaHint" hidden>Opera may block this page. Prefer the toolbar popup: click the PasteCraft icon, then Allow site access. Or open opera://extensions → PasteCraft → Details → Site access (opera:// cannot be opened as a link from here).</p>
+    <button type="button" id="grantBtn">Allow on all sites</button>
+    <div class="status" id="status"></div>
+  </main>
+  <script type="module" src="grant-site-access.js"></script>
+</body>
+</html>

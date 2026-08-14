@@ -3,6 +3,7 @@
 ## 🐛 Current Issues Requiring Attention:
 
 {
+- Opera / Arc Image Picker + Spot: not supported (Opera FAILURE 2026-08-14 ERR_BLOCKED_BY_CLIENT + failed popup grant). Auto-Copy and click-and-drag still work. Do not treat grant as fixed.
 - Website reset-password: strength meter / form dead (CSP blocks inline script on /reset-password*) — fix in website/public/js/reset-password.js, needs deploy
 - Website account sign-in not working (email/password on /account "Access your account" form)
 - Liked page empty after hearting a clip (float id mismatch: getClipIdKey vs String) — fix on cursor/fix-liked-page-id-match-015e

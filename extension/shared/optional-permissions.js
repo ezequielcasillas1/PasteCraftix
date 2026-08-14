@@ -25,6 +25,8 @@ export const OPTIONAL_PERM_MESSAGES = Object.freeze({
     'PasteCraft needs site access for Capture Tools on this page',
 });
 
+const DEBUG_INGEST = 'http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd';
+
 function denyPayload(kind, error) {
   return {
     ok: false,
@@ -42,12 +44,164 @@ async function alreadyGranted(desc) {
   }
 }
 
-/** Service worker / extension pages only (chrome.permissions API). */
-export async function ensureOptionalPermissions(kind) {
-  const desc = OPTIONAL_PERM_DESCS[kind];
-  if (!desc) return denyPayload(kind, 'unknown_kind');
-  if (await alreadyGranted(desc)) return { ok: true, granted: true, already: true };
+export function detectBrowserBrand(userAgent) {
+  const ua = String(
+    userAgent
+      || (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+      || '',
+  );
+  const isOpera = /\bOPR\/|\bOpera\b/i.test(ua);
+  const isEdge = /\bEdg(?:e|A|iOS)?\//i.test(ua);
+  let uaBrand = 'other';
+  if (isOpera) uaBrand = 'opera';
+  else if (isEdge) uaBrand = 'edge';
+  else if (/\bChrome\//i.test(ua)) uaBrand = 'chrome';
+  return { isOpera, isEdge, uaBrand };
+}
 
+export function originPatternFromUrl(url) {
+  try {
+    const parsed = new URL(String(url || ''));
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return `${parsed.protocol}//${parsed.host}/*`;
+  } catch (_) {
+    return '';
+  }
+}
+
+// #region agent log
+export function pcDebugOperaAf03f9(hypothesisId, location, message, data) {
+  const brand = detectBrowserBrand();
+  const payload = {
+    sessionId: 'af03f9',
+    runId: 'opera-pre',
+    hypothesisId,
+    location,
+    message,
+    data: {
+      uaBrand: brand.uaBrand,
+      isOpera: brand.isOpera,
+      ...(data && typeof data === 'object' ? data : {}),
+    },
+    timestamp: Date.now(),
+  };
+  console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify(payload));
+  fetch(DEBUG_INGEST, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
+// #endregion
+
+export async function hasOptionalHostAccess(originPattern) {
+  const allDesc = OPTIONAL_PERM_DESCS[OPTIONAL_PERM_KINDS.ALL_URLS];
+  if (await alreadyGranted(allDesc)) {
+    return { ok: true, granted: true, already: true, scope: 'all_urls' };
+  }
+  if (originPattern && await alreadyGranted({ origins: [originPattern] })) {
+    return { ok: true, granted: true, already: true, scope: 'origin' };
+  }
+  return denyPayload(OPTIONAL_PERM_KINDS.ALL_URLS, 'permission_needed');
+}
+
+async function requestOrigins(origins) {
+  try {
+    const granted = await chrome.permissions.request({ origins });
+    return { granted: !!granted, error: null };
+  } catch (err) {
+    return { granted: false, error: String(err?.message || err || 'permission_request_failed') };
+  }
+}
+
+/** Popup / grant page only — must run from a user click. */
+export async function requestHostAccessFromUserGesture(originPattern) {
+  const existing = await hasOptionalHostAccess(originPattern);
+  if (existing.ok) return existing;
+
+  const allResult = await requestOrigins(['<all_urls>']);
+  if (allResult.granted) return { ok: true, granted: true, scope: 'all_urls' };
+
+  if (originPattern) {
+    const originResult = await requestOrigins([originPattern]);
+    if (originResult.granted) return { ok: true, granted: true, scope: 'origin' };
+    return {
+      ...denyPayload(OPTIONAL_PERM_KINDS.ALL_URLS, originResult.error || allResult.error || 'permission_denied'),
+      allUrlsError: allResult.error,
+      originError: originResult.error,
+    };
+  }
+
+  return {
+    ...denyPayload(OPTIONAL_PERM_KINDS.ALL_URLS, allResult.error || 'permission_denied'),
+    allUrlsError: allResult.error,
+  };
+}
+
+export async function notifyTabsOptionalHostGranted() {
+  let tabCount = 0;
+  let sent = 0;
+  let failed = 0;
+  try {
+    const tabs = await chrome.tabs.query({});
+    tabCount = tabs.length;
+    await Promise.all(tabs.map(async (tab) => {
+      if (!Number.isFinite(tab?.id)) return;
+      try {
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'pcOptionalPermissionGranted',
+          kind: OPTIONAL_PERM_KINDS.ALL_URLS,
+        });
+        sent += 1;
+      } catch (_) {
+        failed += 1;
+      }
+    }));
+  } catch (err) {
+    // #region agent log
+    pcDebugOperaAf03f9('H-O3', 'optional-permissions.js:notifyTabs', 'broadcast threw', {
+      error: String(err?.message || err),
+    });
+    // #endregion
+  }
+  // #region agent log
+  pcDebugOperaAf03f9('H-O3', 'optional-permissions.js:notifyTabs', 'broadcast to tabs', {
+    tabCount,
+    sent,
+    failed,
+  });
+  // #endregion
+  return { tabCount, sent, failed };
+}
+
+export async function tryOpenToolbarPopup() {
+  if (typeof chrome?.action?.openPopup !== 'function') {
+    return { ok: false, error: 'openPopup_unavailable' };
+  }
+  try {
+    await chrome.action.openPopup();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err || 'openPopup_failed') };
+  }
+}
+
+export async function markSiteAccessNeeded() {
+  try {
+    await chrome.action.setBadgeText({ text: '!' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#dc2626' });
+    await chrome.action.setTitle({ title: 'PasteCraft — Allow site access' });
+  } catch (_) {}
+}
+
+export async function clearSiteAccessNeeded() {
+  try {
+    await chrome.action.setBadgeText({ text: '' });
+    await chrome.action.setTitle({ title: 'PasteCraft' });
+  } catch (_) {}
+}
+
+async function requestDesc(desc, kind) {
   try {
     const granted = await chrome.permissions.request(desc);
     return granted ? { ok: true, granted: true } : denyPayload(kind, 'permission_denied');
@@ -56,15 +210,63 @@ export async function ensureOptionalPermissions(kind) {
   }
 }
 
+async function ensureAllUrlsAccess(options) {
+  const host = await hasOptionalHostAccess(options.originPattern);
+  if (host.ok) return host;
+  if (options.checkOnly === true) return denyPayload(OPTIONAL_PERM_KINDS.ALL_URLS, 'permission_needed');
+  return requestDesc(OPTIONAL_PERM_DESCS[OPTIONAL_PERM_KINDS.ALL_URLS], OPTIONAL_PERM_KINDS.ALL_URLS);
+}
+
+/** Service worker / extension pages only (chrome.permissions API). */
+export async function ensureOptionalPermissions(kind, options = {}) {
+  const desc = OPTIONAL_PERM_DESCS[kind];
+  if (!desc) return denyPayload(kind, 'unknown_kind');
+  if (kind === OPTIONAL_PERM_KINDS.ALL_URLS) return ensureAllUrlsAccess(options);
+  if (await alreadyGranted(desc)) return { ok: true, granted: true, already: true };
+  if (options.checkOnly === true) return denyPayload(kind, 'permission_needed');
+  return requestDesc(desc, kind);
+}
+
+function resolveOriginPattern(kind, originPattern) {
+  if (originPattern) return originPattern;
+  if (kind !== OPTIONAL_PERM_KINDS.ALL_URLS) return '';
+  return originPatternFromUrl(globalThis.location?.href);
+}
+
+function mapPermissionResponse(kind, response) {
+  if (response?.ok) return response;
+  return denyPayload(kind, response?.error || 'permission_denied');
+}
+
 /** Content scripts / any context — routes to background. */
-export async function requestOptionalPermissions(kind) {
+export async function requestOptionalPermissions(kind, options = {}) {
+  const originPattern = resolveOriginPattern(kind, options.originPattern);
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'pcEnsureOptionalPermissions',
       kind,
+      checkOnly: options.checkOnly === true,
+      originPattern: originPattern || undefined,
     });
-    return response?.ok ? response : denyPayload(kind, response?.error || 'permission_denied');
+    return mapPermissionResponse(kind, response);
   } catch (err) {
     return denyPayload(kind, String(err?.message || err || 'permission_request_failed'));
+  }
+}
+
+function mapOpenGrantResponse(response) {
+  if (response?.ok) return response;
+  return { ok: false, error: response?.error || 'open_failed' };
+}
+
+/** Packed installs: SW opens grant UI (Opera skips blocked grant tab). */
+export async function openSiteAccessGrantPage() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'pcOpenSiteAccessGrant',
+    });
+    return mapOpenGrantResponse(response);
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err || 'open_failed') };
   }
 }
