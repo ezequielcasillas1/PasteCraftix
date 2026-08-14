@@ -97,4 +97,19 @@ assert.match(
   "content.js must import QuickPasteInterface via quick-paste entry",
 );
 
+assertExtensionFile("background/handlers/update.handler.js");
+assertExtensionFile("grant-site-access.html");
+assertExtensionFile("grant-site-access.js");
+assertExtensionFile("popup/features/site-access/site-access.controller.js");
+assertExtensionFile("shared/optional-permissions.js");
+const backgroundShared = fs.readFileSync(
+  path.join(extensionDir, "background/shared.js"),
+  "utf8",
+);
+assert.match(
+  backgroundShared,
+  /from\s*['"]\.\/handlers\/update\.handler\.js['"]|import\s+['"]\.\/handlers\/update\.handler\.js['"]/,
+  "background/shared.js must load update.handler.js",
+);
+
 console.log("Extension smoke test passed.");

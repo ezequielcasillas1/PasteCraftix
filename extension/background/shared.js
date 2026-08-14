@@ -1,10 +1,11 @@
 /**
- * @forward-slice Background facade — re-exports Command modules + loads menu lifecycle.
+ * @forward-slice Background facade — re-exports Command modules + loads menu/update lifecycle.
  * Prefer importing from handlers/quickview/migrations directly in new code.
  * Arkitect seams: Facade (this file) + Mediator (messaging/router) + Command (handlers).
  */
 
 import './handlers/menus.handler.js';
+import './handlers/update.handler.js';
 
 export {
   isRepoLoaderBuild,
