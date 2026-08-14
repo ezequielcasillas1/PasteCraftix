@@ -1,4 +1,9 @@
 
+### Aug 14, 2026 - Clip images in viewer (IDB-first + cloud preserve)
+**Status:** SUCCESS
+**Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js
+**Result:** IDB-first images + migrate `pc_clip_img_v1_*` out of chrome.storage. Cloud preserve via `clip-images` bucket + `clips.image_url`. Quota text: You have reached the limits of the providing local storage. User verified after reload + recapture.
+
 ### Aug 14, 2026 - Comet Capture Tools eligible
 **Files:** capture-browser-support.js, capture-browser-support.test.mjs, support.astro, index.astro, popup.html
 **Result:** Comet (Perplexity) treated as eligible for Image Picker + Spot like Chrome/Edge. Opera/Arc still Auto-Copy + click-and-drag only.

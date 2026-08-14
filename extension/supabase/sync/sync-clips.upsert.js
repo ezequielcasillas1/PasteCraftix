@@ -1,6 +1,7 @@
 /** Pure helpers for building clip upsert payloads. */
 import { getClipIdKey } from '../../shared/clip-id.js';
 import { hashString } from './sync-clips.hash.js';
+import { clipImageCloudUrlFromClip } from '../../shared/clip-images.cloud.js';
 
 export function getClipText(clip) {
   return typeof clip === 'string' ? clip : (clip?.text ?? clip);
@@ -79,7 +80,8 @@ export function toDbClipRow(clip, { userId, deviceId, clipId, text, ts, updatedA
     updated_at: toIsoOrNow(updatedAtMs),
     deleted_at: toIsoOrNull(deletedAtMs),
     device_id: resolveClipDeviceId(clip, deviceId),
-    content_hash: hashString(text)
+    content_hash: hashString(text),
+    image_url: clipImageCloudUrlFromClip(clip) || null
   };
 }
 

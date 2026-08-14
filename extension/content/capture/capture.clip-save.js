@@ -2,12 +2,22 @@
 
 import { CAPTURE_MAX_TEXT } from './capture.constants.js';
 import { incrementCaptureToolsStats } from './capture.stats.js';
-import { peelImageDataUrlFromMeta, putClipImage, stashPendingClipImage, clearPendingClipImage, pcDebugAf03f9 } from '../../shared/clip-images.js';
+import {
+  peelImageDataUrlFromMeta,
+  putClipImage,
+  clearPendingClipImage,
+  CLIP_IMAGE_CARRY_MAX,
+  LOCAL_STORAGE_LIMIT_MESSAGE,
+} from '../../shared/clip-images.js';
 
 function pcSafeTrim(str, max) {
   const value = String(str ?? '');
   if (value.length <= max) return value;
   return value.slice(0, max) + '…';
+}
+
+function isLocalStorageLimitMessage(value) {
+  return String(value || '') === LOCAL_STORAGE_LIMIT_MESSAGE;
 }
 
 async function prepareClipImageForSave(meta) {
@@ -18,27 +28,16 @@ async function prepareClipImageForSave(meta) {
     delete lightMeta.image.dataUrl;
     if (peeled.dataUrl) lightMeta.image.hasImage = true;
   }
-  let pendingImageKey = '';
-  if (peeled.dataUrl) {
-    try {
-      pendingImageKey = await stashPendingClipImage(peeled.dataUrl, peeled.mime);
-      // #region agent log
-      await pcDebugAf03f9('H6', 'capture.clip-save.js:prepare', 'stashed pending image', {
-        pendingKeySuffix: pendingImageKey.slice(-20),
-        dataUrlLen: peeled.dataUrl.length,
-        mime: peeled.mime,
-      });
-      // #endregion
-    } catch (err) {
-      // #region agent log
-      await pcDebugAf03f9('H7', 'capture.clip-save.js:prepare', 'stash pending failed', {
-        dataUrlLen: peeled.dataUrl.length,
-        error: String(err?.message || err).slice(0, 120),
-      });
-      // #endregion
-    }
-  }
-  return { peeled, lightMeta, pendingImageKey };
+  const imageDataUrl = peeled.dataUrl && peeled.dataUrl.length <= CLIP_IMAGE_CARRY_MAX
+    ? peeled.dataUrl
+    : '';
+  return {
+    peeled,
+    lightMeta,
+    pendingImageKey: '',
+    imageDataUrl,
+    imageMime: peeled.mime,
+  };
 }
 
 async function saveClipLocalFallback({ text, meta, category }) {
@@ -62,15 +61,69 @@ async function saveClipLocalFallback({ text, meta, category }) {
       ...(lightMeta ? { meta: lightMeta } : {}),
     };
     if (peeled.dataUrl) {
-      await putClipImage(newClip.id, peeled.dataUrl, peeled.mime);
+      try {
+        await putClipImage(newClip.id, peeled.dataUrl, peeled.mime);
+      } catch (imgErr) {
+        return { ok: false, error: LOCAL_STORAGE_LIMIT_MESSAGE };
+      }
     }
     clips.unshift(newClip);
     await chrome.storage.local.set({ clips, pc_local_updatedAt: now });
     chrome.runtime.sendMessage({ action: 'clipsUpdated' }).catch(() => {});
     return { ok: true, fallback: true };
   } catch (err) {
-    return { ok: false, error: err?.message || 'Local save failed.' };
+    const msg = String(err?.message || '');
+    return {
+      ok: false,
+      error: isLocalStorageLimitMessage(msg) ? LOCAL_STORAGE_LIMIT_MESSAGE : (msg || 'Local save failed.'),
+    };
   }
+}
+
+function markCaptureSaved(meta) {
+  const source = meta?.captureSource;
+  if (source === 'spot' || source === 'image-picker') {
+    return incrementCaptureToolsStats(source);
+  }
+  return Promise.resolve();
+}
+
+function limitOrMessage(value, fallback) {
+  const msg = String(value || '');
+  if (isLocalStorageLimitMessage(msg)) return LOCAL_STORAGE_LIMIT_MESSAGE;
+  return msg || fallback;
+}
+
+async function sendSaveClipAttempts(payload) {
+  let response = null;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await chrome.runtime.sendMessage(payload);
+      if (response != null) return { response, lastError };
+      lastError = 'No response from background saveClip.';
+    } catch (err) {
+      lastError = err?.message || 'Save failed.';
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+    }
+  }
+  return { response, lastError };
+}
+
+function interpretSaveClipResponse(response, lastError, imageDataUrl) {
+  const errText = response?.error || lastError || 'Save failed.';
+  if (isLocalStorageLimitMessage(errText)) {
+    return { ok: false, error: LOCAL_STORAGE_LIMIT_MESSAGE };
+  }
+  if (response?.success) {
+    if (imageDataUrl && response.imageStored !== true) {
+      return { ok: false, error: LOCAL_STORAGE_LIMIT_MESSAGE };
+    }
+    return { ok: true };
+  }
+  return { ok: false, error: errText, tryFallback: true };
 }
 
 export async function saveClipFromContent({ text, meta = null, category = 'Uncategorized', autoShow = false }) {
@@ -80,75 +133,36 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
     return { ok: false, error: 'Nothing to save.' };
   }
 
-  const { lightMeta, pendingImageKey } = await prepareClipImageForSave(meta);
+  const { lightMeta, pendingImageKey, imageDataUrl, imageMime } = await prepareClipImageForSave(meta);
+  const saveText = body || pcSafeTrim(meta?.image?.srcUrl || 'Image clip', CAPTURE_MAX_TEXT);
 
   try {
-    let response = null;
-    let lastError = null;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        response = await chrome.runtime.sendMessage({
-          action: 'saveClip',
-          text: body || pcSafeTrim(meta?.image?.srcUrl || 'Image clip', CAPTURE_MAX_TEXT),
-          meta: lightMeta,
-          pendingImageKey,
-          category,
-          autoShow: autoShow === true,
-        });
-        // #region agent log
-        await pcDebugAf03f9('H6', 'capture.clip-save.js:saveClip', 'saveClip response', {
-          attempt,
-          success: response?.success === true,
-          hasResponse: response != null,
-          error: response?.error || lastError || '',
-          pendingKeyLen: pendingImageKey.length,
-          lightHasImage: lightMeta?.image?.hasImage === true,
-          kind: lightMeta?.kind || null,
-        });
-        // #endregion
-        if (response != null) break;
-        lastError = 'No response from background saveClip.';
-      } catch (err) {
-        lastError = err?.message || 'Save failed.';
-        // #region agent log
-        await pcDebugAf03f9('H6', 'capture.clip-save.js:saveClip', 'saveClip send failed', {
-          attempt,
-          error: String(lastError).slice(0, 120),
-          pendingKeyLen: pendingImageKey.length,
-        });
-        // #endregion
-        if (attempt === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 80));
-          continue;
-        }
-      }
-    }
-    const errText = response?.error || lastError || 'Save failed.';
-    if (response?.success) {
-      const source = meta?.captureSource;
-      if (source === 'spot' || source === 'image-picker') {
-        await incrementCaptureToolsStats(source);
-      }
+    const { response, lastError } = await sendSaveClipAttempts({
+      action: 'saveClip',
+      text: saveText,
+      meta: lightMeta,
+      pendingImageKey,
+      imageDataUrl,
+      imageMime,
+      category,
+      autoShow: autoShow === true,
+    });
+    const outcome = interpretSaveClipResponse(response, lastError, imageDataUrl);
+    if (outcome.ok) {
+      await markCaptureSaved(meta);
       return { ok: true };
     }
+    if (!outcome.tryFallback) return { ok: false, error: outcome.error };
 
-    const fallback = await saveClipLocalFallback({
-      text: body || pcSafeTrim(meta?.image?.srcUrl || 'Image clip', CAPTURE_MAX_TEXT),
-      meta,
-      category,
-    });
+    const fallback = await saveClipLocalFallback({ text: saveText, meta, category });
     if (pendingImageKey) await clearPendingClipImage(pendingImageKey);
     if (fallback.ok) {
-      const source = meta?.captureSource;
-      if (source === 'spot' || source === 'image-picker') {
-        await incrementCaptureToolsStats(source);
-      }
+      await markCaptureSaved(meta);
       return { ok: true, fallback: true };
     }
-
-    return { ok: false, error: fallback.error || errText };
+    return { ok: false, error: limitOrMessage(fallback.error, outcome.error) };
   } catch (err) {
-    return { ok: false, error: err?.message || 'Save failed.' };
+    return { ok: false, error: limitOrMessage(err?.message, 'Save failed.') };
   }
 }
 

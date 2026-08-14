@@ -1,5 +1,6 @@
 import { normalizeArray, safeTabsSendMessage } from './bg-utils.js';
 import { saveTextDirectly } from './clips.commands.js';
+import { putClipImage } from '../../shared/clip-images.js';
 import { getQuickViewClips, deleteQuickViewClip } from '../quickview/quickview.service.js';
 import { INTERNAL_MESSAGE_ACTIONS as A } from '../messaging/message-types.js';
 
@@ -15,13 +16,32 @@ export function handleSaveClip(message, { sendResponse }) {
     message.autoShow !== false,
     message.meta || null,
     message.pendingImageKey || '',
+    {
+      dataUrl: message.imageDataUrl || '',
+      mime: message.imageMime || '',
+    },
   )
-    .then(() => {
-      sendResponse({ success: true });
+    .then((result) => {
+      sendResponse({
+        success: true,
+        imageStored: result?.imageStored === true,
+        clipId: result?.clipId ?? null,
+      });
     })
     .catch((error) => {
       console.error('❌ Failed to save clip:', error);
       sendResponse({ success: false, error: error.message });
+    });
+  return true;
+}
+
+export function handlePutClipImage(message, { sendResponse }) {
+  putClipImage(message.clipId, message.dataUrl, message.mime || 'image/png')
+    .then((key) => {
+      sendResponse({ success: true, key });
+    })
+    .catch((error) => {
+      sendResponse({ success: false, error: error?.message || String(error) });
     });
   return true;
 }
@@ -86,6 +106,7 @@ export function handleClipsBroadcast(_message, { sendResponse }) {
 export function createClipsHandlerMap() {
   return {
     [A.SAVE_CLIP]: handleSaveClip,
+    [A.PC_PUT_CLIP_IMAGE]: handlePutClipImage,
     [A.PC_GET_QUICK_VIEW_CLIPS]: handlePcGetQuickViewClips,
     [A.PC_DELETE_QUICK_VIEW_CLIP]: handlePcDeleteQuickViewClip,
     [A.REFRESH_CLIPS]: handleClipsBroadcast,

@@ -3,7 +3,7 @@
  * Invoked by clips.handler (Mediator) and menus.handler (context menu).
  */
 
-import { peelImageDataUrlFromMeta, putClipImage, takePendingClipImage, clearPendingClipImage, pcDebugAf03f9 } from '../../shared/clip-images.js';
+import { peelImageDataUrlFromMeta, putClipImage, takePendingClipImage, clearPendingClipImage, ensureClipImagesMigrated, isChromeStorageQuotaError, LOCAL_STORAGE_LIMIT_MESSAGE } from '../../shared/clip-images.js';
 import { syncClipsToIndexedDb } from '../quickview/quickview.idb.js';
 import { normalizeArray } from './bg-utils.js';
 
@@ -192,7 +192,57 @@ function notifyClipSaved(newClip, autoShow) {
   }
 }
 
-export async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null, pendingImageKey = '') {
+function markClipHasStoredImage(newClip) {
+  if (!newClip.meta || typeof newClip.meta !== 'object') newClip.meta = { kind: 'image' };
+  if (!newClip.meta.image || typeof newClip.meta.image !== 'object') newClip.meta.image = {};
+  newClip.meta.image.hasImage = true;
+  delete newClip.meta.image.dataUrl;
+  delete newClip.meta.image.tooLarge;
+}
+
+async function takePendingImageBytes(pendingImageKey) {
+  try {
+    const pending = await takePendingClipImage(pendingImageKey);
+    if (pending?.dataUrl) return { dataUrl: pending.dataUrl, mime: pending.mime };
+  } catch (_) {
+  }
+  return { dataUrl: '', mime: 'image/png' };
+}
+
+function carriedImageBytes(imageCarry) {
+  const dataUrl = typeof imageCarry?.dataUrl === 'string' ? imageCarry.dataUrl : '';
+  if (!dataUrl.startsWith('data:image/')) return { dataUrl: '', mime: 'image/png' };
+  return {
+    dataUrl,
+    mime: imageCarry?.mime || 'image/png',
+  };
+}
+
+async function resolveSaveClipImageBytes(peeled, pendingImageKey, imageCarry) {
+  const carried = carriedImageBytes(imageCarry);
+  if (carried.dataUrl) return carried;
+  if (peeled.dataUrl) return { dataUrl: peeled.dataUrl, mime: peeled.mime };
+  if (pendingImageKey) {
+    const pending = await takePendingImageBytes(pendingImageKey);
+    if (pending.dataUrl) return pending;
+  }
+  return { dataUrl: '', mime: 'image/png' };
+}
+
+async function storeSaveClipImage(newClip, dataUrl, mime, pendingImageKey) {
+  if (pendingImageKey) await clearPendingClipImage(pendingImageKey);
+  if (!dataUrl) return false;
+  try {
+    await putClipImage(newClip.id, dataUrl, mime);
+    markClipHasStoredImage(newClip);
+    return true;
+  } catch (imgErr) {
+    console.warn('[saveTextDirectly] clip image store failed:', imgErr?.message || imgErr);
+    throw new Error(LOCAL_STORAGE_LIMIT_MESSAGE);
+  }
+}
+
+export async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null, pendingImageKey = '', imageCarry = null) {
   // Keep logs lightweight (this runs in a service worker).
   console.log('📝 Saving clip:', {
     category,
@@ -205,6 +255,8 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     console.log('⚠️ Attempted to save empty/undefined text - ABORTED');
     throw new Error('empty_text');
   }
+
+  await ensureClipImagesMigrated();
 
   const result = await chrome.storage.local.get(['clips', 'searchOnlyClips']);
 
@@ -229,45 +281,8 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     ...(safeMeta ? { meta: safeMeta } : {})
   };
 
-  let imageDataUrl = peeled.dataUrl;
-  let imageMime = peeled.mime;
-  if (!imageDataUrl && pendingImageKey) {
-    try {
-      const pending = await takePendingClipImage(pendingImageKey);
-      // #region agent log
-      await pcDebugAf03f9('H6', 'clips.commands.js:saveTextDirectly', 'pending image take', {
-        pendingKeySuffix: String(pendingImageKey).slice(-20),
-        found: !!(pending?.dataUrl),
-        dataUrlLen: pending?.dataUrl ? pending.dataUrl.length : 0,
-      });
-      // #endregion
-      if (pending?.dataUrl) {
-        imageDataUrl = pending.dataUrl;
-        imageMime = pending.mime;
-      }
-    } catch (err) {
-      // #region agent log
-      await pcDebugAf03f9('H6', 'clips.commands.js:saveTextDirectly', 'pending image take failed', {
-        error: String(err?.message || err).slice(0, 120),
-      });
-      // #endregion
-    }
-  }
-
-  if (imageDataUrl) {
-    try {
-      await putClipImage(newClip.id, imageDataUrl, imageMime);
-      if (!newClip.meta || typeof newClip.meta !== 'object') newClip.meta = { kind: 'image' };
-      if (!newClip.meta.image || typeof newClip.meta.image !== 'object') newClip.meta.image = {};
-      newClip.meta.image.hasImage = true;
-      delete newClip.meta.image.dataUrl;
-      delete newClip.meta.image.tooLarge;
-    } catch (imgErr) {
-      console.warn('[saveTextDirectly] clip image store failed:', imgErr?.message || imgErr);
-      if (newClip.meta?.image) newClip.meta.image.tooLarge = true;
-    }
-    await clearPendingClipImage(pendingImageKey);
-  }
+  const imageBytes = await resolveSaveClipImageBytes(peeled, pendingImageKey, imageCarry);
+  const imageStored = await storeSaveClipImage(newClip, imageBytes.dataUrl, imageBytes.mime, pendingImageKey);
 
   console.log('📦 New clip id:', newClip.id);
 
@@ -285,6 +300,7 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
   try {
     await chrome.storage.local.set({ clips, searchOnlyClips, pc_local_updatedAt: Date.now() });
   } catch (error) {
+    if (isChromeStorageQuotaError(error)) throw new Error(LOCAL_STORAGE_LIMIT_MESSAGE);
     throw error;
   }
 
@@ -299,4 +315,5 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
   notifyClipSaved(newClip, autoShow);
 
   console.log('💾 ✅ SAVE COMPLETE - Saved text to', category + ':', text ? (text.substring(0, 30) + '...') : 'NO TEXT');
+  return { clipId: newClip.id, imageStored: imageStored === true };
 }

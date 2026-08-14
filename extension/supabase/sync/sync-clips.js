@@ -29,14 +29,16 @@ async syncClipsToSupabase(localClips) {
 
     await this.setUserContext(userId);
     const deviceId = await this.getDeviceId();
-    const totalClips = Array.isArray(localClips) ? localClips.length : 0;
+    const preserved = await this.preserveClipImagesForCloud(localClips, userId);
+    if (preserved.changed) await this.persistClipImageCloudUrls(preserved.clips);
+    const totalClips = Array.isArray(preserved.clips) ? preserved.clips.length : 0;
     console.log(`📤 Syncing ${totalClips} clips to Supabase...`);
 
     if (totalClips > this.BATCH_SIZE) {
-      return await this.syncClipsToSupabaseBatch(localClips, userId, deviceId);
+      return await this.syncClipsToSupabaseBatch(preserved.clips, userId, deviceId);
     }
 
-    return await this._upsertClipsWithTombstoneGuard(localClips, userId, deviceId);
+    return await this._upsertClipsWithTombstoneGuard(preserved.clips, userId, deviceId);
   } catch (error) {
     console.error('❌ Failed to sync clips to Supabase:', error);
     return false;
@@ -79,7 +81,9 @@ async syncClipsToSupabaseForUser(localClips, userId) {
     await this.setUserContext(userId);
 
     const deviceId = await this.getDeviceId();
-    const dbClips = this.buildDbClipsForUpsert(localClips, userId, deviceId);
+    const preserved = await this.preserveClipImagesForCloud(localClips, userId);
+    if (preserved.changed) await this.persistClipImageCloudUrls(preserved.clips);
+    const dbClips = this.buildDbClipsForUpsert(preserved.clips, userId, deviceId);
 
     const { error } = await this.client
       .from('clips')
@@ -194,11 +198,14 @@ async syncClipsToSupabaseBatch(localClips, userId, deviceId) {
   this.updateSyncProgress(0, totalClips, 0);
 
   const tombstoned = await this._fetchTombstonedIds('clips', 'clip_id');
+  const preserved = await this.preserveClipImagesForCloud(localClips, userId);
+  if (preserved.changed) await this.persistClipImageCloudUrls(preserved.clips);
+  const readyClips = preserved.clips;
 
   for (let i = 0; i < batches; i++) {
     const start = i * this.BATCH_SIZE;
     const end = Math.min(start + this.BATCH_SIZE, totalClips);
-    const batchClips = localClips.slice(start, end);
+    const batchClips = readyClips.slice(start, end);
     const dbClips = this.buildDbClipsForUpsert(batchClips, userId, deviceId);
     const safeDbClips = filterDbClipsAgainstTombstones(dbClips, tombstoned);
     if (safeDbClips.length === 0) continue;
