@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteCraft Smart Clipboard Manager",
-  "version": "3.0.35",
+  "version": "3.0.36",
   "description": "Smart clipboard manager with search, categories, Quick View, and AI. Save, organize, and reuse clips as a study tool.",
   "default_locale": "en",
   "author": "Ezequiel Casillas",
@@ -36,7 +36,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' http://127.0.0.1:7917 https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
   },
   "content_scripts": [
     {
@@ -92,6 +92,8 @@
         "lib/katex.min.css",
         "lib/katex-fonts/*",
         "lib/mermaid.min.js",
+        "grant-site-access.html",
+        "grant-site-access.js",
         "offscreen-clipboard.html",
         "offscreen-clipboard.js",
         "lib/pdf.min.js",

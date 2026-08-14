@@ -16,6 +16,7 @@ export const ROUTED_INTERNAL_ACTIONS = Object.freeze({
   PC_FETCH_IMAGE_AS_DATA_URL: 'pcFetchImageAsDataUrl',
   PC_READ_CLIPBOARD: 'pcReadClipboard',
   PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
+  PC_OPEN_SITE_ACCESS_GRANT: 'pcOpenSiteAccessGrant',
   PC_OPEN_POPUP_WINDOW: 'pcOpenPopupWindow',
   SAVE_CLIP: 'saveClip',
   PC_GET_QUICK_VIEW_CLIPS: 'pcGetQuickViewClips',

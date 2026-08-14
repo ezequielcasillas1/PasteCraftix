@@ -40,6 +40,9 @@ async function startPopup(PasteCraftPopupClass) {
   if (popupBootStarted) return;
   popupBootStarted = true;
 
+  import('../site-access/site-access.controller.js')
+    .then((mod) => mod.initSiteAccessFeature())
+    .catch(() => {});
   await ensureSupabaseGlobals();
   /* Header decor is decorative-only — never block boot on it. */
   import('../header/header.starlight.js')

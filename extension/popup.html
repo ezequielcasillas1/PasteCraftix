@@ -12041,6 +12041,41 @@
             </div>
         </header>
 
+        <style>
+          .site-access-banner {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 0 12px 8px;
+            padding: 10px 12px;
+            border: 1px solid #93c5fd;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-size: 12px;
+            line-height: 1.45;
+          }
+          .site-access-banner[hidden] { display: none !important; }
+          .site-access-banner p { margin: 0; }
+          .site-access-banner button {
+            border: 0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #2563eb;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          .site-access-banner .site-access-status { color: #b91c1c; min-height: 1em; }
+        </style>
+        <div class="site-access-banner" data-field="site-access-banner" hidden role="region" aria-label="Site access">
+            <p data-field="site-access-grant-copy">Image Picker and Spot need site access for this page.</p>
+            <button type="button" data-action="grant-site-access">Allow site access</button>
+            <p class="site-access-status" data-field="site-access-status"></p>
+            <p data-field="site-access-opera-hint" hidden>If no prompt appears: open opera://extensions → PasteCraft → Details → Site access → Allow on this site or all sites. (opera:// cannot be opened as a link from here.)</p>
+            <p data-field="site-access-unsupported" hidden></p>
+        </div>
+
         <!-- Upgrade Banner (Freemium users only) -->
         <div class="upgrade-banner" id="upgradeBanner" role="button" tabindex="0" aria-label="Upgrade your membership">
             <span class="upgrade-banner-icon"><i data-lucide="zap"></i></span>
@@ -13989,6 +14024,7 @@ Multiple clips are separated by:
                             <ul>
                                 <li><strong>Spot:</strong> Capture a selected region or spot on the page into a clip</li>
                                 <li><strong>Image → Text:</strong> Pick an image and extract text (OCR) into a clip</li>
+                                <li>Image Picker and Spot work on Chrome, Edge, and Comet. On Opera and Arc they do not — Auto-Copy and click-and-drag still work; click-and-drag is the capture tool there.</li>
                             </ul>
                         </div>
                         <div class="help-item">
