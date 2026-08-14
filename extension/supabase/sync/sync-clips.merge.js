@@ -83,13 +83,31 @@ export function shouldPreferIncomingClip(prev, clip) {
   return (clip.timestamp || 0) > (prev.timestamp || 0);
 }
 
+/** Keep local image/capture meta when the preferred row has none (DB clips have no meta column). */
+export function carryForwardClipMeta(prev, incoming) {
+  if (!incoming) return incoming;
+  const prevMeta = prev?.meta && typeof prev.meta === 'object' ? prev.meta : null;
+  if (!prevMeta) return incoming;
+  const nextMeta = incoming.meta && typeof incoming.meta === 'object' ? incoming.meta : null;
+  if (!nextMeta) return { ...incoming, meta: prevMeta };
+  const prevImg = prevMeta.image && typeof prevMeta.image === 'object' ? prevMeta.image : null;
+  const nextImg = nextMeta.image && typeof nextMeta.image === 'object' ? nextMeta.image : null;
+  if (prevImg && !nextImg) {
+    return { ...incoming, meta: { ...nextMeta, image: prevImg } };
+  }
+  if (prevMeta.captureSource && !nextMeta.captureSource) {
+    return { ...incoming, meta: { ...nextMeta, captureSource: prevMeta.captureSource } };
+  }
+  return incoming;
+}
+
 export function addClipToContentMerge(clip, deletedById, contentMerged) {
   if (!clip || !clip.text) return;
   if (isClipSupersededByTombstone(clip, deletedById)) return;
   const k = contentKeyForMerge(clip);
   const prev = contentMerged.get(k);
   if (shouldPreferIncomingClip(prev, clip)) {
-    contentMerged.set(k, clip);
+    contentMerged.set(k, carryForwardClipMeta(prev, clip));
   }
 }
 

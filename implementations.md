@@ -1,4 +1,20 @@
 
+### Aug 14, 2026 - Comet Capture Tools eligible
+**Files:** capture-browser-support.js, capture-browser-support.test.mjs, support.astro, index.astro, popup.html
+**Result:** Comet (Perplexity) treated as eligible for Image Picker + Spot like Chrome/Edge. Opera/Arc still Auto-Copy + click-and-drag only.
+
+### Aug 14, 2026 - Capture Tools browser eligibility
+**Files:** capture-browser-support.js, widget.capture-menu.js, widget.styles.core.js, site-access.*, popup.html, website/src/pages/support.astro, website/src/pages/index.astro
+**Result:** Opera/Arc (when detected) hide Image Picker + Spot. Auto-Copy and click-and-drag stay on. Chrome/Edge/Comet eligible. Opera grant not claimed fixed.
+
+### Aug 14, 2026 - Opera popup site-access grant
+**Files:** popup/features/site-access/*, optional-permissions.js, capture.handler.js, widget.capture-menu.js, grant-site-access.js/html, popup.html, popup.boot.js
+**Result:** Opera-blocked grant tab skipped. Toolbar popup Allow site access requests optional `<all_urls>` (then current origin). Chrome/Edge keep grant tab.
+
+### Aug 13, 2026 - Production package v3.0.36
+**Files:** extension/manifest.json, update.handler.js, docs/publishing/*, production-publishing-safety.mdc, releases/pastecraft-v3.0.36.zip
+**Result:** Bump 3.0.35 → 3.0.36 for store upload. Send-to-notes catalog, GPT-5.4, AI summary sources, apply-on-download. Last published is 3.0.35 until 3.0.36 approved.
+
 ### Aug 13, 2026 - AI summary source references
 **Files:** ai_summary_prompts.js, ai-summary/index.ts, clip-source.js, clips.action-menu/viewer.js, ai-lab.bulk.js, summary-clips-overview.js
 **Result:** Summaries/Q&A now add a ## Sources section (quotes + clip page URLs). Title/category "return only" prompts stay bare.

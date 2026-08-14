@@ -2,12 +2,43 @@
 
 import { CAPTURE_MAX_TEXT } from './capture.constants.js';
 import { incrementCaptureToolsStats } from './capture.stats.js';
-import { peelImageDataUrlFromMeta, putClipImage } from '../../shared/clip-images.js';
+import { peelImageDataUrlFromMeta, putClipImage, stashPendingClipImage, clearPendingClipImage, pcDebugAf03f9 } from '../../shared/clip-images.js';
 
 function pcSafeTrim(str, max) {
   const value = String(str ?? '');
   if (value.length <= max) return value;
   return value.slice(0, max) + '…';
+}
+
+async function prepareClipImageForSave(meta) {
+  const peeled = peelImageDataUrlFromMeta(meta);
+  const lightMeta = peeled.meta ? { ...peeled.meta } : null;
+  if (lightMeta?.image) {
+    lightMeta.image = { ...lightMeta.image };
+    delete lightMeta.image.dataUrl;
+    if (peeled.dataUrl) lightMeta.image.hasImage = true;
+  }
+  let pendingImageKey = '';
+  if (peeled.dataUrl) {
+    try {
+      pendingImageKey = await stashPendingClipImage(peeled.dataUrl, peeled.mime);
+      // #region agent log
+      await pcDebugAf03f9('H6', 'capture.clip-save.js:prepare', 'stashed pending image', {
+        pendingKeySuffix: pendingImageKey.slice(-20),
+        dataUrlLen: peeled.dataUrl.length,
+        mime: peeled.mime,
+      });
+      // #endregion
+    } catch (err) {
+      // #region agent log
+      await pcDebugAf03f9('H7', 'capture.clip-save.js:prepare', 'stash pending failed', {
+        dataUrlLen: peeled.dataUrl.length,
+        error: String(err?.message || err).slice(0, 120),
+      });
+      // #endregion
+    }
+  }
+  return { peeled, lightMeta, pendingImageKey };
 }
 
 async function saveClipLocalFallback({ text, meta, category }) {
@@ -49,6 +80,8 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
     return { ok: false, error: 'Nothing to save.' };
   }
 
+  const { lightMeta, pendingImageKey } = await prepareClipImageForSave(meta);
+
   try {
     let response = null;
     let lastError = null;
@@ -57,14 +90,33 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
         response = await chrome.runtime.sendMessage({
           action: 'saveClip',
           text: body || pcSafeTrim(meta?.image?.srcUrl || 'Image clip', CAPTURE_MAX_TEXT),
-          meta,
+          meta: lightMeta,
+          pendingImageKey,
           category,
           autoShow: autoShow === true,
         });
+        // #region agent log
+        await pcDebugAf03f9('H6', 'capture.clip-save.js:saveClip', 'saveClip response', {
+          attempt,
+          success: response?.success === true,
+          hasResponse: response != null,
+          error: response?.error || lastError || '',
+          pendingKeyLen: pendingImageKey.length,
+          lightHasImage: lightMeta?.image?.hasImage === true,
+          kind: lightMeta?.kind || null,
+        });
+        // #endregion
         if (response != null) break;
         lastError = 'No response from background saveClip.';
       } catch (err) {
         lastError = err?.message || 'Save failed.';
+        // #region agent log
+        await pcDebugAf03f9('H6', 'capture.clip-save.js:saveClip', 'saveClip send failed', {
+          attempt,
+          error: String(lastError).slice(0, 120),
+          pendingKeyLen: pendingImageKey.length,
+        });
+        // #endregion
         if (attempt === 0) {
           await new Promise((resolve) => setTimeout(resolve, 80));
           continue;
@@ -85,6 +137,7 @@ export async function saveClipFromContent({ text, meta = null, category = 'Uncat
       meta,
       category,
     });
+    if (pendingImageKey) await clearPendingClipImage(pendingImageKey);
     if (fallback.ok) {
       const source = meta?.captureSource;
       if (source === 'spot' || source === 'image-picker') {

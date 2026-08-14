@@ -9,7 +9,8 @@ export function mapDbClipToLocal(clip) {
     timestamp: clip.timestamp,
     updatedAt: clip.updated_at ? Date.parse(clip.updated_at) : clip.timestamp,
     deletedAt: clip.deleted_at ? Date.parse(clip.deleted_at) : null,
-    deviceId: clip.device_id || null
+    deviceId: clip.device_id || null,
+    meta: clip.meta || undefined
   };
 }
 

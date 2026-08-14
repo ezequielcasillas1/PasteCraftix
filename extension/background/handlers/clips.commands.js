@@ -3,7 +3,7 @@
  * Invoked by clips.handler (Mediator) and menus.handler (context menu).
  */
 
-import { peelImageDataUrlFromMeta, putClipImage } from '../../shared/clip-images.js';
+import { peelImageDataUrlFromMeta, putClipImage, takePendingClipImage, clearPendingClipImage, pcDebugAf03f9 } from '../../shared/clip-images.js';
 import { syncClipsToIndexedDb } from '../quickview/quickview.idb.js';
 import { normalizeArray } from './bg-utils.js';
 
@@ -47,6 +47,9 @@ export function sanitizeClipMeta(meta) {
   if (meta.url != null) out.url = trim(meta.url, 4000);
   if (meta.sourcePageUrl != null) out.sourcePageUrl = trim(meta.sourcePageUrl, 4000);
   if (typeof meta.capturedAt === 'number') out.capturedAt = meta.capturedAt;
+  if (typeof meta.captureSource === 'string' && meta.captureSource.trim()) {
+    out.captureSource = trim(meta.captureSource, 64);
+  }
 
   if (meta.image && typeof meta.image === 'object') {
     const img = {};
@@ -189,7 +192,7 @@ function notifyClipSaved(newClip, autoShow) {
   }
 }
 
-export async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null) {
+export async function saveTextDirectly(text, category = 'Uncategorized', autoShow = true, meta = null, pendingImageKey = '') {
   // Keep logs lightweight (this runs in a service worker).
   console.log('📝 Saving clip:', {
     category,
@@ -226,18 +229,44 @@ export async function saveTextDirectly(text, category = 'Uncategorized', autoSho
     ...(safeMeta ? { meta: safeMeta } : {})
   };
 
-  if (peeled.dataUrl) {
+  let imageDataUrl = peeled.dataUrl;
+  let imageMime = peeled.mime;
+  if (!imageDataUrl && pendingImageKey) {
     try {
-      await putClipImage(newClip.id, peeled.dataUrl, peeled.mime);
-      if (newClip.meta?.image) {
-        newClip.meta.image.hasImage = true;
-        delete newClip.meta.image.dataUrl;
-        delete newClip.meta.image.tooLarge;
+      const pending = await takePendingClipImage(pendingImageKey);
+      // #region agent log
+      await pcDebugAf03f9('H6', 'clips.commands.js:saveTextDirectly', 'pending image take', {
+        pendingKeySuffix: String(pendingImageKey).slice(-20),
+        found: !!(pending?.dataUrl),
+        dataUrlLen: pending?.dataUrl ? pending.dataUrl.length : 0,
+      });
+      // #endregion
+      if (pending?.dataUrl) {
+        imageDataUrl = pending.dataUrl;
+        imageMime = pending.mime;
       }
+    } catch (err) {
+      // #region agent log
+      await pcDebugAf03f9('H6', 'clips.commands.js:saveTextDirectly', 'pending image take failed', {
+        error: String(err?.message || err).slice(0, 120),
+      });
+      // #endregion
+    }
+  }
+
+  if (imageDataUrl) {
+    try {
+      await putClipImage(newClip.id, imageDataUrl, imageMime);
+      if (!newClip.meta || typeof newClip.meta !== 'object') newClip.meta = { kind: 'image' };
+      if (!newClip.meta.image || typeof newClip.meta.image !== 'object') newClip.meta.image = {};
+      newClip.meta.image.hasImage = true;
+      delete newClip.meta.image.dataUrl;
+      delete newClip.meta.image.tooLarge;
     } catch (imgErr) {
       console.warn('[saveTextDirectly] clip image store failed:', imgErr?.message || imgErr);
       if (newClip.meta?.image) newClip.meta.image.tooLarge = true;
     }
+    await clearPendingClipImage(pendingImageKey);
   }
 
   console.log('📦 New clip id:', newClip.id);
