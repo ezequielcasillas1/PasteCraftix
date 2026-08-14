@@ -159,6 +159,22 @@ export const WIDGET_CORE_CSS = `
         z-index: 2;
       }
 
+      .capture-tools-wrap.is-unsupported .capture-tools-menu {
+        min-width: 228px;
+        max-width: 260px;
+      }
+
+      .capture-tools-unsupported {
+        margin: 0;
+        padding: 6px 8px 8px;
+        color: #cbd5e1;
+        font: 500 11px/1.4 system-ui, sans-serif;
+      }
+
+      .capture-tools-menu-item.is-unsupported {
+        opacity: 0.45;
+      }
+
       .capture-tools-menu[hidden] {
         display: none !important;
       }
