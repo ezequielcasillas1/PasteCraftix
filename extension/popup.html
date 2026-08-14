@@ -8272,23 +8272,24 @@
 
         .breakdown-result th,
         .summary-result-content th {
-            background: #f1f5f9;
+            background: var(--pc-surface-2, #f1f5f9);
             font-weight: 700;
             text-align: left;
             padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            color: #0f172a;
+            border: 1px solid var(--pc-border, #e2e8f0);
+            color: var(--pc-text, #0f172a);
         }
 
         .breakdown-result td,
         .summary-result-content td {
             padding: 8px 12px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--pc-border, #e2e8f0);
+            color: var(--pc-text, #1e293b);
         }
 
         .breakdown-result tr:nth-child(even) td,
         .summary-result-content tr:nth-child(even) td {
-            background: #f8fafc;
+            background: var(--pc-surface, #f8fafc);
         }
 
         .breakdown-result hr,
@@ -8320,8 +8321,8 @@
         /* Mermaid diagram container */
         .breakdown-result .pc-mermaid-rendered,
         .summary-result-content .pc-mermaid-rendered {
-            background: #ffffff;
-            border: 2px solid #e5e7eb;
+            background: var(--pc-surface, #ffffff);
+            border: 2px solid var(--pc-border, #e5e7eb);
             border-radius: 10px;
             padding: 16px;
             margin: 12px 0;

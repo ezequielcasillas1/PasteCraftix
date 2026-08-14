@@ -11,14 +11,29 @@
   let _mermaidLoaded = false;
   let _mermaidLoadPromise = null;
 
-  function initializeMermaidLibrary() {
+  function mermaidTheme() {
+    try {
+      if (typeof document !== 'undefined'
+        && document.documentElement.getAttribute('data-theme') === 'blue') {
+        return 'dark';
+      }
+    } catch (_) { /* ignore */ }
+    return 'default';
+  }
+
+  function applyMermaidTheme() {
     if (!root.mermaid) return false;
     root.mermaid.initialize({
       startOnLoad: false,
-      theme: 'default',
+      theme: mermaidTheme(),
       securityLevel: 'strict',
       htmlLabels: false,
     });
+    return true;
+  }
+
+  function initializeMermaidLibrary() {
+    if (!applyMermaidTheme()) return false;
     _mermaidLoaded = true;
     return true;
   }
@@ -75,6 +90,7 @@
     if (!parsedOk) return `<pre class="pc-code-block"><code>${ns.escapeHtml(text)}</code></pre>`;
 
     try {
+      applyMermaidTheme();
       const id = 'pc-mermaid-' + Date.now() + Math.random().toString(36).slice(2, 6);
       const { svg } = await mermaidApi.render(id, source);
       if (/syntax\s+error\s+in\s+text/i.test(svg) || /class="error-icon"/i.test(svg)) {

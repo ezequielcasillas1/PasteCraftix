@@ -4799,19 +4799,20 @@ button .btn-icon *,
 .pc-rendered-content td,
 .pc-csv-table th,
 .pc-csv-table td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--pc-border, #e5e7eb);
   padding: 6px 10px;
   text-align: left;
+  color: var(--pc-text, #374151);
 }
 .pc-rendered-content th,
 .pc-csv-table th {
-  background: #f8fafc;
+  background: var(--pc-surface-2, #f8fafc);
   font-weight: 600;
-  color: #374151;
+  color: var(--pc-text, #374151);
 }
 .pc-rendered-content tr:nth-child(even),
 .pc-csv-table tr:nth-child(even) {
-  background: #fafbfc;
+  background: var(--pc-surface, #fafbfc);
 }
 
 /* Code blocks (syntax highlighted) */

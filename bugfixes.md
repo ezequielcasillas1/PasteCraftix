@@ -1,3 +1,8 @@
+### Aug 14, 2026 - AI Summary dark-mode table zebra
+**Status:** PARTIAL (pending user verify)
+**Files:** theme-blue-phase2.css, popup.html, styles.css, mermaid.strategy.js, tests/ai-summary-dark-tables.test.mjs
+**Result:** Dark-mode even-row table cells used leftover light zebra (#f8fafc) while text was forced light. Blue-theme table/mermaid overrides now cover Summary + History, not only #breakdownModal.
+
 ### Aug 14, 2026 - Category clip selected highlight glitchy
 **Status:** PARTIAL (pending user verify)
 **Files:** theme-blue-phase2.css, popup.html, tests/category-clip-selected-theme.test.mjs
