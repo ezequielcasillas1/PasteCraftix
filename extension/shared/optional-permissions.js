@@ -25,8 +25,6 @@ export const OPTIONAL_PERM_MESSAGES = Object.freeze({
     'PasteCraft needs site access for Capture Tools on this page',
 });
 
-const DEBUG_INGEST = 'http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd';
-
 function denyPayload(kind, error) {
   return {
     ok: false,
@@ -68,31 +66,6 @@ export function originPatternFromUrl(url) {
     return '';
   }
 }
-
-// #region agent log
-export function pcDebugOperaAf03f9(hypothesisId, location, message, data) {
-  const brand = detectBrowserBrand();
-  const payload = {
-    sessionId: 'af03f9',
-    runId: 'opera-pre',
-    hypothesisId,
-    location,
-    message,
-    data: {
-      uaBrand: brand.uaBrand,
-      isOpera: brand.isOpera,
-      ...(data && typeof data === 'object' ? data : {}),
-    },
-    timestamp: Date.now(),
-  };
-  console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify(payload));
-  fetch(DEBUG_INGEST, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
-    body: JSON.stringify(payload),
-  }).catch(() => {});
-}
-// #endregion
 
 export async function hasOptionalHostAccess(originPattern) {
   const allDesc = OPTIONAL_PERM_DESCS[OPTIONAL_PERM_KINDS.ALL_URLS];
@@ -157,20 +130,7 @@ export async function notifyTabsOptionalHostGranted() {
         failed += 1;
       }
     }));
-  } catch (err) {
-    // #region agent log
-    pcDebugOperaAf03f9('H-O3', 'optional-permissions.js:notifyTabs', 'broadcast threw', {
-      error: String(err?.message || err),
-    });
-    // #endregion
-  }
-  // #region agent log
-  pcDebugOperaAf03f9('H-O3', 'optional-permissions.js:notifyTabs', 'broadcast to tabs', {
-    tabCount,
-    sent,
-    failed,
-  });
-  // #endregion
+  } catch (_) {}
   return { tabCount, sent, failed };
 }
 

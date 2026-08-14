@@ -9,7 +9,6 @@ import {
   OPTIONAL_PERM_KINDS,
   detectBrowserBrand,
   openSiteAccessGrantPage,
-  pcDebugOperaAf03f9,
   requestOptionalPermissions,
 } from '../../shared/optional-permissions.js';
 import {
@@ -29,7 +28,6 @@ import {
 } from './widget.image-to-text.js';
 import { loadWidgetCaptureToolsStats } from './widget.capture-stats.js';
 import { isPdfViewerPage } from '../pdf/pdf.detect.js';
-import { pcDebugAf03f9 } from '../../shared/clip-images.js';
 
 export const WIDGET_CAPTURE_ACTIONS = Object.freeze({
   TOGGLE_MENU: 'widget-capture-toggle',
@@ -88,84 +86,34 @@ function closeCaptureMenu() {
 let _pendingCapture = null;
 let _hostAccessGranted = false;
 
-function logGrantSwResponse(sw) {
-  // #region agent log
-  void pcDebugAf03f9('H1', 'widget.capture-menu.js:openSiteAccessGrantWindow', 'sw grant tab', {
-    ok: !!sw.ok,
-    reused: !!sw.reused,
-    tabId: sw.tabId || null,
-    error: sw.error || null,
-  });
-  pcDebugOperaAf03f9('H-O2', 'widget.capture-menu.js:openSiteAccessGrantWindow', 'sw grant response', {
-    ok: !!sw.ok,
-    skippedGrantTab: !!sw.skippedGrantTab,
-    openPopupOk: !!sw.openPopupOk,
-    openPopupError: sw.openPopupError || null,
-    via: sw.via || null,
-  });
-  // #endregion
-}
-
-async function openChromeGrantWindowFallback(sw) {
-  let win = null;
-  let error = sw.error || null;
+async function openChromeGrantWindowFallback() {
   try {
-    win = window.open(
+    window.open(
       chrome.runtime.getURL('grant-site-access.html'),
       'pc-grant-site-access',
       'popup,width=440,height=340',
     );
-  } catch (err) {
-    error = String(err?.message || err);
-  }
-  // #region agent log
-  void pcDebugAf03f9('H1', 'widget.capture-menu.js:openSiteAccessGrantWindow', 'grant window fallback', {
-    hasWin: !!win,
-    closed: win ? win.closed : null,
-    error,
-  });
-  // #endregion
+  } catch (_) {}
 }
 
 async function openSiteAccessGrantWindow() {
   const sw = await openSiteAccessGrantPage();
-  logGrantSwResponse(sw);
   if (detectBrowserBrand().isOpera || sw.skippedGrantTab) {
     return { skippedGrantTab: true, openPopupOk: !!sw.openPopupOk };
   }
-  if (!sw.ok) await openChromeGrantWindowFallback(sw);
+  if (!sw.ok) await openChromeGrantWindowFallback();
   return { skippedGrantTab: false };
 }
 
-function markHostAccessOk(host) {
+function markHostAccessOk() {
   _hostAccessGranted = true;
-  // #region agent log
-  void pcDebugAf03f9('H2', 'widget.capture-menu.js:ensureCaptureHostAccess', 'host access ok', {
-    checkOk: !!host.ok,
-    flaggedDuringAwait: !host.ok,
-    error: host.error || null,
-  });
-  pcDebugOperaAf03f9('H-O5', 'widget.capture-menu.js:ensureCaptureHostAccess', 'host access ok', {
-    checkOk: !!host.ok,
-    scope: host.scope || null,
-  });
-  // #endregion
   return true;
 }
 
 async function ensureCaptureHostAccess() {
   if (_hostAccessGranted) return true;
   const host = await requestOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS, { checkOnly: true });
-  if (host.ok || _hostAccessGranted) return markHostAccessOk(host);
-  // #region agent log
-  void pcDebugAf03f9('H2', 'widget.capture-menu.js:ensureCaptureHostAccess', 'host access denied', {
-    error: host.error || null,
-    message: host.message || null,
-  });
-  pcDebugOperaAf03f9('H-O2', 'widget.capture-menu.js:ensureCaptureHostAccess', 'host access denied', {
-    error: host.error || null,
-  });
-  // #endregion
+  if (host.ok || _hostAccessGranted) return markHostAccessOk();
   const opened = await openSiteAccessGrantWindow();
   const operaPath = opened?.skippedGrantTab || detectBrowserBrand().isOpera;
   _widgetRef?.showWidgetToast?.(
@@ -331,15 +279,6 @@ function bindGrantResumeListener() {
     _hostAccessGranted = true;
     const pending = _pendingCapture;
     _pendingCapture = null;
-    // #region agent log
-    void pcDebugAf03f9('H4', 'widget.capture-menu.js:onGrant', 'grant message received', {
-      pending,
-      busy: _wrapEl?.dataset.pcImagePickerBusy || '0',
-    });
-    pcDebugOperaAf03f9('H-O3', 'widget.capture-menu.js:onGrant', 'grant message received', {
-      pending,
-    });
-    // #endregion
     if (pending === 'image') handleImagePickerClick().catch(() => {});
     if (pending === 'spot') handleSpotClick().catch(() => {});
   });
