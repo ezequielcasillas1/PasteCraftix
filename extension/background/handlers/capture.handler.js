@@ -5,7 +5,6 @@ import {
   ensureOptionalPermissions,
   markSiteAccessNeeded,
   originPatternFromUrl,
-  pcDebugOperaAf03f9,
   tryOpenToolbarPopup,
 } from '../../shared/optional-permissions.js';
 import {
@@ -193,44 +192,6 @@ function hostAccessCheckOptions(sender) {
 
 async function runPcCaptureRegion(message, sender) {
   const hostPerm = await ensureOptionalPermissions(OPTIONAL_PERM_KINDS.ALL_URLS, hostAccessCheckOptions(sender));
-  // #region agent log
-  console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify({
-    sessionId: 'af03f9',
-    runId: 'perm-pre',
-    hypothesisId: 'H5',
-    location: 'capture.handler.js:runPcCaptureRegion',
-    message: 'host perm before capture',
-    data: {
-      ok: !!hostPerm.ok,
-      already: !!hostPerm.already,
-      error: hostPerm.error || null,
-      hasWindowId: Number.isFinite(sender?.tab?.windowId),
-    },
-    timestamp: Date.now(),
-  }));
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
-    body: JSON.stringify({
-      sessionId: 'af03f9',
-      runId: 'perm-pre',
-      hypothesisId: 'H5',
-      location: 'capture.handler.js:runPcCaptureRegion',
-      message: 'host perm before capture',
-      data: {
-        ok: !!hostPerm.ok,
-        already: !!hostPerm.already,
-        error: hostPerm.error || null,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-  pcDebugOperaAf03f9('H-O5', 'capture.handler.js:runPcCaptureRegion', 'host perm before capture', {
-    ok: !!hostPerm.ok,
-    scope: hostPerm.scope || null,
-    error: hostPerm.error || null,
-  });
   if (!hostPerm.ok) {
     return {
       success: false,
@@ -245,15 +206,6 @@ async function runPcCaptureRegion(message, sender) {
   const dpr = Number(message?.dpr);
 
   const shot = await captureSenderScreenshot(windowId);
-  // #region agent log
-  pcDebugOperaAf03f9('H-O4', 'capture.handler.js:runPcCaptureRegion', 'captureVisibleTab result', {
-    ok: !!shot.ok,
-    error: shot.error || null,
-    hostOk: !!hostPerm.ok,
-    hostScope: hostPerm.scope || null,
-    hasWindowId: Number.isFinite(windowId),
-  });
-  // #endregion
   if (!shot.ok) {
     return { success: false, ok: false, error: shot.error || 'capture_failed' };
   }
@@ -869,26 +821,6 @@ async function openChromeEdgeGrantTab(srcTab, srcOrigin, sendResponse) {
   if (Number.isFinite(existing?.id)) {
     await chrome.tabs.update(existing.id, { active: true, url: grantUrl });
     sendResponse({ ok: true, reused: true, tabId: existing.id, via: 'grant-tab' });
-    // #region agent log
-    console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify({
-      sessionId: 'af03f9', runId: 'perm-pre', hypothesisId: 'H1',
-      location: 'capture.handler.js:handlePcOpenSiteAccessGrant',
-      message: 'reused grant tab',
-      data: { tabId: existing.id, srcTab },
-      timestamp: Date.now(),
-    }));
-    fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
-      body: JSON.stringify({
-        sessionId: 'af03f9', runId: 'perm-pre', hypothesisId: 'H1',
-        location: 'capture.handler.js:handlePcOpenSiteAccessGrant',
-        message: 'reused grant tab',
-        data: { tabId: existing.id, srcTab },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     return;
   }
   const createOpts = { url: grantUrl, active: true };
@@ -900,26 +832,6 @@ async function openChromeEdgeGrantTab(srcTab, srcOrigin, sendResponse) {
     tab = await chrome.tabs.create({ url: grantUrl, active: true });
   }
   sendResponse({ ok: true, reused: false, tabId: tab?.id ?? null, via: 'grant-tab' });
-  // #region agent log
-  console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify({
-    sessionId: 'af03f9', runId: 'perm-pre', hypothesisId: 'H1',
-    location: 'capture.handler.js:handlePcOpenSiteAccessGrant',
-    message: 'created grant tab',
-    data: { tabId: tab?.id ?? null, srcTab },
-    timestamp: Date.now(),
-  }));
-  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
-    body: JSON.stringify({
-      sessionId: 'af03f9', runId: 'perm-pre', hypothesisId: 'H1',
-      location: 'capture.handler.js:handlePcOpenSiteAccessGrant',
-      message: 'created grant tab',
-      data: { tabId: tab?.id ?? null, srcTab },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 }
 
 export function handlePcOpenSiteAccessGrant(_message, { sender, sendResponse }) {
@@ -931,15 +843,6 @@ export function handlePcOpenSiteAccessGrant(_message, { sender, sendResponse }) 
 
     if (brand.isOpera) {
       const popupAttempt = await tryOpenToolbarPopup();
-      // #region agent log
-      pcDebugOperaAf03f9('H-O2', 'capture.handler.js:handlePcOpenSiteAccessGrant', 'skipped grant tab on Opera', {
-        skippedGrantTab: true,
-        openPopupOk: popupAttempt.ok,
-        openPopupError: popupAttempt.error || null,
-        srcTab,
-        hasSrcOrigin: !!srcOrigin,
-      });
-      // #endregion
       sendResponse({
         ok: true,
         via: 'popup',
