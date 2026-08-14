@@ -4243,6 +4243,53 @@ body[data-theme="blue"] #categoriesTab .tab-loading-state--categories p {
   box-sizing: border-box;
 }
 
+/* Markdown tables + mermaid — light zebra (#f8fafc / #fff) was leaking into
+   AI Summary / History while text was already forced light. */
+[data-theme="blue"] .summary-result-content table,
+[data-theme="blue"] .breakdown-result table,
+[data-theme="blue"] .pc-rendered-content table,
+[data-theme="blue"] .pc-csv-table {
+  border-color: var(--pc-border);
+}
+
+[data-theme="blue"] .summary-result-content th,
+[data-theme="blue"] .breakdown-result th,
+[data-theme="blue"] .pc-rendered-content th,
+[data-theme="blue"] .pc-csv-table th {
+  background: rgba(30, 58, 138, 0.42);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-50);
+}
+
+[data-theme="blue"] .summary-result-content td,
+[data-theme="blue"] .breakdown-result td,
+[data-theme="blue"] .pc-rendered-content td,
+[data-theme="blue"] .pc-csv-table td {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .summary-result-content tr:nth-child(even) td,
+[data-theme="blue"] .summary-result-content tr:nth-child(even) th,
+[data-theme="blue"] .breakdown-result tr:nth-child(even) td,
+[data-theme="blue"] .breakdown-result tr:nth-child(even) th,
+[data-theme="blue"] .pc-rendered-content tr:nth-child(even),
+[data-theme="blue"] .pc-rendered-content tr:nth-child(even) td,
+[data-theme="blue"] .pc-rendered-content tr:nth-child(even) th,
+[data-theme="blue"] .pc-csv-table tr:nth-child(even),
+[data-theme="blue"] .pc-csv-table tr:nth-child(even) td {
+  background: rgba(30, 58, 138, 0.28);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .summary-result-content .pc-mermaid-rendered,
+[data-theme="blue"] .breakdown-result .pc-mermaid-rendered,
+[data-theme="blue"] .pc-rendered-content .pc-mermaid-rendered {
+  background: var(--pc-surface-2);
+  border-color: var(--pc-border);
+}
+
 [data-theme="blue"] #aiHistoryModal .breakdown-modal-content {
   background: var(--pc-surface);
   border-color: var(--pc-border);
