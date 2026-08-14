@@ -14,6 +14,7 @@ export function handleSaveClip(message, { sendResponse }) {
     message.category || 'Uncategorized',
     message.autoShow !== false,
     message.meta || null,
+    message.pendingImageKey || '',
   )
     .then(() => {
       sendResponse({ success: true });

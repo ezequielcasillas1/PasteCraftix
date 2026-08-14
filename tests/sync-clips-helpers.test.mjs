@@ -7,7 +7,8 @@ import {
   shouldPreferIncomingClip,
   isClipSupersededByTombstone,
   contentKeyForMerge,
-  addClipToContentMerge
+  addClipToContentMerge,
+  carryForwardClipMeta
 } from '../extension/supabase/sync/sync-clips.merge.js';
 import { mapDbClipToLocal, mapDbClipToLocalPage } from '../extension/supabase/sync/sync-clips.map.js';
 
@@ -82,6 +83,14 @@ describe('merge helpers', () => {
     const b = { text: 'same', category: 'c', timestamp: 2500 };
     assert.equal(contentKeyForMerge(a), contentKeyForMerge(b));
   });
+
+  it('carries local image meta when remote row has none', () => {
+    const local = { text: 'img', meta: { kind: 'image', image: { hasImage: true } } };
+    const remote = { text: 'img', updatedAt: 20 };
+    const merged = carryForwardClipMeta(local, remote);
+    assert.equal(merged.meta.kind, 'image');
+    assert.equal(merged.meta.image.hasImage, true);
+  });
 });
 
 describe('mapDbClip', () => {
@@ -105,7 +114,8 @@ describe('mapDbClip', () => {
       timestamp: 10,
       updatedAt: 10,
       deletedAt: null,
-      deviceId: 'd1'
+      deviceId: 'd1',
+      meta: { x: 1 }
     });
     assert.deepEqual(mapDbClipToLocalPage(row), {
       id: 'c1',

@@ -9,6 +9,7 @@ export const CAPTURE_MESSAGE_ACTIONS = Object.freeze({
   PC_FETCH_IMAGE_AS_DATA_URL: 'pcFetchImageAsDataUrl',
   PC_READ_CLIPBOARD: 'pcReadClipboard',
   PC_ENSURE_OPTIONAL_PERMISSIONS: 'pcEnsureOptionalPermissions',
+  PC_OPEN_SITE_ACCESS_GRANT: 'pcOpenSiteAccessGrant',
 });
 
 export const CAPTURE_MAX_REGION_PX = 4096;

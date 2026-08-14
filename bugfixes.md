@@ -1,5 +1,20 @@
 
-### Aug 5, 2026 - Reset password meter/form dead
+### Aug 14, 2026 - Image Picker Opera site permission
+**Status:** FAILURE
+**Files:** grant-site-access.html, grant-site-access.js, popup/features/site-access/*, optional-permissions.js, capture.handler.js, widget.capture-menu.js, popup.html, popup.boot.js
+**Result:** Opera ERR_BLOCKED_BY_CLIENT on grant tab. Popup Allow site access also failed in user test. Image Picker still blocked. Bottleneck.
+
+### Aug 14, 2026 - Image Picker needs site permission
+**Status:** FAILURE (Opera; grant-tab + popup paths)
+**Files:** grant-site-access.html/js, widget.capture-menu.js, optional-permissions.js, capture.handler.js, message-types.js
+**Result:** Packed MV3 cannot prompt from content/SW. Grant page `permissions.request` on click; SW `tabs.create` opens it. `<all_urls>` stays optional.
+
+### Aug 14, 2026 - Clip viewer dropped picked image
+**Status:** PARTIAL (pending re-capture verify)
+**Files:** clips.viewer.js, clip-images.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.merge/map.js
+**Result:** Old clips have no image bytes (`imgKeyCount: 0`). Viewer now always looks up store. Save no longer sends multi-MB dataUrl on saveClip — stashes pending, attaches after clip id. Re-capture required for old clips.
+
+
 **Status:** FIXED (pending deploy + verify)
 **Files:** website/public/js/reset-password.js, website/src/pages/reset-password.astro
 **Result:** CSP `script-src 'self'` on `/reset-password*` blocked inline JS (meter/submit never bound). Moved logic to external `/js/reset-password.js`; `[hidden]` restored so form stays hidden until recovery session ready.

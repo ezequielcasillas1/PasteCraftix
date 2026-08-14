@@ -8,7 +8,7 @@ import { openGoogleSearchMenu } from './clips.action-menu.js';
 import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
-import { getClipImage, isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
+import { isImageBearingClip, resolveClipImageSrc, readDebugAf03f9 } from '../../../shared/clip-images.js';
 import { joinClipsForSummary } from '../../../shared/clip-source.js';
 import { getClipIdKey } from '../../../shared/clip-id.js';
 import {
@@ -26,6 +26,26 @@ import {
 import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 
 const CLIP_VIEWER_SOURCE_CONTEXTS = new Set(['clips', 'search', 'categories']);
+
+// #region agent log
+function pcDebugLog(hypothesisId, location, message, data) {
+  const payload = {
+    sessionId: 'af03f9',
+    runId: 'post-fix',
+    hypothesisId,
+    location,
+    message,
+    data,
+    timestamp: Date.now(),
+  };
+  console.warn('[PasteCraft:debug:af03f9] ' + JSON.stringify(payload));
+  fetch('http://127.0.0.1:7917/ingest/ad95356a-805b-4ff0-9f29-cccbb04c04fd', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'af03f9' },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
+// #endregion
 
 const CLIP_VIEWER_EDIT_HIDE_IDS = [
   'clipViewerAiSummaryBtn',
@@ -262,24 +282,46 @@ function extractClipViewerSource(meta) {
 
 async function resolveClipViewerImageSrc(clip, meta) {
   const { imgSrc } = extractClipViewerSource(meta);
-  if (
+  const inlineRenderable =
     imgSrc &&
     (imgSrc.startsWith('data:image/') ||
       imgSrc.startsWith('http://') ||
-      imgSrc.startsWith('https://'))
-  ) {
+      imgSrc.startsWith('https://'));
+  if (inlineRenderable) {
+    // #region agent log
+    pcDebugLog('H1', 'clips.viewer.js:resolveClipViewerImageSrc', 'inline renderable src', {
+      srcKind: imgSrc.slice(0, 12),
+      srcLen: imgSrc.length,
+      skippedSideStore: true,
+    });
+    // #endregion
     return imgSrc;
   }
-  const wantsImage =
-    meta?.kind === 'image' ||
-    meta?.image?.hasImage === true ||
-    meta?.captureSource === 'image-picker';
-  if (!wantsImage && !imgSrc) return '';
   try {
-    const stored = await getClipImage(clip?.id);
-    if (stored?.dataUrl) return stored.dataUrl;
+    const resolved = await resolveClipImageSrc(clip);
+    const src = resolved?.src || '';
+    // #region agent log
+    pcDebugLog('H1', 'clips.viewer.js:resolveClipViewerImageSrc', 'always side-store lookup', {
+      found: !!src,
+      srcLen: src.length,
+      srcKind: src ? src.slice(0, 16) : '',
+      kind: meta?.kind || null,
+      hasImage: meta?.image?.hasImage === true,
+      captureSource: meta?.captureSource || null,
+      clipIdType: typeof clip?.id,
+    });
+    // #endregion
+    if (src) return src;
   } catch (_) {}
   return imgSrc || '';
+}
+
+function rememberImageBearingMeta(clip) {
+  if (!clip || typeof clip !== 'object') return;
+  if (!clip.meta || typeof clip.meta !== 'object') clip.meta = {};
+  if (!clip.meta.image || typeof clip.meta.image !== 'object') clip.meta.image = {};
+  clip.meta.image.hasImage = true;
+  if (!clip.meta.kind) clip.meta.kind = 'image';
 }
 
 function buildClipViewerHeaderParts(app, text, meta, url, imgSrc) {
@@ -516,13 +558,62 @@ export async function open(app, clip, sourceContext = 'clips') {
   const refactorPair = resolveRefactorContext(app, canonicalClip);
   app._clipViewerRefactorPair = refactorPair;
 
-  titleEl.textContent = resolveClipViewerTitle(clipTitle, meta);
-  renderClipViewerMeta(app, metaEl, meta, markupType, canonicalClip);
+  // #region agent log
+  pcDebugLog('H3', 'clips.viewer.js:open', 'clip viewer state snapshot', {
+    clipIdType: typeof canonicalClip?.id,
+    idKey: getClipIdKey(canonicalClip?.id),
+    hasMeta: !!(meta && typeof meta === 'object'),
+    kind: meta?.kind || null,
+    captureSource: meta?.captureSource || null,
+    hasImageFlag: meta?.image?.hasImage === true,
+    tooLarge: meta?.image?.tooLarge === true,
+    dataUrlLen: typeof meta?.image?.dataUrl === 'string' ? meta.image.dataUrl.length : 0,
+    srcUrlLen: typeof meta?.image?.srcUrl === 'string' ? meta.image.srcUrl.length : 0,
+    textLen: String(text || '').length,
+    titleLen: String(clipTitle || '').length,
+    usedCanonical: !!(clip?.id != null && findClipAcrossCollections(app, clip?.id)),
+    hasRefactorPair: !!refactorPair,
+  });
+  try {
+    const bag = await chrome.storage.local.get(null);
+    const keys = Object.keys(bag || {});
+    const imgKeys = keys.filter((k) => k.startsWith('pc_clip_img_v1_'));
+    const pendingKeys = keys.filter((k) => k.startsWith('pc_pending_clip_img_'));
+    const captureKeys = keys.filter((k) => k.startsWith('pc_capture_shot_'));
+    const idKey = getClipIdKey(canonicalClip?.id);
+    const rawId = canonicalClip?.id != null ? String(canonicalClip.id) : '';
+    const matchKeys = imgKeys.filter((k) => (idKey && k.includes(idKey)) || (rawId && k.includes(rawId)));
+    let bytesInUse = 0;
+    try {
+      bytesInUse = await chrome.storage.local.getBytesInUse(null);
+    } catch (_) {}
+    const saveTrace = await readDebugAf03f9();
+    pcDebugLog('H2', 'clips.viewer.js:open', 'side-store key scan', {
+      imgKeyCount: imgKeys.length,
+      pendingCount: pendingKeys.length,
+      captureShotCount: captureKeys.length,
+      matchCount: matchKeys.length,
+      matchSuffixes: matchKeys.map((k) => k.slice(-28)),
+      idKey,
+      bytesInUse,
+      saveTrace: saveTrace.slice(-6).map((e) => ({
+        hypothesisId: e.hypothesisId,
+        location: e.location,
+        message: e.message,
+        data: e.data,
+      })),
+    });
+  } catch (_) {}
+  // #endregion
 
+  titleEl.textContent = resolveClipViewerTitle(clipTitle, meta);
   const safeText = app.escapeHtml(text);
   const { srcHtml, url } = extractClipViewerSource(meta);
   const imgSrc = await resolveClipViewerImageSrc(canonicalClip, meta);
-  const headerParts = buildClipViewerHeaderParts(app, text, meta, url, imgSrc);
+  if (imgSrc && canonicalClip) rememberImageBearingMeta(canonicalClip);
+  const displayMeta = canonicalClip?.meta && typeof canonicalClip.meta === 'object' ? canonicalClip.meta : meta;
+  renderClipViewerMeta(app, metaEl, displayMeta, markupType, canonicalClip);
+  const headerParts = buildClipViewerHeaderParts(app, text, displayMeta, url, imgSrc);
 
   let hasMarkup = false;
   if (refactorPair) {
@@ -548,6 +639,41 @@ export async function open(app, clip, sourceContext = 'clips') {
   modal.style.display = 'flex';
   window.renderLucideIcons?.(modal);
   notifyUiLocationChanged(app);
+
+  // #region agent log
+  {
+    const img = renderedEl?.querySelector?.('img.clip-viewer-image');
+    const bodyCs = bodyEl ? getComputedStyle(bodyEl) : null;
+    const imgCs = img ? getComputedStyle(img) : null;
+    pcDebugLog('H4', 'clips.viewer.js:open', 'post-render image/dom', {
+      usedRefactorPath: !!refactorPair,
+      headerPartCount: headerParts.length,
+      imgSrcLen: imgSrc ? imgSrc.length : 0,
+      imgSrcKind: imgSrc ? imgSrc.slice(0, 16) : '',
+      hasImgEl: !!img,
+      imgClientH: img?.clientHeight ?? 0,
+      imgClientW: img?.clientWidth ?? 0,
+      imgDisplay: imgCs?.display || null,
+      imgMaxH: imgCs?.maxHeight || null,
+      bodyOverflow: bodyCs?.overflow || null,
+      bodyClientH: bodyEl?.clientHeight ?? 0,
+    });
+    if (img) {
+      img.addEventListener('load', () => {
+        pcDebugLog('H5', 'clips.viewer.js:open', 'img load', {
+          naturalW: img.naturalWidth,
+          naturalH: img.naturalHeight,
+          clientH: img.clientHeight,
+        });
+      });
+      img.addEventListener('error', () => {
+        pcDebugLog('H5', 'clips.viewer.js:open', 'img error', {
+          srcKind: String(img.getAttribute('src') || '').slice(0, 16),
+        });
+      });
+    }
+  }
+  // #endregion
 }
 
 export function hide(app) {
