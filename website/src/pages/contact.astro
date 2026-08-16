@@ -3,14 +3,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
 ---
 
-<BaseLayout
-  title="Contact PasteCraft"
-  description="Reach the PasteCraft team for support, feedback, privacy questions, or legal requests."
-  currentPath="/contact"
->
+<BaseLayout currentPath="/contact">
   <div class="page-shell">
     <SectionShell
       eyebrow="Contact"
+      headingLevel={1}
       title="Reach the right inbox"
       copy="Use the mailbox that matches your request for support, privacy, or legal questions."
     >
@@ -52,8 +49,8 @@ import SectionShell from '../components/SectionShell.astro';
           <h3>Community</h3>
           <p class="section-copy">Follow product updates and join the conversation on official channels.</p>
           <div class="button-row">
-            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener">Facebook</a>
-            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener">Reddit</a>
+            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener noreferrer">Reddit</a>
           </div>
         </article>
       </div>

@@ -3,14 +3,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
 ---
 
-<BaseLayout
-  title="PasteCraft Support"
-  description="Get help with PasteCraft: install, sync, billing, AI tools, and account questions. Contact support@pastecraft.com."
-  currentPath="/support"
->
+<BaseLayout currentPath="/support">
   <div class="page-shell">
     <SectionShell
       eyebrow="Support"
+      headingLevel={1}
       title="How can we help?"
       copy="PasteCraft support covers the browser extension, cloud sync, billing, and optional AI tools. Start with the common answers below, or email us directly."
     >
@@ -84,8 +81,8 @@ import SectionShell from '../components/SectionShell.astro';
           <div class="button-row">
             <a class="ghost-button" href="/privacy">Privacy</a>
             <a class="ghost-button" href="/terms">Terms</a>
-            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener">Facebook</a>
-            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener">Reddit</a>
+            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener noreferrer">Reddit</a>
           </div>
         </article>
       </div>

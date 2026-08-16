@@ -7,14 +7,11 @@ import { pricingPlans, storeLinks } from '../data/site.js';
 const [, basicPlan, enhancedPlan] = pricingPlans;
 ---
 
-<BaseLayout
-  title="Upgrade | PasteCraft"
-  description="Unlock cloud sync and AI Lab in PasteCraft for study and productivity workflows. Subscribe inside the extension after install."
-  currentPath="/upgrade"
->
+<BaseLayout currentPath="/upgrade">
   <div class="page-shell">
     <SectionShell
       eyebrow="Upgrade"
+      headingLevel={1}
       title="You found a feature that needs a higher plan"
       copy="PasteCraft keeps fast copy and save light on day one. Upgrade when you need cloud sync or AI Lab for denser study and work situations."
     >

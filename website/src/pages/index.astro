@@ -124,11 +124,7 @@ const faqs = [
 ];
 ---
 
-<BaseLayout
-  title="PasteCraft | Clipboard Manager & History Extension for Chrome + Edge"
-  description="PasteCraft turns your clipboard into a crafted library. Save unlimited clips, organize them into categories, summarize with AI Lab, and sync across Chrome and Edge."
-  currentPath="/"
->
+<BaseLayout currentPath="/">
   <Hero>
     <ShowcaseCardClips />
   </Hero>
@@ -284,7 +280,10 @@ const faqs = [
         ))}
       </div>
       <p class="privacy-link-row">
-        <a href="/privacy">Read the full privacy policy</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/about">About</a>
+        <a href="/support">Support</a>
+        <a href="/contact">Contact</a>
       </p>
     </div>
   </section>
@@ -742,6 +741,10 @@ const faqs = [
   .privacy-link-row {
     margin: 3rem 0 0;
     text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.85rem 1.25rem;
   }
 
   .privacy-link-row a {

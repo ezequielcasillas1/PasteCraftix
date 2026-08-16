@@ -1,5 +1,6 @@
 ---
-const { eyebrow, title, copy, narrow = false } = Astro.props;
+const { eyebrow, title, copy, narrow = false, headingLevel = 2 } = Astro.props;
+const HeadingTag = headingLevel === 1 ? 'h1' : 'h2';
 ---
 
 <section class="section">
@@ -7,7 +8,7 @@ const { eyebrow, title, copy, narrow = false } = Astro.props;
     {(eyebrow || title || copy) && (
       <div class="stack intro">
         {eyebrow && <span class="eyebrow">{eyebrow}</span>}
-        {title && <h2 class="section-title">{title}</h2>}
+        {title && <HeadingTag class="section-title">{title}</HeadingTag>}
         {copy && <p class="section-copy">{copy}</p>}
       </div>
     )}

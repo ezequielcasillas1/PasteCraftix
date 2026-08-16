@@ -3,14 +3,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
 ---
 
-<BaseLayout
-  title="PasteCraft Privacy Policy"
-  description="Read the PasteCraft privacy policy covering account data, clip storage, AI processing, payments, and your data rights."
-  currentPath="/privacy"
->
+<BaseLayout currentPath="/privacy">
   <div class="page-shell">
     <SectionShell
       eyebrow="Privacy policy"
+      headingLevel={1}
       title="Your data is yours."
       copy="PasteCraft is built around the idea that copied information should stay useful without becoming mysterious. This policy explains what we collect, why we collect it, and where it may be processed."
       narrow={true}

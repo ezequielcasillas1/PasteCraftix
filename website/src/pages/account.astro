@@ -2,11 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
-<BaseLayout
-  title="PasteCraft Account"
-  description="Sign in to PasteCraft, review your plan, and manage account preferences from a redesigned dashboard."
-  currentPath="/account"
->
+<BaseLayout currentPath="/account">
   <script is:inline slot="head" src="/lib/supabase.min.js"></script>
 
   <div class="page-shell">

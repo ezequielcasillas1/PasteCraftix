@@ -3,14 +3,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
 ---
 
-<BaseLayout
-  title="PasteCraft Terms of Use"
-  description="Read the PasteCraft terms of use, including acceptable use, account responsibilities, and enforcement conditions."
-  currentPath="/terms"
->
+<BaseLayout currentPath="/terms">
   <div class="page-shell">
     <SectionShell
       eyebrow="Terms of use"
+      headingLevel={1}
       title="Use PasteCraft responsibly."
       copy="These terms explain the expectations around lawful use, account security, prohibited conduct, and how we may enforce the rules when abuse occurs."
       narrow={true}

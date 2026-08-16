@@ -1,5 +1,5 @@
 ---
-import { footerLinks, socialLinks } from '../data/site.js';
+import { exploreLinks, helpLinks, socialLinks } from '../data/site.js';
 ---
 
 <footer class="site-footer">
@@ -16,7 +16,16 @@ import { footerLinks, socialLinks } from '../data/site.js';
       <div>
         <h3>Explore</h3>
         <ul>
-          {footerLinks.map((item) => (
+          {exploreLinks.map((item) => (
+            <li><a href={item.href}>{item.label}</a></li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <h3>Help</h3>
+        <ul>
+          {helpLinks.map((item) => (
             <li><a href={item.href}>{item.label}</a></li>
           ))}
         </ul>
@@ -26,7 +35,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
         <h3>follow me at</h3>
         <ul>
           {socialLinks.map((item) => (
-            <li><a href={item.href} target="_blank" rel="noopener">{item.label}</a></li>
+            <li><a href={item.href} target="_blank" rel="noopener noreferrer">{item.label}</a></li>
           ))}
         </ul>
       </div>
@@ -46,7 +55,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
 
   .footer-shell {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr);
     gap: 1.5rem;
     padding: 1.5rem;
     border-top: 1px solid var(--border);
@@ -80,7 +89,7 @@ import { footerLinks, socialLinks } from '../data/site.js';
 
   .footer-links {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
   }
 

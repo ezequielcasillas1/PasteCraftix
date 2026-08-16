@@ -1,4 +1,9 @@
 
+### Aug 16, 2026 - Website SERanking crawl/on-page SEO
+**Status:** PENDING SUCCESS
+**Files:** seo.js, BaseLayout.astro, SectionShell.astro, robots.txt.js, sitemap.xml.js, og-image.jpg
+**Result:** robots + sitemap, title/desc lengths, H1s, alts, Twitter/OG image, noindex lab/account, footer inbound links.
+
 ### Aug 14, 2026 - Clip images in viewer (IDB-first + cloud preserve)
 **Status:** SUCCESS
 **Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js

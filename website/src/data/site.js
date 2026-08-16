@@ -7,16 +7,22 @@ export const navItems = [
   { href: '/account', label: 'Account' },
 ];
 
-export const footerLinks = [
+export const exploreLinks = [
+  { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
-  { href: '/contact', label: 'Contact' },
-  { href: '/support', label: 'Support' },
   { href: '/pricing', label: 'Pricing' },
-  { href: '/scholar-vs-merchant', label: 'PasteCraft Scholar vs Merchant' },
-  { href: '/merchant-test.html', label: 'Merchant Test Lab' },
+  { href: '/scholar-vs-merchant', label: 'Scholar vs Merchant' },
+];
+
+export const helpLinks = [
+  { href: '/support', label: 'Support' },
+  { href: '/contact', label: 'Contact' },
+  { href: '/upgrade', label: 'Upgrade' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
 ];
+
+export const footerLinks = [...exploreLinks, ...helpLinks];
 
 export const socialLinks = [
   { href: 'https://www.facebook.com/PasteCraftOfficial', label: 'Facebook' },

@@ -7,14 +7,11 @@ import { pricingPlans, storeLinks } from '../data/site.js';
 const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
 ---
 
-<BaseLayout
-  title="PasteCraft pricing"
-  description="Compare Freemium, Basic, and Enhanced plans. Start free for fast local capture, add cloud sync, or unlock AI Lab for study and productivity help. Subscribe inside the extension after install."
-  currentPath="/pricing"
->
+<BaseLayout currentPath="/pricing">
   <div class="page-shell">
     <SectionShell
       eyebrow="Pricing"
+      headingLevel={1}
       title="Plans for study and productivity habits"
       copy="Start free for fast local capture. Add cloud sync for continuity, or unlock AI Lab when dense material needs clearer help. Subscribe inside the extension after you install."
     >

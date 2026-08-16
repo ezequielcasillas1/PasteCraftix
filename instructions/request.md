@@ -63,12 +63,12 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 #### 4. Home Page SEO Target / Landing Page Adjustments
 **Priority:** HIGH  
-**Status:** In progress (UX writing pass Jul 16, 2026 — Sitecore copywriter MCP)
+**Status:** SERanking crawl/on-page pass (pending SUCCESS)
 
 **Requirements:**
-- Improve homepage SEO (meta/title/description/keywords + schema)
-- Landing page headline/hero/CTA conversion adjustments
-- Performance + mobile-first checks
+- robots.txt + XML sitemap; titles 30–60; descriptions 120–160
+- H1 on marketing pages; image alt; Twitter/OG image
+- noindex utility/test lab; internal Help/Explore links
 
 ---
 
