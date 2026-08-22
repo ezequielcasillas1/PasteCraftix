@@ -71,6 +71,11 @@
   to = "/merchant-test.html"
   status = 200
 
+[[redirects]]
+  from = "/changelog"
+  to = "/changelog.html"
+  status = 200
+
 
 
 
