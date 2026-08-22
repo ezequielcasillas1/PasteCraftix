@@ -16,7 +16,9 @@ export const productLines = {
   },
   merchant: {
     name: 'PasteCraft Merchant',
-    tagline: 'Ephemeral listing staging for Etsy, POD, and marketplace sellers — paste tags, materials, and snippets without fighting the form.',
+    comingSoon: true,
+    statusLabel: 'Coming soon',
+    tagline: 'Coming soon — ephemeral listing staging for Etsy, POD, and marketplace sellers.',
     audience: 'Etsy, Printify, Shopify, Amazon, Redbubble, TeePublic, and other listing-heavy sellers.',
     storageModel: 'Temporary Listing Dock with TTL — staging that is meant to vanish after Seal & Ship, not a permanent archive.',
     signatureTools: [
@@ -58,8 +60,8 @@ export const comparisonRows = [
   },
   {
     dimension: 'Subscription',
-    scholar: 'Freemium / Basic / Enhanced Scholar tiers.',
-    merchant: 'Separate Merchant plan (or bundle with Scholar).',
+    scholar: 'Freemium / Basic / Enhanced Scholar tiers — available now.',
+    merchant: 'Coming soon — not for sale yet.',
   },
   {
     dimension: 'Success looks like',
@@ -341,20 +343,20 @@ export const chooseGuide = [
     ],
   },
   {
-    title: 'Choose Merchant if…',
+    title: 'Merchant is coming soon if…',
     points: [
       'You publish marketplace listings with many small fields.',
       'You need tag queues, materials, and listing dock staging.',
       'You want staging that expires after Seal & Ship.',
-      'Your pain is seller forms — not long-term knowledge storage.',
+      'Not available to buy yet — Scholar is the current product.',
     ],
   },
   {
-    title: 'Choose the bundle if…',
+    title: 'A future bundle if…',
     points: [
       'You sell online and also vibe-code, study, or write heavily.',
-      'You want durable Scholar memory plus Merchant listing speed.',
-      'You keep seller staging separate from your personal clip archive on purpose.',
+      'You want durable Scholar memory plus Merchant listing speed later.',
+      'Bundle pricing is not for sale yet.',
     ],
   },
 ];

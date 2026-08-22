@@ -62,10 +62,13 @@ const audiences = [
     ],
   },
   {
-    href: '/scholar-vs-merchant#merchant-use-cases',
+    href: '/scholar-vs-merchant#merchant',
     icon: 'solar:shop-linear',
     name: 'Merchant',
-    tagline: 'For sellers and creators shipping listings every day.',
+    comingSoon: true,
+    statusLabel: 'Coming soon',
+    tagline: 'Coming soon — listing tools for sellers and creators.',
+    cta: "See what's coming",
     points: [
       'Stage titles, tags, and descriptions for Etsy, Amazon, and more',
       'Reuse polished replies and promo snippets in one click',
@@ -237,11 +240,11 @@ const faqs = [
         <p class="mono-eyebrow">BUILT FOR YOUR CRAFT</p>
         <h2>
           One clipboard,
-          <span class="h2-sub">two superpowers.</span>
+          <span class="h2-sub">Scholar now. Merchant next.</span>
         </h2>
         <p class="section-lead">
-          Scholar for study and deep work. Merchant for listings and shipping.
-          Same crafted library underneath.
+          Scholar is available now for study and deep work.
+          PasteCraft Merchant is coming soon for listings and shipping.
         </p>
       </div>
       <div class="audience-grid">
@@ -252,7 +255,12 @@ const faqs = [
                 <iconify-icon icon={audience.icon} style="stroke-width: 1.5;"></iconify-icon>
               </div>
               <div>
-                <h3>{audience.name}</h3>
+                <div class="audience-title-row">
+                  <h3>{audience.name}</h3>
+                  {audience.comingSoon && (
+                    <span class="coming-soon-badge">{audience.statusLabel}</span>
+                  )}
+                </div>
                 <p class="audience-tagline">{audience.tagline}</p>
               </div>
             </div>
@@ -265,7 +273,7 @@ const faqs = [
               ))}
             </ul>
             <span class="audience-link">
-              Explore {audience.name}
+              {audience.cta || `Explore ${audience.name}`}
               <iconify-icon icon="solar:arrow-right-linear" style="stroke-width: 1.5;"></iconify-icon>
             </span>
           </a>
@@ -657,12 +665,34 @@ const faqs = [
     gap: 1rem;
   }
 
+  .audience-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
   .audience-head h3 {
     margin: 0;
     font-size: 1.375rem;
     font-weight: 400;
     letter-spacing: -0.02em;
     color: var(--ink);
+  }
+
+  .coming-soon-badge {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+    background: rgba(251, 191, 36, 0.16);
   }
 
   .audience-tagline {

@@ -13,7 +13,7 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
       eyebrow="Pricing"
       headingLevel={1}
       title="Plans for study and productivity habits"
-      copy="Start free for fast local capture. Add cloud sync for continuity, or unlock AI Lab when dense material needs clearer help. Subscribe inside the extension after you install."
+      copy="These are Scholar plans. Start free for local capture, add cloud sync, or unlock AI Lab. Subscribe inside the extension after you install. PasteCraft Merchant is coming soon and is not for sale yet."
     >
       <div class="card-grid three">
         <PricingCard
@@ -78,6 +78,10 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
           </div>
         </PricingCard>
       </div>
+      <article class="surface-card panel stack merchant-soon-note">
+        <span class="eyebrow">Coming soon</span>
+        <p class="section-copy">PasteCraft Merchant is coming soon and is not for sale yet. Scholar is the current product.</p>
+      </article>
     </SectionShell>
 
     <SectionShell
@@ -176,6 +180,10 @@ const [freemiumPlan, basicPlan, enhancedPlan] = pricingPlans;
     .store-copy {
       margin: 0;
       color: var(--text-soft);
+    }
+
+    .merchant-soon-note {
+      margin-top: 1.5rem;
     }
   </style>
 </BaseLayout>
