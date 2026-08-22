@@ -1,7 +1,7 @@
 export const SITE_URL = 'https://pastecraft.com';
 export const TWITTER_HANDLE = '@casiezeq';
 export const OG_IMAGE_PATH = '/og-image.jpg';
-export const OG_IMAGE_ALT = 'PasteCraft clipboard manager for Chrome and Edge';
+export const OG_IMAGE_ALT = 'PasteCraft smart clipboard manager extension for Chrome and Edge';
 
 export const TITLE_MIN = 30;
 export const TITLE_MAX = 60;
@@ -9,21 +9,21 @@ export const DESC_MIN = 120;
 export const DESC_MAX = 160;
 
 export const DEFAULT_KEYWORDS =
-  'clipboard manager, clipboard history, browser extension, chrome extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, productivity tool';
+  'clipboard manager extension, smart clipboard manager extension, clipboard manager, clipboard history, browser extension, chrome extension, clipboard organizer, cloud sync clipboard, copy paste tool, text snippets, productivity tool';
 
 export const pageSeo = {
   '/': {
-    title: 'PasteCraft | Clipboard Manager for Chrome and Edge',
+    title: 'Smart Clipboard Manager Extension | PasteCraft',
     description:
-      'PasteCraft turns your clipboard into a crafted library. Save unlimited clips, file them by category, run AI Lab summaries, and sync across Chrome and Edge.',
+      'PasteCraft is a smart clipboard manager extension for Chrome and Edge. Save unlimited clips, organize by category, and sync your library.',
     robots: 'index, follow',
     changefreq: 'weekly',
     priority: '1.0',
   },
   '/about': {
-    title: 'About PasteCraft | Why This Clipboard Manager Exists',
+    title: 'About PasteCraft | Clipboard Manager Extension',
     description:
-      'Learn why PasteCraft exists and how it treats clipboard history, cloud sync, and optional AI tools as a calm, readable product for students and builders.',
+      'Learn why PasteCraft exists as a clipboard manager extension and how it treats history, sync, and optional AI as a calm product for students and builders.',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.7',
@@ -45,9 +45,9 @@ export const pageSeo = {
     priority: '0.6',
   },
   '/support': {
-    title: 'PasteCraft Support | Install, Sync, Billing, and AI',
+    title: 'PasteCraft Support | Clipboard Manager Extension Help',
     description:
-      'Get help with PasteCraft install, cloud sync, billing, and AI Lab. Read common answers or email support@pastecraft.com with your browser and plan.',
+      'Get help with this clipboard manager extension: install, cloud sync, billing, and AI Lab. Read common answers or email support@pastecraft.com.',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.7',
@@ -81,10 +81,20 @@ export const pageSeo = {
     description:
       'See how PasteCraft Scholar helps study and building, how Merchant helps sellers, and which layer to use. Same extension, two service layers.',
     keywords:
-      'PasteCraft Scholar, PasteCraft Merchant, clipboard manager use cases, vibe coding clipboard, study notes clipboard, Etsy listing paste, seller tag queue, clipboard productivity',
+      'PasteCraft Scholar, PasteCraft Merchant, clipboard manager extension, smart clipboard manager extension, clipboard manager use cases, vibe coding clipboard, study notes clipboard, Etsy listing paste, seller tag queue, clipboard productivity',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.8',
+  },
+  '/changelog': {
+    title: 'PasteCraft Changelog | Updates for Chrome and Edge',
+    description:
+      'See updates for this clipboard manager extension across clips, AI Lab, Notes, Merchant, and Chrome and Edge store releases. Newest first.',
+    keywords:
+      'PasteCraft changelog, clipboard manager extension, smart clipboard manager extension, clipboard manager updates, Chrome extension release notes, Edge Add-ons updates, AI Lab, Merchant',
+    robots: 'index, follow',
+    changefreq: 'weekly',
+    priority: '0.7',
   },
   '/account': {
     title: 'PasteCraft Account | Sign In and Manage Your Plan',

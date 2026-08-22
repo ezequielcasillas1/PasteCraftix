@@ -94,6 +94,10 @@ const privacyPoints = [
 
 const faqs = [
   {
+    q: 'Is PasteCraft a clipboard manager extension?',
+    a: 'Yes. It is a clipboard manager extension for Chrome and Edge. Categories, notes, optional cloud sync, and AI Lab are what make it a smart clipboard manager extension — not just a one-item clipboard.',
+  },
+  {
     q: 'Is PasteCraft really free?',
     a: 'Yes. The Freemium plan includes unlimited clips, notes, and categories with local storage — free forever. Basic adds cloud sync across devices, and Enhanced unlocks AI Lab.',
   },
@@ -125,6 +129,22 @@ const faqs = [
 ---
 
 <BaseLayout currentPath="/">
+  <script
+    slot="head"
+    type="application/ld+json"
+    set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.a,
+        },
+      })),
+    })}
+  />
   <Hero>
     <ShowcaseCardClips />
   </Hero>
@@ -135,13 +155,13 @@ const faqs = [
       <div class="section-intro">
         <p class="mono-eyebrow">WHY IT MATTERS</p>
         <h2>
-          Your clipboard forgets.
-          <span class="h2-sub">PasteCraft remembers.</span>
+          A clipboard manager extension
+          <span class="h2-sub">that actually remembers.</span>
         </h2>
         <p class="section-lead">
           Every day you copy links, snippets, quotes, and replies — and almost
-          all of it disappears. PasteCraft turns that stream into a library you
-          can actually use.
+          all of it disappears. This smart clipboard manager extension turns
+          that stream into a library you can actually use.
         </p>
       </div>
       <div class="problem-grid">
