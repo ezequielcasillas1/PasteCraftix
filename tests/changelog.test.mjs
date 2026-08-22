@@ -16,7 +16,12 @@ const { CHANGELOG_URL, CHANGELOG_LINK_ID } = await import(headerUrl);
 const { openChangelogPage } = await import(eventsUrl);
 
 assert.ok(changelogReleases.length >= 8, 'expected store versions');
-assert.equal(changelogReleases[0].version, '3.0.37');
+assert.equal(changelogReleases[0].version, '3.0.40');
+assert.equal(changelogReleases[0].stores.find((store) => store.id === 'edge')?.status, 'pending');
+assert.equal(changelogReleases[0].stores.find((store) => store.id === 'chrome')?.status, 'pending');
+assert.match(changelogReleases[0].availability, /Edge Add-ons/);
+assert.match(changelogReleases[0].availability, /Chrome Web Store/);
+assert.match(changelogReleases[0].availability, /August 28, 2026/);
 assert.deepEqual(
   [...listChangelogVersions()],
   [...new Set(listChangelogVersions())],

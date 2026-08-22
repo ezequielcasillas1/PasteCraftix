@@ -30,7 +30,7 @@ const formatDate = (iso) =>
       <SectionShell
         eyebrow="Store versions"
         title="What shipped in each release"
-        copy="These match the Chrome Web Store and Edge Add-ons packages. Newest first."
+        copy="Newest first. When Chrome and Edge differ, availability is on the release card."
       >
         <ol class="changelog-list">
           {changelogReleases.map((release) => (
@@ -39,7 +39,17 @@ const formatDate = (iso) =>
                 <span class="version-badge">{release.version}</span>
                 <time datetime={release.date}>{formatDate(release.date)}</time>
               </div>
+              {release.stores?.length ? (
+                <ul class="store-status" aria-label={`${release.version} store availability`}>
+                  {release.stores.map((store) => (
+                    <li>
+                      <span class:list={['store-badge', store.status]}>{store.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <h2>{release.title}</h2>
+              {release.availability ? <p class="section-copy store-availability">{release.availability}</p> : null}
               <ul class="list-clean">
                 {release.highlights.map((item) => <li>{item}</li>)}
               </ul>
@@ -141,5 +151,39 @@ const formatDate = (iso) =>
     font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.06em;
+  }
+
+  .store-status {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .store-badge {
+    display: inline-flex;
+    padding: 0.24rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .store-badge.live {
+    border: 1px solid #86efac;
+    background: rgba(22, 163, 74, 0.12);
+    color: #166534;
+  }
+
+  .store-badge.pending {
+    border: 1px solid #fcd34d;
+    background: rgba(217, 119, 6, 0.12);
+    color: #92400e;
+  }
+
+  .store-availability {
+    margin: 0;
   }
 </style>

@@ -8,6 +8,33 @@ export const changelogIntro = {
 
 export const changelogReleases = [
   {
+    version: '3.0.40',
+    date: '2026-08-22',
+    title: 'Study lists and AI Lab reliability',
+    stores: [
+      {
+        id: 'edge',
+        status: 'pending',
+        label: 'Pending on Microsoft Edge Add-ons',
+        note: 'Finalized and pushed by Friday, August 28, 2026.',
+      },
+      {
+        id: 'chrome',
+        status: 'pending',
+        label: 'Pending on the Chrome Web Store',
+        note: 'Finalized and pushed by Friday, August 28, 2026.',
+      },
+    ],
+    availability:
+      'Pending on Microsoft Edge Add-ons and the Chrome Web Store. Finalized and pushed by Friday, August 28, 2026.',
+    highlights: [
+      'Dash, bullet, and numbered lists in the clip viewer',
+      'AI Summary keeps the workspace when a model cannot handle the request',
+      'Follow-up questions stay after a failed summary',
+      'Long AI History titles wrap so the close button stays visible',
+    ],
+  },
+  {
     version: '3.0.37',
     date: '2026-08-15',
     title: 'Clip images, capture eligibility, and clearer summaries',
@@ -123,9 +150,9 @@ export const changelogEras = [
   {
     id: 'aug-2026',
     title: 'August 2026',
-    summary: 'Citations, clip images, capture browsers, and study-ready categories.',
+    summary: 'Study lists, clip images, capture browsers, and study-ready categories.',
     highlights: [
-      'AI Summary citations: clip URLs travel with the run; numbered source cards; no invented links',
+      '3.0.40 study lists in the clip viewer; Edge and Chrome Web Store pending through August 28, 2026',
       'Topic summaries can ground through the AI gateway when no clip URL exists',
       'Clip images moved off the 10MB chrome.storage quota into IndexedDB, then cloud preserve',
       'Capture Tools: Chrome, Edge, and Comet get Image Picker and Spot; Opera and Arc keep Auto-Copy and click-and-drag',
