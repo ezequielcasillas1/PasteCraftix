@@ -76,9 +76,12 @@ const sameAs = socialLinks.map((item) => item.href);
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": "PasteCraft",
+      "alternateName": "PasteCraft clipboard manager extension",
       "description": description,
-      "applicationCategory": "ProductivityApplication",
+      "applicationCategory": "BrowserApplication",
+      "applicationSubCategory": "Clipboard manager browser extension",
       "operatingSystem": "Chrome, Edge, Windows, macOS",
+      "browserRequirements": "Requires Google Chrome or Microsoft Edge",
       "url": SITE_URL,
       "sameAs": sameAs,
       "offers": {
@@ -87,11 +90,6 @@ const sameAs = socialLinks.map((item) => item.href);
         "highPrice": "9.99",
         "priceCurrency": "USD",
         "offerCount": "3"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "50"
       }
     })} />
     

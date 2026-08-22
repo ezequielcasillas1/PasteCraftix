@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -10,6 +10,7 @@ const {
   TITLE_MAX,
   DESC_MIN,
   DESC_MAX,
+  DEFAULT_KEYWORDS,
   pageSeo,
   getPageSeo,
   normalizeSeoPath,
@@ -19,6 +20,7 @@ const {
   renderSitemapXml,
   SITE_URL,
   OG_IMAGE_PATH,
+  OG_IMAGE_ALT,
 } = await import(url);
 
 for (const [path, entry] of Object.entries(pageSeo)) {
@@ -37,6 +39,7 @@ const indexable = listIndexablePages().map((page) => page.path);
 assert.deepEqual(indexable.sort(), [
   '/',
   '/about',
+  '/changelog',
   '/contact',
   '/pricing',
   '/privacy',
@@ -66,5 +69,24 @@ assert.ok(
   existsSync(join(__dirname, '..', 'website/public', OG_IMAGE_PATH.replace(/^\//, ''))),
   `missing ${OG_IMAGE_PATH}`,
 );
+
+assert.match(pageSeo['/'].title, /smart clipboard manager extension/i);
+assert.match(pageSeo['/'].title, /clipboard manager extension/i);
+assert.match(pageSeo['/'].description, /smart clipboard manager extension/i);
+assert.match(pageSeo['/'].description, /clipboard manager extension/i);
+assert.match(DEFAULT_KEYWORDS, /clipboard manager extension/i);
+assert.match(DEFAULT_KEYWORDS, /smart clipboard manager extension/i);
+assert.match(OG_IMAGE_ALT, /smart clipboard manager extension/i);
+
+const websiteSrc = join(__dirname, '..', 'website/src');
+const heroCopy = readFileSync(join(websiteSrc, 'components/Hero.astro'), 'utf8');
+const homeCopy = readFileSync(join(websiteSrc, 'pages/index.astro'), 'utf8');
+const aboutCopy = readFileSync(join(websiteSrc, 'pages/about.astro'), 'utf8');
+assert.match(heroCopy, /smart clipboard manager extension/);
+assert.match(heroCopy, /clipboard manager extension/);
+assert.match(homeCopy, /clipboard manager extension/);
+assert.match(homeCopy, /smart clipboard manager extension/);
+assert.match(aboutCopy, /clipboard manager extension/);
+assert.match(aboutCopy, /href="\/"/);
 
 console.log('website-seo-meta: ok');

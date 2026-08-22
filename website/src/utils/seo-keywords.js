@@ -91,6 +91,8 @@ export function filterByTerms(suggestions, terms) {
  * PasteCraft-specific seed keywords for SEO research
  */
 export const PASTECRAFT_SEED_KEYWORDS = [
+  'clipboard manager extension',
+  'smart clipboard manager extension',
   'clipboard manager',
   'clipboard history',
   'copy paste tool',
