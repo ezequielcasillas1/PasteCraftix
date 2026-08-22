@@ -16,16 +16,16 @@ const { scholar, merchant } = productLines;
   <div class="page-shell svm">
     <section class="page-header svm-hero">
       <div class="container stack">
-        <span class="eyebrow">Product lines</span>
+        <span class="eyebrow">Scholar now · Merchant coming soon</span>
         <h1 class="section-title">PasteCraft Scholar vs PasteCraft Merchant</h1>
         <p class="section-copy hero-lead">
-          Same extension brand. Two service layers. <strong>Scholar</strong> is the durable clipboard brain for builders, students, and knowledge workers.
-          <strong>Merchant</strong> is the ephemeral listing cockpit for marketplace sellers. Pick one — or bundle both when you live in both worlds.
+          Same extension brand. Two service layers. <strong>Scholar</strong> is the current clipboard brain for builders, students, and knowledge workers.
+          <strong>PasteCraft Merchant is coming soon</strong> — an ephemeral listing cockpit for marketplace sellers, not a finished product you can buy today.
         </p>
         <div class="button-row">
           <a class="button" href="#scholar-use-cases">Explore Scholar use cases</a>
           <a class="ghost-button" href="#how-they-differ">See how they differ</a>
-          <a class="ghost-button" href="/merchant-test.html" rel="nofollow">Merchant Test Lab</a>
+          <a class="ghost-button" href="/merchant-test.html" rel="nofollow">Merchant Test Lab (QA)</a>
         </div>
         <nav class="svm-jump" aria-label="On this page">
           <a href="#scholar">Scholar</a>
@@ -41,7 +41,7 @@ const { scholar, merchant } = productLines;
     <SectionShell
       eyebrow="At a glance"
       title="Two jobs. One PasteCraft."
-      copy="The extension stays named PasteCraft. Scholar and Merchant are gated service layers with different storage models, UI surfaces, and success criteria."
+      copy="The extension stays named PasteCraft. Scholar is live. Merchant is coming soon — a planned seller layer with a different storage model and UI."
     >
       <div class="split svm-pair">
         <article id="scholar" class="surface-card panel stack line-scholar">
@@ -57,9 +57,13 @@ const { scholar, merchant } = productLines;
         </article>
 
         <article id="merchant" class="surface-card panel stack line-merchant">
-          <span class="line-badge merchant-badge">Merchant</span>
+          <div class="badge-row">
+            <span class="line-badge merchant-badge">Merchant</span>
+            <span class="line-badge coming-soon-badge">{merchant.statusLabel}</span>
+          </div>
           <h2>{merchant.name}</h2>
           <p class="section-copy">{merchant.tagline}</p>
+          <p class="muted"><strong>Status:</strong> Coming soon — not available to buy yet.</p>
           <p class="muted"><strong>Audience:</strong> {merchant.audience}</p>
           <p class="muted"><strong>Storage:</strong> {merchant.storageModel}</p>
           <h3 class="subhead">Signature tools</h3>
@@ -82,7 +86,7 @@ const { scholar, merchant } = productLines;
               <tr>
                 <th scope="col">Dimension</th>
                 <th scope="col">PasteCraft Scholar</th>
-                <th scope="col">PasteCraft Merchant</th>
+                <th scope="col">PasteCraft Merchant <span class="th-soon">Coming soon</span></th>
               </tr>
             </thead>
             <tbody>
@@ -129,9 +133,9 @@ const { scholar, merchant } = productLines;
 
     <div id="merchant-use-cases">
       <SectionShell
-        eyebrow="PasteCraft Merchant"
-        title="Where Merchant shines (and Scholar does not)"
-        copy="Merchant is not “Scholar but for sellers.” It is a different product layer: temporary listing staging, tag queues, and Seal & Ship cleanup on marketplace forms."
+        eyebrow="Coming soon"
+        title="Where Merchant will shine (and Scholar does not)"
+        copy="PasteCraft Merchant is coming soon. It is not Scholar for sellers — it will be a different layer: temporary listing staging, tag queues, and Seal & Ship cleanup."
       >
         <div class="card-grid two">
           {merchantUseCases.map((item) => (
@@ -148,7 +152,7 @@ const { scholar, merchant } = productLines;
       <SectionShell
         eyebrow="Decision guide"
         title="Which layer should you use?"
-        copy="You can subscribe to Scholar only, Merchant only, or a future bundle. The extension name stays PasteCraft either way."
+        copy="Subscribe to Scholar now. Merchant is coming soon — not for sale yet. The extension name stays PasteCraft either way."
       >
         <div class="card-grid three">
           {chooseGuide.map((guide) => (
@@ -162,7 +166,7 @@ const { scholar, merchant } = productLines;
         </div>
         <div class="button-row svm-cta">
           <a class="button" href="/pricing">View Scholar pricing</a>
-          <a class="ghost-button" href="/merchant-test.html" rel="nofollow">Try Merchant Test Lab</a>
+          <a class="ghost-button" href="/merchant-test.html" rel="nofollow">Merchant Test Lab (QA)</a>
           <a class="ghost-button" href="/contact">Ask which plan fits</a>
         </div>
       </SectionShell>
@@ -222,6 +226,12 @@ const { scholar, merchant } = productLines;
     border-color: rgba(96, 165, 250, 0.35);
   }
 
+  .badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
   .line-badge {
     display: inline-flex;
     width: fit-content;
@@ -243,6 +253,25 @@ const { scholar, merchant } = productLines;
     color: #93c5fd;
     border: 1px solid rgba(96, 165, 250, 0.4);
     background: rgba(59, 130, 246, 0.08);
+  }
+
+  .coming-soon-badge {
+    color: #b45309;
+    border: 1px solid #fcd34d;
+    background: rgba(251, 191, 36, 0.16);
+  }
+
+  .th-soon {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    color: #b45309;
+    background: rgba(251, 191, 36, 0.16);
+    border: 1px solid #fcd34d;
+    vertical-align: middle;
   }
 
   .subhead {

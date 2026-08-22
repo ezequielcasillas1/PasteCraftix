@@ -79,7 +79,7 @@ export const pageSeo = {
   '/scholar-vs-merchant': {
     title: 'PasteCraft Scholar vs Merchant | Who Should Use Each',
     description:
-      'See how PasteCraft Scholar helps study and building, how Merchant helps sellers, and which layer to use. Same extension, two service layers.',
+      'See how PasteCraft Scholar helps study and building. PasteCraft Merchant is coming soon for sellers. Same extension, two service layers.',
     keywords:
       'PasteCraft Scholar, PasteCraft Merchant, clipboard manager extension, smart clipboard manager extension, clipboard manager use cases, vibe coding clipboard, study notes clipboard, Etsy listing paste, seller tag queue, clipboard productivity',
     robots: 'index, follow',
