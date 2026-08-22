@@ -4808,10 +4808,39 @@
         }
         
         /* Profile Modal Styles */
+        .header-actions-cluster {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
         .header-actions {
             display: flex;
             gap: 8px;
             flex-shrink: 0;
+        }
+
+        .header-changelog-link {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            color: #fff;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            opacity: 0.92;
+            white-space: normal;
+            text-align: right;
+            max-width: 112px;
+            line-height: 1.25;
+            cursor: pointer;
+        }
+
+        .header-changelog-link:hover,
+        .header-changelog-link:focus-visible {
+            opacity: 1;
+            color: #dbeafe;
         }
 
         .header-model-picker {
@@ -4935,6 +4964,14 @@
 
         html[data-theme="light"] .header .settings-btn:hover {
             background: rgba(255, 255, 255, 0.78);
+        }
+        html[data-theme="light"] .header-changelog-link {
+            color: #1e3a8a;
+        }
+
+        html[data-theme="light"] .header-changelog-link:hover,
+        html[data-theme="light"] .header-changelog-link:focus-visible {
+            color: #1d4ed8;
         }
         
         .profile-section {
@@ -12038,10 +12075,13 @@
                     <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
                 </select>
             </div>
-            <div class="header-actions">
-                <button class="settings-btn" id="aiBtn" title="AI Lab"><i data-lucide="bot"></i></button>
-                <button class="settings-btn" id="profileBtn" title="Profile"><i data-lucide="user"></i></button>
-                <button class="settings-btn" id="settingsBtn" title="Settings"><i data-lucide="settings"></i></button>
+            <div class="header-actions-cluster">
+                <div class="header-actions">
+                    <button class="settings-btn" id="aiBtn" title="AI Lab"><i data-lucide="bot"></i></button>
+                    <button class="settings-btn" id="profileBtn" title="Profile"><i data-lucide="user"></i></button>
+                    <button class="settings-btn" id="settingsBtn" title="Settings"><i data-lucide="settings"></i></button>
+                </div>
+                <a class="header-changelog-link" id="headerChangelogLink" href="https://pastecraft.com/changelog" target="_blank" rel="noopener noreferrer">View changelog history</a>
             </div>
         </header>
 
