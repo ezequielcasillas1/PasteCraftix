@@ -8,6 +8,8 @@ import {
   getRemainingMeaningfulWords,
 } from '../features/ai-lab/ai-lab.input-validation.js';
 
+const SUMMARY_DOWNLOAD_REVOKE_DELAY_MS = 60_000;
+
 export function registerAiLabPageEvents(app) {
     app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
     app.aiLabFeature?.announcements?.bindAnnouncementBannerEvents?.(app);
@@ -284,6 +286,7 @@ export function registerAiLabPageEvents(app) {
     const newQuestionBtn = document.getElementById('newQuestionBtn');
     const newSummaryBtn = document.getElementById('newSummaryBtn');
     const copySummaryBtn = document.getElementById('copySummaryBtn');
+    const downloadSummaryBtn = document.getElementById('downloadSummaryBtn');
     const summarySaveToNotesBtn = document.getElementById('summarySaveToNotesBtn');
 
     // Summary input character counter
@@ -408,6 +411,54 @@ export function registerAiLabPageEvents(app) {
             app.showToast('Failed to copy summary', 'error');
           }
         }
+      });
+    }
+
+    if (downloadSummaryBtn) {
+      downloadSummaryBtn.addEventListener('click', () => {
+        const currentThread = app.summaryThreads?.[app.currentSummaryThreadIndex];
+        // Prefer the raw markdown answer so the downloaded file preserves headings, lists, and emphasis.
+        const content = currentThread?.answer || app._currentRawSummary || document.getElementById('summaryResultContent')?.textContent || '';
+        const question = app.currentSummaryQuestion || currentThread?.question || 'Summary';
+        const cleanText = String(content || '').trim();
+
+        if (!cleanText) {
+          app.showToast('No summary available to download', 'error');
+          return;
+        }
+
+        const safeQuestion = String(question)
+          .replace(/\\/g, '\\\\')
+          .replace(/`/g, '\\`')
+          .replace(/\*/g, '\\*')
+          .replace(/_/g, '\\_')
+          .replace(/#/g, '\\#')
+          .replace(/\[/g, '\\[')
+          .replace(/\]/g, '\\]')
+          .replace(/\(/g, '\\(')
+          .replace(/\)/g, '\\)')
+          .replace(/\r?\n/g, ' ')
+          .trim();
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const markdown = [
+          '# AI Summary',
+          '',
+          `**Question:** ${safeQuestion}`,
+          '',
+          cleanText,
+          '',
+        ].join('\n');
+
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `pastecraft-summary-${timestamp}.md`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), SUMMARY_DOWNLOAD_REVOKE_DELAY_MS);
+        app.showToast('Summary downloaded as Markdown');
       });
     }
 
