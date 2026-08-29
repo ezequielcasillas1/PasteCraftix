@@ -1,5 +1,4 @@
 export const SITE_URL = 'https://pastecraft.com';
-export const TWITTER_HANDLE = '@casiezeq';
 export const OG_IMAGE_PATH = '/og-image.jpg';
 export const OG_IMAGE_ALT = 'PasteCraft smart clipboard manager extension for Chrome and Edge';
 

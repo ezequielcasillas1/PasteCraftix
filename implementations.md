@@ -705,6 +705,11 @@
 **Files:** website/src/components/Footer.astro, website/src/data/site.js
 **Result:** Removed the footer “follow me at” column and personal Instagram/X @casiezeq links. Official Facebook/Reddit stay in data for schema only. Not live until deploy.
 
+### [2026-08-29] - Remove personal Twitter card handle
+**Status:** PARTIAL
+**Files:** website/src/data/seo.js, website/src/layouts/BaseLayout.astro
+**Result:** Deleted TWITTER_HANDLE (@casiezeq) and twitter:site meta. Card tags remain without a personal site/creator handle.
+
 ### [2026-08-10] - Classic light mode UI + starlight
 **Status:** SUCCESS
 **Files:** popup.html, header.starlight.js, popup.boot.js, widgets.parse.js, theme-blue-phase2.css, star-shooting.png
