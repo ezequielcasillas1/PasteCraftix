@@ -1,5 +1,5 @@
 ---
-import { exploreLinks, helpLinks, socialLinks } from '../data/site.js';
+import { exploreLinks, helpLinks } from '../data/site.js';
 ---
 
 <footer class="site-footer">
@@ -27,15 +27,6 @@ import { exploreLinks, helpLinks, socialLinks } from '../data/site.js';
         <ul>
           {helpLinks.map((item) => (
             <li><a href={item.href}>{item.label}</a></li>
-          ))}
-        </ul>
-      </div>
-
-      <div>
-        <h3>follow me at</h3>
-        <ul>
-          {socialLinks.map((item) => (
-            <li><a href={item.href} target="_blank" rel="noopener noreferrer">{item.label}</a></li>
           ))}
         </ul>
       </div>
@@ -89,7 +80,7 @@ import { exploreLinks, helpLinks, socialLinks } from '../data/site.js';
 
   .footer-links {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
   }
 
