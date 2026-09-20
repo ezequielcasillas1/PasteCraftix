@@ -10,16 +10,16 @@ FORMATTING RULES (strict):
 - Be detailed but minimal.`
 
 const TEXT_CITATION_RULES = `
-SOURCE REFERENCES (required):
+SOURCE REFERENCES:
 - Base every claim on the provided text. Do not invent facts, titles, or URLs.
-- After the summary or answer, add a ## Sources section.
-- For each key point, cite a short quote (≤20 words) from the text.
-- If a line like [Source: …] or a http(s) URL appears, include that URL/title in Sources.
-- If the text is split by ---, treat each block as a separate source (Source 1, Source 2, …).
+- After claims that come from a listed source, add a citation marker [1], [2], … matching Sources order.
+- If a line like [Source: …] or a http(s) URL appears, end with ## Sources listing those titles/URLs only.
+- If the text has no [Source: …] and no http(s) URL, do not add a Sources section and do not invent URLs.
+- If the text is split by ---, treat each block as a separate source when it has a [Source: …] or URL.
 - If a claim is not in the source, say so instead of guessing.`
 
 const VISION_CITATION_RULES =
-  ' Cite each claim with a short quote from the image or context. End with a ## Sources list. Do not invent URLs.'
+  ' Cite each claim with a short quote from the image or context. Use [1] markers that match ## Sources. Do not invent URLs.'
 
 /** Title/category helpers ask for a bare string — skip citation chrome. */
 export function wantsBareOutput(question) {
@@ -34,9 +34,33 @@ export function resolveSummaryPromptKind(opts) {
   return 'summarize'
 }
 
-function citationSuffix(kind, question, hasImage) {
+function formatGroundedSourceLines(sources) {
+  return (Array.isArray(sources) ? sources : [])
+    .map((item, index) => {
+      const n = index + 1
+      const label = [item?.title, item?.url].filter(Boolean).join(' — ')
+      return `[${n}] ${label}`
+    })
+    .filter((line) => /https?:\/\//i.test(line))
+    .join('\n')
+}
+
+function groundedCitationSuffix(sources) {
+  const lines = formatGroundedSourceLines(sources)
+  if (!lines) return TEXT_CITATION_RULES
+  return `
+SOURCE REFERENCES (required):
+- Use ONLY these verified web sources. Do not invent titles or URLs.
+${lines}
+- After claims supported by a source, add [1], [2], … matching that list.
+- End with ## Sources listing ONLY these sources in the same order.
+- If a claim is not supported by these sources, say so instead of guessing.`
+}
+
+function citationSuffix(kind, question, hasImage, groundedSources) {
   if (kind === 'questions') return ''
   if (wantsBareOutput(question)) return ''
+  if (groundedSources.length) return groundedCitationSuffix(groundedSources)
   return hasImage ? VISION_CITATION_RULES : TEXT_CITATION_RULES
 }
 
@@ -83,7 +107,8 @@ export function buildTextPrompts(opts) {
   const question = opts?.question
   const hasImage = !!opts?.hasImage
   const kind = resolveSummaryPromptKind(opts)
-  const cite = citationSuffix(kind, question, hasImage)
+  const groundedSources = Array.isArray(opts?.groundedSources) ? opts.groundedSources : []
+  const cite = citationSuffix(kind, question, hasImage, groundedSources)
   return hasImage
     ? buildVisionPrompts(kind, text, question, cite)
     : buildPlainTextPrompts(kind, text, question, cite)

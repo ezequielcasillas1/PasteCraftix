@@ -1,6 +1,7 @@
 // @forward-slice AI Lab history — list / modal render helpers
 import { AI_HISTORY_PAGE_SIZE } from './ai-lab.constants.js';
 import { getHistoryEntryImage } from './ai-lab.summary-modal.js';
+import { ensureSummarySources, getHistoryEntrySources } from '../../../shared/summary-sources.js';
 
 function _escapeImageAttr(value) {
   return String(value || '')
@@ -210,7 +211,11 @@ export function attachHistoryListHandlers(app, container) {
 export function renderHistoryModalHeader(entry, titleEl, subtitleEl) {
   const meta = historyTypeMeta(entry);
   const threadCount = (entry.threads || []).length;
-  if (titleEl) titleEl.textContent = `${meta.icon} ${entry.title || 'Untitled'}`;
+  const displayTitle = entry.title || 'Untitled';
+  if (titleEl) {
+    titleEl.textContent = `${meta.icon} ${displayTitle}`;
+    titleEl.title = displayTitle;
+  }
   if (subtitleEl) {
     if (entry.type === 'refactorization') {
       subtitleEl.textContent = `AI Refactorization · ${(entry.threads?.[0]?.refactorLevel || 'college')} level`;
@@ -331,7 +336,15 @@ export async function renderCurrentHistoryThread(app, entry, resultEl) {
   }
 
   const imageHtml = renderHistoryImageBlock(entry);
-  const answerHtml = await app._renderAiResponse(entry.threads[0].answer);
+  const entrySources = getHistoryEntrySources(entry);
+  const answer = entry.type === 'summary'
+    ? ensureSummarySources(entry.threads[0].answer, entry.originalText, entrySources)
+    : entry.threads[0].answer;
+  const answerHtml = await app._renderAiResponse(
+    answer,
+    entry.type === 'summary' ? entry.originalText : '',
+    entrySources,
+  );
   _setResultHtml(resultEl, imageHtml + answerHtml);
 }
 
@@ -368,6 +381,9 @@ export function isValidHistoryThreadIndex(entry, index) {
 export function getHistoryCopyText(entry, thread) {
   if (entry.type === 'refactorization' || entry.type === 'formatted') {
     return `Before:\n${thread.before || entry.originalText || ''}\n\nAfter:\n${thread.after || thread.answer || ''}`;
+  }
+  if (entry.type === 'summary') {
+    return ensureSummarySources(thread.answer, entry.originalText, getHistoryEntrySources(entry));
   }
   return thread.answer || '';
 }

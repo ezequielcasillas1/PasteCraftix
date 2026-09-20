@@ -154,6 +154,17 @@ function scheduleIconWork(task, urgent = false) {
     }
   };
 
+  window.paintBootShellIcons = function paintBootShellIcons() {
+    observerPaused = true;
+    try {
+      runLucideOnPlaceholders(collectBootPlaceholders(null));
+    } catch (e) {
+      console.warn('Lucide shell render failed:', e);
+    } finally {
+      observerPaused = false;
+    }
+  };
+
   window.finishBootLucideIcons = function finishBootLucideIcons() {
     window.__pcPopupLucideBooting = false;
     pendingNodes.clear();

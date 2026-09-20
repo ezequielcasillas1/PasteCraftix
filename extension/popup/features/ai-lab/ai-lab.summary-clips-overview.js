@@ -5,7 +5,8 @@
  */
 
 import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
-import { formatClipTextWithSource } from '../../../shared/clip-source.js';
+import { collectClipSources, formatClipTextWithSource } from '../../../shared/clip-source.js';
+import { mergeSummarySources } from '../../../shared/summary-sources.js';
 
 const HOST_ID = 'summaryClipsOverview';
 const SELECTED_KEY = '_summaryOverviewSelected';
@@ -396,6 +397,12 @@ export function useSelectedSummaryClipsInFollowup(app) {
     return;
   }
   if (!_appendTextsToFollowup(texts)) return;
+  const selectedClips = [];
+  _selected(app).forEach((id) => {
+    const clip = _findClip(app, id);
+    if (clip) selectedClips.push(clip);
+  });
+  app.currentSummarySources = mergeSummarySources(app.currentSummarySources, collectClipSources(selectedClips));
   app.showToast?.(texts.length === 1 ? 'Clip added to follow-up' : `${texts.length} clips added to follow-up`);
 }
 

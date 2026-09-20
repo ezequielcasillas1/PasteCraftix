@@ -60,11 +60,9 @@ function stripGatewayPrefix(model: string): { providerHint: string; bare: string
 
 function googleFallbackChain(model: string): string[] {
   const m = String(model || '').trim()
-  if (!m) return ['gemini-3.6-flash', 'gemini-2.0-flash']
-  if (m === 'gemini-3.6-flash' || m === 'gemini-3.5-flash-lite') {
-    return [m, 'gemini-2.0-flash']
-  }
-  return [m, 'gemini-2.0-flash']
+  if (!m) return ['gemini-2.5-flash']
+  if (m === 'gemini-2.5-flash') return [m]
+  return [m, 'gemini-2.5-flash']
 }
 
 const OPENAI_FALLBACK_CHAINS: Record<string, string[]> = {
@@ -72,6 +70,7 @@ const OPENAI_FALLBACK_CHAINS: Record<string, string[]> = {
   'gpt-5.2': ['gpt-5.2', 'gpt-5', 'gpt-4o-mini'],
   'gpt-5-mini': ['gpt-5-mini', 'gpt-5', 'gpt-4o-mini'],
   'gpt-5-nano': ['gpt-5-nano', 'gpt-5-mini', 'gpt-4o-mini'],
+  'gpt-5.6-luna': ['gpt-5.6-luna', 'gpt-5-nano', 'gpt-4o-mini'],
   'gpt-5': ['gpt-5', 'gpt-4o-mini'],
   'gpt-4o': ['gpt-4o', 'gpt-4o-mini'],
 }
@@ -84,8 +83,8 @@ function openAiFallbackChain(model: string): string[] {
 
 function bareFallbackChain(bare: string, provider: AiWorkflowProvider): string[] {
   if (provider === 'google') return googleFallbackChain(bare)
-  if (provider === 'deepseek') return [bare || 'deepseek-v4-flash-0731']
-  if (provider === 'alibaba') return [bare || 'qwen3.7-flash']
+  if (provider === 'deepseek') return [bare || 'deepseek-v4.1-flash']
+  if (provider === 'alibaba') return [bare || 'qwen3.8-flash']
   if (provider === 'inclusionai') return [bare || 'ling-3.0-flash']
   if (provider === 'anthropic') return [bare || CLAUDE_HAIKU_MODEL]
   return openAiFallbackChain(bare)

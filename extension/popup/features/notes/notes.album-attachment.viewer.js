@@ -10,7 +10,7 @@ import { getClipIdKey } from '../clips/clips.state.js';
 import { popOutAlbumImageAnnotate } from './notes.image-annotate.js';
 import { notifyUiLocationChanged } from '../ui-location/ui-location.service.js';
 import { queueClipsForNotes } from './notes.send-catalog.js';
-import { joinClipsForSummary } from '../../../shared/clip-source.js';
+import { collectClipSources, joinClipBodiesForSummary } from '../../../shared/clip-source.js';
 
 const SOURCE_CONTEXT = 'album';
 
@@ -226,12 +226,15 @@ export function close(app) {
 
 export function runAiSummary(app) {
   closeViewerThen(app, ({ text, clipObjects }) => {
-    const trimmed = joinClipsForSummary(clipObjects) || String(text || '').trim();
+    const trimmed = joinClipBodiesForSummary(clipObjects) || String(text || '').trim();
     if (!trimmed) {
       app.showToast?.('No clip text to summarize', 'error');
       return;
     }
-    app.showSummaryModal?.(trimmed);
+    app.showSummaryModal?.(trimmed, {
+      sources: collectClipSources(clipObjects),
+      clips: clipObjects,
+    });
   });
 }
 

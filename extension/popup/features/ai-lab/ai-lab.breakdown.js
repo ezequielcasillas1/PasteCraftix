@@ -2,6 +2,7 @@
 import { presentAiLabError } from './ai-lab.model-error.js';
 import { renderSummaryImageAttach } from './ai-lab.summary-modal.js';
 import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
+import { ensureSummarySources } from '../../../shared/summary-sources.js';
 
 const LEVEL_DESCRIPTIONS = {
   eli5: '<strong>Child Level:</strong> Super simple explanation using basic words and fun examples',
@@ -367,6 +368,11 @@ export function generateThreadTooltip(thread, number) {
   return `${number}. "${summaryTitle}"`;
 }
 
+function _threadAnswerForRender(app, type, thread) {
+  if (type !== 'summary') return thread.answer;
+  return ensureSummarySources(thread.answer, app.currentSummaryText, app.currentSummarySources);
+}
+
 export async function navigateToThread(type, index) {
   const threads = type === 'summary' ? this.summaryThreads : this.breakdownThreads;
   if (index < 0 || index >= threads.length) return;
@@ -375,7 +381,10 @@ export async function navigateToThread(type, index) {
   const contentEl = document.getElementById(type === 'summary' ? 'summaryResultContent' : 'breakdownResult');
 
   if (contentEl) {
-    contentEl.innerHTML = await this._renderAiResponse(thread.answer);
+    contentEl.innerHTML = await this._renderAiResponse(
+      _threadAnswerForRender(this, type, thread),
+      type === 'summary' ? this.currentSummaryText : '',
+    );
   }
 
   if (typeof this.emitAiTaskOutput === 'function') {

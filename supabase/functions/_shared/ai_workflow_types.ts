@@ -6,9 +6,9 @@ export type AiWorkflowPreset =
   | 'gpt4o'
   | 'gpt54'
   | 'gemini_pro'
-  | 'gemini_36_flash'
+  | 'gemini_37_flash'
   | 'gemini_35_flash_lite'
-  | 'deepseek_v4_flash'
+  | 'deepseek_v41_flash'
   | 'qwen_flash'
   | 'ling_flash';
 
@@ -77,9 +77,9 @@ const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set([
 
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
   openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
-  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_36_flash', 'gemini_35_flash_lite']),
+  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_37_flash', 'gemini_35_flash_lite']),
   anthropic: new Set(['default']),
-  deepseek: new Set(['default', 'cheapest', 'deepseek_v4_flash']),
+  deepseek: new Set(['default', 'cheapest', 'deepseek_v41_flash']),
   alibaba: new Set(['default', 'qwen_flash']),
   inclusionai: new Set(['default', 'ling_flash']),
 };
@@ -89,8 +89,16 @@ export function normalizeProvider(provider: unknown): AiWorkflowProvider {
   return ALLOWED_PROVIDERS.has(p) ? p : 'openai';
 }
 
+/** Old preset keys → current keys (stored workflows keep resolving to the same lane). */
+const PRESET_ALIASES: Record<string, string> = {
+  gemini_36_flash: 'gemini_37_flash',
+  deepseek_v4_flash: 'deepseek_v41_flash',
+};
+
 export function normalizePreset(preset: unknown, provider: AiWorkflowProvider = 'openai'): AiWorkflowPreset {
-  const p = String(preset || 'default') as AiWorkflowPreset;
+  // Backward-compat aliases for stored workflows from before the Sep 2026 cheap-model refresh.
+  const aliased = PRESET_ALIASES[String(preset || '')] || preset;
+  const p = String(aliased || 'default') as AiWorkflowPreset;
   const allowed = PRESETS_BY_PROVIDER[provider] || PRESETS_BY_PROVIDER.openai;
   return allowed.has(p) ? p : 'default';
 }
@@ -110,7 +118,7 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     cheapest: 25,
     gemini_pro: 350,
     latest: 100,
-    gemini_36_flash: 40,
+    gemini_37_flash: 40,
     gemini_35_flash_lite: 25,
   },
   anthropic: {
@@ -119,7 +127,7 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
   deepseek: {
     default: 20,
     cheapest: 20,
-    deepseek_v4_flash: 20,
+    deepseek_v41_flash: 20,
   },
   alibaba: {
     default: 20,

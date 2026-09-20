@@ -328,13 +328,13 @@ export const aiFunctionsMixin = {
     }
   },
 
-  async generateSummary(text, question, imageBase64 = null) {
+  async _requestAiSummary(text, question, imageBase64 = null, extra = {}) {
     try {
       console.log('📝 Generating summary for question:', question);
-
       const body = await this._withAiWorkflow(this._withOptionalImageBase64({
         text: this._truncateAiInputText(text),
         question: this._truncateAiInputText(question),
+        ...(extra && typeof extra === 'object' ? extra : {}),
       }, imageBase64));
       const response = await this._invokeAiEdge(
         ['ai-summary', 'summarize-or-qa'],
@@ -349,11 +349,24 @@ export const aiFunctionsMixin = {
 
       const data = await response.json();
       console.log('✅ Summary generated');
-      return data.summary;
+      return data;
     } catch (error) {
       console.error('Failed to generate summary:', error);
       throw error;
     }
+  },
+
+  async generateSummary(text, question, imageBase64 = null) {
+    const data = await this._requestAiSummary(text, question, imageBase64);
+    return data.summary;
+  },
+
+  async generateSummaryResult(text, question, imageBase64 = null) {
+    const data = await this._requestAiSummary(text, question, imageBase64, { groundWeb: true });
+    return {
+      summary: data.summary,
+      sources: Array.isArray(data.sources) ? data.sources : [],
+    };
   },
 
   async generateProfileImage(description, userImageBase64 = null, aiGeneratedName = null) {

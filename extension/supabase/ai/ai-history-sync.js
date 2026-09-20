@@ -227,6 +227,7 @@ async fetchAiHistoryFromSupabase() {
         type: String(row.type || 'summary'),
         title: String(row.title || ''),
         originalText,
+        sources: Array.isArray(parsedThreads[0]?.sources) ? parsedThreads[0].sources : [],
         imageBase64,
         threads: _threadsWithSourceTextFallback({
           originalText,

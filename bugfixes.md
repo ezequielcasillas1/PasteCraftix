@@ -1,3 +1,13 @@
+### Aug 20, 2026 - AI Summary model-not-capable stuck workspace + follow-up wipe
+**Status:** PARTIAL (pending user verify)
+**Files:** ai-lab.model-error.js, ai-lab.summary.js, ai-lab.credit-error.js, ai-lab.model-picker.js, ai-lab-page.events.js, popup.html, tests/ai-model-error.test.mjs, tests/ai-lab-followup-preserve.test.mjs
+**Result:** Error path wiped `#summaryInputSection` via innerHTML (stuck on "AI model is not capable"). Now uses `#aiSummaryErrorBanner`; follow-up clears only on success; model switch clears banner.
+
+### Aug 14, 2026 - AI history latest title clips modal corner
+**Status:** PARTIAL (pending user verify)
+**Files:** popup.html, AiLucideStyles.css, theme-blue-phase2.css, styles.css, ai-lab.history.render.js, ai-lab.history.js, tests/ai-history-modal-title-overflow.test.mjs
+**Result:** Long latest titles were nowrap + flex min-content, so the history modal grew past the popup and clipped the top-right close/corner. Title now wraps; header/close stay inside the card.
+
 ### Aug 14, 2026 - AI Summary dark-mode table zebra
 **Status:** PARTIAL (pending user verify)
 **Files:** theme-blue-phase2.css, popup.html, styles.css, mermaid.strategy.js, tests/ai-summary-dark-tables.test.mjs

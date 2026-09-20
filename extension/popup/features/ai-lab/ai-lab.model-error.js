@@ -1,6 +1,7 @@
 /**
  * Model capability / unsupported-model errors for AI Lab.
  * Surfaces a clear switch-model message — never silent on known incapability.
+ * Summary workspace: mount into #aiSummaryErrorBanner — never wipe input/result DOM.
  * @forward-slice
  */
 
@@ -12,6 +13,8 @@ import {
 
 export const MODEL_NOT_CAPABLE_MESSAGE =
   'This AI model is not capable of that request — choose a different model.';
+
+export const AI_SUMMARY_ERROR_BANNER_ID = 'aiSummaryErrorBanner';
 
 const CAPABILITY_ERROR_PATTERNS = [
   'model not capable',
@@ -100,10 +103,21 @@ export function assertModelCapableForAction(app, action) {
   }
 }
 
-export function showModelNotCapableInline(app, resultEl, loadingEl) {
-  if (loadingEl) loadingEl.style.display = 'none';
-  if (!resultEl) return;
+export function getSummaryErrorBannerHost() {
+  return typeof document !== 'undefined'
+    ? document.getElementById(AI_SUMMARY_ERROR_BANNER_ID)
+    : null;
+}
 
+/** Clear the Summary error banner so the workspace stays usable after a model switch. */
+export function clearAiLabErrorBanner(bannerHost) {
+  const host = bannerHost || getSummaryErrorBannerHost();
+  if (!host) return;
+  host.innerHTML = '';
+  host.hidden = true;
+}
+
+function buildModelNotCapableCard(app) {
   const model = getActiveShowcaseModel(app);
   const card = document.createElement('div');
   card.className = 'ai-model-incapable-card';
@@ -124,39 +138,111 @@ export function showModelNotCapableInline(app, resultEl, loadingEl) {
   card.appendChild(titleEl);
   card.appendChild(textEl);
   card.appendChild(hintEl);
+  return card;
+}
 
-  resultEl.innerHTML = '';
-  resultEl.appendChild(card);
+/**
+ * Mount an alert card without destroying the Summary (or other) workspace.
+ * Prefer bannerHost; otherwise optionally prepend; last resort replaces resultEl.
+ */
+export function mountAiLabAlertCard(card, {
+  bannerHost = null,
+  resultEl = null,
+  preserveContent = false,
+} = {}) {
+  if (!card) return 'none';
+
+  if (bannerHost) {
+    bannerHost.innerHTML = '';
+    bannerHost.appendChild(card);
+    bannerHost.hidden = false;
+    return 'banner';
+  }
+
+  if (preserveContent && resultEl) {
+    resultEl.querySelectorAll('.ai-model-incapable-card, .ai-credit-empty-card').forEach((el) => el.remove());
+    resultEl.insertBefore(card, resultEl.firstChild);
+    return 'prepend';
+  }
+
+  if (resultEl) {
+    resultEl.innerHTML = '';
+    resultEl.appendChild(card);
+    return 'replace';
+  }
+
+  return 'none';
+}
+
+/**
+ * @param {object} app
+ * @param {HTMLElement|null} resultEl
+ * @param {HTMLElement|null} loadingEl
+ * @param {{ bannerHost?: HTMLElement|null, preserveContent?: boolean }} [opts]
+ */
+export function showModelNotCapableInline(app, resultEl, loadingEl, opts = {}) {
+  if (loadingEl) loadingEl.style.display = 'none';
+  const card = buildModelNotCapableCard(app);
+  return mountAiLabAlertCard(card, {
+    bannerHost: opts.bannerHost || null,
+    resultEl,
+    preserveContent: opts.preserveContent === true,
+  });
 }
 
 /**
  * Unified AI Lab request failure presenter.
+ * Pass bannerHost (e.g. #aiSummaryErrorBanner) so Summary input/result/follow-up stay mounted.
  * @returns {'credits'|'model'|'other'}
  */
 export function presentAiLabError(app, error, {
   resultEl = null,
   loadingEl = null,
+  bannerHost = null,
+  preserveContent = false,
   fallbackMessage = 'AI request failed',
   toast = true,
 } = {}) {
+  const mountOpts = { bannerHost, resultEl, preserveContent };
+
   if (isOutOfCreditsError(error)) {
-    showCreditExhaustedInline(app, resultEl, loadingEl);
+    showCreditExhaustedInline(app, resultEl, loadingEl, mountOpts);
     return 'credits';
   }
 
   if (isModelNotCapableError(error)) {
     const message = formatModelNotCapableMessage(getActiveShowcaseModel(app));
-    showModelNotCapableInline(app, resultEl, loadingEl);
+    showModelNotCapableInline(app, resultEl, loadingEl, mountOpts);
     if (toast) app?.showToast?.(message, 'error');
     return 'model';
   }
 
   const message = String(error?.message || '').trim() || fallbackMessage;
   if (loadingEl) loadingEl.style.display = 'none';
-  if (resultEl) {
+  if (bannerHost) {
+    const card = document.createElement('div');
+    card.className = 'ai-model-incapable-card';
+    card.setAttribute('role', 'alert');
+    const titleEl = document.createElement('strong');
+    titleEl.className = 'ai-model-incapable-title';
+    titleEl.textContent = 'AI request failed';
+    const textEl = document.createElement('p');
+    textEl.className = 'ai-model-incapable-text';
+    textEl.textContent = message;
+    card.appendChild(titleEl);
+    card.appendChild(textEl);
+    mountAiLabAlertCard(card, mountOpts);
+  } else if (resultEl && !preserveContent) {
     if (typeof resultEl.textContent === 'string') {
       resultEl.textContent = `❌ ${message}`;
     }
+  } else if (resultEl && preserveContent) {
+    const note = document.createElement('p');
+    note.className = 'ai-model-incapable-text';
+    note.setAttribute('role', 'alert');
+    note.textContent = `❌ ${message}`;
+    resultEl.querySelectorAll('[role="alert"]').forEach((el) => el.remove());
+    resultEl.insertBefore(note, resultEl.firstChild);
   }
   if (toast) app?.showToast?.(message, 'error');
   return 'other';

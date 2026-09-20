@@ -22,6 +22,7 @@ import {
   stripOlderHistoryImages,
   syncAiHistoryToCloud,
 } from './ai-lab.history.persist.js';
+import { ensureSummarySources, getHistoryEntrySources } from '../../../shared/summary-sources.js';
 import {
   attachHistoryListHandlers,
   clampAiHistoryPageIndex,
@@ -155,13 +156,16 @@ export async function saveAiHistory(type, originalText, threads, options = {}) {
     }
 
     const imageBase64 = typeof options?.imageBase64 === 'string' ? options.imageBase64 : '';
+    const sources = Array.isArray(options?.sources) ? options.sources : [];
     // Local-only reload — cloud merge must not race-strip imageBase64 before we write.
     await this.loadAiHistory({ mergeCloud: false });
     const existing = findActiveHistoryEntry(this, type);
     if (existing) {
       const carriedImage = resolveHistoryImageToPersist(imageBase64, existing.entry);
-      existing.entry.threads = serializeThreads(threads, originalText, carriedImage);
+      const carriedSources = sources.length ? sources : existing.entry.sources;
+      existing.entry.threads = serializeThreads(threads, originalText, carriedImage, carriedSources);
       if (carriedImage) existing.entry.imageBase64 = carriedImage;
+      if (sources.length) existing.entry.sources = sources;
       existing.entry.updatedAt = Date.now();
       await this._persistAiHistory();
       console.log('📜 AI History updated:', existing.entry.id, 'threads:', threads.length);
@@ -169,7 +173,7 @@ export async function saveAiHistory(type, originalText, threads, options = {}) {
       return existing.entry;
     }
 
-    const entry = createHistoryEntry(type, originalText, threads, imageBase64);
+    const entry = createHistoryEntry(type, originalText, threads, { imageBase64, sources });
     this.aiHistoryEntries.unshift(entry);
     setActiveHistoryId(this, type, entry.id);
     await this._persistAiHistory();
@@ -302,7 +306,15 @@ export async function navigateHistoryThread(index) {
   this.currentHistoryThreadIndex = index;
   const resultEl = document.getElementById('aiHistoryResultContent');
   if (resultEl) {
-    const answerHtml = await this._renderAiResponse(entry.threads[index].answer);
+    const entrySources = getHistoryEntrySources(entry);
+    const threadAnswer = entry.type === 'summary'
+      ? ensureSummarySources(entry.threads[index].answer, entry.originalText, entrySources)
+      : entry.threads[index].answer;
+    const answerHtml = await this._renderAiResponse(
+      threadAnswer,
+      entry.type === 'summary' ? entry.originalText : '',
+      entrySources,
+    );
     resultEl.innerHTML = renderHistoryImageBlock(entry) + answerHtml;
   }
   emitHistoryThreadArtifact(this, entry, entry.threads[index], { fromModalNavigation: true, threadIndex: index });
@@ -357,7 +369,10 @@ export async function _saveEditHistoryTitle() {
   await this._persistAiHistory();
 
   const titleEl = document.getElementById('aiHistoryModalTitle');
-  if (titleEl) titleEl.textContent = `${historyTypeIcon(entry)} ${newTitle}`;
+  if (titleEl) {
+    titleEl.textContent = `${historyTypeIcon(entry)} ${newTitle}`;
+    titleEl.title = newTitle;
+  }
   this._cancelEditHistoryTitle();
   this.renderAiHistoryList();
   this.showToast('Title updated');

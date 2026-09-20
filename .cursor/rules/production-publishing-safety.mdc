@@ -26,7 +26,7 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 1. `extension/manifest.json` `version` must strictly increase on every store upload.
 2. Patch for fixes, minor for additive features, major for breaking changes.
 3. Never reuse a version number that was ever submitted (even if rejected).
-4. Last published version: `3.0.35` (store has 3.0.35; upload candidate `3.0.36`; update after each store approval).
+4. Last published version: `3.0.35` (store has 3.0.35; upload candidate `3.0.40`; do not reuse 3.0.36–3.0.39; update after each store approval).
 
 ---
 
@@ -108,6 +108,15 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 2. Edge Add-ons: separate dashboard, same `extension/` zip. Review 1-5 days typical.
 3. Chrome OAuth: the Google Cloud Console OAuth client's Authorized redirect URIs must include the Supabase callback only. The extension callback is handled by `launchWebAuthFlow` hitting `https://<EXT_ID>.chromiumapp.org/`.
 4. Both Chrome and Edge extension IDs must be on the Supabase Auth redirect allowlist.
+
+---
+
+## Section K — Firefox is a separate target (do not mix)
+
+1. Never add `browser_specific_settings.gecko` to `[extension/manifest.json](extension/manifest.json)`.
+2. Never drop `offscreen` from the Chrome/Edge package to “help Firefox.”
+3. AMO gets a later transformed zip. Chrome + Edge keep the same `extension/` zip.
+4. Gate: `[extension/shared/firefox-eligibility.js](extension/shared/firefox-eligibility.js)`.
 
 ---
 

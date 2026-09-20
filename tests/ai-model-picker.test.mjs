@@ -42,15 +42,15 @@ assert.equal(map['claude-haiku-4-5'].preset, 'default');
 assert.equal(map['gpt-5.2'].label, 'Apex Craft · GPT-5.2');
 assert.equal(map['gpt-5.2'].provider, 'openai');
 assert.equal(map['gpt-5.2'].preset, 'latest');
-assert.equal(map['gemini-3.6-flash'].label, 'Nexus Flash · Gemini 3.6 Flash');
-assert.equal(map['gemini-3.6-flash'].provider, 'google');
-assert.equal(map['gemini-3.6-flash'].preset, 'gemini_36_flash');
-assert.equal(map['gemini-3.6-flash'].gatewayModel, 'google/gemini-3.6-flash');
-assert.equal(map['deepseek-v4-flash'].label, 'Ember Flash · DeepSeek V4 Flash');
-assert.equal(map['deepseek-v4-flash'].preset, 'deepseek_v4_flash');
+assert.equal(map['gemini-3.7-flash'].label, 'Nexus Flash · Gemini 3.7 Flash');
+assert.equal(map['gemini-3.7-flash'].provider, 'google');
+assert.equal(map['gemini-3.7-flash'].preset, 'gemini_37_flash');
+assert.equal(map['gemini-3.7-flash'].gatewayModel, 'google/gemini-3.7-flash');
+assert.equal(map['deepseek-v4.1-flash'].label, 'Ember Flash · DeepSeek V4.1 Flash');
+assert.equal(map['deepseek-v4.1-flash'].preset, 'deepseek_v41_flash');
 assert.equal(map['gemini-3.5-flash-lite'].label, 'Beam Lite · Gemini 3.5 Flash-Lite');
-assert.equal(map['gpt-5-nano'].label, 'Nano Clip · GPT-5 Nano');
-assert.equal(map['qwen-3.7-flash'].label, 'Silk Flash · Qwen 3.7 Flash');
+assert.equal(map['gpt-5.6-luna'].label, 'Luna Clip · GPT-5.6 Luna');
+assert.equal(map['qwen-3.8-flash'].label, 'Silk Flash · Qwen 3.8 Flash');
 assert.equal(map['ling-3.0-flash'].label, 'Pulse Lite · Ling 3.0 Flash');
 assert.equal(map['gpt-5.4'].label, 'Summit Craft · GPT-5.4');
 assert.equal(map['gpt-5.4'].provider, 'openai');
@@ -73,12 +73,12 @@ assert.equal(
   'gpt-5.4',
 );
 assert.equal(
-  resolveShowcaseModelFromWorkflow({ provider: 'google', preset: 'gemini_36_flash' }).id,
-  'gemini-3.6-flash',
+  resolveShowcaseModelFromWorkflow({ provider: 'google', preset: 'gemini_37_flash' }).id,
+  'gemini-3.7-flash',
 );
 assert.equal(
-  resolveShowcaseModelFromWorkflow({ provider: 'deepseek', preset: 'deepseek_v4_flash' }).id,
-  'deepseek-v4-flash',
+  resolveShowcaseModelFromWorkflow({ provider: 'deepseek', preset: 'deepseek_v41_flash' }).id,
+  'deepseek-v4.1-flash',
 );
 
 const wf = workflowFromShowcaseModel(map['gpt-4o']);
@@ -89,8 +89,8 @@ assert.equal(wf.preset, 'gpt4o');
 assert.equal(getShowcaseCreditCost(map['gpt-5.2']), 500);
 assert.equal(getShowcaseCreditCost(map['gpt-5.4']), 500);
 assert.equal(getShowcaseCreditCost(map['claude-haiku-4-5']), 40);
-assert.equal(getShowcaseCreditCost(map['gemini-3.6-flash']), 40);
-assert.equal(getShowcaseCreditCost(map['deepseek-v4-flash']), 20);
+assert.equal(getShowcaseCreditCost(map['gemini-3.7-flash']), 40);
+assert.equal(getShowcaseCreditCost(map['deepseek-v4.1-flash']), 20);
 assert.equal(getShowcaseCreditCost(map['ling-3.0-flash']), 15);
 
 assert.equal(canUseModelPicker({ has_unlimited_ai: true }), true);
@@ -105,16 +105,16 @@ assert.equal(
 );
 assert.equal(canUseModelPicker({ subscription_tier: 'basic', subscription_status: 'active' }), false);
 
-// Edge model id wired for Gemini 3.6 Flash + gateway routing
+// Edge model id wired for Gemini 3.7 Flash + gateway routing
 const workflowTs = readFileSync(
   join(root, 'supabase/functions/_shared/ai_workflow.ts'),
   'utf8',
 );
-assert.match(workflowTs, /gemini_36_flash[\s\S]*gemini-3\.6-flash/);
+assert.match(workflowTs, /gemini_37_flash[\s\S]*gemini-3\.7-flash/);
 assert.match(workflowTs, /gpt4o[\s\S]*gpt-4o/);
 assert.match(workflowTs, /gpt54[\s\S]*gpt-5\.4/);
 assert.match(workflowTs, /AI_GATEWAY_BASE_URL|ai-gateway\.vercel\.sh/);
-assert.match(workflowTs, /deepseek-v4-flash-0731/);
+assert.match(workflowTs, /deepseek-v4\.1-flash/);
 
 const gatewayTs = readFileSync(
   join(root, 'supabase/functions/_shared/ai_gateway.ts'),
@@ -154,13 +154,13 @@ assert.match(pickerSrc, /--ai-card-stagger/);
   app.aiWorkflow = {
     enabled: true,
     provider: 'google',
-    preset: 'gemini_36_flash',
+    preset: 'gemini_37_flash',
     updatedAt: 99,
   };
   const kept = await ensureDefaultWorkflowEnabled(app);
   assert.equal(kept.enabled, true);
   assert.equal(kept.provider, 'google');
-  assert.equal(kept.preset, 'gemini_36_flash');
+  assert.equal(kept.preset, 'gemini_37_flash');
   assert.equal(saved, null);
 }
 

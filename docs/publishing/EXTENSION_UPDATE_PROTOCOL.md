@@ -6,6 +6,88 @@
 
 ---
 
+## Release: 2026-08-22 (v3.0.40) - Study lists + AI Lab reliability
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.40` (store last published `3.0.35`; do not reuse 3.0.35–3.0.39) |
+| Package | `releases/pastecraft-v3.0.40.zip` - same zip for Chrome **and** Edge |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** - manifest bump |
+
+### What's in this update (since 3.0.37)
+
+| Area | Change |
+|---|---|
+| Clips | Study list toolbar in viewer (dash / bullet / numbered) |
+| AI Lab | Model-not-capable uses an error banner; does not wipe the summary workspace |
+| AI Lab | Follow-up question stays after a failed summary |
+| AI History | Long titles wrap; close button stays visible |
+| Citations | In the packet; **not claimed in store copy** |
+
+Clip images, capture eligibility, category highlight, and summary contrast stay on **3.0.37**. Header changelog link shipped on the website (PR #211), not as a 3.0.40 store feature.
+
+### Store "What's new" (paste into both dashboards)
+
+```
+PasteCraft 3.0.40
+
+- Dash, bullet, and numbered lists in the clip viewer
+- AI Summary keeps your workspace if a model cannot handle the request
+- Follow-up questions stay after a failed summary
+- Long AI History titles no longer hide the close button
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
+```
+
+---
+
+## Release: 2026-08-15 (v3.0.37) - Clip images + capture eligibility + summary contrast
+
+Local/prep packet. Superseded for upload by 3.0.40. Keep `releases/pastecraft-v3.0.37.zip` for rollback.
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.37` (store last published `3.0.35`; do not reuse 3.0.35 or 3.0.36) |
+| Package | `releases/pastecraft-v3.0.37.zip` - same zip for Chrome **and** Edge |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Section I triggers | **Full Section G checklist** - manifest bump + clip image storage + capture permissions |
+
+### What's in this update (since 3.0.36)
+
+| Area | Change |
+|---|---|
+| Clips | Images stored IDB-first with cloud preserve (`clip-images` bucket) |
+| Categories | Selected clip highlight stays visible over hover |
+| AI Lab | Dark-mode table / mermaid contrast on summaries |
+| Capture | Browser eligibility (Opera/Arc vs Chrome/Edge/Comet) + popup site-access grant |
+| Citations | Client citation UI is in the packet; **not claimed in store copy** — Sunday debug |
+
+### Store "What's new" (paste into both dashboards)
+
+```
+PasteCraft 3.0.37
+
+- Clip images saved locally first, then preserved in the cloud
+- Category clip selection stays visible while hovering
+- Dark-mode AI summary tables and diagrams are easier to read
+- Capture Tools eligibility and site-access grant for more browsers
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, and Azure blob.
+```
+
+---
+
 ## Release: 2026-08-13 (v3.0.36) - Notes catalog + GPT-5.4 + summary sources + apply-on-download
 
 | Field | Value |
@@ -223,7 +305,7 @@ If version was already published: bump patch (`3.0.23` ? `3.0.24`) before packag
 .\scripts\package-extension.ps1
 ```
 
-- [ ] Output: `releases/pastecraft-v3.0.36.zip` (version from manifest)
+- [ ] Output: `releases/pastecraft-v3.0.40.zip` (version from manifest)
 - [ ] Zip = contents of `extension/` only (not repo root, not `manifest.json` at repo root)
 - [ ] Archive last 3 published zips locally as rollback copies
 
@@ -256,7 +338,7 @@ Load **previous published** unpacked ? create test data ? replace with **new** f
 ### Edge Add-ons (live)
 
 1. Partner Center ? PasteCraft ? **Update** / new submission  
-2. Upload `releases/pastecraft-v3.0.33.zip`  
+2. Upload `releases/pastecraft-v3.0.40.zip`  
 3. Paste ?What?s new? above  
 4. Submit for certification  
 

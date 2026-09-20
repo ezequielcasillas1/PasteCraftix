@@ -1,5 +1,7 @@
 /** Navigate to AI Lab summary tab with clip text prefilled. */
 
+import { collectClipSources } from '../../../shared/clip-source.js';
+import { normalizeSourceList } from '../../../shared/summary-sources.js';
 import { clearSummaryAiContext } from './ai-lab.session-state.js';
 
 const IMAGE_CLIP_PLACEHOLDER = /^image clip$/i;
@@ -215,10 +217,15 @@ export function getHistoryEntryImage(entry) {
   return '';
 }
 
+function _sourcesFromSummaryOpts(opts) {
+  const fromClips = Array.isArray(opts?.clips) ? collectClipSources(opts.clips) : [];
+  return fromClips.length ? fromClips : normalizeSourceList(opts?.sources);
+}
+
 /**
  * @param {*} app
  * @param {string} text
- * @param {{ imageBase64?: string }} [opts]
+ * @param {{ imageBase64?: string, sources?: Array<{title?: string, url?: string}>, clips?: object[] }} [opts]
  */
 export async function showSummaryModal(app, text, opts = {}) {
   const summaryInput = document.getElementById('summaryInput');
@@ -229,6 +236,7 @@ export async function showSummaryModal(app, text, opts = {}) {
   const rawImage = typeof opts?.imageBase64 === 'string' ? opts.imageBase64.trim() : '';
   const imageBase64 = rawImage ? await _downscaleSummaryImage(rawImage) : '';
   const nextText = _normalizeSummaryPrefillText(text, imageBase64);
+  app.currentSummarySources = _sourcesFromSummaryOpts(opts);
 
   app.currentSummaryImageBase64 = imageBase64 || null;
   renderSummaryImageAttach(app);

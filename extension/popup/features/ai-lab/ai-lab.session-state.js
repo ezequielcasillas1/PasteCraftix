@@ -61,6 +61,7 @@ export async function saveSummaryState(app) {
     const state = {
       inputText: summaryInput ? summaryInput.value : '',
       currentSummaryText: app.currentSummaryText || null,
+      currentSummarySources: Array.isArray(app.currentSummarySources) ? app.currentSummarySources : [],
       currentSummaryImageBase64: sessionImage || null,
       activeSummaryHistoryId: app._activeSummaryHistoryId || null,
       generatedQuestions: (app.generatedQuestions || []).slice(0, 20),
@@ -79,6 +80,7 @@ export async function saveSummaryState(app) {
 /** Drop prior summary Q&A threads and UI; optional input text is set separately. */
 export function clearSummaryAiContext(app) {
   app.currentSummaryText = null;
+  app.currentSummarySources = [];
   app.currentSummaryImageBase64 = null;
   app.generatedQuestions = [];
   app.currentSummaryQuestion = null;

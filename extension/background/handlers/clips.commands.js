@@ -46,6 +46,9 @@ export function sanitizeClipMeta(meta) {
   if (meta.html != null) out.html = trim(meta.html, MAX_HTML);
   if (meta.url != null) out.url = trim(meta.url, 4000);
   if (meta.sourcePageUrl != null) out.sourcePageUrl = trim(meta.sourcePageUrl, 4000);
+  if (meta.sourcePageTitle != null) out.sourcePageTitle = trim(meta.sourcePageTitle, 120);
+  if (meta.pageTitle != null) out.pageTitle = trim(meta.pageTitle, 120);
+  if (meta.title != null) out.title = trim(meta.title, 120);
   if (typeof meta.capturedAt === 'number') out.capturedAt = meta.capturedAt;
   if (typeof meta.captureSource === 'string' && meta.captureSource.trim()) {
     out.captureSource = trim(meta.captureSource, 64);

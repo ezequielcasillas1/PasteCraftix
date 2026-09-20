@@ -147,6 +147,7 @@ async function handleCopyImageMenu(info, tab) {
   }
 
   const sourcePageUrl = (tab && tab.url) ? String(tab.url) : '';
+  const sourcePageTitle = (tab && tab.title) ? String(tab.title).trim().slice(0, 120) : '';
   const capturedAt = Date.now();
 
   // IMPORTANT:
@@ -159,6 +160,7 @@ async function handleCopyImageMenu(info, tab) {
         html: '',
         url: srcUrl,
         sourcePageUrl,
+        sourcePageTitle,
         capturedAt
       }
     : {
@@ -168,6 +170,7 @@ async function handleCopyImageMenu(info, tab) {
         url: '',
         image: { mime: '', dataUrl: '', srcUrl },
         sourcePageUrl,
+        sourcePageTitle,
         capturedAt
       };
 

@@ -858,8 +858,8 @@ class PasteCraftPopup {
     return this.aiLabFeature.summary._formatAiOutput.call(this, raw);
   }
 
-  async _renderAiResponse(rawText) {
-    return this.aiLabFeature.summary._renderAiResponse.call(this, rawText);
+  async _renderAiResponse(rawText, sourceText, extraSources) {
+    return this.aiLabFeature.summary._renderAiResponse.call(this, rawText, sourceText, extraSources);
   }
 
   async handleSummaryFollowup(followupQuestion) {
@@ -1590,4 +1590,11 @@ class PasteCraftPopup {
 
 import('./popup/features/app/popup.boot.js').then(({ bootPopupPage }) => {
   bootPopupPage(PasteCraftPopup);
+}).catch((error) => {
+  console.error('Popup boot import failed:', error);
+  try {
+    window.__pcPopupLucideBooting = false;
+    window.finishBootLucideIcons?.();
+    window.paintBootShellIcons?.();
+  } catch (_) {}
 });

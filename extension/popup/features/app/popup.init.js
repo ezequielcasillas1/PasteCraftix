@@ -35,6 +35,7 @@ function beginPopupBoot() {
   markPopupBootStart();
   window.__pcPopupLucideBooting = true;
   popupRevealScheduled = false;
+  window.paintBootShellIcons?.();
 }
 
 function setupStartupEvents(app) {

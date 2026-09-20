@@ -12,6 +12,7 @@ import {
   workflowFromShowcaseModel,
   getShowcaseModelById,
 } from './ai-lab.models.js';
+import { clearAiLabErrorBanner } from './ai-lab.model-error.js';
 import { AI_SELECTORS, byId } from './ai-lab.selectors.js';
 
 let _eventsBound = false;
@@ -154,7 +155,7 @@ function openAiModelInfoModal(app, modelId) {
 export async function ensureDefaultWorkflowEnabled(app) {
   if (!canUseModelPicker(app?.userSubscription)) return null;
   // In-memory default is openai/default/enabled:false until hydrate — never persist that
-  // as GPT-4o or a refresh wipes the user's last showcase pick (e.g. Gemini 3.6).
+  // as GPT-4o or a refresh wipes the user's last showcase pick (e.g. Gemini 3.7).
   if (!app?._aiWorkflowHydrated) return null;
   const cfg = app._normalizeAiWorkflow?.(app.aiWorkflow) || app.aiWorkflow;
   if (cfg?.enabled === true) return cfg;
@@ -175,6 +176,8 @@ async function persistShowcaseSelection(app, model, silent) {
   app.aiWorkflow = app._normalizeAiWorkflow(workflowFromShowcaseModel(model));
   app.applyAiWorkflowToUi();
   const saved = await app.saveAiWorkflowFromUi?.(silent);
+  // Model switch unblocks Summary after "AI model is not capable" — clear banner, keep workspace.
+  clearAiLabErrorBanner();
   if (!silent && saved) app.showToast?.(`AI model: ${model.label}`);
   return saved || app.aiWorkflow;
 }

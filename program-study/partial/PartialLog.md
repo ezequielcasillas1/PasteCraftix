@@ -23,6 +23,11 @@
 
 ## Entries:
 
+### 2026-08-15 - AI Summary Perplexity-style citations
+**Status:** PARTIAL
+**Files:** summary-sources.js, ai-lab.citations.js, ai_summary_grounding.js, ai-summary/index.ts
+**Result:** Client [1] cards + Gateway web search coded; user said not successful. Debug Sunday. Not claimed in 3.0.37 store copy.
+
 ### 2026-06-17 - Send to Phone QR (iPhone Safari redirect)
 **Commit:** (uncommitted)
 **Files:** qr-phone-share.js, qrcode-generator.js, clips.share.js, protocol-share.js

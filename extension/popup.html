@@ -24,7 +24,7 @@
         body {
             font-family: 'Inter', system-ui, sans-serif;
             width: 100%;
-            min-width: 380px;
+            min-width: 460px;
             background: white;
             color: #1f2937;
             overflow-x: hidden;
@@ -4965,6 +4965,7 @@
         html[data-theme="light"] .header .settings-btn:hover {
             background: rgba(255, 255, 255, 0.78);
         }
+
         html[data-theme="light"] .header-changelog-link {
             color: #1e3a8a;
         }
@@ -7004,6 +7005,19 @@
             color: var(--pc-text, #f1f5f9);
         }
 
+        .ai-lab-error-banner-host {
+            margin: 0 0 12px;
+        }
+
+        .ai-lab-error-banner-host[hidden] {
+            display: none !important;
+        }
+
+        .ai-lab-error-banner-host .ai-model-incapable-card,
+        .ai-lab-error-banner-host .ai-credit-empty-card {
+            margin: 0;
+        }
+
         .ai-model-incapable-title {
             font-size: 13px;
             font-weight: 700;
@@ -8175,6 +8189,7 @@
         #breakdownModal .modal-body {
             max-width: 100%;
             overflow-x: hidden;
+            min-width: 0;
         }
 
         #aiHistoryModal .breakdown-content,
@@ -8182,6 +8197,46 @@
             max-width: 100%;
             overflow-x: hidden;
             box-sizing: border-box;
+        }
+
+        /* Long generated titles (often the latest entry) must wrap, not
+           stretch the modal past the popup and clip the close/corner. */
+        #aiHistoryModal .breakdown-modal-content,
+        #breakdownModal .breakdown-modal-content {
+            min-width: 0;
+            max-width: min(650px, calc(100% - 16px));
+            width: min(650px, calc(100% - 16px));
+            box-sizing: border-box;
+        }
+
+        #aiHistoryModal .breakdown-modal-header,
+        #breakdownModal .breakdown-modal-header {
+            min-width: 0;
+            gap: 8px;
+        }
+
+        #aiHistoryModal .breakdown-header-content,
+        #breakdownModal .breakdown-header-content {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        #aiHistoryModal .breakdown-header-actions,
+        #breakdownModal .breakdown-header-actions {
+            flex-shrink: 0;
+        }
+
+        #aiHistoryModal .ai-history-title-row,
+        #aiHistoryModal .ai-history-title-edit-container {
+            width: 100%;
+            max-width: 100%;
+        }
+
+        #aiHistoryModal .ai-history-title-input {
+            min-width: 0;
+            flex: 1;
+            max-width: 100%;
         }
 
         .breakdown-result pre,
@@ -8299,12 +8354,29 @@
             color: #1e40af;
         }
 
+        .breakdown-result .pc-table-scroll,
+        .summary-result-content .pc-table-scroll {
+            overflow-x: auto;
+            max-width: 100%;
+            margin: 10px 0;
+            border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .breakdown-result table,
         .summary-result-content table {
             width: 100%;
+            min-width: 100%;
             border-collapse: collapse;
             margin: 10px 0;
             font-size: 13px;
+            table-layout: auto;
+        }
+
+        .breakdown-result .pc-table-scroll table,
+        .summary-result-content .pc-table-scroll table {
+            margin: 0;
+            min-width: 430px;
         }
 
         .breakdown-result th,
@@ -8315,6 +8387,11 @@
             padding: 8px 12px;
             border: 1px solid var(--pc-border, #e2e8f0);
             color: var(--pc-text, #0f172a);
+            word-break: normal;
+            overflow-wrap: break-word;
+            white-space: normal;
+            min-width: 88px;
+            vertical-align: top;
         }
 
         .breakdown-result td,
@@ -8322,6 +8399,11 @@
             padding: 8px 12px;
             border: 1px solid var(--pc-border, #e2e8f0);
             color: var(--pc-text, #1e293b);
+            word-break: normal;
+            overflow-wrap: break-word;
+            white-space: normal;
+            min-width: 88px;
+            vertical-align: top;
         }
 
         .breakdown-result tr:nth-child(even) td,
@@ -8340,6 +8422,14 @@
         .summary-result-content a {
             color: #3b82f6;
             text-decoration: underline;
+        }
+
+        .pc-ai-sources {
+            margin-top: 16px;
+            padding: 12px 14px;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 10px;
+            background: rgba(241, 245, 249, 0.9);
         }
 
         /* LaTeX rendered content */
@@ -12072,7 +12162,7 @@
                     <option value="gpt-4o">GPT-4o</option>
                     <option value="claude-haiku-4-5">Haiku 4.5</option>
                     <option value="gpt-5.2">GPT-5.2</option>
-                    <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                    <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                 </select>
             </div>
             <div class="header-actions-cluster">
@@ -12616,7 +12706,7 @@
                                 <option value="gpt-4o">GPT-4o</option>
                                 <option value="claude-haiku-4-5">Haiku 4.5</option>
                                 <option value="gpt-5.2">GPT-5.2</option>
-                                <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+                                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
                             </select>
                         </div>
                         <div
@@ -12700,6 +12790,9 @@
                             <h3 class="ai-section-title"><i data-lucide="notebook-pen"></i> AI Summary</h3>
                             <p class="ai-summary-description">Get intelligent summaries tailored to your needs—choose from AI-suggested questions or write your own.</p>
                         </div>
+
+                        <!-- Non-destructive AI errors (model not capable, etc.) — never replace workspace sections -->
+                        <div id="aiSummaryErrorBanner" class="ai-lab-error-banner-host" hidden></div>
                         
                         <!-- Step 1: Text Input -->
                         <div class="summary-input-section" id="summaryInputSection">
@@ -13539,7 +13632,24 @@ Multiple clips are separated by:
                 </div>
                 <div class="modal-body">
                     <div class="pc-viewer-shell-meta-row" id="clipViewerMetaRow">
-                        <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;"></div>
+                        <div class="clip-viewer-meta" id="clipViewerMeta" style="display:none;">
+                            <span id="clipViewerCharCount" class="clip-viewer-char-count" role="status" aria-live="polite" aria-atomic="true" aria-label="0 characters">0 characters</span>
+                        </div>
+                    </div>
+                    <div class="clip-viewer-study-toolbar" id="clipViewerStudyToolbar" role="toolbar" aria-label="Study formats">
+                        <span class="clip-viewer-study-toolbar-label">Study formats</span>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerBulletBtn" type="button" data-list-style="bullet" aria-label="Dash list" aria-pressed="false">
+                            <i data-lucide="list"></i>
+                            <span class="pc-tip" role="tooltip">Dash list -</span>
+                        </button>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerDotBtn" type="button" data-list-style="dot" aria-label="Dot list" aria-pressed="false">
+                            <span class="clip-viewer-study-glyph" aria-hidden="true">•</span>
+                            <span class="pc-tip" role="tooltip">Dot list •</span>
+                        </button>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerNumberedBtn" type="button" data-list-style="numbered" aria-label="Numbered list" aria-pressed="false">
+                            <i data-lucide="list-ordered"></i>
+                            <span class="pc-tip" role="tooltip">Numbered list 1. 2. 3.</span>
+                        </button>
                     </div>
                     <div class="clip-viewer-body" id="clipViewerBody">
                         <div class="pc-rendered-content" id="clipViewerRendered"></div>
@@ -13698,7 +13808,7 @@ Multiple clips are separated by:
                             </label>
                         </div>
                         <div class="craft-power-modes" id="craftPowerModes">
-                            <span class="craft-power-mode active" data-power="regular">Regular · GPT-5 Nano · 25 cr/batch</span>
+                            <span class="craft-power-mode active" data-power="regular">Regular · GPT-5.6 Luna · 25 cr/batch</span>
                             <span class="craft-power-mode" data-power="super">Super · higher quality · 40 cr/batch</span>
                         </div>
                     </div>
@@ -15586,6 +15696,7 @@ alice@email.com</div>
     <link rel="stylesheet" href="lib/katex.min.css">
     <!-- Blue theme decorators load last so [data-theme="blue"] wins over popup inline light fallbacks -->
     <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
+    <link rel="stylesheet" href="popup/features/ai-lab/ai-lab.summary-sources.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>
     <script src="lib/marked.min.js"></script>

@@ -1,10 +1,20 @@
 import { AI_STORAGE_KEYS, OPEN_RECENT_CONVERSATION_TOOLTIPS } from './ai-lab.constants.js';
 import {
   assertModelCapableForAction,
+  clearAiLabErrorBanner,
+  getSummaryErrorBannerHost,
   presentAiLabError,
 } from './ai-lab.model-error.js';
 import { downscaleImageForHistory, renderSummaryImageAttach } from './ai-lab.summary-modal.js';
 import { mountSummaryClipsOverview } from './ai-lab.summary-clips-overview.js';
+import {
+  applyCitationMarkup,
+  attachSourceLabels,
+  ensureSummarySources,
+  mergeSummarySources,
+  renderSourcesPanelHtml,
+  resolveSourcesForDisplay,
+} from '../../../shared/summary-sources.js';
 
 export async function generateBreakdownInline(level) {
   if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
@@ -64,12 +74,18 @@ export async function generateBreakdownInline(level) {
 }
 
 export async function sendInlineBreakdownFollowup(question) {
-  if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
-    return;
-  }
-
   const loadingEl = document.getElementById('bdInlineLoading');
   const resultEl = document.getElementById('bdInlineResult');
+  const inputEl = document.getElementById('bdInlineFollowupInput');
+  const btnEl = document.getElementById('bdInlineFollowupBtn');
+
+  if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'breakdown')) {
+    applyFollowupComposerAfterSend({ inputEl, btnEl, success: false });
+    return false;
+  }
+
+  if (inputEl) inputEl.disabled = true;
+  if (btnEl) btnEl.disabled = true;
 
   try {
     _setInlineBreakdownLoading(loadingEl, resultEl, true);
@@ -96,6 +112,8 @@ export async function sendInlineBreakdownFollowup(question) {
     this.renderInlineBreakdownPagination();
     _mirrorInlineBreakdownState(this);
     await this.saveAiHistory('breakdown', this.currentBreakdownText, this.inlineBreakdownThreads);
+    applyFollowupComposerAfterSend({ inputEl, btnEl, success: true });
+    return true;
   } catch (error) {
     console.error('Failed to send inline follow-up:', error);
     presentAiLabError(this, error, {
@@ -103,6 +121,8 @@ export async function sendInlineBreakdownFollowup(question) {
       loadingEl,
       fallbackMessage: 'Failed to generate follow-up',
     });
+    applyFollowupComposerAfterSend({ inputEl, btnEl, success: false });
+    return false;
   }
 }
 
@@ -164,15 +184,16 @@ export async function generateSummaryQuestions(text) {
     _renderQuestionChips(this, questionsList, text, questions);
     _resetCustomQuestionInput();
     renderSummaryImageAttach(this);
+    clearAiLabErrorBanner();
 
     this._currentSummarySection = 'questions';
     this._saveSummaryState();
   } catch (error) {
     console.error('Failed to generate questions:', error);
+    // Stay on input — never pass summaryInputSection as resultEl (that wiped the workspace).
     this.showSummarySection('input');
-    const inputSection = document.getElementById('summaryInputSection');
     presentAiLabError(this, error, {
-      resultEl: inputSection,
+      bannerHost: getSummaryErrorBannerHost(),
       loadingEl: document.getElementById('questionsLoading'),
       fallbackMessage: 'Failed to generate questions. Please try again.',
     });
@@ -181,7 +202,7 @@ export async function generateSummaryQuestions(text) {
 
 export async function generateSummary(text, question) {
   if (this.currentUser && !await pasteCraftSupabase.checkPremiumAccess(this.currentUser.id, 'summary')) {
-    return;
+    return false;
   }
 
   const summaryLoading = document.getElementById('summaryLoading');
@@ -194,10 +215,9 @@ export async function generateSummary(text, question) {
 
     const imageBase64 = this.currentSummaryImageBase64 || null;
     if (imageBase64) assertModelCapableForAction(this, 'vision');
-    const summary = await pasteCraftSupabase.generateSummary(text, question, imageBase64);
-    const formatted = this._formatAiOutput(summary);
+    const { formatted, mergedSources } = await _loadGroundedSummary(this, text, question, imageBase64);
     if (summaryLoading) summaryLoading.style.display = 'none';
-    if (summaryContent) summaryContent.innerHTML = await this._renderAiResponse(formatted);
+    if (summaryContent) summaryContent.innerHTML = await this._renderAiResponse(formatted, text, mergedSources);
 
     _appendSummaryThread(this, question, formatted);
     _emitAiArtifact(this, {
@@ -209,29 +229,95 @@ export async function generateSummary(text, question) {
       outputText: formatted,
       metadata: { threadCount: this.summaryThreads.length + 1 },
     });
+    clearAiLabErrorBanner();
     _showSummaryFollowup(this);
     renderSummaryImageAttach(this);
+    mountSummaryClipsOverview(this);
     if (this.summaryThreads.length >= 2) this.renderThreadPagination('summary');
     this._currentSummarySection = 'result';
     this._saveSummaryState();
-    let historyImage = '';
-    if (this.currentSummaryImageBase64) {
-      historyImage = await downscaleImageForHistory(this.currentSummaryImageBase64);
-      if (!historyImage) {
-        const raw = String(this.currentSummaryImageBase64).trim();
-        // Fallback when canvas downscale fails but we already have a compact data URL.
-        if (raw.startsWith('data:image/') && raw.length <= 220_000) historyImage = raw;
-      }
-    }
-    await this.saveAiHistory('summary', this.currentSummaryText, this.summaryThreads, { imageBase64: historyImage });
+    await _persistGeneratedSummary(this, formatted, text, mergedSources);
+    return true;
   } catch (error) {
     console.error('Failed to generate summary:', error);
     presentAiLabError(this, error, {
-      resultEl: summaryContent,
+      bannerHost: getSummaryErrorBannerHost(),
       loadingEl: summaryLoading,
       fallbackMessage: 'Failed to generate summary',
     });
+    await _restoreSummaryWorkspaceAfterError(this, summaryContent, question);
+    return false;
   }
+}
+
+/** Keep result box + follow-up + clip join usable after model/send failures. */
+async function _restoreSummaryWorkspaceAfterError(app, summaryContent, question) {
+  app.showSummarySection('result');
+  const last = app.summaryThreads?.[app.currentSummaryThreadIndex];
+  if (summaryContent) {
+    if (last) {
+      const extras = app.currentSummarySources;
+      summaryContent.innerHTML = await app._renderAiResponse(
+        last.answer,
+        app.currentSummaryText,
+        extras,
+      );
+    } else if (!summaryContent.innerHTML.trim()) {
+      // Empty output box stays mounted so clip-append / retry have a target surface.
+      summaryContent.innerHTML = '';
+    }
+  }
+  if (question || (app.summaryThreads && app.summaryThreads.length > 0)) {
+    _showSummaryFollowup(app);
+  }
+  const followupInput = document.getElementById('summaryFollowupInput');
+  const followupBtn = document.getElementById('summaryFollowupBtn');
+  if (followupInput && question && !String(followupInput.value || '').trim()) {
+    followupInput.value = question;
+    if (followupBtn) followupBtn.disabled = false;
+  }
+  renderSummaryImageAttach(app);
+  mountSummaryClipsOverview(app);
+  if (app.summaryThreads?.length >= 2) app.renderThreadPagination?.('summary');
+}
+
+async function _historyImageForSummary(app) {
+  if (!app.currentSummaryImageBase64) return '';
+  const historyImage = await downscaleImageForHistory(app.currentSummaryImageBase64);
+  if (historyImage) return historyImage;
+  const raw = String(app.currentSummaryImageBase64).trim();
+  return raw.startsWith('data:image/') && raw.length <= 220_000 ? raw : '';
+}
+
+async function _persistGeneratedSummary(app, formatted, text, extraSources) {
+  const persistedSources = resolveSourcesForDisplay(formatted, text, extraSources).sources;
+  await app.saveAiHistory('summary', app.currentSummaryText, app.summaryThreads, {
+    imageBase64: await _historyImageForSummary(app),
+    sources: persistedSources,
+  });
+}
+
+function _formatSummaryWithSources(app, summary, text, extraSources) {
+  return ensureSummarySources(
+    app._formatAiOutput(summary),
+    text || app.currentSummaryText || '',
+    extraSources || app.currentSummarySources,
+  );
+}
+
+async function _loadGroundedSummary(app, text, question, imageBase64) {
+  const extraSources = app.currentSummarySources || [];
+  const result = await pasteCraftSupabase.generateSummaryResult(
+    attachSourceLabels(text, extraSources),
+    question,
+    imageBase64,
+  );
+  const mergedSources = mergeSummarySources(extraSources, result?.sources);
+  app.currentSummarySources = mergedSources;
+  return {
+    formatted: _formatSummaryWithSources(app, result?.summary, text, mergedSources),
+    mergedSources,
+  };
 }
 
 export function _formatAiOutput(raw) {
@@ -241,31 +327,78 @@ export function _formatAiOutput(raw) {
   return _collapseBlankLines(cleaned).join('\n').trim();
 }
 
-export async function _renderAiResponse(rawText) {
-  if (!rawText || typeof rawText !== 'string') return '';
-  const text = rawText.trim();
-  if (!text) return '';
-  if (typeof PCMarkup === 'undefined') return text;
+async function _renderMarkdownChunk(text) {
+  const chunk = String(text || '').trim();
+  if (!chunk) return '';
+  if (typeof PCMarkup === 'undefined') return chunk;
+  const rendered = PCMarkup.renderMarkup(chunk, null, { type: 'markdown' });
+  return rendered && typeof rendered.then === 'function' ? await rendered : rendered;
+}
 
-  // Shared enrich pipeline (LaTeX + Mermaid inside markdown) — same as Clip Viewer.
-  const rendered = PCMarkup.renderMarkup(text, null, { type: 'markdown' });
-  return rendered && typeof rendered.then === 'function' ? rendered : rendered;
+export async function _renderAiResponse(rawText, sourceText, extraSources) {
+  const raw = String(rawText || '').trim();
+  if (!raw) return '';
+
+  const extras = extraSources !== undefined ? extraSources : this?.currentSummarySources;
+  const { body, sources } = resolveSourcesForDisplay(raw, sourceText || '', extras);
+  const bodyHtml = await _renderMarkdownChunk(body);
+  const citedHtml = _wrapAiTablesForScroll(applyCitationMarkup(bodyHtml || raw, sources));
+  const sourcesHtml = renderSourcesPanelHtml(sources);
+  if (!sourcesHtml) return citedHtml;
+  return `${citedHtml}${sourcesHtml}`;
+}
+
+/**
+ * Wrap bare markdown <table> output in a horizontal-scroll container so
+ * narrow-popup tables scroll instead of squeezing cells mid-word.
+ * Idempotent: skips tables already inside .pc-table-scroll.
+ */
+function _wrapAiTablesForScroll(html) {
+  const input = String(html || '');
+  if (!input.includes('<table')) return input;
+  if (input.includes('pc-table-scroll')) return input;
+  return input
+    .replace(/<table(\s[^>]*)?>/gi, '<div class="pc-table-scroll"><table$1>')
+    .replace(/<\/table>/gi, '</table></div>');
+}
+
+/**
+ * After a follow-up send: clear the composer only on success.
+ * Model-incompatible / network / credit failures keep the question for retry.
+ */
+export function applyFollowupComposerAfterSend({
+  inputEl,
+  btnEl,
+  success,
+  toggleLevelTabs,
+} = {}) {
+  if (inputEl) {
+    if (success) inputEl.value = '';
+    inputEl.disabled = false;
+  }
+  const hasText = Boolean(String(inputEl?.value || '').trim());
+  if (btnEl) btnEl.disabled = !hasText;
+  if (typeof toggleLevelTabs === 'function') toggleLevelTabs(hasText);
+  return { cleared: success === true, preserved: success !== true && hasText };
 }
 
 export async function handleBreakdownFollowup(followupQuestion) {
   const breakdownFollowupInput = document.getElementById('breakdownFollowupInput');
   const breakdownFollowupBtn = document.getElementById('breakdownFollowupBtn');
-  if (breakdownFollowupInput) {
-    breakdownFollowupInput.value = '';
-    breakdownFollowupInput.disabled = true;
-  }
+  if (breakdownFollowupInput) breakdownFollowupInput.disabled = true;
   if (breakdownFollowupBtn) breakdownFollowupBtn.disabled = true;
   this.toggleFollowupLevelTabs(false);
 
+  let ok = false;
   try {
-    await _runBreakdownFollowup(this, followupQuestion);
+    ok = await _runBreakdownFollowup(this, followupQuestion);
   } finally {
-    if (breakdownFollowupInput) breakdownFollowupInput.disabled = false;
+    applyFollowupComposerAfterSend({
+      inputEl: breakdownFollowupInput,
+      btnEl: breakdownFollowupBtn,
+      success: ok,
+      toggleLevelTabs: (enable) => this.toggleFollowupLevelTabs(enable),
+    });
   }
 }
 
@@ -429,6 +562,7 @@ function _collapseBlankLines(lines) {
 async function _runBreakdownFollowup(app, followupQuestion) {
   const loadingEl = document.getElementById('breakdownLoading');
   const resultEl = document.getElementById('breakdownResult');
+  const followupContainer = document.getElementById('breakdownFollowupContainer');
 
   try {
     if (loadingEl) loadingEl.style.display = 'flex';
@@ -461,6 +595,7 @@ async function _runBreakdownFollowup(app, followupQuestion) {
     document.querySelectorAll('.followup-level-tab').forEach(t => t.classList.remove('selected'));
     app._saveBreakdownModalState();
     await app.saveAiHistory('breakdown', app.currentBreakdownText, app.breakdownThreads);
+    return true;
   } catch (error) {
     console.error('Failed to generate follow-up:', error);
     presentAiLabError(app, error, {
@@ -468,6 +603,8 @@ async function _runBreakdownFollowup(app, followupQuestion) {
       loadingEl,
       fallbackMessage: 'Failed to generate follow-up response',
     });
+    if (followupContainer) followupContainer.style.display = 'block';
+    return false;
   }
 }
 
@@ -554,19 +691,18 @@ export async function renderOpenRecentConversation(app) {
 
 export async function handleSummaryFollowup(app, followupQuestion) {
   const summaryFollowupInput = document.getElementById('summaryFollowupInput');
-  if (summaryFollowupInput) {
-    summaryFollowupInput.value = '';
-    summaryFollowupInput.disabled = true;
-  }
-
   const summaryFollowupBtn = document.getElementById('summaryFollowupBtn');
-  if (summaryFollowupBtn) {
-    summaryFollowupBtn.disabled = true;
-  }
+  if (summaryFollowupInput) summaryFollowupInput.disabled = true;
+  if (summaryFollowupBtn) summaryFollowupBtn.disabled = true;
 
-  await app.generateSummary(app.currentSummaryText, followupQuestion);
-
-  if (summaryFollowupInput) {
-    summaryFollowupInput.disabled = false;
+  let ok = false;
+  try {
+    ok = await app.generateSummary(app.currentSummaryText, followupQuestion);
+  } finally {
+    applyFollowupComposerAfterSend({
+      inputEl: summaryFollowupInput,
+      btnEl: summaryFollowupBtn,
+      success: ok === true,
+    });
   }
 }

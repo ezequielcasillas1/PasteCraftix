@@ -93,6 +93,76 @@
   color: #94a3b8;
 }
 
+.clip-viewer-char-count {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.12);
+}
+
+/* Push count to the right edge of the Saved pill. */
+.clip-viewer-meta .clip-viewer-char-count {
+  margin-left: auto;
+}
+
+.clip-viewer-study-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: rgba(239, 246, 255, 0.7);
+}
+
+.clip-viewer-study-toolbar-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 0 4px 0 2px;
+}
+
+.clip-viewer-study-toolbar .pc-ai-icon-btn {
+  color: #334155;
+}
+
+.clip-viewer-study-toolbar .pc-ai-icon-btn[aria-pressed="true"] {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.clip-viewer-study-toolbar .pc-ai-icon-btn > svg,
+.clip-viewer-study-toolbar .pc-ai-icon-btn > svg *,
+.clip-viewer-study-toolbar .pc-ai-icon-btn [data-lucide],
+.clip-viewer-study-toolbar .clip-viewer-study-glyph {
+  pointer-events: none;
+}
+
+.clip-viewer-study-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  color: #0f172a;
+}
+
 .clip-viewer-body {
   border: 1px solid #e5e7eb;
   border-radius: 16px;

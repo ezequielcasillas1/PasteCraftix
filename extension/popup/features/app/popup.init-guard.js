@@ -16,6 +16,36 @@ export function clearOfflineModeBanner() {
   } catch (_) {}
 }
 
+function paintPopupShellIcons() {
+  try {
+    if (typeof window === 'undefined') return;
+    window.__pcPopupLucideBooting = false;
+    window.finishBootLucideIcons?.('init-failed');
+    window.paintBootShellIcons?.();
+  } catch (_) {}
+}
+
+/** Watchdog hang: unstick icons/overlay. Leave hydration alone — loadData may still finish. */
+export function recoverPopupAfterInitHang(app) {
+  showOfflineModeBanner();
+  paintPopupShellIcons();
+  try { app?.hideLoadingOverlay?.(); } catch (_) {}
+}
+
+/** Thrown init: do not leave header icons empty or clips on "Loading clips". */
+export function recoverPopupAfterInitFailure(app) {
+  showOfflineModeBanner();
+  paintPopupShellIcons();
+  try {
+    if (app && app._coreHydrationState !== 'ready') {
+      app._coreHydrationState = (app.clips?.length > 0) ? 'ready' : 'failed';
+    }
+    const topBar = typeof document !== 'undefined' ? document.getElementById('topBar') : null;
+    if (topBar) topBar.style.display = 'flex';
+    app?.renderChips?.();
+  } catch (_) {}
+}
+
 /**
  * Guarantees that the purple loading overlay never gets stuck. Wraps the
  * real init body in try/catch/finally with an absolute 10s watchdog so a
@@ -25,8 +55,7 @@ export async function runPopupInitWithGuard(app, runInitImpl) {
   const watchdog = setTimeout(() => {
     try {
       console.warn('[PasteCraft] init() watchdog fired at 10s — force-hiding overlay');
-      app.hideLoadingOverlay();
-      showOfflineModeBanner();
+      recoverPopupAfterInitHang(app);
     } catch (_) {}
   }, 10000);
 
@@ -35,7 +64,7 @@ export async function runPopupInitWithGuard(app, runInitImpl) {
     clearOfflineModeBanner();
   } catch (e) {
     console.error('[PasteCraft] init() failed:', e);
-    try { showOfflineModeBanner(); } catch (_) {}
+    try { recoverPopupAfterInitFailure(app); } catch (_) {}
   } finally {
     clearTimeout(watchdog);
     try { app.hideLoadingOverlay(); } catch (_) {}

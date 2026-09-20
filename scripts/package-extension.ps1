@@ -30,7 +30,9 @@ Write-Host "Source: $extensionFolder" -ForegroundColor Gray
 Write-Host "Output: $outputPath" -ForegroundColor Gray
 
 # Zip contents of extension/ (not the folder itself) — required by Chrome/Edge upload.
-Compress-Archive -Path (Join-Path $extensionFolder '*') -DestinationPath $outputPath -Force
+# Exclude local WIP files so they never ship in the store package.
+$items = Get-ChildItem -Path $extensionFolder -Force | Where-Object { $_.Name -notlike '*.wip' }
+Compress-Archive -Path $items.FullName -DestinationPath $outputPath -Force
 
 $fileSizeMB = [math]::Round((Get-Item $outputPath).Length / 1MB, 2)
 Write-Host "Done. $outputName ($fileSizeMB MB)" -ForegroundColor Green

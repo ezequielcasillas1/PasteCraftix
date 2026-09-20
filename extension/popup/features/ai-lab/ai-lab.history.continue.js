@@ -8,6 +8,7 @@ import {
   getHistoryEntryImage,
   renderSummaryImageAttach,
 } from './ai-lab.summary-modal.js';
+import { ensureSummarySources, getHistoryEntrySources } from '../../../shared/summary-sources.js';
 
 function _hasContinuableEntry(entry) {
   return Boolean(entry && entry.threads && entry.threads.length > 0);
@@ -40,6 +41,7 @@ function _activateAiLabSubTab(app, subTab, sectionId) {
 
 function _restoreSummaryState(app, entry) {
   app.currentSummaryText = entry.originalText || '';
+  app.currentSummarySources = getHistoryEntrySources(entry);
   app.summaryThreads = serializeSummaryThreads(entry.threads);
   app.currentSummaryThreadIndex = app.summaryThreads.length - 1;
   app._activeSummaryHistoryId = entry.id;
@@ -52,7 +54,9 @@ async function _renderRestoredSummaryView(app) {
   const lastThread = app.summaryThreads[app.currentSummaryThreadIndex];
   const summaryContent = document.getElementById('summaryResultContent');
   if (summaryContent && lastThread) {
-    summaryContent.innerHTML = await app._renderAiResponse(lastThread.answer);
+    const extras = app.currentSummarySources;
+    const answer = ensureSummarySources(lastThread.answer, app.currentSummaryText, extras);
+    summaryContent.innerHTML = await app._renderAiResponse(answer, app.currentSummaryText, extras);
   }
 }
 

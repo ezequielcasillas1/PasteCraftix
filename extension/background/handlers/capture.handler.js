@@ -12,6 +12,7 @@ import {
   OFFSCREEN_CLIPBOARD_MSG,
   createOffscreenClipboardChannel,
 } from '../../shared/offscreen-clipboard-channel.js';
+import { hasOffscreenDocuments } from '../../shared/offscreen-support.js';
 
 /**
  * Capture / clipboard / page-selection handlers (widget Capture Tools).
@@ -588,6 +589,9 @@ async function writeClipboardImageViaOffscreen(dataUrl, storageKey = '') {
 export function handlePcEnsureClipboardOffscreen(message) {
   return (async () => {
     try {
+      if (!hasOffscreenDocuments()) {
+        return { success: true, skipped: true, via: 'helper-window' };
+      }
       const ready = await ensureClipboardOffscreenDocument({ force: !!message?.force });
       if (!ready.ok) {
         return { success: false, error: ready.error || 'offscreen_create_failed' };
@@ -600,8 +604,22 @@ export function handlePcEnsureClipboardOffscreen(message) {
   })();
 }
 
+/** Firefox / no-offscreen image write via the focused helper window. */
+async function copyImageViaHelperWindow(dataUrl, storageKey) {
+  let key = String(storageKey || '');
+  if (!key.startsWith('pc_clipboard_img_')) {
+    if (!String(dataUrl || '').startsWith('data:image/')) {
+      return { success: false, error: 'invalid_image_data_url' };
+    }
+    key = `pc_clipboard_img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await chrome.storage.local.set({ [key]: dataUrl });
+  }
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return handlePcOpenClipboardWriter({ id, storageKey: key });
+}
+
 /**
- * Write a PNG (data URL) to the system clipboard via offscreen document.
+ * Write a PNG (data URL) to the system clipboard via offscreen, or helper window.
  * Promise return → router sendResponse (avoids undefined popup replies).
  */
 export function handlePcCopyImage(message) {
@@ -612,9 +630,12 @@ export function handlePcCopyImage(message) {
       if (!dataUrl.startsWith('data:image/') && !storageKey.startsWith('pc_clipboard_img_')) {
         return { success: false, error: 'invalid_image_data_url' };
       }
+      if (!hasOffscreenDocuments()) {
+        return copyImageViaHelperWindow(dataUrl, storageKey);
+      }
       const ready = await ensureClipboardOffscreenDocument();
       if (!ready.ok) {
-        return { success: false, error: ready.error || 'offscreen_create_failed' };
+        return copyImageViaHelperWindow(dataUrl, storageKey);
       }
       if (ready.created) await delay(50);
       return await writeClipboardImageViaOffscreen(dataUrl, storageKey);
@@ -722,6 +743,11 @@ async function publishEnsureResult(result) {
 }
 
 async function ensureClipboardOffscreenDocument(options = {}) {
+  if (!hasOffscreenDocuments()) {
+    const out = { ok: false, skipped: true, error: 'offscreen_unavailable', via: 'helper-window' };
+    await publishEnsureResult(out);
+    return out;
+  }
   const force = !!options.force;
   try {
     const hasDoc = !!(await chrome.offscreen.hasDocument?.());
@@ -782,7 +808,11 @@ export function handlePcReadClipboard(_message, { sendResponse }) {
 
     const ready = await ensureClipboardOffscreenDocument();
     if (!ready.ok) {
-      sendResponse({ success: false, error: ready.error });
+      sendResponse({
+        success: false,
+        error: ready.error || 'offscreen_unavailable',
+        via: ready.via || null,
+      });
       return;
     }
     try {
@@ -873,6 +903,7 @@ export function installClipboardStorageBridge() {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (!changes?.pc_clipboard_write_req?.newValue) return;
+    if (!hasOffscreenDocuments()) return;
     ensureClipboardOffscreenDocument().catch(() => {});
   });
 }

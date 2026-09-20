@@ -14,6 +14,16 @@ assert.equal(wantsBareOutput('What is the main claim?'), false);
 
 const summary = buildTextPrompts({ text: 'hello', hasImage: false });
 assert.match(summary.systemPrompt, /## Sources/);
+assert.match(summary.systemPrompt, /do not invent/i);
+
+const grounded = buildTextPrompts({
+  text: 'hello',
+  hasImage: false,
+  groundedSources: [{ title: 'Cursor Docs', url: 'https://cursor.com/docs' }],
+});
+assert.match(grounded.systemPrompt, /https:\/\/cursor\.com\/docs/);
+assert.match(grounded.systemPrompt, /\[1\]/);
+assert.match(grounded.systemPrompt, /ONLY these verified/);
 
 const title = buildTextPrompts({
   text: 'hello',

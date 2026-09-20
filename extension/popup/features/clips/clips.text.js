@@ -34,9 +34,12 @@ function updateNoteClipTextsById(app, clipId, text, updatedAt) {
  * Persist clip body text (active or archived) with the same save/sync path as title edits.
  * Does not mutate meta.image or the image side-store.
  */
-export async function updateClipTextById(app, clipId, nextText) {
+export async function updateClipTextById(app, clipId, nextText, options = {}) {
   const idKey = getClipIdKey(clipId);
   const text = String(nextText ?? '');
+  const markupHint = typeof options.markupHint === 'string' && options.markupHint
+    ? options.markupHint
+    : null;
 
   return app._queueClipOp(async () => {
     const result = await saveClipsState({
@@ -69,6 +72,12 @@ export async function updateClipTextById(app, clipId, nextText) {
           text,
           updatedAt,
         };
+        if (markupHint) {
+          const prevMeta = location.clip.meta && typeof location.clip.meta === 'object'
+            ? location.clip.meta
+            : {};
+          nextClip.meta = { ...prevMeta, markupHint };
+        }
 
         if (location.listName === 'clips') {
           state.clips[location.index] = nextClip;

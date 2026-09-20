@@ -16,10 +16,10 @@
 **Status:** Expanded (pending user SUCCESS verify)
 
 **Requirements:**
-- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Nano Clip, Silk Flash, Pulse Lite, Summit Craft)
+- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Luna Clip, Silk Flash, Pulse Lite, Summit Craft)
 - Map UI → `aiWorkflow` provider/preset; real IDs via Vercel AI Gateway (`AI_GATEWAY_API_KEY` in Edge)
 - Staggered one-by-one card reveal; gate: unlimited/Premium/credits
-- Cheap Gateway models incl. Gemini 3.6 Flash + DeepSeek/Qwen/Ling lite tiers
+- Cheap Gateway models incl. Gemini 3.7 Flash + DeepSeek/Qwen/Ling lite tiers
 
 ---
 
@@ -63,12 +63,13 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 
 #### 4. Home Page SEO Target / Landing Page Adjustments
 **Priority:** HIGH  
-**Status:** SERanking crawl/on-page pass (pending SUCCESS)
+**Status:** Query targeting for clipboard manager extension (pending SUCCESS)
 
 **Requirements:**
 - robots.txt + XML sitemap; titles 30–60; descriptions 120–160
 - H1 on marketing pages; image alt; Twitter/OG image
 - noindex utility/test lab; internal Help/Explore links
+- Homepage + about/support/changelog target `clipboard manager extension` and `smart clipboard manager extension` (natural copy, no stuffing)
 
 ---
 
@@ -151,12 +152,15 @@ Dont write md files explaining steps 1 and 2. just guide me via chat
 ---
 
 #### 13. Browser Extension - Cross-Browser Support
-**Status:** Partial (Edge only)  
+**Status:** Firefox loadable package started (pending SUCCESS)  
 **Priority:** Medium  
-**Description:**
-- Currently optimized for Microsoft Edge
-- Add Chrome Web Store support
-- Test Firefox compatibility
+**Slice:** `firefox-eligibility.js` + `firefox-manifest-transform.js` + `offscreen-support.js`
+
+- Chrome + Edge zip unchanged — never add gecko keys or drop `offscreen` from `extension/manifest.json`
+- Prepare: `npm run firefox:prepare` → `dist/firefox-unpacked` (Load Temporary Add-on)
+- Firefox package: drop `offscreen` + `service_worker`, add `background.scripts`, `gecko.id`, data-collection
+- Image clipboard uses helper window when offscreen is missing
+- Next: Google OAuth redirect allowlist. Capture Tools stay ineligible
 
 
 ---
@@ -446,11 +450,13 @@ state management.
 
 #### 34b. AI Summary source references
 **Priority:** Medium  
-**Status:** Implemented (pending SUCCESS)
+**Status:** Perplexity-style citations + web grounding (pending SUCCESS)
 
-- Summaries and Q&A end with a **## Sources** section (short quotes)
-- Clip page URL/title is passed in as `[Source: …]` when available
-- Title/category “return only” prompts stay bare (no Sources block)
+- Clip URL/title travel with Summary even if textarea has no `[Source:]`
+- Topic/paste with no URL: `ai-summary` grounds via Vercel AI Gateway web search (`AI_GATEWAY_API_KEY`)
+- Numbered `[1]` markers + source cards; client renders server `sources` even if the model omits markers
+- No invented URLs; search fail → no cards
+- History persists and re-renders the same citations
 
 ---
 
@@ -729,7 +735,7 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 **Priority:** Medium
 **Status:** Implemented
 **Requirements:**
-- Two-mode toggle in Craft Clips modal: Regular (GPT-5 Nano, 25 cr/batch, default) ⟷ Super (higher tier, more credits)
+- Two-mode toggle in Craft Clips modal: Regular (GPT-5.6 Luna, 25 cr/batch, default) ⟷ Super (higher tier, more credits)
 - Super tier = single constant `CRAFT_SUPER_PRESET` (client + server, currently `default`/40 cr) — change one place to upgrade
 - Server whitelists `craftPower` and recomputes charged credits; premium-gated; unknown values fall back to Regular
 - Persist choice in `pc_craft_clips_settings_v1`; blue/gold palette; aria/focus accessible
@@ -774,6 +780,13 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 #### 58. PasteCraft Merchant (Seller Service Layer)
 **Priority:** High  
 **Status:** In progress (Phases 1–4 on main; Phase 5 built → user test; Phase 6–7 next)
+
+**Marketing (website):**
+- Say Merchant is coming soon — Scholar is the live product
+- Keep Scholar vs Merchant page live; do not hide it
+- Do not sell Merchant prices as purchasable yet
+- Merchant Test Lab stays QA/nofollow, not the launch
+
 **Depends on:** **#29** Spot, **#21** Image→Text top strip
 **Roadmap doc:** `docs/merchant/MERCHANT-ROADMAP-AND-TEST-LAB.md` — feature assessment, nav/prefs, phases 1–9+, Merchant Test Lab (`merchant-test-lab/` at repo root, not pastecraft.com)
 - Tags-first / tags-only default UI; title/description Advanced only — keep forever as default
@@ -891,6 +904,40 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 - Study use: label study sections (e.g. “Key terms”, “Exam review”) so clips group under named bars
 - UI: accessible `role="separator"` + visible label; does not count toward 150 clip cap
 - Section arrows: one toggle chevron (flips on click) + matching lead arrow beside grip; highlight master clips under that separator
+
+---
+
+#### 63. Clip Viewer Study Formats (Bullets + Numbered)
+**Priority:** Medium
+**Status:** Implemented (pending user SUCCESS)
+**Slice:** `extension/popup/features/clips/clips.viewer-lists.js`
+
+- Toolbar in clip viewer: dash `-`, extra dot `•`, and numbered `1. 2. 3.`
+- Toggle selected/current lines; Enter continues a list item
+- Save as markdown prefixes; viewer renders real lists
+
+---
+
+#### 64. Website Changelog + Header History Link
+**Priority:** Medium
+**Status:** Implemented (pending user SUCCESS)
+**Slice:** `website/src/data/changelog.js` + `extension/popup/features/header/header.changelog.js`
+
+- Public `/changelog` page: store versions + product eras
+- Header “View changelog history” under AI / Profile / Settings
+- Opens pastecraft.com/changelog; live in site nav + footer
+
+---
+
+#### 65. Clip viewer character count
+**Priority:** Medium
+**Status:** Done (user SUCCESS verified Sep 3, 2026)
+**Slice:** `extension/popup/features/clips/` (`clips.viewer-count.js` facade)
+
+- Always-visible `247 characters` chip inside Clip viewer Saved pill (locale grouping; `1 character`)
+- Live update in edit-mode textarea; count plain clip text, not rendered HTML
+- Keep chip for image/link clips (`0 characters` when empty); `aria-live="polite"`
+- Do not hide behind expand/pop-out icons
 
 ---
 

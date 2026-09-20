@@ -2,6 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { fetchChatCompletionsWithModelFallback, parseAiWorkflowFromBody, resolveModelsFromWorkflow, getApiKeyForResolved, requireTextCredits, decrementTextCredits, getTextCreditCost } from "../_shared/ai_workflow.ts"
 import type { ResolvedAiModels } from "../_shared/ai_workflow.ts"
 import { buildTextPrompts } from "../_shared/ai_summary_prompts.js"
+import {
+  buildGroundingQuery,
+  safeSearchSummarySources,
+  shouldGroundWeb,
+} from "../_shared/ai_summary_grounding.js"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -219,11 +224,23 @@ serve(async (req) => {
     const workflow = parseAiWorkflowFromBody(body)
     const models = resolveModelsFromWorkflow(workflow)
     const apiKey = getApiKeyForResolved(models)
-    const { systemPrompt, userPrompt } = buildTextPrompts({
+    const questionText = question ? String(question) : undefined
+    const groundOpts = {
+      groundWeb: body?.groundWeb === true,
       text: String(text),
-      question: question ? String(question) : undefined,
+      question: questionText,
       generateQuestions: !!generateQuestions,
       hasImage,
+    }
+    const groundedSources = shouldGroundWeb(groundOpts)
+      ? await safeSearchSummarySources(buildGroundingQuery(groundOpts))
+      : []
+    const { systemPrompt, userPrompt } = buildTextPrompts({
+      text: String(text),
+      question: questionText,
+      generateQuestions: !!generateQuestions,
+      hasImage,
+      groundedSources,
     })
 
     const chatModel = hasImage ? models.chatVisionModel : models.chatTextModel
@@ -231,6 +248,8 @@ serve(async (req) => {
       hasImage,
       generateQuestions: !!generateQuestions,
       hasQuestion: !!question,
+      groundedCount: groundedSources.length,
+      groundedVia: groundedSources.length ? 'vercel-ai-gateway' : 'none',
       imageChars: imageUrl.length,
       imagePrefix: imageUrl.slice(0, 40),
       imageMime: parseDataImage(imageUrl)?.mime || null,
@@ -283,7 +302,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ summary: result, ...credits }),
+      JSON.stringify({ summary: result, sources: groundedSources, ...credits }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
     )
   } catch (error) {

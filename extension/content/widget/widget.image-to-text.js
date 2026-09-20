@@ -75,24 +75,35 @@ function showImagePreviewModal({ dataUrl, initialText, onSave, onCancel }) {
   const actions = document.createElement('div');
   actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:12px;';
 
+  const secondaryBtnStyle =
+    'padding:8px 14px;border-radius:8px;border:1px solid #94a3b8;background:#fff;color:#0f172a;cursor:pointer;font:inherit;';
+
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.setAttribute('data-action', 'image-preview-cancel');
   cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;';
+  cancelBtn.style.cssText = secondaryBtnStyle;
+  cancelBtn.style.setProperty('color', '#0f172a', 'important');
+  cancelBtn.style.setProperty('background', '#fff', 'important');
+  cancelBtn.style.setProperty('border-color', '#94a3b8', 'important');
 
   const copyBtn = document.createElement('button');
   copyBtn.type = 'button';
   copyBtn.setAttribute('data-action', 'image-preview-copy');
   copyBtn.textContent = 'Copy';
   copyBtn.disabled = !dataUrl;
-  copyBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;';
+  copyBtn.style.cssText = secondaryBtnStyle;
+  copyBtn.style.setProperty('color', '#0f172a', 'important');
+  copyBtn.style.setProperty('background', '#fff', 'important');
+  copyBtn.style.setProperty('border-color', '#94a3b8', 'important');
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.setAttribute('data-action', 'image-preview-save');
   saveBtn.textContent = 'Save clip';
   saveBtn.style.cssText = 'padding:8px 14px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-weight:600;';
+  saveBtn.style.setProperty('color', '#fff', 'important');
+  saveBtn.style.setProperty('background', '#2563eb', 'important');
 
   cancelBtn.addEventListener('click', () => {
     removePreview();

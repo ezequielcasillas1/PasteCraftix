@@ -1,4 +1,9 @@
 
+### Sep 3, 2026 - Clip viewer character count
+**Status:** SUCCESS
+**Files:** clips.viewer-count.js, clips.viewer.js, clips.controller.js, popup.html, styles/clip-viewer.css, implementations.md, instructions/request.md
+**Result:** Always-visible `N character(s)` chip inside Clip viewer Saved pill; plain-text count; live edit updates; aria-live polite. User Ezequiel verified in live extension. Migrated to `Occuring Projects\PasteCraft` (v3.0.40); PasteCraft-src deleted.
+
 ### Aug 14, 2026 - Clip images in viewer (IDB-first + cloud preserve)
 **Status:** SUCCESS
 **Files:** clip-images.js, clip-images.idb.js, clip-images.cloud.js, capture.clip-save.js, clips.commands.js, clips.handler.js, sync-clips.*, storage-migrations.js

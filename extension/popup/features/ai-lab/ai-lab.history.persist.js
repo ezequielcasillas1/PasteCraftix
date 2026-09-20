@@ -1,5 +1,6 @@
 // @forward-slice AI Lab history — persist / serialize helpers
 import { AI_STORAGE_KEYS } from './ai-lab.constants.js';
+import { normalizeSourceList } from '../../../shared/summary-sources.js';
 
 function _hasSupabaseClient() {
   return typeof pasteCraftSupabase !== 'undefined' && Boolean(pasteCraftSupabase.client);
@@ -149,35 +150,43 @@ function _shouldAttachThreadImage(index, normalizedImage, thread) {
   return index === 0 && Boolean(normalizedImage) && !_normalizeThreadImage(thread?.imageBase64);
 }
 
-function _serializeOneThread(thread, index, normalizedSource, normalizedImage) {
+function _serializeOneThread(thread, index, extras) {
   const next = _baseSerializedThread(thread);
-  if (_shouldAttachSourceText(index, normalizedSource, thread)) {
-    next.sourceText = normalizedSource;
+  if (_shouldAttachSourceText(index, extras.normalizedSource, thread)) {
+    next.sourceText = extras.normalizedSource;
   }
-  if (_shouldAttachThreadImage(index, normalizedImage, thread)) {
-    next.imageBase64 = normalizedImage;
+  if (_shouldAttachThreadImage(index, extras.normalizedImage, thread)) {
+    next.imageBase64 = extras.normalizedImage;
   }
+  if (index === 0 && extras.sources.length) next.sources = extras.sources;
   return next;
 }
 
-export function serializeThreads(threads, sourceText = '', imageBase64 = '') {
-  const normalizedSource = _normalizeThreadSource(sourceText);
-  const normalizedImage = _normalizeThreadImage(imageBase64);
-  return threads.map((thread, index) => _serializeOneThread(thread, index, normalizedSource, normalizedImage));
+export function serializeThreads(threads, sourceText = '', imageBase64 = '', sources = []) {
+  const extras = {
+    normalizedSource: _normalizeThreadSource(sourceText),
+    normalizedImage: _normalizeThreadImage(imageBase64),
+    sources: normalizeSourceList(sources),
+  };
+  return threads.map((thread, index) => _serializeOneThread(thread, index, extras));
 }
 
 function _placeholderTitle(text, fallback) {
   return String(_orEmpty(text)).substring(0, 40).replace(/\n/g, ' ').trim() || fallback;
 }
 
-export function createHistoryEntry(type, originalText, threads, imageBase64 = '') {
+export function createHistoryEntry(type, originalText, threads, options = {}) {
+  const imageBase64 = typeof options === 'string' ? options : options.imageBase64;
+  const sources = typeof options === 'string' ? [] : options.sources;
   const normalizedImage = _normalizeThreadImage(imageBase64);
+  const normalizedSources = normalizeSourceList(sources);
   return {
     id: Date.now(),
     type,
     title: `${_placeholderTitle(originalText, 'Untitled')}...`,
     originalText: String(_orEmpty(originalText)).substring(0, 2000),
-    threads: serializeThreads(threads, originalText, normalizedImage),
+    sources: normalizedSources,
+    threads: serializeThreads(threads, originalText, normalizedImage, normalizedSources),
     imageBase64: normalizedImage,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -306,12 +315,22 @@ export function deriveEntryOriginalText(entry) {
   );
 }
 
+function _firstThreadSources(thread, index) {
+  if (index !== 0 || !Array.isArray(thread?.sources)) return null;
+  return thread.sources.length ? thread.sources : null;
+}
+
 export function serializeSummaryThreads(threads) {
-  return threads.map(t => ({
-    question: _orEmpty(t.question),
-    answer: _orEmpty(t.answer),
-    timestamp: t.timestamp || Date.now(),
-  }));
+  return threads.map((t, index) => {
+    const next = {
+      question: _orEmpty(t.question),
+      answer: _orEmpty(t.answer),
+      timestamp: t.timestamp || Date.now(),
+    };
+    const sources = _firstThreadSources(t, index);
+    if (sources) next.sources = sources;
+    return next;
+  });
 }
 
 export function serializeBreakdownThreads(threads) {

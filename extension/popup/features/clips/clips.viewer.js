@@ -9,7 +9,7 @@ import { getTimeAgo } from './clips.render.js';
 import { copyClipToClipboard } from './clips.service.js';
 import { formatClipViewerPlainText } from '../ai-lab/ai-lab.summary.js';
 import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
-import { joinClipsForSummary } from '../../../shared/clip-source.js';
+import { collectClipSources, joinClipBodiesForSummary } from '../../../shared/clip-source.js';
 import { getClipIdKey } from '../../../shared/clip-id.js';
 import {
   looksLikeLatexSource,
@@ -18,6 +18,20 @@ import {
 } from '../../../shared/clipboard-markup.js';
 import { openClipImageAnnotate, popOutClipImageAnnotate } from './clips.image-annotate.js';
 import { updateClipTextById } from './clips.text.js';
+import {
+  applyClipViewerCharacterCount,
+  ensureClipViewerCharacterCountEl,
+} from './clips.viewer-count.js';
+import {
+  applyStudyListEnter,
+  applyStudyListFormat,
+  detectStudyListStyle,
+  isStudyListStyle,
+  LIST_STYLES,
+  resolveStudyListMarkupHint,
+  shouldRenderStudyLists,
+  toMarkdownStudyLists,
+} from './clips.viewer-lists.js';
 import {
   ensureRefactorResolverData,
   findClipAcrossCollections,
@@ -197,8 +211,11 @@ function buildClipViewerContext(clip) {
   const text = recovered.text;
   const meta = recovered.meta;
   const clipTitle = getClipTitle(clip);
-  const markupType =
+  let markupType =
     typeof PCMarkup !== 'undefined' ? PCMarkup.detectMarkupType(text, meta) : 'text';
+  if (markupType === 'text' && shouldRenderStudyLists(text) && typeof PCMarkup !== 'undefined') {
+    markupType = 'markdown';
+  }
   return { text, meta, clipTitle, markupType };
 }
 
@@ -235,13 +252,37 @@ function renderClipViewerMeta(app, metaEl, meta, markupType, clip) {
     );
   }
 
-  if (bits.length) {
-    metaEl.innerHTML = bits.join('<span class="clip-viewer-meta-sep" aria-hidden="true">·</span>');
-    metaEl.style.display = 'flex';
-    return;
-  }
-  metaEl.textContent = '';
-  metaEl.style.display = 'none';
+  metaEl.innerHTML = bits.length
+    ? bits.join('<span class="clip-viewer-meta-sep" aria-hidden="true">·</span>')
+    : '';
+  // Always show meta row — the character count chip lives inside it.
+  ensureClipViewerCharacterCountEl();
+  metaEl.style.display = 'flex';
+}
+
+function readCurrentClipViewerText(app) {
+  const { editTextarea } = getClipViewerElements();
+  if (app?._clipViewerEditing && editTextarea) return editTextarea.value;
+  if (app?.currentClipViewerClip) return buildClipViewerContext(app.currentClipViewerClip).text;
+  return '';
+}
+
+export function syncCharacterCount(app) {
+  const el = ensureClipViewerCharacterCountEl();
+  if (!el) return null;
+  return applyClipViewerCharacterCount(el, readCurrentClipViewerText(app));
+}
+
+function bindClipViewerCountLive(app) {
+  const { editTextarea } = getClipViewerElements();
+  if (!editTextarea || editTextarea.dataset.pcCharCountBound === '1') return;
+  editTextarea.dataset.pcCharCountBound = '1';
+  const refresh = () => {
+    if (!app._clipViewerEditing) return;
+    syncCharacterCount(app);
+  };
+  editTextarea.addEventListener('input', refresh);
+  editTextarea.addEventListener('change', refresh);
 }
 
 function extractClipViewerSource(meta) {
@@ -274,6 +315,75 @@ async function resolveClipViewerImageSrc(clip, meta) {
     if (src) return src;
   } catch (_) {}
   return imgSrc || '';
+}
+
+function updateStudyToolbarPressed(text, selectionStart, selectionEnd) {
+  const style = detectStudyListStyle(text, selectionStart, selectionEnd);
+  const bulletBtn = document.getElementById('clipViewerBulletBtn');
+  const dotBtn = document.getElementById('clipViewerDotBtn');
+  const numberedBtn = document.getElementById('clipViewerNumberedBtn');
+  if (bulletBtn) bulletBtn.setAttribute('aria-pressed', style === LIST_STYLES.BULLET ? 'true' : 'false');
+  if (dotBtn) dotBtn.setAttribute('aria-pressed', style === LIST_STYLES.DOT ? 'true' : 'false');
+  if (numberedBtn) numberedBtn.setAttribute('aria-pressed', style === LIST_STYLES.NUMBERED ? 'true' : 'false');
+}
+
+function writeStudyListToTextarea(result) {
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea || !result) return;
+  textarea.value = result.text;
+  textarea.focus();
+  try {
+    textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
+  } catch (_) {
+    // Non-fatal
+  }
+  updateStudyToolbarPressed(result.text, result.selectionStart, result.selectionEnd);
+}
+
+export function applyStudyList(app, style) {
+  if (!isStudyListStyle(style)) return;
+  const wasEditing = !!app._clipViewerEditing;
+  if (!wasEditing) enterEditMode(app);
+
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea) return;
+
+  const start = wasEditing ? textarea.selectionStart : 0;
+  const end = wasEditing ? textarea.selectionEnd : textarea.value.length;
+  writeStudyListToTextarea(applyStudyListFormat(textarea.value, start, end, style));
+}
+
+function bindStudyFormatToolbar(app) {
+  const toolbar = document.getElementById('clipViewerStudyToolbar');
+  if (!toolbar || toolbar.dataset.pcStudyBound === '1') return;
+  toolbar.dataset.pcStudyBound = '1';
+  toolbar.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-list-style]');
+    if (!btn || !toolbar.contains(btn)) return;
+    event.preventDefault();
+    applyStudyList(app, btn.getAttribute('data-list-style'));
+  });
+}
+
+function bindStudyListTextarea() {
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea || textarea.dataset.pcStudyBound === '1') return;
+  textarea.dataset.pcStudyBound = '1';
+  textarea.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+      return;
+    }
+    if (textarea.selectionStart !== textarea.selectionEnd) return;
+    const result = applyStudyListEnter(textarea.value, textarea.selectionStart);
+    if (!result) return;
+    event.preventDefault();
+    writeStudyListToTextarea(result);
+  });
+  const syncPressed = () => {
+    updateStudyToolbarPressed(textarea.value, textarea.selectionStart, textarea.selectionEnd);
+  };
+  textarea.addEventListener('keyup', syncPressed);
+  textarea.addEventListener('click', syncPressed);
 }
 
 function rememberImageBearingMeta(clip) {
@@ -359,7 +469,7 @@ function renderClipViewerMainContent(
   if (!renderedEl) return hasMarkup;
 
   if (hasMarkup) {
-    const rendered = PCMarkup.renderMarkup(text, meta, { type: markupType });
+    const rendered = PCMarkup.renderMarkup(toMarkdownStudyLists(text), meta, { type: markupType });
     if (rendered && typeof rendered.then === 'function') {
       renderedEl.innerHTML =
         headerParts.join('') + '<div class="clip-viewer-note">Rendering diagram...</div>';
@@ -546,7 +656,11 @@ export async function open(app, clip, sourceContext = 'clips') {
   }
 
   bindClipViewerLinkHandler(app, bodyEl);
+  bindStudyFormatToolbar(app);
+  updateStudyToolbarPressed(text, 0, text.length);
   renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);
+  bindClipViewerCountLive(app);
+  syncCharacterCount(app);
 
   modal.style.display = 'flex';
   window.renderLucideIcons?.(modal);
@@ -560,6 +674,7 @@ export function hide(app) {
   app.currentClipViewerClip = null;
   app.clipViewerSourceContext = null;
   app._clipViewerRefactorPair = null;
+  syncCharacterCount(app);
   notifyUiLocationChanged(app, true);
 }
 
@@ -602,6 +717,8 @@ export function enterEditMode(app) {
   editTextarea.value = text;
   editPanel.style.display = 'flex';
   setClipViewerEditChrome(true);
+  bindStudyListTextarea();
+  updateStudyToolbarPressed(text, 0, text.length);
   window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
   editTextarea.focus();
   try {
@@ -610,6 +727,8 @@ export function enterEditMode(app) {
   } catch (_) {
     // Non-fatal (some hosts reject setSelectionRange)
   }
+  bindClipViewerCountLive(app);
+  syncCharacterCount(app);
   notifyUiLocationChanged(app);
 }
 
@@ -621,7 +740,13 @@ export async function saveEdit(app) {
   if (!editTextarea) return false;
 
   const nextText = String(editTextarea.value ?? '');
-  const updated = await updateClipTextById(app, clip.id, nextText);
+  const markupHint = resolveStudyListMarkupHint(clip?.meta?.markupHint, nextText);
+  const updated = await updateClipTextById(
+    app,
+    clip.id,
+    nextText,
+    markupHint ? { markupHint } : {},
+  );
   const nextClip = updated || findClipAcrossCollections(app, clip.id);
   if (!nextClip) return false;
 
@@ -637,6 +762,7 @@ export async function saveEdit(app) {
 export function cancelEdit(app) {
   if (!app._clipViewerEditing) return;
   exitEditModeUi(app);
+  syncCharacterCount(app);
   window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
   notifyUiLocationChanged(app, true);
 }
@@ -660,13 +786,17 @@ export async function runAiSummary(app) {
       : (clip ? [clip] : []);
 
     const imageBase64 = await resolveViewerSummaryImage(objects);
-    const fromClips = joinClipsForSummary(objects);
+    const fromClips = joinClipBodiesForSummary(objects);
     let trimmed = fromClips || String(text || '').trim();
     if (!trimmed && !imageBase64) {
       app.showToast?.('No clip text to summarize', 'error');
       return;
     }
-    await app.showSummaryModal?.(trimmed, imageBase64 ? { imageBase64 } : undefined);
+    await app.showSummaryModal?.(trimmed, {
+      ...(imageBase64 ? { imageBase64 } : {}),
+      sources: collectClipSources(objects),
+      clips: objects,
+    });
   });
 }
 

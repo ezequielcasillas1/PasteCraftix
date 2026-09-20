@@ -18,16 +18,16 @@ export function isOutOfCreditsError(error) {
 }
 
 /**
- * Replace the content of `resultEl` with a polished "out of credits" card.
- * Provides two CTAs: Buy Credits (reveals the credit pack banner) and Upgrade Plan.
+ * Replace / mount an "out of credits" card.
+ * When bannerHost or preserveContent is set, do not wipe the workspace section.
  *
  * @param {object} app        - The popup app instance (needs openUpgradeModal).
- * @param {HTMLElement|null} resultEl   - The element to render the card into.
+ * @param {HTMLElement|null} resultEl   - The element to render the card into (legacy wipe path).
  * @param {HTMLElement|null} loadingEl  - The loading spinner to hide.
+ * @param {{ bannerHost?: HTMLElement|null, preserveContent?: boolean }} [opts]
  */
-export function showCreditExhaustedInline(app, resultEl, loadingEl) {
+export function showCreditExhaustedInline(app, resultEl, loadingEl, opts = {}) {
   if (loadingEl) loadingEl.style.display = 'none';
-  if (!resultEl) return;
 
   const card = document.createElement('div');
   card.className = 'ai-credit-empty-card';
@@ -81,6 +81,24 @@ export function showCreditExhaustedInline(app, resultEl, loadingEl) {
   bodyEl.appendChild(actionsEl);
   card.appendChild(iconEl);
   card.appendChild(bodyEl);
+
+  const bannerHost = opts.bannerHost || null;
+  const preserveContent = opts.preserveContent === true;
+
+  if (bannerHost) {
+    bannerHost.innerHTML = '';
+    bannerHost.appendChild(card);
+    bannerHost.hidden = false;
+    return;
+  }
+
+  if (!resultEl) return;
+
+  if (preserveContent) {
+    resultEl.querySelectorAll('.ai-credit-empty-card, .ai-model-incapable-card').forEach((el) => el.remove());
+    resultEl.insertBefore(card, resultEl.firstChild);
+    return;
+  }
 
   resultEl.innerHTML = '';
   resultEl.appendChild(card);

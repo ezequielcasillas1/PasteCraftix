@@ -22,7 +22,12 @@ test('sync.loader tracks cameFromIdb and gates IDB backfill', () => {
 });
 
 test('popup clears offline banner after successful init', () => {
-  const source = readFileSync(new URL('../extension/popup.js', import.meta.url), 'utf8');
-  assert.match(source, /_clearOfflineModeBanner/);
-  assert.match(source, /Loaded in offline mode \\u2014 click to retry/);
+  const popup = readFileSync(new URL('../extension/popup.js', import.meta.url), 'utf8');
+  const guard = readFileSync(
+    new URL('../extension/popup/features/app/popup.init-guard.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(popup, /_clearOfflineModeBanner/);
+  assert.match(guard, /Loaded in offline mode \\u2014 click to retry/);
+  assert.match(guard, /recoverPopupAfterInitFailure/);
 });

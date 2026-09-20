@@ -128,6 +128,7 @@ function _hydrateSummaryFields(app, sum) {
     summaryInput.dispatchEvent(new Event('input'));
   }
   if (sum.currentSummaryText) app.currentSummaryText = sum.currentSummaryText;
+  if (Array.isArray(sum.currentSummarySources)) app.currentSummarySources = sum.currentSummarySources;
   const sessionImage = typeof sum.currentSummaryImageBase64 === 'string'
     ? sum.currentSummaryImageBase64.trim()
     : '';
@@ -179,7 +180,7 @@ function _renderSummaryResultSection(app, sum) {
   app.showSummarySection('result');
   const summaryContent = document.getElementById('summaryResultContent');
   if (summaryContent) {
-    app._renderAiResponse(sum.resultContent).then(html => {
+    app._renderAiResponse(sum.resultContent, app.currentSummaryText, app.currentSummarySources).then(html => {
       summaryContent.innerHTML = html;
     });
   }

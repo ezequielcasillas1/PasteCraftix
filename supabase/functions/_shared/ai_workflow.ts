@@ -96,7 +96,7 @@ const OPENAI_PROVIDER: ProviderModelTable = {
   apiBaseUrl: 'https://api.openai.com/v1',
   apiKeyEnv: 'OPENAI_API_KEY',
   modelsByPreset: {
-    cheapest: { chatTextModel: 'gpt-5-nano', chatVisionModel: 'gpt-5-nano' },
+    cheapest: { chatTextModel: 'gpt-5.6-luna', chatVisionModel: 'gpt-5.6-luna' },
     gpt5_mini: { chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini' },
     latest: { chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2' },
     gpt54: { chatTextModel: 'gpt-5.4', chatVisionModel: 'gpt-5.4' },
@@ -110,12 +110,12 @@ const GOOGLE_PROVIDER: ProviderModelTable = {
   apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
   apiKeyEnv: 'GOOGLE_AI_KEY',
   modelsByPreset: {
-    cheapest: { chatTextModel: 'gemini-2.0-flash-lite', chatVisionModel: 'gemini-2.0-flash-lite' },
+    cheapest: { chatTextModel: 'gemini-2.5-flash-lite', chatVisionModel: 'gemini-2.5-flash-lite' },
     gemini_pro: { chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06' },
-    latest: { chatTextModel: 'gemini-2.5-flash-preview-04-17', chatVisionModel: 'gemini-2.5-flash-preview-04-17' },
-    gemini_36_flash: { chatTextModel: 'gemini-3.6-flash', chatVisionModel: 'gemini-3.6-flash' },
+    latest: { chatTextModel: 'gemini-3.7-flash', chatVisionModel: 'gemini-3.7-flash' },
+    gemini_37_flash: { chatTextModel: 'gemini-3.7-flash', chatVisionModel: 'gemini-3.7-flash' },
     gemini_35_flash_lite: { chatTextModel: 'gemini-3.5-flash-lite', chatVisionModel: 'gemini-3.5-flash-lite' },
-    default: { chatTextModel: 'gemini-2.0-flash', chatVisionModel: 'gemini-2.0-flash' },
+    default: { chatTextModel: 'gemini-2.5-flash', chatVisionModel: 'gemini-2.5-flash' },
   },
 }
 
@@ -124,9 +124,9 @@ const DEEPSEEK_PROVIDER: ProviderModelTable = {
   apiBaseUrl: AI_GATEWAY_BASE_URL,
   apiKeyEnv: AI_GATEWAY_KEY_ENV,
   modelsByPreset: {
-    cheapest: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
-    deepseek_v4_flash: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
-    default: { chatTextModel: 'deepseek-v4-flash-0731', chatVisionModel: 'deepseek-v4-flash-0731' },
+    cheapest: { chatTextModel: 'deepseek-v4.1-flash', chatVisionModel: 'deepseek-v4.1-flash' },
+    deepseek_v41_flash: { chatTextModel: 'deepseek-v4.1-flash', chatVisionModel: 'deepseek-v4.1-flash' },
+    default: { chatTextModel: 'deepseek-v4.1-flash', chatVisionModel: 'deepseek-v4.1-flash' },
   },
 }
 
@@ -135,8 +135,8 @@ const ALIBABA_PROVIDER: ProviderModelTable = {
   apiBaseUrl: AI_GATEWAY_BASE_URL,
   apiKeyEnv: AI_GATEWAY_KEY_ENV,
   modelsByPreset: {
-    qwen_flash: { chatTextModel: 'qwen3.7-flash', chatVisionModel: 'qwen3.7-flash' },
-    default: { chatTextModel: 'qwen3.7-flash', chatVisionModel: 'qwen3.7-flash' },
+    qwen_flash: { chatTextModel: 'qwen3.8-flash', chatVisionModel: 'qwen3.8-flash' },
+    default: { chatTextModel: 'qwen3.8-flash', chatVisionModel: 'qwen3.8-flash' },
   },
 }
 

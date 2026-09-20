@@ -259,6 +259,7 @@ async function saveAutoCopyClip(widget, { textToSave, html = '', imageMeta = nul
     url: isProbablyUrl(body) ? body : '',
     image: imageMeta,
     sourcePageUrl: (typeof location !== 'undefined' && location.href) ? location.href : '',
+    sourcePageTitle: (typeof document !== 'undefined' && document.title) ? String(document.title).trim().slice(0, 120) : '',
     capturedAt: Date.now(),
   };
 

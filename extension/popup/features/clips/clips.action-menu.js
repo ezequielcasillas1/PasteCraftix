@@ -5,7 +5,7 @@ import {
   getSelectedOrCurrentClipObjects,
 } from './clips.state.js';
 import { isImageBearingClip, resolveClipImageSrc } from '../../../shared/clip-images.js';
-import { joinClipsForSummary } from '../../../shared/clip-source.js';
+import { collectClipSources, joinClipBodiesForSummary } from '../../../shared/clip-source.js';
 
 const MENU_ID = 'pcClipActionMenuPortal';
 const GOOGLE_SEARCH_MAX_QUERY_LENGTH = 1800;
@@ -274,8 +274,8 @@ async function runOrgBundleAction(app, actionId, { clip, clipIdKey, context }) {
 
 function buildSummaryTextFromClips(app, clip, context) {
   const clips = getSelectedOrCurrentClipObjects(app, clip, context);
-  if (clips.length > 0) return joinClipsForSummary(clips);
-  return joinClipsForSummary([clip]);
+  if (clips.length > 0) return joinClipBodiesForSummary(clips);
+  return joinClipBodiesForSummary([clip]);
 }
 
 async function resolveSingleClipSummaryImage(clips) {
@@ -295,7 +295,11 @@ async function runSummaryFromClip(app, clip, context) {
   const fallback = app.getSelectedOrCurrentText?.(clip?.text ?? '', context) ?? String(clip?.text ?? '');
   const summaryText = buildSummaryTextFromClips(app, clip, context) || String(fallback || '');
   const imageBase64 = await resolveSingleClipSummaryImage(clips);
-  await app.showSummaryModal?.(summaryText, imageBase64 ? { imageBase64 } : undefined);
+  await app.showSummaryModal?.(summaryText, {
+    ...(imageBase64 ? { imageBase64 } : {}),
+    sources: collectClipSources(clips.length ? clips : [clip]),
+    clips: clips.length ? clips : [clip],
+  });
 }
 
 async function runAiBundleAction(app, actionId, { clip, context }) {

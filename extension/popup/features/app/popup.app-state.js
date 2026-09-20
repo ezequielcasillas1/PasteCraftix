@@ -75,6 +75,7 @@ export function createPopupInitialState() {
 
     // Summary state
     currentSummaryText: null,
+    currentSummarySources: [],
     generatedQuestions: [],
     currentSummaryQuestion: null,
 

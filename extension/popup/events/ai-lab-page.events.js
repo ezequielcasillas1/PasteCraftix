@@ -7,8 +7,10 @@ import {
   hasMeaningfulInput,
   getRemainingMeaningfulWords,
 } from '../features/ai-lab/ai-lab.input-validation.js';
+import { handleAiCitationClick } from '../features/ai-lab/ai-lab.citations.js';
 
 export function registerAiLabPageEvents(app) {
+    document.addEventListener('click', handleAiCitationClick);
     app.aiLabFeature?.creditPacks?.bindCreditPackBannerEvents?.(app);
     app.aiLabFeature?.announcements?.bindAnnouncementBannerEvents?.(app);
     app.aiLabFeature?.modelPicker?.bindAiModelPickerEvents?.(app);
@@ -264,7 +266,8 @@ export function registerAiLabPageEvents(app) {
         if (clamped !== bdInlineFollowupInput.value) bdInlineFollowupInput.value = clamped;
         const question = bdInlineFollowupInput.value.trim();
         if (!hasMeaningfulInput(question, minWordsForAi) || !app.currentBreakdownText) return;
-        bdInlineFollowupInput.value = '';
+        // Do not clear here — sendInlineBreakdownFollowup clears only on success
+        // so model-incompatible / send failures keep the question for retry.
         app.sendInlineBreakdownFollowup(question);
       };
       bdInlineFollowupBtn.addEventListener('click', sendInlineFollowup);
@@ -321,6 +324,7 @@ export function registerAiLabPageEvents(app) {
         if (summaryCharCounter) summaryCharCounter.textContent = '0 characters';
         if (generateQuestionsBtn) generateQuestionsBtn.disabled = true;
         app.currentSummaryImageBase64 = null;
+        app.currentSummarySources = [];
         app.aiLabFeature?.summaryModal?.clearSummaryAttachedImage?.(app);
         summaryInput.focus();
         // Persist cleared state

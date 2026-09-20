@@ -1,9 +1,9 @@
-import { joinClipsForSummary } from '../../../shared/clip-source.js';
+import { collectClipSources, joinClipBodiesForSummary } from '../../../shared/clip-source.js';
 
 function resolveBulkSummaryText(getClipObjects, getText) {
   if (typeof getClipObjects === 'function') {
-    const labeled = joinClipsForSummary(getClipObjects());
-    if (labeled) return labeled;
+    const bodies = joinClipBodiesForSummary(getClipObjects());
+    if (bodies) return bodies;
   }
   return typeof getText === 'function' ? getText() : '';
 }
@@ -23,8 +23,9 @@ export function wireBulkAiButtons(app, config) {
   const summaryBtn = summaryBtnId ? document.getElementById(summaryBtnId) : null;
   if (summaryBtn) {
     summaryBtn.addEventListener('click', () => {
+      const clips = typeof getClipObjects === 'function' ? getClipObjects() : [];
       const text = resolveBulkSummaryText(getClipObjects, getText);
-      if (text) app.showSummaryModal(text);
+      if (text) app.showSummaryModal(text, { sources: collectClipSources(clips), clips });
     });
   }
 

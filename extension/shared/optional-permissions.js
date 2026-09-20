@@ -10,7 +10,8 @@ export const OPTIONAL_PERM_KINDS = Object.freeze({
 
 export const OPTIONAL_PERM_DESCS = Object.freeze({
   [OPTIONAL_PERM_KINDS.PDF_CLIPBOARD]: {
-    // offscreen is required (image copy + PDF); only clipboardRead is optional.
+    // clipboardRead is optional. Chromium image/PDF writes use offscreen;
+    // Firefox uses the focused clipboard-writer window instead.
     permissions: ['clipboardRead'],
   },
   [OPTIONAL_PERM_KINDS.ALL_URLS]: {

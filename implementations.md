@@ -1,8 +1,66 @@
 
+### Sep 3, 2026 - Clip viewer character count (ported to live tree)
+**Status:** SUCCESS
+**Files:** clips.viewer-count.js (new), clips.viewer.js, clips.controller.js, popup.html, styles/clip-viewer.css
+**Result:** Always-visible `N character(s)` chip inside Clip viewer Saved pill; plain-text count (HTML stripped); live update in edit mode; aria-live polite. Ported from PasteCraft-src into `Occuring Projects\PasteCraft` (v3.0.40 live source). PasteCraft-src slated for deletion. Not user-verified yet.
+
+### Aug 22, 2026 - Firefox loadable package + clipboard adapter
+**Status:** PENDING SUCCESS
+**Files:** firefox-manifest-transform.js, offscreen-support.js, prepare-firefox-extension.mjs, capture.handler.js, firefox-eligibility.js
+**Result:** Separate Firefox unpacked build (no Chromium zip change). Offscreen skipped; image copy uses helper window. Firefox 154 needs `background.scripts` (service_worker disabled). OAuth allowlist still pending.
+
+### Aug 22, 2026 - Production package v3.0.40
+**Files:** extension/manifest.json, docs/publishing/*, production-publishing-safety.mdc, changelog.js, releases/pastecraft-v3.0.40.zip
+**Result:** Bump 3.0.37 → 3.0.40. Notes are 3.0.40-only: study lists + AI Lab reliability. Web changelog: Edge and Chrome both pending; finalized/pushed by Fri Aug 28, 2026. Citations still unclaimed.
+
+### Aug 22, 2026 - Homepage why-it-matters framing
+**Status:** PENDING SUCCESS
+**Files:** website/src/pages/index.astro
+**Result:** Restored “Clips vanish” card. Lead now frames the four cards as life without a clipboard manager, not as PasteCraft bugs.
+
+### Aug 22, 2026 - Merchant coming soon on website
+**Status:** PENDING SUCCESS
+**Files:** scholar-vs-merchant.astro, scholar-vs-merchant.js, index.astro, pricing.astro, seo.js, request.md
+**Result:** Visible Coming soon badge/copy on homepage Merchant card, Scholar vs Merchant page, and pricing. Scholar stays the live product. No Merchant prices.
+
+### Aug 22, 2026 - Homepage SEO for clipboard manager queries
+**Status:** PENDING SUCCESS
+**Files:** seo.js, Hero.astro, index.astro, about.astro, support.astro, changelog.js, BaseLayout.astro
+**Result:** Title/desc/keywords target “clipboard manager extension” and “smart clipboard manager extension”. Visible H2, hero lead, FAQ, plus about/support/changelog mentions and home links.
+
+### Aug 22, 2026 - Website changelog + header history link
+**Status:** PENDING SUCCESS
+**Files:** changelog.js, changelog.astro, seo.js, site.js, header.changelog.js, popup.html, popup.boot.js
+**Result:** /changelog lists store versions + product eras. Header link under the 3 buttons opens pastecraft.com/changelog.
+
+### Aug 22, 2026 - Clip viewer study formats
+**Status:** PENDING SUCCESS
+**Files:** clips.viewer-lists.js, clips.viewer.js, clips.text.js, popup.html, clip-viewer.css, theme-blue-phase2.css
+**Result:** Dash `-`, extra dot `•`, and numbered 1. 2. 3. toolbar in clip viewer. Enter continues list. Save marks markdown so lists render.
+
 ### Aug 16, 2026 - Website SERanking crawl/on-page SEO
 **Status:** PENDING SUCCESS
 **Files:** seo.js, BaseLayout.astro, SectionShell.astro, robots.txt.js, sitemap.xml.js, og-image.jpg
 **Result:** robots + sitemap, title/desc lengths, H1s, alts, Twitter/OG image, noindex lab/account, footer inbound links.
+
+### Aug 15, 2026 - Production package v3.0.37
+**Files:** extension/manifest.json, docs/publishing/*, production-publishing-safety.mdc, releases/pastecraft-v3.0.37.zip
+**Result:** Bump 3.0.36 → 3.0.37 for store upload. Clip images IDB/cloud, capture eligibility, summary contrast. Citations deferred to Sunday debug. Last published is 3.0.35 until 3.0.37 approved.
+
+### Aug 15, 2026 - AI Summary grounding via Vercel Gateway
+**Status:** PENDING SUCCESS
+**Files:** ai_summary_grounding.js, ai-summary/index.ts, ai-summary-grounding.test.mjs, request.md
+**Result:** Topic/essay sources now use Vercel AI Gateway (`/v1/responses` web_search, then `perplexity/sonar`). Gemini/Serper no longer called. Clip URLs still first. No invented URLs.
+
+### Aug 14, 2026 - AI Summary web grounding citations
+**Status:** PENDING SUCCESS
+**Files:** ai_summary_grounding.js, ai-summary/index.ts, ai-lab.summary.js, summary-sources.js, ai-functions.js
+**Result:** Topic/essay summaries request Edge grounding (Gemini Google Search, optional Serper). Server `sources` render as [1] cards. Clip URLs still work. No invented URLs.
+
+### Aug 14, 2026 - AI Summary Perplexity-style citations
+**Status:** PENDING SUCCESS
+**Files:** summary-sources.js, clip-source.js, ai-lab.summary.js, ai-lab.history*.js, ai-lab.summary-sources.css
+**Result:** Clip URL/title travel with Summary even if textarea has no [Source:]. Numbered [1] markers + source cards. History persists citations. No invented URLs.
 
 ### Aug 14, 2026 - Clip images in viewer (IDB-first + cloud preserve)
 **Status:** SUCCESS

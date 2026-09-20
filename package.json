@@ -18,6 +18,7 @@
     "test:legacy": "echo \"Open test-supabase-connection.html in browser\" && exit 0",
     "setup": "echo \"Follow START_HERE.md for setup instructions\" && exit 0",
     "prepare:libs": "node scripts/prepare-extension-libs.mjs",
+    "firefox:prepare": "node scripts/prepare-firefox-extension.mjs",
     "docs": "echo \"Documentation available in .md files\" && exit 0",
     "feature-icons": "node scripts/convert-feature-icons.js 256",
     "store-icons": "node scripts/convert-store-icons.js",
