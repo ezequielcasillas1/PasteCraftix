@@ -19,6 +19,7 @@ function renderCachedCurrentState(app) {
     liked: () => app.likedFeature?.render?.renderLikedPage?.(app),
     notes: () => app.renderNotes(),
     widgets: () => app.widgetsFeature?.render?.renderWidgetsGallery?.(app),
+    keywords: () => app.keywordsFeature?.render?.(),
     ai: () => app.updateAiCreditsPills?.('visibility'),
     aiHistory: () => app.renderAiHistoryList(),
     activity: () => app.activityFeature?.render?.renderActivityList?.(app),

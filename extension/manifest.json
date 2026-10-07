@@ -24,7 +24,9 @@
     "https://*.blob.core.windows.net/*",
     "https://accounts.google.com/*",
     "https://pastecraft.com/*",
-    "https://*.pastecraft.com/*"
+    "https://*.pastecraft.com/*",
+    "https://api.dictionaryapi.dev/*",
+    "https://en.wiktionary.org/*"
   ],
   "optional_host_permissions": [
     "<all_urls>"
@@ -37,7 +39,7 @@
     ]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.blob.core.windows.net https://accounts.google.com https://pastecraft.com https://*.pastecraft.com https://api.dictionaryapi.dev https://en.wiktionary.org"
   },
   "content_scripts": [
     {

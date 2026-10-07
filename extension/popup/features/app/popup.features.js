@@ -7,6 +7,7 @@ const FEATURE_LOADERS = [
   ['filesFeature', '../files/files.controller.js', 'initFilesFeature'],
   ['notesFeature', '../notes/notes.controller.js', 'initNotesFeature'],
   ['widgetsFeature', '../widgets/widgets.controller.js', 'initWidgetsFeature'],
+  ['keywordsFeature', '../keywords/keywords.controller.js', 'initKeywordsFeature'],
   ['aiLabFeature', '../ai-lab/ai-lab.controller.js', 'initAiLabFeature'],
   ['settingsFeature', '../settings/settings.controller.js', 'initSettingsFeature'],
   ['uiLocationFeature', '../ui-location/ui-location.controller.js', 'initUiLocationFeature'],

@@ -179,6 +179,7 @@ function createMockApp() {
     settingsFeature: { events: { initSettingsEvents: noop } },
     activityFeature: { events: { initActivityEventListeners: noop } },
     widgetsFeature: { events: { initWidgetsEventListeners: noop } },
+    keywordsFeature: { events: { initKeywordsEventListeners: noop } },
     setupCategoryClipDelegation() {
       this.clipsFeature.events.setupCategoryClipDelegation(this);
     },

@@ -22,4 +22,5 @@ export function registerPopupEventListeners(app) {
 
   app.activityFeature.events.initActivityEventListeners(app);
   app.widgetsFeature.events.initWidgetsEventListeners(app);
+  app.keywordsFeature.events.initKeywordsEventListeners(app);
 }

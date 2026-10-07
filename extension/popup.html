@@ -2142,7 +2142,7 @@
             display: grid;
             grid-template-columns: repeat(12, 1fr);
             grid-template-rows: auto auto auto;
-            /* Row 1: 4 tabs × span 3; Row 2: Liked + Notes + Widgets + AI History × span 3; Row 3: Activity */
+            /* Row 1: Clips + Keywords + Search + Categories; Row 2: AI Lab + Liked + Notes + Widgets; Row 3: AI History + Activity */
             background: #f8fafc;
             border-radius: 12px;
             padding: 4px;
@@ -2280,13 +2280,13 @@
         
         .tab-btn-liked,
         .tab-btn-notes,
-        .tab-btn-widgets,
-        .tab-btn-ai-history {
+        .tab-btn-widgets {
             grid-column: span 3;
         }
-        
+
+        .tab-btn-ai-history,
         .tab-btn-activity {
-            grid-column: span 12;
+            grid-column: span 6;
         }
 
         .tab-nav > .tab-btn:not(.tab-btn-liked):not(.tab-btn-notes):not(.tab-btn-widgets):not(.tab-btn-ai-history):not(.tab-btn-activity) {
@@ -12270,6 +12270,10 @@
                         <option value="code">Code</option>
                     </select>
                     <div class="manual-input-toolbar">
+                        <button class="manual-input-keywords-btn" id="reviewKeywordsBtn" type="button" title="Review keywords" aria-label="Review keywords">
+                            <span><i data-lucide="book-open"></i></span>
+                            <span class="pdf-upload-btn-label">Review keywords</span>
+                        </button>
                         <button class="pdf-upload-btn manual-input-save-btn--labeled" id="manualInputSaveBtn" type="button" title="Save clip" aria-label="Save clip">
                             <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
                             <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
@@ -12290,6 +12294,9 @@
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">
                 <span class="tab-icon"><i data-lucide="clipboard"></i></span> Clips
+            </button>
+            <button class="tab-btn" data-tab="keywords" title="Review words from clip text and look up English definitions">
+                <span class="tab-icon"><i data-lucide="book-open"></i></span> Keywords
             </button>
             <button class="tab-btn" data-tab="search" title="Search through all your saved clips">
                 <span class="tab-icon"><i data-lucide="search"></i></span> Search
@@ -12357,11 +12364,32 @@
                     <button class="bulk-ai-btn send-notes" id="bulkSendNotesBtn" title="Send selected clips to a note">
                         <i data-lucide="folder-plus"></i> Send to Notes
                     </button>
+                    <button class="bulk-ai-btn send-keywords" id="bulkSendKeywordsBtn" type="button" title="Send selected clips to Keywords">
+                        <i data-lucide="book-open"></i> Send to Keywords
+                    </button>
                     <button class="bulk-ai-btn ai-breakdown" id="bulkAiBreakdownBtn" title="AI Breakdown of selected clips">
                         <i data-lucide="brain"></i> AI Breakdown
                     </button>
                 </div>
                 <div id="paginationControls"></div>
+            </div>
+        </section>
+
+        <!-- Keywords Tab -->
+        <section class="tab-content" id="keywordsTab">
+            <div class="keywords-page">
+                <div class="keywords-header">
+                    <div>
+                        <h3 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h3>
+                        <p class="keywords-subtitle" id="keywordsSource">Send text from Clips to review its words.</p>
+                    </div>
+                    <label class="keywords-hide-common" for="keywordsHideCommon">
+                        <input type="checkbox" id="keywordsHideCommon">
+                        Hide common words
+                    </label>
+                </div>
+                <div class="keywords-word-list" id="keywordsWordList"></div>
+                <div class="keywords-card" id="keywordsDefinition" hidden></div>
             </div>
         </section>
 
@@ -15697,6 +15725,7 @@ alice@email.com</div>
     <!-- Blue theme decorators load last so [data-theme="blue"] wins over popup inline light fallbacks -->
     <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
     <link rel="stylesheet" href="popup/features/ai-lab/ai-lab.summary-sources.css">
+    <link rel="stylesheet" href="popup/features/keywords/keywords.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>
     <script src="lib/marked.min.js"></script>

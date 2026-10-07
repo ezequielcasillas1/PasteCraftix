@@ -80,6 +80,10 @@ function renderActivity(app) {
   app.activityFeature?.render?.renderActivityList?.(app);
 }
 
+function renderKeywords(app) {
+  app.keywordsFeature?.render?.();
+}
+
 function hydrateCategories(app) {
   return app.filesFeature?.initialize?.(app);
 }
@@ -142,6 +146,7 @@ const TAB_REGISTRY = Object.freeze({
     hydrate: hydrateActivity,
     canRevalidate: true,
   },
+  keywords: { render: renderKeywords },
 });
 
 function renderTab(app, tab) {
