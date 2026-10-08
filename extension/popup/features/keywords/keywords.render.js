@@ -108,11 +108,12 @@ function renderRecord(app, record, label) {
   return '<p class="keywords-status">Not in the dictionary.</p>';
 }
 
-export function renderKeywordsPage(app, state) {
-  const source = document.getElementById(KEYWORD_SELECTORS.SOURCE);
-  const list = document.getElementById(KEYWORD_SELECTORS.WORD_LIST);
-  const card = document.getElementById(KEYWORD_SELECTORS.DEFINITION);
-  const toggle = document.getElementById(KEYWORD_SELECTORS.HIDE_COMMON);
+export function renderKeywordsPage(app, state, selectors = KEYWORD_SELECTORS) {
+  const source = document.getElementById(selectors.SOURCE);
+  const list = document.getElementById(selectors.WORD_LIST);
+  const card = document.getElementById(selectors.DEFINITION);
+  const toggle = document.getElementById(selectors.HIDE_COMMON);
+  const inViewer = selectors.ROOT === 'clipViewerKeywords';
   if (!list || !card) return;
 
   if (toggle) {
@@ -121,8 +122,14 @@ export function renderKeywordsPage(app, state) {
   }
 
   if (!state.words.length) {
-    if (source) source.textContent = 'Send text from Clips to review its words.';
-    list.innerHTML = '<p class="keywords-empty">Type in the clip composer, or select saved clips, then send them here.</p>';
+    if (source) {
+      source.textContent = inViewer
+        ? 'This clip has no words to review.'
+        : 'Send text from Clips to review its words.';
+    }
+    list.innerHTML = inViewer
+      ? '<p class="keywords-empty">This clip has no words to review.</p>'
+      : '<p class="keywords-empty">Type in the clip composer, or select saved clips, then send them here.</p>';
     card.innerHTML = '';
     card.hidden = true;
     return;

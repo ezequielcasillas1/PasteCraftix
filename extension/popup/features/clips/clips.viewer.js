@@ -663,12 +663,14 @@ export async function open(app, clip, sourceContext = 'clips') {
   syncCharacterCount(app);
 
   modal.style.display = 'flex';
+  if (canonicalClip) app.keywordsFeature?.reviewClip?.(canonicalClip);
   window.renderLucideIcons?.(modal);
   notifyUiLocationChanged(app);
 }
 
 export function hide(app) {
   exitEditModeUi(app);
+  app.keywordsFeature?.clearClipReview?.();
   const modal = document.getElementById('clipViewerModal');
   if (modal) modal.style.display = 'none';
   app.currentClipViewerClip = null;

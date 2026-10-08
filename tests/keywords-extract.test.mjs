@@ -209,7 +209,11 @@ function installKeywordsDom() {
     elements.set(id, element);
     return element;
   };
-  ['keywordsSource', 'keywordsWordList', 'keywordsDefinition', 'keywordsHideCommon', 'keywordsTab', 'clipsTab'].forEach(make);
+  [
+    'keywordsSource', 'keywordsWordList', 'keywordsDefinition', 'keywordsHideCommon', 'keywordsTab', 'clipsTab',
+    'clipViewerKeywords', 'clipViewerKeywordsSource', 'clipViewerKeywordsHideCommon',
+    'clipViewerKeywordsWords', 'clipViewerKeywordsDefinition',
+  ].forEach(make);
   const buttons = new Map([
     ['clips', { dataset: { tab: 'clips' }, classList: { add() {}, remove() {} } }],
     ['keywords', { dataset: { tab: 'keywords' }, classList: { add() {}, remove() {} } }],
@@ -357,4 +361,25 @@ test('defines an ordinary phrase from the main sense of each word', async () => 
   feature.clear();
   assert.equal(feature.state.phraseKey, '');
   assert.equal((elements.get('keywordsWordList').innerHTML.match(/is-selected/g) || []).length, 0);
+});
+
+test('reviews an open clip in the viewer', () => {
+  const elements = installKeywordsDom();
+  const app = {
+    currentTab: 'clips',
+    showToast() {},
+    _saveActiveTabState() {},
+    updateHeaderClipCount() {},
+  };
+  const feature = initKeywordsFeature(app);
+  const result = feature.reviewClip({ id: 'clip-1', text: 'Marksman' });
+
+  assert.equal(result.ok, true);
+  assert.equal(app.currentTab, 'clips');
+  assert.equal(elements.get('clipViewerKeywords').hidden, false);
+  assert.match(elements.get('clipViewerKeywordsWords').innerHTML, /Marksman/);
+  assert.equal(feature.state.words.length, 0);
+
+  feature.clearClipReview();
+  assert.equal(elements.get('clipViewerKeywords').hidden, true);
 });

@@ -1,0 +1,35 @@
+---
+description: Additive Grokbot-team git approval gate — approve the diff set before staging; does not replace existing git playbooks.
+alwaysApply: true
+---
+
+# Git Commit Approval Gate (Additive)
+
+**Does not replace** git-workflow-commands, git-commit-branch-alignment, git-commit-push-mastery, git-branch-sync-preflight, work-loss-review-formula, or remember.mdc for ordinary git commands. This gate adds set approval; the Grokbot phrase below is the explicit exception path to `main`.
+
+Source: Grokbot team op 2026-10-07 (Keywords → main @ 5378514) — approve the set, leave scratch out, secret check, then commit.
+
+## Voice trigger — Start git commit Grokbot team command
+
+Case-insensitive; allow small wording differences (e.g. "Start the git commit Grokbot team command"). **Not** the same as plain `git commit` / `git commit all`.
+
+When Ezequiel says this phrase:
+
+1. **Preflight** — run [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc) (fetch, branch, status, behind-main). Say the preflight line. If behind main, sync first, then continue.
+2. **Phrase = yes + push to main** — approve the current implementation diff set and push to `origin main`. Do **not** ask work-loss separate/build-on/merge-first. Do **not** ask "commit these changes?" State work-loss class in one line, then proceed. Destination is `main` because this phrase says so.
+3. **Set = the implementation diff** — code, tests, manifest/popup wiring for the current implementation. Leave scratch untracked: `*.wip`, `.tmp-*`, `.patches-*`, env backups, secrets, gitignore excludes. Do not stage stashes.
+4. **Show include vs exclude** in the reply, then stage only the include list. Phrase already approved that class — do not wait for a second yes.
+5. **Secret-scan** the set before commit/push. If a secret is present, stop — do not commit.
+6. **One focused commit on main** — short message in repo style (`feat:` / `fix:` / `docs:` …). Then `git push origin main`.
+7. **No SuccessLog** until Ezequiel separately says the implementation is successful (remember.mdc).
+
+## Gate (ordinary git commit / git commit all)
+
+1. **Approved set = the diff** — not every dirty file in the working tree.
+2. **Show include vs exclude** — scratch stays untracked: `*.wip`, `.tmp-*`, `.patches-*`, env backups, and anything gitignore already excludes.
+3. **Wait for Ezequiel's yes** on that set before `git add` / commit — **except** when he used the Grokbot team phrase (that phrase is the yes).
+4. **Secret scan** the approved set before any push — no `.env`, keys, or tokens. If a scan tool is unavailable, still inspect the set and stop if a secret is present.
+5. **One focused commit** for that approved set.
+6. **Push to main only** when Ezequiel says `main` in the same message, **or** when he used the Grokbot team phrase (that phrase is the main destination); otherwise follow the existing task-branch playbook.
+7. **Work-loss + preflight first** — this rule does not skip them for ordinary commands; Grokbot phrase skips the work-loss *ask* only (still state class in one line).
+8. **No SuccessLog** until Ezequiel says the implementation is successful (remember.mdc).

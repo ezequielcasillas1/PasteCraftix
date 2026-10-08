@@ -1,6 +1,6 @@
 /** Keywords clicks: send clip text, hide common words, build a phrase. */
 
-import { KEYWORD_ACTIONS, KEYWORD_SELECTORS } from './keywords.constants.js';
+import { CLIP_VIEWER_KEYWORD_SELECTORS, KEYWORD_ACTIONS, KEYWORD_SELECTORS } from './keywords.constants.js';
 
 function clipPreview(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 48);
@@ -12,7 +12,7 @@ function sendComposerText(app, sendText) {
     app.showToast?.('Type some text to review keywords');
     return;
   }
-  sendText({ text, sourceLabel: 'Draft' });
+  sendText({ text, sourceLabel: 'Draft', clips: [] });
 }
 
 function sendSelectedClips(app, sendText) {
@@ -28,7 +28,33 @@ function sendSelectedClips(app, sendText) {
   const sourceLabel = clips.length > 1
     ? `${clips.length} clips — ${preview}`
     : (preview || 'Selected clip');
-  sendText({ text, sourceLabel });
+  sendText({
+    text,
+    sourceLabel,
+    clips: clips.map((clip) => ({
+      id: clip?.id,
+      text: clip?.text || '',
+      label: clipPreview(clip?.text),
+    })),
+  });
+}
+
+function bindReviewHost(root, handlers) {
+  if (!root || root.dataset.keywordsBound === 'true') return;
+  root.dataset.keywordsBound = 'true';
+  root.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const button = target?.closest?.('[data-action]');
+    if (!button || !root.contains(button)) return;
+    if (button.dataset.action === KEYWORD_ACTIONS.CLEAR) {
+      handlers.clear();
+      return;
+    }
+    if (button.dataset.action !== KEYWORD_ACTIONS.LOOKUP) return;
+    const key = button.dataset.word;
+    if (!key) return;
+    handlers.toggle(key, { extend: event.shiftKey });
+  });
 }
 
 export function createKeywordsEvents(api) {
@@ -36,6 +62,14 @@ export function createKeywordsEvents(api) {
     initKeywordsEventListeners(app) {
       if (app._keywordsEventsBound) return;
       app._keywordsEventsBound = true;
+
+      bindReviewHost(document.getElementById(CLIP_VIEWER_KEYWORD_SELECTORS.ROOT), {
+        toggle: (key, options) => api.reviewToggle(key, options),
+        clear: () => api.reviewClear(),
+      });
+      document.getElementById(CLIP_VIEWER_KEYWORD_SELECTORS.HIDE_COMMON)?.addEventListener('change', (event) => {
+        api.reviewHideCommon(!!event.target?.checked);
+      });
 
       document.getElementById(KEYWORD_SELECTORS.REVIEW_BTN)?.addEventListener('click', () => {
         sendComposerText(app, api.sendText);

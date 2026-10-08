@@ -13691,6 +13691,20 @@ Multiple clips are separated by:
                         <summary>Source HTML</summary>
                         <pre class="clip-viewer-pre" id="clipViewerHtml"></pre>
                     </details>
+                    <section class="clip-viewer-keywords" id="clipViewerKeywords" hidden>
+                        <div class="keywords-header">
+                            <div>
+                                <h4 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h4>
+                                <p class="keywords-subtitle" id="clipViewerKeywordsSource"></p>
+                            </div>
+                            <label class="keywords-hide-common" for="clipViewerKeywordsHideCommon">
+                                <input type="checkbox" id="clipViewerKeywordsHideCommon">
+                                Hide common words
+                            </label>
+                        </div>
+                        <div class="keywords-word-list" id="clipViewerKeywordsWords"></div>
+                        <div class="keywords-card" id="clipViewerKeywordsDefinition" hidden></div>
+                    </section>
                 </div>
                 <div class="clip-viewer-footer">
                     <div class="clip-viewer-toolbar ai-snippet-actions" id="clipViewerAiActions">
@@ -15726,6 +15740,7 @@ alice@email.com</div>
     <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
     <link rel="stylesheet" href="popup/features/ai-lab/ai-lab.summary-sources.css">
     <link rel="stylesheet" href="popup/features/keywords/keywords.css">
+    <link rel="stylesheet" href="popup/features/five-star-rating/five-star-rating.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>
     <script src="lib/marked.min.js"></script>

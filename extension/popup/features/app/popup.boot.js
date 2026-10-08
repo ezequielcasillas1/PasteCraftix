@@ -48,6 +48,9 @@ async function startPopup(PasteCraftPopupClass) {
   import('../header/header.starlight.js')
     .then((mod) => mod.initHeaderStarlight())
     .catch(() => {});
+  import('../five-star-rating/five-star-rating.controller.js')
+    .then((mod) => mod.initFiveStarRating())
+    .catch(() => {});
   import('../header/header.changelog.js')
     .then((mod) => mod.initHeaderChangelog())
     .catch(() => {});

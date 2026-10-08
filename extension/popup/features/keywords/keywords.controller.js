@@ -1,7 +1,12 @@
 /** Keywords facade. Clips calls sendText; definitions stay behind the dictionary port. */
 
 import { activatePopupTab } from '../app/popup.tab-lifecycle.js';
-import { MAX_PHRASE_WORDS, PHRASE_LOOKUP_DELAY_MS } from './keywords.constants.js';
+import {
+  CLIP_VIEWER_KEYWORD_SELECTORS,
+  KEYWORD_SELECTORS,
+  MAX_PHRASE_WORDS,
+  PHRASE_LOOKUP_DELAY_MS,
+} from './keywords.constants.js';
 import { lookupEmphasis } from './keywords.dictionary.js';
 import { extractKeywords, selectedPhrase, toggleKeywordSelection, visibleKeywords } from './keywords.extract.js';
 import { createKeywordsEvents } from './keywords.events.js';
@@ -25,11 +30,29 @@ function cancelScheduledLookup(state) {
   state.settleLookup = null;
 }
 
-function sendKeywordsText(app, state, payload) {
+function revealHost(selectors) {
+  const root = selectors.ROOT ? document.getElementById(selectors.ROOT) : null;
+  if (root) root.hidden = false;
+}
+
+function sendKeywordsText(app, state, payload, selectors = KEYWORD_SELECTORS, options = {}) {
   const text = payload?.text || '';
   const words = extractKeywords(text);
   if (!words.length) {
-    app.showToast?.('No words to review');
+    if (!options.quietEmpty) app.showToast?.('No words to review');
+    if (options.reveal) {
+      state.sourceLabel = String(payload?.sourceLabel || 'Clip text');
+      state.words = [];
+      state.selectedKeys = [];
+      state.anchorKey = '';
+      state.phraseKey = '';
+      state.phraseLabel = '';
+      state.entries = new Map();
+      state.lookupSeq += 1;
+      cancelScheduledLookup(state);
+      revealHost(selectors);
+      renderKeywordsPage(app, state, selectors);
+    }
     return { ok: false, count: 0 };
   }
 
@@ -42,13 +65,16 @@ function sendKeywordsText(app, state, payload) {
   state.entries = new Map();
   state.lookupSeq += 1;
   cancelScheduledLookup(state);
-  renderKeywordsPage(app, state);
-  activatePopupTab(app, 'keywords', { source: 'keywords-send' });
-  app.showToast?.(`${words.length} word${words.length === 1 ? '' : 's'} ready`);
+  revealHost(selectors);
+  renderKeywordsPage(app, state, selectors);
+  if (options.activateTab !== false) {
+    activatePopupTab(app, 'keywords', { source: 'keywords-send' });
+    app.showToast?.(`${words.length} word${words.length === 1 ? '' : 's'} ready`);
+  }
   return { ok: true, count: words.length };
 }
 
-async function runLookup(app, state, phraseKey, seq) {
+async function runLookup(app, state, phraseKey, seq, selectors) {
   let result;
   try {
     result = await lookupEmphasis(phraseKey);
@@ -58,10 +84,10 @@ async function runLookup(app, state, phraseKey, seq) {
   if (seq !== state.lookupSeq) return;
   state.entries.set(phraseKey, rememberEntry(result));
   if (phraseOf(state).key !== phraseKey) return;
-  renderKeywordsPage(app, state);
+  renderKeywordsPage(app, state, selectors);
 }
 
-function lookupPhrase(app, state) {
+function lookupPhrase(app, state, selectors = KEYWORD_SELECTORS) {
   const phrase = phraseOf(state);
   state.phraseKey = phrase.key;
   state.phraseLabel = phrase.label;
@@ -69,28 +95,28 @@ function lookupPhrase(app, state) {
   state.lookupSeq += 1;
   const seq = state.lookupSeq;
   if (!phrase.key) {
-    renderKeywordsPage(app, state);
+    renderKeywordsPage(app, state, selectors);
     return Promise.resolve();
   }
 
   const cached = state.entries.get(phrase.key);
   if (cached && cached.status !== 'error') {
-    renderKeywordsPage(app, state);
+    renderKeywordsPage(app, state, selectors);
     return Promise.resolve();
   }
 
-  renderKeywordsPage(app, state);
+  renderKeywordsPage(app, state, selectors);
   const delay = phrase.key.includes(' ') ? PHRASE_LOOKUP_DELAY_MS : 0;
   return new Promise((resolve) => {
     state.settleLookup = resolve;
     state.phraseTimer = setTimeout(() => {
       state.settleLookup = null;
-      resolve(runLookup(app, state, phrase.key, seq));
+      resolve(runLookup(app, state, phrase.key, seq, selectors));
     }, delay);
   });
 }
 
-function toggleKeyword(app, state, key, options = {}) {
+function toggleKeyword(app, state, key, options = {}, selectors = KEYWORD_SELECTORS) {
   const next = toggleKeywordSelection(state.words, state.selectedKeys, key, {
     extend: !!options.extend,
     anchor: state.anchorKey,
@@ -102,21 +128,39 @@ function toggleKeyword(app, state, key, options = {}) {
     return;
   }
   state.selectedKeys = next.keys;
-  return lookupPhrase(app, state);
+  return lookupPhrase(app, state, selectors);
 }
 
-function clearKeywords(app, state) {
+function clearKeywords(app, state, selectors = KEYWORD_SELECTORS) {
   cancelScheduledLookup(state);
   state.selectedKeys = [];
   state.anchorKey = '';
   state.phraseKey = '';
   state.phraseLabel = '';
   state.lookupSeq += 1;
-  renderKeywordsPage(app, state);
+  renderKeywordsPage(app, state, selectors);
+}
+
+function hideHost(selectors) {
+  const root = selectors.ROOT ? document.getElementById(selectors.ROOT) : null;
+  if (root) root.hidden = true;
+}
+
+function resetReview(state) {
+  cancelScheduledLookup(state);
+  state.sourceLabel = '';
+  state.words = [];
+  state.selectedKeys = [];
+  state.anchorKey = '';
+  state.phraseKey = '';
+  state.phraseLabel = '';
+  state.entries = new Map();
+  state.lookupSeq += 1;
 }
 
 export function initKeywordsFeature(app) {
   const state = createKeywordsState();
+  const viewerState = createKeywordsState();
   const api = {
     state,
     sendText(payload) {
@@ -136,6 +180,30 @@ export function initKeywordsFeature(app) {
       state.phraseKey = phrase.key;
       state.phraseLabel = phrase.label;
       renderKeywordsPage(app, state);
+    },
+    reviewClip(clip) {
+      const text = String(clip?.text || '');
+      const label = text.replace(/\s+/g, ' ').trim().slice(0, 48) || 'Clip';
+      return sendKeywordsText(app, viewerState, {
+        text,
+        sourceLabel: label,
+        clips: [{ id: clip?.id, text, label }],
+      }, CLIP_VIEWER_KEYWORD_SELECTORS, { activateTab: false, quietEmpty: true, reveal: true });
+    },
+    clearClipReview() {
+      resetReview(viewerState);
+      renderKeywordsPage(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
+      hideHost(CLIP_VIEWER_KEYWORD_SELECTORS);
+    },
+    reviewToggle(key, options) {
+      return toggleKeyword(app, viewerState, key, options, CLIP_VIEWER_KEYWORD_SELECTORS);
+    },
+    reviewClear() {
+      clearKeywords(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
+    },
+    reviewHideCommon(checked) {
+      viewerState.hideCommon = !!checked;
+      return lookupPhrase(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
     },
   };
   api.events = createKeywordsEvents(api);

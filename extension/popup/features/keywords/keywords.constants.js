@@ -10,6 +10,16 @@ export const KEYWORD_SELECTORS = Object.freeze({
   BULK_SEND_BTN: 'bulkSendKeywordsBtn',
 });
 
+/** Second mount inside the clip viewer. Same review, separate from the Keywords tab. */
+export const CLIP_VIEWER_KEYWORD_SELECTORS = Object.freeze({
+  ROOT: 'clipViewerKeywords',
+  TAB: 'clipViewerKeywords',
+  SOURCE: 'clipViewerKeywordsSource',
+  HIDE_COMMON: 'clipViewerKeywordsHideCommon',
+  WORD_LIST: 'clipViewerKeywordsWords',
+  DEFINITION: 'clipViewerKeywordsDefinition',
+});
+
 export const KEYWORD_ACTIONS = Object.freeze({
   LOOKUP: 'keyword-lookup',
   CLEAR: 'keyword-clear',

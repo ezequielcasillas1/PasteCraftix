@@ -1,5 +1,5 @@
 ---
-description: User voice commands for git — git commit, git commit all, git workflow. Auto-split by scoped implementation.
+description: User voice commands for git — Grokbot team → main, git commit, git commit all, git workflow. Auto-split by scoped implementation.
 alwaysApply: true
 ---
 
@@ -13,9 +13,24 @@ When the user says one of these phrases, follow the matching playbook. Do **not*
 
 | User says | Action |
 |---|---|
+| **`Start git commit Grokbot team command`** (also: "Start the git commit Grokbot team command"; case-insensitive) | **Not** plain `git commit`. Preflight → sync if behind → phrase = approve implementation set + push to `main`. State work-loss class in one line; skip separate/build-on/merge-first ask. Show include vs exclude → stage include only → secret-scan → one commit on `main` → `git push origin main`. Full playbook: [git-commit-approval-gate.mdc](git-commit-approval-gate.mdc) Voice trigger. No SuccessLog until he says SUCCESS separately. |
 | **`git commit all`** | Work-loss review gate → discover scopes → branch per scope → commit each → **push all** new/updated task branches → return to `main` → brief report + unmerged branches |
 | **`git commit`** | Same as `git commit all`, but **push only if** the user also said push in the same message; otherwise commit locally and list branches/SHAs |
 | **`git workflow`** | Read-only audit + optional commit (see Workflow Audit) |
+
+---
+
+## `Start git commit Grokbot team command` — agent playbook
+
+Wins only when Grokbot team wording is used. Do **not** route this to the plain `git commit` / `git commit all` playbooks (those still ask work-loss and do not push to `main` by default).
+
+1. Preflight per [git-branch-sync-preflight.mdc](git-branch-sync-preflight.mdc). Sync if behind `origin/main`.
+2. Phrase itself = yes on the implementation diff set **and** destination `main`. One-line work-loss class; no separate/build-on/merge-first ask; no "commit these changes?"
+3. Include = current implementation (code, tests, wiring). Exclude = `*.wip`, `.tmp-*`, `.patches-*`, env backups, secrets, gitignore, stashes.
+4. Reply with include vs exclude → stage include → secret-scan (stop if secret) → one focused commit on `main` → `git push origin main`.
+5. No SuccessLog until Ezequiel separately confirms SUCCESS.
+
+Details: [git-commit-approval-gate.mdc](git-commit-approval-gate.mdc).
 
 ---
 

@@ -2,6 +2,21 @@
   padding: 16px 18px 24px;
 }
 
+.clip-viewer-keywords {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.clip-viewer-keywords .keywords-title {
+  font-size: 15px;
+}
+
+.clip-viewer-keywords .keywords-word-list {
+  max-height: 160px;
+  overflow: auto;
+}
+
 .keywords-header {
   display: flex;
   align-items: flex-start;
