@@ -13703,10 +13703,13 @@ Multiple clips are separated by:
                                 <h4 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h4>
                                 <p class="keywords-subtitle" id="clipViewerKeywordsSource"></p>
                             </div>
-                            <label class="keywords-hide-common" for="clipViewerKeywordsHideCommon">
-                                <input type="checkbox" id="clipViewerKeywordsHideCommon">
-                                Hide common words
-                            </label>
+                            <div class="keywords-header-controls">
+                                <button type="button" class="keywords-phrase-toggle pc-delay-tip" id="clipViewerKeywordsPhraseMode" data-action="keyword-phrase-mode" aria-pressed="false" aria-label="Activate phrase" aria-describedby="clipViewerKeywordsPhraseTip">Activate phrase<span class="pc-tip" id="clipViewerKeywordsPhraseTip" role="tooltip">Off: look up one word. On: click several words to make a phrase.</span></button>
+                                <label class="keywords-hide-common" for="clipViewerKeywordsHideCommon">
+                                    <input type="checkbox" id="clipViewerKeywordsHideCommon">
+                                    Hide common words
+                                </label>
+                            </div>
                         </div>
                         <div class="keywords-word-list" id="clipViewerKeywordsWords"></div>
                         <div class="keywords-card" id="clipViewerKeywordsDefinition" hidden></div>
@@ -14193,7 +14196,7 @@ Multiple clips are separated by:
                             <strong>How to look up a word:</strong>
                             <ul>
                                 <li>Click one word to see its meaning.</li>
-                                <li>Click more words (up to 8) to look up the phrase they make. Shift-click selects a range between two words.</li>
+                                <li>Turn on <strong>Activate phrase</strong> in Clip Viewer, then click more words (up to 8) to look up the phrase they make. Shift-click selects a range between two words.</li>
                                 <li><strong>Hide common words</strong> drops words like the, and, and of so the useful ones stand out.</li>
                                 <li>Wait until the meaning appears, then use <strong>Save keyword</strong>. If lookup fails, try the word again.</li>
                             </ul>

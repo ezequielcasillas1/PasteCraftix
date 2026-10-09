@@ -1,10 +1,11 @@
 /** In-memory keyword review. Cleared when the popup closes. */
 
-export function createKeywordsState() {
+export function createKeywordsState(options = {}) {
   return {
     sourceLabel: '',
     words: [],
     hideCommon: false,
+    phraseMode: !!options.phraseMode,
     selectedKeys: [],
     anchorKey: '',
     phraseKey: '',

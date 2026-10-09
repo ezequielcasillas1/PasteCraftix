@@ -38,6 +38,9 @@ export const KEYWORD_COPY = Object.freeze({
   FIRST_FOLDER: 'Words',
   TAB_TITLE: 'Saved words and what they mean',
   REVIEW_HINT: 'Click a word to see what it means.',
+  PHRASE_HINT: 'Click more words to see the phrase they make.',
+  ACTIVATE_PHRASE: 'Activate phrase',
+  ACTIVATE_PHRASE_TIP: 'Off: look up one word. On: click several words to make a phrase.',
   OPEN_HINT: 'Click a word to see its meaning, move it, or delete it.',
   SAVE: 'Save keyword',
   SAVED: 'Saved',
@@ -78,12 +81,14 @@ export const CLIP_VIEWER_KEYWORD_SELECTORS = Object.freeze({
   TAB: 'clipViewerKeywords',
   SOURCE: 'clipViewerKeywordsSource',
   HIDE_COMMON: 'clipViewerKeywordsHideCommon',
+  PHRASE_MODE: 'clipViewerKeywordsPhraseMode',
   WORD_LIST: 'clipViewerKeywordsWords',
   DEFINITION: 'clipViewerKeywordsDefinition',
 });
 
 export const KEYWORD_ACTIONS = Object.freeze({
   LOOKUP: 'keyword-lookup',
+  PHRASE_MODE: 'keyword-phrase-mode',
   CLEAR: 'keyword-clear',
   SAVE: 'keyword-save',
   REMOVE: 'keyword-remove',

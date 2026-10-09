@@ -1,4 +1,9 @@
 
+### Oct 9, 2026 - Clip Viewer Activate phrase toggle
+**Status:** PENDING SUCCESS
+**Files:** keywords.controller.js, keywords.extract.js, keywords.render.js, keywords.events.js, keywords.state.js, keywords.constants.js, keywords.css, popup.html, keywords-extract.test.mjs
+**Result:** Clip Viewer Keywords defaults to one word. Activate phrase lets you pick up to 8 words. Hover tooltip explains off vs on. Turning it off keeps the last word. Quick Save still builds phrases without the extra toggle.
+
 ### Oct 9, 2026 - AI Lab model refresh
 **Status:** PENDING SUCCESS
 **Files:** ai-lab.models.js, ai-lab.constants.js, ai_workflow.ts, ai_workflow_types.ts, ai_gateway.ts, ai-workflow.js, popup.html, ai-model-picker.test.mjs

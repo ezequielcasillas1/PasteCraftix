@@ -108,6 +108,7 @@ function bindReview(root, review) {
   bindClicks(root, (action, el, event) => {
     if (action === KEYWORD_ACTIONS.CLEAR) review.clear();
     else if (action === KEYWORD_ACTIONS.SAVE) review.save();
+    else if (action === KEYWORD_ACTIONS.PHRASE_MODE) review.setPhraseMode?.();
     else if (action === KEYWORD_ACTIONS.LOOKUP && el.dataset.word) review.toggle(el.dataset.word, { extend: event.shiftKey });
   });
 }
@@ -135,6 +136,7 @@ export function createKeywordsEvents(api) {
         clear: () => api.reviewClear(),
         save: () => api.saveKeyword('viewer'),
         toggle: (word, options) => api.reviewToggle(word, options),
+        setPhraseMode: () => api.reviewPhraseMode(),
       });
       bindHideCommon(CLIP_VIEWER_KEYWORD_SELECTORS.HIDE_COMMON, (checked) => api.reviewHideCommon(checked));
     },

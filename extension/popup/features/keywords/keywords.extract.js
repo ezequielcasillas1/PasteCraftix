@@ -40,6 +40,10 @@ export function toggleKeywordSelection(words, selectedKeys, key, options = {}) {
   const max = options.max || MAX_PHRASE_WORDS;
   const anchor = String(options.anchor || '').trim().toLowerCase();
   const set = new Set(current);
+  if (options.replace) {
+    if (current.length === 1 && current[0] === wordKey) return { keys: [], limited: false };
+    return { keys: [wordKey], limited: false };
+  }
   if (options.extend && order.includes(anchor)) {
     const start = order.indexOf(anchor);
     const end = order.indexOf(wordKey);

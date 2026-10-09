@@ -120,8 +120,10 @@ function lookupPhrase(app, state, selectors) {
 }
 
 function toggleKeyword(app, state, key, options = {}, selectors) {
+  const phraseMode = !!state.phraseMode;
   const next = toggleKeywordSelection(state.words, state.selectedKeys, key, {
-    extend: !!options.extend,
+    extend: phraseMode && !!options.extend,
+    replace: !phraseMode,
     anchor: state.anchorKey,
     max: MAX_PHRASE_WORDS,
   });
@@ -131,6 +133,15 @@ function toggleKeyword(app, state, key, options = {}, selectors) {
     return;
   }
   state.selectedKeys = next.keys;
+  return lookupPhrase(app, state, selectors);
+}
+
+function setPhraseMode(app, state, on, selectors) {
+  state.phraseMode = !!on;
+  if (!state.phraseMode && state.selectedKeys.length > 1) {
+    state.selectedKeys = state.selectedKeys.slice(-1);
+    state.anchorKey = state.selectedKeys[0] || '';
+  }
   return lookupPhrase(app, state, selectors);
 }
 
@@ -170,8 +181,8 @@ function draftProblem(draft) {
 }
 
 export function initKeywordsFeature(app) {
-  const viewerState = createKeywordsState();
-  const quickSaveState = createKeywordsState();
+  const viewerState = createKeywordsState({ phraseMode: false });
+  const quickSaveState = createKeywordsState({ phraseMode: true });
   const savedKeys = new Set();
   const savedPlaces = new Map();
   [viewerState, quickSaveState].forEach((state) => {
@@ -270,6 +281,10 @@ export function initKeywordsFeature(app) {
     reviewHideCommon(checked) {
       viewerState.hideCommon = !!checked;
       return lookupPhrase(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
+    },
+    reviewPhraseMode(on) {
+      const next = typeof on === 'boolean' ? on : !viewerState.phraseMode;
+      return setPhraseMode(app, viewerState, next, CLIP_VIEWER_KEYWORD_SELECTORS);
     },
   };
   api.events = createKeywordsEvents(api);

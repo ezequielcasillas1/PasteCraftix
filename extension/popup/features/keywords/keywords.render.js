@@ -200,12 +200,19 @@ export function renderKeywordsPage(app, state, selectors) {
   const list = document.getElementById(selectors.WORD_LIST);
   const card = document.getElementById(selectors.DEFINITION);
   const toggle = document.getElementById(selectors.HIDE_COMMON);
+  const phraseToggle = document.getElementById(selectors.PHRASE_MODE);
   const inClip = selectors.ROOT === CLIP_VIEWER_KEYWORD_SELECTORS.ROOT;
   if (!list || !card) return;
 
   if (toggle) {
     toggle.checked = !!state.hideCommon;
     toggle.disabled = state.words.length === 0;
+  }
+  if (phraseToggle) {
+    const on = !!state.phraseMode;
+    phraseToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    phraseToggle.classList.toggle('is-on', on);
+    phraseToggle.disabled = state.words.length === 0;
   }
 
   if (!state.words.length) {
@@ -237,7 +244,10 @@ export function renderKeywordsPage(app, state, selectors) {
 
   card.hidden = false;
   if (!state.phraseKey) {
-    card.innerHTML = `<p class="keywords-status">${KEYWORD_COPY.REVIEW_HINT} Click more words to see the phrase they make.</p>`;
+    const hint = state.phraseMode
+      ? `${KEYWORD_COPY.REVIEW_HINT} ${KEYWORD_COPY.PHRASE_HINT}`
+      : KEYWORD_COPY.REVIEW_HINT;
+    card.innerHTML = `<p class="keywords-status">${hint}</p>`;
     return;
   }
 

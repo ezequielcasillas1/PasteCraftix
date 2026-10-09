@@ -197,6 +197,8 @@ test('reports a reachability error when both dictionaries fail', async () => {
 function installKeywordsDom() {
   const elements = new Map();
   const make = (id) => {
+    const attrs = {};
+    const classNames = new Set();
     const element = {
       id,
       hidden: false,
@@ -206,7 +208,19 @@ function installKeywordsDom() {
       innerHTML: '',
       value: '',
       dataset: {},
-      classList: { add() {}, remove() {}, contains() { return false; } },
+      classList: {
+        add(name) { classNames.add(name); },
+        remove(name) { classNames.delete(name); },
+        toggle(name, force) {
+          if (force === true) classNames.add(name);
+          else if (force === false) classNames.delete(name);
+          else if (classNames.has(name)) classNames.delete(name);
+          else classNames.add(name);
+        },
+        contains(name) { return classNames.has(name); },
+      },
+      setAttribute(name, value) { attrs[name] = String(value); },
+      getAttribute(name) { return attrs[name] ?? null; },
     };
     if (id === 'quickSaveKeywords' || id === 'clipViewerKeywords') element.hidden = true;
     elements.set(id, element);
@@ -215,7 +229,7 @@ function installKeywordsDom() {
   [
     'keywordsSource', 'keywordsFiles', 'keywordsFolders', 'keywordsTab', 'clipsTab',
     'clipViewerKeywords', 'clipViewerKeywordsSource', 'clipViewerKeywordsHideCommon',
-    'clipViewerKeywordsWords', 'clipViewerKeywordsDefinition',
+    'clipViewerKeywordsPhraseMode', 'clipViewerKeywordsWords', 'clipViewerKeywordsDefinition',
     'quickSaveKeywords', 'quickSaveKeywordsSource', 'quickSaveKeywordsHideCommon',
     'quickSaveKeywordsWords', 'quickSaveKeywordsDefinition',
   ].forEach(make);
@@ -377,6 +391,16 @@ test('saves a word from quick save into the keyword bank', async () => {
   assert.match(elements.get('keywordsFolders').innerHTML, /Saved words stay here/);
 });
 
+test('replace mode keeps a single selected word', () => {
+  const words = extractKeywords('The Role of board');
+  const first = toggleKeywordSelection(words, [], 'role', { replace: true });
+  assert.deepEqual(first.keys, ['role']);
+  const swapped = toggleKeywordSelection(words, first.keys, 'board', { replace: true });
+  assert.deepEqual(swapped.keys, ['board']);
+  const cleared = toggleKeywordSelection(words, swapped.keys, 'board', { replace: true });
+  assert.deepEqual(cleared.keys, []);
+});
+
 test('joins selected words in the order they appear in the text', () => {
   const words = extractKeywords('The Role of board');
   let keys = [];
@@ -488,4 +512,27 @@ test('reviews an open clip in the viewer and can save its word', async () => {
   feature.clearClipReview();
   assert.equal(elements.get('clipViewerKeywords').hidden, true);
   assert.equal(feature.getBank().length, 1);
+});
+
+test('clip viewer phrase toggle allows multi-word lookup', async () => {
+  const elements = installKeywordsDom();
+  const app = {
+    currentTab: 'clips',
+    showToast() {},
+    _saveActiveTabState() {},
+    updateHeaderClipCount() {},
+  };
+  const feature = initKeywordsFeature(app);
+  feature.reviewClip({ id: 'clip-2', text: 'Fiscal Stability Oversight' });
+  globalThis.fetch = async () => ({ ok: false, json: async () => ({}) });
+
+  await feature.reviewToggle('fiscal');
+  await feature.reviewToggle('stability');
+  assert.equal((elements.get('clipViewerKeywordsWords').innerHTML.match(/is-selected/g) || []).length, 1);
+
+  await feature.reviewPhraseMode(true);
+  await feature.reviewToggle('fiscal');
+  const chips = elements.get('clipViewerKeywordsWords').innerHTML;
+  assert.equal((chips.match(/is-selected/g) || []).length, 2);
+  assert.equal(elements.get('clipViewerKeywordsPhraseMode').getAttribute('aria-pressed'), 'true');
 });
