@@ -12159,14 +12159,15 @@
             <div class="header-model-picker" id="headerAiModelPicker" title="AI model">
                 <label class="header-model-label" for="headerAiModelSelect">Model</label>
                 <select class="header-model-select" id="headerAiModelSelect" aria-label="Select AI model">
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="claude-haiku-4-5">Haiku 4.5</option>
-                    <option value="gpt-5.2">GPT-5.2</option>
-                    <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                    <option value="muse-spark-1.3">Muse Spark 1.3</option>
+                    <option value="claude-haiku-5-5">Haiku 5.5</option>
+                    <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
+                    <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                 </select>
             </div>
             <div class="header-actions-cluster">
                 <div class="header-actions">
+                    <button type="button" class="settings-btn header-rate-btn" id="headerRateBtn" data-action="open-five-star-rating" title="Rate 5 stars and spread the word" aria-label="Rate PasteCraft 5 stars and spread the word"><i data-lucide="star"></i></button>
                     <button class="settings-btn" id="aiBtn" title="AI Lab"><i data-lucide="bot"></i></button>
                     <button class="settings-btn" id="profileBtn" title="Profile"><i data-lucide="user"></i></button>
                     <button class="settings-btn" id="settingsBtn" title="Settings"><i data-lucide="settings"></i></button>
@@ -12270,10 +12271,6 @@
                         <option value="code">Code</option>
                     </select>
                     <div class="manual-input-toolbar">
-                        <button class="manual-input-keywords-btn" id="reviewKeywordsBtn" type="button" title="Review keywords" aria-label="Review keywords">
-                            <span><i data-lucide="book-open"></i></span>
-                            <span class="pdf-upload-btn-label">Review keywords</span>
-                        </button>
                         <button class="pdf-upload-btn manual-input-save-btn--labeled" id="manualInputSaveBtn" type="button" title="Save clip" aria-label="Save clip">
                             <span class="btn-loading-spinner" id="manualInputSaveSpinner" style="display: none;"></span>
                             <span id="manualInputSaveIcon"><i data-lucide="save"></i></span>
@@ -12287,6 +12284,20 @@
                         </button>
                     </div>
                 </div>
+                <section class="clip-viewer-keywords quick-save-keywords" id="quickSaveKeywords" hidden>
+                        <div class="keywords-header">
+                            <div>
+                                <h4 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h4>
+                                <p class="keywords-subtitle" id="quickSaveKeywordsSource"></p>
+                            </div>
+                            <label class="keywords-hide-common" for="quickSaveKeywordsHideCommon">
+                                <input type="checkbox" id="quickSaveKeywordsHideCommon">
+                                Hide common words
+                            </label>
+                        </div>
+                        <div class="keywords-word-list" id="quickSaveKeywordsWords"></div>
+                        <div class="keywords-card" id="quickSaveKeywordsDefinition" hidden></div>
+                    </section>
             </div>
         </section>
 
@@ -12295,7 +12306,7 @@
             <button class="tab-btn active" data-tab="clips" title="View and manage your captured clips">
                 <span class="tab-icon"><i data-lucide="clipboard"></i></span> Clips
             </button>
-            <button class="tab-btn" data-tab="keywords" title="Review words from clip text and look up English definitions">
+            <button class="tab-btn" data-tab="keywords" title="Saved words and what they mean">
                 <span class="tab-icon"><i data-lucide="book-open"></i></span> Keywords
             </button>
             <button class="tab-btn" data-tab="search" title="Search through all your saved clips">
@@ -12364,9 +12375,6 @@
                     <button class="bulk-ai-btn send-notes" id="bulkSendNotesBtn" title="Send selected clips to a note">
                         <i data-lucide="folder-plus"></i> Send to Notes
                     </button>
-                    <button class="bulk-ai-btn send-keywords" id="bulkSendKeywordsBtn" type="button" title="Send selected clips to Keywords">
-                        <i data-lucide="book-open"></i> Send to Keywords
-                    </button>
                     <button class="bulk-ai-btn ai-breakdown" id="bulkAiBreakdownBtn" title="AI Breakdown of selected clips">
                         <i data-lucide="brain"></i> AI Breakdown
                     </button>
@@ -12381,15 +12389,13 @@
                 <div class="keywords-header">
                     <div>
                         <h3 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h3>
-                        <p class="keywords-subtitle" id="keywordsSource">Send text from Clips to review its words.</p>
+                        <p class="keywords-subtitle" id="keywordsSource">Keywords pick out the words in what you save and show what each word means.</p>
                     </div>
-                    <label class="keywords-hide-common" for="keywordsHideCommon">
-                        <input type="checkbox" id="keywordsHideCommon">
-                        Hide common words
-                    </label>
                 </div>
-                <div class="keywords-word-list" id="keywordsWordList"></div>
-                <div class="keywords-card" id="keywordsDefinition" hidden></div>
+                <div class="keywords-files" id="keywordsFiles"></div>
+                <div class="keywords-folders" id="keywordsFolders">
+                    <p class="keywords-empty">Save a word from Quick Save Text or from a clip. Saved words stay here.</p>
+                </div>
             </div>
         </section>
 
@@ -12731,10 +12737,10 @@
                         <div class="ai-lab-title-model-picker" id="aiLabTitleModelPicker" title="AI model">
                             <label class="ai-lab-title-model-label" for="aiLabTitleModelSelect">Model</label>
                             <select class="ai-lab-title-model-select" id="aiLabTitleModelSelect" aria-label="Select AI model">
-                                <option value="gpt-4o">GPT-4o</option>
-                                <option value="claude-haiku-4-5">Haiku 4.5</option>
-                                <option value="gpt-5.2">GPT-5.2</option>
-                                <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+                                <option value="muse-spark-1.3">Muse Spark 1.3</option>
+                                <option value="claude-haiku-5-5">Haiku 5.5</option>
+                                <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
+                                <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
                             </select>
                         </div>
                         <div
@@ -14123,6 +14129,9 @@ Multiple clips are separated by:
                             <strong>Clips:</strong> Your clipboard hub — view, paste, edit, delete, categorize, multi-select, and open the clip viewer.
                         </div>
                         <div class="help-item">
+                            <strong>Keywords:</strong> English words pulled from saved text, with dictionary meanings you can keep in files and folders.
+                        </div>
+                        <div class="help-item">
                             <strong>Search:</strong> Find clips by text, keywords, or category across your full history.
                         </div>
                         <div class="help-item">
@@ -14164,6 +14173,49 @@ Multiple clips are separated by:
                         </div>
                         <div class="help-item">
                             <strong>Manual input:</strong> Create a clip by typing or pasting without copying from a page first.
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <h4><i data-lucide="book-open"></i> Keywords</h4>
+                        <div class="help-item">
+                            <strong>Purpose:</strong> PasteCraft reads the English words in text you save, looks up what they mean, and lets you keep the ones you want. Saved words live on the <strong>Keywords</strong> tab.
+                        </div>
+                        <div class="help-item">
+                            <strong>Where it shows up:</strong>
+                            <ul>
+                                <li><strong>Quick Save Text:</strong> After you save text, a Keywords panel opens under the composer with the words from that text.</li>
+                                <li><strong>Clip Viewer:</strong> Opening a clip shows the same panel for that clip’s text.</li>
+                                <li><strong>Keywords tab:</strong> Your library of words you chose to keep, arranged in files and folders.</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>How to look up a word:</strong>
+                            <ul>
+                                <li>Click one word to see its meaning.</li>
+                                <li>Click more words (up to 8) to look up the phrase they make. Shift-click selects a range between two words.</li>
+                                <li><strong>Hide common words</strong> drops words like the, and, and of so the useful ones stand out.</li>
+                                <li>Wait until the meaning appears, then use <strong>Save keyword</strong>. If lookup fails, try the word again.</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>How meanings work:</strong> English words only (letters, apostrophes, and hyphens). Repeated words are listed once. Meanings come from the Free Dictionary, then Wiktionary when the first source has no entry. A phrase with no single dictionary entry shows the closest sense of each main word. Grammar words in a phrase are noted separately.
+                        </div>
+                        <div class="help-item">
+                            <strong>How saving works:</strong> New words go into the folder marked <strong>New words go here</strong>. Use <strong>Save new words here</strong> on another folder to change that target. A word you already saved stays in its current folder. The toast tells you where it landed.
+                        </div>
+                        <div class="help-item">
+                            <strong>Files and folders:</strong>
+                            <ul>
+                                <li>Files are the tabs at the top (up to 12). Folders sit inside the open file (up to 24 per file).</li>
+                                <li>Everyone starts with the file <strong>Saved</strong> and the folder <strong>All words</strong>.</li>
+                                <li>Create, rename, or delete a file or folder from the Keywords tab. Deleting a file moves its words to <strong>Saved / All words</strong>. Deleting a folder moves its words to another folder in that file. Deleting a word removes only that word.</li>
+                                <li>Open a saved word to read its meaning, <strong>Move to folder</strong>, or <strong>Delete word</strong>.</li>
+                                <li>Search files, folders, or words. Lists page through 5 files, 4 folders, and 12 words at a time.</li>
+                            </ul>
+                        </div>
+                        <div class="help-item">
+                            <strong>Limits and storage:</strong> You can keep up to 200 saved words. They stay on this device in local storage. They do not cloud-sync with clips, and they are not included in clip export or import. Clearing extension data removes them.
                         </div>
                     </div>
 
@@ -14385,6 +14437,7 @@ Multiple clips are separated by:
                         <div class="help-item">• Prefer cheap AI presets for daily study to stretch credits</div>
                         <div class="help-item">• Sign in + Basic/Premium for durable cloud sync; freemium is local-only — export backups</div>
                         <div class="help-item">• Open Capture Tools from the page widget for Spot and Image → Text</div>
+                        <div class="help-item">• Save a word from Quick Save or a clip, then reopen it anytime from the Keywords tab</div>
                     </div>
                 </div>
                 <div class="modal-actions">

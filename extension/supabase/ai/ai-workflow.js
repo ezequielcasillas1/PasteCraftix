@@ -11,6 +11,7 @@ _normalizeAiWorkflow(raw) {
     'deepseek',
     'alibaba',
     'inclusionai',
+    'meta',
   ]);
   const presetsByProvider = {
     openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
@@ -20,8 +21,10 @@ _normalizeAiWorkflow(raw) {
       'gemini_pro',
       'latest',
       'gemini_37_flash',
+      'gemini_38_flash',
       'gemini_35_flash_lite',
     ]),
+    meta: new Set(['default', 'muse13']),
     anthropic: new Set(['default']),
     deepseek: new Set(['default', 'cheapest', 'deepseek_v41_flash']),
     alibaba: new Set(['default', 'qwen_flash']),
@@ -30,11 +33,18 @@ _normalizeAiWorkflow(raw) {
 
   const obj = (raw && typeof raw === 'object') ? raw : {};
   const enabled = obj.enabled === true;
-  const provider = allowedProviders.has(String(obj.provider || 'openai')) ? String(obj.provider || 'openai') : 'openai';
+  const presetAliases = {
+    gemini_36_flash: 'gemini_38_flash',
+    gemini_37_flash: 'gemini_38_flash',
+    deepseek_v4_flash: 'deepseek_v41_flash',
+  };
+  let provider = allowedProviders.has(String(obj.provider || 'openai')) ? String(obj.provider || 'openai') : 'openai';
+  let storedPreset = presetAliases[String(obj.preset || '')] || String(obj.preset || 'default');
+  if (provider === 'openai' && storedPreset === 'gpt4o') {
+    provider = 'meta';
+    storedPreset = 'muse13';
+  }
   const allowedPresets = presetsByProvider[provider] || presetsByProvider.openai;
-  // Backward-compat aliases for stored workflows from before the Sep 2026 cheap-model refresh.
-  const presetAliases = { gemini_36_flash: 'gemini_37_flash', deepseek_v4_flash: 'deepseek_v41_flash' };
-  const storedPreset = presetAliases[String(obj.preset || '')] || String(obj.preset || 'default');
   const preset = allowedPresets.has(storedPreset) ? storedPreset : 'default';
   const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
   return { enabled, provider, preset, updatedAt };

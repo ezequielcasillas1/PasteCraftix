@@ -250,9 +250,10 @@ export function registerSharedModalEvents(app) {
     const clipViewerModal = document.getElementById('clipViewerModal');
     if (clipViewerModal) {
       clipViewerModal.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'clipViewerModal') {
-          app.hideClipViewerModal();
-        }
+        if (!(e.target && e.target.id === 'clipViewerModal')) return;
+        // Dragging/highlighting text must not dismiss the viewer.
+        if (app.clipsFeature?.viewer?.shouldIgnoreClipViewerPointerAction?.(app)) return;
+        app.hideClipViewerModal();
       });
     }
 }

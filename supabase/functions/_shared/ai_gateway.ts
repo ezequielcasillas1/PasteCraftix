@@ -13,9 +13,9 @@ const GATEWAY_KEY_ALIASES = [
 ] as const
 
 /** Bare Anthropic model id used by native Messages API. */
-export const ANTHROPIC_HAIKU_BARE = 'claude-haiku-4-5'
+export const ANTHROPIC_HAIKU_BARE = 'claude-haiku-5-5'
 /** Gateway catalog slug (dot version). */
-export const ANTHROPIC_HAIKU_GATEWAY = 'anthropic/claude-haiku-4.5'
+export const ANTHROPIC_HAIKU_GATEWAY = 'anthropic/claude-haiku-5.5'
 
 export function peekAiGatewayKey(): string {
   for (const name of GATEWAY_KEY_ALIASES) {
@@ -38,8 +38,8 @@ export function toGatewayModelId(provider: string, bareModel: string): string {
   if (raw.includes('/')) return raw
 
   let model = raw
-  if (provider === 'anthropic' && model === ANTHROPIC_HAIKU_BARE) {
-    model = 'claude-haiku-4.5'
+  if (provider === 'anthropic' && (model === 'claude-haiku-5-5' || model === 'claude-haiku-4-5')) {
+    model = model === 'claude-haiku-5-5' ? 'claude-haiku-5.5' : 'claude-haiku-4.5'
   }
 
   const prefix =
@@ -53,7 +53,9 @@ export function toGatewayModelId(provider: string, bareModel: string): string {
             ? 'alibaba'
             : provider === 'inclusionai'
               ? 'inclusionai'
-              : 'openai'
+              : provider === 'meta'
+                ? 'meta'
+                : 'openai'
 
   return `${prefix}/${model}`
 }

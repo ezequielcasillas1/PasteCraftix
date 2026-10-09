@@ -66,8 +66,9 @@ function googleFallbackChain(model: string): string[] {
 }
 
 const OPENAI_FALLBACK_CHAINS: Record<string, string[]> = {
-  'gpt-5.4': ['gpt-5.4', 'gpt-5.2', 'gpt-4o-mini'],
-  'gpt-5.2': ['gpt-5.2', 'gpt-5', 'gpt-4o-mini'],
+  'gpt-5.6-terra': ['gpt-5.6-terra', 'gpt-5.4', 'gpt-4o-mini'],
+  'gpt-5.4': ['gpt-5.4', 'gpt-5.6-terra', 'gpt-4o-mini'],
+  'gpt-5.2': ['gpt-5.6-terra', 'gpt-5.4', 'gpt-4o-mini'],
   'gpt-5-mini': ['gpt-5-mini', 'gpt-5', 'gpt-4o-mini'],
   'gpt-5-nano': ['gpt-5-nano', 'gpt-5-mini', 'gpt-4o-mini'],
   'gpt-5.6-luna': ['gpt-5.6-luna', 'gpt-5-nano', 'gpt-4o-mini'],
@@ -87,6 +88,7 @@ function bareFallbackChain(bare: string, provider: AiWorkflowProvider): string[]
   if (provider === 'alibaba') return [bare || 'qwen3.8-flash']
   if (provider === 'inclusionai') return [bare || 'ling-3.0-flash']
   if (provider === 'anthropic') return [bare || CLAUDE_HAIKU_MODEL]
+  if (provider === 'meta') return [bare || 'muse-spark-1.3']
   return openAiFallbackChain(bare)
 }
 

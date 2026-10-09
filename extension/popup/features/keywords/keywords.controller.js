@@ -1,17 +1,20 @@
-/** Keywords facade. Clips calls sendText; definitions stay behind the dictionary port. */
+/** Keywords facade. Review stays on Quick Save and clips. The page keeps saved words. */
 
-import { activatePopupTab } from '../app/popup.tab-lifecycle.js';
 import {
   CLIP_VIEWER_KEYWORD_SELECTORS,
-  KEYWORD_SELECTORS,
   MAX_PHRASE_WORDS,
   PHRASE_LOOKUP_DELAY_MS,
+  QUICK_SAVE_KEYWORD_SELECTORS,
 } from './keywords.constants.js';
+import { bankEntryFromLookup } from './keywords.bank.js';
 import { lookupEmphasis } from './keywords.dictionary.js';
 import { extractKeywords, selectedPhrase, toggleKeywordSelection, visibleKeywords } from './keywords.extract.js';
 import { createKeywordsEvents } from './keywords.events.js';
+import { describeKeywordPlace } from './keywords.library.js';
+import { createKeywordsPage } from './keywords.page.js';
 import { renderKeywordsPage } from './keywords.render.js';
 import { createKeywordsState } from './keywords.state.js';
+import { createKeywordStore } from './keywords.store.js';
 
 function rememberEntry(result) {
   if (result?.error) return { status: 'error', result };
@@ -32,16 +35,20 @@ function cancelScheduledLookup(state) {
 
 function revealHost(selectors) {
   const root = selectors.ROOT ? document.getElementById(selectors.ROOT) : null;
-  if (root) root.hidden = false;
+  if (root) {
+    root.hidden = false;
+    globalThis.window?.renderLucideIcons?.(root);
+  }
 }
 
-function sendKeywordsText(app, state, payload, selectors = KEYWORD_SELECTORS, options = {}) {
+function sendKeywordsText(app, state, payload, selectors, options = {}) {
   const text = payload?.text || '';
   const words = extractKeywords(text);
+  state.clipId = payload?.clipId ?? null;
   if (!words.length) {
-    if (!options.quietEmpty) app.showToast?.('No words to review');
+    if (!options.quietEmpty) app.showToast?.('No words to save');
     if (options.reveal) {
-      state.sourceLabel = String(payload?.sourceLabel || 'Clip text');
+      state.sourceLabel = String(payload?.sourceLabel || 'Saved text');
       state.words = [];
       state.selectedKeys = [];
       state.anchorKey = '';
@@ -56,7 +63,7 @@ function sendKeywordsText(app, state, payload, selectors = KEYWORD_SELECTORS, op
     return { ok: false, count: 0 };
   }
 
-  state.sourceLabel = String(payload?.sourceLabel || 'Clip text');
+  state.sourceLabel = String(payload?.sourceLabel || 'Saved text');
   state.words = words;
   state.selectedKeys = [];
   state.anchorKey = '';
@@ -67,10 +74,6 @@ function sendKeywordsText(app, state, payload, selectors = KEYWORD_SELECTORS, op
   cancelScheduledLookup(state);
   revealHost(selectors);
   renderKeywordsPage(app, state, selectors);
-  if (options.activateTab !== false) {
-    activatePopupTab(app, 'keywords', { source: 'keywords-send' });
-    app.showToast?.(`${words.length} word${words.length === 1 ? '' : 's'} ready`);
-  }
   return { ok: true, count: words.length };
 }
 
@@ -87,7 +90,7 @@ async function runLookup(app, state, phraseKey, seq, selectors) {
   renderKeywordsPage(app, state, selectors);
 }
 
-function lookupPhrase(app, state, selectors = KEYWORD_SELECTORS) {
+function lookupPhrase(app, state, selectors) {
   const phrase = phraseOf(state);
   state.phraseKey = phrase.key;
   state.phraseLabel = phrase.label;
@@ -116,7 +119,7 @@ function lookupPhrase(app, state, selectors = KEYWORD_SELECTORS) {
   });
 }
 
-function toggleKeyword(app, state, key, options = {}, selectors = KEYWORD_SELECTORS) {
+function toggleKeyword(app, state, key, options = {}, selectors) {
   const next = toggleKeywordSelection(state.words, state.selectedKeys, key, {
     extend: !!options.extend,
     anchor: state.anchorKey,
@@ -131,7 +134,7 @@ function toggleKeyword(app, state, key, options = {}, selectors = KEYWORD_SELECT
   return lookupPhrase(app, state, selectors);
 }
 
-function clearKeywords(app, state, selectors = KEYWORD_SELECTORS) {
+function clearKeywords(app, state, selectors) {
   cancelScheduledLookup(state);
   state.selectedKeys = [];
   state.anchorKey = '';
@@ -154,32 +157,95 @@ function resetReview(state) {
   state.anchorKey = '';
   state.phraseKey = '';
   state.phraseLabel = '';
+  state.clipId = null;
   state.entries = new Map();
   state.lookupSeq += 1;
 }
 
+function draftProblem(draft) {
+  if (!draft) return 'Click a word to see what it means.';
+  if (draft.pending) return 'Wait for the meaning, then save.';
+  if (draft.blocked) return 'Could not look this up. Try again.';
+  return '';
+}
+
 export function initKeywordsFeature(app) {
-  const state = createKeywordsState();
   const viewerState = createKeywordsState();
+  const quickSaveState = createKeywordsState();
+  const savedKeys = new Set();
+  const savedPlaces = new Map();
+  [viewerState, quickSaveState].forEach((state) => {
+    state.savedKeys = savedKeys;
+    state.savedPlaces = savedPlaces;
+  });
+
+  let page = null;
+  const store = createKeywordStore({
+    storage: globalThis.chrome?.storage?.local,
+    onChange: () => paintAll(),
+  });
+
+  function paintAll() {
+    const library = store.getLibrary();
+    savedKeys.clear();
+    savedPlaces.clear();
+    store.getBank().forEach((item) => {
+      savedKeys.add(item.key);
+      savedPlaces.set(item.key, describeKeywordPlace(library, item.folderId));
+    });
+    const target = describeKeywordPlace(library, library.selection?.folderId);
+    viewerState.saveTarget = target;
+    quickSaveState.saveTarget = target;
+    page?.render();
+    renderKeywordsPage(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
+    renderKeywordsPage(app, quickSaveState, QUICK_SAVE_KEYWORD_SELECTORS);
+  }
+
+  page = createKeywordsPage({ app, store });
+  store.ready.then((ok) => {
+    if (!ok) app.showToast?.('Could not load saved words.');
+  });
+
+  async function saveFrom(state) {
+    await store.ready;
+    const draft = bankEntryFromLookup(state);
+    const problem = draftProblem(draft);
+    if (problem) {
+      app.showToast?.(problem);
+      return { ok: false };
+    }
+    const ok = await store.saveWord(draft);
+    app.showToast?.(ok ? `Keyword saved to ${savedPlaces.get(draft.key) || state.saveTarget}` : 'Could not save this keyword.');
+    return { ok };
+  }
+
   const api = {
-    state,
-    sendText(payload) {
-      return sendKeywordsText(app, state, payload);
+    page,
+    state: page.state,
+    reviewState: quickSaveState,
+    getBank: () => store.getBank(),
+    getLibrary: () => store.getLibrary(),
+    reviewSavedText(payload) {
+      return sendKeywordsText(app, quickSaveState, payload, QUICK_SAVE_KEYWORD_SELECTORS, {
+        quietEmpty: true,
+        reveal: true,
+      });
     },
+    saveKeyword(scope) {
+      return saveFrom(scope === 'viewer' ? viewerState : quickSaveState);
+    },
+    removeKeyword: (key) => page.removeWord(key),
+    openKeyword: (key) => page.openWord(key),
+    render: () => page.render(),
     toggle(key, options) {
-      return toggleKeyword(app, state, key, options);
+      return toggleKeyword(app, quickSaveState, key, options, QUICK_SAVE_KEYWORD_SELECTORS);
     },
     clear() {
-      clearKeywords(app, state);
+      clearKeywords(app, quickSaveState, QUICK_SAVE_KEYWORD_SELECTORS);
     },
-    refresh() {
-      return lookupPhrase(app, state);
-    },
-    render() {
-      const phrase = phraseOf(state);
-      state.phraseKey = phrase.key;
-      state.phraseLabel = phrase.label;
-      renderKeywordsPage(app, state);
+    quickHideCommon(checked) {
+      quickSaveState.hideCommon = !!checked;
+      return lookupPhrase(app, quickSaveState, QUICK_SAVE_KEYWORD_SELECTORS);
     },
     reviewClip(clip) {
       const text = String(clip?.text || '');
@@ -187,8 +253,8 @@ export function initKeywordsFeature(app) {
       return sendKeywordsText(app, viewerState, {
         text,
         sourceLabel: label,
-        clips: [{ id: clip?.id, text, label }],
-      }, CLIP_VIEWER_KEYWORD_SELECTORS, { activateTab: false, quietEmpty: true, reveal: true });
+        clipId: clip?.id ?? null,
+      }, CLIP_VIEWER_KEYWORD_SELECTORS, { quietEmpty: true, reveal: true });
     },
     clearClipReview() {
       resetReview(viewerState);
@@ -207,5 +273,6 @@ export function initKeywordsFeature(app) {
     },
   };
   api.events = createKeywordsEvents(api);
+  paintAll();
   return api;
 }

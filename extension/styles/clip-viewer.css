@@ -171,6 +171,14 @@
   overflow: hidden;
 }
 
+.clip-viewer-body.clip-viewer-body--click-to-edit {
+  cursor: text;
+}
+
+.clip-viewer-body.clip-viewer-body--click-to-edit :is(a, button, [data-action]) {
+  cursor: pointer;
+}
+
 .clip-viewer-body .pc-rendered-content {
   padding: 18px;
 }

@@ -587,6 +587,88 @@ function bindClipViewerLinkHandler(app, bodyEl) {
   }
 }
 
+const CLIP_VIEWER_EDIT_STAY_SELECTORS =
+  '#clipViewerBody, #saveClipViewerEditBtn, #cancelClipViewerEditBtn';
+
+const CLIP_VIEWER_INTERACTIVE_SELECTORS =
+  'a, button, input, textarea, select, label, summary, [data-action], [contenteditable="true"]';
+
+const CLIP_VIEWER_DRAG_PX = 8;
+
+function noteClipViewerPointerDown(app, event) {
+  if (event.button != null && event.button !== 0) return;
+  const target = event.target;
+  const bodyEl = document.getElementById('clipViewerBody');
+  app._clipViewerPointerGesture = {
+    x: event.clientX,
+    y: event.clientY,
+    moved: false,
+    startedInBody: !!(bodyEl && target && bodyEl.contains(target)),
+  };
+}
+
+function noteClipViewerPointerMove(app, event) {
+  const gesture = app._clipViewerPointerGesture;
+  if (!gesture) return;
+  if (
+    Math.abs(event.clientX - gesture.x) > CLIP_VIEWER_DRAG_PX ||
+    Math.abs(event.clientY - gesture.y) > CLIP_VIEWER_DRAG_PX
+  ) {
+    gesture.moved = true;
+  }
+}
+
+/** Drag/highlight that started in the clip text box — do not toggle view/edit. */
+export function wasClipViewerDragSelect(app) {
+  const gesture = app?._clipViewerPointerGesture;
+  return !!(gesture?.startedInBody && gesture.moved);
+}
+
+/** Backdrop dismiss: ignore only a drag that began in the text box. */
+export function shouldIgnoreClipViewerPointerAction(app) {
+  return wasClipViewerDragSelect(app);
+}
+
+export function shouldExitClipViewerEdit(app, target) {
+  if (!app?._clipViewerEditing) return false;
+  if (!target?.closest) return false;
+  if (!target.closest('#clipViewerModal')) return false;
+  if (target.closest(CLIP_VIEWER_EDIT_STAY_SELECTORS)) return false;
+  if (wasClipViewerDragSelect(app)) return false;
+  return true;
+}
+
+function isClipViewerInteractiveTarget(target) {
+  return !!target?.closest?.(CLIP_VIEWER_INTERACTIVE_SELECTORS);
+}
+
+function bindClipViewerTextBoxInteraction(app, bodyEl) {
+  if (!bodyEl || app._clipViewerTextBoxInteractionBound) return;
+  app._clipViewerTextBoxInteractionBound = true;
+
+  bodyEl.classList.add('clip-viewer-body--click-to-edit');
+  if (!bodyEl.getAttribute('title')) {
+    bodyEl.setAttribute('title', 'Click to edit');
+  }
+
+  document.addEventListener('pointerdown', (event) => noteClipViewerPointerDown(app, event), true);
+  document.addEventListener('pointermove', (event) => noteClipViewerPointerMove(app, event), true);
+
+  bodyEl.addEventListener('click', (event) => {
+    if (app._clipViewerEditing) return;
+    if (!bodyEl.contains(event.target)) return;
+    if (isClipViewerInteractiveTarget(event.target)) return;
+    if (wasClipViewerDragSelect(app)) return;
+    event.stopPropagation();
+    enterEditMode(app);
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!shouldExitClipViewerEdit(app, event.target)) return;
+    cancelEdit(app);
+  });
+}
+
 function renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml) {
   if (!htmlDetails || !htmlPre) return;
   if (srcHtml) {
@@ -656,6 +738,7 @@ export async function open(app, clip, sourceContext = 'clips') {
   }
 
   bindClipViewerLinkHandler(app, bodyEl);
+  bindClipViewerTextBoxInteraction(app, bodyEl);
   bindStudyFormatToolbar(app);
   updateStudyToolbarPressed(text, 0, text.length);
   renderClipViewerSourceHtml(htmlDetails, htmlPre, srcHtml);

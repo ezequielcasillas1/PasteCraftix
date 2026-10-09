@@ -1,3 +1,27 @@
+.header .settings-btn.header-rate-btn [data-lucide="star"],
+.header .settings-btn.header-rate-btn svg.lucide {
+  color: #fbbf24;
+  fill: rgba(251, 191, 36, 0.35);
+  stroke: #f59e0b;
+}
+
+html[data-theme="light"] .header .settings-btn.header-rate-btn:hover,
+html[data-theme="light"] .header .settings-btn.header-rate-btn:focus-visible,
+[data-theme="blue"] .header .settings-btn.header-rate-btn:hover,
+[data-theme="blue"] .header .settings-btn.header-rate-btn:focus-visible {
+  background: rgba(251, 191, 36, 0.22);
+}
+
+.five-star-rating-incentive {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef9c3;
+  color: #713f12;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 html[data-theme="light"] .header > button.header-star-rating,
 [data-theme="blue"] .header > button.header-star-rating {
   position: absolute;

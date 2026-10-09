@@ -5,6 +5,7 @@ export type AiWorkflowPreset =
   | 'latest'
   | 'gpt4o'
   | 'gpt54'
+  | 'muse13'
   | 'gemini_pro'
   | 'gemini_37_flash'
   | 'gemini_35_flash_lite'
@@ -18,7 +19,8 @@ export type AiWorkflowProvider =
   | 'anthropic'
   | 'deepseek'
   | 'alibaba'
-  | 'inclusionai';
+  | 'inclusionai'
+  | 'meta';
 
 export type AiWorkflowConfig = {
   enabled?: boolean;
@@ -54,7 +56,7 @@ export type AuthenticatedUserGate = {
   supabase: any;
 };
 
-export const CLAUDE_HAIKU_MODEL = 'claude-haiku-4-5';
+export const CLAUDE_HAIKU_MODEL = 'claude-haiku-5-5';
 export const REFACTOR_OPENAI_FALLBACK_MODEL = 'gpt-4o';
 export const CLAUDE_FALLBACK_MODEL = CLAUDE_HAIKU_MODEL;
 
@@ -73,15 +75,17 @@ const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set([
   'deepseek',
   'alibaba',
   'inclusionai',
+  'meta',
 ]);
 
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
   openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
-  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_37_flash', 'gemini_35_flash_lite']),
+  google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_37_flash', 'gemini_38_flash', 'gemini_35_flash_lite']),
   anthropic: new Set(['default']),
   deepseek: new Set(['default', 'cheapest', 'deepseek_v41_flash']),
   alibaba: new Set(['default', 'qwen_flash']),
   inclusionai: new Set(['default', 'ling_flash']),
+  meta: new Set(['default', 'muse13']),
 };
 
 export function normalizeProvider(provider: unknown): AiWorkflowProvider {
@@ -91,7 +95,8 @@ export function normalizeProvider(provider: unknown): AiWorkflowProvider {
 
 /** Old preset keys → current keys (stored workflows keep resolving to the same lane). */
 const PRESET_ALIASES: Record<string, string> = {
-  gemini_36_flash: 'gemini_37_flash',
+  gemini_36_flash: 'gemini_38_flash',
+  gemini_37_flash: 'gemini_38_flash',
   deepseek_v4_flash: 'deepseek_v41_flash',
 };
 
@@ -110,7 +115,7 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     cheapest: 25,
     gpt5_mini: 200,
     latest: 500,
-    gpt4o: 80,
+    gpt4o: 40,
     gpt54: 500,
   },
   google: {
@@ -119,10 +124,15 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     gemini_pro: 350,
     latest: 100,
     gemini_37_flash: 40,
+    gemini_38_flash: 40,
     gemini_35_flash_lite: 25,
   },
   anthropic: {
+    default: 20,
+  },
+  meta: {
     default: 40,
+    muse13: 40,
   },
   deepseek: {
     default: 20,

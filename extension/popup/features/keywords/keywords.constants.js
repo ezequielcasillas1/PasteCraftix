@@ -2,12 +2,74 @@
 
 export const KEYWORD_SELECTORS = Object.freeze({
   TAB: 'keywordsTab',
-  SOURCE: 'keywordsSource',
-  HIDE_COMMON: 'keywordsHideCommon',
-  WORD_LIST: 'keywordsWordList',
-  DEFINITION: 'keywordsDefinition',
-  REVIEW_BTN: 'reviewKeywordsBtn',
-  BULK_SEND_BTN: 'bulkSendKeywordsBtn',
+  FILES: 'keywordsFiles',
+  FOLDERS: 'keywordsFolders',
+});
+
+/** Words from the latest Quick Save Text. Separate from the saved word bank. */
+export const QUICK_SAVE_KEYWORD_SELECTORS = Object.freeze({
+  ROOT: 'quickSaveKeywords',
+  TAB: 'quickSaveKeywords',
+  SOURCE: 'quickSaveKeywordsSource',
+  HIDE_COMMON: 'quickSaveKeywordsHideCommon',
+  WORD_LIST: 'quickSaveKeywordsWords',
+  DEFINITION: 'quickSaveKeywordsDefinition',
+});
+
+export const KEYWORD_COPY = Object.freeze({
+  PAGE_SUBTITLE: 'Keywords pick out the words in what you save and show what each word means.',
+  PAGE_EMPTY: 'Save a word from Quick Save Text or from a clip. Saved words stay here.',
+  FOLDER_EMPTY: 'No words here yet. Open a word in another folder and use Move to folder.',
+  FILES_LABEL: 'Files',
+  FOLDERS_IN: 'Folders in',
+  NEW_FILE: 'New file',
+  NEW_FOLDER: 'New folder',
+  RENAME_FILE: 'Rename file',
+  DELETE_FILE: 'Delete file',
+  RENAME_FOLDER: 'Rename folder',
+  DELETE_FOLDER: 'Delete folder',
+  TARGET_BADGE: 'New words go here',
+  SET_TARGET: 'Save new words here',
+  MOVE: 'Move to folder',
+  FORM_SAVE: 'Save',
+  FORM_CANCEL: 'Cancel',
+  DEFAULT_FILE: 'Saved',
+  DEFAULT_FOLDER: 'All words',
+  FIRST_FOLDER: 'Words',
+  TAB_TITLE: 'Saved words and what they mean',
+  REVIEW_HINT: 'Click a word to see what it means.',
+  OPEN_HINT: 'Click a word to see its meaning, move it, or delete it.',
+  SAVE: 'Save keyword',
+  SAVED: 'Saved',
+  SAVES_TO: 'Saves to',
+  SAVED_IN: 'Saved in',
+  REMOVE: 'Delete word',
+  SEARCH_FILES: 'Search files...',
+  SEARCH_FOLDERS: 'Search folders...',
+  SEARCH_KEYWORDS: 'Search keywords...',
+  NO_FILES_MATCH: 'No files match your search.',
+  NO_FOLDERS_MATCH: 'No folders match your search in this file.',
+  NO_WORDS_MATCH: 'No keywords match your search in this folder.',
+});
+
+export const KEYWORD_FORM_TITLES = Object.freeze({
+  'new-file': 'Name the new file',
+  'new-folder': 'Name the new folder',
+  'rename-file': 'Rename this file',
+  'rename-folder': 'Rename this folder',
+});
+
+export const KEYWORD_BANK_STORAGE_KEY = 'pastecraftKeywordBank';
+export const KEYWORD_LIBRARY_STORAGE_KEY = 'pastecraftKeywordLibrary';
+export const KEYWORD_BANK_LIMIT = 200;
+export const DEFAULT_KEYWORD_FILE_ID = 'kw-file-saved';
+export const DEFAULT_KEYWORD_FOLDER_ID = 'kw-folder-all';
+
+/** One screen of chips or cards. Further items stay on later pages; there is no file or folder ceiling. */
+export const KEYWORD_PAGINATION = Object.freeze({
+  FILES_PER_PAGE: 5,
+  FOLDERS_PER_PAGE: 4,
+  WORDS_PER_PAGE: 12,
 });
 
 /** Second mount inside the clip viewer. Same review, separate from the Keywords tab. */
@@ -23,6 +85,26 @@ export const CLIP_VIEWER_KEYWORD_SELECTORS = Object.freeze({
 export const KEYWORD_ACTIONS = Object.freeze({
   LOOKUP: 'keyword-lookup',
   CLEAR: 'keyword-clear',
+  SAVE: 'keyword-save',
+  REMOVE: 'keyword-remove',
+  OPEN: 'keyword-open',
+  VIEW_FILE: 'keyword-view-file',
+  TOGGLE_FOLDER: 'keyword-toggle-folder',
+  SET_TARGET: 'keyword-set-target',
+  NEW_FILE: 'keyword-new-file',
+  NEW_FOLDER: 'keyword-new-folder',
+  RENAME_FILE: 'keyword-rename-file',
+  RENAME_FOLDER: 'keyword-rename-folder',
+  DELETE_FILE: 'keyword-delete-file',
+  DELETE_FOLDER: 'keyword-delete-folder',
+  MOVE: 'keyword-move',
+  FORM_CANCEL: 'keyword-form-cancel',
+  FILE_PAGE: 'keyword-file-page',
+  FOLDER_PAGE: 'keyword-folder-page',
+  WORD_PAGE: 'keyword-word-page',
+  CLEAR_FILE_SEARCH: 'keyword-clear-file-search',
+  CLEAR_FOLDER_SEARCH: 'keyword-clear-folder-search',
+  CLEAR_WORD_SEARCH: 'keyword-clear-word-search',
 });
 
 export const DICTIONARY_SOURCES = Object.freeze({

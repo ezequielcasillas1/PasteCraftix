@@ -1,4 +1,29 @@
 
+### Oct 9, 2026 - AI Lab model refresh
+**Status:** PENDING SUCCESS
+**Files:** ai-lab.models.js, ai-lab.constants.js, ai_workflow.ts, ai_workflow_types.ts, ai_gateway.ts, ai-workflow.js, popup.html, ai-model-picker.test.mjs
+**Result:** Clip Forge is Muse Spark 1.3 (40 cr, was GPT-4o at 80). Apex is GPT-5.6 Terra (500 cr, was GPT-5.2). Quill is Haiku 5.5 (20 cr). Nexus is Gemini 3.8 Flash (same 40 cr). Luna, Ember, Beam, Silk, Pulse, and Summit stayed.
+
+### Oct 8, 2026 - Clip viewer click-to-edit text box
+**Status:** PENDING SUCCESS
+**Files:** clips.viewer.js, modals-shared.events.js, styles/clip-viewer.css, clip-viewer-edit-toggle.test.mjs
+**Result:** Click in text box → edit. Click Keywords/meta/chrome → original view box. Only a drag that started in the box stays in edit. Leftover selection no longer blocks exit.
+
+### Oct 8, 2026 - Keywords help in Settings
+**Status:** PENDING SUCCESS
+**Files:** extension/popup.html
+**Result:** Help & Information now explains Keywords: Quick Save and Clip Viewer lookup, phrases (up to 8), hide common words, files/folders, 200-word local-only storage.
+
+### Oct 8, 2026 - Keywords, folders, and files pagination & search system
+**Status:** PENDING SUCCESS
+**Files:** keywords.pagination.js (new), keywords.constants.js, keywords.state.js, keywords.library.render.js, keywords.page.js, keywords.events.js, keywords.css, keywords-pagination.test.mjs (new)
+**Result:** Added reusable pagination and live search bars across files, folders, and keywords. Case-insensitive filtering, auto-clamping, accessible ARIA pagination, and focus-preserving inputs. Implemented 5 best CRUD practices (reusability, reliability, secureness, accountability, accessibility).
+
+### Oct 8, 2026 - Keyword files and folders
+**Status:** PENDING SUCCESS
+**Files:** keywords.library.js, keywords.library.render.js, keywords.store.js, keywords.page.js, keywords.controller.js, keywords.render.js, keywords.events.js, keywords.css, popup.html, storage-migrations.js, keywords-library.test.mjs
+**Result:** Files as tabs, folders as expandable cards with word counts. "New words go here" badge marks the save target; each word card has Move to folder + Delete word. Inline name forms replace prompts. Existing words land in Saved / All words. Not user-verified yet.
+
 ### Sep 3, 2026 - Clip viewer character count (ported to live tree)
 **Status:** SUCCESS
 **Files:** clips.viewer-count.js (new), clips.viewer.js, clips.controller.js, popup.html, styles/clip-viewer.css

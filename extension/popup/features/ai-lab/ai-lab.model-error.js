@@ -63,7 +63,7 @@ export function formatModelNotCapableMessage(model) {
 
 export function getActiveShowcaseModel(app) {
   return resolveShowcaseModelFromWorkflow(app?.aiWorkflow)
-    || getShowcaseModelById('gpt-4o');
+    || getShowcaseModelById('muse-spark-1.3');
 }
 
 /** Known text-only / fragile models that cannot do vision / image analysis. */

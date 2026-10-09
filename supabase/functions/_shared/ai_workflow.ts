@@ -98,9 +98,9 @@ const OPENAI_PROVIDER: ProviderModelTable = {
   modelsByPreset: {
     cheapest: { chatTextModel: 'gpt-5.6-luna', chatVisionModel: 'gpt-5.6-luna' },
     gpt5_mini: { chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini' },
-    latest: { chatTextModel: 'gpt-5.2', chatVisionModel: 'gpt-5.2' },
+    latest: { chatTextModel: 'gpt-5.6-terra', chatVisionModel: 'gpt-5.6-terra' },
     gpt54: { chatTextModel: 'gpt-5.4', chatVisionModel: 'gpt-5.4' },
-    gpt4o: { chatTextModel: 'gpt-4o', chatVisionModel: 'gpt-4o' },
+    gpt4o: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
     default: { chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o' },
   },
 }
@@ -112,8 +112,9 @@ const GOOGLE_PROVIDER: ProviderModelTable = {
   modelsByPreset: {
     cheapest: { chatTextModel: 'gemini-2.5-flash-lite', chatVisionModel: 'gemini-2.5-flash-lite' },
     gemini_pro: { chatTextModel: 'gemini-2.5-pro-preview-05-06', chatVisionModel: 'gemini-2.5-pro-preview-05-06' },
-    latest: { chatTextModel: 'gemini-3.7-flash', chatVisionModel: 'gemini-3.7-flash' },
-    gemini_37_flash: { chatTextModel: 'gemini-3.7-flash', chatVisionModel: 'gemini-3.7-flash' },
+    latest: { chatTextModel: 'gemini-3.8-flash', chatVisionModel: 'gemini-3.8-flash' },
+    gemini_38_flash: { chatTextModel: 'gemini-3.8-flash', chatVisionModel: 'gemini-3.8-flash' },
+    gemini_37_flash: { chatTextModel: 'gemini-3.8-flash', chatVisionModel: 'gemini-3.8-flash' },
     gemini_35_flash_lite: { chatTextModel: 'gemini-3.5-flash-lite', chatVisionModel: 'gemini-3.5-flash-lite' },
     default: { chatTextModel: 'gemini-2.5-flash', chatVisionModel: 'gemini-2.5-flash' },
   },
@@ -137,6 +138,16 @@ const ALIBABA_PROVIDER: ProviderModelTable = {
   modelsByPreset: {
     qwen_flash: { chatTextModel: 'qwen3.8-flash', chatVisionModel: 'qwen3.8-flash' },
     default: { chatTextModel: 'qwen3.8-flash', chatVisionModel: 'qwen3.8-flash' },
+  },
+}
+
+const META_PROVIDER: ProviderModelTable = {
+  provider: 'meta',
+  apiBaseUrl: AI_GATEWAY_BASE_URL,
+  apiKeyEnv: AI_GATEWAY_KEY_ENV,
+  modelsByPreset: {
+    muse13: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
+    default: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
   },
 }
 
@@ -200,6 +211,9 @@ export function resolveModelsFromWorkflow(
   else if (provider === 'deepseek') resolved = resolveFromProviderTable(DEEPSEEK_PROVIDER, preset)
   else if (provider === 'alibaba') resolved = resolveFromProviderTable(ALIBABA_PROVIDER, preset)
   else if (provider === 'inclusionai') resolved = resolveFromProviderTable(INCLUSIONAI_PROVIDER, preset)
+  else if (provider === 'meta' || (provider === 'openai' && preset === 'gpt4o')) {
+    resolved = resolveFromProviderTable(META_PROVIDER, 'muse13')
+  }
   else resolved = resolveFromProviderTable(OPENAI_PROVIDER, preset)
 
   return applyGatewayRouting(resolved)

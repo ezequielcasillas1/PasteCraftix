@@ -109,7 +109,16 @@ export function registerClipsShellEvents(app) {
           app.updateCategoryFilter();
           app.updateManualInputCategories();
           app.showToast(`Saved to ${category}!`);
-          
+          if (manualInputBody && manualInputBody.style.display === 'none') {
+            manualInputBody.style.display = 'block';
+            manualInputToggle?.classList.add('active');
+          }
+          app.keywordsFeature?.reviewSavedText?.({
+            text,
+            sourceLabel: 'Quick Save',
+            clipId: newClip.id,
+          });
+
           // Clear textarea
           manualInputTextarea.value = '';
 

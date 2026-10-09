@@ -1,10 +1,10 @@
 import {
-  CHROME_WEB_STORE_REVIEWS_URL,
   FIVE_STAR_CLOSE_ACTION,
-  FIVE_STAR_RATE_LABEL,
+  FIVE_STAR_INCENTIVE_NOTE,
   FIVE_STAR_RATING_LEAD,
   FIVE_STAR_RATING_SECTIONS,
 } from './five-star-rating.constants.js';
+import { resolveStoreRateLabel, resolveStoreReviewsUrl } from './five-star-rating.open-store.js';
 
 function addParagraphs(doc, parent, paragraphs) {
   for (const text of paragraphs || []) {
@@ -63,7 +63,11 @@ export function createFiveStarRatingPanel(doc) {
   lead.className = 'five-star-rating-lead';
   lead.textContent = FIVE_STAR_RATING_LEAD;
 
-  form.append(header, lead);
+  const incentive = doc.createElement('p');
+  incentive.className = 'five-star-rating-incentive';
+  incentive.textContent = FIVE_STAR_INCENTIVE_NOTE;
+
+  form.append(header, lead, incentive);
 
   for (const section of FIVE_STAR_RATING_SECTIONS) {
     const block = doc.createElement('section');
@@ -78,14 +82,14 @@ export function createFiveStarRatingPanel(doc) {
 
   const destination = doc.createElement('p');
   destination.className = 'five-star-rating-url';
-  destination.textContent = CHROME_WEB_STORE_REVIEWS_URL;
+  destination.textContent = resolveStoreReviewsUrl();
   form.append(destination);
 
   const submit = doc.createElement('button');
   submit.type = 'submit';
   submit.className = 'five-star-rating-submit';
   submit.dataset.field = 'five-star-rating-submit';
-  submit.textContent = FIVE_STAR_RATE_LABEL;
+  submit.textContent = resolveStoreRateLabel();
   form.append(submit);
 
   panel.append(backdrop, form);

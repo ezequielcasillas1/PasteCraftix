@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
+import { removeKeywordFromBank, upsertKeyword } from '../extension/popup/features/keywords/keywords.bank.js';
+import { DEFAULT_KEYWORD_FILE_ID, DEFAULT_KEYWORD_FOLDER_ID, KEYWORD_BANK_LIMIT, KEYWORD_COPY } from '../extension/popup/features/keywords/keywords.constants.js';
 import { initKeywordsFeature } from '../extension/popup/features/keywords/keywords.controller.js';
 import {
   lookupEmphasis,
@@ -206,13 +208,16 @@ function installKeywordsDom() {
       dataset: {},
       classList: { add() {}, remove() {}, contains() { return false; } },
     };
+    if (id === 'quickSaveKeywords' || id === 'clipViewerKeywords') element.hidden = true;
     elements.set(id, element);
     return element;
   };
   [
-    'keywordsSource', 'keywordsWordList', 'keywordsDefinition', 'keywordsHideCommon', 'keywordsTab', 'clipsTab',
+    'keywordsSource', 'keywordsFiles', 'keywordsFolders', 'keywordsTab', 'clipsTab',
     'clipViewerKeywords', 'clipViewerKeywordsSource', 'clipViewerKeywordsHideCommon',
     'clipViewerKeywordsWords', 'clipViewerKeywordsDefinition',
+    'quickSaveKeywords', 'quickSaveKeywordsSource', 'quickSaveKeywordsHideCommon',
+    'quickSaveKeywordsWords', 'quickSaveKeywordsDefinition',
   ].forEach(make);
   const buttons = new Map([
     ['clips', { dataset: { tab: 'clips' }, classList: { add() {}, remove() {} } }],
@@ -234,7 +239,40 @@ function installKeywordsDom() {
   return elements;
 }
 
-test('sends clip text to the keywords page and defines a clicked word', async () => {
+test('keyword page copy does not name a dictionary or an api', () => {
+  const copy = Object.values(KEYWORD_COPY).join('\n');
+  assert.doesNotMatch(copy, /api/i);
+  assert.doesNotMatch(copy, /dictionary/i);
+});
+
+test('keeps one saved keyword and drops words past the bank limit', () => {
+  let bank = upsertKeyword([], {
+    key: 'idea',
+    text: 'idea',
+    kind: 'entry',
+    senses: [{ definition: 'a thought' }],
+  });
+  bank = upsertKeyword(bank, {
+    key: 'idea',
+    text: 'Idea',
+    kind: 'entry',
+    senses: [{ definition: 'a notion' }],
+  });
+  assert.equal(bank.length, 1);
+  assert.equal(bank[0].text, 'Idea');
+  assert.equal(bank[0].senses[0].definition, 'a notion');
+
+  for (let i = 0; i < KEYWORD_BANK_LIMIT + 5; i += 1) {
+    bank = upsertKeyword(bank, { key: `word${i}`, text: `word${i}`, kind: 'missing' });
+  }
+  assert.equal(bank.length, KEYWORD_BANK_LIMIT);
+  assert.equal(bank[0].key, `word${KEYWORD_BANK_LIMIT + 4}`);
+  assert.equal(bank.some((item) => item.key === 'idea'), false);
+  bank = removeKeywordFromBank(bank, bank[0].key);
+  assert.equal(bank.length, KEYWORD_BANK_LIMIT - 1);
+});
+
+test('saves a word from quick save into the keyword bank', async () => {
   const elements = installKeywordsDom();
   const toasts = [];
   const app = {
@@ -244,24 +282,25 @@ test('sends clip text to the keywords page and defines a clicked word', async ()
     updateHeaderClipCount() {},
   };
   const feature = initKeywordsFeature(app);
-  app.keywordsFeature = feature;
 
-  const empty = feature.sendText({ text: '123 !!!', sourceLabel: 'Draft' });
+  const empty = feature.reviewSavedText({ text: '123 !!!', sourceLabel: 'Quick Save' });
   assert.equal(empty.ok, false);
-  assert.equal(toasts.at(-1), 'No words to review');
+  assert.equal(elements.get('quickSaveKeywords').hidden, false);
+  assert.match(elements.get('quickSaveKeywordsWords').innerHTML, /no words to save/i);
 
-  const sent = feature.sendText({
+  const sent = feature.reviewSavedText({
     text: 'Ontology studies being. The idea of ontology returns.',
-    sourceLabel: 'Draft',
+    sourceLabel: 'Quick Save',
+    clipId: 'clip-9',
   });
   assert.equal(sent.ok, true);
-  assert.equal(app.currentTab, 'keywords');
-  assert.equal(feature.state.sourceLabel, 'Draft');
-  assert.deepEqual(feature.state.words.map((word) => word.key), [
+  assert.equal(app.currentTab, 'clips');
+  assert.deepEqual(feature.reviewState.words.map((word) => word.key), [
     'ontology', 'studies', 'being', 'the', 'idea', 'of', 'returns',
   ]);
-  assert.match(elements.get('keywordsWordList').innerHTML, /Ontology/);
-  assert.match(elements.get('keywordsSource').textContent, /Draft/);
+  assert.match(elements.get('quickSaveKeywordsWords').innerHTML, /Ontology/);
+  assert.match(elements.get('keywordsFolders').innerHTML, /Saved words stay here/);
+  assert.doesNotMatch(`${elements.get('keywordsFiles').innerHTML} ${elements.get('keywordsFolders').innerHTML}`, /dictionary|api/i);
 
   globalThis.fetch = async (url) => {
     if (String(url).includes('dictionaryapi.dev')) {
@@ -281,11 +320,61 @@ test('sends clip text to the keywords page and defines a clicked word', async ()
   };
 
   await feature.toggle('ontology');
-  const card = elements.get('keywordsDefinition').innerHTML;
-  assert.match(card, /the study of being/);
-  assert.match(card, /Free Dictionary API/);
-  assert.match(card, /Ontology is philosophical/);
-  assert.equal(feature.state.entries.get('ontology').status, 'ready');
+  const reviewCard = elements.get('quickSaveKeywordsDefinition').innerHTML;
+  assert.match(reviewCard, /the study of being/);
+  assert.match(reviewCard, /Save keyword/);
+  assert.match(reviewCard, /Saves to Saved \/ All words/);
+  assert.match(reviewCard, /Ontology is philosophical/);
+  assert.doesNotMatch(reviewCard, /dictionary|api/i);
+  assert.equal(feature.reviewState.entries.get('ontology').status, 'ready');
+
+  await feature.saveKeyword('quick');
+  assert.equal(toasts.at(-1), 'Keyword saved to Saved / All words');
+  assert.equal(feature.getBank().length, 1);
+  assert.equal(feature.getBank()[0].clipId, 'clip-9');
+  assert.equal(feature.getBank()[0].folderId, DEFAULT_KEYWORD_FOLDER_ID);
+  assert.match(elements.get('keywordsFiles').innerHTML, /Saved/);
+  assert.match(elements.get('keywordsFiles').innerHTML, /New file/);
+  const folders = elements.get('keywordsFolders').innerHTML;
+  assert.match(folders, /All words/);
+  assert.match(folders, /1 word</);
+  assert.match(folders, /New words go here/);
+  assert.match(folders, /Ontology/);
+  assert.match(elements.get('quickSaveKeywordsDefinition').innerHTML, /keywords-save is-saved/);
+  assert.match(elements.get('quickSaveKeywordsDefinition').innerHTML, /Saved in Saved \/ All words/);
+  assert.match(elements.get('quickSaveKeywordsWords').innerHTML, /is-saved/);
+
+  await feature.saveKeyword('quick');
+  assert.equal(feature.getBank().length, 1);
+
+  feature.openKeyword('ontology');
+  const bankCard = elements.get('keywordsFolders').innerHTML;
+  assert.match(bankCard, /the study of being/);
+  assert.match(bankCard, /From Quick Save/);
+  assert.match(bankCard, /Delete word/);
+  assert.doesNotMatch(bankCard, /dictionary|api/i);
+
+  await feature.page.startForm('new-folder', DEFAULT_KEYWORD_FILE_ID);
+  assert.match(elements.get('keywordsFolders').innerHTML, /Name the new folder/);
+  const created = await feature.page.submitForm('Philosophy');
+  assert.equal(created.ok, true);
+  assert.equal(feature.page.state.form, null);
+  assert.match(elements.get('keywordsFolders').innerHTML, /Philosophy/);
+  assert.match(elements.get('keywordsFolders').innerHTML, /Save new words here/);
+  assert.equal((await feature.page.submitForm('x')).ok, false);
+
+  await feature.page.moveWord('ontology', created.folderId);
+  assert.equal(feature.getBank()[0].folderId, created.folderId);
+  assert.match(toasts.at(-1), /Moved to Saved \/ Philosophy/);
+  assert.match(elements.get('keywordsFolders').innerHTML, /keywords-move/);
+
+  await feature.page.setTarget(created.folderId);
+  assert.equal(feature.getLibrary().selection.folderId, created.folderId);
+  assert.match(feature.reviewState.saveTarget, /Saved \/ Philosophy/);
+
+  await feature.removeKeyword('ontology');
+  assert.equal(feature.getBank().length, 0);
+  assert.match(elements.get('keywordsFolders').innerHTML, /Saved words stay here/);
 });
 
 test('joins selected words in the order they appear in the text', () => {
@@ -327,7 +416,7 @@ test('defines an ordinary phrase from the main sense of each word', async () => 
     updateHeaderClipCount() {},
   };
   const feature = initKeywordsFeature(app);
-  feature.sendText({ text: 'The Role of board', sourceLabel: 'Draft' });
+  feature.reviewSavedText({ text: 'The Role of board', sourceLabel: 'Quick Save' });
 
   globalThis.fetch = async (url) => {
     const leaf = decodeURIComponent(String(url).split('/').pop()).replace(/_/g, ' ');
@@ -348,22 +437,23 @@ test('defines an ordinary phrase from the main sense of each word', async () => 
     await feature.toggle(key);
   }
 
-  const card = elements.get('keywordsDefinition').innerHTML;
-  const chips = elements.get('keywordsWordList').innerHTML;
-  assert.equal(feature.state.phraseLabel, 'The Role of board');
+  const card = elements.get('quickSaveKeywordsDefinition').innerHTML;
+  const chips = elements.get('quickSaveKeywordsWords').innerHTML;
+  assert.equal(feature.reviewState.phraseLabel, 'The Role of board');
   assert.equal((chips.match(/is-selected/g) || []).length, 4);
   assert.match(card, /The Role of board/);
-  assert.match(card, /No single dictionary entry for this phrase/);
+  assert.match(card, /No single meaning for this phrase/);
+  assert.doesNotMatch(card, /dictionary|api/i);
   assert.match(card, /sense of role/);
   assert.match(card, /sense of board/);
   assert.match(card, /Grammar words in this phrase: The, of/);
 
   feature.clear();
-  assert.equal(feature.state.phraseKey, '');
-  assert.equal((elements.get('keywordsWordList').innerHTML.match(/is-selected/g) || []).length, 0);
+  assert.equal(feature.reviewState.phraseKey, '');
+  assert.equal((elements.get('quickSaveKeywordsWords').innerHTML.match(/is-selected/g) || []).length, 0);
 });
 
-test('reviews an open clip in the viewer', () => {
+test('reviews an open clip in the viewer and can save its word', async () => {
   const elements = installKeywordsDom();
   const app = {
     currentTab: 'clips',
@@ -378,8 +468,24 @@ test('reviews an open clip in the viewer', () => {
   assert.equal(app.currentTab, 'clips');
   assert.equal(elements.get('clipViewerKeywords').hidden, false);
   assert.match(elements.get('clipViewerKeywordsWords').innerHTML, /Marksman/);
-  assert.equal(feature.state.words.length, 0);
+  assert.equal(feature.getBank().length, 0);
+
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => [{
+      word: 'marksman',
+      meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'a person skilled in shooting' }] }],
+    }],
+  });
+  await feature.reviewToggle('marksman');
+  await feature.saveKeyword('viewer');
+  assert.equal(feature.getBank()[0].key, 'marksman');
+  assert.equal(feature.getBank()[0].sourceLabel, 'Marksman');
+  assert.match(elements.get('keywordsFolders').innerHTML, /Marksman/);
+  assert.match(elements.get('clipViewerKeywordsDefinition').innerHTML, /a person skilled in shooting/);
+  assert.doesNotMatch(elements.get('clipViewerKeywordsDefinition').innerHTML, /dictionary|api/i);
 
   feature.clearClipReview();
   assert.equal(elements.get('clipViewerKeywords').hidden, true);
+  assert.equal(feature.getBank().length, 1);
 });

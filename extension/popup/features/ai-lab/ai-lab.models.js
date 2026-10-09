@@ -30,64 +30,64 @@ function displayLabel(brandName, modelName) {
 /** @type {AiShowcaseModel[]} */
 export const AI_SHOWCASE_MODELS = [
   {
-    id: 'gpt-4o',
+    id: 'muse-spark-1.3',
     brandName: 'Clip Forge',
-    modelName: 'GPT-4o',
-    label: displayLabel('Clip Forge', 'GPT-4o'),
+    modelName: 'Muse Spark 1.3',
+    label: displayLabel('Clip Forge', 'Muse Spark 1.3'),
     shortLabel: 'Forge',
-    provider: 'openai',
-    preset: 'gpt4o',
-    gatewayModel: 'openai/gpt-4o',
+    provider: 'meta',
+    preset: 'muse13',
+    gatewayModel: 'meta/muse-spark-1.3',
     supportsVision: true,
     strength: 'Balanced polish · format + categorize',
     tagline: 'Everyday craft engine · reliable structure',
     description:
-      'Clip Forge · GPT-4o is PasteCraft’s balanced everyday engine. Strong at grammar polish, consistent formatting, and category suggestions without overthinking. Sees image clips when needed. Faster and cheaper than Apex Craft · GPT-5.2 while steadier than flash models for polished prose. Recommended for most workflows (~80 credits).',
+      'Clip Forge · Muse Spark 1.3 is PasteCraft’s balanced everyday engine. Strong at grammar polish, consistent formatting, and category suggestions without overthinking. Sees image clips when needed. Cheaper than the old GPT-4o slot and steadier than flash models for polished prose. Recommended for most workflows (~40 credits).',
   },
   {
-    id: 'claude-haiku-4-5',
+    id: 'claude-haiku-5-5',
     brandName: 'Quill Spark',
-    modelName: 'Haiku 4.5',
-    label: displayLabel('Quill Spark', 'Haiku 4.5'),
+    modelName: 'Haiku 5.5',
+    label: displayLabel('Quill Spark', 'Haiku 5.5'),
     shortLabel: 'Quill',
     provider: 'anthropic',
     preset: 'default',
-    gatewayModel: 'anthropic/claude-haiku-4.5',
-    supportsVision: false,
+    gatewayModel: 'anthropic/claude-haiku-5.5',
+    supportsVision: true,
     strength: 'Fast rewrite · refactor register shifts',
     tagline: 'Lightning rewrites · cheap text transforms',
     description:
-      'Quill Spark · Haiku 4.5 is PasteCraft’s fast rewrite engine. Text-first and ideal for Craft refactor levels, light polish, and high-volume text passes where latency and credits matter. Lower reasoning depth than Apex Craft on hard clips, but excellent for bulk rewrite batches (~40 credits).',
+      'Quill Spark · Haiku 5.5 is PasteCraft’s fast rewrite engine. Ideal for Craft refactor levels, light polish, and high-volume text passes where latency and credits matter. Lower reasoning depth than Apex Craft on hard clips, but excellent for bulk rewrite batches (~20 credits).',
   },
   {
-    id: 'gpt-5.2',
+    id: 'gpt-5.6-terra',
     brandName: 'Apex Craft',
-    modelName: 'GPT-5.2',
-    label: displayLabel('Apex Craft', 'GPT-5.2'),
+    modelName: 'GPT-5.6 Terra',
+    label: displayLabel('Apex Craft', 'GPT-5.6 Terra'),
     shortLabel: 'Apex',
     provider: 'openai',
     preset: 'latest',
-    gatewayModel: 'openai/gpt-5.2',
+    gatewayModel: 'openai/gpt-5.6-terra',
     supportsVision: true,
-    strength: 'Highest quality · hard clips · Super craft',
+    strength: 'Current flagship lane · hard clips · Super craft',
     tagline: 'Deep reasoning · Super craft quality',
     description:
-      'Apex Craft · GPT-5.2 is PasteCraft’s deepest showcase model. Stronger long-context judgment, tougher categorization, and careful multi-step formatting when cheaper models stumble. Premium cost (~500 credits) — reserve for Super craft, complex summaries, and messy mixed content.',
+      'Apex Craft · GPT-5.6 Terra replaces GPT-5.2 as PasteCraft’s current premium craft model. Stronger long-context judgment, tougher categorization, and careful multi-step formatting when cheaper models stumble. Premium cost (~500 credits) — reserve for Super craft, complex summaries, and messy mixed content.',
   },
   {
-    id: 'gemini-3.7-flash',
+    id: 'gemini-3.8-flash',
     brandName: 'Nexus Flash',
-    modelName: 'Gemini 3.7 Flash',
-    label: displayLabel('Nexus Flash', 'Gemini 3.7 Flash'),
+    modelName: 'Gemini 3.8 Flash',
+    label: displayLabel('Nexus Flash', 'Gemini 3.8 Flash'),
     shortLabel: 'Nexus',
     provider: 'google',
-    preset: 'gemini_37_flash',
-    gatewayModel: 'google/gemini-3.7-flash',
+    preset: 'gemini_38_flash',
+    gatewayModel: 'google/gemini-3.8-flash',
     supportsVision: true,
     strength: 'Fast multimodal · image + text batch',
     tagline: 'Image analysis · cheap multimodal batch',
     description:
-      'Nexus Flash · Gemini 3.7 Flash is PasteCraft’s multimodal speed model. Handles vision plus text quickly for OCR-style reads, screenshot context, and high-volume text batches. Excellent when throughput and credits matter (~40 credits).',
+      'Nexus Flash · Gemini 3.8 Flash is PasteCraft’s multimodal speed model. Same credit cost as Gemini 3.7 Flash, with the newer Flash generation. Handles vision plus text quickly for OCR-style reads, screenshot context, and high-volume text batches (~40 credits).',
   },
   {
     id: 'deepseek-v4.1-flash',
@@ -181,15 +181,24 @@ export const AI_SHOWCASE_MODELS = [
   },
 ];
 
-export const DEFAULT_SHOWCASE_MODEL_ID = 'gpt-4o';
+export const DEFAULT_SHOWCASE_MODEL_ID = 'muse-spark-1.3';
 
 export function getShowcaseModelById(id) {
   return AI_SHOWCASE_MODELS.find((m) => m.id === id) || null;
 }
 
 export function resolveShowcaseModelFromWorkflow(workflow) {
-  const provider = String(workflow?.provider || 'openai');
-  const preset = String(workflow?.preset || 'default');
+  let provider = String(workflow?.provider || 'openai');
+  let preset = String(workflow?.preset || 'default');
+  // Stored Clip Forge picks from before Muse Spark 1.3.
+  if (provider === 'openai' && preset === 'gpt4o') {
+    provider = 'meta';
+    preset = 'muse13';
+  }
+  // Stored Nexus picks from before Gemini 3.8 Flash.
+  if (provider === 'google' && preset === 'gemini_37_flash') {
+    preset = 'gemini_38_flash';
+  }
   const match = AI_SHOWCASE_MODELS.find(
     (m) => m.provider === provider && m.preset === preset,
   );

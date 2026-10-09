@@ -1,10 +1,28 @@
-import { CHROME_WEB_STORE_REVIEWS_URL } from './five-star-rating.constants.js';
+import {
+  CHROME_WEB_STORE_REVIEWS_URL,
+  EDGE_ADDONS_REVIEWS_URL,
+  FIVE_STAR_RATE_LABEL_CHROME,
+  FIVE_STAR_RATE_LABEL_EDGE,
+} from './five-star-rating.constants.js';
+
+export function isEdgeBrowser() {
+  const ua = globalThis.navigator?.userAgent || '';
+  return /Edg\//.test(ua);
+}
+
+export function resolveStoreReviewsUrl() {
+  return isEdgeBrowser() ? EDGE_ADDONS_REVIEWS_URL : CHROME_WEB_STORE_REVIEWS_URL;
+}
+
+export function resolveStoreRateLabel() {
+  return isEdgeBrowser() ? FIVE_STAR_RATE_LABEL_EDGE : FIVE_STAR_RATE_LABEL_CHROME;
+}
 
 /**
- * Edge adapter: open the Chrome Web Store reviews page.
+ * Open the correct store reviews/listing page for this browser.
  * Prefers chrome.tabs.create inside the extension popup.
  */
-export function openChromeWebStoreReviews(createTab, url = CHROME_WEB_STORE_REVIEWS_URL) {
+export function openChromeWebStoreReviews(createTab, url = resolveStoreReviewsUrl()) {
   if (typeof createTab === 'function') {
     createTab({ url, active: true });
     return 'tabs';

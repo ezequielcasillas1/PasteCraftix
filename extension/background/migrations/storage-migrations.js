@@ -3,14 +3,32 @@
  * See .cursor/rules/production-publishing-safety.mdc Sections D and E.
  */
 
+import { KEYWORD_BANK_STORAGE_KEY, KEYWORD_LIBRARY_STORAGE_KEY } from '../../popup/features/keywords/keywords.constants.js';
+import { ensureKeywordLibrary } from '../../popup/features/keywords/keywords.library.js';
 import { migrateClipImagesFromChromeStorage } from '../../shared/clip-images.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 4;
 export const SCHEMA_VERSION_KEY = '__schemaVersion';
 
 const migrations = {
   1: async () => {
     await migrateClipImagesFromChromeStorage();
+  },
+  2: async () => {
+    const stored = await chrome.storage.local.get(KEYWORD_BANK_STORAGE_KEY);
+    if (!Array.isArray(stored[KEYWORD_BANK_STORAGE_KEY])) {
+      await chrome.storage.local.set({ [KEYWORD_BANK_STORAGE_KEY]: [] });
+    }
+  },
+  3: async () => {
+    const stored = await chrome.storage.local.get([KEYWORD_BANK_STORAGE_KEY, KEYWORD_LIBRARY_STORAGE_KEY]);
+    const bank = Array.isArray(stored[KEYWORD_BANK_STORAGE_KEY]) ? stored[KEYWORD_BANK_STORAGE_KEY] : [];
+    const ensured = ensureKeywordLibrary(stored[KEYWORD_LIBRARY_STORAGE_KEY], bank);
+    if (!ensured.changed) return;
+    await chrome.storage.local.set({
+      [KEYWORD_BANK_STORAGE_KEY]: ensured.bank,
+      [KEYWORD_LIBRARY_STORAGE_KEY]: ensured.library,
+    });
   },
 };
 
