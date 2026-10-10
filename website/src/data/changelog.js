@@ -8,6 +8,54 @@ export const changelogIntro = {
 
 export const changelogReleases = [
   {
+    version: '3.0.49',
+    date: '2026-10-10',
+    title: 'Keyword destinations, study formats, and Grok 4.7',
+    stores: [
+      {
+        id: 'chrome',
+        status: 'pending',
+        label: 'Pending on the Chrome Web Store',
+        note: 'Package pastecraft-v3.0.49.zip ready to upload.',
+      },
+      {
+        id: 'edge',
+        status: 'pending',
+        label: 'Pending on Microsoft Edge Add-ons',
+        note: 'Same package as Chrome.',
+      },
+    ],
+    availability: 'Pending on the Chrome Web Store and Microsoft Edge Add-ons.',
+    highlights: [
+      'Move saved words between keyword files and folders',
+      'View Nerd Stats shows lookup limits without naming the dictionary source',
+      'Study formats stay in clip edit, with undo and an in-panel color picker',
+      'Summit Craft now uses Grok 4.7 (250 credits)',
+    ],
+  },
+  {
+    version: '3.0.46',
+    date: '2026-10-09',
+    title: 'Clip Viewer phrase lookup',
+    highlights: [
+      'Clip Viewer keywords start as one word',
+      'Activate phrase lets you build a lookup of up to 8 words',
+      'Turning phrase mode off keeps the last word',
+      'Quick Save still builds phrases without the extra toggle',
+    ],
+  },
+  {
+    version: '3.0.41',
+    date: '2026-10-09',
+    title: 'Keywords library, ratings, and AI Lab models',
+    highlights: [
+      'Keywords tab to review words from a clip',
+      'Files, folders, search, and pagination for saved words',
+      'Header star opens rate-and-share with store links',
+      'Clip Forge is Muse Spark 1.3, Apex is GPT-5.6 Terra, Quill is Haiku 5.5, Nexus is Gemini 3.8 Flash',
+    ],
+  },
+  {
     version: '3.0.40',
     date: '2026-08-22',
     title: 'Study lists and AI Lab reliability',
@@ -147,6 +195,16 @@ export const changelogReleases = [
 ];
 
 export const changelogEras = [
+  {
+    id: 'oct-2026',
+    title: 'October 2026',
+    summary: 'Keywords library, phrase lookup, study formats, and Summit Craft on Grok 4.7.',
+    highlights: [
+      '3.0.41 Keywords tab, files and folders, five-star header rating, and the AI Lab model refresh',
+      '3.0.46 Activate phrase in Clip Viewer; one word by default, up to 8 words when on',
+      '3.0.49 Move words between files and folders, study-format undo and color picker, Summit Craft on Grok 4.7',
+    ],
+  },
   {
     id: 'aug-2026',
     title: 'August 2026',

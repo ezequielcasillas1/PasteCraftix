@@ -6,6 +6,36 @@
 
 ---
 
+## Release: 2026-10-10 (v3.0.49) - Keywords, study formats, Summit Craft
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.49` (previous local package `3.0.46`) |
+| Package | `releases/pastecraft-v3.0.49.zip` — same zip for Chrome and Edge |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Section I | Full checklist — manifest version bump only |
+
+### Store "What's new"
+
+```
+PasteCraft 3.0.49
+
+- Keywords: files, folders, phrase lookup, and nerd stats
+- Clip viewer study formats stay in edit, with undo and a color picker
+- Summit Craft now uses Grok 4.7
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, dictionary/wiki lookups, and Azure blob.
+```
+
+Deploy the AI gateway Edge Function before or with this upload so Summit Craft (`xai/grok-4.7`) resolves on the server.
+
+---
+
 ## Release: 2026-08-22 (v3.0.40) - Study lists + AI Lab reliability
 
 | Field | Value |

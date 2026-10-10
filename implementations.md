@@ -1,4 +1,14 @@
 
+### Oct 10, 2026 - Website changelog 3.0.41 / 3.0.46 / 3.0.49
+**Status:** PENDING SUCCESS
+**Files:** website/src/data/changelog.js
+**Result:** Public notes for 3.0.41, 3.0.46, and 3.0.49. No 3.0.42–3.0.44 commits. 3.0.45 was a manifest-only bump.
+
+### Oct 10, 2026 - Production package v3.0.49
+**Status:** PENDING SUCCESS
+**Files:** extension/manifest.json, docs/publishing/EXTENSION_UPDATE_PROTOCOL.md, releases/pastecraft-v3.0.49.zip
+**Result:** Bump 3.0.46 → 3.0.49 for Chrome Web Store upload. Same zip for Edge. No `"key"` field. Store approval still pending.
+
 ### Oct 10, 2026 - Summit Craft Grok 4.7
 **Status:** PENDING SUCCESS
 **Files:** ai-lab.models.js, ai-lab.constants.js, ai-lab.credits.js, ai-workflow.js, ai_workflow.ts, ai_workflow_types.ts, ai_gateway.ts, ai-model-picker.test.mjs
