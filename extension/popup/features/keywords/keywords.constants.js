@@ -2,8 +2,11 @@
 
 export const KEYWORD_SELECTORS = Object.freeze({
   TAB: 'keywordsTab',
+  SOURCE: 'keywordsSource',
   FILES: 'keywordsFiles',
   FOLDERS: 'keywordsFolders',
+  LEARN_TOGGLE: 'keywordsLearnToggle',
+  LEARN: 'keywordsLearn',
   NERD_TOGGLE: 'keywordsNerdToggle',
   NERD_PANEL: 'keywordsNerdStats',
 });
@@ -83,6 +86,21 @@ export const KEYWORD_COPY = Object.freeze({
   NERD_TIMEOUT: 'Lookup wait',
   NERD_CACHE: 'This session',
   NERD_SELECTED: 'Words selected',
+  LEARN: 'Learn',
+  LEARN_SUBTITLE: 'Fields, trades, and certificates PasteCraft can explain.',
+  LEARN_SEARCH: 'Search subjects and keywords...',
+  LEARN_EMPTY: 'Nothing in this group matches your search.',
+  LEARN_OPEN_HINT: 'Open a keyword to read its summary.',
+  LEARN_SUBJECT_HINT: 'Open a subject to see its keywords.',
+  LEARN_BACK: 'Back to subjects',
+  LEARN_IN: 'Keywords in',
+  LEARN_KEYWORD_EMPTY: 'No keywords in this subject match your search.',
+  LEARN_LOADING: 'Looking up this summary...',
+  LEARN_MISSING: 'No summary for this title.',
+  LEARN_ERROR: 'Could not reach Wikipedia. Try again.',
+  LEARN_SAVE: 'Save keyword',
+  LEARN_CREDIT: 'Wikipedia, CC BY-SA',
+  LEARN_ARTICLE: 'Wikipedia article',
 });
 
 export const KEYWORD_FORM_TITLES = Object.freeze({
@@ -103,6 +121,7 @@ export const KEYWORD_PAGINATION = Object.freeze({
   FILES_PER_PAGE: 5,
   FOLDERS_PER_PAGE: 4,
   WORDS_PER_PAGE: 12,
+  LEARN_PER_PAGE: 12,
   MOVE_FOLDERS_PER_PAGE: 6,
 });
 
@@ -148,6 +167,14 @@ export const KEYWORD_ACTIONS = Object.freeze({
   CLEAR_WORD_SEARCH: 'keyword-clear-word-search',
   NERD_STATS: 'keyword-nerd-stats',
   GUIDE: 'keyword-guide',
+  LEARN: 'keyword-learn',
+  LEARN_GROUP: 'keyword-learn-group',
+  LEARN_PAGE: 'keyword-learn-page',
+  LEARN_SUBJECT: 'keyword-learn-subject',
+  LEARN_BACK: 'keyword-learn-back',
+  LEARN_OPEN: 'keyword-learn-open',
+  LEARN_SAVE: 'keyword-learn-save',
+  CLEAR_LEARN_SEARCH: 'keyword-clear-learn-search',
 });
 
 export const DICTIONARY_SOURCES = Object.freeze({
@@ -164,75 +191,6 @@ export const DICTIONARY_ATTRIBUTION = Object.freeze({
   [DICTIONARY_SOURCES.FREE]: 'Free Dictionary API',
   [DICTIONARY_SOURCES.WIKTIONARY]: 'Wiktionary, CC BY-SA',
   [DICTIONARY_SOURCES.WIKIPEDIA]: 'Wikipedia, CC BY-SA',
-});
-
-/**
- * Study-sector keywords → Wikipedia article titles.
- * Used when word dictionaries misread majors (e.g. premed → premedication).
- */
-export const STUDY_SECTOR_ALIASES = Object.freeze({
-  'pre-med': 'Pre-medical',
-  premed: 'Pre-medical',
-  'pre medical': 'Pre-medical',
-  'pre-medical': 'Pre-medical',
-  'pre-law': 'Pre-law',
-  prelaw: 'Pre-law',
-  'pre-dental': 'Pre-dental',
-  predental: 'Pre-dental',
-  'pre-pharmacy': 'Pharmacy',
-  'computer science': 'Computer science',
-  'software engineering': 'Software engineering',
-  'information technology': 'Information technology',
-  'data science': 'Data science',
-  cybersecurity: 'Computer security',
-  'computer security': 'Computer security',
-  'artificial intelligence': 'Artificial intelligence',
-  'machine learning': 'Machine learning',
-  biology: 'Biology',
-  'molecular biology': 'Molecular biology',
-  'cell biology': 'Cell biology',
-  microbiology: 'Microbiology',
-  biochemistry: 'Biochemistry',
-  biophysics: 'Biophysics',
-  biotechnology: 'Biotechnology',
-  genetics: 'Genetics',
-  neuroscience: 'Neuroscience',
-  chemistry: 'Chemistry',
-  physics: 'Physics',
-  mathematics: 'Mathematics',
-  statistics: 'Statistics',
-  engineering: 'Engineering',
-  'mechanical engineering': 'Mechanical engineering',
-  'electrical engineering': 'Electrical engineering',
-  'civil engineering': 'Civil engineering',
-  'chemical engineering': 'Chemical engineering',
-  'biomedical engineering': 'Biomedical engineering',
-  'industrial engineering': 'Industrial engineering',
-  'aerospace engineering': 'Aerospace engineering',
-  medicine: 'Medicine',
-  nursing: 'Nursing',
-  pharmacy: 'Pharmacy',
-  dentistry: 'Dentistry',
-  'public health': 'Public health',
-  psychology: 'Psychology',
-  sociology: 'Sociology',
-  anthropology: 'Anthropology',
-  economics: 'Economics',
-  'political science': 'Political science',
-  'business administration': 'Business administration',
-  accounting: 'Accounting',
-  finance: 'Finance',
-  marketing: 'Marketing',
-  architecture: 'Architecture',
-  education: 'Education',
-  journalism: 'Journalism',
-  linguistics: 'Linguistics',
-  philosophy: 'Philosophy',
-  history: 'History',
-  'environmental science': 'Environmental science',
-  'earth science': 'Earth science',
-  astronomy: 'Astronomy',
-  geology: 'Geology',
 });
 
 export const MAX_SENSES = 4;

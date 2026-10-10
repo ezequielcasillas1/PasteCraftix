@@ -7,10 +7,10 @@ import {
   LOOKUP_TIMEOUT_MS,
   MAX_SENSES,
   STORED_SENSES,
-  STUDY_SECTOR_ALIASES,
   WIKIPEDIA_SUMMARY_ENDPOINT,
   WIKTIONARY_ENDPOINT,
 } from './keywords.constants.js';
+import { STUDY_SECTOR_ALIASES } from './keywords.study-sectors.js';
 
 function emptyResult() {
   return { found: false, error: false };
@@ -188,6 +188,24 @@ function wikipediaUrl(title) {
   return `${WIKIPEDIA_SUMMARY_ENDPOINT}${encodeURIComponent(wikipediaTitle(title))}`;
 }
 
+function wikipediaArticleUrl(payload, title) {
+  const page = payload?.content_urls?.desktop?.page;
+  if (typeof page === 'string' && page.startsWith('https://en.wikipedia.org/')) return page;
+  const slug = String(title || '').trim().replace(/\s+/g, '_');
+  if (!slug) return '';
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(slug)}`;
+}
+
+/** Wikipedia summary for a known catalog title. Skips the word-dictionary chain. */
+export async function lookupStudyTitle(title, fetchImpl = globalThis.fetch) {
+  const name = String(title || '').trim();
+  if (!name || typeof fetchImpl !== 'function') return emptyResult();
+  const study = await lookupWikipedia(name, name, fetchImpl);
+  if (study.entry.found) return study.entry;
+  if (!study.responded) return { found: false, error: true };
+  return emptyResult();
+}
+
 export function normalizeWikipedia(payload, word) {
   if (!payload || typeof payload !== 'object') return emptyResult();
   if (payload.type === 'disambiguation') return emptyResult();
@@ -205,6 +223,7 @@ export function normalizeWikipedia(payload, word) {
     phonetic: '',
     source: DICTIONARY_SOURCES.WIKIPEDIA,
     attribution: DICTIONARY_ATTRIBUTION[DICTIONARY_SOURCES.WIKIPEDIA],
+    articleUrl: wikipediaArticleUrl(payload, stripHtml(payload.title) || word),
     senses: takeSenses([{
       partOfSpeech: 'field',
       definition,

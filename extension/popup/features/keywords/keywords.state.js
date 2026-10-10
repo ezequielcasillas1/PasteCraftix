@@ -40,5 +40,14 @@ export function createKeywordsPageState() {
     movePicker: { open: false, search: '', page: 0 },
     nerdStatsOpen: false,
     guideOpen: false,
+    learnOpen: false,
+    learnQuery: '',
+    learnGroup: 'majors',
+    learnSubject: '',
+    learnPage: 0,
+    learnOpenTitle: '',
+    learnEntry: null,
+    learnSeq: 0,
+    learnSearchTimer: 0,
   };
 }

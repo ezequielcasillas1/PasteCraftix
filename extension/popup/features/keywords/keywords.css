@@ -560,8 +560,10 @@
 
 .keywords-header-controls {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 8px;
   flex-shrink: 0;
   overflow: visible;
@@ -580,11 +582,60 @@
 }
 
 .keywords-nerd-toggle.is-on,
-.keywords-nerd-toggle[aria-expanded="true"] {
+.keywords-nerd-toggle[aria-expanded="true"],
+.keywords-learn-toggle[aria-pressed="true"] {
   border-style: solid;
   background: #0f172a;
   border-color: #0f172a;
   color: #f8fafc;
+}
+
+.keywords-learn {
+  margin-top: 10px;
+}
+
+.keywords-learn-subject {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.keywords-learn-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.keywords-learn-group {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.keywords-learn-group.is-on,
+.keywords-learn-group[aria-pressed="true"] {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #f8fafc;
+}
+
+.keywords-learn-credit {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.keywords-learn-credit a {
+  color: #1d4ed8;
 }
 
 .keywords-nerd-stats {
@@ -1068,10 +1119,24 @@
 }
 
 [data-theme="blue"] .keywords-nerd-toggle.is-on,
-[data-theme="blue"] .keywords-nerd-toggle[aria-expanded="true"] {
+[data-theme="blue"] .keywords-nerd-toggle[aria-expanded="true"],
+[data-theme="blue"] .keywords-learn-toggle[aria-pressed="true"],
+[data-theme="blue"] .keywords-learn-group.is-on,
+[data-theme="blue"] .keywords-learn-group[aria-pressed="true"] {
   background: var(--pc-accent, #2563eb);
   border-color: var(--pc-accent, #1d4ed8);
   color: #fff;
+}
+
+[data-theme="blue"] .keywords-learn-group {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: var(--pc-border);
+  color: var(--pc-secondary-100);
+}
+
+[data-theme="blue"] .keywords-learn-credit,
+[data-theme="blue"] .keywords-learn-credit a {
+  color: var(--pc-secondary-100);
 }
 
 [data-theme="blue"] .keywords-nerd-stats {

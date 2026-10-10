@@ -1,6 +1,9 @@
 /** Keywords page actions: pick a file, open folders, name things inline, move or delete words. */
 
-import { DEFAULT_KEYWORD_FILE_ID, KEYWORD_PAGINATION } from './keywords.constants.js';
+import { DEFAULT_KEYWORD_FILE_ID, KEYWORD_PAGINATION, PHRASE_LOOKUP_DELAY_MS } from './keywords.constants.js';
+import { askKeywordDestination } from './keywords.destination.js';
+import { lookupStudyTitle, lookupWord } from './keywords.dictionary.js';
+import { learnBankDraft, pickBestLearnKeyword } from './keywords.learn.js';
 import {
   addKeywordFile,
   addKeywordFolder,
@@ -50,6 +53,17 @@ export function createKeywordsPage({ app, store }) {
 
   function resetMovePicker() {
     page.movePicker = { open: false, search: '', page: 0 };
+  }
+
+  function closeLearnCard() {
+    page.learnOpenTitle = '';
+    page.learnEntry = null;
+    page.learnSeq += 1;
+  }
+
+  function clearLearnTimer() {
+    clearTimeout(page.learnSearchTimer);
+    page.learnSearchTimer = 0;
   }
 
   function render() {
@@ -247,6 +261,118 @@ export function createKeywordsPage({ app, store }) {
       page.movePicker.search = '';
       page.movePicker.page = 0;
       render();
+    },
+    toggleLearn() {
+      page.learnOpen = !page.learnOpen;
+      render();
+    },
+    setLearnGroup(groupId) {
+      const next = String(groupId || '');
+      if (!next || next === page.learnGroup) return;
+      page.learnGroup = next;
+      page.learnSubject = '';
+      page.learnQuery = '';
+      page.learnPage = 0;
+      clearLearnTimer();
+      closeLearnCard();
+      render();
+    },
+    setLearnSubject(title) {
+      const next = String(title || '').trim();
+      if (!next) return;
+      page.learnSubject = next;
+      page.learnQuery = '';
+      page.learnPage = 0;
+      clearLearnTimer();
+      closeLearnCard();
+      render();
+    },
+    clearLearnSubject() {
+      page.learnSubject = '';
+      page.learnQuery = '';
+      page.learnPage = 0;
+      clearLearnTimer();
+      closeLearnCard();
+      render();
+    },
+    setLearnSearch(query) {
+      const next = String(query ?? '');
+      page.learnQuery = next;
+      page.learnPage = 0;
+      clearLearnTimer();
+      closeLearnCard();
+      const seq = page.learnSeq;
+      render();
+      page.learnSearchTimer = setTimeout(() => {
+        if (page.learnQuery !== next || page.learnSeq !== seq) return;
+        const best = pickBestLearnKeyword(next, page.learnGroup, page.learnSubject);
+        if (best) this.openLearnTitle(best.title, { keepOpen: true });
+      }, PHRASE_LOOKUP_DELAY_MS);
+    },
+    setLearnPage(pageNum) {
+      page.learnPage = Math.max(0, Number(pageNum) || 0);
+      render();
+    },
+    clearLearnSearch() {
+      page.learnQuery = '';
+      page.learnPage = 0;
+      clearLearnTimer();
+      closeLearnCard();
+      render();
+    },
+    async openLearnTitle(title, options = {}) {
+      const next = String(title || '').trim();
+      if (!next) return;
+      if (page.learnOpenTitle === next) {
+        if (options.keepOpen) return;
+        closeLearnCard();
+        render();
+        return;
+      }
+      page.learnOpenTitle = next;
+      page.learnEntry = { status: 'loading' };
+      page.learnSeq += 1;
+      const seq = page.learnSeq;
+      render();
+      let entry;
+      try {
+        entry = await lookupStudyTitle(next);
+        if (!entry?.found && !entry?.error) entry = await lookupWord(next);
+      } catch {
+        entry = { found: false, error: true };
+      }
+      if (seq !== page.learnSeq || page.learnOpenTitle !== next) return;
+      page.learnEntry = entry?.found
+        ? { status: 'ready', entry }
+        : { status: entry?.error ? 'error' : 'missing', entry };
+      render();
+    },
+    async saveLearn() {
+      const entry = page.learnEntry?.status === 'ready' ? page.learnEntry.entry : null;
+      const draft = learnBankDraft(entry);
+      if (!draft) {
+        app.showToast?.('Wait for the summary, then save.');
+        return { ok: false };
+      }
+      const folderId = await askKeywordDestination({
+        library: store.getLibrary(),
+        bank: store.getBank(),
+        app,
+        label: draft.text || draft.key,
+        savedFolderId: store.getBank().find((item) => item.key === draft.key)?.folderId,
+        currentFolderId: store.getLibrary().selection?.folderId,
+        createFolder: async (fileId, name) => {
+          const result = await store.apply((library) => addKeywordFolder(library, fileId, name));
+          if (!result?.ok) return result;
+          return { ok: true, folderId: result.folderId, library: store.getLibrary(), bank: store.getBank() };
+        },
+        returnFocusTo: globalThis.document?.activeElement,
+      });
+      if (!folderId) return { ok: false };
+      const ok = await store.saveWord({ ...draft, folderId });
+      const place = describeKeywordPlace(store.getLibrary(), folderId);
+      app.showToast?.(ok ? `Keyword saved to ${place}` : 'Could not save this keyword.');
+      return { ok };
     },
   };
 }

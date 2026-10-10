@@ -1,3 +1,27 @@
+### 2026-10-10 - Learn catalogs for software, nonprofit, trades, continuing
+**Status:** SUCCESS
+**Files:** keywords.learn.software.js, keywords.learn.nonprofit.js, keywords.learn.trades.js, keywords.learn.continuing.js, keywords.study-sectors.js, tests/keywords-learn.test.mjs
+**Result:** All four groups now have written keyword lists like majors. Open a subject to see keywords, then open one for its Wikipedia summary. States stay subject-only. Ezequiel verified.
+### 2026-10-10 - Learn search defines CS keywords
+**Status:** PENDING VERIFY
+**Files:** keywords.learn.majors.js, keywords.learn.js, keywords.page.js, keywords.learn.render.js, tests/keywords-learn.test.mjs
+**Result:** Computer science keywords cover the degree structure. Searching append or binary shows the word and loads its definition.
+
+### 2026-10-10 - Learn keywords inside Majors
+**Status:** PENDING VERIFY
+**Files:** keywords.learn.majors.js, keywords.study-sectors.js, keywords.learn.js, keywords.learn.render.js, tests/keywords-learn.test.mjs
+**Result:** Each major has a written keyword list. Open the subject to see those keywords, then open a keyword for its Wikipedia summary. Other groups stay subject-only.
+
+### 2026-10-10 - Keywords Learn catalog
+**Status:** PENDING VERIFY
+**Files:** keywords.study-sectors.js, keywords.learn.js, keywords.learn.render.js, keywords.page.js, keywords.events.js, keywords.dictionary.js, popup.html, tests/keywords-learn.test.mjs
+**Result:** Learn button on the Keywords tab browses study groups locally and saves a Wikipedia summary into the word bank. No new tab.
+
+### 2026-10-10 - Keywords for software, nonprofit, trades, continuing education
+**Status:** PENDING VERIFY
+**Files:** keywords.study-sectors.js, keywords.dictionary.js, keywords.constants.js, tests/keywords-extract.test.mjs
+**Result:** Study lookup now maps software-engineering terms, nonprofit-management degree terms, blue-collar trades, and a continuing-education anchor for all 50 states to Wikipedia titles.
+
 ### 2026-10-10 - Help text matches current product
 **Status:** PENDING VERIFY
 **Files:** extension/popup.html

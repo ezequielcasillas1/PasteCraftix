@@ -18,6 +18,7 @@ import {
   renderPaginationControls,
   renderSearchBar,
 } from './keywords.pagination.js';
+import { renderLearnCatalog } from './keywords.learn.render.js';
 import { escapeHtml, paintNerdStats, renderStoredCard } from './keywords.render.js';
 
 function plural(count, word) {
@@ -304,6 +305,17 @@ function captureSearchFocus() {
   };
 }
 
+function paintLearnChrome(page) {
+  const button = document.getElementById(KEYWORD_SELECTORS.LEARN_TOGGLE);
+  const source = document.getElementById(KEYWORD_SELECTORS.SOURCE);
+  const open = !!page.learnOpen;
+  if (button) {
+    button.setAttribute('aria-pressed', open ? 'true' : 'false');
+    button.classList.toggle('is-on', open);
+  }
+  if (source) source.textContent = open ? KEYWORD_COPY.LEARN_SUBTITLE : KEYWORD_COPY.PAGE_SUBTITLE;
+}
+
 function restoreSearchFocus(focus) {
   if (!focus?.field) return;
   const target = globalThis.document?.querySelector?.(`[data-field="${focus.field}"]`);
@@ -328,8 +340,26 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
     kind: 'page',
     savedCount: items.length,
   });
+  paintLearnChrome(page);
 
   const prevFocus = captureSearchFocus();
+  const learnEl = document.getElementById(KEYWORD_SELECTORS.LEARN);
+  if (page.learnOpen && learnEl) {
+    filesEl.hidden = true;
+    foldersEl.hidden = true;
+    learnEl.hidden = false;
+    learnEl.innerHTML = renderLearnCatalog(app, page);
+    globalThis.window?.renderLucideIconsSync?.(learnEl);
+    restoreSearchFocus(prevFocus);
+    return;
+  }
+
+  filesEl.hidden = false;
+  foldersEl.hidden = false;
+  if (learnEl) {
+    learnEl.hidden = true;
+    learnEl.innerHTML = '';
+  }
 
   filesEl.innerHTML = renderFileBar(app, { library, counts, viewFile, form: page.form, page });
   foldersEl.innerHTML = renderFolderList(app, { library, bank: items, viewFile, page });

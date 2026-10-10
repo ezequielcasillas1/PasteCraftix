@@ -1,4 +1,9 @@
 
+### Oct 10, 2026 - Keywords Learn vast catalogs (software, nonprofit, trades, continuing-ed)
+**Status:** SUCCESS
+**Files:** keywords.learn.software.js, keywords.learn.nonprofit.js, keywords.learn.trades.js, keywords.learn.continuing.js, keywords.study-sectors.js, tests/keywords-learn.test.mjs, implementation.md
+**Result:** Added vast keyword catalogs for Software, Nonprofit, Trades, and Continuing Education study sectors with ~6-8 Wikipedia titles each. Wired into keywords.study-sectors.js KEYWORD_MAPS. States stay subject-only. 10/10 Learn tests and 24/24 Extract tests pass. Ezequiel verified.
+
 ### Sep 3, 2026 - Clip viewer character count
 **Status:** SUCCESS
 **Files:** clips.viewer-count.js, clips.viewer.js, clips.controller.js, popup.html, styles/clip-viewer.css, implementations.md, instructions/request.md

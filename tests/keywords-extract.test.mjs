@@ -14,6 +14,7 @@ import {
   selectEmphasisSenses,
 } from '../extension/popup/features/keywords/keywords.dictionary.js';
 import { extractKeywords, selectedPhrase, toggleKeywordSelection, visibleKeywords } from '../extension/popup/features/keywords/keywords.extract.js';
+import { CONTINUING_EDUCATION_STATES } from '../extension/popup/features/keywords/keywords.study-sectors.js';
 
 const originalDocument = globalThis.document;
 const originalWindow = globalThis.window;
@@ -202,6 +203,22 @@ test('maps study-sector aliases to Wikipedia titles', () => {
   assert.equal(resolveStudySectorTitle('premed'), 'Pre-medical');
   assert.equal(resolveStudySectorTitle('Computer Science'), 'Computer science');
   assert.equal(resolveStudySectorTitle('zzzx'), null);
+});
+
+test('maps software, nonprofit, trades, and state continuing education', () => {
+  assert.equal(resolveStudySectorTitle('devops'), 'DevOps');
+  assert.equal(resolveStudySectorTitle('software design pattern'), 'Software design pattern');
+  assert.equal(resolveStudySectorTitle('nonprofit management degree'), 'Nonprofit studies');
+  assert.equal(resolveStudySectorTitle('grant writing'), 'Grant writing');
+  assert.equal(resolveStudySectorTitle('blue collar'), 'Blue-collar worker');
+  assert.equal(resolveStudySectorTitle('CDL'), "Commercial driver's license");
+  assert.equal(resolveStudySectorTitle('continuing education'), 'Continuing education');
+  assert.equal(resolveStudySectorTitle('prior learning assessment'), 'Recognition of prior learning');
+  assert.equal(CONTINUING_EDUCATION_STATES.length, 50);
+  for (const [state, title] of CONTINUING_EDUCATION_STATES) {
+    assert.equal(resolveStudySectorTitle(`continuing education ${state}`), title);
+    assert.equal(resolveStudySectorTitle(`${state} community college`), title);
+  }
 });
 
 test('normalizes Wikipedia summary extracts for study fields', () => {

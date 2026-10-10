@@ -59,6 +59,14 @@ function pageActions(page) {
     [KEYWORD_ACTIONS.MOVE_PAGE]: (el) => page.setMovePickerPage(el.dataset.page),
     [KEYWORD_ACTIONS.CLEAR_MOVE_SEARCH]: () => page.clearMovePickerSearch(),
     [KEYWORD_ACTIONS.MOVE]: (el) => page.moveWord(el.dataset.word, el.dataset.folder),
+    [KEYWORD_ACTIONS.LEARN]: () => page.toggleLearn(),
+    [KEYWORD_ACTIONS.LEARN_GROUP]: (el) => page.setLearnGroup(el.dataset.group),
+    [KEYWORD_ACTIONS.LEARN_SUBJECT]: (el) => page.setLearnSubject(el.dataset.title),
+    [KEYWORD_ACTIONS.LEARN_BACK]: () => page.clearLearnSubject(),
+    [KEYWORD_ACTIONS.LEARN_PAGE]: (el) => page.setLearnPage(el.dataset.page),
+    [KEYWORD_ACTIONS.LEARN_OPEN]: (el) => page.openLearnTitle(el.dataset.title),
+    [KEYWORD_ACTIONS.LEARN_SAVE]: () => page.saveLearn(),
+    [KEYWORD_ACTIONS.CLEAR_LEARN_SEARCH]: () => page.clearLearnSearch(),
   };
 }
 
@@ -73,6 +81,7 @@ function bindPage(root, page) {
     else if (field === 'keyword-folder-search') page.setFolderSearch(input.value);
     else if (field === 'keyword-word-search') page.setWordSearch(input.value);
     else if (field === 'keyword-move-search') page.setMovePickerSearch(input.value);
+    else if (field === 'keyword-learn-search') page.setLearnSearch(input.value);
   });
   root.addEventListener('submit', (event) => {
     const form = elementOf(event.target)?.closest?.('form[data-form]');
@@ -107,6 +116,9 @@ function bindPage(root, page) {
       } else if (field === 'keyword-word-search') {
         event.preventDefault();
         page.clearWordSearch();
+      } else if (field === 'keyword-learn-search') {
+        event.preventDefault();
+        page.clearLearnSearch();
       }
     }
   });
