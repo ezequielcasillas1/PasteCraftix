@@ -71,7 +71,7 @@ export function createKeywordStore({ storage, onChange }) {
     async saveWord(draft) {
       await ready;
       const existing = bank.find((item) => item.key === draft.key);
-      const folderId = existing?.folderId || library.selection?.folderId || DEFAULT_KEYWORD_FOLDER_ID;
+      const folderId = draft.folderId || existing?.folderId || library.selection?.folderId || DEFAULT_KEYWORD_FOLDER_ID;
       return commit({ bank: upsertKeyword(bank, { ...draft, folderId }) });
     },
     async removeWord(key) {

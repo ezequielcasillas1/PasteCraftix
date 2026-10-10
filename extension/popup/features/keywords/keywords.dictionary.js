@@ -1,11 +1,14 @@
-/** Dictionary port: Free Dictionary API, then Wiktionary for English misses. */
+/** Dictionary port: Free Dictionary → Wiktionary → Wikipedia (study sectors). */
 
 import {
   DICTIONARY_ATTRIBUTION,
   DICTIONARY_SOURCES,
   FREE_DICTIONARY_ENDPOINT,
+  LOOKUP_TIMEOUT_MS,
   MAX_SENSES,
   STORED_SENSES,
+  STUDY_SECTOR_ALIASES,
+  WIKIPEDIA_SUMMARY_ENDPOINT,
   WIKTIONARY_ENDPOINT,
 } from './keywords.constants.js';
 
@@ -164,16 +167,70 @@ function dictionaryKey(word) {
   return String(word || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+/** Resolve a study-sector alias to a Wikipedia article title, or null. */
+export function resolveStudySectorTitle(word) {
+  const key = dictionaryKey(word);
+  return STUDY_SECTOR_ALIASES[key] || null;
+}
+
 function wiktionaryUrl(key) {
   return `${WIKTIONARY_ENDPOINT}${encodeURIComponent(key.replace(/ /g, '_'))}`;
 }
 
+function wikipediaTitle(keyOrTitle) {
+  return String(keyOrTitle || '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/^./, (ch) => ch.toUpperCase());
+}
+
+function wikipediaUrl(title) {
+  return `${WIKIPEDIA_SUMMARY_ENDPOINT}${encodeURIComponent(wikipediaTitle(title))}`;
+}
+
+export function normalizeWikipedia(payload, word) {
+  if (!payload || typeof payload !== 'object') return emptyResult();
+  if (payload.type === 'disambiguation') return emptyResult();
+  if (typeof payload.type === 'string' && payload.type.includes('not_found')) return emptyResult();
+
+  const extract = stripHtml(payload.extract);
+  const description = stripHtml(payload.description);
+  const definition = extract || description;
+  if (!definition) return emptyResult();
+
+  return {
+    found: true,
+    error: false,
+    word: stripHtml(payload.title) || word,
+    phonetic: '',
+    source: DICTIONARY_SOURCES.WIKIPEDIA,
+    attribution: DICTIONARY_ATTRIBUTION[DICTIONARY_SOURCES.WIKIPEDIA],
+    senses: takeSenses([{
+      partOfSpeech: 'field',
+      definition,
+      example: description && extract && description !== extract ? description : '',
+      synonyms: [],
+      related: [],
+    }]),
+  };
+}
+
 async function readPayload(fetchImpl, url) {
   const response = await fetchImpl(url, {
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
   });
   if (!response?.ok) return null;
   return response.json();
+}
+
+async function lookupWikipedia(title, word, fetchImpl) {
+  try {
+    const payload = await readPayload(fetchImpl, wikipediaUrl(title));
+    const entry = normalizeWikipedia(payload, word);
+    return { entry, responded: true };
+  } catch {
+    return { entry: emptyResult(), responded: false };
+  }
 }
 
 export async function lookupWord(word, fetchImpl = globalThis.fetch) {
@@ -181,6 +238,15 @@ export async function lookupWord(word, fetchImpl = globalThis.fetch) {
   if (!key || typeof fetchImpl !== 'function') return emptyResult();
 
   let responded = false;
+  const studyTitle = resolveStudySectorTitle(key);
+
+  // Study majors/fields: Wikipedia first so Wiktionary cannot steal "premed" etc.
+  if (studyTitle) {
+    const study = await lookupWikipedia(studyTitle, key, fetchImpl);
+    responded = responded || study.responded;
+    if (study.entry.found) return study.entry;
+  }
+
   let freePayload = null;
   try {
     freePayload = await readPayload(fetchImpl, `${FREE_DICTIONARY_ENDPOINT}${encodeURIComponent(key)}`);
@@ -200,6 +266,13 @@ export async function lookupWord(word, fetchImpl = globalThis.fetch) {
   }
   const fromWiki = normalizeWiktionary(wikiPayload, key);
   if (fromWiki.found) return fromWiki;
+
+  if (!studyTitle) {
+    const fallback = await lookupWikipedia(key, key, fetchImpl);
+    responded = responded || fallback.responded;
+    if (fallback.entry.found) return fallback.entry;
+  }
+
   if (!responded) return { found: false, error: true };
   return emptyResult();
 }

@@ -16,7 +16,7 @@
 **Status:** Expanded (pending user SUCCESS verify)
 
 **Requirements:**
-- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Luna Clip, Silk Flash, Pulse Lite, Summit Craft)
+- Header MODEL select + AI Lab box cards with PasteCraft fancy names (Clip Forge, Quill Spark, Apex Craft, Nexus Flash, Ember Flash, Beam Lite, Luna Clip, Silk Flash, Pulse Lite, Summit Craft · Grok 4.7)
 - Map UI → `aiWorkflow` provider/preset; real IDs via Vercel AI Gateway (`AI_GATEWAY_API_KEY` in Edge)
 - Staggered one-by-one card reveal; gate: unlimited/Premium/credits
 - Cheap Gateway models incl. Gemini 3.7 Flash + DeepSeek/Qwen/Ling lite tiers
@@ -912,9 +912,9 @@ Logged-in user area on pastecraft.com (not Admin Dashboard **#42** or local admi
 **Status:** Implemented (pending user SUCCESS)
 **Slice:** `extension/popup/features/clips/clips.viewer-lists.js`
 
-- Toolbar in clip viewer: dash `-`, extra dot `•`, and numbered `1. 2. 3.`
-- Toggle selected/current lines; Enter continues a list item
-- Save as markdown prefixes; viewer renders real lists
+- Toolbar stays in edit mode; dash, dot, and numbered lists still toggle and Enter continues
+- Bold `**`, underline `<u>`, highlight `<mark>` with any hex, rgb, hsl, or color name
+- Edit preview shows the marks; Save stores markdown unless the clip is already another format
 
 ---
 

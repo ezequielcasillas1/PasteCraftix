@@ -26,7 +26,7 @@ const {
 const { ensureDefaultWorkflowEnabled } = await import(pickerUrl);
 
 assert.ok(AI_SHOWCASE_MODELS.length >= 10);
-assert.equal(AI_SHOWCASE_MODELS.at(-1).id, 'gpt-5.4');
+assert.equal(AI_SHOWCASE_MODELS.at(-1).id, 'grok-4.7');
 assert.equal(DEFAULT_SHOWCASE_MODEL_ID, 'muse-spark-1.3');
 
 const map = Object.fromEntries(AI_SHOWCASE_MODELS.map((m) => [m.id, m]));
@@ -52,11 +52,11 @@ assert.equal(map['gemini-3.5-flash-lite'].label, 'Beam Lite · Gemini 3.5 Flash-
 assert.equal(map['gpt-5.6-luna'].label, 'Luna Clip · GPT-5.6 Luna');
 assert.equal(map['qwen-3.8-flash'].label, 'Silk Flash · Qwen 3.8 Flash');
 assert.equal(map['ling-3.0-flash'].label, 'Pulse Lite · Ling 3.0 Flash');
-assert.equal(map['gpt-5.4'].label, 'Summit Craft · GPT-5.4');
-assert.equal(map['gpt-5.4'].provider, 'openai');
-assert.equal(map['gpt-5.4'].preset, 'gpt54');
-assert.equal(map['gpt-5.4'].gatewayModel, 'openai/gpt-5.4');
-assert.equal(map['gpt-5.4'].supportsVision, true);
+assert.equal(map['grok-4.7'].label, 'Summit Craft · Grok 4.7');
+assert.equal(map['grok-4.7'].provider, 'xai');
+assert.equal(map['grok-4.7'].preset, 'grok47');
+assert.equal(map['grok-4.7'].gatewayModel, 'xai/grok-4.7');
+assert.equal(map['grok-4.7'].supportsVision, true);
 
 // User-facing copy must not mention Vercel / gateway branding
 for (const m of AI_SHOWCASE_MODELS) {
@@ -74,7 +74,11 @@ assert.equal(
 );
 assert.equal(
   resolveShowcaseModelFromWorkflow({ provider: 'openai', preset: 'gpt54' }).id,
-  'gpt-5.4',
+  'grok-4.7',
+);
+assert.equal(
+  resolveShowcaseModelFromWorkflow({ provider: 'xai', preset: 'grok47' }).id,
+  'grok-4.7',
 );
 assert.equal(
   resolveShowcaseModelFromWorkflow({ provider: 'google', preset: 'gemini_37_flash' }).id,
@@ -91,7 +95,7 @@ assert.equal(wf.provider, 'meta');
 assert.equal(wf.preset, 'muse13');
 
 assert.equal(getShowcaseCreditCost(map['gpt-5.6-terra']), 500);
-assert.equal(getShowcaseCreditCost(map['gpt-5.4']), 500);
+assert.equal(getShowcaseCreditCost(map['grok-4.7']), 250);
 assert.equal(getShowcaseCreditCost(map['claude-haiku-5-5']), 20);
 assert.equal(getShowcaseCreditCost(map['muse-spark-1.3']), 40);
 assert.equal(getShowcaseCreditCost(map['gemini-3.8-flash']), 40);
@@ -118,7 +122,8 @@ const workflowTs = readFileSync(
 assert.match(workflowTs, /gemini_38_flash[\s\S]*gemini-3\.8-flash/);
 assert.match(workflowTs, /muse-spark-1\.3/);
 assert.match(workflowTs, /gpt-5\.6-terra/);
-assert.match(workflowTs, /gpt54[\s\S]*gpt-5\.4/);
+assert.match(workflowTs, /grok47[\s\S]*grok-4\.7/);
+assert.match(workflowTs, /gpt54/);
 assert.match(workflowTs, /AI_GATEWAY_BASE_URL|ai-gateway\.vercel\.sh/);
 assert.match(workflowTs, /deepseek-v4\.1-flash/);
 
@@ -128,6 +133,7 @@ const gatewayTs = readFileSync(
 );
 assert.match(gatewayTs, /AI_GATEWAY_API_KEY/);
 assert.match(gatewayTs, /ai-gateway\.vercel\.sh/);
+assert.match(gatewayTs, /provider === 'xai'/);
 
 const pickerSrc = readFileSync(
   join(root, 'extension/popup/features/ai-lab/ai-lab.model-picker.js'),

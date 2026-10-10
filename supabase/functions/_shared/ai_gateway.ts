@@ -53,9 +53,11 @@ export function toGatewayModelId(provider: string, bareModel: string): string {
             ? 'alibaba'
             : provider === 'inclusionai'
               ? 'inclusionai'
-              : provider === 'meta'
-                ? 'meta'
-                : 'openai'
+          : provider === 'meta'
+            ? 'meta'
+            : provider === 'xai'
+              ? 'xai'
+              : 'openai'
 
   return `${prefix}/${model}`
 }

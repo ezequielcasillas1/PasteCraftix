@@ -1,5 +1,5 @@
 export const AI_CREDIT_COSTS = {
-  openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500, gpt4o: 40, gpt54: 500 },
+  openai: { default: 40, cheapest: 25, gpt5_mini: 200, latest: 500, gpt4o: 40 },
   google: {
     default: 40,
     cheapest: 25,
@@ -14,6 +14,7 @@ export const AI_CREDIT_COSTS = {
   deepseek: { default: 20, cheapest: 20, deepseek_v41_flash: 20 },
   alibaba: { default: 20, qwen_flash: 20 },
   inclusionai: { default: 15, ling_flash: 15 },
+  xai: { default: 250, grok47: 250 },
 };
 
 export const AI_PROVIDER_PRESETS = {
@@ -23,7 +24,6 @@ export const AI_PROVIDER_PRESETS = {
     { value: 'gpt4o', label: 'Clip Forge · Muse Spark 1.3 · 40 cr' },
     { value: 'gpt5_mini', label: 'Forge Mini · GPT-5 Mini · 200 cr' },
     { value: 'latest', label: 'Apex Craft · GPT-5.6 Terra · 500 cr' },
-    { value: 'gpt54', label: 'Summit Craft · GPT-5.4 · 500 cr' },
   ],
   google: [
     { value: 'default', label: 'Gemini Flash · Gemini 2.5 Flash · 40 cr' },
@@ -54,6 +54,10 @@ export const AI_PROVIDER_PRESETS = {
     { value: 'muse13', label: 'Clip Forge · Muse Spark 1.3 · 40 cr' },
     { value: 'default', label: 'Clip Forge · Muse Spark 1.3 · 40 cr' },
   ],
+  xai: [
+    { value: 'grok47', label: 'Summit Craft · Grok 4.7 · 250 cr' },
+    { value: 'default', label: 'Summit Craft · Grok 4.7 · 250 cr' },
+  ],
   groq: [
     { value: 'default', label: 'Default (Coming Soon)' },
   ],
@@ -68,6 +72,7 @@ export const AI_ALLOWED_PROVIDERS = new Set([
   'alibaba',
   'inclusionai',
   'meta',
+  'xai',
 ]);
 
 export const AI_STORAGE_KEYS = {

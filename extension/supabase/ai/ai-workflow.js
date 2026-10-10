@@ -12,9 +12,10 @@ _normalizeAiWorkflow(raw) {
     'alibaba',
     'inclusionai',
     'meta',
+    'xai',
   ]);
   const presetsByProvider = {
-    openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
+    openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
     google: new Set([
       'default',
       'cheapest',
@@ -29,6 +30,7 @@ _normalizeAiWorkflow(raw) {
     deepseek: new Set(['default', 'cheapest', 'deepseek_v41_flash']),
     alibaba: new Set(['default', 'qwen_flash']),
     inclusionai: new Set(['default', 'ling_flash']),
+    xai: new Set(['default', 'grok47']),
   };
 
   const obj = (raw && typeof raw === 'object') ? raw : {};
@@ -43,6 +45,10 @@ _normalizeAiWorkflow(raw) {
   if (provider === 'openai' && storedPreset === 'gpt4o') {
     provider = 'meta';
     storedPreset = 'muse13';
+  }
+  if (provider === 'openai' && storedPreset === 'gpt54') {
+    provider = 'xai';
+    storedPreset = 'grok47';
   }
   const allowedPresets = presetsByProvider[provider] || presetsByProvider.openai;
   const preset = allowedPresets.has(storedPreset) ? storedPreset : 'default';

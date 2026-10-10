@@ -33,6 +33,22 @@ import {
   toMarkdownStudyLists,
 } from './clips.viewer-lists.js';
 import {
+  applyStudyMark,
+  DEFAULT_STUDY_HIGHLIGHT,
+  detectStudyMarks,
+  hasStudyInlineMarks,
+  isStudyMarkKind,
+  MARK_KINDS,
+  normalizeStudyColor,
+} from './clips.viewer-marks.js';
+import { bindStudyColorPicker } from './clips.viewer-color-picker.js';
+import {
+  paintStudyEditSurface,
+  placeStudyEditSelection,
+  readStudyEditSurface,
+} from './clips.viewer-edit-surface.js';
+import { createStudyUndo } from './clips.viewer-undo.js';
+import {
   ensureRefactorResolverData,
   findClipAcrossCollections,
   resolveRefactorContext,
@@ -154,6 +170,11 @@ function exitEditModeUi(app) {
   if (htmlDetails && htmlDetails.dataset.pcEditPrevDisplay != null) {
     htmlDetails.style.display = htmlDetails.dataset.pcEditPrevDisplay;
     delete htmlDetails.dataset.pcEditPrevDisplay;
+  }
+  const preview = document.getElementById('clipViewerEditPreview');
+  if (preview) {
+    preview.textContent = '';
+    delete preview.dataset.pcPreviewSource;
   }
   setClipViewerEditChrome(false);
 }
@@ -319,25 +340,200 @@ async function resolveClipViewerImageSrc(clip, meta) {
 
 function updateStudyToolbarPressed(text, selectionStart, selectionEnd) {
   const style = detectStudyListStyle(text, selectionStart, selectionEnd);
+  const marks = detectStudyMarks(text, selectionStart, selectionEnd);
   const bulletBtn = document.getElementById('clipViewerBulletBtn');
   const dotBtn = document.getElementById('clipViewerDotBtn');
   const numberedBtn = document.getElementById('clipViewerNumberedBtn');
+  const boldBtn = document.getElementById('clipViewerBoldBtn');
+  const underlineBtn = document.getElementById('clipViewerUnderlineBtn');
+  const highlightBtn = document.getElementById('clipViewerHighlightBtn');
   if (bulletBtn) bulletBtn.setAttribute('aria-pressed', style === LIST_STYLES.BULLET ? 'true' : 'false');
   if (dotBtn) dotBtn.setAttribute('aria-pressed', style === LIST_STYLES.DOT ? 'true' : 'false');
   if (numberedBtn) numberedBtn.setAttribute('aria-pressed', style === LIST_STYLES.NUMBERED ? 'true' : 'false');
+  if (boldBtn) boldBtn.setAttribute('aria-pressed', marks.bold ? 'true' : 'false');
+  if (underlineBtn) underlineBtn.setAttribute('aria-pressed', marks.underline ? 'true' : 'false');
+  if (highlightBtn) highlightBtn.setAttribute('aria-pressed', marks.highlight ? 'true' : 'false');
+  if (marks.highlight && document.activeElement?.id !== 'clipViewerHighlightHex') {
+    paintHighlightColor(marks.highlight);
+  }
 }
 
-function writeStudyListToTextarea(result) {
+function refreshStudyEditPreview(text) {
+  const preview = document.getElementById('clipViewerEditPreview');
+  if (!preview) return;
+  const source = String(text ?? '');
+  const rich = shouldRenderStudyLists(source) || hasStudyInlineMarks(source);
+  preview.dataset.pcPreviewSource = source;
+  if (!rich || typeof PCMarkup === 'undefined' || typeof PCMarkup.renderMarkup !== 'function') {
+    preview.textContent = source;
+    return;
+  }
+  const rendered = PCMarkup.renderMarkup(toMarkdownStudyLists(source), null, {
+    type: 'markdown',
+    enrich: false,
+  });
+  const paint = (html) => {
+    if (preview.dataset.pcPreviewSource !== source) return;
+    preview.innerHTML = typeof html === 'string' ? html : '';
+  };
+  if (rendered && typeof rendered.then === 'function') {
+    rendered.then(paint).catch(() => {
+      if (preview.dataset.pcPreviewSource === source) preview.textContent = source;
+    });
+    return;
+  }
+  paint(rendered);
+}
+
+function studyEditSurface() {
+  return document.getElementById('clipViewerEditSurface');
+}
+
+function currentEditRange(textarea) {
+  const surface = studyEditSurface();
+  const selection = document.getSelection?.();
+  if (surface && selection?.anchorNode && surface.contains(selection.anchorNode)) {
+    const read = readStudyEditSurface(surface);
+    if (read) return read;
+  }
+  return {
+    text: textarea.value,
+    selectionStart: textarea.selectionStart ?? 0,
+    selectionEnd: textarea.selectionEnd ?? textarea.value.length,
+  };
+}
+
+function showStudyEditSurface(text, start, end, { focus = true } = {}) {
+  const surface = studyEditSurface();
   const textarea = document.getElementById('clipViewerEditTextarea');
-  if (!textarea || !result) return;
-  textarea.value = result.text;
-  textarea.focus();
+  if (textarea) {
+    textarea.value = text;
+    try {
+      textarea.setSelectionRange(start, end);
+    } catch (_) {
+      // Non-fatal
+    }
+  }
+  if (!surface) return;
+  paintStudyEditSurface(surface, text);
+  if (focus) surface.focus();
   try {
-    textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
+    placeStudyEditSelection(surface, start, end);
   } catch (_) {
     // Non-fatal
   }
+}
+
+function studyUndo(app) {
+  if (!app._clipViewerStudyUndo) app._clipViewerStudyUndo = createStudyUndo();
+  return app._clipViewerStudyUndo;
+}
+
+function syncStudyUndoButton(app) {
+  const btn = document.getElementById('clipViewerUndoBtn');
+  if (!btn) return;
+  const enabled = studyUndo(app).canUndo();
+  btn.disabled = !enabled;
+  btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+}
+
+function rememberStudyBefore(app, range) {
+  if (!range) return;
+  studyUndo(app).push({
+    text: range.text,
+    selectionStart: range.selectionStart,
+    selectionEnd: range.selectionEnd,
+  });
+  syncStudyUndoButton(app);
+}
+
+export function undoStudyFormat(app) {
+  const snapshot = studyUndo(app).pop();
+  syncStudyUndoButton(app);
+  if (!snapshot) return;
+  if (!app._clipViewerEditing) enterEditMode(app);
+  writeStudyListToTextarea(snapshot);
+}
+
+function writeStudyListToTextarea(result, options = {}) {
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea || !result) return;
+  showStudyEditSurface(result.text, result.selectionStart, result.selectionEnd, {
+    focus: options.focus !== false,
+  });
   updateStudyToolbarPressed(result.text, result.selectionStart, result.selectionEnd);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function readStoredHighlightColor() {
+  const toolbar = document.getElementById('clipViewerStudyToolbar');
+  return normalizeStudyColor(toolbar?.dataset.highlightColor || '') || DEFAULT_STUDY_HIGHLIGHT;
+}
+
+function paintHighlightColor(hex, { writeHex = true, syncPicker = true } = {}) {
+  const toolbar = document.getElementById('clipViewerStudyToolbar');
+  const hexInput = document.getElementById('clipViewerHighlightHex');
+  const chip = document.getElementById('clipViewerHighlightChip');
+  if (toolbar) toolbar.dataset.highlightColor = hex;
+  if (writeHex && hexInput && document.activeElement !== hexInput) hexInput.value = hex;
+  if (chip) chip.style.backgroundColor = hex;
+  if (syncPicker && typeof toolbar?._pcStudyColorSync === 'function') {
+    toolbar._pcStudyColorSync(hex);
+  }
+}
+
+function setHighlightPopOpen(open) {
+  const pop = document.getElementById('clipViewerHighlightPop');
+  const btn = document.getElementById('clipViewerHighlightPickerBtn');
+  const modal = document.getElementById('clipViewerModal');
+  if (pop) pop.hidden = !open;
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  // Avoid Chromium native-picker compositing bugs if any color UI remains.
+  modal?.classList.toggle('pc-native-color-safe', !!open);
+}
+
+function recolorActiveHighlight(app, hex) {
+  if (!app?._clipViewerEditing) return;
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea) return;
+  const range = currentEditRange(textarea);
+  const marks = detectStudyMarks(range.text, range.selectionStart, range.selectionEnd);
+  if (!marks.highlight || marks.highlight === hex) return;
+  const result = applyStudyMark(
+    range.text,
+    range.selectionStart,
+    range.selectionEnd,
+    MARK_KINDS.HIGHLIGHT,
+    hex,
+    { recolorOnly: true },
+  );
+  if (!result?.applied) return;
+  rememberStudyBefore(app, range);
+  writeStudyListToTextarea(result, { focus: false });
+}
+
+export function applyStudyInline(app, kind) {
+  if (!isStudyMarkKind(kind)) return;
+  const wasEditing = !!app._clipViewerEditing;
+  if (!wasEditing) enterEditMode(app);
+
+  const textarea = document.getElementById('clipViewerEditTextarea');
+  if (!textarea) return;
+  const range = currentEditRange(textarea);
+  const color = kind === MARK_KINDS.HIGHLIGHT ? readStoredHighlightColor() : undefined;
+  const result = applyStudyMark(
+    range.text,
+    range.selectionStart,
+    range.selectionEnd,
+    kind,
+    color,
+  );
+  if (!result?.applied) {
+    if (result?.invalidColor) app.showToast?.('Enter a hex, rgb, hsl, or color name', 'error');
+    return;
+  }
+  rememberStudyBefore(app, range);
+  writeStudyListToTextarea(result);
 }
 
 export function applyStudyList(app, style) {
@@ -348,24 +544,105 @@ export function applyStudyList(app, style) {
   const textarea = document.getElementById('clipViewerEditTextarea');
   if (!textarea) return;
 
-  const start = wasEditing ? textarea.selectionStart : 0;
-  const end = wasEditing ? textarea.selectionEnd : textarea.value.length;
-  writeStudyListToTextarea(applyStudyListFormat(textarea.value, start, end, style));
+  const range = currentEditRange(textarea);
+  const start = wasEditing ? range.selectionStart : 0;
+  const end = wasEditing ? range.selectionEnd : range.text.length;
+  rememberStudyBefore(app, { text: range.text, selectionStart: start, selectionEnd: end });
+  writeStudyListToTextarea(applyStudyListFormat(range.text, start, end, style));
 }
 
 function bindStudyFormatToolbar(app) {
   const toolbar = document.getElementById('clipViewerStudyToolbar');
   if (!toolbar || toolbar.dataset.pcStudyBound === '1') return;
   toolbar.dataset.pcStudyBound = '1';
-  toolbar.addEventListener('click', (event) => {
-    const btn = event.target.closest('[data-list-style]');
+  if (!normalizeStudyColor(toolbar.dataset.highlightColor || '')) {
+    paintHighlightColor(DEFAULT_STUDY_HIGHLIGHT);
+  }
+
+  const runToolbarCommand = (event) => {
+    const pickerBtn = event.target.closest('[data-mark-ui="highlight-picker"]');
+    if (pickerBtn && toolbar.contains(pickerBtn)) {
+      const pop = document.getElementById('clipViewerHighlightPop');
+      setHighlightPopOpen(!!pop?.hidden);
+      return true;
+    }
+    const markBtn = event.target.closest('[data-mark]');
+    if (markBtn && toolbar.contains(markBtn)) {
+      setHighlightPopOpen(false);
+      applyStudyInline(app, markBtn.getAttribute('data-mark'));
+      return true;
+    }
+    const undoBtn = event.target.closest('[data-study-undo]');
+    if (undoBtn && toolbar.contains(undoBtn)) {
+      setHighlightPopOpen(false);
+      undoStudyFormat(app);
+      return true;
+    }
+    const listBtn = event.target.closest('[data-list-style]');
+    if (!listBtn || !toolbar.contains(listBtn)) return false;
+    setHighlightPopOpen(false);
+    applyStudyList(app, listBtn.getAttribute('data-list-style'));
+    return true;
+  };
+
+  toolbar.addEventListener('pointerdown', (event) => {
+    if (event.button != null && event.button !== 0) return;
+    if (event.target.closest('input, textarea, select, label, .pc-study-color-picker')) return;
+    const btn = event.target.closest('[data-list-style], [data-mark], [data-mark-ui], [data-study-undo]');
     if (!btn || !toolbar.contains(btn)) return;
     event.preventDefault();
-    applyStudyList(app, btn.getAttribute('data-list-style'));
+    event.stopPropagation();
+    toolbar.dataset.pcPointerApply = '1';
+    app._clipViewerHoldEdit = true;
+    runToolbarCommand(event);
+  });
+
+  toolbar.addEventListener('pointerup', () => {
+    setTimeout(() => {
+      delete toolbar.dataset.pcPointerApply;
+    }, 0);
+  });
+
+  toolbar.addEventListener('click', (event) => {
+    if (toolbar.dataset.pcPointerApply === '1') {
+      delete toolbar.dataset.pcPointerApply;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (!runToolbarCommand(event)) return;
+    event.preventDefault();
+  });
+
+  const hexInput = document.getElementById('clipViewerHighlightHex');
+  const pickerRoot = document.getElementById('clipViewerHighlightPicker');
+  const applyColor = (hex, paintOpts) => {
+    paintHighlightColor(hex, paintOpts);
+    recolorActiveHighlight(app, hex);
+  };
+  const api = bindStudyColorPicker({
+    root: pickerRoot,
+    getHex: () => readStoredHighlightColor(),
+    setHex: (hex) => applyColor(hex, { syncPicker: false }),
+  });
+  if (api?.syncFromHex) toolbar._pcStudyColorSync = api.syncFromHex;
+
+  hexInput?.addEventListener('input', () => {
+    const hex = normalizeStudyColor(hexInput.value);
+    if (!hex) return;
+    applyColor(hex, { writeHex: false });
+  });
+  hexInput?.addEventListener('blur', () => {
+    const hex = normalizeStudyColor(hexInput.value);
+    if (!hex) {
+      hexInput.value = readStoredHighlightColor();
+      return;
+    }
+    applyColor(hex);
   });
 }
 
-function bindStudyListTextarea() {
+function bindStudyListTextarea(app) {
   const textarea = document.getElementById('clipViewerEditTextarea');
   if (!textarea || textarea.dataset.pcStudyBound === '1') return;
   textarea.dataset.pcStudyBound = '1';
@@ -376,6 +653,11 @@ function bindStudyListTextarea() {
     if (textarea.selectionStart !== textarea.selectionEnd) return;
     const result = applyStudyListEnter(textarea.value, textarea.selectionStart);
     if (!result) return;
+    rememberStudyBefore(app, {
+      text: textarea.value,
+      selectionStart: textarea.selectionStart,
+      selectionEnd: textarea.selectionEnd,
+    });
     event.preventDefault();
     writeStudyListToTextarea(result);
   });
@@ -384,6 +666,41 @@ function bindStudyListTextarea() {
   };
   textarea.addEventListener('keyup', syncPressed);
   textarea.addEventListener('click', syncPressed);
+  textarea.addEventListener('input', () => {
+    syncPressed();
+    refreshStudyEditPreview(textarea.value);
+  });
+
+  const surface = studyEditSurface();
+  if (!surface || surface.dataset.pcStudyBound === '1') return;
+  surface.dataset.pcStudyBound = '1';
+  surface.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+    const read = readStudyEditSurface(surface);
+    if (!read || read.selectionStart !== read.selectionEnd) return;
+    const result = applyStudyListEnter(read.text, read.selectionStart);
+    if (!result) return;
+    rememberStudyBefore(app, read);
+    event.preventDefault();
+    writeStudyListToTextarea(result);
+  });
+  const syncSurface = () => {
+    const read = readStudyEditSurface(surface);
+    if (!read) return;
+    textarea.value = read.text;
+    try {
+      textarea.setSelectionRange(read.selectionStart, read.selectionEnd);
+    } catch (_) {
+      // Non-fatal
+    }
+    updateStudyToolbarPressed(read.text, read.selectionStart, read.selectionEnd);
+  };
+  surface.addEventListener('keyup', syncSurface);
+  surface.addEventListener('click', syncSurface);
+  surface.addEventListener('input', () => {
+    syncSurface();
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 }
 
 function rememberImageBearingMeta(clip) {
@@ -588,7 +905,7 @@ function bindClipViewerLinkHandler(app, bodyEl) {
 }
 
 const CLIP_VIEWER_EDIT_STAY_SELECTORS =
-  '#clipViewerBody, #saveClipViewerEditBtn, #cancelClipViewerEditBtn';
+  '#clipViewerBody, #saveClipViewerEditBtn, #cancelClipViewerEditBtn, #clipViewerStudyToolbar';
 
 const CLIP_VIEWER_INTERACTIVE_SELECTORS =
   'a, button, input, textarea, select, label, summary, [data-action], [contenteditable="true"]';
@@ -664,6 +981,10 @@ function bindClipViewerTextBoxInteraction(app, bodyEl) {
   });
 
   document.addEventListener('click', (event) => {
+    if (app._clipViewerHoldEdit) {
+      app._clipViewerHoldEdit = false;
+      return;
+    }
     if (!shouldExitClipViewerEdit(app, event.target)) return;
     cancelEdit(app);
   });
@@ -698,6 +1019,8 @@ export async function open(app, clip, sourceContext = 'clips') {
   }
 
   exitEditModeUi(app);
+  studyUndo(app).clear();
+  syncStudyUndoButton(app);
 
   await ensureRefactorResolverData(app);
 
@@ -802,16 +1125,12 @@ export function enterEditMode(app) {
   editTextarea.value = text;
   editPanel.style.display = 'flex';
   setClipViewerEditChrome(true);
-  bindStudyListTextarea();
-  updateStudyToolbarPressed(text, 0, text.length);
+  bindStudyListTextarea(app);
+  refreshStudyEditPreview(text);
   window.renderLucideIcons?.(document.getElementById('clipViewerModal'));
-  editTextarea.focus();
-  try {
-    const len = editTextarea.value.length;
-    editTextarea.setSelectionRange(len, len);
-  } catch (_) {
-    // Non-fatal (some hosts reject setSelectionRange)
-  }
+  let caret = editTextarea.value.length;
+  showStudyEditSurface(editTextarea.value, caret, caret);
+  updateStudyToolbarPressed(editTextarea.value, caret, caret);
   bindClipViewerCountLive(app);
   syncCharacterCount(app);
   notifyUiLocationChanged(app);
@@ -823,6 +1142,8 @@ export async function saveEdit(app) {
 
   const { editTextarea } = getClipViewerElements();
   if (!editTextarea) return false;
+  const surfaceRead = readStudyEditSurface(studyEditSurface());
+  if (surfaceRead) editTextarea.value = surfaceRead.text;
 
   const nextText = String(editTextarea.value ?? '');
   const markupHint = resolveStudyListMarkupHint(clip?.meta?.markupHint, nextText);

@@ -74,8 +74,14 @@ export function parseAiWorkflowFromBody(body: any): { provider: AiWorkflowProvid
     const wf = body && typeof body === 'object' ? body.aiWorkflow : null
     if (!wf || typeof wf !== 'object') return null
     if (wf.enabled !== true) return null
-    const provider = normalizeProvider(wf.provider)
-    const preset = normalizePreset(wf.preset, provider)
+    let provider = normalizeProvider(wf.provider)
+    let rawPreset = String(wf.preset || 'default')
+    // Stored Summit picks from before Grok 4.7.
+    if (provider === 'openai' && rawPreset === 'gpt54') {
+      provider = 'xai'
+      rawPreset = 'grok47'
+    }
+    const preset = normalizePreset(rawPreset, provider)
     return { provider, preset }
   } catch (_) {
     return null
@@ -99,7 +105,6 @@ const OPENAI_PROVIDER: ProviderModelTable = {
     cheapest: { chatTextModel: 'gpt-5.6-luna', chatVisionModel: 'gpt-5.6-luna' },
     gpt5_mini: { chatTextModel: 'gpt-5-mini', chatVisionModel: 'gpt-5-mini' },
     latest: { chatTextModel: 'gpt-5.6-terra', chatVisionModel: 'gpt-5.6-terra' },
-    gpt54: { chatTextModel: 'gpt-5.4', chatVisionModel: 'gpt-5.4' },
     gpt4o: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
     default: { chatTextModel: 'gpt-4o-mini', chatVisionModel: 'gpt-4o' },
   },
@@ -148,6 +153,16 @@ const META_PROVIDER: ProviderModelTable = {
   modelsByPreset: {
     muse13: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
     default: { chatTextModel: 'muse-spark-1.3', chatVisionModel: 'muse-spark-1.3' },
+  },
+}
+
+const XAI_PROVIDER: ProviderModelTable = {
+  provider: 'xai',
+  apiBaseUrl: 'https://api.x.ai/v1',
+  apiKeyEnv: 'XAI_API_KEY',
+  modelsByPreset: {
+    grok47: { chatTextModel: 'grok-4.7', chatVisionModel: 'grok-4.7' },
+    default: { chatTextModel: 'grok-4.7', chatVisionModel: 'grok-4.7' },
   },
 }
 
@@ -214,6 +229,9 @@ export function resolveModelsFromWorkflow(
   else if (provider === 'meta' || (provider === 'openai' && preset === 'gpt4o')) {
     resolved = resolveFromProviderTable(META_PROVIDER, 'muse13')
   }
+  else if (provider === 'xai' || (provider === 'openai' && String(preset) === 'gpt54')) {
+    resolved = resolveFromProviderTable(XAI_PROVIDER, 'grok47')
+  }
   else resolved = resolveFromProviderTable(OPENAI_PROVIDER, preset)
 
   return applyGatewayRouting(resolved)
@@ -225,6 +243,7 @@ const API_KEY_ENV_ALIASES: Record<string, string[]> = {
   OPENAI_API_KEY: ['OPENAI_API_KEY'],
   GOOGLE_AI_KEY: ['GOOGLE_AI_KEY', 'GOOGLE_API_KEY', 'GEMINI_API_KEY'],
   ANTHROPIC_API_KEY: ['ANTHROPIC_API_KEY', 'ANTHROPIC-API-KEY'],
+  XAI_API_KEY: ['XAI_API_KEY'],
 }
 
 /**

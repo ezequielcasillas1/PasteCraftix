@@ -1,4 +1,24 @@
 
+### Oct 10, 2026 - Summit Craft Grok 4.7
+**Status:** PENDING SUCCESS
+**Files:** ai-lab.models.js, ai-lab.constants.js, ai-lab.credits.js, ai-workflow.js, ai_workflow.ts, ai_workflow_types.ts, ai_gateway.ts, ai-model-picker.test.mjs
+**Result:** Summit Craft now runs Grok 4.7 at 250 credits. Saved GPT-5.4 picks (`openai` / `gpt54`) resolve to `xai` / `grok47`. Gateway id is `xai/grok-4.7`.
+
+### Oct 10, 2026 - Study format undo
+**Status:** PENDING SUCCESS
+**Files:** clips.viewer-undo.js, clips.viewer.js, popup.html, clip-viewer.css, clip-viewer-undo.test.mjs
+**Result:** Undo button on the Study formats bar steps back list, bold, underline, highlight, and Enter-continue changes. History clears when another clip opens.
+
+### Oct 9, 2026 - Clip viewer study formats stay in edit
+**Status:** PENDING SUCCESS
+**Files:** clips.viewer.js, clips.viewer-lists.js, clips.viewer-marks.js, popup.html, clip-viewer.css, theme-blue-phase2.css, clip-viewer-lists.test.mjs, clip-viewer-marks.test.mjs, clip-viewer-edit-toggle.test.mjs
+**Result:** Study toolbar clicks no longer cancel edit. Bold, underline, and any-color highlight write into the edit box and show in the preview.
+
+### Oct 9, 2026 - Keywords View Nerd Stats
+**Status:** PENDING SUCCESS
+**Files:** keywords.stats.js, keywords.constants.js, keywords.render.js, keywords.library.render.js, keywords.page.js, keywords.events.js, keywords.controller.js, keywords.state.js, keywords.dictionary.js, keywords.css, popup.html, keywords-extract.test.mjs
+**Result:** View Nerd Stats on Keywords page, Quick Save, and Clip Viewer. Shows lookup caps (no user cap, 8-word phrase, 4/8 meanings, 200 saved). Copy still avoids naming the lookup source.
+
 ### Oct 9, 2026 - Clip Viewer Activate phrase toggle
 **Status:** PENDING SUCCESS
 **Files:** keywords.controller.js, keywords.extract.js, keywords.render.js, keywords.events.js, keywords.state.js, keywords.constants.js, keywords.css, popup.html, keywords-extract.test.mjs

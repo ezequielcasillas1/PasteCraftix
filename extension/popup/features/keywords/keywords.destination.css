@@ -1,0 +1,204 @@
+/* Above the clip viewer overlay (10000), below device sync modals (10040+). */
+.modal-overlay.keyword-destination {
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.keyword-destination-card {
+  width: min(420px, 100%);
+  max-width: 420px;
+  max-height: min(560px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.keyword-destination-card .modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.keyword-destination-card .modal-text {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.keyword-destination-filter {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.keyword-destination-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-bottom: 12px;
+  padding-right: 2px;
+}
+
+.keyword-destination-file {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.keyword-destination-file h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.keyword-destination-file h4 [data-lucide] {
+  width: 14px;
+  height: 14px;
+}
+
+.keyword-destination-folder {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: inherit;
+  padding: 8px 12px;
+}
+
+.keyword-destination-folder .category-option-icon [data-lucide] {
+  width: 18px;
+  height: 18px;
+}
+
+.keyword-destination-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.keyword-destination-count {
+  flex: none;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.keyword-destination-badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.keyword-destination-folder.selected .keyword-destination-badge {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.keyword-destination-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.keyword-destination-create {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px dashed #93c5fd;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.keyword-destination-create select,
+.keyword-destination-create input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.keyword-destination-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.keyword-destination-error {
+  margin: 0;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.keyword-destination-error:empty {
+  display: none;
+}
+
+.keyword-destination-card .modal-actions {
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+
+.keyword-destination-card .modal-actions [hidden] {
+  display: none;
+}
+
+[data-theme="blue"] .keyword-destination-file h4,
+[data-theme="blue"] .keyword-destination-empty {
+  color: var(--pc-secondary-300);
+}
+
+[data-theme="blue"] .keyword-destination-badge {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+[data-theme="blue"] .keyword-destination-folder.selected .keyword-destination-badge {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+[data-theme="blue"] .keyword-destination-filter,
+[data-theme="blue"] .keyword-destination-create select,
+[data-theme="blue"] .keyword-destination-create input {
+  background: var(--pc-glass-strong);
+  border-color: var(--pc-border);
+  color: var(--pc-text);
+}
+
+[data-theme="blue"] .keyword-destination-create {
+  background: rgba(30, 58, 138, 0.18);
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+[data-theme="blue"] .keyword-destination-error {
+  color: #fca5a5;
+}

@@ -49,6 +49,14 @@ assert.equal(shouldRenderStudyLists('- study point'), true);
 assert.equal(resolveStudyListMarkupHint(null, '1. step'), 'markdown');
 assert.equal(resolveStudyListMarkupHint('latex', '1. step'), null);
 assert.equal(resolveStudyListMarkupHint('markdown', 'plain'), null);
+assert.equal(resolveStudyListMarkupHint(null, '**term**'), 'markdown');
+assert.equal(resolveStudyListMarkupHint(null, '<u>term</u>'), 'markdown');
+assert.equal(
+  resolveStudyListMarkupHint(null, '<mark style="background-color:#fde047">term</mark>'),
+  'markdown',
+);
+assert.equal(resolveStudyListMarkupHint('latex', '**term**'), null);
+assert.equal(resolveStudyListMarkupHint('html', '<u>term</u>'), null);
 
 const fromCrlf = applyStudyListFormat('alpha\r\nbeta', 0, 11, LIST_STYLES.BULLET);
 assert.equal(fromCrlf.text, '- alpha\n- beta');

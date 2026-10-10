@@ -3,6 +3,8 @@
  * Study list strategies for clip viewer (bullet vs numbered).
  */
 
+import { hasStudyInlineMarks } from './clips.viewer-marks.js';
+
 export const LIST_STYLES = {
   BULLET: 'bullet',
   DOT: 'dot',
@@ -95,7 +97,7 @@ export function shouldRenderStudyLists(text) {
 }
 
 export function resolveStudyListMarkupHint(existingHint, text) {
-  if (!shouldRenderStudyLists(text)) return null;
+  if (!shouldRenderStudyLists(text) && !hasStudyInlineMarks(text)) return null;
   const current = String(existingHint || '').toLowerCase();
   if (current && current !== 'text' && current !== 'markdown') return null;
   return 'markdown';

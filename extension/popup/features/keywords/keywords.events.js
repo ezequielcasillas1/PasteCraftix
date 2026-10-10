@@ -21,7 +21,7 @@ function bindClicks(root, onAction) {
   root.dataset.keywordsBound = 'true';
   root.addEventListener('click', (event) => {
     const button = elementOf(event.target)?.closest?.('[data-action]');
-    if (!button || !root.contains(button) || button.dataset.action === KEYWORD_ACTIONS.MOVE) return;
+    if (!button || !root.contains(button)) return;
     onAction(button.dataset.action, button, event);
   });
   return true;
@@ -53,17 +53,18 @@ function pageActions(page) {
     [KEYWORD_ACTIONS.CLEAR_FILE_SEARCH]: () => page.clearFileSearch(),
     [KEYWORD_ACTIONS.CLEAR_FOLDER_SEARCH]: () => page.clearFolderSearch(),
     [KEYWORD_ACTIONS.CLEAR_WORD_SEARCH]: () => page.clearWordSearch(),
+    [KEYWORD_ACTIONS.NERD_STATS]: () => page.toggleNerdStats(),
+    [KEYWORD_ACTIONS.GUIDE]: () => page.toggleGuide(),
+    [KEYWORD_ACTIONS.MOVE_TOGGLE]: () => page.toggleMovePicker(),
+    [KEYWORD_ACTIONS.MOVE_PAGE]: (el) => page.setMovePickerPage(el.dataset.page),
+    [KEYWORD_ACTIONS.CLEAR_MOVE_SEARCH]: () => page.clearMovePickerSearch(),
+    [KEYWORD_ACTIONS.MOVE]: (el) => page.moveWord(el.dataset.word, el.dataset.folder),
   };
 }
 
 function bindPage(root, page) {
   const actions = pageActions(page);
   if (!bindClicks(root, (action, el) => actions[action]?.(el))) return;
-  root.addEventListener('change', (event) => {
-    const select = elementOf(event.target);
-    if (select?.dataset?.action !== KEYWORD_ACTIONS.MOVE) return;
-    page.moveWord(select.dataset.word, select.value);
-  });
   root.addEventListener('input', (event) => {
     const input = elementOf(event.target);
     const field = input?.dataset?.field;
@@ -71,6 +72,7 @@ function bindPage(root, page) {
     else if (field === 'keyword-file-search') page.setFileSearch(input.value);
     else if (field === 'keyword-folder-search') page.setFolderSearch(input.value);
     else if (field === 'keyword-word-search') page.setWordSearch(input.value);
+    else if (field === 'keyword-move-search') page.setMovePickerSearch(input.value);
   });
   root.addEventListener('submit', (event) => {
     const form = elementOf(event.target)?.closest?.('form[data-form]');
@@ -81,7 +83,10 @@ function bindPage(root, page) {
   root.addEventListener('keydown', (event) => {
     const input = elementOf(event.target);
     const field = input?.dataset?.field;
-    if (field === 'keyword-name') {
+    if (event.key === 'Escape' && input?.closest?.('.keywords-move')) {
+      event.preventDefault();
+      page.closeMovePicker();
+    } else if (field === 'keyword-name') {
       if (event.key === 'Escape') {
         event.preventDefault();
         page.cancelForm();
@@ -89,6 +94,9 @@ function bindPage(root, page) {
         event.preventDefault();
         page.submitForm(input.value);
       }
+    } else if (event.key === 'Escape' && page.state.guideOpen) {
+      event.preventDefault();
+      page.closeGuide();
     } else if (event.key === 'Escape') {
       if (field === 'keyword-file-search') {
         event.preventDefault();
@@ -110,6 +118,7 @@ function bindReview(root, review) {
     else if (action === KEYWORD_ACTIONS.SAVE) review.save();
     else if (action === KEYWORD_ACTIONS.PHRASE_MODE) review.setPhraseMode?.();
     else if (action === KEYWORD_ACTIONS.LOOKUP && el.dataset.word) review.toggle(el.dataset.word, { extend: event.shiftKey });
+    else if (action === KEYWORD_ACTIONS.NERD_STATS) review.toggleNerdStats?.();
   });
 }
 
@@ -129,6 +138,7 @@ export function createKeywordsEvents(api) {
         clear: () => api.clear(),
         save: () => api.saveKeyword('quick'),
         toggle: (word, options) => api.toggle(word, options),
+        toggleNerdStats: () => api.toggleNerdStats(),
       });
       bindHideCommon(QUICK_SAVE_KEYWORD_SELECTORS.HIDE_COMMON, (checked) => api.quickHideCommon(checked));
 
@@ -137,6 +147,7 @@ export function createKeywordsEvents(api) {
         save: () => api.saveKeyword('viewer'),
         toggle: (word, options) => api.reviewToggle(word, options),
         setPhraseMode: () => api.reviewPhraseMode(),
+        toggleNerdStats: () => api.reviewNerdStats(),
       });
       bindHideCommon(CLIP_VIEWER_KEYWORD_SELECTORS.HIDE_COMMON, (checked) => api.reviewHideCommon(checked));
     },

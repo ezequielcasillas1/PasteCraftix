@@ -4,7 +4,7 @@ export type AiWorkflowPreset =
   | 'gpt5_mini'
   | 'latest'
   | 'gpt4o'
-  | 'gpt54'
+  | 'grok47'
   | 'muse13'
   | 'gemini_pro'
   | 'gemini_37_flash'
@@ -20,7 +20,8 @@ export type AiWorkflowProvider =
   | 'deepseek'
   | 'alibaba'
   | 'inclusionai'
-  | 'meta';
+  | 'meta'
+  | 'xai';
 
 export type AiWorkflowConfig = {
   enabled?: boolean;
@@ -76,16 +77,18 @@ const ALLOWED_PROVIDERS: Set<AiWorkflowProvider> = new Set([
   'alibaba',
   'inclusionai',
   'meta',
+  'xai',
 ]);
 
 const PRESETS_BY_PROVIDER: Record<AiWorkflowProvider, Set<string>> = {
-  openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o', 'gpt54']),
+  openai: new Set(['default', 'cheapest', 'gpt5_mini', 'latest', 'gpt4o']),
   google: new Set(['default', 'cheapest', 'gemini_pro', 'latest', 'gemini_37_flash', 'gemini_38_flash', 'gemini_35_flash_lite']),
   anthropic: new Set(['default']),
   deepseek: new Set(['default', 'cheapest', 'deepseek_v41_flash']),
   alibaba: new Set(['default', 'qwen_flash']),
   inclusionai: new Set(['default', 'ling_flash']),
   meta: new Set(['default', 'muse13']),
+  xai: new Set(['default', 'grok47']),
 };
 
 export function normalizeProvider(provider: unknown): AiWorkflowProvider {
@@ -116,7 +119,6 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
     gpt5_mini: 200,
     latest: 500,
     gpt4o: 40,
-    gpt54: 500,
   },
   google: {
     default: 40,
@@ -146,6 +148,10 @@ const CREDIT_COST: Record<AiWorkflowProvider, Record<string, number>> = {
   inclusionai: {
     default: 15,
     ling_flash: 15,
+  },
+  xai: {
+    default: 250,
+    grok47: 250,
   },
 };
 

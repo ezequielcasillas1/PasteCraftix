@@ -8,6 +8,8 @@ import {
 } from './keywords.constants.js';
 import { displaySenses, selectEmphasisSenses } from './keywords.dictionary.js';
 import { visibleKeywords } from './keywords.extract.js';
+import { renderMovePicker } from './keywords.move-picker.js';
+import { nerdStatRows } from './keywords.stats.js';
 
 export function escapeHtml(app, value) {
   if (typeof app?.escapeHtml === 'function') return app.escapeHtml(value);
@@ -133,23 +135,6 @@ function renderStoredPart(app, part) {
   return `<section class="keywords-part">${heading}${phonetic}${renderSenses(app, part.senses)}</section>`;
 }
 
-function renderMoveControl(app, item, library) {
-  const folders = library?.folders || [];
-  if (folders.length < 2) return '';
-  const options = (library.files || []).map((file) => {
-    const group = folders
-      .filter((folder) => folder.fileId === file.id)
-      .map((folder) => {
-        const selected = folder.id === item.folderId ? ' selected' : '';
-        return `<option value="${escapeHtml(app, folder.id)}"${selected}>${escapeHtml(app, folder.name)}</option>`;
-      })
-      .join('');
-    if (!group) return '';
-    return `<optgroup label="${escapeHtml(app, file.name)}">${group}</optgroup>`;
-  }).join('');
-  return `<label class="keywords-move"><span>${KEYWORD_COPY.MOVE}</span><select data-action="${KEYWORD_ACTIONS.MOVE}" data-word="${escapeHtml(app, item.key)}" aria-label="${KEYWORD_COPY.MOVE}">${options}</select></label>`;
-}
-
 function renderStoredBody(app, item) {
   if (item.kind === 'emphasis') {
     const parts = (item.parts || []).map((part) => renderStoredPart(app, part)).join('');
@@ -164,13 +149,13 @@ function renderStoredBody(app, item) {
   return '<p class="keywords-status">No meaning found for this word.</p>';
 }
 
-export function renderStoredCard(app, item, library) {
+export function renderStoredCard(app, item, library, picker) {
   return `
     <h4 class="keywords-card-word">${escapeHtml(app, item.text)}</h4>
     ${renderStoredBody(app, item)}
     ${renderHistoryLine(app, item)}
     <div class="keywords-card-actions">
-      ${renderMoveControl(app, item, library)}
+      ${renderMovePicker(app, item, library, picker)}
       ${renderRemoveControl(app, item)}
     </div>
   `;
@@ -195,6 +180,22 @@ function renderRecord(app, record, label) {
   return '<p class="keywords-status">No meaning found for this word.</p>';
 }
 
+export function paintNerdStats(app, selectors, snapshot = {}) {
+  const button = document.getElementById(selectors.NERD_TOGGLE);
+  const panel = document.getElementById(selectors.NERD_PANEL);
+  if (!button || !panel) return;
+  const open = !!snapshot.open;
+  button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  button.classList.toggle('is-on', open);
+  button.textContent = open ? KEYWORD_COPY.NERD_HIDE : KEYWORD_COPY.NERD_VIEW;
+  panel.hidden = !open;
+  if (!open) return;
+  const rows = nerdStatRows(snapshot).map((row) => (
+    `<div class="keywords-nerd-row"><dt>${escapeHtml(app, row.label)}</dt><dd>${escapeHtml(app, row.value)}</dd></div>`
+  )).join('');
+  panel.innerHTML = `<dl class="keywords-nerd-list">${rows}</dl>`;
+}
+
 export function renderKeywordsPage(app, state, selectors) {
   const source = document.getElementById(selectors.SOURCE);
   const list = document.getElementById(selectors.WORD_LIST);
@@ -202,6 +203,13 @@ export function renderKeywordsPage(app, state, selectors) {
   const toggle = document.getElementById(selectors.HIDE_COMMON);
   const phraseToggle = document.getElementById(selectors.PHRASE_MODE);
   const inClip = selectors.ROOT === CLIP_VIEWER_KEYWORD_SELECTORS.ROOT;
+  paintNerdStats(app, selectors, {
+    open: !!state.nerdStatsOpen,
+    kind: 'review',
+    savedCount: state.savedKeys?.size || 0,
+    selectedCount: (state.selectedKeys || []).length,
+    cacheCount: state.entries?.size || 0,
+  });
   if (!list || !card) return;
 
   if (toggle) {

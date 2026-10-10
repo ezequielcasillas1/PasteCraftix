@@ -89,6 +89,7 @@ function bareFallbackChain(bare: string, provider: AiWorkflowProvider): string[]
   if (provider === 'inclusionai') return [bare || 'ling-3.0-flash']
   if (provider === 'anthropic') return [bare || CLAUDE_HAIKU_MODEL]
   if (provider === 'meta') return [bare || 'muse-spark-1.3']
+  if (provider === 'xai') return [bare || 'grok-4.7']
   return openAiFallbackChain(bare)
 }
 

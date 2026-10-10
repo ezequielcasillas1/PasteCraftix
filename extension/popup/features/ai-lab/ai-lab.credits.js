@@ -8,11 +8,16 @@ import { getCreditsElements } from './ai-lab.selectors.js';
 export function _normalizeAiWorkflow(raw) {
   const obj = (raw && typeof raw === 'object') ? raw : {};
   const enabled = obj.enabled === true;
-  const providerValue = String(obj.provider || 'openai');
+  let providerValue = String(obj.provider || 'openai');
+  let presetValue = String(obj.preset || 'default');
+  // Stored Summit picks from before Grok 4.7.
+  if (providerValue === 'openai' && presetValue === 'gpt54') {
+    providerValue = 'xai';
+    presetValue = 'grok47';
+  }
   const provider = AI_ALLOWED_PROVIDERS.has(providerValue) ? providerValue : 'openai';
   const presets = AI_PROVIDER_PRESETS[provider] || AI_PROVIDER_PRESETS.openai;
   const allowedPresets = new Set(presets.map(p => p.value));
-  const presetValue = String(obj.preset || 'default');
   const preset = allowedPresets.has(presetValue) ? presetValue : 'default';
   const updatedAt = Number.isFinite(Number(obj.updatedAt)) ? Number(obj.updatedAt) : 0;
 
@@ -146,6 +151,7 @@ export function _buildCreditCostHtml() {
     alibaba: 'Qwen',
     inclusionai: 'Ling',
     openai: 'OpenAI',
+    xai: 'xAI',
   })[provider] || 'OpenAI';
   const lines = presets
     .filter(p => costs[p.value] !== undefined)

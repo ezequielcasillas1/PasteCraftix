@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { removeKeywordFromBank, upsertKeyword } from '../extension/popup/features/keywords/keywords.bank.js';
 import { DEFAULT_KEYWORD_FILE_ID, DEFAULT_KEYWORD_FOLDER_ID, KEYWORD_BANK_LIMIT, KEYWORD_COPY } from '../extension/popup/features/keywords/keywords.constants.js';
+import { nerdStatRows } from '../extension/popup/features/keywords/keywords.stats.js';
 import { initKeywordsFeature } from '../extension/popup/features/keywords/keywords.controller.js';
 import {
   lookupEmphasis,
   lookupWord,
   normalizeFreeDictionary,
+  normalizeWikipedia,
   normalizeWiktionary,
+  resolveStudySectorTitle,
   selectEmphasisSenses,
 } from '../extension/popup/features/keywords/keywords.dictionary.js';
 import { extractKeywords, selectedPhrase, toggleKeywordSelection, visibleKeywords } from '../extension/popup/features/keywords/keywords.extract.js';
@@ -194,6 +197,104 @@ test('reports a reachability error when both dictionaries fail', async () => {
   assert.equal(entry.error, true);
 });
 
+test('maps study-sector aliases to Wikipedia titles', () => {
+  assert.equal(resolveStudySectorTitle('pre-med'), 'Pre-medical');
+  assert.equal(resolveStudySectorTitle('premed'), 'Pre-medical');
+  assert.equal(resolveStudySectorTitle('Computer Science'), 'Computer science');
+  assert.equal(resolveStudySectorTitle('zzzx'), null);
+});
+
+test('normalizes Wikipedia summary extracts for study fields', () => {
+  const entry = normalizeWikipedia({
+    type: 'standard',
+    title: 'Pre-medical',
+    description: 'Education prior to formal medical school',
+    extract: 'Pre-medical is an educational track that undergraduate students pursue prior to medical school.',
+  }, 'pre-med');
+  assert.equal(entry.found, true);
+  assert.equal(entry.source, 'wikipedia');
+  assert.equal(entry.word, 'Pre-medical');
+  assert.match(entry.senses[0].definition, /educational track/i);
+  assert.equal(normalizeWikipedia({ type: 'disambiguation', extract: 'many meanings' }, 'x').found, false);
+});
+
+test('prefers Wikipedia for study-sector keywords like premed', async () => {
+  const calls = [];
+  const entry = await lookupWord('premed', async (url) => {
+    calls.push(String(url));
+    if (String(url).includes('wikipedia.org')) {
+      return {
+        ok: true,
+        json: async () => ({
+          type: 'standard',
+          title: 'Pre-medical',
+          description: 'Education prior to formal medical school',
+          extract: 'Pre-medical prepares undergraduates for medical school.',
+        }),
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        en: [{ partOfSpeech: 'Noun', definitions: [{ definition: 'A premedication.' }] }],
+      }),
+    };
+  });
+  assert.equal(entry.found, true);
+  assert.equal(entry.source, 'wikipedia');
+  assert.match(entry.senses[0].definition, /medical school/i);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0], /wikipedia\.org/);
+});
+
+test('falls back to Wikipedia when Free Dictionary and Wiktionary miss', async () => {
+  const entry = await lookupWord('quantum computing', async (url) => {
+    if (String(url).includes('wikipedia.org')) {
+      return {
+        ok: true,
+        json: async () => ({
+          type: 'standard',
+          title: 'Quantum computing',
+          extract: 'Quantum computing is a type of computation.',
+        }),
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+  assert.equal(entry.found, true);
+  assert.equal(entry.source, 'wikipedia');
+  assert.match(entry.senses[0].definition, /computation/i);
+});
+
+/** Save keyword picker stand-in: clicks Add as soon as it opens. */
+function fakePickerDialog() {
+  const handlers = {};
+  const node = () => ({ innerHTML: '', disabled: false, hidden: false, focus() {} });
+  const slots = new Map();
+  return {
+    handlers,
+    innerHTML: '',
+    setAttribute() {},
+    addEventListener(type, fn) { handlers[type] = fn; },
+    querySelector(selector) {
+      if (!slots.has(selector)) slots.set(selector, node());
+      return slots.get(selector);
+    },
+    querySelectorAll: () => [],
+    remove() {},
+  };
+}
+
+function pickerBody() {
+  return {
+    appendChild(dialog) {
+      queueMicrotask(() => dialog.handlers.click?.({
+        target: { closest: (selector) => (selector === '[data-dest]' ? { dataset: { dest: 'save' } } : null) },
+      }));
+    },
+  };
+}
+
 function installKeywordsDom() {
   const elements = new Map();
   const make = (id) => {
@@ -222,7 +323,7 @@ function installKeywordsDom() {
       setAttribute(name, value) { attrs[name] = String(value); },
       getAttribute(name) { return attrs[name] ?? null; },
     };
-    if (id === 'quickSaveKeywords' || id === 'clipViewerKeywords') element.hidden = true;
+    if (id === 'quickSaveKeywords' || id === 'clipViewerKeywords' || id.endsWith('NerdStats')) element.hidden = true;
     elements.set(id, element);
     return element;
   };
@@ -232,12 +333,19 @@ function installKeywordsDom() {
     'clipViewerKeywordsPhraseMode', 'clipViewerKeywordsWords', 'clipViewerKeywordsDefinition',
     'quickSaveKeywords', 'quickSaveKeywordsSource', 'quickSaveKeywordsHideCommon',
     'quickSaveKeywordsWords', 'quickSaveKeywordsDefinition',
+    'quickSaveKeywordsNerdToggle', 'quickSaveKeywordsNerdStats',
+    'keywordsNerdToggle', 'keywordsNerdStats',
+    'clipViewerKeywordsNerdToggle', 'clipViewerKeywordsNerdStats',
   ].forEach(make);
   const buttons = new Map([
     ['clips', { dataset: { tab: 'clips' }, classList: { add() {}, remove() {} } }],
     ['keywords', { dataset: { tab: 'keywords' }, classList: { add() {}, remove() {} } }],
   ]);
   globalThis.document = {
+    body: pickerBody(),
+    createElement: fakePickerDialog,
+    addEventListener() {},
+    removeEventListener() {},
     getElementById: (id) => elements.get(id) || null,
     querySelector(selector) {
       const match = selector.match(/data-tab="(.+)"/);
@@ -535,4 +643,48 @@ test('clip viewer phrase toggle allows multi-word lookup', async () => {
   const chips = elements.get('clipViewerKeywordsWords').innerHTML;
   assert.equal((chips.match(/is-selected/g) || []).length, 2);
   assert.equal(elements.get('clipViewerKeywordsPhraseMode').getAttribute('aria-pressed'), 'true');
+});
+
+test('nerd stats list lookup caps without naming a source', () => {
+  const text = nerdStatRows({ kind: 'page', savedCount: 3 })
+    .map((row) => `${row.label} ${row.value}`)
+    .join('\n');
+  assert.match(text, /No user cap/);
+  assert.match(text, /8 words/);
+  assert.match(text, /3 \/ 200/);
+  assert.doesNotMatch(text, /dictionary|api/i);
+
+  const review = nerdStatRows({ kind: 'review', savedCount: 1, selectedCount: 2, cacheCount: 4 })
+    .map((row) => `${row.label} ${row.value}`)
+    .join('\n');
+  assert.match(review, /2 \/ 8/);
+  assert.match(review, /4 looked up/);
+});
+
+test('nerd stats open on keywords page, quick save, and clip viewer', () => {
+  const elements = installKeywordsDom();
+  const app = {
+    currentTab: 'clips',
+    showToast() {},
+    _saveActiveTabState() {},
+    updateHeaderClipCount() {},
+  };
+  const feature = initKeywordsFeature(app);
+  feature.reviewSavedText({ text: 'Ontology idea', sourceLabel: 'Quick Save' });
+  feature.reviewClip({ id: 'clip-3', text: 'Marksman' });
+
+  assert.equal(elements.get('keywordsNerdStats').hidden, true);
+  feature.page.toggleNerdStats();
+  assert.equal(elements.get('keywordsNerdStats').hidden, false);
+  assert.match(elements.get('keywordsNerdToggle').textContent, /Hide Nerd Stats/);
+  assert.match(elements.get('keywordsNerdStats').innerHTML, /No user cap/);
+  assert.doesNotMatch(elements.get('keywordsNerdStats').innerHTML, /dictionary|api/i);
+
+  feature.toggleNerdStats();
+  assert.equal(elements.get('quickSaveKeywordsNerdStats').hidden, false);
+  assert.match(elements.get('quickSaveKeywordsNerdStats').innerHTML, /looked up/);
+
+  feature.reviewNerdStats();
+  assert.equal(elements.get('clipViewerKeywordsNerdStats').hidden, false);
+  assert.match(elements.get('clipViewerKeywordsNerdToggle').textContent, /Hide Nerd Stats/);
 });

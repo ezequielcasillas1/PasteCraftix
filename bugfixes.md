@@ -1,3 +1,13 @@
+### Oct 10, 2026 - Study Formats color picker jagged / glitched
+**Status:** PARTIAL (pending user verify)
+**Files:** clips.viewer-color-picker.js, clips.viewer.js, clip-viewer.css, popup.html, theme-blue-phase2.css, clip-viewer-color-picker.test.mjs
+**Result:** Chromium native `<input type="color">` PagePopup corrupted under Clip Viewer modal backdrop-filter/transform. Replaced with in-panel HSV picker + hex field.
+
+### Oct 9, 2026 - Study formats dropped out of clip viewer edit
+**Status:** PARTIAL (pending user verify)
+**Files:** clips.viewer.js, clip-viewer-edit-toggle.test.mjs
+**Result:** Format clicks sit outside the text box, so the same click exited edit and cleared the textarea. The study toolbar now stays in edit.
+
 ### Aug 20, 2026 - AI Summary model-not-capable stuck workspace + follow-up wipe
 **Status:** PARTIAL (pending user verify)
 **Files:** ai-lab.model-error.js, ai-lab.summary.js, ai-lab.credit-error.js, ai-lab.model-picker.js, ai-lab-page.events.js, popup.html, tests/ai-model-error.test.mjs, tests/ai-lab-followup-preserve.test.mjs

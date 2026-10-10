@@ -12290,11 +12290,15 @@
                                 <h4 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h4>
                                 <p class="keywords-subtitle" id="quickSaveKeywordsSource"></p>
                             </div>
-                            <label class="keywords-hide-common" for="quickSaveKeywordsHideCommon">
-                                <input type="checkbox" id="quickSaveKeywordsHideCommon">
-                                Hide common words
-                            </label>
+                            <div class="keywords-header-controls">
+                                <button type="button" class="keywords-nerd-toggle" id="quickSaveKeywordsNerdToggle" data-action="keyword-nerd-stats" aria-expanded="false" aria-controls="quickSaveKeywordsNerdStats">View Nerd Stats</button>
+                                <label class="keywords-hide-common" for="quickSaveKeywordsHideCommon">
+                                    <input type="checkbox" id="quickSaveKeywordsHideCommon">
+                                    Hide common words
+                                </label>
+                            </div>
                         </div>
+                        <div class="keywords-nerd-stats" id="quickSaveKeywordsNerdStats" hidden></div>
                         <div class="keywords-word-list" id="quickSaveKeywordsWords"></div>
                         <div class="keywords-card" id="quickSaveKeywordsDefinition" hidden></div>
                     </section>
@@ -12391,7 +12395,11 @@
                         <h3 class="keywords-title"><i data-lucide="book-open"></i> Keywords</h3>
                         <p class="keywords-subtitle" id="keywordsSource">Keywords pick out the words in what you save and show what each word means.</p>
                     </div>
+                    <div class="keywords-header-controls">
+                        <button type="button" class="keywords-nerd-toggle" id="keywordsNerdToggle" data-action="keyword-nerd-stats" aria-expanded="false" aria-controls="keywordsNerdStats">View Nerd Stats</button>
+                    </div>
                 </div>
+                <div class="keywords-nerd-stats" id="keywordsNerdStats" hidden></div>
                 <div class="keywords-files" id="keywordsFiles"></div>
                 <div class="keywords-folders" id="keywordsFolders">
                     <p class="keywords-empty">Save a word from Quick Save Text or from a clip. Saved words stay here.</p>
@@ -13670,8 +13678,12 @@ Multiple clips are separated by:
                             <span id="clipViewerCharCount" class="clip-viewer-char-count" role="status" aria-live="polite" aria-atomic="true" aria-label="0 characters">0 characters</span>
                         </div>
                     </div>
-                    <div class="clip-viewer-study-toolbar" id="clipViewerStudyToolbar" role="toolbar" aria-label="Study formats">
+                    <div class="clip-viewer-study-toolbar" id="clipViewerStudyToolbar" role="toolbar" aria-label="Study formats" data-highlight-color="#fde047">
                         <span class="clip-viewer-study-toolbar-label">Study formats</span>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerUndoBtn" type="button" data-study-undo="1" aria-label="Undo study format" disabled>
+                            <i data-lucide="undo-2"></i>
+                            <span class="pc-tip" role="tooltip">Undo</span>
+                        </button>
                         <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerBulletBtn" type="button" data-list-style="bullet" aria-label="Dash list" aria-pressed="false">
                             <i data-lucide="list"></i>
                             <span class="pc-tip" role="tooltip">Dash list -</span>
@@ -13684,13 +13696,49 @@ Multiple clips are separated by:
                             <i data-lucide="list-ordered"></i>
                             <span class="pc-tip" role="tooltip">Numbered list 1. 2. 3.</span>
                         </button>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerBoldBtn" type="button" data-mark="bold" aria-label="Bold" aria-pressed="false">
+                            <span class="clip-viewer-study-glyph clip-viewer-study-glyph--bold" aria-hidden="true">B</span>
+                            <span class="pc-tip" role="tooltip">Bold</span>
+                        </button>
+                        <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerUnderlineBtn" type="button" data-mark="underline" aria-label="Underline" aria-pressed="false">
+                            <span class="clip-viewer-study-glyph clip-viewer-study-glyph--underline" aria-hidden="true">U</span>
+                            <span class="pc-tip" role="tooltip">Underline</span>
+                        </button>
+                        <span class="clip-viewer-study-highlight">
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerHighlightBtn" type="button" data-mark="highlight" aria-label="Highlight" aria-pressed="false">
+                                <span class="clip-viewer-study-glyph" aria-hidden="true">H</span>
+                                <span class="clip-viewer-study-color-chip" id="clipViewerHighlightChip" style="background-color:#fde047"></span>
+                                <span class="pc-tip" role="tooltip">Highlight</span>
+                            </button>
+                            <button class="pc-ai-icon-btn pc-delay-tip" id="clipViewerHighlightPickerBtn" type="button" data-mark-ui="highlight-picker" aria-label="Choose highlight color" aria-expanded="false" aria-controls="clipViewerHighlightPop">
+                                <span class="clip-viewer-study-glyph" aria-hidden="true">▾</span>
+                                <span class="pc-tip" role="tooltip">Choose highlight color</span>
+                            </button>
+                            <div class="clip-viewer-study-color-pop" id="clipViewerHighlightPop" hidden>
+                                <span class="clip-viewer-study-color-label" id="clipViewerHighlightColorLabel">Color</span>
+                                <div class="pc-study-color-picker" id="clipViewerHighlightPicker" role="group" aria-labelledby="clipViewerHighlightColorLabel">
+                                    <div class="pc-study-sv" data-field="study-sv" tabindex="0" role="slider" aria-label="Saturation and brightness" aria-valuemin="0" aria-valuemax="100">
+                                        <span class="pc-study-sv-thumb" data-field="study-sv-thumb" aria-hidden="true"></span>
+                                    </div>
+                                    <div class="pc-study-color-row">
+                                        <span class="pc-study-swatch" data-field="study-swatch" aria-hidden="true"></span>
+                                        <input type="range" class="pc-study-hue" data-field="study-hue" min="0" max="360" step="1" value="50" aria-label="Hue">
+                                    </div>
+                                </div>
+                                <label class="clip-viewer-study-color-label" for="clipViewerHighlightHex">Any color</label>
+                                <input type="text" id="clipViewerHighlightHex" value="#fde047" spellcheck="false" autocomplete="off" aria-label="Highlight color as hex, rgb, hsl, or name">
+                            </div>
+                        </span>
                     </div>
                     <div class="clip-viewer-body" id="clipViewerBody">
                         <div class="pc-rendered-content" id="clipViewerRendered"></div>
                         <pre class="clip-viewer-pre" id="clipViewerRaw" style="display:none;"></pre>
                         <div class="clip-viewer-edit-panel" id="clipViewerEditPanel" style="display:none;">
                             <p class="clip-viewer-edit-hint">Edit freely — append or remove text, then Save</p>
-                            <textarea id="clipViewerEditTextarea" class="clip-viewer-edit-textarea" rows="12" aria-label="Edit clip text"></textarea>
+                            <div id="clipViewerEditSurface" class="clip-viewer-edit-surface" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Edit clip text"></div>
+                            <textarea id="clipViewerEditTextarea" class="clip-viewer-edit-textarea clip-viewer-edit-source" rows="12" aria-hidden="true" tabindex="-1"></textarea>
+                            <p class="clip-viewer-edit-preview-label">Preview</p>
+                            <div id="clipViewerEditPreview" class="clip-viewer-edit-preview" aria-label="Study format preview"></div>
                         </div>
                     </div>
                     <details class="clip-viewer-details" id="clipViewerHtmlDetails" style="display:none; margin-top: 12px;">
@@ -13704,6 +13752,7 @@ Multiple clips are separated by:
                                 <p class="keywords-subtitle" id="clipViewerKeywordsSource"></p>
                             </div>
                             <div class="keywords-header-controls">
+                                <button type="button" class="keywords-nerd-toggle" id="clipViewerKeywordsNerdToggle" data-action="keyword-nerd-stats" aria-expanded="false" aria-controls="clipViewerKeywordsNerdStats">View Nerd Stats</button>
                                 <button type="button" class="keywords-phrase-toggle pc-delay-tip" id="clipViewerKeywordsPhraseMode" data-action="keyword-phrase-mode" aria-pressed="false" aria-label="Activate phrase" aria-describedby="clipViewerKeywordsPhraseTip">Activate phrase<span class="pc-tip" id="clipViewerKeywordsPhraseTip" role="tooltip">Off: look up one word. On: click several words to make a phrase.</span></button>
                                 <label class="keywords-hide-common" for="clipViewerKeywordsHideCommon">
                                     <input type="checkbox" id="clipViewerKeywordsHideCommon">
@@ -13711,6 +13760,7 @@ Multiple clips are separated by:
                                 </label>
                             </div>
                         </div>
+                        <div class="keywords-nerd-stats" id="clipViewerKeywordsNerdStats" hidden></div>
                         <div class="keywords-word-list" id="clipViewerKeywordsWords"></div>
                         <div class="keywords-card" id="clipViewerKeywordsDefinition" hidden></div>
                     </section>
@@ -14132,7 +14182,7 @@ Multiple clips are separated by:
                             <strong>Clips:</strong> Your clipboard hub — view, paste, edit, delete, categorize, multi-select, and open the clip viewer.
                         </div>
                         <div class="help-item">
-                            <strong>Keywords:</strong> English words pulled from saved text, with dictionary meanings you can keep in files and folders.
+                            <strong>Keywords:</strong> English words pulled from saved text, with dictionary and study-field meanings you can keep in files and folders.
                         </div>
                         <div class="help-item">
                             <strong>Search:</strong> Find clips by text, keywords, or category across your full history.
@@ -14141,7 +14191,7 @@ Multiple clips are separated by:
                             <strong>Categories:</strong> Create folders, move clips between them, and manage Files attached to categories.
                         </div>
                         <div class="help-item">
-                            <strong>AI Lab:</strong> Summary, Refactorization, Breakdown, and AI text credits.
+                            <strong>AI Lab:</strong> Summary, Refactorization, Breakdown, model picker, and AI text credits.
                         </div>
                         <div class="help-item">
                             <strong>Liked:</strong> Hearted / loved clips in one place for quick reuse.
@@ -14202,19 +14252,21 @@ Multiple clips are separated by:
                             </ul>
                         </div>
                         <div class="help-item">
-                            <strong>How meanings work:</strong> English words only (letters, apostrophes, and hyphens). Repeated words are listed once. Meanings come from the Free Dictionary, then Wiktionary when the first source has no entry. A phrase with no single dictionary entry shows the closest sense of each main word. Grammar words in a phrase are noted separately.
+                            <strong>How meanings work:</strong> English words only (letters, apostrophes, and hyphens). Repeated words are listed once. Ordinary words use Free Dictionary, then Wiktionary, then a Wikipedia summary when neither dictionary has an entry. Study fields (pre-med, computer science, engineering, biology, and similar majors) look up Wikipedia first so a short name is not read as a drug or other lookalike. A phrase with no single dictionary entry shows the closest sense of each main word. Grammar words in a phrase are noted separately. Up to 4 senses show; up to 8 are kept with the saved word.
                         </div>
                         <div class="help-item">
-                            <strong>How saving works:</strong> New words go into the folder marked <strong>New words go here</strong>. Use <strong>Save new words here</strong> on another folder to change that target. A word you already saved stays in its current folder. The toast tells you where it landed.
+                            <strong>How saving works:</strong> <strong>Save keyword</strong> opens a picker: “Where would you like to save this word?” Folders are grouped by file, with a word count on each row. Search folders when the list is long. <strong>Add</strong> saves into the folder you picked. <strong>+ New folder</strong> creates a folder in a chosen file and saves there. The folder marked <strong>New words go here</strong> is the suggested start. Use <strong>Save new words here</strong> on the Keywords tab to change that suggestion. A word you already saved stays in its current folder. The toast tells you where it landed.
                         </div>
                         <div class="help-item">
                             <strong>Files and folders:</strong>
                             <ul>
-                                <li>Files are the tabs at the top (up to 12). Folders sit inside the open file (up to 24 per file).</li>
-                                <li>Everyone starts with the file <strong>Saved</strong> and the folder <strong>All words</strong>.</li>
+                                <li>Files are the tabs at the top. Folders sit inside the open file. There is no file or folder ceiling; extra items stay on later pages.</li>
+                                <li>Everyone starts with the file <strong>Saved</strong> and the folder <strong>All words</strong>. <strong>Saved</strong> cannot be deleted.</li>
+                                <li>The info button beside Files (<strong>What files and folders do</strong>) explains create, rename, delete, and the save target.</li>
                                 <li>Create, rename, or delete a file or folder from the Keywords tab. Deleting a file moves its words to <strong>Saved / All words</strong>. Deleting a folder moves its words to another folder in that file. Deleting a word removes only that word.</li>
-                                <li>Open a saved word to read its meaning, <strong>Move to folder</strong>, or <strong>Delete word</strong>.</li>
+                                <li>Open a saved word to read its meaning, <strong>Move to folder</strong>, or <strong>Delete word</strong>. Move opens an in-card picker: search, folders grouped by file, 6 folders per page, then Prev / page numbers / Next. The current folder is marked. Esc or opening another word closes the picker.</li>
                                 <li>Search files, folders, or words. Lists page through 5 files, 4 folders, and 12 words at a time.</li>
+                                <li><strong>View Nerd Stats</strong> (Quick Save, Clip Viewer, and the Keywords tab) shows lookup limits for this session: phrase length, senses shown, saved-word count, and page size. Meaning lookups have no user cap.</li>
                             </ul>
                         </div>
                         <div class="help-item">
@@ -14302,19 +14354,6 @@ Multiple clips are separated by:
                     </div>
 
                     <div class="help-section">
-                        <h4><i data-lucide="store"></i> Merchant Listing Tools</h4>
-                        <div class="help-item">
-                            <strong>Purpose:</strong> On merchant sites (Etsy, Shopify, Printify, and similar), stage listing fields with PasteCraft’s Listing Dock and Pulse strip.
-                        </div>
-                        <div class="help-item">
-                            <strong>Tags:</strong> Smart paste / normalize tag lists, provider tag limits, presets, and validation before submit.
-                        </div>
-                        <div class="help-item">
-                            <strong>Spot &amp; Pulse:</strong> Stage selected text into the ephemeral dock; Pulse keeps recent staging visible while you work.
-                        </div>
-                    </div>
-
-                    <div class="help-section">
                         <h4><i data-lucide="bot"></i> AI Lab</h4>
                         <div class="help-item">
                             <strong>Summary:</strong> Paste content, generate suggested questions, pick or write your own, and get an AI summary you can save as a clip.
@@ -14326,10 +14365,13 @@ Multiple clips are separated by:
                             <strong>AI Breakdown:</strong> Explain complex text at levels from Child through Wise / PhD-style depth.
                         </div>
                         <div class="help-item">
-                            <strong>Credits:</strong> AI text actions use credits. Buy packs from the AI Lab banner or upgrade when out of credits. Prefer cheaper presets for everyday study to save credits.
+                            <strong>Models:</strong> Pick a model from the header or from <strong>AI models for your PasteCraft journey</strong> in AI Lab. The choice is saved and used for Summary, Breakdown, Refactorization, and Craft. Default is <strong>Clip Forge · Muse Spark 1.3</strong> (about 40 credits). Other picks include Quill Spark · Haiku 5.5 (20), Ember Flash, Silk Flash (20), Beam Lite and Luna Clip (25), Pulse Lite (15), Nexus Flash (40), Summit Craft · Grok 4.7 (250), and Apex Craft · GPT-5.6 Terra (500). Most models can read image clips; Pulse Lite is text only. The picker is available with Premium, purchased credits, a credit window, or unlimited AI.
                         </div>
                         <div class="help-item">
-                            <strong>Access:</strong> Open the <strong>AI Lab</strong> tab. Premium may be required for some tools (e.g. Refactorization).
+                            <strong>Credits:</strong> AI text actions use credits. The cost follows the model you picked. Buy packs from the AI Lab banner or upgrade when out of credits. Prefer cheaper models for everyday study.
+                        </div>
+                        <div class="help-item">
+                            <strong>Access:</strong> Open the <strong>AI Lab</strong> tab. Premium may be required for some tools (e.g. Refactorization). If a model cannot do the action, AI Lab shows that on the result instead of a blank error.
                         </div>
                     </div>
 
@@ -14360,7 +14402,16 @@ Multiple clips are separated by:
                             </ul>
                         </div>
                         <div class="help-item">
-                            <strong>How it works:</strong> Clips show a format badge (MD, JSON, Code). Open Clip Viewer for rendered output; toggle View Raw for source.
+                            <strong>How it works:</strong> Clips show a format badge (MD, JSON, Code). Open Clip Viewer for rendered output; toggle View Raw for source. The header shows a live character count.
+                        </div>
+                        <div class="help-item">
+                            <strong>Study formats:</strong> In Clip Viewer, select text and use the Study formats bar.
+                            <ul>
+                                <li><strong>Lists:</strong> Dash list (-), Dot list (•), or Numbered list (1. 2. 3.). Pressing Enter continues the list.</li>
+                                <li><strong>Marks:</strong> Bold, Underline, and Highlight. Highlight uses the color on the chip.</li>
+                                <li><strong>Highlight color:</strong> Open the color menu for a hue picker, or type a hex, rgb, hsl, or color name. The default highlight is yellow.</li>
+                                <li><strong>Undo</strong> steps back through study-format edits (up to 40). Edit mode shows the formatted text as you type, with a preview under the editor. Save keeps the marks in the clip.</li>
+                            </ul>
                         </div>
                     </div>
 
@@ -14422,6 +14473,9 @@ Multiple clips are separated by:
                             <strong>Appearance:</strong> Blue Dark Mode (navy glass + electric blue) across PasteCraft including Quick Paste.
                         </div>
                         <div class="help-item">
+                            <strong>Privacy &amp; Data:</strong> Settings lists what is stored on this device, what syncs to Supabase, what Stripe handles for billing, and that clip text is sent to AI only when you run an AI action. A short notice appears when those practices change; <strong>Got it</strong> dismisses it. Privacy Policy and Terms of Use open pastecraft.com.
+                        </div>
+                        <div class="help-item">
                             <strong>Quick Paste options:</strong> Auto-hide, timestamps, and max clips (see Quick Paste section).
                         </div>
                         <div class="help-item">
@@ -14440,7 +14494,9 @@ Multiple clips are separated by:
                         <div class="help-item">• Prefer cheap AI presets for daily study to stretch credits</div>
                         <div class="help-item">• Sign in + Basic/Premium for durable cloud sync; freemium is local-only — export backups</div>
                         <div class="help-item">• Open Capture Tools from the page widget for Spot and Image → Text</div>
-                        <div class="help-item">• Save a word from Quick Save or a clip, then reopen it anytime from the Keywords tab</div>
+                        <div class="help-item">• Save a word from Quick Save or a clip, pick its folder, then reopen it anytime from the Keywords tab</div>
+                        <div class="help-item">• In Clip Viewer, use Study formats (lists, bold, underline, highlight) and Undo before you save</div>
+                        <div class="help-item">• Switch AI models from the header when a cheaper or stronger engine fits the clip</div>
                     </div>
                 </div>
                 <div class="modal-actions">
@@ -15796,6 +15852,7 @@ alice@email.com</div>
     <link rel="stylesheet" href="assets/styles/theme-blue-phase2.css">
     <link rel="stylesheet" href="popup/features/ai-lab/ai-lab.summary-sources.css">
     <link rel="stylesheet" href="popup/features/keywords/keywords.css">
+    <link rel="stylesheet" href="popup/features/keywords/keywords.destination.css">
     <link rel="stylesheet" href="popup/features/five-star-rating/five-star-rating.css">
     <script src="popup/shared/resource-loader.js"></script>
     <script src="lib/purify.min.js"></script>

@@ -1,3 +1,18 @@
+### 2026-10-10 - Help text matches current product
+**Status:** PENDING VERIFY
+**Files:** extension/popup.html
+**Result:** Help covers Wikipedia study-field lookup, keyword destination and paged move pickers, no file/folder ceiling, Nerd Stats, Clip Viewer study formats, AI model showcase costs, and Settings Privacy & Data.
+
+### 2026-10-09 - Keywords files and folders guide
+**Status:** PENDING VERIFY
+**Files:** keywords.constants.js, keywords.state.js, keywords.page.js, keywords.events.js, keywords.library.render.js, keywords.css
+**Result:** Info button beside Files opens a short guide for files, folders, save target, and move.
+
+### 2026-10-09 - Keywords study-sector dictionary (Wikipedia)
+**Status:** PENDING VERIFY
+**Files:** keywords.dictionary.js, keywords.constants.js, extension/manifest.json, tests/keywords-extract.test.mjs
+**Result:** Lookup chain Free Dictionary → Wiktionary → Wikipedia; study aliases (pre-med, CS, engineering, biology majors) hit Wikipedia first so Wiktionary cannot misdefine them.
+
 ### 2026-07-15 - Settings Privacy & Data disclosure
 **Status:** PENDING VERIFY
 **Files:** extension/popup/features/privacy/*, popup.features.js, settings.render.js, popup.html
@@ -79,3 +94,7 @@ Should not be a checkbox or stored preference. It should be computed from synced
 **Status:** SUCCESS  
 **Files:** extension/popup.js, extension/popup.html  
 **Result:** Fixed PIN persistence bug (sets currentUser before PIN save), added unlimited session toggle, updated sign-in checkbox text to match settings, synced checkbox states across UI, confirm modals already present.
+### 2026-10-09 - Keywords Paged Move-to-Folder Picker
+**Status:** PENDING (awaiting Ezequiel verification)
+**Files:** extension/popup/features/keywords/keywords.move-picker.js (new), keywords.render.js, keywords.library.render.js, keywords.page.js, keywords.state.js, keywords.constants.js, keywords.events.js, keywords.css, tests/keywords-move-picker.test.mjs
+**Result:** Replaced native select on saved-word card with in-card picker: search, folders grouped by file, 6 per page, Prev/numbers/Next + 1/N counter; Esc/toggle/open-word close it. Move logic unchanged. 47/47 keyword tests pass.

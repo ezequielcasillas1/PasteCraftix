@@ -165,19 +165,19 @@ export const AI_SHOWCASE_MODELS = [
       'Pulse Lite · Ling 3.0 Flash is PasteCraft’s budget pulse model. Lowest showcase credit cost for light drafts, snips, and exploratory passes (~15 credits).',
   },
   {
-    id: 'gpt-5.4',
+    id: 'grok-4.7',
     brandName: 'Summit Craft',
-    modelName: 'GPT-5.4',
-    label: displayLabel('Summit Craft', 'GPT-5.4'),
+    modelName: 'Grok 4.7',
+    label: displayLabel('Summit Craft', 'Grok 4.7'),
     shortLabel: 'Summit',
-    provider: 'openai',
-    preset: 'gpt54',
-    gatewayModel: 'openai/gpt-5.4',
+    provider: 'xai',
+    preset: 'grok47',
+    gatewayModel: 'xai/grok-4.7',
     supportsVision: true,
-    strength: 'Newest flagship · long-context craft',
-    tagline: 'Frontier reasoning · Super craft quality',
+    strength: 'Frontier craft · image + long context',
+    tagline: 'Strong reasoning · lower flagship cost',
     description:
-      'Summit Craft · GPT-5.4 is PasteCraft’s newest OpenAI flagship. Stronger long-context judgment, coding-aware craft, and careful multi-step formatting. Premium cost (~500 credits) — use for Super craft, complex summaries, and messy mixed content.',
+      'Summit Craft · Grok 4.7 is PasteCraft’s frontier craft model. Strong long-context judgment, image-aware clips, and careful multi-step formatting. About half the previous GPT-5.4 API cost (~250 credits).',
   },
 ];
 
@@ -198,6 +198,14 @@ export function resolveShowcaseModelFromWorkflow(workflow) {
   // Stored Nexus picks from before Gemini 3.8 Flash.
   if (provider === 'google' && preset === 'gemini_37_flash') {
     preset = 'gemini_38_flash';
+  }
+  // Stored Summit picks from before Grok 4.7.
+  if (provider === 'openai' && preset === 'gpt54') {
+    provider = 'xai';
+    preset = 'grok47';
+  }
+  if (provider === 'xai' && preset === 'default') {
+    preset = 'grok47';
   }
   const match = AI_SHOWCASE_MODELS.find(
     (m) => m.provider === provider && m.preset === preset,

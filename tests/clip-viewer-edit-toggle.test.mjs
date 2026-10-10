@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const viewerPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'extension/popup/features/clips/clips.viewer.js');
 const source = readFileSync(viewerPath, 'utf8');
 
-const STAY = '#clipViewerBody, #saveClipViewerEditBtn, #cancelClipViewerEditBtn';
+const STAY = '#clipViewerBody, #saveClipViewerEditBtn, #cancelClipViewerEditBtn, #clipViewerStudyToolbar';
 
 function wasClipViewerDragSelect(app) {
   const gesture = app?._clipViewerPointerGesture;
@@ -64,6 +64,24 @@ test('drag that started in the box does not exit', () => {
       keywords,
     ),
     false,
+  );
+});
+
+test('study toolbar click stays in edit', () => {
+  const toolbar = {
+    closest(sel) {
+      if (sel === '#clipViewerModal') return {};
+      if (sel === STAY) return {};
+      return null;
+    },
+  };
+  assert.equal(shouldExitClipViewerEdit({ _clipViewerEditing: true }, toolbar), false);
+});
+
+test('stay selector includes the study toolbar', () => {
+  assert.match(
+    source,
+    /CLIP_VIEWER_EDIT_STAY_SELECTORS\s*=\s*'[^']*#clipViewerStudyToolbar[^']*'/,
   );
 });
 

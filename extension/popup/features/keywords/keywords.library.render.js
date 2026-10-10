@@ -18,7 +18,7 @@ import {
   renderPaginationControls,
   renderSearchBar,
 } from './keywords.pagination.js';
-import { escapeHtml, renderStoredCard } from './keywords.render.js';
+import { escapeHtml, paintNerdStats, renderStoredCard } from './keywords.render.js';
 
 function plural(count, word) {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -76,6 +76,27 @@ function renderFileTools(app, viewFile, form) {
   `;
 }
 
+function renderGuide(open) {
+  if (!open) return '';
+  return `
+    <div class="keywords-guide" id="keywordsGuide" role="region" aria-label="${KEYWORD_COPY.GUIDE_LABEL}">
+      <p class="keywords-guide-lead">${KEYWORD_COPY.GUIDE_FILES}</p>
+      <ul class="keywords-guide-list">
+        <li>${KEYWORD_COPY.GUIDE_NEW_FILE}</li>
+        <li>${KEYWORD_COPY.GUIDE_RENAME_FILE}</li>
+        <li>${KEYWORD_COPY.GUIDE_SEARCH_FILES}</li>
+      </ul>
+      <p class="keywords-guide-lead">${KEYWORD_COPY.GUIDE_FOLDERS}</p>
+      <ul class="keywords-guide-list">
+        <li>${KEYWORD_COPY.GUIDE_OPEN_FOLDER}</li>
+        <li>${KEYWORD_COPY.GUIDE_NEW_FOLDER}</li>
+        <li>${KEYWORD_COPY.GUIDE_TARGET}</li>
+        <li>${KEYWORD_COPY.GUIDE_MOVE}</li>
+      </ul>
+    </div>
+  `;
+}
+
 function renderFileBar(app, { library, counts, viewFile, form, page }) {
   const allFiles = library.files;
   const filtered = filterByName(allFiles, page.fileSearch);
@@ -108,11 +129,16 @@ function renderFileBar(app, { library, counts, viewFile, form, page }) {
     compact: true,
   });
 
+  const guideOpen = !!page.guideOpen;
   return `
     <div class="keywords-section-head">
-      <p class="keywords-section-label">${KEYWORD_COPY.FILES_LABEL}</p>
+      <div class="keywords-section-title">
+        <p class="keywords-section-label">${KEYWORD_COPY.FILES_LABEL}</p>
+        <button type="button" class="keywords-info-btn${guideOpen ? ' is-open' : ''}" data-action="${KEYWORD_ACTIONS.GUIDE}" aria-expanded="${guideOpen ? 'true' : 'false'}" aria-controls="keywordsGuide" title="${KEYWORD_COPY.GUIDE_LABEL}" aria-label="${KEYWORD_COPY.GUIDE_LABEL}"><i data-lucide="info"></i></button>
+      </div>
       ${searchBar}
     </div>
+    ${renderGuide(guideOpen)}
     <div class="keywords-file-tabs" role="tablist" aria-label="${KEYWORD_COPY.FILES_LABEL}">
       ${tabs}
       <button type="button" class="keywords-add" data-action="${KEYWORD_ACTIONS.NEW_FILE}"><i data-lucide="plus"></i> ${KEYWORD_COPY.NEW_FILE}</button>
@@ -153,7 +179,7 @@ function renderFolderBody(app, { folder, rawWords, page, library }) {
   const open = filteredWords.find((item) => item.key === page.openKey)
     || rawWords.find((item) => item.key === page.openKey);
   const card = open
-    ? `<div class="keywords-card">${renderStoredCard(app, open, library)}</div>`
+    ? `<div class="keywords-card">${renderStoredCard(app, open, library, page.movePicker)}</div>`
     : `<p class="keywords-hint">${KEYWORD_COPY.OPEN_HINT}</p>`;
 
   return `
@@ -297,6 +323,11 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
   const items = Array.isArray(bank) ? bank : [];
   const viewFile = library.files.find((file) => file.id === page.viewFileId) || library.files[0];
   const counts = countByFolder(items);
+  paintNerdStats(app, KEYWORD_SELECTORS, {
+    open: !!page.nerdStatsOpen,
+    kind: 'page',
+    savedCount: items.length,
+  });
 
   const prevFocus = captureSearchFocus();
 

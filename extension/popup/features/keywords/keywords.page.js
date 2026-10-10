@@ -48,6 +48,10 @@ export function createKeywordsPage({ app, store }) {
     if (!store.getBank().some((item) => item.key === page.openKey)) page.openKey = '';
   }
 
+  function resetMovePicker() {
+    page.movePicker = { open: false, search: '', page: 0 };
+  }
+
   function render() {
     syncView();
     renderKeywordLibrary(app, { library: store.getLibrary(), bank: store.getBank(), page });
@@ -79,6 +83,7 @@ export function createKeywordsPage({ app, store }) {
       render();
     },
     openWord(key) {
+      resetMovePicker();
       const next = normalizeKey(key);
       page.openKey = page.openKey === next ? '' : next;
       const item = store.getBank().find((word) => word.key === page.openKey);
@@ -139,6 +144,7 @@ export function createKeywordsPage({ app, store }) {
       return run((library, bank) => removeKeywordFolder(library, bank, folderId), 'Folder deleted');
     },
     moveWord(key, folderId) {
+      resetMovePicker();
       page.expanded.add(folderId);
       return run(
         (library, bank) => placeKeyword(bank, library, key, folderId),
@@ -202,6 +208,44 @@ export function createKeywordsPage({ app, store }) {
     clearWordSearch() {
       page.wordSearch = '';
       page.wordPages.clear();
+      render();
+    },
+    toggleNerdStats() {
+      page.nerdStatsOpen = !page.nerdStatsOpen;
+      render();
+    },
+    toggleGuide() {
+      page.guideOpen = !page.guideOpen;
+      render();
+    },
+    closeGuide() {
+      if (!page.guideOpen) return;
+      page.guideOpen = false;
+      render();
+    },
+    toggleMovePicker() {
+      const open = !page.movePicker.open;
+      resetMovePicker();
+      page.movePicker.open = open;
+      render();
+    },
+    closeMovePicker() {
+      if (!page.movePicker.open) return;
+      resetMovePicker();
+      render();
+    },
+    setMovePickerSearch(query) {
+      page.movePicker.search = String(query ?? '');
+      page.movePicker.page = 0;
+      render();
+    },
+    setMovePickerPage(pageNum) {
+      page.movePicker.page = Math.max(0, Number(pageNum) || 0);
+      render();
+    },
+    clearMovePickerSearch() {
+      page.movePicker.search = '';
+      page.movePicker.page = 0;
       render();
     },
   };

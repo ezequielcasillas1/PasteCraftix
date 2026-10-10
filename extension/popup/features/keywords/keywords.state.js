@@ -19,6 +19,7 @@ export function createKeywordsState(options = {}) {
     settleLookup: null,
     entries: new Map(),
     lookupSeq: 0,
+    nerdStatsOpen: false,
   };
 }
 
@@ -36,5 +37,8 @@ export function createKeywordsPageState() {
     folderPage: 0,
     wordSearch: '',
     wordPages: new Map(),
+    movePicker: { open: false, search: '', page: 0 },
+    nerdStatsOpen: false,
+    guideOpen: false,
   };
 }

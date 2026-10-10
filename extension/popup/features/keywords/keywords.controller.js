@@ -10,7 +10,8 @@ import { bankEntryFromLookup } from './keywords.bank.js';
 import { lookupEmphasis } from './keywords.dictionary.js';
 import { extractKeywords, selectedPhrase, toggleKeywordSelection, visibleKeywords } from './keywords.extract.js';
 import { createKeywordsEvents } from './keywords.events.js';
-import { describeKeywordPlace } from './keywords.library.js';
+import { addKeywordFolder, describeKeywordPlace } from './keywords.library.js';
+import { askKeywordDestination } from './keywords.destination.js';
 import { createKeywordsPage } from './keywords.page.js';
 import { renderKeywordsPage } from './keywords.render.js';
 import { createKeywordsState } from './keywords.state.js';
@@ -217,6 +218,12 @@ export function initKeywordsFeature(app) {
     if (!ok) app.showToast?.('Could not load saved words.');
   });
 
+  async function createFolder(fileId, name) {
+    const result = await store.apply((library) => addKeywordFolder(library, fileId, name));
+    if (!result?.ok) return result;
+    return { ok: true, folderId: result.folderId, library: store.getLibrary(), bank: store.getBank() };
+  }
+
   async function saveFrom(state) {
     await store.ready;
     const draft = bankEntryFromLookup(state);
@@ -225,8 +232,19 @@ export function initKeywordsFeature(app) {
       app.showToast?.(problem);
       return { ok: false };
     }
-    const ok = await store.saveWord(draft);
-    app.showToast?.(ok ? `Keyword saved to ${savedPlaces.get(draft.key) || state.saveTarget}` : 'Could not save this keyword.');
+    const folderId = await askKeywordDestination({
+      library: store.getLibrary(),
+      bank: store.getBank(),
+      app,
+      label: draft.text || draft.key,
+      savedFolderId: store.getBank().find((item) => item.key === draft.key)?.folderId,
+      currentFolderId: store.getLibrary().selection?.folderId,
+      createFolder,
+      returnFocusTo: globalThis.document?.activeElement,
+    });
+    if (!folderId) return { ok: false };
+    const ok = await store.saveWord({ ...draft, folderId });
+    app.showToast?.(ok ? `Keyword saved to ${describeKeywordPlace(store.getLibrary(), folderId)}` : 'Could not save this keyword.');
     return { ok };
   }
 
@@ -260,7 +278,11 @@ export function initKeywordsFeature(app) {
     },
     reviewClip(clip) {
       const text = String(clip?.text || '');
-      const label = text.replace(/\s+/g, ' ').trim().slice(0, 48) || 'Clip';
+      const label = text
+        .replace(/<mark\b[^>]*>|<\/mark>|<u>|<\/u>|\*\*/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 48) || 'Clip';
       return sendKeywordsText(app, viewerState, {
         text,
         sourceLabel: label,
@@ -285,6 +307,14 @@ export function initKeywordsFeature(app) {
     reviewPhraseMode(on) {
       const next = typeof on === 'boolean' ? on : !viewerState.phraseMode;
       return setPhraseMode(app, viewerState, next, CLIP_VIEWER_KEYWORD_SELECTORS);
+    },
+    toggleNerdStats() {
+      quickSaveState.nerdStatsOpen = !quickSaveState.nerdStatsOpen;
+      renderKeywordsPage(app, quickSaveState, QUICK_SAVE_KEYWORD_SELECTORS);
+    },
+    reviewNerdStats() {
+      viewerState.nerdStatsOpen = !viewerState.nerdStatsOpen;
+      renderKeywordsPage(app, viewerState, CLIP_VIEWER_KEYWORD_SELECTORS);
     },
   };
   api.events = createKeywordsEvents(api);
