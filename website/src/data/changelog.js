@@ -62,19 +62,16 @@ export const changelogReleases = [
     stores: [
       {
         id: 'edge',
-        status: 'pending',
-        label: 'Pending on Microsoft Edge Add-ons',
-        note: 'Finalized and pushed by Friday, August 28, 2026.',
+        status: 'live',
+        label: 'Published on Microsoft Edge Add-ons',
       },
       {
         id: 'chrome',
-        status: 'pending',
-        label: 'Pending on the Chrome Web Store',
-        note: 'Finalized and pushed by Friday, August 28, 2026.',
+        status: 'live',
+        label: 'Published on the Chrome Web Store',
       },
     ],
-    availability:
-      'Pending on Microsoft Edge Add-ons and the Chrome Web Store. Finalized and pushed by Friday, August 28, 2026.',
+    availability: 'Published on Microsoft Edge Add-ons and the Chrome Web Store.',
     highlights: [
       'Dash, bullet, and numbered lists in the clip viewer',
       'AI Summary keeps the workspace when a model cannot handle the request',
@@ -210,7 +207,7 @@ export const changelogEras = [
     title: 'August 2026',
     summary: 'Study lists, clip images, capture browsers, and study-ready categories.',
     highlights: [
-      '3.0.40 study lists in the clip viewer; Edge and Chrome Web Store pending through August 28, 2026',
+      '3.0.40 study lists in the clip viewer; published on Edge and the Chrome Web Store',
       'Topic summaries can ground through the AI gateway when no clip URL exists',
       'Clip images moved off the 10MB chrome.storage quota into IndexedDB, then cloud preserve',
       'Capture Tools: Chrome, Edge, and Comet get Image Picker and Spot; Opera and Arc keep Auto-Copy and click-and-drag',
