@@ -102,6 +102,10 @@ import { exploreLinks, helpLinks } from '../data/site.js';
   }
 
   .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.15rem 0;
     text-decoration: none;
     color: var(--text-soft);
     transition: color 180ms ease;
@@ -123,7 +127,11 @@ import { exploreLinks, helpLinks } from '../data/site.js';
     font-size: 0.88rem;
   }
 
-  @media (max-width: 800px) {
+  @media (max-width: 63.9375rem) {
+    .site-footer {
+      margin-top: 3rem;
+    }
+
     .footer-shell,
     .footer-links {
       grid-template-columns: 1fr;

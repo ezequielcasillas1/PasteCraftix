@@ -132,6 +132,7 @@ const faqs = [
 ---
 
 <BaseLayout currentPath="/">
+  <div class="home-page">
   <script
     slot="head"
     type="application/ld+json"
@@ -413,15 +414,28 @@ const faqs = [
       if (card instanceof HTMLElement) createCardDither(card);
     });
   </script>
+  </div>
 </BaseLayout>
 
 <style>
   .section-block {
     margin: 0 auto;
-    padding: 5rem 1.5rem;
+    padding: 3.5rem 1rem;
     box-sizing: border-box;
     max-width: min(80rem, 100%);
     overflow-x: clip;
+  }
+
+  @media (min-width: 640px) {
+    .section-block {
+      padding: 4rem 1.25rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .section-block {
+      padding: 5rem 1.5rem;
+    }
   }
 
   .section-inner,
@@ -495,7 +509,7 @@ const faqs = [
     max-width: 42rem;
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 640px) {
     .section-lead {
       font-size: 1.125rem;
     }
@@ -581,7 +595,7 @@ const faqs = [
   .problem-card p,
   .workflow-card p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     line-height: 1.75;
     font-weight: 300;
     color: #475569;
@@ -593,10 +607,16 @@ const faqs = [
     gap: 1.5rem;
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .workflow-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 2rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .workflow-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
@@ -632,7 +652,7 @@ const faqs = [
     gap: 1.5rem;
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 1024px) {
     .audience-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 2rem;
@@ -697,7 +717,7 @@ const faqs = [
 
   .audience-tagline {
     margin: 0.25rem 0 0;
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     font-weight: 300;
     color: #64748b;
   }
@@ -714,7 +734,7 @@ const faqs = [
     display: flex;
     align-items: flex-start;
     gap: 0.75rem;
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     font-weight: 300;
     color: #475569;
     line-height: 1.6;
@@ -730,8 +750,9 @@ const faqs = [
   .audience-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
+    gap: var(--tap-gap);
+    min-height: var(--tap-min);
+    font-size: var(--font-body-min);
     color: var(--brand);
     font-weight: 400;
   }
@@ -755,7 +776,13 @@ const faqs = [
     gap: 1.5rem;
   }
 
-  @media (min-width: 768px) {
+  @media (min-width: 640px) {
+    .privacy-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
     .privacy-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 2rem;
@@ -782,7 +809,7 @@ const faqs = [
 
   .privacy-card p {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     line-height: 1.75;
     font-weight: 300;
     color: #94a3b8;
@@ -794,15 +821,18 @@ const faqs = [
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.85rem 1.25rem;
+    gap: var(--tap-gap);
   }
 
   .privacy-link-row a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
     color: var(--blue-soft);
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     text-decoration: none;
     border-bottom: 1px solid rgba(147, 197, 253, 0.4);
-    padding-bottom: 2px;
+    padding: 0.35rem 0.15rem;
     transition: color 200ms ease;
   }
 
@@ -816,7 +846,13 @@ const faqs = [
     gap: 1.5rem;
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 640px) {
+    .pricing-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
     .pricing-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 2rem;
@@ -889,7 +925,7 @@ const faqs = [
 
   .plan-note {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--font-body-min);
     line-height: 1.7;
     font-weight: 300;
     color: #475569;
@@ -907,7 +943,7 @@ const faqs = [
     display: flex;
     align-items: flex-start;
     gap: 0.65rem;
-    font-size: 0.8125rem;
+    font-size: var(--font-body-min);
     font-weight: 300;
     color: #475569;
     line-height: 1.55;
@@ -928,9 +964,10 @@ const faqs = [
   .btn-text {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--tap-gap);
+    min-height: var(--tap-min);
     color: var(--brand);
-    font-size: 0.9375rem;
+    font-size: var(--font-body-min);
     text-decoration: none;
     transition: color 200ms ease;
   }
@@ -943,8 +980,8 @@ const faqs = [
     margin: 1.75rem 0 0;
     text-align: center;
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: -0.03em;
+    font-size: var(--font-body-min);
+    letter-spacing: -0.02em;
     color: #94a3b8;
   }
 
@@ -972,7 +1009,8 @@ const faqs = [
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.25rem;
+    gap: var(--tap-gap);
+    min-height: var(--tap-min);
     min-width: 0;
   }
 
@@ -1004,7 +1042,7 @@ const faqs = [
   .faq-item > p {
     margin: 0;
     padding: 0 1.5rem 1.5rem;
-    font-size: 0.9375rem;
+    font-size: var(--font-body-min);
     line-height: 1.85;
     font-weight: 300;
     color: #475569;
@@ -1020,7 +1058,7 @@ const faqs = [
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    gap: var(--tap-gap);
   }
 
   @media (min-width: 640px) {
@@ -1034,11 +1072,12 @@ const faqs = [
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: var(--tap-gap);
+    min-height: var(--tap-min);
     width: 100%;
     border-radius: 999px;
-    padding: 1rem 1.75rem;
-    font-size: 0.9375rem;
+    padding: 0.75rem 1.5rem;
+    font-size: var(--font-body-min);
     text-decoration: none;
     transition: all 300ms ease;
   }
@@ -1074,55 +1113,49 @@ const faqs = [
     transform: translateY(-2px);
   }
 
-  @media (max-width: 640px) {
-    .section-block {
-      padding: 3.5rem 1rem;
-    }
+  .section-intro {
+    margin-bottom: 2.5rem;
+  }
 
-    .section-intro {
-      margin-bottom: 2.5rem;
-    }
+  .privacy-section {
+    padding: 4rem 1rem;
+  }
 
+  @media (min-width: 1024px) {
     .privacy-section {
-      padding: 4rem 1rem;
+      padding: 6rem 1.5rem;
     }
+  }
 
+  .problem-card,
+  .workflow-card,
+  .audience-card,
+  .privacy-card,
+  .plan-card {
+    padding: 1.35rem;
+    border-radius: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
     .problem-card,
     .workflow-card,
     .audience-card,
     .privacy-card,
     .plan-card {
-      padding: 1.35rem;
-      border-radius: 1.5rem;
-    }
-
-    .faq-item {
-      border-radius: 1.5rem;
-    }
-
-    .faq-item summary {
-      padding: 1.1rem 1.15rem;
-      gap: 0.75rem;
-    }
-
-    .faq-item summary h3 {
-      font-size: 1rem;
-    }
-
-    .faq-item > p {
-      padding: 0 1.15rem 1.25rem;
-      font-size: 0.875rem;
+      padding: 1.75rem 2rem;
+      border-radius: 2rem;
     }
   }
 
-  @media (max-width: 380px) {
-    .section-block {
-      padding: 3rem 0.85rem;
-    }
+  .faq-item {
+    border-radius: 1.5rem;
+  }
 
-    .audience-card,
-    .plan-card {
-      padding: 1.15rem;
-    }
+  .faq-item summary {
+    padding: 1.1rem 1.15rem;
+  }
+
+  .faq-item > p {
+    padding: 0 1.15rem 1.25rem;
   }
 </style>
