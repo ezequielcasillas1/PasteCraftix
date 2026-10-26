@@ -1,0 +1,14 @@
+---
+import { blueskyProfile } from '../data/site.js';
+
+const { class: className = 'ghost-button' } = Astro.props;
+---
+
+<a
+  class={className}
+  href={blueskyProfile.href}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  {blueskyProfile.label}, {blueskyProfile.handle}
+</a>

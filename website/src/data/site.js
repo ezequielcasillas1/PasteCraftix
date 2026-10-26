@@ -4,7 +4,6 @@ export const navItems = [
   { href: '/pricing', label: 'Pricing' },
   { href: '/changelog', label: 'Changelog' },
   { href: '/about', label: 'About' },
-  { href: '/contact', label: 'Contact' },
   { href: '/account', label: 'Account' },
 ];
 
@@ -18,7 +17,6 @@ export const exploreLinks = [
 
 export const helpLinks = [
   { href: '/support', label: 'Support' },
-  { href: '/contact', label: 'Contact' },
   { href: '/changelog', label: 'Changelog' },
   { href: '/upgrade', label: 'Upgrade' },
   { href: '/terms', label: 'Terms' },
@@ -27,10 +25,13 @@ export const helpLinks = [
 
 export const footerLinks = [...exploreLinks, ...helpLinks];
 
-export const socialLinks = [
-  { href: 'https://www.facebook.com/PasteCraftOfficial', label: 'Facebook' },
-  { href: 'https://www.reddit.com/r/PasteCraft/', label: 'Reddit' },
-];
+export const blueskyProfile = {
+  href: 'https://bsky.app/profile/casiezeq.bsky.social',
+  label: 'Bluesky',
+  handle: '@casiezeq',
+};
+
+export const socialLinks = [{ href: blueskyProfile.href, label: blueskyProfile.label }];
 
 export const storeLinks = {
   chrome: 'https://chromewebstore.google.com/detail/pastecraft-smart-clipboar/fidljmdohgkjmmgojdblbbnfoeengoko',

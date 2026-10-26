@@ -36,9 +36,9 @@ export const pageSeo = {
     priority: '0.9',
   },
   '/contact': {
-    title: 'Contact PasteCraft | Support, Privacy, and Legal Help',
+    title: 'PasteCraft on Bluesky | Product Updates',
     description:
-      'Reach the PasteCraft team for extension support, privacy requests, or legal questions. Include your browser, plan, and what went wrong so we can help.',
+      'Follow PasteCraft on Bluesky for product news and questions. Message @casiezeq with your browser, plan, and what you need help with.',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.6',
@@ -46,7 +46,7 @@ export const pageSeo = {
   '/support': {
     title: 'PasteCraft Support | Clipboard Manager Extension Help',
     description:
-      'Get help with this clipboard manager extension: install, cloud sync, billing, and AI Lab. Read common answers or email support@pastecraft.com.',
+      'Get help with this clipboard manager extension: install, cloud sync, billing, and AI Lab. Read common answers or reach us on Bluesky @casiezeq.',
     robots: 'index, follow',
     changefreq: 'monthly',
     priority: '0.7',
@@ -54,7 +54,7 @@ export const pageSeo = {
   '/privacy': {
     title: 'PasteCraft Privacy Policy | Data, AI, and Your Rights',
     description:
-      'Read how PasteCraft handles account data, clip storage, AI processing, payments, and your rights. Contact privacy@pastecraft.com for access or deletion.',
+      'Read how PasteCraft handles account data, clip storage, AI processing, payments, and your rights. Reach @casiezeq on Bluesky for access or deletion requests.',
     robots: 'index, follow',
     changefreq: 'yearly',
     priority: '0.4',
