@@ -81,6 +81,7 @@ const { scholar, merchant } = productLines;
         copy="If you only remember one distinction: Scholar keeps knowledge. Merchant stages a listing, then throws the staging away."
       >
         <div class="compare-table-wrap surface-card">
+          <p class="table-scroll-hint">Swipe horizontally to compare columns.</p>
           <table class="compare-table">
             <thead>
               <tr>
@@ -283,6 +284,9 @@ const { scholar, merchant } = productLines;
   .compare-table-wrap {
     overflow-x: auto;
     padding: 0.35rem;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 
   .compare-table {
@@ -356,6 +360,25 @@ const { scholar, merchant } = productLines;
   @media (max-width: 980px) {
     .svm-pair {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .compare-table th,
+    .compare-table td {
+      padding: 0.85rem 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .svm-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .svm-cta .button,
+    .svm-cta .ghost-button {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

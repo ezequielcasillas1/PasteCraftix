@@ -798,11 +798,14 @@ const faqs = [
   }
 
   .privacy-link-row a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
     color: var(--blue-soft);
     font-size: 0.875rem;
     text-decoration: none;
     border-bottom: 1px solid rgba(147, 197, 253, 0.4);
-    padding-bottom: 2px;
+    padding: 0.35rem 0.15rem;
     transition: color 200ms ease;
   }
 
@@ -814,6 +817,12 @@ const faqs = [
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
+  }
+
+  @media (min-width: 640px) and (max-width: 899px) {
+    .pricing-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
   @media (min-width: 900px) {

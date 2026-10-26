@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './responsive.css';
 
 html {
   scroll-behavior: smooth;
@@ -263,10 +264,21 @@ a:focus-visible {
   margin-top: 2rem;
 }
 
-@media (max-width: 980px) {
-  .card-grid.three,
+@media (min-width: 640px) and (max-width: 979px) {
+  .card-grid.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 979px) {
   .stats-row,
   .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 639px) {
+  .card-grid.three {
     grid-template-columns: 1fr;
   }
 }
@@ -281,6 +293,16 @@ a:focus-visible {
   }
 
   .card-grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .stats-row {
     grid-template-columns: 1fr;
   }
 }

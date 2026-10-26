@@ -366,5 +366,31 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       font-weight: 600;
       font-size: 0.9rem;
     }
+
+    @media (max-width: 720px) {
+      .intro-card h1 {
+        font-size: clamp(2rem, 8vw, 2.75rem);
+      }
+
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .dashboard-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .button-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .button-row .button,
+      .button-row .ghost-button {
+        width: 100%;
+      }
+    }
   </style>
 </BaseLayout>
