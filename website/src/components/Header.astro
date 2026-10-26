@@ -1,50 +1,66 @@
 ---
-import { navItems } from '../data/site.js';
+import { navItems, storeLinks } from '../data/site.js';
 
 const { currentPath = '/' } = Astro.props;
 ---
 
 <header class="site-header">
-  <div class="container header-shell surface-card">
-    <div class="header-bar">
+  <div class="container header-anchor">
+    <div class="header-shell surface-card">
       <a href="/" class="brand" aria-label="PasteCraft home">
-        <img src="/logo.svg" alt="PasteCraft clipboard manager extension" width="42" height="42" class="brand-logo" />
-        <span>
+        <img
+          src="/logo.svg"
+          alt=""
+          width="32"
+          height="32"
+          class="brand-logo"
+        />
+        <span class="brand-text">
           <strong>PasteCraft</strong>
           <small>Clipboard history that stays useful</small>
         </span>
       </a>
 
-      <button
-        type="button"
-        class="nav-toggle"
-        id="site-nav-toggle"
-        aria-expanded="false"
-        aria-controls="site-primary-nav"
-      >
-        <span class="sr-only">Open menu</span>
-        <span class="nav-toggle-bars" aria-hidden="true"></span>
-      </button>
-    </div>
+      <nav class="site-nav" id="site-primary-nav" aria-label="Primary">
+        <ul class="nav-list">
+          {navItems.map((item) => (
+            <li>
+              <a href={item.href} class:list={{ active: currentPath === item.href }}>
+                {item.href === '/scholar-vs-merchant' ? (
+                  <>
+                    <span class="nav-label-full">{item.label}</span>
+                    <span class="nav-label-short">Scholar vs Merchant</span>
+                  </>
+                ) : (
+                  item.label
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-    <nav class="site-nav" id="site-primary-nav" aria-label="Primary">
-      <ul class="nav-list">
-        {navItems.map((item) => (
-          <li>
-            <a href={item.href} class:list={{ active: currentPath === item.href }}>
-              {item.href === '/scholar-vs-merchant' ? (
-                <>
-                  <span class="nav-label-full">{item.label}</span>
-                  <span class="nav-label-short">Scholar vs Merchant</span>
-                </>
-              ) : (
-                item.label
-              )}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+      <div class="header-end">
+        <a
+          class="header-cta"
+          href={storeLinks.chrome}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Add to Chrome
+        </a>
+        <button
+          type="button"
+          class="nav-toggle"
+          id="site-nav-toggle"
+          aria-expanded="false"
+          aria-controls="site-primary-nav"
+        >
+          <span class="sr-only">Open menu</span>
+          <span class="nav-toggle-bars" aria-hidden="true"></span>
+        </button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -73,7 +89,7 @@ const { currentPath = '/' } = Astro.props;
   });
 
   window.addEventListener('resize', () => {
-    if (window.matchMedia('(min-width: 901px)').matches) {
+    if (window.matchMedia('(min-width: 64rem)').matches) {
       setNavOpen(false);
     }
   });
@@ -85,21 +101,26 @@ const { currentPath = '/' } = Astro.props;
 
 <style>
   .site-header {
-    padding: 1.25rem 0 0;
+    padding: 0.5rem 0 0;
     position: sticky;
     top: 0;
     z-index: 30;
     max-width: 100%;
   }
 
+  .header-anchor {
+    position: relative;
+  }
+
   .header-shell {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 1.25rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.84);
+    gap: var(--tap-gap);
+    min-height: var(--tap-min);
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.9);
     box-shadow: 0 14px 38px -18px rgba(15, 23, 42, 0.25), inset 0 1px 0 #ffffff;
@@ -108,31 +129,27 @@ const { currentPath = '/' } = Astro.props;
     min-width: 0;
   }
 
-  .header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.85rem;
+    gap: 0.65rem;
     text-decoration: none;
     min-width: 0;
-  }
-
-  .brand span {
-    min-width: 0;
+    flex-shrink: 0;
+    min-height: var(--tap-min);
   }
 
   .brand-logo {
-    border-radius: 12px;
+    border-radius: 10px;
     flex-shrink: 0;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand-text {
+    min-width: 0;
+    display: none;
   }
 
   .brand strong {
@@ -152,12 +169,36 @@ const { currentPath = '/' } = Astro.props;
     white-space: nowrap;
   }
 
-  .nav-toggle {
-    display: none;
+  .header-end {
+    display: flex;
+    align-items: center;
+    gap: var(--tap-gap);
+    flex-shrink: 0;
+  }
+
+  .header-cta {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-height: var(--tap-min);
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    color: #ffffff;
+    background: var(--gradient-gold);
+    border: 1px solid var(--brand-deep);
+    box-shadow: var(--shadow-gold);
+    white-space: nowrap;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
     padding: 0;
     border-radius: 999px;
     border: 1px solid var(--border);
@@ -208,32 +249,48 @@ const { currentPath = '/' } = Astro.props;
   }
 
   .site-nav {
-    min-width: 0;
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + var(--tap-gap));
+    z-index: 40;
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+  }
+
+  .site-nav.is-open {
+    display: block;
   }
 
   .nav-list {
     list-style: none;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
+    flex-direction: column;
+    gap: var(--tap-gap);
     margin: 0;
     padding: 0;
-    justify-content: flex-end;
   }
 
   .nav-list a {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-height: 2.75rem;
-    padding: 0.55rem 0.95rem;
-    border-radius: 999px;
+    min-height: var(--tap-min);
+    padding: 0 0.85rem;
+    border-radius: var(--radius-md);
     text-decoration: none;
-    font-size: 0.875rem;
+    font-size: 1rem;
     color: var(--text-soft);
     border: 1px solid transparent;
     transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
-    white-space: nowrap;
+    white-space: normal;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .nav-list a.active,
@@ -248,63 +305,76 @@ const { currentPath = '/' } = Astro.props;
     display: none;
   }
 
-  @media (max-width: 900px) {
-    .header-shell {
-      flex-direction: column;
-      align-items: stretch;
-      border-radius: var(--radius-lg);
-      padding: 0.65rem 0.75rem 0.75rem;
-    }
-
-    .nav-toggle {
-      display: inline-flex;
-    }
-
-    .site-nav {
-      display: none;
-      width: 100%;
-      padding-top: 0.35rem;
-    }
-
-    .site-nav.is-open {
-      display: block;
-    }
-
-    .nav-list {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.35rem;
-    }
-
-    .nav-list a {
-      width: 100%;
-      justify-content: flex-start;
-      white-space: normal;
-      font-size: 0.92rem;
-      padding: 0.65rem 0.9rem;
-    }
-
-    .nav-label-full {
-      display: none;
-    }
-
-    .nav-label-short {
-      display: inline;
+  @media (min-width: 640px) {
+    .header-cta {
+      font-size: 0.9375rem;
+      padding: 0 1rem;
     }
   }
 
-  @media (max-width: 480px) {
+  @media (min-width: 1024px) {
     .site-header {
-      padding-top: 0.85rem;
+      padding: 1rem 0 0;
     }
 
-    .brand small {
-      display: none;
+    .header-shell {
+      flex-wrap: nowrap;
+      gap: 0.75rem;
+      min-height: auto;
+      padding: 0.65rem 1.25rem;
+      border-radius: 999px;
     }
 
     .brand-logo {
-      width: 36px;
-      height: 36px;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+    }
+
+    .brand-text {
+      display: block;
+    }
+
+    .header-cta,
+    .nav-toggle {
+      display: none;
+    }
+
+    .site-nav {
+      display: block;
+      position: static;
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 0;
+      border: none;
+      box-shadow: none;
+      background: transparent;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .nav-list {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: var(--tap-gap);
+    }
+
+    .nav-list a {
+      width: auto;
+      justify-content: center;
+      font-size: 0.875rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .nav-label-full {
+      display: inline;
+    }
+
+    .nav-label-short {
+      display: none;
     }
   }
 </style>

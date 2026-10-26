@@ -38,6 +38,14 @@
   --radius-md: 1rem;
   --radius-sm: 0.75rem;
   --max-width: 1200px;
+
+  /* Layout breakpoints (mobile-first): 640 / 1024 / 1280 */
+  --bp-sm: 40rem;
+  --bp-lg: 64rem;
+  --bp-xl: 80rem;
+  --tap-min: 2.75rem;
+  --tap-gap: 0.5rem;
+  --font-body-min: 1rem;
   --gradient-brand: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
   --gradient-gold: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
   --gradient-surface: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0) 100%);

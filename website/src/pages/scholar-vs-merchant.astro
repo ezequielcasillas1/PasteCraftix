@@ -357,13 +357,17 @@ const { scholar, merchant } = productLines;
     margin-top: 1.75rem;
   }
 
-  @media (max-width: 980px) {
+  .svm-pair {
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 1024px) {
     .svm-pair {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 63.9375rem) {
     .compare-table th,
     .compare-table td {
       padding: 0.85rem 0.75rem;

@@ -111,7 +111,7 @@ const {
   .billing-toggle {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
+    gap: var(--tap-gap);
     padding: 0.35rem;
     border-radius: 999px;
     background: #f1f5f9;
@@ -120,7 +120,7 @@ const {
   }
 
   .billing-toggle button {
-    min-height: 2.55rem;
+    min-height: var(--tap-min);
     border-radius: 999px;
     border: none;
     background: transparent;
@@ -137,33 +137,28 @@ const {
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
   }
 
-  @media (max-width: 520px) {
+  .badge {
+    position: static;
+    justify-self: start;
+    margin-bottom: 0.35rem;
+  }
+
+  @media (min-width: 640px) {
     .badge {
-      position: static;
-      justify-self: start;
-      margin-bottom: 0.35rem;
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      margin-bottom: 0;
     }
   }
 
-  @media (max-width: 420px) {
+  @media (min-width: 1024px) {
     .price {
-      font-size: clamp(2.2rem, 10vw, 3rem);
-    }
-
-    .billing-toggle button {
-      min-height: 2.75rem;
-      font-size: 0.8rem;
+      font-size: 3rem;
     }
 
     h3 {
-      font-size: 1.45rem;
-    }
-  }
-
-  @media (max-width: 340px) {
-    .billing-toggle {
-      grid-template-columns: 1fr;
-      border-radius: var(--radius-md);
+      font-size: 1.7rem;
     }
   }
 
