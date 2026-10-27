@@ -1485,3 +1485,13 @@ body:has(#keywordsTab.active) #magicWand { display: none !important; }
 /* Learn results: keep the subject/count apart from the chip label and muted. */
 .keywords-learn .keywords-word .keywords-count { margin-left: 6px; color: #94a3b8; font-weight: 500; }
 .keywords-learn .keywords-word.is-selected .keywords-count { color: #cbd5e1; }
+
+/* Mini Games detail: How to play (open by default, collapsible). */
+.keywords-howto { align-self: stretch; margin: 2px 0 4px; }
+.keywords-howto > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+.keywords-howto > summary::-webkit-details-marker { display: none; }
+.keywords-howto > summary::before { content: '▸'; font-size: 10px; transition: transform 0.15s ease; }
+.keywords-howto[open] > summary::before { transform: rotate(90deg); }
+.keywords-howto-steps { margin: 6px 0 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.45; }
+.keywords-howto-steps li + li { margin-top: 3px; }
+[data-theme="blue"] .keywords-howto-steps { color: var(--pc-secondary-100); }

@@ -2,7 +2,8 @@
  * @forward-slice Mini Games catalog for the Keywords tab.
  *
  * Schema (one entry per game):
- *   { id: string, name: string, group: GameGroupId, blurb: string, keywords: string[] }
+ *   { id: string, name: string, group: GameGroupId, blurb: string, keywords: string[],
+ *     howToPlay?: string[] }   // optional, 3–5 short steps; `how_to_play` is accepted too
  *
  * The real catalog is being written by Rio and Sable. Until it lands, GAMES_CATALOG is
  * empty and the tab shows "Mini Games are on the way". To ship the real games, either
@@ -37,6 +38,12 @@ export const SAMPLE_GAMES = Object.freeze([
     group: 'board',
     blurb: 'SAMPLE · Two players move pieces on an 8×8 board, each trying to checkmate the other king.',
     keywords: Object.freeze(['Checkmate', 'Gambit', 'Castling', 'En passant']),
+    howToPlay: Object.freeze([
+      'SAMPLE · Set up the pieces with white on the right-hand corner square.',
+      'SAMPLE · Take turns moving one piece; white moves first.',
+      'SAMPLE · Capture by moving onto an opponent piece.',
+      'SAMPLE · Win by checkmating the other king.',
+    ]),
     sample: true,
   }),
   Object.freeze({
@@ -45,6 +52,11 @@ export const SAMPLE_GAMES = Object.freeze([
     group: 'racquet-paddle',
     blurb: 'SAMPLE · Paddle sport on a small court; players hit a perforated plastic ball over a low net.',
     keywords: Object.freeze(['Dink', 'Volley', 'Fault']),
+    howToPlay: Object.freeze([
+      'SAMPLE · Serve underhand, diagonally across the court.',
+      'SAMPLE · Let the ball bounce once on each side before volleying.',
+      'SAMPLE · Stay out of the kitchen when you volley.',
+    ]),
     sample: true,
   }),
   Object.freeze({
@@ -53,6 +65,11 @@ export const SAMPLE_GAMES = Object.freeze([
     group: 'dice',
     blurb: 'SAMPLE · Roll five dice up to three times a turn to fill scoring boxes on a card.',
     keywords: Object.freeze(['Full house', 'Straight']),
+    howToPlay: Object.freeze([
+      'SAMPLE · Roll all five dice.',
+      'SAMPLE · Re-roll any dice up to two more times.',
+      'SAMPLE · Score the roll in one empty box on your card.',
+    ]),
     sample: true,
   }),
 ]);
@@ -62,6 +79,17 @@ export const GAMES_CATALOG = Object.freeze([]);
 
 function cleanText(value, max) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+export const HOW_TO_PLAY_MIN = 3;
+export const HOW_TO_PLAY_MAX = 5;
+
+/** 3–5 short, non-empty steps, or [] (the section is hidden) when the field is missing or out of range. */
+export function normalizeHowToPlay(raw) {
+  if (!Array.isArray(raw)) return [];
+  const steps = raw.map((step) => (typeof step === 'string' ? cleanText(step, 160) : '')).filter(Boolean);
+  if (steps.length < HOW_TO_PLAY_MIN || steps.length > HOW_TO_PLAY_MAX) return [];
+  return steps;
 }
 
 /** One validated, frozen game, or null when the row breaks the schema. */
@@ -81,7 +109,16 @@ export function normalizeGame(raw) {
       seen.add(key);
       return true;
     });
-  return Object.freeze({ id, name, group, blurb, keywords: Object.freeze(keywords), sample: raw.sample === true });
+  const howToPlay = normalizeHowToPlay(raw.howToPlay ?? raw.how_to_play);
+  return Object.freeze({
+    id,
+    name,
+    group,
+    blurb,
+    keywords: Object.freeze(keywords),
+    howToPlay: Object.freeze(howToPlay),
+    sample: raw.sample === true,
+  });
 }
 
 /** Validate a whole list: drops bad rows and duplicate ids (first wins). */
@@ -126,6 +163,7 @@ export function searchGames({ query = '', groupId = GAME_GROUP_ALL } = {}) {
     return game.name.toLowerCase().includes(q)
       || getGameGroupLabel(game.group).toLowerCase().includes(q)
       || game.blurb.toLowerCase().includes(q)
-      || game.keywords.some((word) => word.toLowerCase().includes(q));
+      || game.keywords.some((word) => word.toLowerCase().includes(q))
+      || game.howToPlay.some((step) => step.toLowerCase().includes(q));
   });
 }

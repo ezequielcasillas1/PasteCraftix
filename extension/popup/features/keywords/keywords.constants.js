@@ -162,6 +162,7 @@ export const KEYWORD_COPY = Object.freeze({
   GAMES_CLEAR: 'Clear search',
   GAMES_BACK: '← All games',
   GAMES_KEYWORDS_IN: 'Keywords in this game',
+  GAMES_HOW_TO_PLAY: 'How to play',
   GAMES_KEYWORD_HINT: 'Open a keyword to read its summary.',
   GAMES_NO_KEYWORDS: 'No keywords listed for this game yet.',
   GAMES_SAMPLE: 'Sample',

@@ -67,6 +67,18 @@ function renderNoMatch(app, page) {
   `;
 }
 
+/** Numbered steps, open by default and collapsible; nothing when the game has none. */
+export function renderHowToPlay(app, steps) {
+  if (!Array.isArray(steps) || !steps.length) return '';
+  const items = steps.map((step) => `<li>${escapeHtml(app, step)}</li>`).join('');
+  return `
+    <details class="keywords-howto" open>
+      <summary class="keywords-section-label">${KEYWORD_COPY.GAMES_HOW_TO_PLAY}</summary>
+      <ol class="keywords-howto-steps">${items}</ol>
+    </details>
+  `;
+}
+
 function renderGameDetail(app, game, page) {
   const chips = game.keywords.length
     ? `<div class="keywords-word-list">${game.keywords.map((word) => {
@@ -84,6 +96,7 @@ function renderGameDetail(app, game, page) {
       <h4 class="keywords-game-title">${escapeHtml(app, game.name)}${sample}</h4>
       <p class="keywords-count keywords-game-group">${escapeHtml(app, getGameGroupLabel(game.group))}</p>
       <p class="keywords-definition-text">${escapeHtml(app, game.blurb)}</p>
+      ${renderHowToPlay(app, game.howToPlay)}
       <p class="keywords-section-label">${KEYWORD_COPY.GAMES_KEYWORDS_IN}</p>
       ${chips}
       ${summary}

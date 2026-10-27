@@ -135,3 +135,40 @@ test('Learn banner counts the loaded catalog', async () => {
   assert.match(renderLearnCatalog(app, page), /<strong>Mini Games<\/strong> · 3 games and their keywords/);
   set([]);
 });
+
+test('howToPlay: accepts howToPlay or how_to_play, 3–5 steps, else hidden', async () => {
+  const { normalizeGame: norm } = await import('../extension/popup/features/keywords/keywords.games.js');
+  const base = { id: 'g', name: 'G', group: 'card', blurb: '', keywords: [] };
+  assert.deepEqual([...norm({ ...base, howToPlay: ['a', 'b', 'c'] }).howToPlay], ['a', 'b', 'c']);
+  assert.deepEqual([...norm({ ...base, how_to_play: ['a', ' b ', 'c', 'd'] }).howToPlay], ['a', 'b', 'c', 'd']);
+  assert.equal(norm({ ...base, howToPlay: ['a', 'b'] }).howToPlay.length, 0);
+  assert.equal(norm({ ...base, howToPlay: ['1', '2', '3', '4', '5', '6'] }).howToPlay.length, 0);
+  assert.equal(norm({ ...base, howToPlay: 'not a list' }).howToPlay.length, 0);
+  assert.equal(norm({ ...base, howToPlay: ['a', '', 'b', 7] }).howToPlay.length, 0, 'blank/non-string steps do not count');
+  assert.equal(norm(base).howToPlay.length, 0);
+  SAMPLE_GAMES.forEach((game) => {
+    const steps = norm(game).howToPlay;
+    assert.ok(steps.length >= 3 && steps.length <= 5);
+    steps.forEach((step) => assert.match(step, /^SAMPLE/));
+  });
+});
+
+test('detail order is blurb, How to play (open), keywords; hidden when empty; search matches steps', () => {
+  setGamesCatalog([
+    ...SAMPLE_GAMES,
+    { id: 'plain', name: 'Plain', group: 'card', blurb: 'No steps', keywords: ['Trick'] },
+  ]);
+  const page = createKeywordsPageState();
+  page.gamesOpenId = 'sample-chess';
+  const html = renderGamesSection(app, page);
+  const iBlurb = html.indexOf('keywords-definition-text');
+  const iHow = html.indexOf('How to play');
+  const iKw = html.indexOf('Keywords in this game');
+  assert.ok(iBlurb > 0 && iBlurb < iHow && iHow < iKw);
+  assert.match(html, /<details class="keywords-howto" open>/);
+  assert.equal((html.match(/<li>/g) || []).length, 4);
+  page.gamesOpenId = 'plain';
+  assert.doesNotMatch(renderGamesSection(app, page), /How to play/);
+  assert.deepEqual(searchGames({ query: 'kitchen' }).map((g) => g.id), ['sample-pickleball']);
+  setGamesCatalog([]);
+});
