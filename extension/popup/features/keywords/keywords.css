@@ -1359,6 +1359,11 @@
 
 /* ---- Keywords redesign: segments, scoped search, header ?/⋯, explainer, Mini Games ---- */
 
+/* Clip Joiner settings, the crafted-output preview and the Craft button sit outside the tabs
+   (popup.html marks them "only show for clips and search tabs") but nothing hid them on Keywords. */
+body:has(#keywordsTab.active) #formatSection,
+body:has(#keywordsTab.active) #previewSection,
+body:has(#keywordsTab.active) #magicWand { display: none !important; }
 
 .keywords-head-btn { min-width: 30px; height: 30px; font-weight: 800; font-size: 15px; line-height: 1; }
 .keywords-menu-wrap { position: relative; }
