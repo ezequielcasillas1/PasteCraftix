@@ -1,7 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
-import { blueskyProfile } from '../data/site.js';
 ---
 
 <BaseLayout currentPath="/terms">
@@ -57,8 +56,8 @@ import { blueskyProfile } from '../data/site.js';
         </section>
 
         <section>
-          <h2>Questions</h2>
-          <p>Questions about the terms can be sent via <a href={blueskyProfile.href} target="_blank" rel="noopener noreferrer">{blueskyProfile.label}, {blueskyProfile.handle}</a>.</p>
+          <h2>Contact</h2>
+          <p>Questions about the terms can be sent to <a href="mailto:legal@pastecraft.com">legal@pastecraft.com</a>.</p>
         </section>
       </article>
     </SectionShell>

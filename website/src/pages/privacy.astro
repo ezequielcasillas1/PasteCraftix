@@ -1,7 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
-import { blueskyProfile } from '../data/site.js';
 ---
 
 <BaseLayout currentPath="/privacy">
@@ -49,7 +48,7 @@ import { blueskyProfile } from '../data/site.js';
 
         <section>
           <h2>Retention and deletion</h2>
-          <p>You may request access, correction, export, or deletion of your personal data by reaching us on <a href={blueskyProfile.href} target="_blank" rel="noopener noreferrer">{blueskyProfile.label}, {blueskyProfile.handle}</a>. We retain data only as long as needed to operate the service and comply with legal requirements.</p>
+          <p>You may request access, correction, export, or deletion of your personal data by contacting <a href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>. We retain data only as long as needed to operate the service and comply with legal requirements.</p>
         </section>
 
         <section>
@@ -63,8 +62,8 @@ import { blueskyProfile } from '../data/site.js';
         </section>
 
         <section>
-          <h2>Questions</h2>
-          <p>If you have privacy questions or requests, reach us on <a href={blueskyProfile.href} target="_blank" rel="noopener noreferrer">{blueskyProfile.label}, {blueskyProfile.handle}</a>.</p>
+          <h2>Contact</h2>
+          <p>If you have privacy questions or requests, email <a href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>.</p>
         </section>
       </article>
     </SectionShell>
