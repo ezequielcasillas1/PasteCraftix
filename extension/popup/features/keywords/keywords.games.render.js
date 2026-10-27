@@ -93,7 +93,7 @@ function renderGameDetail(app, game, page) {
   return `
     <div class="keywords-game-detail" data-game-detail="${escapeHtml(app, game.id)}">
       <button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.GAME_BACK}">${KEYWORD_COPY.GAMES_BACK}</button>
-      <h4 class="keywords-game-title">${escapeHtml(app, game.name)}${sample}</h4>
+      <h4 class="keywords-game-title" tabindex="-1">${escapeHtml(app, game.name)}${sample}</h4>
       <p class="keywords-count keywords-game-group">${escapeHtml(app, getGameGroupLabel(game.group))}</p>
       <p class="keywords-definition-text">${escapeHtml(app, game.blurb)}</p>
       ${renderHowToPlay(app, game.howToPlay)}

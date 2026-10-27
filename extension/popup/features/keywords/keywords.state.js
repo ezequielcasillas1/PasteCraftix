@@ -61,6 +61,8 @@ export function createKeywordsPageState() {
     gamesGroup: 'all',
     gamesPage: 0,
     gamesOpenId: '',
+    /** One-shot focus request after a games render: { kind: 'title' } or { kind: 'card', id }. */
+    gamesFocus: null,
     gamesOpenTitle: '',
     gamesEntry: null,
     gamesSeq: 0,

@@ -367,6 +367,21 @@ function restoreSearchFocus(focus) {
   }
 }
 
+/** Enter on a game card focuses the detail title; Back returns focus to that card (or a fallback). */
+export function applyGamesFocus(gamesEl, page) {
+  const request = page.gamesFocus;
+  page.gamesFocus = null;
+  if (!request || !gamesEl) return;
+  const find = (sel) => gamesEl.querySelector?.(sel) || null;
+  const target = request.kind === 'title'
+    ? find('.keywords-game-title') || find('[data-action="keyword-game-back"]')
+    : (request.id && find(`.keywords-game-card[data-game="${String(request.id).replace(/["\\]/g, '')}"]`))
+      || find('.keywords-game-card')
+      || find('[data-action="keyword-game-back"]')
+      || globalThis.document?.querySelector?.('[data-field="keyword-scoped-search"]');
+  target?.focus?.({ preventScroll: false });
+}
+
 export function renderKeywordLibrary(app, { library, bank, page }) {
   const filesEl = document.getElementById(KEYWORD_SELECTORS.FILES);
   const foldersEl = document.getElementById(KEYWORD_SELECTORS.FOLDERS);
@@ -403,6 +418,7 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
   }
   if (!showWords) {
     restoreSearchFocus(prevFocus);
+    if (section === KEYWORD_SECTIONS.GAMES) applyGamesFocus(gamesEl, page);
     return;
   }
 

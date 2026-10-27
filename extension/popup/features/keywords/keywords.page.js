@@ -553,9 +553,11 @@ export function createKeywordsPage({ app, store, prefs = globalThis.chrome?.stor
       page.gamesOpenTitle = '';
       page.gamesEntry = null;
       page.gamesSeq += 1;
+      page.gamesFocus = { kind: 'title' };
       render();
     },
     closeGame() {
+      page.gamesFocus = { kind: 'card', id: page.gamesOpenId };
       page.gamesOpenId = '';
       page.gamesOpenTitle = '';
       page.gamesEntry = null;

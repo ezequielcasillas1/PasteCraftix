@@ -177,3 +177,38 @@ test('detail order is blurb, How to play (open), keywords; hidden when empty; se
   assert.deepEqual(searchGames({ query: 'kitchen' }).map((g) => g.id), ['sample-pickleball']);
   setGamesCatalog([]);
 });
+
+test('opening a game focuses its title; Back focuses the card that was opened, with fallbacks', async () => {
+  const { applyGamesFocus } = await import('../extension/popup/features/keywords/keywords.library.render.js');
+  setGamesCatalog(SAMPLE_GAMES);
+  const library = { files: [{ id: 'kw-file-saved', name: 'Saved' }], folders: [{ id: 'kw-folder-all', fileId: 'kw-file-saved', name: 'All words' }], selection: { fileId: 'kw-file-saved', folderId: 'kw-folder-all' } };
+  globalThis.document = { getElementById: () => null, querySelector: () => null };
+  const page = createKeywordsPage({ app, store: { getLibrary: () => library, getBank: () => [], apply: async () => ({ ok: true }) }, prefs: null });
+  page.setSection('games');
+  page.openGame('sample-chess');
+  assert.deepEqual(page.state.gamesFocus, { kind: 'title' });
+  assert.match(renderGamesSection(app, page.state), /<h4 class="keywords-game-title" tabindex="-1">/);
+
+  const focused = [];
+  const el = (name) => ({ name, focus: () => focused.push(name) });
+  const fakeRoot = (map) => ({ querySelector: (sel) => (map[sel] ? el(map[sel]) : null) });
+
+  applyGamesFocus(fakeRoot({ '.keywords-game-title': 'title' }), page.state);
+  assert.deepEqual(focused, ['title']);
+  assert.equal(page.state.gamesFocus, null, 'focus request is one-shot');
+
+  page.closeGame();
+  assert.deepEqual(page.state.gamesFocus, { kind: 'card', id: 'sample-chess' });
+  applyGamesFocus(fakeRoot({
+    '.keywords-game-card[data-game="sample-chess"]': 'chess-card',
+    '.keywords-game-card': 'first-card',
+  }), page.state);
+  assert.deepEqual(focused, ['title', 'chess-card']);
+
+  page.state.gamesFocus = { kind: 'card', id: 'gone' };
+  applyGamesFocus(fakeRoot({ '.keywords-game-card': 'first-card' }), page.state);
+  page.state.gamesFocus = { kind: 'card', id: 'gone' };
+  applyGamesFocus(fakeRoot({ '[data-action="keyword-game-back"]': 'back-link' }), page.state);
+  assert.deepEqual(focused, ['title', 'chess-card', 'first-card', 'back-link']);
+  setGamesCatalog([]);
+});
