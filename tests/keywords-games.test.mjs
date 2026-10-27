@@ -18,9 +18,14 @@ import { createKeywordsPageState } from '../extension/popup/features/keywords/ke
 
 const app = { escapeHtml: (s) => String(s ?? '').replace(/</g, '&lt;').replace(/"/g, '&quot;'), showToast: () => {} };
 
-test('ships no real catalog and at most 3 clearly marked samples', () => {
-  assert.equal(GAMES_CATALOG.length, 0);
-  assert.equal(getGamesCatalog().length, 0);
+test('shipped catalog is the generated one, with no samples; at most 3 clearly marked samples exist', () => {
+  assert.equal(GAMES_CATALOG.length, 195);
+  assert.equal(getGamesCatalog().length, 195);
+  assert.ok(getGamesCatalog().every((game) => game.sample === false && !game.id.startsWith('sample-')));
+  assert.ok(getGamesCatalog().every((game) => game.howToPlay.length >= 3), 'every shipped game has How to play');
+  assert.equal(new Set(getGamesCatalog().map((game) => game.id)).size, 195);
+  assert.equal(getGamesCatalog().find((game) => game.name === 'Chess')?.id, 'chess');
+  GAME_GROUPS.forEach((group) => assert.ok(getGamesCatalog().some((game) => game.group === group.id), group.id));
   assert.ok(SAMPLE_GAMES.length <= 3);
   SAMPLE_GAMES.forEach((game) => {
     assert.equal(game.sample, true);

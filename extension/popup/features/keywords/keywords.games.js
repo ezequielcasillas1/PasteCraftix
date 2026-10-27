@@ -5,15 +5,16 @@
  *   { id: string, name: string, group: GameGroupId, blurb: string, keywords: string[],
  *     howToPlay?: string[] }   // optional, 3–5 short steps; `how_to_play` is accepted too
  *
- * The real catalog is being written by Rio and Sable. Until it lands, GAMES_CATALOG is
- * empty and the tab shows "Mini Games are on the way". To ship the real games, either
- *   1. replace the GAMES_CATALOG array below with the full list, or
- *   2. call setGamesCatalog(list) once at startup (e.g. from a generated module).
+ * GAMES_CATALOG comes from keywords.games.catalog.js, generated from Rio & Sable's JSON by
+ * `npm run games:catalog -- <file.json>`. If it is ever empty the tab shows
+ * "Mini Games are on the way". setGamesCatalog(list) swaps the list at runtime (tests).
  * Every entry goes through normalizeGame(): bad rows are dropped, never rendered.
  *
  * SAMPLE_GAMES are layout fixtures only (tests and screenshots). They are NOT loaded
  * by default and must not be shipped as real content.
  */
+
+import { GAMES_CATALOG_DATA } from './keywords.games.catalog.js';
 
 /** Group chips, in display order. `id` is the value used in `group`. */
 export const GAME_GROUPS = Object.freeze([
@@ -74,8 +75,8 @@ export const SAMPLE_GAMES = Object.freeze([
   }),
 ]);
 
-/** ← Rio & Sable: the real catalog goes here (or call setGamesCatalog). */
-export const GAMES_CATALOG = Object.freeze([]);
+/** Shipped catalog, generated from Rio & Sable's JSON (npm run games:catalog). Never includes samples. */
+export const GAMES_CATALOG = Object.freeze(GAMES_CATALOG_DATA.filter((game) => game?.sample !== true));
 
 function cleanText(value, max) {
   return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
