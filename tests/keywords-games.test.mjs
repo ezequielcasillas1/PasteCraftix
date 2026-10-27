@@ -125,3 +125,13 @@ test('segment and explainer state persist in chrome.storage.local', async () => 
   assert.equal(page.state.openKey, 'dink');
   assert.ok(page.state.expanded.has('kw-folder-all'));
 });
+
+test('Learn banner counts the loaded catalog', async () => {
+  const { setGamesCatalog: set, SAMPLE_GAMES: samples } = await import('../extension/popup/features/keywords/keywords.games.js');
+  const page = createKeywordsPageState();
+  set([]);
+  assert.match(renderLearnCatalog(app, page), /Games and their keywords are on the way/);
+  set(samples);
+  assert.match(renderLearnCatalog(app, page), /<strong>Mini Games<\/strong> · 3 games and their keywords/);
+  set([]);
+});

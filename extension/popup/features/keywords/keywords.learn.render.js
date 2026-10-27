@@ -103,8 +103,10 @@ export function renderLearnBridge(app, query, bank) {
 }
 
 function renderGamesBanner() {
-  const ready = getGamesCatalog().length > 0;
-  const body = ready ? KEYWORD_COPY.GAMES_BANNER_BODY : KEYWORD_COPY.GAMES_BANNER_SOON;
+  const count = getGamesCatalog().length;
+  const body = count > 0
+    ? `${count} game${count === 1 ? '' : 's'} and their keywords`
+    : KEYWORD_COPY.GAMES_BANNER_SOON;
   return `
     <button type="button" class="keywords-games-banner" data-action="${KEYWORD_ACTIONS.SECTION}" data-section="games">
       <i data-lucide="dice-5" aria-hidden="true"></i>

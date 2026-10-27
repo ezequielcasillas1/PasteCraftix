@@ -150,7 +150,6 @@ export const KEYWORD_COPY = Object.freeze({
   BRIDGE_VIEW: 'View →',
   TOAST_VIEW: 'View',
   GAMES_BANNER_TITLE: 'Mini Games',
-  GAMES_BANNER_BODY: 'learn the words behind each one',
   GAMES_BANNER_SOON: 'Games and their keywords are on the way',
   GAMES_BANNER_OPEN: 'Open →',
   GAMES_ALL: 'All',
