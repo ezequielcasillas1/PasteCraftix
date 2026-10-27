@@ -1,6 +1,7 @@
 /* Categories view: 'Search files' and 'Search categories' use the Keywords search-bar look
    (bordered white field, slate border, blue focus ring), and the empty file carousel no
-   longer leaves a gap between the two boxes. */
+   longer leaves a gap between the two boxes. The left padding is for the Lucide search icon,
+   which popup-icons.js draws when the tab is activated (renderLucideIconsForActiveTab). */
 #categoriesTab .files-search-container .files-search-input {
   box-sizing: border-box;
   width: 100%;
@@ -32,7 +33,8 @@
 #categoriesTab #filesSection .files-header { margin-bottom: 8px; }
 #categoriesTab #filesSection:not(:has(#filesCarouselTrack > *)) .files-header { margin-bottom: 0; }
 #categoriesTab #filesSection:not(:has(#filesCarouselTrack > *)) .files-carousel-wrapper { display: none; }
-#categoriesTab .categories-search-container { margin-top: 0; margin-bottom: 4px; }
+/* Same width as 'Search files', which shares its row with the 34px create-file button + 8px gap. */
+#categoriesTab .categories-search-container { margin-top: 0; margin-bottom: 4px; margin-right: calc(16px + 34px + 8px); }
 
 [data-theme="blue"] #categoriesTab .files-search-container .files-search-input {
   background: rgba(15, 23, 42, 0.55);
