@@ -1,0 +1,41 @@
+/* Categories view: 'Search files' and 'Search categories' use the Keywords search-bar look
+   (bordered white field, slate border, blue focus ring), and the empty file carousel no
+   longer leaves a gap between the two boxes. */
+#categoriesTab .files-search-container .files-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 5px 10px 5px 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+  font-size: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#categoriesTab .files-search-container .files-search-input::placeholder { color: #94a3b8; }
+#categoriesTab .files-search-container .files-search-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+#categoriesTab .files-search-container .files-search-icon {
+  width: 13px;
+  height: 13px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* Close the gap: no file cards → no carousel row, and tighter section spacing. */
+#categoriesTab #filesSection { margin-bottom: 8px; padding-bottom: 8px; }
+#categoriesTab #filesSection .files-header { margin-bottom: 8px; }
+#categoriesTab #filesSection:not(:has(#filesCarouselTrack > *)) .files-header { margin-bottom: 0; }
+#categoriesTab #filesSection:not(:has(#filesCarouselTrack > *)) .files-carousel-wrapper { display: none; }
+#categoriesTab .categories-search-container { margin-top: 0; margin-bottom: 4px; }
+
+[data-theme="blue"] #categoriesTab .files-search-container .files-search-input {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: var(--pc-border, #334155);
+  color: var(--pc-secondary-100, #e2e8f0);
+}
