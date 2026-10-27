@@ -2351,6 +2351,10 @@
             margin: 0;
         }
         
+        .clips-quick-search {
+            margin: 0 0 12px 0;
+        }
+
         /* Search Tab Styles */
         .search-header {
             margin-bottom: 20px;
@@ -12357,6 +12361,9 @@
                         <div class="toggle-switch"></div>
                     </span>
                 </label>
+                <div class="search-bar clips-quick-search" role="search">
+                    <input type="text" id="clipsQuickSearchInput" placeholder="Quick search your clips..." aria-label="Quick search your clips (opens Search)" autocomplete="off" spellcheck="false" />
+                </div>
                 <div class="chip-container" id="chipContainer" aria-live="polite" aria-busy="true">
                     <div class="clip-hydration-status" role="status">
                         <h3>Loading clips</h3>
