@@ -4,6 +4,7 @@ export const navItems = [
   { href: '/pricing', label: 'Pricing' },
   { href: '/changelog', label: 'Changelog' },
   { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
   { href: '/account', label: 'Account' },
 ];
 
@@ -17,6 +18,7 @@ export const exploreLinks = [
 
 export const helpLinks = [
   { href: '/support', label: 'Support' },
+  { href: '/contact', label: 'Contact' },
   { href: '/changelog', label: 'Changelog' },
   { href: '/upgrade', label: 'Upgrade' },
   { href: '/terms', label: 'Terms' },

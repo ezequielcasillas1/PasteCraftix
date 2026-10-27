@@ -10,12 +10,25 @@ import BlueskyLink from '../components/BlueskyLink.astro';
       eyebrow="Support"
       headingLevel={1}
       title="How can we help?"
-      copy="PasteCraft is a clipboard manager extension. Support covers install, cloud sync, billing, and optional AI tools. Start with the common answers below, or reach us on Bluesky."
+      copy="PasteCraft is a clipboard manager extension. Support covers install, cloud sync, billing, and optional AI tools. Start with the common answers below, or email us directly."
     >
-      <article class="surface-card panel stack align-center">
-        <p class="section-copy">Questions about install, sync, billing, or bugs? Message us on Bluesky.</p>
-        <BlueskyLink />
-      </article>
+      <div class="card-grid three">
+        <article class="surface-card panel stack">
+          <h3>Email support</h3>
+          <p class="section-copy">Questions about this clipboard manager extension, pricing, sync, premium access, or bugs. New here? Start on the <a href="/">homepage</a>.</p>
+          <a class="ghost-button" href="mailto:support@pastecraft.com">support@pastecraft.com</a>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Privacy requests</h3>
+          <p class="section-copy">Data access, export, deletion, or privacy policy questions.</p>
+          <a class="ghost-button" href="mailto:privacy@pastecraft.com">privacy@pastecraft.com</a>
+        </article>
+        <article class="surface-card panel stack">
+          <h3>Contact page</h3>
+          <p class="section-copy">Support, privacy, and legal inboxes in one place.</p>
+          <a class="ghost-button" href="/contact">Open contact</a>
+        </article>
+      </div>
     </SectionShell>
 
     <SectionShell
@@ -26,7 +39,7 @@ import BlueskyLink from '../components/BlueskyLink.astro';
       <div class="card-grid two">
         <article class="surface-card panel stack">
           <h3>Clips not saving</h3>
-          <p class="section-copy">Confirm PasteCraft is enabled for the site, refresh the page, then copy text again. If it still fails, note your browser and OS when you message us on Bluesky.</p>
+          <p class="section-copy">Confirm PasteCraft is enabled for the site, refresh the page, then copy text again. If it still fails, note your browser and OS in your email.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>Cloud sync</h3>
@@ -34,7 +47,7 @@ import BlueskyLink from '../components/BlueskyLink.astro';
         </article>
         <article class="surface-card panel stack">
           <h3>Billing & plans</h3>
-          <p class="section-copy">Manage upgrades from the extension or <a href="/account">Account</a>. For receipt or subscription issues, include the account email you used at checkout in your Bluesky message.</p>
+          <p class="section-copy">Manage upgrades from the extension or <a href="/account">Account</a>. For receipt or subscription issues, email support with the account email you used at checkout.</p>
         </article>
         <article class="surface-card panel stack">
           <h3>AI tools</h3>
@@ -64,8 +77,8 @@ import BlueskyLink from '../components/BlueskyLink.astro';
         </article>
 
         <article class="surface-card panel stack">
-          <h3>Policies & updates</h3>
-          <p class="section-copy">Review product terms and privacy, or follow updates on Bluesky.</p>
+          <h3>Policies & community</h3>
+          <p class="section-copy">Review product terms and privacy, or follow updates on official channels.</p>
           <div class="button-row">
             <a class="ghost-button" href="/privacy">Privacy</a>
             <a class="ghost-button" href="/terms">Terms</a>
@@ -76,12 +89,3 @@ import BlueskyLink from '../components/BlueskyLink.astro';
     </SectionShell>
   </div>
 </BaseLayout>
-
-<style>
-  .align-center {
-    align-items: center;
-    text-align: center;
-    max-width: 36rem;
-    margin: 0 auto;
-  }
-</style>
