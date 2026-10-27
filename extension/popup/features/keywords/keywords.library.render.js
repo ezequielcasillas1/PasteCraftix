@@ -9,8 +9,10 @@ import {
   KEYWORD_COPY,
   KEYWORD_FORM_TITLES,
   KEYWORD_PAGINATION,
+  KEYWORD_SECTIONS,
   KEYWORD_SELECTORS,
 } from './keywords.constants.js';
+import { renderGamesSection } from './keywords.games.render.js';
 import {
   filterByName,
   filterKeywords,
@@ -51,10 +53,10 @@ function countByFolder(bank) {
   return counts;
 }
 
-function renderFileTab(app, file, viewFile, wordCount) {
+function renderFileOption(app, file, viewFile, wordCount) {
   const open = file.id === viewFile.id;
   return `
-    <button type="button" class="keywords-file${open ? ' is-open' : ''}" role="tab" aria-selected="${open ? 'true' : 'false'}" data-action="${KEYWORD_ACTIONS.VIEW_FILE}" data-file="${escapeHtml(app, file.id)}">
+    <button type="button" class="keywords-file${open ? ' is-open' : ''}" role="option" aria-selected="${open ? 'true' : 'false'}" data-action="${KEYWORD_ACTIONS.VIEW_FILE}" data-file="${escapeHtml(app, file.id)}">
       <i data-lucide="${open ? 'folder-open' : 'folder'}"></i>
       <span class="keywords-file-name">${escapeHtml(app, file.name)}</span>
       <span class="keywords-count">${wordCount}</span>
@@ -62,92 +64,55 @@ function renderFileTab(app, file, viewFile, wordCount) {
   `;
 }
 
-function renderFileTools(app, viewFile, form) {
-  const id = escapeHtml(app, viewFile.id);
-  const name = escapeHtml(app, viewFile.name);
-  const remove = viewFile.id === DEFAULT_KEYWORD_FILE_ID
-    ? ''
-    : `<button type="button" class="keywords-link is-danger" data-action="${KEYWORD_ACTIONS.DELETE_FILE}" data-file="${id}" data-name="${name}">${KEYWORD_COPY.DELETE_FILE}</button>`;
-  return `
-    <div class="keywords-file-tools">
-      <button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.RENAME_FILE}" data-file="${id}" data-name="${name}">${KEYWORD_COPY.RENAME_FILE}</button>
-      ${remove}
-    </div>
-    ${renderForm(app, form, 'rename-file', viewFile.id)}
-  `;
-}
-
-function renderGuide(open) {
-  if (!open) return '';
-  return `
-    <div class="keywords-guide" id="keywordsGuide" role="region" aria-label="${KEYWORD_COPY.GUIDE_LABEL}">
-      <p class="keywords-guide-lead">${KEYWORD_COPY.GUIDE_FILES}</p>
-      <ul class="keywords-guide-list">
-        <li>${KEYWORD_COPY.GUIDE_NEW_FILE}</li>
-        <li>${KEYWORD_COPY.GUIDE_RENAME_FILE}</li>
-        <li>${KEYWORD_COPY.GUIDE_SEARCH_FILES}</li>
-      </ul>
-      <p class="keywords-guide-lead">${KEYWORD_COPY.GUIDE_FOLDERS}</p>
-      <ul class="keywords-guide-list">
-        <li>${KEYWORD_COPY.GUIDE_OPEN_FOLDER}</li>
-        <li>${KEYWORD_COPY.GUIDE_NEW_FOLDER}</li>
-        <li>${KEYWORD_COPY.GUIDE_TARGET}</li>
-        <li>${KEYWORD_COPY.GUIDE_MOVE}</li>
-      </ul>
-    </div>
-  `;
-}
-
+/** "File: Saved ▾" dropdown and "+ Folder". File rename/delete live in the ⋯ menu. */
 function renderFileBar(app, { library, counts, viewFile, form, page }) {
-  const allFiles = library.files;
-  const filtered = filterByName(allFiles, page.fileSearch);
+  const filtered = filterByName(library.files, page.fileSearch);
   const paged = paginateSlice(filtered, page.filePage, KEYWORD_PAGINATION.FILES_PER_PAGE);
-
-  const tabs = paged.items.map((file) => {
+  const options = paged.items.map((file) => {
     const words = library.folders
       .filter((folder) => folder.fileId === file.id)
       .reduce((sum, folder) => sum + (counts.get(folder.id) || 0), 0);
-    return renderFileTab(app, file, viewFile, words);
+    return renderFileOption(app, file, viewFile, words);
   }).join('');
-
   const emptyMatch = !filtered.length && page.fileSearch
     ? `<p class="keywords-empty">${KEYWORD_COPY.NO_FILES_MATCH}</p>`
     : '';
-
   const pagination = renderPaginationControls(app, {
     currentPage: paged.currentPage,
     totalPages: paged.totalPages,
     action: KEYWORD_ACTIONS.FILE_PAGE,
     ariaLabel: 'Files pagination',
   });
-
-  const searchBar = renderSearchBar(app, {
-    field: 'keyword-file-search',
-    value: page.fileSearch,
-    placeholder: KEYWORD_COPY.SEARCH_FILES,
-    clearAction: KEYWORD_ACTIONS.CLEAR_FILE_SEARCH,
-    ariaLabel: 'Search files',
-    compact: true,
-  });
-
-  const guideOpen = !!page.guideOpen;
+  const fileSearch = library.files.length > KEYWORD_PAGINATION.FILES_PER_PAGE || page.fileSearch
+    ? renderSearchBar(app, {
+      field: 'keyword-file-search',
+      value: page.fileSearch,
+      placeholder: KEYWORD_COPY.SEARCH_FILES,
+      clearAction: KEYWORD_ACTIONS.CLEAR_FILE_SEARCH,
+      ariaLabel: 'Search files',
+      compact: true,
+    })
+    : '';
+  const menuOpen = !!page.fileMenuOpen;
   return `
-    <div class="keywords-section-head">
-      <div class="keywords-section-title">
-        <p class="keywords-section-label">${KEYWORD_COPY.FILES_LABEL}</p>
-        <button type="button" class="keywords-info-btn${guideOpen ? ' is-open' : ''}" data-action="${KEYWORD_ACTIONS.GUIDE}" aria-expanded="${guideOpen ? 'true' : 'false'}" aria-controls="keywordsGuide" title="${KEYWORD_COPY.GUIDE_LABEL}" aria-label="${KEYWORD_COPY.GUIDE_LABEL}"><i data-lucide="info"></i></button>
+    <div class="keywords-filebar">
+      <div class="keywords-file-picker">
+        <span class="keywords-file-label">${KEYWORD_COPY.FILE_LABEL}:</span>
+        <button type="button" class="keywords-file-select" data-action="${KEYWORD_ACTIONS.FILE_MENU}" aria-haspopup="listbox" aria-expanded="${menuOpen ? 'true' : 'false'}" aria-controls="keywordsFileMenu">
+          <span class="keywords-file-name">${escapeHtml(app, viewFile.name)}</span> <span aria-hidden="true">▾</span>
+        </button>
       </div>
-      ${searchBar}
+      <button type="button" class="keywords-add" data-action="${KEYWORD_ACTIONS.NEW_FOLDER}" data-file="${escapeHtml(app, viewFile.id)}">${KEYWORD_COPY.ADD_FOLDER}</button>
     </div>
-    ${renderGuide(guideOpen)}
-    <div class="keywords-file-tabs" role="tablist" aria-label="${KEYWORD_COPY.FILES_LABEL}">
-      ${tabs}
+    <div class="keywords-file-menu" id="keywordsFileMenu"${menuOpen ? '' : ' hidden'}>
+      ${fileSearch}
+      <div class="keywords-file-tabs" role="listbox" aria-label="${KEYWORD_COPY.FILES_LABEL}">${options}</div>
+      ${emptyMatch}
+      ${pagination}
       <button type="button" class="keywords-add" data-action="${KEYWORD_ACTIONS.NEW_FILE}"><i data-lucide="plus"></i> ${KEYWORD_COPY.NEW_FILE}</button>
     </div>
-    ${emptyMatch}
-    ${pagination}
     ${renderForm(app, form, 'new-file')}
-    ${renderFileTools(app, viewFile, form)}
+    ${renderForm(app, form, 'rename-file', viewFile.id)}
   `;
 }
 
@@ -251,36 +216,19 @@ function renderFolderList(app, { library, bank, viewFile, page }) {
     ariaLabel: 'Folders pagination',
   });
 
-  const folderSearchBar = renderSearchBar(app, {
-    field: 'keyword-folder-search',
-    value: page.folderSearch,
-    placeholder: KEYWORD_COPY.SEARCH_FOLDERS,
-    clearAction: KEYWORD_ACTIONS.CLEAR_FOLDER_SEARCH,
-    ariaLabel: 'Search folders',
-    compact: true,
-  });
-
-  const wordSearchBar = renderSearchBar(app, {
-    field: 'keyword-word-search',
-    value: page.wordSearch,
-    placeholder: KEYWORD_COPY.SEARCH_KEYWORDS,
-    clearAction: KEYWORD_ACTIONS.CLEAR_WORD_SEARCH,
-    ariaLabel: 'Search keywords',
-  });
+  const searching = !!String(page.wordSearch || '').trim();
+  const noWordMatch = searching && bank.length && !filterKeywords(bank, page.wordSearch).length
+    ? `<p class="keywords-empty">${KEYWORD_COPY.NO_MY_WORDS_MATCH}</p>`
+    : '';
+  const learnLink = bank.length
+    ? ''
+    : `<button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.INTRO_LEARN}">${KEYWORD_COPY.WORDS_EMPTY_LEARN}</button>`;
 
   return `
-    <div class="keywords-global-search">
-      ${wordSearchBar}
-    </div>
-    <div class="keywords-folders-head">
-      <div class="keywords-folders-title-wrap">
-        <p class="keywords-section-label">${KEYWORD_COPY.FOLDERS_IN} ${escapeHtml(app, viewFile.name)}</p>
-        ${folderSearchBar}
-      </div>
-      <button type="button" class="keywords-add" data-action="${KEYWORD_ACTIONS.NEW_FOLDER}" data-file="${escapeHtml(app, viewFile.id)}"><i data-lucide="folder-plus"></i> ${KEYWORD_COPY.NEW_FOLDER}</button>
-    </div>
     ${renderForm(app, page.form, 'new-folder', viewFile.id)}
     ${empty}
+    ${learnLink}
+    ${noWordMatch}
     ${emptyMatch}
     ${cards}
     ${pagination}
@@ -305,15 +253,106 @@ function captureSearchFocus() {
   };
 }
 
-function paintLearnChrome(page) {
-  const button = document.getElementById(KEYWORD_SELECTORS.LEARN_TOGGLE);
-  const source = document.getElementById(KEYWORD_SELECTORS.SOURCE);
-  const open = !!page.learnOpen;
-  if (button) {
-    button.setAttribute('aria-pressed', open ? 'true' : 'false');
-    button.classList.toggle('is-on', open);
+const SECTION_TABS = Object.freeze([
+  { id: KEYWORD_SECTIONS.WORDS, label: KEYWORD_COPY.SECTION_WORDS },
+  { id: KEYWORD_SECTIONS.LEARN, label: KEYWORD_COPY.SECTION_LEARN },
+  { id: KEYWORD_SECTIONS.GAMES, label: KEYWORD_COPY.SECTION_GAMES },
+]);
+
+const SEARCH_COPY = Object.freeze({
+  [KEYWORD_SECTIONS.WORDS]: KEYWORD_COPY.SEARCH_MY_WORDS,
+  [KEYWORD_SECTIONS.LEARN]: KEYWORD_COPY.SEARCH_LEARN,
+  [KEYWORD_SECTIONS.GAMES]: KEYWORD_COPY.SEARCH_GAMES,
+});
+
+function scopedQuery(page) {
+  if (page.section === KEYWORD_SECTIONS.LEARN) return page.learnQuery;
+  if (page.section === KEYWORD_SECTIONS.GAMES) return page.gamesQuery;
+  return page.wordSearch;
+}
+
+export function renderKeywordsNav(app, page, savedCount) {
+  const tabs = SECTION_TABS.map((tab) => {
+    const on = tab.id === page.section;
+    const count = tab.id === KEYWORD_SECTIONS.WORDS ? ` <span class="keywords-seg-count">· ${savedCount}</span>` : '';
+    return `<button type="button" class="keywords-seg${on ? ' is-on' : ''}" role="tab" aria-selected="${on ? 'true' : 'false'}" data-action="${KEYWORD_ACTIONS.SECTION}" data-section="${tab.id}">${tab.label}${count}</button>`;
+  }).join('');
+  const placeholder = SEARCH_COPY[page.section] || KEYWORD_COPY.SEARCH_MY_WORDS;
+  return `
+    <div class="keywords-segments" role="tablist" aria-label="${KEYWORD_COPY.SECTIONS_LABEL}">${tabs}</div>
+    ${renderSearchBar(app, {
+      field: 'keyword-scoped-search',
+      value: scopedQuery(page),
+      placeholder,
+      clearAction: KEYWORD_ACTIONS.CLEAR_SCOPED_SEARCH,
+      ariaLabel: placeholder,
+    })}
+  `;
+}
+
+export function renderKeywordsIntro() {
+  return `
+    <div class="keywords-intro-card" role="dialog" aria-labelledby="keywordsIntroTitle">
+      <button type="button" class="keywords-intro-close" data-action="${KEYWORD_ACTIONS.INTRO_CLOSE}" aria-label="${KEYWORD_COPY.INTRO_CLOSE}">✕</button>
+      <p class="keywords-intro-title" id="keywordsIntroTitle">${KEYWORD_COPY.INTRO_TITLE}</p>
+      <p class="keywords-intro-body">${KEYWORD_COPY.INTRO_BODY}</p>
+      <ol class="keywords-intro-steps">
+        <li><span>1</span>${KEYWORD_COPY.INTRO_STEP_SAVE}</li>
+        <li><span>2</span>${KEYWORD_COPY.INTRO_STEP_TAP}</li>
+        <li><span>3</span>${KEYWORD_COPY.INTRO_STEP_KEEP}</li>
+      </ol>
+      <div class="keywords-intro-actions">
+        <button type="button" class="keywords-primary" data-action="${KEYWORD_ACTIONS.INTRO_CLOSE}">${KEYWORD_COPY.INTRO_GOT_IT}</button>
+        <button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.INTRO_LEARN}">${KEYWORD_COPY.INTRO_BROWSE}</button>
+      </div>
+    </div>
+  `;
+}
+
+export function renderKeywordsToast(app, toast) {
+  if (!toast?.message) return '';
+  const view = toast.key
+    ? `<button type="button" class="keywords-toast-view" data-action="${KEYWORD_ACTIONS.TOAST_VIEW}" data-word="${escapeHtml(app, toast.key)}">${KEYWORD_COPY.TOAST_VIEW}</button>`
+    : '';
+  return `
+    <div class="keywords-toast-body" role="status" aria-live="polite">
+      <span>${escapeHtml(app, toast.message)}</span>
+      ${view}
+      <button type="button" class="keywords-toast-close" data-action="${KEYWORD_ACTIONS.TOAST_CLOSE}" aria-label="Dismiss">✕</button>
+    </div>
+  `;
+}
+
+function paintChrome(app, page, viewFile, savedCount) {
+  const doc = globalThis.document;
+  const nav = doc.getElementById(KEYWORD_SELECTORS.NAV);
+  if (nav) {
+    nav.innerHTML = renderKeywordsNav(app, page, savedCount);
+    globalThis.window?.renderLucideIconsSync?.(nav);
   }
-  if (source) source.textContent = open ? KEYWORD_COPY.LEARN_SUBTITLE : KEYWORD_COPY.PAGE_SUBTITLE;
+  const intro = doc.getElementById(KEYWORD_SELECTORS.INTRO);
+  if (intro) {
+    intro.hidden = !page.introOpen;
+    intro.innerHTML = page.introOpen ? renderKeywordsIntro() : '';
+  }
+  const introToggle = doc.getElementById(KEYWORD_SELECTORS.INTRO_TOGGLE);
+  introToggle?.setAttribute?.('aria-expanded', page.introOpen ? 'true' : 'false');
+  const menu = doc.getElementById(KEYWORD_SELECTORS.MENU);
+  if (menu) menu.hidden = !page.menuOpen;
+  doc.getElementById(KEYWORD_SELECTORS.MENU_TOGGLE)?.setAttribute?.('aria-expanded', page.menuOpen ? 'true' : 'false');
+  const rename = doc.getElementById(KEYWORD_SELECTORS.MENU_RENAME);
+  const remove = doc.getElementById(KEYWORD_SELECTORS.MENU_DELETE);
+  [rename, remove].forEach((button) => {
+    if (!button?.dataset) return;
+    button.dataset.file = viewFile.id;
+    button.dataset.name = viewFile.name;
+  });
+  if (remove) remove.hidden = viewFile.id === DEFAULT_KEYWORD_FILE_ID;
+  const toast = doc.getElementById(KEYWORD_SELECTORS.TOAST);
+  if (toast) {
+    toast.hidden = !page.toast;
+    toast.innerHTML = renderKeywordsToast(app, page.toast);
+  }
 }
 
 function restoreSearchFocus(focus) {
@@ -340,25 +379,30 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
     kind: 'page',
     savedCount: items.length,
   });
-  paintLearnChrome(page);
+  paintChrome(app, page, viewFile, items.length);
 
   const prevFocus = captureSearchFocus();
   const learnEl = document.getElementById(KEYWORD_SELECTORS.LEARN);
-  if (page.learnOpen && learnEl) {
-    filesEl.hidden = true;
-    foldersEl.hidden = true;
-    learnEl.hidden = false;
-    learnEl.innerHTML = renderLearnCatalog(app, page);
+  const gamesEl = document.getElementById(KEYWORD_SELECTORS.GAMES);
+  const section = learnEl && page.section === KEYWORD_SECTIONS.LEARN
+    ? KEYWORD_SECTIONS.LEARN
+    : (gamesEl && page.section === KEYWORD_SECTIONS.GAMES ? KEYWORD_SECTIONS.GAMES : KEYWORD_SECTIONS.WORDS);
+  const showWords = section === KEYWORD_SECTIONS.WORDS;
+  filesEl.hidden = !showWords;
+  foldersEl.hidden = !showWords;
+  if (learnEl) {
+    learnEl.hidden = section !== KEYWORD_SECTIONS.LEARN;
+    learnEl.innerHTML = section === KEYWORD_SECTIONS.LEARN ? renderLearnCatalog(app, page, { bank: items }) : '';
     globalThis.window?.renderLucideIconsSync?.(learnEl);
+  }
+  if (gamesEl) {
+    gamesEl.hidden = section !== KEYWORD_SECTIONS.GAMES;
+    gamesEl.innerHTML = section === KEYWORD_SECTIONS.GAMES ? renderGamesSection(app, page) : '';
+    globalThis.window?.renderLucideIconsSync?.(gamesEl);
+  }
+  if (!showWords) {
     restoreSearchFocus(prevFocus);
     return;
-  }
-
-  filesEl.hidden = false;
-  foldersEl.hidden = false;
-  if (learnEl) {
-    learnEl.hidden = true;
-    learnEl.innerHTML = '';
   }
 
   filesEl.innerHTML = renderFileBar(app, { library, counts, viewFile, form: page.form, page });

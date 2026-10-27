@@ -1,8 +1,9 @@
 /** Learn catalog markup inside the Keywords tab. */
 
-import { KEYWORD_ACTIONS, KEYWORD_COPY } from './keywords.constants.js';
+import { KEYWORD_ACTIONS, KEYWORD_COPY, LEARN_GROUP_SHORT_LABELS } from './keywords.constants.js';
+import { getGamesCatalog } from './keywords.games.js';
 import { pageLearnCatalog, pageSubjectKeywords } from './keywords.learn.js';
-import { renderPaginationControls, renderSearchBar } from './keywords.pagination.js';
+import { filterKeywords, renderPaginationControls } from './keywords.pagination.js';
 import { escapeHtml } from './keywords.render.js';
 
 function safeWikiHref(url) {
@@ -18,7 +19,9 @@ function safeWikiHref(url) {
 function renderGroups(app, groups, selectedId) {
   return groups.map((group) => {
     const pressed = group.id === selectedId;
-    return `<button type="button" class="keywords-learn-group${pressed ? ' is-on' : ''}" data-action="${KEYWORD_ACTIONS.LEARN_GROUP}" data-group="${escapeHtml(app, group.id)}" aria-pressed="${pressed ? 'true' : 'false'}">${escapeHtml(app, group.label)}</button>`;
+    const label = LEARN_GROUP_SHORT_LABELS[group.id] || group.label;
+    const count = Array.isArray(group.entries) ? `<span class="keywords-chip-count">${group.entries.length}</span>` : '';
+    return `<button type="button" class="keywords-learn-group${pressed ? ' is-on' : ''}" data-action="${KEYWORD_ACTIONS.LEARN_GROUP}" data-group="${escapeHtml(app, group.id)}" aria-pressed="${pressed ? 'true' : 'false'}" title="${escapeHtml(app, group.label)}">${escapeHtml(app, label)}${count}</button>`;
   }).join('');
 }
 
@@ -44,10 +47,9 @@ function renderKeywordCards(app, cards, openTitle) {
   return `<div class="keywords-word-list">${chips}</div>`;
 }
 
-function renderDetail(app, page) {
-  if (!page.learnOpenTitle) return `<p class="keywords-hint">${KEYWORD_COPY.LEARN_OPEN_HINT}</p>`;
-  const title = `<h4 class="keywords-card-word">${escapeHtml(app, page.learnOpenTitle)}</h4>`;
-  const record = page.learnEntry;
+/** Wikipedia-style summary card, shared by Learn and Mini Games. */
+export function renderSummaryCard(app, titleText, record, saveAction = KEYWORD_ACTIONS.LEARN_SAVE) {
+  const title = `<h4 class="keywords-card-word">${escapeHtml(app, titleText)}</h4>`;
   if (!record || record.status === 'loading') {
     return `<div class="keywords-card">${title}<p class="keywords-status">${KEYWORD_COPY.LEARN_LOADING}</p></div>`;
   }
@@ -73,20 +75,43 @@ function renderDetail(app, page) {
       ${example}
       ${credit}
       <div class="keywords-card-actions">
-        <button type="button" class="keywords-primary" data-action="${KEYWORD_ACTIONS.LEARN_SAVE}">${KEYWORD_COPY.LEARN_SAVE}</button>
+        <button type="button" class="keywords-primary" data-action="${saveAction}">${KEYWORD_COPY.LEARN_SAVE}</button>
       </div>
     </div>
   `;
 }
 
-function renderSearch(app, page, placeholder) {
-  return renderSearchBar(app, {
-    field: 'keyword-learn-search',
-    value: page.learnQuery,
-    placeholder,
-    clearAction: KEYWORD_ACTIONS.CLEAR_LEARN_SEARCH,
-    ariaLabel: placeholder,
-  });
+function renderDetail(app, page) {
+  if (!page.learnOpenTitle) return `<p class="keywords-hint">${KEYWORD_COPY.LEARN_OPEN_HINT}</p>`;
+  return renderSummaryCard(app, page.learnOpenTitle, page.learnEntry);
+}
+
+/** "Already in My words: X · View →" when the Learn search matches saved words. */
+export function renderLearnBridge(app, query, bank) {
+  const q = String(query || '').trim();
+  if (!q || !Array.isArray(bank) || !bank.length) return '';
+  const matches = filterKeywords(bank, q);
+  if (!matches.length) return '';
+  const first = matches[0];
+  const more = matches.length > 1 ? ` <span class="keywords-chip-count">+${matches.length - 1}</span>` : '';
+  return `
+    <div class="keywords-bridge" role="status">
+      <span>${KEYWORD_COPY.BRIDGE_PREFIX} <strong>${escapeHtml(app, first.text || first.key)}</strong>${more}</span>
+      <button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.BRIDGE_VIEW}" data-word="${escapeHtml(app, first.key)}">${KEYWORD_COPY.BRIDGE_VIEW}</button>
+    </div>
+  `;
+}
+
+function renderGamesBanner() {
+  const ready = getGamesCatalog().length > 0;
+  const body = ready ? KEYWORD_COPY.GAMES_BANNER_BODY : KEYWORD_COPY.GAMES_BANNER_SOON;
+  return `
+    <button type="button" class="keywords-games-banner" data-action="${KEYWORD_ACTIONS.SECTION}" data-section="games">
+      <i data-lucide="dice-5" aria-hidden="true"></i>
+      <span class="keywords-games-banner-text"><strong>${KEYWORD_COPY.GAMES_BANNER_TITLE}</strong> · ${body}</span>
+      <span class="keywords-games-banner-open">${KEYWORD_COPY.GAMES_BANNER_OPEN}</span>
+    </button>
+  `;
 }
 
 function renderPager(app, view, label) {
@@ -98,7 +123,7 @@ function renderPager(app, view, label) {
   });
 }
 
-export function renderLearnCatalog(app, page) {
+export function renderLearnCatalog(app, page, { bank = [] } = {}) {
   const view = pageLearnCatalog({
     query: page.learnSubject ? '' : page.learnQuery,
     groupId: page.learnGroup,
@@ -122,7 +147,7 @@ export function renderLearnCatalog(app, page) {
         <button type="button" class="keywords-link" data-action="${KEYWORD_ACTIONS.LEARN_BACK}">${KEYWORD_COPY.LEARN_BACK}</button>
         <p class="keywords-section-label">${KEYWORD_COPY.LEARN_IN} ${escapeHtml(app, page.learnSubject)}</p>
       </div>
-      ${renderSearch(app, page, KEYWORD_COPY.SEARCH_KEYWORDS)}
+      ${renderLearnBridge(app, page.learnQuery, bank)}
       ${renderKeywordCards(app, keywords.items, page.learnOpenTitle)}
       ${renderPager(app, keywords, 'Subject keywords pagination')}
       ${renderDetail(app, page)}
@@ -132,9 +157,10 @@ export function renderLearnCatalog(app, page) {
     ? `<p class="keywords-hint">${KEYWORD_COPY.LEARN_SUBJECT_HINT}</p>`
     : '';
   return `
+    ${renderGamesBanner()}
     ${groups}
     ${hint}
-    ${renderSearch(app, page, KEYWORD_COPY.LEARN_SEARCH)}
+    ${renderLearnBridge(app, page.learnQuery, bank)}
     ${renderCards(app, view.items, page.learnOpenTitle)}
     ${renderPager(app, view, 'Learn pagination')}
     ${renderDetail(app, page)}
