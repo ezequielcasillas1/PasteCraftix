@@ -3225,6 +3225,10 @@
             font-weight: bold;
         }
         
+        .categories-search-container {
+            margin: 4px 16px 0;
+        }
+
         .categories-list {
             max-height: 300px;
             overflow-y: auto;
@@ -12705,6 +12709,10 @@
                     <i data-lucide="arrow-left"></i>
                     Back to All Categories
                 </button>
+            </div>
+            <div class="files-search-container categories-search-container">
+                <i data-lucide="search" class="files-search-icon"></i>
+                <input type="text" id="categoriesSearchInput" class="files-search-input" placeholder="Search categories..." aria-label="Search categories" autocomplete="off" spellcheck="false">
             </div>
             <div class="pc-pager-slot" id="categoriesPagerTop"></div>
             <div class="categories-list" id="categoriesList">

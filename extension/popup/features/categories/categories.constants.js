@@ -26,4 +26,5 @@ export const CATEGORIES_SELECTORS = Object.freeze({
   PAGER_TOP: 'categoriesPagerTop',
   PAGER_BOTTOM: 'categoriesPagerBottom',
   PAGER_ACTION: 'categories-page',
+  SEARCH_INPUT: 'categoriesSearchInput',
 });

@@ -102,6 +102,29 @@ function renderEmptyCategories(container, selectedFileId) {
   `;
 }
 
+function escapeText(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Case-insensitive name filter for the "Search categories" box. */
+export function filterCategoriesByQuery(categories, query) {
+  const list = Array.isArray(categories) ? categories : [];
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((c) => String(c?.name || '').toLowerCase().includes(q));
+}
+
+function bindCategorySearch(app) {
+  const input = document.getElementById(CATEGORIES_SELECTORS.SEARCH_INPUT);
+  if (!input || input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+  input.addEventListener('input', () => {
+    app.categoriesQuery = input.value;
+    app.categoriesPage = 0;
+    renderCategories(app);
+  });
+}
+
 function sortCategoriesForRender(categories) {
   return [...categories].sort((a, b) => {
     const aTs = Number(a?.created ?? a?.id ?? 0);
@@ -146,7 +169,23 @@ function renderCategoryPagers(app, view) {
 export function renderCategories(app) {
   const { categoriesList: container } = getCategoryListElements();
   if (!container) return;
-  const categories = getCategoriesForSelectedFile(app);
+  bindCategorySearch(app);
+  const inFile = getCategoriesForSelectedFile(app);
+  const query = String(app.categoriesQuery || '').trim();
+  const categories = filterCategoriesByQuery(inFile, query);
+  if (categories.length === 0 && inFile.length > 0 && query) {
+    app.categoriesPage = 0;
+    renderCategoryPagers(app, { currentPage: 0, totalPages: 1 });
+    container.innerHTML = `
+      <div class="empty-categories">
+        <div class="empty-categories-icon"><i data-lucide="search"></i></div>
+        <h3>No categories match "${escapeText(query)}"</h3>
+        <p>Try a shorter name or clear the search</p>
+      </div>
+    `;
+    window.renderLucideIconsSync?.(container);
+    return;
+  }
   if (categories.length === 0) {
     app.categoriesPage = 0;
     renderCategoryPagers(app, { currentPage: 0, totalPages: 1 });

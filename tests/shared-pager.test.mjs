@@ -33,3 +33,10 @@ test('categories page 20 at a time, newest first, clamped', () => {
   assert.equal(last.currentPage, 2);
   assert.equal(last.items.length, 5);
 });
+
+test('category search filters by name, case-insensitive', async () => {
+  const { filterCategoriesByQuery } = await import('../extension/popup/features/categories/categories.render.js');
+  const cats = [{ name: 'Work' }, { name: 'Recipes' }, { name: 'Homework' }, {}];
+  assert.deepEqual(filterCategoriesByQuery(cats, ' WORK ').map((c) => c.name), ['Work', 'Homework']);
+  assert.equal(filterCategoriesByQuery(cats, '').length, 4);
+});
