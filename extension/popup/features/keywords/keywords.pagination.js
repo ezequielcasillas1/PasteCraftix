@@ -3,27 +3,10 @@
  */
 
 import { escapeHtml } from './keywords.render.js';
+import { paginateSlice, renderPager } from '../../shared/pager/pager.js';
 
-/** Best practice 1: Reusability & Best practice 2: Reliability (Safe slice computation with boundary clamping). */
-export function paginateSlice(items, page = 0, pageSize = 10) {
-  const list = Array.isArray(items) ? items : [];
-  const safePageSize = Math.max(1, Number(pageSize) || 10);
-  const total = list.length;
-  const totalPages = Math.max(1, Math.ceil(total / safePageSize));
-  const currentPage = Math.max(0, Math.min(Number(page) || 0, totalPages - 1));
-  const startIndex = currentPage * safePageSize;
-  const endIndex = Math.min(startIndex + safePageSize, total);
-  const pageItems = list.slice(startIndex, endIndex);
-
-  return {
-    items: pageItems,
-    totalPages,
-    currentPage,
-    total,
-    startIndex,
-    endIndex,
-  };
-}
+/** Slice math lives in the shared pager so Categories, Learn and Mini Games page the same way. */
+export { paginateSlice };
 
 /** Best practice 3: Secureness (Safe case-insensitive text matching without regex injection). */
 export function filterByName(items, query, key = 'name') {
@@ -53,41 +36,7 @@ export function renderPaginationControls(app, {
   extraDataset = {},
   ariaLabel = 'Pagination',
 }) {
-  if (totalPages <= 1) return '';
-
-  const prevDisabled = currentPage <= 0;
-  const nextDisabled = currentPage >= totalPages - 1;
-
-  const datasetAttrs = Object.entries(extraDataset)
-    .map(([k, v]) => `data-${escapeHtml(app, k)}="${escapeHtml(app, v)}"`)
-    .join(' ');
-
-  // Display page buttons with a sliding window if many pages exist
-  const buttons = [];
-  const maxVisiblePages = 5;
-  let startPage = Math.max(0, currentPage - Math.floor(maxVisiblePages / 2));
-  let endPage = Math.min(totalPages, startPage + maxVisiblePages);
-  if (endPage - startPage < maxVisiblePages) {
-    startPage = Math.max(0, endPage - maxVisiblePages);
-  }
-
-  for (let p = startPage; p < endPage; p += 1) {
-    const isActive = p === currentPage;
-    buttons.push(`
-      <button type="button" class="keywords-pagination-btn keywords-pagination-number${isActive ? ' is-active' : ''}" data-action="${action}" data-page="${p}" ${datasetAttrs} ${isActive ? 'aria-current="page"' : ''} aria-label="Page ${p + 1}">${p + 1}</button>
-    `);
-  }
-
-  return `
-    <nav class="keywords-pagination" aria-label="${escapeHtml(app, ariaLabel)}">
-      <button type="button" class="keywords-pagination-btn keywords-pagination-prev" data-action="${action}" data-page="${currentPage - 1}" ${datasetAttrs} ${prevDisabled ? 'disabled' : ''} aria-label="Previous page">‹ Prev</button>
-      <div class="keywords-pagination-numbers">
-        ${buttons.join('')}
-      </div>
-      <button type="button" class="keywords-pagination-btn keywords-pagination-next" data-action="${action}" data-page="${currentPage + 1}" ${datasetAttrs} ${nextDisabled ? 'disabled' : ''} aria-label="Next page">Next ›</button>
-      <span class="keywords-pagination-indicator" aria-hidden="true">${currentPage + 1} / ${totalPages}</span>
-    </nav>
-  `;
+  return renderPager({ currentPage, totalPages, action, extraDataset, ariaLabel, classPrefix: 'keywords-pagination' });
 }
 
 /** Best practice 1: Reusability & Best practice 5: Accessibility (Accessible search bar renderer). */
