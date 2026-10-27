@@ -2,6 +2,37 @@ import { CATEGORIES_DEFAULTS } from './categories.constants.js';
 import { createClips, mutateClipCollections } from '../clips/clips.service.js';
 import { getClipIdKey } from '../clips/clips.state.js';
 import { getIndexedDb } from '../../../bridges/storage/indexeddb.facade.js';
+import { saveFileCategories } from '../files/files.service.js';
+
+/** Category whose name matches, case-insensitive. Null-safe (nameless rows used to throw). */
+export function findDuplicateCategory(categories, name, exceptId = null) {
+  const key = String(name || '').trim().toLowerCase();
+  if (!key || !Array.isArray(categories)) return null;
+  return categories.find((c) => c
+    && (exceptId === null || c.id !== exceptId)
+    && String(c.name || '').trim().toLowerCase() === key) || null;
+}
+
+/** Unique numeric id: Date.now(), bumped past any id already in use (bulk creates in one ms). */
+export function nextCategoryId(categories, now = Date.now()) {
+  let id = now;
+  const used = new Set((Array.isArray(categories) ? categories : []).map((c) => c?.id));
+  while (used.has(id)) id += 1;
+  return id;
+}
+
+/** When a file filter is active, a new category must be linked to that file or it is hidden. */
+export async function linkNewCategoryToSelectedFile(app, categoryId) {
+  const fileId = app?.selectedFileId;
+  if (!fileId) return false;
+  const existing = (app.fileCategories || [])
+    .filter((m) => m.fileId === fileId)
+    .map((m) => m.categoryId);
+  if (existing.some((id) => String(id) === String(categoryId))) return false;
+  await saveFileCategories(app, fileId, [...existing, categoryId]);
+  app.renderCategories?.();
+  return true;
+}
 
 // ── createCategory ─────────────────────────────────────────────────────────
 
@@ -11,28 +42,27 @@ export async function createCategory(app, name, icon, options = {}) {
 
   const now = Date.now();
   const category = {
-    id: Date.now(),
+    id: nextCategoryId(app.categories, now),
     name: String(name || '').trim(),
     icon: String(icon || CATEGORIES_DEFAULTS.ICON),
     createdAt: now,
     updatedAt: now,
   };
 
+  if (!Array.isArray(app.categories)) app.categories = [];
+
   try {
-    return await window.PasteCraftCRUD.createOperation({
+    const result = await window.PasteCraftCRUD.createOperation({
     entity: category,
     stateGetter: () => ({ categories: app.categories }),
     stateSetter: async (newState) => { app.categories = newState.categories; },
     stateKeys: ['categories'],
     validator: (entity, state) => {
       if (!entity.name) return { valid: false, error: 'Category name is required' };
-      const dup = Array.isArray(state.categories) &&
-        state.categories.some(c => c.name.toLowerCase() === entity.name.toLowerCase());
+      const dup = !!findDuplicateCategory(state.categories, entity.name);
       return { valid: !dup, error: dup ? 'Category already exists' : null };
     },
-    duplicateCheck: (entity, state) =>
-      Array.isArray(state.categories) &&
-      state.categories.some(c => c.name.toLowerCase() === entity.name.toLowerCase()),
+    duplicateCheck: (entity, state) => !!findDuplicateCategory(state.categories, entity.name),
     storageKeys: ['categories'],
     storageWriter: async (data) => {
       await chrome.storage.local.set({ ...data, pc_local_updatedAt: Date.now() });
@@ -59,6 +89,14 @@ export async function createCategory(app, name, icon, options = {}) {
       app.showToast(msg, type);
     },
   });
+    if (result?.success) {
+      try {
+        await linkNewCategoryToSelectedFile(app, category.id);
+      } catch (err) {
+        console.error('⚠️ Failed to link new category to selected file:', err);
+      }
+    }
+    return result;
   } finally {
     app.setActionButtonLoading(originButtonId, false);
   }
@@ -87,8 +125,7 @@ export async function editCategory(app, category) {
     stateKeys: ['categories', 'clips'],
     validator: (entity, state) => {
       if (!entity.name) return { valid: false, error: 'Category name is required' };
-      const dup = Array.isArray(state.categories) &&
-        state.categories.some(c => c.id !== category.id && c.name.toLowerCase() === entity.name.toLowerCase());
+      const dup = !!findDuplicateCategory(state.categories, entity.name, category.id);
       return { valid: !dup, error: dup ? 'Another category already uses that name' : null };
     },
     storageKeys: ['categories', 'clips'],
