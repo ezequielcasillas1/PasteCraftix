@@ -1446,6 +1446,12 @@ body:has(#keywordsTab.active) #magicWand { display: none !important; }
 .keywords-game-card:hover, .keywords-game-card:focus-visible { border-color: #94a3b8; }
 .keywords-game-name { font-weight: 700; color: #0f172a; font-size: 13px; }
 .keywords-game-meta { font-size: 11px; color: #64748b; }
+/* One-line blurb on each card; min-width:0 lets the grid cell shrink so the ellipsis shows. */
+.keywords-game-card { min-width: 0; }
+.keywords-game-blurb {
+  display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 11.5px; color: #475569;
+}
 .keywords-game-sample {
   margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #fef3c7; color: #92400e;
   font-size: 10px; font-weight: 800; text-transform: uppercase; vertical-align: middle;
@@ -1478,6 +1484,7 @@ body:has(#keywordsTab.active) #magicWand { display: none !important; }
 [data-theme="blue"] .keywords-game-card,
 [data-theme="blue"] .keywords-file-select { background: rgba(15, 23, 42, 0.85); border-color: var(--pc-border); color: var(--pc-secondary-100); }
 [data-theme="blue"] .keywords-menu > button,
+[data-theme="blue"] .keywords-game-blurb { color: var(--pc-secondary-200, #cbd5e1); }
 [data-theme="blue"] .keywords-game-name,
 [data-theme="blue"] .keywords-game-title,
 [data-theme="blue"] .keywords-empty-title { color: var(--pc-secondary-100); }

@@ -29,6 +29,7 @@ function renderGameCard(app, game) {
   return `
     <button type="button" class="keywords-game-card" data-action="${KEYWORD_ACTIONS.GAME_OPEN}" data-game="${escapeHtml(app, game.id)}">
       <span class="keywords-game-name">${escapeHtml(app, game.name)}${sample}</span>
+      ${game.blurb ? `<span class="keywords-game-blurb" title="${escapeHtml(app, game.blurb)}">${escapeHtml(app, game.blurb)}</span>` : ''}
       <span class="keywords-game-meta">${escapeHtml(app, getGameGroupLabel(game.group))} · ${game.keywords.length} keyword${game.keywords.length === 1 ? '' : 's'}</span>
     </button>
   `;

@@ -212,3 +212,18 @@ test('opening a game focuses its title; Back focuses the card that was opened, w
   assert.deepEqual(focused, ['title', 'chess-card', 'first-card', 'back-link']);
   setGamesCatalog([]);
 });
+
+test('game cards show the blurb on one truncated line and no keyword chips', () => {
+  setGamesCatalog(SAMPLE_GAMES);
+  const page = createKeywordsPageState();
+  page.section = 'games';
+  const html = renderGamesSection(app, page);
+  const cards = html.match(/<button type="button" class="keywords-game-card"[\s\S]*?<\/button>/g) || [];
+  assert.equal(cards.length, SAMPLE_GAMES.length);
+  cards.forEach((card, i) => {
+    assert.ok(card.includes(`<span class="keywords-game-blurb" title="`), 'blurb line present');
+    assert.ok(card.includes(app.escapeHtml(SAMPLE_GAMES[i].blurb)));
+    assert.ok(!/keywords-word|data-action="keyword-game-keyword"/.test(card), 'no keyword chips on cards');
+  });
+  setGamesCatalog([]);
+});
