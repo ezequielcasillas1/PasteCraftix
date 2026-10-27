@@ -1,4 +1,5 @@
 ---
+import BlueskyLink from './BlueskyLink.astro';
 import { exploreLinks, helpLinks } from '../data/site.js';
 ---
 
@@ -34,6 +35,9 @@ import { exploreLinks, helpLinks } from '../data/site.js';
   </div>
 
   <div class="container footer-bottom">
+    <p class="footer-social">
+      <BlueskyLink class="footer-bluesky" />
+    </p>
     <p>&copy; {new Date().getFullYear()} PasteCraft. All rights reserved.</p>
   </div>
 </footer>
@@ -121,6 +125,16 @@ import { exploreLinks, helpLinks } from '../data/site.js';
     margin: 0;
     color: var(--text-muted);
     font-size: 0.88rem;
+  }
+
+  .footer-social {
+    margin-bottom: 0.65rem;
+  }
+
+  .footer-bluesky {
+    display: inline-flex;
+    font-size: 0.88rem;
+    padding: 0.45rem 0.9rem;
   }
 
   @media (max-width: 800px) {

@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import SectionShell from '../components/SectionShell.astro';
+import BlueskyLink from '../components/BlueskyLink.astro';
 ---
 
 <BaseLayout currentPath="/contact">
@@ -49,8 +50,7 @@ import SectionShell from '../components/SectionShell.astro';
           <h3>Community</h3>
           <p class="section-copy">Follow product updates and join the conversation on official channels.</p>
           <div class="button-row">
-            <a class="ghost-button" href="https://www.facebook.com/PasteCraftOfficial" target="_blank" rel="noopener noreferrer">Facebook</a>
-            <a class="ghost-button" href="https://www.reddit.com/r/PasteCraft/" target="_blank" rel="noopener noreferrer">Reddit</a>
+            <BlueskyLink />
           </div>
         </article>
       </div>

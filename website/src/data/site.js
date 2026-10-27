@@ -27,10 +27,13 @@ export const helpLinks = [
 
 export const footerLinks = [...exploreLinks, ...helpLinks];
 
-export const socialLinks = [
-  { href: 'https://www.facebook.com/PasteCraftOfficial', label: 'Facebook' },
-  { href: 'https://www.reddit.com/r/PasteCraft/', label: 'Reddit' },
-];
+export const blueskyProfile = {
+  href: 'https://bsky.app/profile/casiezeq.bsky.social',
+  label: 'Bluesky',
+  handle: '@casiezeq',
+};
+
+export const socialLinks = [{ href: blueskyProfile.href, label: blueskyProfile.label }];
 
 export const storeLinks = {
   chrome: 'https://chromewebstore.google.com/detail/pastecraft-smart-clipboar/fidljmdohgkjmmgojdblbbnfoeengoko',
