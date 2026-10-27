@@ -1,3 +1,4 @@
+import { registerClipsQuickSearch } from './clips.quick-search.js';
 import {
   CLIP_AI_BUNDLE_SELECTOR,
   CLIP_GOOGLE_SEARCH_SELECTOR,
@@ -110,6 +111,7 @@ async function handleCategoryClipClick(app, container, event) {
 }
 
 export function registerClipSearchEvents(app) {
+  registerClipsQuickSearch(app);
   const { searchInput, clearSearch, categoryFilter, dateFilter, searchIncludeTitles } = getClipSearchControls();
 
   if (searchIncludeTitles) {

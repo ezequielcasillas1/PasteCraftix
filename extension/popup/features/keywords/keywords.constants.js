@@ -9,6 +9,27 @@ export const KEYWORD_SELECTORS = Object.freeze({
   LEARN: 'keywordsLearn',
   NERD_TOGGLE: 'keywordsNerdToggle',
   NERD_PANEL: 'keywordsNerdStats',
+  GAMES: 'keywordsGames',
+  NAV: 'keywordsNav',
+  INTRO: 'keywordsIntro',
+  INTRO_TOGGLE: 'keywordsIntroToggle',
+  MENU_TOGGLE: 'keywordsMenuToggle',
+  MENU: 'keywordsMenu',
+  MENU_RENAME: 'keywordsMenuRename',
+  MENU_DELETE: 'keywordsMenuDelete',
+  TOAST: 'keywordsToast',
+});
+
+/** Segments of the Keywords tab. The last choice is saved. */
+export const KEYWORD_SECTIONS = Object.freeze({ WORDS: 'words', LEARN: 'learn', GAMES: 'games' });
+export const KEYWORD_SECTION_STORAGE_KEY = 'pc_keywords_section';
+export const KEYWORD_INTRO_STORAGE_KEY = 'pc_keywords_intro_seen';
+export const KEYWORD_TOAST_MS = 6000;
+
+/** Short Learn group chip labels (the catalog keeps its full names). */
+export const LEARN_GROUP_SHORT_LABELS = Object.freeze({
+  continuing: 'Certificates',
+  states: 'States',
 });
 
 /** Words from the latest Quick Save Text. Separate from the saved word bank. */
@@ -101,6 +122,50 @@ export const KEYWORD_COPY = Object.freeze({
   LEARN_SAVE: 'Save keyword',
   LEARN_CREDIT: 'Wikipedia, CC BY-SA',
   LEARN_ARTICLE: 'Wikipedia article',
+  SECTION_WORDS: 'My words',
+  SECTION_LEARN: 'Learn',
+  SECTION_GAMES: 'Mini Games',
+  SECTIONS_LABEL: 'Keywords sections',
+  SEARCH_MY_WORDS: 'Search my words…',
+  SEARCH_LEARN: 'Search subjects and keywords…',
+  SEARCH_GAMES: 'Search games and keywords…',
+  HELP: 'What are keywords?',
+  MORE: 'More keyword actions',
+  FILE_LABEL: 'File',
+  ADD_FOLDER: '+ Folder',
+  WORDS_EMPTY_TITLE: 'No saved words yet',
+  WORDS_EMPTY_BODY: 'Save text with Quick Save or open a clip, then tap a word.',
+  WORDS_EMPTY_LEARN: 'Or find words in Learn →',
+  FOLDER_EMPTY_SHORT: 'No words in this folder yet.',
+  NO_MY_WORDS_MATCH: 'No saved words match your search.',
+  INTRO_TITLE: 'What are keywords?',
+  INTRO_BODY: 'When you save text, PasteCraft picks out the words in it. Tap a word to see what it means, then save it here so you can review it later.',
+  INTRO_STEP_SAVE: 'Save text',
+  INTRO_STEP_TAP: 'Tap a word',
+  INTRO_STEP_KEEP: 'Save',
+  INTRO_GOT_IT: 'Got it',
+  INTRO_BROWSE: 'Browse Learn →',
+  INTRO_CLOSE: 'Close',
+  BRIDGE_PREFIX: 'Already in My words:',
+  BRIDGE_VIEW: 'View →',
+  TOAST_VIEW: 'View',
+  GAMES_BANNER_TITLE: 'Mini Games',
+  GAMES_BANNER_SOON: 'Games and their keywords are on the way',
+  GAMES_BANNER_OPEN: 'Open →',
+  GAMES_ALL: 'All',
+  GAMES_GROUPS_LABEL: 'Game groups',
+  GAMES_EMPTY_TITLE: 'Mini Games are on the way',
+  GAMES_EMPTY_BODY: 'Games and their keywords will show up here.',
+  GAMES_EMPTY_LEARN: 'Browse Learn meanwhile →',
+  GAMES_NO_MATCH_HINT: 'Try another word, or search all groups.',
+  GAMES_SEARCH_ALL: 'Search all groups',
+  GAMES_CLEAR: 'Clear search',
+  GAMES_BACK: '← All games',
+  GAMES_KEYWORDS_IN: 'Keywords in this game',
+  GAMES_HOW_TO_PLAY: 'How to play',
+  GAMES_KEYWORD_HINT: 'Open a keyword to read its summary.',
+  GAMES_NO_KEYWORDS: 'No keywords listed for this game yet.',
+  GAMES_SAMPLE: 'Sample',
 });
 
 export const KEYWORD_FORM_TITLES = Object.freeze({
@@ -122,6 +187,7 @@ export const KEYWORD_PAGINATION = Object.freeze({
   FOLDERS_PER_PAGE: 4,
   WORDS_PER_PAGE: 12,
   LEARN_PER_PAGE: 12,
+  GAMES_PER_PAGE: 20,
   MOVE_FOLDERS_PER_PAGE: 6,
 });
 
@@ -175,6 +241,23 @@ export const KEYWORD_ACTIONS = Object.freeze({
   LEARN_OPEN: 'keyword-learn-open',
   LEARN_SAVE: 'keyword-learn-save',
   CLEAR_LEARN_SEARCH: 'keyword-clear-learn-search',
+  SECTION: 'keyword-section',
+  INTRO: 'keyword-intro',
+  INTRO_CLOSE: 'keyword-intro-close',
+  INTRO_LEARN: 'keyword-intro-learn',
+  MENU: 'keyword-menu',
+  CLEAR_SCOPED_SEARCH: 'keyword-clear-scoped-search',
+  BRIDGE_VIEW: 'keyword-bridge-view',
+  TOAST_VIEW: 'keyword-toast-view',
+  TOAST_CLOSE: 'keyword-toast-close',
+  GAME_GROUP: 'keyword-game-group',
+  GAME_PAGE: 'keyword-game-page',
+  GAME_OPEN: 'keyword-game-open',
+  GAME_BACK: 'keyword-game-back',
+  GAME_KEYWORD: 'keyword-game-keyword',
+  GAME_SAVE: 'keyword-game-save',
+  GAMES_SEARCH_ALL: 'keyword-games-search-all',
+  FILE_MENU: 'keyword-file-menu',
 });
 
 export const DICTIONARY_SOURCES = Object.freeze({

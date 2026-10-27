@@ -22,7 +22,8 @@
     "docs": "echo \"Documentation available in .md files\" && exit 0",
     "feature-icons": "node scripts/convert-feature-icons.js 256",
     "store-icons": "node scripts/convert-store-icons.js",
-    "store-screenshots": "node scripts/convert-store-screenshots.js"
+    "store-screenshots": "node scripts/convert-store-screenshots.js",
+    "games:catalog": "node scripts/build-games-catalog.mjs"
   },
   "keywords": [
     "chrome-extension",

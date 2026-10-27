@@ -49,5 +49,22 @@ export function createKeywordsPageState() {
     learnEntry: null,
     learnSeq: 0,
     learnSearchTimer: 0,
+    section: 'words',
+    sectionLoaded: false,
+    introSeen: true,
+    introOpen: false,
+    menuOpen: false,
+    fileMenuOpen: false,
+    toast: null,
+    toastTimer: 0,
+    gamesQuery: '',
+    gamesGroup: 'all',
+    gamesPage: 0,
+    gamesOpenId: '',
+    /** One-shot focus request after a games render: { kind: 'title' } or { kind: 'card', id }. */
+    gamesFocus: null,
+    gamesOpenTitle: '',
+    gamesEntry: null,
+    gamesSeq: 0,
   };
 }

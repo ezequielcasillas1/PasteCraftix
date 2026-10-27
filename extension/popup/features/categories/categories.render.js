@@ -2,6 +2,7 @@ import { CATEGORIES_DEFAULTS, CATEGORIES_SELECTORS } from './categories.constant
 import { getCategoryListElements, getCategoryDropdownElements } from './categories.selectors.js';
 import { renderCategoryCompositeHTML } from './categories.separators.render.js';
 import { CATEGORY_SEPARATOR_SELECTORS } from './categories.separators.constants.js';
+import { paginateSlice, renderPager, bindPager } from '../../shared/pager/pager.js';
 
 function getAllClips(app) {
   return [...(app.clips || []), ...(app.searchOnlyClips || [])];
@@ -101,6 +102,29 @@ function renderEmptyCategories(container, selectedFileId) {
   `;
 }
 
+function escapeText(value) {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Case-insensitive name filter for the "Search categories" box. */
+export function filterCategoriesByQuery(categories, query) {
+  const list = Array.isArray(categories) ? categories : [];
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((c) => String(c?.name || '').toLowerCase().includes(q));
+}
+
+function bindCategorySearch(app) {
+  const input = document.getElementById(CATEGORIES_SELECTORS.SEARCH_INPUT);
+  if (!input || input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+  input.addEventListener('input', () => {
+    app.categoriesQuery = input.value;
+    app.categoriesPage = 0;
+    renderCategories(app);
+  });
+}
+
 function sortCategoriesForRender(categories) {
   return [...categories].sort((a, b) => {
     const aTs = Number(a?.created ?? a?.id ?? 0);
@@ -111,23 +135,69 @@ function sortCategoriesForRender(categories) {
 
 function buildCategoryFragment(app, categories, clipsByCategory) {
   const fragment = document.createDocumentFragment();
-  sortCategoriesForRender(categories).forEach((category) => {
+  categories.forEach((category) => {
     fragment.appendChild(createCategoryItem(app, category, clipsByCategory));
   });
   return fragment;
 }
 
+/** Sorted (newest first) + paged view of the categories to show. Pure, so it is unit-tested. */
+export function getCategoriesPageView(categories, page = 0, pageSize = CATEGORIES_DEFAULTS.PAGE_SIZE) {
+  return paginateSlice(sortCategoriesForRender(categories || []), page, pageSize);
+}
+
+function renderCategoryPagers(app, view) {
+  const html = (position) => renderPager({
+    currentPage: view.currentPage,
+    totalPages: view.totalPages,
+    action: CATEGORIES_SELECTORS.PAGER_ACTION,
+    ariaLabel: `Categories pages (${position})`,
+    position,
+  });
+  [[CATEGORIES_SELECTORS.PAGER_TOP, 'top'], [CATEGORIES_SELECTORS.PAGER_BOTTOM, 'bottom']].forEach(([id, position]) => {
+    const slot = document.getElementById(id);
+    if (!slot) return;
+    slot.innerHTML = html(position);
+    bindPager(slot, CATEGORIES_SELECTORS.PAGER_ACTION, (page) => {
+      app.categoriesPage = page;
+      renderCategories(app);
+      if (position === 'bottom') document.getElementById(CATEGORIES_SELECTORS.PAGER_TOP)?.scrollIntoView?.({ block: 'nearest' });
+    });
+  });
+}
+
 export function renderCategories(app) {
   const { categoriesList: container } = getCategoryListElements();
   if (!container) return;
-  const categories = getCategoriesForSelectedFile(app);
+  bindCategorySearch(app);
+  const inFile = getCategoriesForSelectedFile(app);
+  const query = String(app.categoriesQuery || '').trim();
+  const categories = filterCategoriesByQuery(inFile, query);
+  if (categories.length === 0 && inFile.length > 0 && query) {
+    app.categoriesPage = 0;
+    renderCategoryPagers(app, { currentPage: 0, totalPages: 1 });
+    container.innerHTML = `
+      <div class="empty-categories">
+        <div class="empty-categories-icon"><i data-lucide="search"></i></div>
+        <h3>No categories match "${escapeText(query)}"</h3>
+        <p>Try a shorter name or clear the search</p>
+      </div>
+    `;
+    window.renderLucideIconsSync?.(container);
+    return;
+  }
   if (categories.length === 0) {
+    app.categoriesPage = 0;
+    renderCategoryPagers(app, { currentPage: 0, totalPages: 1 });
     renderEmptyCategories(container, app.selectedFileId);
     window.renderLucideIconsSync?.(container);
     return;
   }
+  const view = getCategoriesPageView(categories, app.categoriesPage || 0);
+  app.categoriesPage = view.currentPage;
   const clipsByCategory = indexClipsByCategory(getAllClips(app));
-  container.replaceChildren(buildCategoryFragment(app, categories, clipsByCategory));
+  container.replaceChildren(buildCategoryFragment(app, view.items, clipsByCategory));
+  renderCategoryPagers(app, view);
   window.renderLucideIconsSync?.(container);
 }
 

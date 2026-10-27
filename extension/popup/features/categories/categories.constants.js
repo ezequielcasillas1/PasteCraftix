@@ -12,6 +12,7 @@ export const CATEGORIES_DEFAULTS = Object.freeze({
   UNCATEGORIZED: 'Uncategorized',
   UNCATEGORIZED_ICON: '📄',
   MAX_CLIPS_PER_CATEGORY: 150,
+  PAGE_SIZE: 20,
 });
 
 export const CATEGORIES_SELECTORS = Object.freeze({
@@ -22,4 +23,8 @@ export const CATEGORIES_SELECTORS = Object.freeze({
   CATEGORY_OPTIONS: 'categoryOptions',
   CREATE_CATEGORY_BTN: 'createCategoryBtn',
   SEND_NOTES_BTN: 'send-category-notes',
+  PAGER_TOP: 'categoriesPagerTop',
+  PAGER_BOTTOM: 'categoriesPagerBottom',
+  PAGER_ACTION: 'categories-page',
+  SEARCH_INPUT: 'categoriesSearchInput',
 });

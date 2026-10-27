@@ -27,18 +27,35 @@ function bindClicks(root, onAction) {
   return true;
 }
 
+function closeMenus(page) {
+  page.state.menuOpen = false;
+  page.state.fileMenuOpen = false;
+}
+
 function pageActions(page) {
   return {
     [KEYWORD_ACTIONS.OPEN]: (el) => page.openWord(el.dataset.word),
-    [KEYWORD_ACTIONS.VIEW_FILE]: (el) => page.viewFile(el.dataset.file),
+    [KEYWORD_ACTIONS.VIEW_FILE]: (el) => {
+      page.state.fileMenuOpen = false;
+      page.viewFile(el.dataset.file);
+    },
     [KEYWORD_ACTIONS.TOGGLE_FOLDER]: (el) => page.toggleFolder(el.dataset.folder),
     [KEYWORD_ACTIONS.SET_TARGET]: (el) => page.setTarget(el.dataset.folder),
-    [KEYWORD_ACTIONS.NEW_FILE]: () => page.startForm('new-file'),
+    [KEYWORD_ACTIONS.NEW_FILE]: () => {
+      closeMenus(page);
+      page.setSection('words');
+      page.startForm('new-file');
+    },
     [KEYWORD_ACTIONS.NEW_FOLDER]: (el) => page.startForm('new-folder', el.dataset.file),
-    [KEYWORD_ACTIONS.RENAME_FILE]: (el) => page.startForm('rename-file', el.dataset.file, el.dataset.name),
+    [KEYWORD_ACTIONS.RENAME_FILE]: (el) => {
+      closeMenus(page);
+      page.setSection('words');
+      page.startForm('rename-file', el.dataset.file, el.dataset.name);
+    },
     [KEYWORD_ACTIONS.RENAME_FOLDER]: (el) => page.startForm('rename-folder', el.dataset.folder, el.dataset.name),
     [KEYWORD_ACTIONS.FORM_CANCEL]: () => page.cancelForm(),
     [KEYWORD_ACTIONS.DELETE_FILE]: (el) => {
+      closeMenus(page);
       if (confirmAction(`Delete the file "${el.dataset.name}"? Its words move to Saved / All words.`)) page.deleteFile(el.dataset.file);
     },
     [KEYWORD_ACTIONS.DELETE_FOLDER]: (el) => {
@@ -53,7 +70,10 @@ function pageActions(page) {
     [KEYWORD_ACTIONS.CLEAR_FILE_SEARCH]: () => page.clearFileSearch(),
     [KEYWORD_ACTIONS.CLEAR_FOLDER_SEARCH]: () => page.clearFolderSearch(),
     [KEYWORD_ACTIONS.CLEAR_WORD_SEARCH]: () => page.clearWordSearch(),
-    [KEYWORD_ACTIONS.NERD_STATS]: () => page.toggleNerdStats(),
+    [KEYWORD_ACTIONS.NERD_STATS]: () => {
+      closeMenus(page);
+      page.toggleNerdStats();
+    },
     [KEYWORD_ACTIONS.GUIDE]: () => page.toggleGuide(),
     [KEYWORD_ACTIONS.MOVE_TOGGLE]: () => page.toggleMovePicker(),
     [KEYWORD_ACTIONS.MOVE_PAGE]: (el) => page.setMovePickerPage(el.dataset.page),
@@ -67,12 +87,38 @@ function pageActions(page) {
     [KEYWORD_ACTIONS.LEARN_OPEN]: (el) => page.openLearnTitle(el.dataset.title),
     [KEYWORD_ACTIONS.LEARN_SAVE]: () => page.saveLearn(),
     [KEYWORD_ACTIONS.CLEAR_LEARN_SEARCH]: () => page.clearLearnSearch(),
+    [KEYWORD_ACTIONS.SECTION]: (el) => page.setSection(el.dataset.section),
+    [KEYWORD_ACTIONS.CLEAR_SCOPED_SEARCH]: () => page.clearScopedSearch(),
+    [KEYWORD_ACTIONS.INTRO]: () => page.toggleIntro(),
+    [KEYWORD_ACTIONS.INTRO_CLOSE]: () => page.dismissIntro(),
+    [KEYWORD_ACTIONS.INTRO_LEARN]: () => page.introBrowseLearn(),
+    [KEYWORD_ACTIONS.MENU]: () => page.toggleMenu(),
+    [KEYWORD_ACTIONS.FILE_MENU]: () => page.toggleFileMenu(),
+    [KEYWORD_ACTIONS.BRIDGE_VIEW]: (el) => page.viewSavedWord(el.dataset.word),
+    [KEYWORD_ACTIONS.TOAST_VIEW]: (el) => page.viewSavedWord(el.dataset.word),
+    [KEYWORD_ACTIONS.TOAST_CLOSE]: () => page.closeToast(),
+    [KEYWORD_ACTIONS.GAME_GROUP]: (el) => page.setGamesGroup(el.dataset.group),
+    [KEYWORD_ACTIONS.GAME_PAGE]: (el) => page.setGamesPage(el.dataset.page),
+    [KEYWORD_ACTIONS.GAME_OPEN]: (el) => page.openGame(el.dataset.game),
+    [KEYWORD_ACTIONS.GAME_BACK]: () => page.closeGame(),
+    [KEYWORD_ACTIONS.GAME_KEYWORD]: (el) => page.openGameKeyword(el.dataset.title),
+    [KEYWORD_ACTIONS.GAME_SAVE]: () => page.saveGameKeyword(),
+    [KEYWORD_ACTIONS.GAMES_SEARCH_ALL]: () => page.searchAllGameGroups(),
   };
 }
 
 function bindPage(root, page) {
   const actions = pageActions(page);
   if (!bindClicks(root, (action, el) => actions[action]?.(el))) return;
+  // Clicking anywhere outside an open ⋯ / file menu closes it.
+  root.addEventListener('click', (event) => {
+    const el = elementOf(event.target);
+    if (page.state.menuOpen && !el?.closest?.('.keywords-menu-wrap')) page.closeMenu();
+    if (page.state.fileMenuOpen && !el?.closest?.('.keywords-file-menu, .keywords-file-select')) {
+      page.state.fileMenuOpen = false;
+      page.render();
+    }
+  });
   root.addEventListener('input', (event) => {
     const input = elementOf(event.target);
     const field = input?.dataset?.field;
@@ -82,6 +128,7 @@ function bindPage(root, page) {
     else if (field === 'keyword-word-search') page.setWordSearch(input.value);
     else if (field === 'keyword-move-search') page.setMovePickerSearch(input.value);
     else if (field === 'keyword-learn-search') page.setLearnSearch(input.value);
+    else if (field === 'keyword-scoped-search') page.setScopedSearch(input.value);
   });
   root.addEventListener('submit', (event) => {
     const form = elementOf(event.target)?.closest?.('form[data-form]');
@@ -103,6 +150,16 @@ function bindPage(root, page) {
         event.preventDefault();
         page.submitForm(input.value);
       }
+    } else if (event.key === 'Escape' && (page.state.menuOpen || page.state.fileMenuOpen)) {
+      event.preventDefault();
+      closeMenus(page);
+      page.render();
+    } else if (event.key === 'Escape' && field === 'keyword-scoped-search') {
+      event.preventDefault();
+      page.clearScopedSearch();
+    } else if (event.key === 'Escape' && page.state.introOpen) {
+      event.preventDefault();
+      page.dismissIntro();
     } else if (event.key === 'Escape' && page.state.guideOpen) {
       event.preventDefault();
       page.closeGuide();

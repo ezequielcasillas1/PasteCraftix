@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="assets/styles/primitives.css">
     <link rel="stylesheet" href="assets/styles/clips.css">
     <link rel="stylesheet" href="assets/styles/search.css">
+    <link rel="stylesheet" href="assets/styles/pager.css">
+    <link rel="stylesheet" href="assets/styles/categories-search.css">
     <style>
         /* Inline Critical CSS to fix blue box issue */
         * {
@@ -2350,6 +2352,10 @@
             margin: 0;
         }
         
+        .clips-quick-search {
+            margin: 0 0 12px 0;
+        }
+
         /* Search Tab Styles */
         .search-header {
             margin-bottom: 20px;
@@ -3224,6 +3230,10 @@
             font-weight: bold;
         }
         
+        .categories-search-container {
+            margin: 4px 16px 0;
+        }
+
         .categories-list {
             max-height: 300px;
             overflow-y: auto;
@@ -12352,6 +12362,9 @@
                         <div class="toggle-switch"></div>
                     </span>
                 </label>
+                <div class="search-bar clips-quick-search" role="search">
+                    <input type="text" id="clipsQuickSearchInput" placeholder="Quick search your clips..." aria-label="Quick search your clips (opens Search)" autocomplete="off" spellcheck="false" />
+                </div>
                 <div class="chip-container" id="chipContainer" aria-live="polite" aria-busy="true">
                     <div class="clip-hydration-status" role="status">
                         <h3>Loading clips</h3>
@@ -12396,16 +12409,28 @@
                         <p class="keywords-subtitle" id="keywordsSource">Keywords pick out the words in what you save and show what each word means.</p>
                     </div>
                     <div class="keywords-header-controls">
-                        <button type="button" class="keywords-nerd-toggle keywords-learn-toggle" id="keywordsLearnToggle" data-action="keyword-learn" aria-pressed="false" aria-controls="keywordsLearn">Learn</button>
-                        <button type="button" class="keywords-nerd-toggle" id="keywordsNerdToggle" data-action="keyword-nerd-stats" aria-expanded="false" aria-controls="keywordsNerdStats">View Nerd Stats</button>
+                        <button type="button" class="keywords-icon-btn keywords-head-btn" id="keywordsIntroToggle" data-action="keyword-intro" aria-expanded="false" aria-controls="keywordsIntro" title="What are keywords?" aria-label="What are keywords?">?</button>
+                        <div class="keywords-menu-wrap">
+                            <button type="button" class="keywords-icon-btn keywords-head-btn" id="keywordsMenuToggle" data-action="keyword-menu" aria-haspopup="menu" aria-expanded="false" aria-controls="keywordsMenu" title="More keyword actions" aria-label="More keyword actions">⋯</button>
+                            <div class="keywords-menu" id="keywordsMenu" role="menu" hidden>
+                                <button type="button" role="menuitem" data-action="keyword-new-file">New file</button>
+                                <button type="button" role="menuitem" id="keywordsMenuRename" data-action="keyword-rename-file">Rename file</button>
+                                <button type="button" role="menuitem" class="is-danger" id="keywordsMenuDelete" data-action="keyword-delete-file">Delete file</button>
+                                <button type="button" role="menuitem" class="keywords-nerd-toggle" id="keywordsNerdToggle" data-action="keyword-nerd-stats" aria-expanded="false" aria-controls="keywordsNerdStats">View Nerd Stats</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <div class="keywords-intro" id="keywordsIntro" hidden></div>
+                <div class="keywords-nav" id="keywordsNav"></div>
                 <div class="keywords-nerd-stats" id="keywordsNerdStats" hidden></div>
                 <div class="keywords-learn" id="keywordsLearn" hidden></div>
+                <div class="keywords-games" id="keywordsGames" hidden></div>
                 <div class="keywords-files" id="keywordsFiles"></div>
                 <div class="keywords-folders" id="keywordsFolders">
                     <p class="keywords-empty">Save a word from Quick Save Text or from a clip. Saved words stay here.</p>
                 </div>
+                <div class="keywords-toast" id="keywordsToast" hidden></div>
             </div>
         </section>
 
@@ -12705,6 +12730,11 @@
                     Back to All Categories
                 </button>
             </div>
+            <div class="files-search-container categories-search-container">
+                <i data-lucide="search" class="files-search-icon"></i>
+                <input type="text" id="categoriesSearchInput" class="files-search-input" placeholder="Search categories..." aria-label="Search categories" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="pc-pager-slot" id="categoriesPagerTop"></div>
             <div class="categories-list" id="categoriesList">
                 <div class="empty-categories">
                     <div class="empty-categories-icon"><i data-lucide="folder"></i></div>
@@ -12712,6 +12742,7 @@
                     <p>Create your first category to organize clips</p>
                 </div>
             </div>
+            <div class="pc-pager-slot" id="categoriesPagerBottom"></div>
             <div class="category-bulk-actions" id="categoryBulkActions" style="display: none;">
                 <button class="bulk-action copy" id="categoryBulkCopyBtn" title="Copy 1 or more selected clips">copy</button>
                 <span class="bulk-sep">|</span>
@@ -14241,7 +14272,7 @@ Multiple clips are separated by:
                             <ul>
                                 <li><strong>Quick Save Text:</strong> After you save text, a Keywords panel opens under the composer with the words from that text.</li>
                                 <li><strong>Clip Viewer:</strong> Opening a clip shows the same panel for that clip’s text.</li>
-                                <li><strong>Keywords tab:</strong> Your library of words you chose to keep, arranged in files and folders. The <strong>Learn</strong> button on that tab browses fields, trades, and certificates PasteCraft can explain. In Majors, open a subject to see its keyword list. The search box also finds a keyword, such as append or binary, and shows its summary. Save it into My words.</li>
+                                <li><strong>Keywords tab:</strong> Your library of words you chose to keep, arranged in files and folders. Switch between <strong>My words</strong>, <strong>Learn</strong>, and <strong>Mini Games</strong> at the top of that tab; the search box searches whichever one is open. <strong>Learn</strong> browses fields, trades, and certificates PasteCraft can explain, and <strong>Mini Games</strong> lists games with the keywords behind each one. Tap <strong>?</strong> for a quick explainer, or <strong>⋯</strong> for file actions and Nerd Stats. In Majors, open a subject to see its keyword list. The search box also finds a keyword, such as append or binary, and shows its summary. Save it into My words.</li>
                             </ul>
                         </div>
                         <div class="help-item">
