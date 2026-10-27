@@ -6,6 +6,37 @@
 
 ---
 
+## Release: 2026-10-27 (v3.0.50) - Mini Games, category search, quick clip search
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.50` (previous local package `3.0.49`) |
+| Package | `releases/pastecraft-v3.0.50.zip` — same zip for Chrome and Edge |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Section I | Full checklist — manifest version bump only |
+
+### Store "What's new"
+
+```
+PasteCraft 3.0.50
+
+- Keywords: My words, Learn, and Mini Games
+- 194 Mini Games with a short blurb and how-to-play steps
+- Categories: 20 per page, with search
+- Quick clip search under One-click copy
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, dictionary/wiki lookups, and Azure blob.
+```
+
+Do not upload `pastecraft-v3.0.49.zip`. That packet was prepared and not approved. This upload is 3.0.50.
+
+---
+
 ## Release: 2026-10-10 (v3.0.49) - Keywords, study formats, Summit Craft
 
 | Field | Value |
@@ -335,7 +366,7 @@ If version was already published: bump patch (`3.0.23` ? `3.0.24`) before packag
 .\scripts\package-extension.ps1
 ```
 
-- [ ] Output: `releases/pastecraft-v3.0.40.zip` (version from manifest)
+- [ ] Output: `releases/pastecraft-v3.0.50.zip` (version from manifest)
 - [ ] Zip = contents of `extension/` only (not repo root, not `manifest.json` at repo root)
 - [ ] Archive last 3 published zips locally as rollback copies
 
@@ -368,7 +399,7 @@ Load **previous published** unpacked ? create test data ? replace with **new** f
 ### Edge Add-ons (live)
 
 1. Partner Center ? PasteCraft ? **Update** / new submission  
-2. Upload `releases/pastecraft-v3.0.40.zip`  
+2. Upload `releases/pastecraft-v3.0.50.zip`  
 3. Paste ?What?s new? above  
 4. Submit for certification  
 

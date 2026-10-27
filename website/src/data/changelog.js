@@ -8,6 +8,36 @@ export const changelogIntro = {
 
 export const changelogReleases = [
   {
+    version: '3.0.50',
+    date: '2026-10-27',
+    title: 'Mini Games, category search, and quick clip search',
+    stores: [
+      {
+        id: 'chrome',
+        status: 'pending',
+        label: 'Pending on the Chrome Web Store',
+        note: 'Package pastecraft-v3.0.50.zip ready to upload.',
+      },
+      {
+        id: 'edge',
+        status: 'pending',
+        label: 'Pending on Microsoft Edge Add-ons',
+        note: 'Same package as Chrome.',
+      },
+    ],
+    availability: 'Pending on the Chrome Web Store and Microsoft Edge Add-ons.',
+    highlights: [
+      'Keywords is now My words, Learn, and Mini Games',
+      '194 Mini Games, each with a short blurb and how-to-play steps',
+      'Mini Games search keeps your cursor while you type',
+      'Categories list 20 per page, with search above the pager',
+      'A new category is filed under the file you have open',
+      'Quick clip search sits under One-click copy',
+      'Clip Joiner controls stay off the Keywords tab',
+      'Website contact is Bluesky @casiezeq',
+    ],
+  },
+  {
     version: '3.0.49',
     date: '2026-10-10',
     title: 'Keyword destinations, study formats, and Grok 4.7',
@@ -195,8 +225,9 @@ export const changelogEras = [
   {
     id: 'oct-2026',
     title: 'October 2026',
-    summary: 'Keywords library, phrase lookup, study formats, and Summit Craft on Grok 4.7.',
+    summary: 'Keywords library, Mini Games, phrase lookup, study formats, and Summit Craft on Grok 4.7.',
     highlights: [
+      '3.0.50 My words, Learn, and 194 Mini Games; category pages and search; quick clip search; Bluesky contact',
       '3.0.41 Keywords tab, files and folders, five-star header rating, and the AI Lab model refresh',
       '3.0.46 Activate phrase in Clip Viewer; one word by default, up to 8 words when on',
       '3.0.49 Move words between files and folders, study-format undo and color picker, Summit Craft on Grok 4.7',

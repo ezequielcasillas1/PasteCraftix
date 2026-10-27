@@ -1,4 +1,9 @@
 
+### Oct 27, 2026 - Production package v3.0.50
+**Status:** PENDING SUCCESS
+**Files:** extension/manifest.json, website/src/data/changelog.js, docs/publishing/EXTENSION_UPDATE_PROTOCOL.md, docs/publishing/INDEX_PUBLISHING_DOCS.md, releases/pastecraft-v3.0.50.zip
+**Result:** Bump 3.0.49 → 3.0.50 for Chrome and Edge upload. Same zip both stores. No `"key"` field. Website /changelog lists the 3.0.50 diffs. Store approval still pending.
+
 ### Oct 10, 2026 - Website changelog 3.0.41 / 3.0.46 / 3.0.49
 **Status:** PENDING SUCCESS
 **Files:** website/src/data/changelog.js

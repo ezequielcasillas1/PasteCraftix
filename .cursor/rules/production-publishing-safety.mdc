@@ -26,7 +26,7 @@ Follow `[instructions/no-verbose.md](instructions/no-verbose.md)` — concise on
 1. `extension/manifest.json` `version` must strictly increase on every store upload.
 2. Patch for fixes, minor for additive features, major for breaking changes.
 3. Never reuse a version number that was ever submitted (even if rejected).
-4. Last published version: `3.0.35` (store has 3.0.35; upload candidate `3.0.40`; do not reuse 3.0.36–3.0.39; update after each store approval).
+4. Last published version: `3.0.40` (changelog: live on Chrome and Edge). Upload candidate `3.0.50`. Do not reuse 3.0.36–3.0.39 or 3.0.41–3.0.49. Update after each store approval.
 
 ---
 
