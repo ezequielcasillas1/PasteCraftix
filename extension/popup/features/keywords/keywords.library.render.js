@@ -374,6 +374,8 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
   const items = Array.isArray(bank) ? bank : [];
   const viewFile = library.files.find((file) => file.id === page.viewFileId) || library.files[0];
   const counts = countByFolder(items);
+  // Capture before paintChrome: it rewrites the search box, which drops focus.
+  const prevFocus = captureSearchFocus();
   paintNerdStats(app, KEYWORD_SELECTORS, {
     open: !!page.nerdStatsOpen,
     kind: 'page',
@@ -381,7 +383,6 @@ export function renderKeywordLibrary(app, { library, bank, page }) {
   });
   paintChrome(app, page, viewFile, items.length);
 
-  const prevFocus = captureSearchFocus();
   const learnEl = document.getElementById(KEYWORD_SELECTORS.LEARN);
   const gamesEl = document.getElementById(KEYWORD_SELECTORS.GAMES);
   const section = learnEl && page.section === KEYWORD_SECTIONS.LEARN
