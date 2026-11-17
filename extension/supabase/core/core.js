@@ -1,5 +1,15 @@
 /** Vertical slice: core.js — client init + network helpers */
 
+function _isPlaceholderSupabaseConfig(cfg) {
+  if (!cfg?.supabase) return true;
+  const url = String(cfg.supabase.url || '').trim();
+  const anonKey = String(cfg.supabase.anonKey || '').trim();
+  if (!url || !anonKey) return true;
+  if (anonKey.includes('YOUR_') || anonKey.includes('example-anon-key')) return true;
+  if (url.includes('example.supabase.co')) return true;
+  return false;
+}
+
 export const coreMixin = {
   async _clearStaleLocalAuthIfBridgePresent() {
     // Prefer chrome.storage bridge over popup localStorage. A stale
@@ -19,19 +29,22 @@ export const coreMixin = {
     try {
       if (typeof PASTECRAFT_CONFIG === 'undefined') {
         console.error('❌ Config not loaded. Make sure config.js is included before supabase-client.js');
+        this.client = null;
+        this.initialized = false;
         return;
       }
 
-      // Check for placeholder API keys (anon only — never ship secret keys)
-      if (PASTECRAFT_CONFIG.supabase.anonKey.includes('YOUR_SUPABASE_ANON_KEY_HERE')) {
-        console.warn('⚠️ Supabase key not configured - using placeholder');
-        this.initialized = true;
+      if (_isPlaceholderSupabaseConfig(PASTECRAFT_CONFIG)) {
+        console.warn('⚠️ Supabase not configured — placeholder or missing url/anonKey');
+        this.client = null;
+        this.initialized = false;
         return;
       }
 
       if (typeof supabase === 'undefined' || !supabase.createClient) {
-        console.warn('⚠️ Supabase library not loaded from CDN - Supabase features disabled, but OpenAI features will work');
-        this.initialized = true;
+        console.warn('⚠️ Supabase library not loaded from CDN — Supabase features disabled');
+        this.client = null;
+        this.initialized = false;
         return;
       }
 
@@ -65,7 +78,8 @@ export const coreMixin = {
       }
     } catch (error) {
       console.error('❌ Failed to initialize Supabase:', error);
-      this.initialized = true;
+      this.client = null;
+      this.initialized = false;
     }
   },
 

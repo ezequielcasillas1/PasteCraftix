@@ -11,14 +11,36 @@ function assertExtensionFile(relativePath) {
   assert.ok(fs.existsSync(filePath), `Missing extension file: ${relativePath}`);
 }
 
-/** config.js is gitignored; accept config.example.js as the checked-in stand-in. */
+const PLACEHOLDER_SUPABASE_MARKERS = [
+  "example.supabase.co",
+  "example-anon-key",
+  "YOUR_SUPABASE_ANON_KEY",
+];
+
+function assertSupabaseConfigFile(filePath, label) {
+  assert.ok(fs.existsSync(filePath), `Missing extension ${label}`);
+  const text = fs.readFileSync(filePath, "utf8");
+  assert.match(
+    text,
+    /blpngeeqcegquiydreyu\.supabase\.co/,
+    `${label} must point at PasteCraft Supabase project`,
+  );
+  for (const marker of PLACEHOLDER_SUPABASE_MARKERS) {
+    assert.ok(
+      !text.includes(marker),
+      `${label} must not contain placeholder marker: ${marker}`,
+    );
+  }
+}
+
 function assertConfigPresent() {
   const config = path.join(extensionDir, "config.js");
   const example = path.join(extensionDir, "config.example.js");
-  assert.ok(
-    fs.existsSync(config) || fs.existsSync(example),
-    "Missing extension config.js (or config.example.js)",
-  );
+  if (fs.existsSync(config)) {
+    assertSupabaseConfigFile(config, "config.js");
+    return;
+  }
+  assertSupabaseConfigFile(example, "config.example.js");
 }
 
 assert.strictEqual(manifest.manifest_version, 3, "Extension must use Manifest V3");

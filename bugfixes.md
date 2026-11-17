@@ -1,3 +1,8 @@
+### Nov 16, 2026 - Supabase not initialized
+**Status:** PARTIAL (pending user verify)
+**Files:** extension/config.js, extension/config.example.js, .gitignore, extension/supabase/core/core.js, tests/extension-smoke.test.js
+**Result:** Shipped committed `extension/config.js` with PasteCraft public project URL + anon JWT; stopped marking Supabase initialized on missing config, placeholders, missing CDN lib, or `createClient` failure.
+
 ### Oct 10, 2026 - Study Formats color picker jagged / glitched
 **Status:** PARTIAL (pending user verify)
 **Files:** clips.viewer-color-picker.js, clips.viewer.js, clip-viewer.css, popup.html, theme-blue-phase2.css, clip-viewer-color-picker.test.mjs

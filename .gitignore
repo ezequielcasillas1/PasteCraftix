@@ -1,6 +1,8 @@
 # Environment and Config
 .env
-config.js
+# extension/config.js ships the public Supabase anon key (committed)
+config.local.js
+**/config.local.js
 
 # Visual Studio
 .vs/
