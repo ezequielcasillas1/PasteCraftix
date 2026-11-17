@@ -4,8 +4,11 @@ Use this folder to smoke-test the Supabase client init fix before uploading `pas
 
 ## Load unpacked
 
-1. **Chrome:** Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, choose `pastecraft-v3.0.51-unpacked/` (this directory inside the zip, or the copy under `releases/` in the repo).
-2. **Edge:** Open `edge://extensions`, enable **Developer mode**, click **Load unpacked**, select the same folder.
+**Important (Windows):** Chrome/Edge require the folder that **contains `manifest.json` at its root** — not a parent folder. After extracting a zip, if you see an extra nested folder and no `manifest.json` beside `config.js`, open that **inner** folder before clicking **Load unpacked**. Picking the wrong folder shows *Manifest file is missing or unreadable*.
+
+1. Extract `pastecraft-v3.0.51-unpacked.zip` (archive root is flat: `manifest.json` and `config.js` sit at the top level of the zip, not inside a wrapper folder).
+2. **Chrome:** Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the extracted folder that **directly contains** `manifest.json` (or use `releases/pastecraft-v3.0.51-unpacked/` from a git clone — same layout as `extension/`).
+3. **Edge:** Open `edge://extensions`, enable **Developer mode**, click **Load unpacked**, select that same folder.
 
 ## Smoke checklist
 
