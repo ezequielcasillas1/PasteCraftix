@@ -1,4 +1,9 @@
 
+### Nov 17, 2026 - Production package v3.0.51
+**Status:** PENDING SUCCESS
+**Files:** extension/manifest.json, extension/config.js, extension/supabase/core/core.js, website/src/data/changelog.js, docs/publishing/EXTENSION_UPDATE_PROTOCOL.md, docs/publishing/INDEX_PUBLISHING_DOCS.md, releases/pastecraft-v3.0.51.zip, releases/pastecraft-v3.0.51-unpacked.zip, releases/README-v3.0.51-DEV.md
+**Result:** Bump 3.0.50 → 3.0.51 for Chrome and Edge upload. Supabase client init fix + public config in package. Same store zip both stores. No `"key"` field. Unpacked zip + DEV README for Developer mode load. Store approval still pending.
+
 ### Oct 27, 2026 - Production package v3.0.50
 **Status:** PENDING SUCCESS
 **Files:** extension/manifest.json, website/src/data/changelog.js, docs/publishing/EXTENSION_UPDATE_PROTOCOL.md, docs/publishing/INDEX_PUBLISHING_DOCS.md, releases/pastecraft-v3.0.50.zip

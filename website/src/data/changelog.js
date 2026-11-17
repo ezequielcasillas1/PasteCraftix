@@ -8,6 +8,31 @@ export const changelogIntro = {
 
 export const changelogReleases = [
   {
+    version: '3.0.51',
+    date: '2026-11-17',
+    title: 'Supabase client init fix',
+    stores: [
+      {
+        id: 'chrome',
+        status: 'pending',
+        label: 'Pending on the Chrome Web Store',
+        note: 'Package pastecraft-v3.0.51.zip ready to upload.',
+      },
+      {
+        id: 'edge',
+        status: 'pending',
+        label: 'Pending on Microsoft Edge Add-ons',
+        note: 'Same package as Chrome.',
+      },
+    ],
+    availability: 'Pending on the Chrome Web Store and Microsoft Edge Add-ons.',
+    highlights: [
+      'Ships committed extension/config.js with the public Supabase URL and anon key so sync and login can initialize',
+      'Stricter Supabase init: placeholders, missing CDN lib, or createClient failure no longer mark the client as initialized',
+      'Developer-mode smoke: load releases/pastecraft-v3.0.51-unpacked/ unpacked before store upload',
+    ],
+  },
+  {
     version: '3.0.50',
     date: '2026-10-27',
     title: 'Mini Games, category search, and quick clip search',
@@ -227,6 +252,7 @@ export const changelogEras = [
     title: 'October 2026',
     summary: 'Keywords library, Mini Games, phrase lookup, study formats, and Summit Craft on Grok 4.7.',
     highlights: [
+      '3.0.51 Public Supabase config in the store package; stricter client init; unpacked dev folder for Developer mode',
       '3.0.50 My words, Learn, and 194 Mini Games; category pages and search; quick clip search; Bluesky contact',
       '3.0.41 Keywords tab, files and folders, five-star header rating, and the AI Lab model refresh',
       '3.0.46 Activate phrase in Clip Viewer; one word by default, up to 8 words when on',

@@ -6,6 +6,45 @@
 
 ---
 
+## Release: 2026-11-17 (v3.0.51) - Supabase client init fix
+
+| Field | Value |
+|---|---|
+| Manifest version | `3.0.51` (previous local package `3.0.50`) |
+| Package | `releases/pastecraft-v3.0.51.zip` — same zip for Chrome and Edge |
+| Dev unpacked | `releases/pastecraft-v3.0.51-unpacked/` (folder) or `releases/pastecraft-v3.0.51-unpacked.zip` |
+| Chrome listing ID | `fidljmdohgkjmmgojdblbbnfoeengoko` |
+| Edge listing ID | `fblihhfoojjhmhnhilhhejdcigjmmncc` |
+| Section I | **Full checklist** — manifest version bump; `config.js` + Supabase init path |
+
+### Store "What's new"
+
+```
+PasteCraft 3.0.51
+
+- Fix: Supabase client initializes with the public project URL and anon key in the store package
+- Stricter init when config or the Supabase library is missing (no false "initialized" state)
+- Same Chrome + Edge package as 3.0.50 features (Mini Games, category search, quick clip search)
+```
+
+### Chrome certification note (permissions)
+
+```
+offscreen is required for reliable clipboard image writes. clipboardRead remains optional and is requested only for PDF/clipboard capture. optional_host_permissions <all_urls> is requested when the user starts Capture Tools. content_scripts still match <all_urls> for the floating widget. Required hosts stay limited to Supabase, Google accounts, PasteCraft, dictionary/wiki lookups, and Azure blob.
+```
+
+Do not upload `pastecraft-v3.0.50.zip` for this release. Upload **`pastecraft-v3.0.51.zip`** only.
+
+### Developer mode test (before store upload)
+
+1. Unzip `releases/pastecraft-v3.0.51-unpacked.zip` if needed, or use the repo folder `releases/pastecraft-v3.0.51-unpacked/`.
+2. Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → select that folder.
+3. Edge: `edge://extensions` → Developer mode → **Load unpacked** → same folder.
+4. Smoke: open popup → confirm no `Config not loaded` / placeholder Supabase warnings in the service worker console; sign in or restore session; create one clip; reload extension and confirm clip persists.
+5. See `releases/README-v3.0.51-DEV.md` for the same steps in the release packet.
+
+---
+
 ## Release: 2026-10-27 (v3.0.50) - Mini Games, category search, quick clip search
 
 | Field | Value |
